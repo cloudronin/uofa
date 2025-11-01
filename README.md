@@ -26,7 +26,7 @@ and is designed to make credibility **measurable, portable, and machine-verifiab
 - **Format:** JSON-LD  
 - **Current version:** [v0.1](https://uofa.net/context/v0.1)  
 - **Namespace:** `https://uofa.net/vocab#`
-- **License:** [CC BY 4.0](https://creativecommons.org/publicdomain/zero/1.0/)
+- **License:** [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/)
 
 
 ### Core Fields
