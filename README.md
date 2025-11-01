@@ -28,46 +28,50 @@ and is designed to make credibility **measurable, portable, and machine-verifiab
 - **Namespace:** `https://uofa.net/vocab#`
 - **License:** [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)
 
+
 ### Core Fields
+
 | Field | Description |
-|-------|--------------|
-| `uoa:id` | Unique identifier (UUID or hash) |
-| `uoa:requirement` | Requirement text or URI |
-| `uoa:model` | Model URI, tool, and version |
-| `uoa:data` | Dataset source and hash |
-| `uoa:validation` | Verification/validation result |
-| `uoa:decision` | Decision and rationale |
-| `uoa:signature` | Digital signature of the UoA |
-| `uoa:timestamp` | ISO-8601 timestamp |
+|--------|-------------|
+| `uofa:id` | Unique identifier (UUID or hash) |
+| `uofa:requirement` | Requirement text or URI |
+| `uofa:model` | Model URI, tool, and version |
+| `uofa:data` | Dataset source and hash |
+| `uofa:validation` | Verification/validation result |
+| `uofa:decision` | Decision and rationale |
+| `uofa:signature` | Digital signature of the UoFA |
+| `uofa:timestamp` | ISO-8601 timestamp |
 
 ---
-### 💡 Example
+
+## 💡 Example
 ```json
 {
  "@context": "https://uofa.net/context/v0.1",
- "uoa:id": "urn:uoa:3c4a2d58",
- "uoa:requirement": {
+ "uofa:id": "urn:uofa:3c4a2d58",
+ "uofa:requirement": {
    "id": "REQ-1234",
    "text": "The system shall maintain heart rate accuracy within ±5 bpm."
  },
- "uoa:model": {
+ "uofa:model": {
    "uri": "https://example.org/models/hearty/sim.slx",
    "tool": "Simulink"
  },
- "uoa:data": {
+ "uofa:data": {
    "source": "HeartyPatch Dataset v3.2",
    "hash": "sha256:ab3f..."
  },
- "uoa:validation": {
+ "uofa:validation": {
    "metric": "RMSE",
    "value": 2.4,
    "unit": "bpm"
  },
- "uoa:decision": {
+ "uofa:decision": {
    "author": "QA-Lead",
    "verdict": "Accepted"
  },
- "uoa:signature": "ed25519:abc123...",
- "uoa:timestamp": "2025-11-01T12:45:00Z"
+ "uofa:signature": "ed25519:abc123...",
+ "uofa:timestamp": "2025-11-01T12:45:00Z"
 }
+
 
