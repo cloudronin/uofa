@@ -47,7 +47,9 @@ and is designed to make credibility **measurable, portable, and machine-verifiab
 ## 💡 Example
 ```json
 {
- "@context": "https://uofa.net/context/v0.1",
+ "@context": "https://raw.githubusercontent.com/cloudronin/uofa/main/spec/context/v0.1.jsonld",
+ "type": "UnitOfAssurance",
+ "conformsToProfile": "profileMinimal",
  "uofa:id": "urn:uofa:3c4a2d58",
  "uofa:requirement": {
    "id": "REQ-1234",
