@@ -46,29 +46,29 @@ jobs:
 
             # 1) JSON well-formed + dev profile (optional file; skip if missing)
             if [ -f "$SCHEMA" ]; then
-              python - <<'PY'
-import json, sys
-from jsonschema import validate, Draft202012Validator
-import pathlib
-schema = json.load(open("schema/v0.1.schema.json"))
-data   = json.load(open(sys.argv[1]))
-Draft202012Validator(schema).validate(data)
-print("✔ JSON Schema ok")
-PY
-              python - "$f"
-            else
-              echo "ℹ No JSON Schema profile present, skipping schema check."
-            fi
+            python - <<'PY'
+                import json, sys
+                from jsonschema import validate, Draft202012Validator
+                import pathlib
+                schema = json.load(open("schema/v0.1.schema.json"))
+                data   = json.load(open(sys.argv[1]))
+                Draft202012Validator(schema).validate(data)
+                print("✔ JSON Schema ok")
+            PY
+            python - "$f"
+              else
+                echo "ℹ No JSON Schema profile present, skipping schema check."
+              fi
 
             # 2) JSON-LD compaction (ensures context resolves and compacts)
             python - <<'PY'
-import json, sys
-from pyld import jsonld
-doc = json.load(open(sys.argv[1]))
-compact = jsonld.compact(doc, "https://uofa.net/context/v0.1")
-assert "@context" in compact, "Context did not compact properly"
-print("✔ JSON-LD compaction ok (context v0.1)")
-PY
+              import json, sys
+              from pyld import jsonld
+              doc = json.load(open(sys.argv[1]))
+              compact = jsonld.compact(doc, "https://uofa.net/context/v0.1")
+              assert "@context" in compact, "Context did not compact properly"
+              print("✔ JSON-LD compaction ok (context v0.1)")
+            PY
             python - "$f"
 
             echo "::endgroup::"
@@ -78,30 +78,29 @@ PY
         if: ${{ hashFiles('shacl/uofa-v0.1.ttl') != '' }}
         run: |
           python - <<'PY'
-from pyshacl import validate
-from rdflib import Graph
-import glob, json
-from pyld import jsonld
+              from pyshacl import validate
+              from rdflib import Graph
+              import glob, json
+              from pyld import jsonld
 
-# Load shape
-shapes_g = Graph().parse("shacl/uofa-v0.1.ttl", format="turtle")
+              # Load shape
+              shapes_g = Graph().parse("shacl/uofa-v0.1.ttl", format="turtle")
 
-ok_all = True
-for f in glob.glob("examples/*.json"):
-    # Expand JSON-LD to RDF Turtle
-    doc = json.load(open(f))
-    expanded = jsonld.expand(doc)
-    g = Graph().parse(data=json.dumps(expanded), format="json-ld")
-    ok, r, txt = validate(g, shacl_graph=shapes_g, inference='rdfs', debug=False)
-    print(f"{'✔' if ok else '✖'} SHACL:", f)
-    if not ok:
-        print(txt)
-        ok_all = False
+              ok_all = True
+              for f in glob.glob("examples/*.json"):
+                  # Expand JSON-LD to RDF Turtle
+                  doc = json.load(open(f))
+                  expanded = jsonld.expand(doc)
+                  g = Graph().parse(data=json.dumps(expanded), format="json-ld")
+                  ok, r, txt = validate(g, shacl_graph=shapes_g, inference='rdfs', debug=False)
+                  print(f"{'✔' if ok else '✖'} SHACL:", f)
+                  if not ok:
+                      print(txt)
+                      ok_all = False
 
-if not ok_all:
-    exit(1)
-PY
-
+              if not ok_all:
+                  exit(1)
+          PY
       - name: Summarize results in PR
         if: ${{ github.event_name == 'pull_request' }}
         uses: actions/github-script@v7
