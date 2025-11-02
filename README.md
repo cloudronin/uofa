@@ -2,6 +2,8 @@
 
 **Canonical URL:** [https://uofa.net](https://uofa.net)
 
+[![Validate Examples](https://github.com/cloudronin/uofa/actions/workflows/validate.yml/badge.svg)](https://github.com/cloudronin/uofa/actions/workflows/validate.yml)
+
 ---
 
 ## 🧭 Overview

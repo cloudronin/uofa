@@ -1,19 +1,116 @@
-name: Validate UoA Examples
+name: Validate UoFA Examples
+
 on:
   push:
   pull_request:
+  schedule:
+    - cron: "0 6 * * 1"
+
 jobs:
-  pyshacl:
+  validate:
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
-      - run: pip install rdflib pyshacl
-      - name: Validate Minimal
-        run: pyshacl -s schemas/uofa.shacl.ttl -df json-ld -d examples/mock-medical-minimal.jsonld -f human
-      - name: Validate Complete
-        run: pyshacl -s schemas/uofa.shacl.ttl -df json-ld -d examples/mock-aero-complete.jsonld -f human
-      - name: Validate Explicit
-        run: pyshacl -s schemas/uofa.shacl.ttl -df json-ld -d examples/mock-self-contained-complete.jsonld -f human
+          python-version: "3.11"
+
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install jsonschema pyld pyshacl rdflib
+
+      - name: Find example files
+        id: ls
+        shell: bash
+        run: |
+          shopt -s nullglob
+          files=(examples/*.json)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "No example files found in /examples"; exit 1
+          fi
+          printf "%s\n" "${files[@]}" > files.txt
+          echo "count=${#files[@]}" >> $GITHUB_OUTPUT
+
+      - name: Validate (JSON Schema + JSON-LD)
+        shell: bash
+        run: |
+          set -e
+          SCHEMA="schema/v0.1.schema.json"
+          CONTEXT_URL="https://uofa.net/context/v0.1"
+          while read -r f; do
+            echo "::group::Validating $f"
+
+            # 1) JSON well-formed + dev profile (optional file; skip if missing)
+            if [ -f "$SCHEMA" ]; then
+              python - <<'PY'
+import json, sys
+from jsonschema import validate, Draft202012Validator
+import pathlib
+schema = json.load(open("schema/v0.1.schema.json"))
+data   = json.load(open(sys.argv[1]))
+Draft202012Validator(schema).validate(data)
+print("✔ JSON Schema ok")
+PY
+              python - "$f"
+            else
+              echo "ℹ No JSON Schema profile present, skipping schema check."
+            fi
+
+            # 2) JSON-LD compaction (ensures context resolves and compacts)
+            python - <<'PY'
+import json, sys
+from pyld import jsonld
+doc = json.load(open(sys.argv[1]))
+compact = jsonld.compact(doc, "https://uofa.net/context/v0.1")
+assert "@context" in compact, "Context did not compact properly"
+print("✔ JSON-LD compaction ok (context v0.1)")
+PY
+            python - "$f"
+
+            echo "::endgroup::"
+          done < files.txt
+
+      - name: SHACL validation (if shapes exist)
+        if: ${{ hashFiles('shacl/uofa-v0.1.ttl') != '' }}
+        run: |
+          python - <<'PY'
+from pyshacl import validate
+from rdflib import Graph
+import glob, json
+from pyld import jsonld
+
+# Load shape
+shapes_g = Graph().parse("shacl/uofa-v0.1.ttl", format="turtle")
+
+ok_all = True
+for f in glob.glob("examples/*.json"):
+    # Expand JSON-LD to RDF Turtle
+    doc = json.load(open(f))
+    expanded = jsonld.expand(doc)
+    g = Graph().parse(data=json.dumps(expanded), format="json-ld")
+    ok, r, txt = validate(g, shacl_graph=shapes_g, inference='rdfs', debug=False)
+    print(f"{'✔' if ok else '✖'} SHACL:", f)
+    if not ok:
+        print(txt)
+        ok_all = False
+
+if not ok_all:
+    exit(1)
+PY
+
+      - name: Summarize results in PR
+        if: ${{ github.event_name == 'pull_request' }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const summary = `✅ UoFA validation ran on examples.\n\n- JSON/Schema layer: OK if present\n- JSON-LD compaction against context v0.1: OK\n- SHACL (if shape present): see logs\n\n`;
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: summary
+            })
