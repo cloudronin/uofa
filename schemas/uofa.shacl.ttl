@@ -1,0 +1,150 @@
+@prefix sh:   <http://www.w3.org/ns/shacl#> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix prov: <http://www.w3.org/ns/prov#> .
+@prefix uofa: <https://uofa.net/vocab#> .
+@prefix dct:  <http://purl.org/dc/terms/> .
+@prefix schema: <https://schema.org/> .
+
+############################################################
+# Core class shape: UnitOfAssurance (Minimal profile)
+############################################################
+uofa:UnitOfAssurance_MinimalShape
+  a sh:NodeShape ;
+  sh:targetClass uofa:UnitOfAssurance ;
+  sh:property [
+    sh:path uofa:bindsRequirement ;
+    sh:nodeKind sh:IRI ;
+    sh:minCount 1 ;
+    sh:message "A UoA must bind at least one Requirement (IRI)." ;
+  ] ;
+  sh:property [
+    sh:path uofa:hasValidationResult ;
+    sh:nodeKind sh:IRI ;
+    sh:minCount 1 ;
+    sh:message "A UoA must include at least one ValidationResult (IRI)." ;
+  ] ;
+  sh:property [
+    sh:path prov:generatedAtTime ;
+    sh:datatype xsd:dateTime ;
+    sh:minCount 1 ;
+    sh:message "A UoA must have a generation timestamp." ;
+  ] ;
+  sh:property [
+    sh:path uofa:hash ;
+    sh:minCount 1 ;
+    sh:message "A UoA must include a content hash for integrity." ;
+  ] ;
+  sh:property [
+    sh:path uofa:signature ;
+    sh:minCount 1 ;
+    sh:message "A UoA must include a digital signature (can be placeholder in synthetic runs)." ;
+  ] ;
+  sh:property [
+    sh:path uofa:hasDecisionRecord ;
+    sh:nodeKind sh:IRI ;
+    sh:minCount 1 ;
+    sh:message "A UoA must include at least one DecisionRecord (IRI)." ;
+  ] ;
+  sh:property [
+    sh:path uofa:conformsToProfile ;
+    sh:hasValue uofa:ProfileMinimal ;
+    sh:minCount 1 ;
+    sh:message "Minimal profile conformance must be declared." ;
+  ] .
+
+############################################################
+# Extended class shape: UnitOfAssurance (Complete profile)
+############################################################
+uofa:UnitOfAssurance_CompleteShape
+  a sh:NodeShape ;
+  sh:targetClass uofa:UnitOfAssurance ;
+  sh:property [
+    sh:path uofa:bindsRequirement ;
+    sh:nodeKind sh:IRI ; sh:minCount 1 ;
+  ] ;
+  sh:property [
+    sh:path uofa:bindsModel ;
+    sh:nodeKind sh:IRI ; sh:minCount 1 ;
+  ] ;
+  sh:property [
+    sh:path uofa:bindsDataset ;
+    sh:nodeKind sh:IRI ; sh:minCount 1 ;
+  ] ;
+  sh:property [
+    sh:path uofa:hasValidationResult ;
+    sh:nodeKind sh:IRI ; sh:minCount 1 ;
+  ] ;
+  sh:property [
+    sh:path prov:wasDerivedFrom ;
+    sh:nodeKind sh:IRI ; sh:minCount 1 ;
+    sh:message "Provenance: link UoA to prior artifacts (e.g., parent UoA/run logs)." ;
+  ] ;
+  sh:property [
+    sh:path prov:wasAttributedTo ;
+    sh:nodeKind sh:IRI ; sh:minCount 1 ;
+    sh:message "Provenance: the responsible actor or organization must be identified." ;
+  ] ;
+  sh:property [
+    sh:path prov:generatedAtTime ;
+    sh:datatype xsd:dateTime ; sh:minCount 1 ;
+  ] ;
+  sh:property [
+    sh:path uofa:hash ; sh:minCount 1 ;
+  ] ;
+  sh:property [
+    sh:path uofa:signature ; sh:minCount 1 ;
+  ] ;
+  sh:property [
+    sh:path uofa:credibilityIndex ; sh:datatype xsd:decimal ; sh:minInclusive 0 ; sh:maxInclusive 1 ;
+  ] ;
+  sh:property [
+    sh:path uofa:traceCompleteness ; sh:datatype xsd:decimal ; sh:minInclusive 0 ; sh:maxInclusive 1 ;
+  ] ;
+  sh:property [
+    sh:path uofa:verificationCoverage ; sh:datatype xsd:decimal ; sh:minInclusive 0 ; sh:maxInclusive 1 ;
+  ] ;
+  sh:property [
+    sh:path uofa:validationCoverage ; sh:datatype xsd:decimal ; sh:minInclusive 0 ; sh:maxInclusive 1 ;
+  ] ;
+  sh:property [
+    sh:path uofa:uncertaintyCIWidth ; sh:datatype xsd:decimal ; sh:minInclusive 0 ;
+  ] ;
+  sh:property [
+    sh:path uofa:assuranceLevel ; sh:in ( "Low" "Medium" "High" ) ;
+  ] ;
+  sh:property [
+    sh:path uofa:criteriaSet ; sh:nodeKind sh:IRI ;
+    sh:message "Reference the criteria set used (e.g., VVUQ-90, NASA-7009)." ;
+  ] ;
+  sh:property [
+    sh:path uofa:hasDecisionRecord ;
+    sh:nodeKind sh:IRI ; sh:minCount 1 ;
+  ] ;
+  sh:property [
+    sh:path uofa:conformsToProfile ;
+    sh:hasValue uofa:ProfileComplete ; sh:minCount 1 ;
+  ] .
+
+############################################################
+# DecisionRecord shape (multi-reviewer provenance)
+############################################################
+uofa:DecisionRecordShape
+  a sh:NodeShape ;
+  sh:targetClass uofa:DecisionRecord ;
+  sh:property [
+    sh:path uofa:actor ; sh:nodeKind sh:IRI ; sh:minCount 1 ;
+    sh:message "Decision must identify an actor (person or board)." ;
+  ] ;
+  sh:property [
+    sh:path uofa:role ; sh:minCount 1 ;
+    sh:message "Decision must state actor role (e.g., TechReviewer, QA, BoardMember)." ;
+  ] ;
+  sh:property [
+    sh:path uofa:outcome ; sh:in ( "Approved" "Conditional" "Rejected" ) ; sh:minCount 1 ;
+  ] ;
+  sh:property [
+    sh:path uofa:rationale ; sh:minCount 1 ;
+  ] ;
+  sh:property [
+    sh:path uofa:decidedAt ; sh:datatype xsd:dateTime ; sh:minCount 1 ;
+  ] .
