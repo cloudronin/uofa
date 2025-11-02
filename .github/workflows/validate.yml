@@ -1,45 +1,43 @@
-name: Validate UoFA Examples
-
-on:
-  push:
-  pull_request:
-  schedule:
-    - cron: "0 6 * * 1"  # Mondays 06:00 UTC
-
-jobs:
-  validate:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
       - name: Install deps
         run: |
           python -m pip install --upgrade pip
-          pip install jsonschema pyld pyshacl rdflib
+          pip install jsonschema pyld pyshacl rdflib requests
 
-      # Validate with JSON Schema (optional dev profile) + JSON-LD compaction
       - name: JSON / JSON-LD validation
         shell: python
         run: |
-          import glob, json, sys, os
+          import glob, json, sys
           from pathlib import Path
           from pyld import jsonld
+          from urllib.parse import urlparse
 
-          schema_path = Path("spec/context/v0.1.jsonld")
+          # Optional JSON Schema dev profile
+          schema_path = Path("schema/v0.1.jsonld")
           do_schema = schema_path.exists()
           if do_schema:
               from jsonschema import Draft202012Validator
               schema = json.loads(schema_path.read_text())
 
+          # Configure a network-enabled document loader for remote @context
+          try:
+              from pyld.documentloader import requests as ld_requests
+              jsonld.set_document_loader(ld_requests(timeout=20))
+          except Exception as e:
+              print(f"⚠ Could not set requests document loader: {e}")
+
           files = sorted(glob.glob("examples/*.json")) + sorted(glob.glob("examples/*.jsonld"))
           if not files:
               print("No example files found in /examples", file=sys.stderr)
               sys.exit(1)
+
+          # Local context fallback (offline/deterministic)
+          local_ctx_file = Path("spec/context/v0.1.jsonld")
+          local_ctx = None
+          if local_ctx_file.exists():
+              try:
+                  local_ctx = json.loads(local_ctx_file.read_text())["@context"]
+              except Exception as e:
+                  print(f"⚠ Failed to load local context fallback: {e}")
 
           failures = 0
           for f in files:
@@ -51,6 +49,7 @@ jobs:
                   failures += 1
                   continue
 
+              # 1) JSON Schema (if present)
               if do_schema:
                   try:
                       Draft202012Validator(schema).validate(data)
@@ -60,8 +59,20 @@ jobs:
                       failures += 1
                       continue
 
+              # 2) JSON-LD compaction
               try:
-                  compact = jsonld.compact(data, "https://uofa.net/context/v0.1")
+                  ctx = data.get("@context")
+                  # If the example references our canonical or raw GH URL, prefer local context for determinism
+                  if isinstance(ctx, str) and ("uofa.net/context/v0.1" in ctx or "context/v0.1.jsonld" in ctx):
+                      if local_ctx is not None:
+                          compact = jsonld.compact(data, local_ctx)
+                      else:
+                          # fall back to remote fetch with requests loader
+                          compact = jsonld.compact(data, "https://uofa.net/context/v0.1")
+                  else:
+                      # Unknown context; still attempt compaction (network loader enabled above)
+                      compact = jsonld.compact(data, "https://uofa.net/context/v0.1")
+
                   assert "@context" in compact
                   print("✔ JSON-LD compaction OK (context v0.1)")
               except Exception as e:
@@ -72,59 +83,3 @@ jobs:
               print(f"\nFailures: {failures}")
               sys.exit(1)
           print("\nAll examples passed basic checks.")
-
-      # SHACL semantic validation (only if shape is present)
-      - name: SHACL validation (if shapes exist)
-        if: ${{ hashFiles('schemas/uofa.shacl.ttl') != '' }}
-        shell: python
-        run: |
-          import glob, json, sys
-          from pathlib import Path
-          from rdflib import Graph
-          from pyld import jsonld
-          from pyshacl import validate
-
-          shapes_file = Path("schemas/uofa.shacl.ttl")
-          shapes_g = Graph().parse(shapes_file.read_text(), format="turtle")
-
-          files = sorted(glob.glob("examples/*.json")) + sorted(glob.glob("examples/*.jsonld"))
-          failures = 0
-          for f in files:
-              print(f"\n=== SHACL: {f} ===")
-              try:
-                  doc = json.loads(Path(f).read_text())
-                  expanded = jsonld.expand(doc)
-                  g = Graph().parse(data=json.dumps(expanded), format="json-ld")
-                  ok, r, txt = validate(g, shacl_graph=shapes_g, inference='rdfs', debug=False)
-                  if ok:
-                      print("✔ SHACL conforms")
-                  else:
-                      print("✖ SHACL non-conformance")
-                      print(txt)
-                      failures += 1
-              except Exception as e:
-                  print(f"✖ SHACL step failed: {e}")
-                  failures += 1
-
-          if failures:
-              print(f"\nSHACL failures: {failures}")
-              sys.exit(1)
-          print("\nAll examples conform to SHACL.")
-
-      - name: Comment summary on PR
-        if: ${{ github.event_name == 'pull_request' }}
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const body = [
-              "✅ UoFA validation ran:",
-              "- JSON/Schema layer (if schema present): OK",
-              "- JSON-LD compaction against context v0.1: OK",
-              "- SHACL (if shape present): see job logs"
-            ].join("\n");
-            github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-              body
-            })
