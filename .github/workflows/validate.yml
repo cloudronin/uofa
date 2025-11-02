@@ -1,4 +1,29 @@
+name: Validate UoFA Examples
+
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: "0 6 * * 1"  # Mondays 06:00 UTC
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
       - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install jsonschema pyld pyshacl rdflib
+
+      # Validate with JSON Schema (optional dev profile) + JSON-LD compaction
+            - name: Install deps
         run: |
           python -m pip install --upgrade pip
           pip install jsonschema pyld pyshacl rdflib requests
@@ -12,7 +37,7 @@
           from urllib.parse import urlparse
 
           # Optional JSON Schema dev profile
-          schema_path = Path("schema/v0.1.jsonld")
+          schema_path = Path("schema/v0.1.schema.json")
           do_schema = schema_path.exists()
           if do_schema:
               from jsonschema import Draft202012Validator
@@ -83,3 +108,22 @@
               print(f"\nFailures: {failures}")
               sys.exit(1)
           print("\nAll examples passed basic checks.")
+
+
+      - name: Comment summary on PR
+        if: ${{ github.event_name == 'pull_request' }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const body = [
+              "✅ UoFA validation ran:",
+              "- JSON/Schema layer (if schema present): OK",
+              "- JSON-LD compaction against context v0.1: OK",
+              "- SHACL (if shape present): see job logs"
+            ].join("\n");
+            github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body
+            })
