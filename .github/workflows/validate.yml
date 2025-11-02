@@ -28,7 +28,7 @@ jobs:
         shell: bash
         run: |
           shopt -s nullglob
-          files=(examples/*.json)
+          files=(examples/*.jsonld)
           if [ ${#files[@]} -eq 0 ]; then
             echo "No example files found in /examples"; exit 1
           fi
@@ -39,7 +39,7 @@ jobs:
         shell: bash
         run: |
           set -e
-          SCHEMA="schema/v0.1.schema.json"
+          SCHEMA="spec/context/v0.1.jsonld"
           CONTEXT_URL="https://uofa.net/context/v0.1"
           while read -r f; do
             echo "::group::Validating $f"
@@ -50,7 +50,7 @@ jobs:
                 import json, sys
                 from jsonschema import validate, Draft202012Validator
                 import pathlib
-                schema = json.load(open("schema/v0.1.schema.json"))
+                schema = json.load(open("spec/context/v0.1.jsonld))
                 data   = json.load(open(sys.argv[1]))
                 Draft202012Validator(schema).validate(data)
                 print("✔ JSON Schema ok")
@@ -75,7 +75,7 @@ jobs:
           done < files.txt
 
       - name: SHACL validation (if shapes exist)
-        if: ${{ hashFiles('shacl/uofa-v0.1.ttl') != '' }}
+        if: ${{ hashFiles('schemas/uofa.shacl.ttl"') != '' }}
         run: |
           python - <<'PY'
               from pyshacl import validate
@@ -84,10 +84,10 @@ jobs:
               from pyld import jsonld
 
               # Load shape
-              shapes_g = Graph().parse("shacl/uofa-v0.1.ttl", format="turtle")
+              shapes_g = Graph().parse("schemas/uofa.shacl.ttl", format="turtle")
 
               ok_all = True
-              for f in glob.glob("examples/*.json"):
+              for f in glob.glob("examples/*.jsonld"):
                   # Expand JSON-LD to RDF Turtle
                   doc = json.load(open(f))
                   expanded = jsonld.expand(doc)
