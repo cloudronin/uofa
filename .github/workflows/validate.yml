@@ -22,101 +22,109 @@ jobs:
           python -m pip install --upgrade pip
           pip install jsonschema pyld pyshacl rdflib
 
-      - name: Find example files
-        id: ls
-        shell: bash
+      # Validate with JSON Schema (optional dev profile) + JSON-LD compaction
+      - name: JSON / JSON-LD validation
+        shell: python
         run: |
-          set -euo pipefail
-          shopt -s nullglob
-          files=(examples/*.json examples/*.jsonld)
-          if [ ${#files[@]} -eq 0 ]; then
-            echo "No example files found in /examples"; exit 1
-          fi
-          printf "%s\n" "${files[@]}" > files.txt
-          echo "count=${#files[@]}" >> "$GITHUB_OUTPUT"
+          import glob, json, sys, os
+          from pathlib import Path
+          from pyld import jsonld
 
-      - name: Validate (JSON Schema + JSON-LD)
-        shell: bash
-        run: |
-          set -euo pipefail
-          SCHEMA="schema/v0.1.jsonld"          # Developer-friendly JSON Schema (optional)
-          CONTEXT_URL="https://uofa.net/context/v0.1"
-          while read -r f; do
-            echo "::group::Validating $f"
+          schema_path = Path("spec/context/v0.1.jsonld")
+          do_schema = schema_path.exists()
+          if do_schema:
+              from jsonschema import Draft202012Validator
+              schema = json.loads(schema_path.read_text())
 
-            # 1) JSON Schema (optional dev profile)
-            if [ -f "$SCHEMA" ]; then
-python - <<'PY'
-import json, sys
-from jsonschema import Draft202012Validator
+          files = sorted(glob.glob("examples/*.json")) + sorted(glob.glob("examples/*.jsonld"))
+          if not files:
+              print("No example files found in /examples", file=sys.stderr)
+              sys.exit(1)
 
-schema = json.load(open("schemas/v0.1.jsonld"))
-data   = json.load(open(sys.argv[1]))
-Draft202012Validator(schema).validate(data)
-print("✔ JSON Schema profile OK")
-PY
-python - "$f"
-            else
-              echo "ℹ No JSON Schema profile present, skipping schema check."
-            fi
+          failures = 0
+          for f in files:
+              print(f"\n=== {f} ===")
+              try:
+                  data = json.loads(Path(f).read_text())
+              except Exception as e:
+                  print(f"✖ JSON parse error: {e}")
+                  failures += 1
+                  continue
 
-            # 2) JSON-LD compaction against context v0.1
-python - <<'PY'
-import json, sys
-from pyld import jsonld
-doc = json.load(open(sys.argv[1]))
-compact = jsonld.compact(doc, "https://uofa.net/context/v0.1")
-assert "@context" in compact, "Context did not compact properly"
-print("✔ JSON-LD compaction OK (context v0.1)")
-PY
-python - "$f"
+              if do_schema:
+                  try:
+                      Draft202012Validator(schema).validate(data)
+                      print("✔ JSON Schema profile OK")
+                  except Exception as e:
+                      print(f"✖ JSON Schema validation failed: {e}")
+                      failures += 1
+                      continue
 
-            echo "::endgroup::"
-          done < files.txt
+              try:
+                  compact = jsonld.compact(data, "https://uofa.net/context/v0.1")
+                  assert "@context" in compact
+                  print("✔ JSON-LD compaction OK (context v0.1)")
+              except Exception as e:
+                  print(f"✖ JSON-LD compaction failed: {e}")
+                  failures += 1
 
+          if failures:
+              print(f"\nFailures: {failures}")
+              sys.exit(1)
+          print("\nAll examples passed basic checks.")
+
+      # SHACL semantic validation (only if shape is present)
       - name: SHACL validation (if shapes exist)
-        if: ${{ hashFiles('spec/context/uofa.shacl.ttl') != '' }}
+        if: ${{ hashFiles('schemas/uofa.shacl.ttl') != '' }}
+        shell: python
         run: |
-          set -euo pipefail
-python - <<'PY'
-from pyshacl import validate
-from rdflib import Graph
-import glob, json
-from pyld import jsonld
+          import glob, json, sys
+          from pathlib import Path
+          from rdflib import Graph
+          from pyld import jsonld
+          from pyshacl import validate
 
-# Load shape
-shapes_g = Graph().parse("spec/context/uofa.shacl.ttl", format="turtle")
+          shapes_file = Path("schemas/uofa.shacl.ttl")
+          shapes_g = Graph().parse(shapes_file.read_text(), format="turtle")
 
-ok_all = True
-for f in glob.glob("examples/*.json") + glob.glob("examples/*.jsonld"):
-    doc = json.load(open(f))
-    expanded = jsonld.expand(doc)           # JSON-LD → RDF
-    g = Graph().parse(data=json.dumps(expanded), format="json-ld")
-    ok, r, txt = validate(g, shacl_graph=shapes_g, inference='rdfs', debug=False)
-    print(("✔" if ok else "✖") + " SHACL:", f)
-    if not ok:
-        print(txt)
-        ok_all = False
+          files = sorted(glob.glob("examples/*.json")) + sorted(glob.glob("examples/*.jsonld"))
+          failures = 0
+          for f in files:
+              print(f"\n=== SHACL: {f} ===")
+              try:
+                  doc = json.loads(Path(f).read_text())
+                  expanded = jsonld.expand(doc)
+                  g = Graph().parse(data=json.dumps(expanded), format="json-ld")
+                  ok, r, txt = validate(g, shacl_graph=shapes_g, inference='rdfs', debug=False)
+                  if ok:
+                      print("✔ SHACL conforms")
+                  else:
+                      print("✖ SHACL non-conformance")
+                      print(txt)
+                      failures += 1
+              except Exception as e:
+                  print(f"✖ SHACL step failed: {e}")
+                  failures += 1
 
-if not ok_all:
-    raise SystemExit(1)
-PY
+          if failures:
+              print(f"\nSHACL failures: {failures}")
+              sys.exit(1)
+          print("\nAll examples conform to SHACL.")
 
-      - name: Summarize results in PR
+      - name: Comment summary on PR
         if: ${{ github.event_name == 'pull_request' }}
         uses: actions/github-script@v7
         with:
           script: |
-            const summary = [
-              "✅ UoFA validation ran on examples.",
-              "",
-              "- JSON/Schema layer: OK if profile present",
+            const body = [
+              "✅ UoFA validation ran:",
+              "- JSON/Schema layer (if schema present): OK",
               "- JSON-LD compaction against context v0.1: OK",
-              "- SHACL (if shape present): see logs"
+              "- SHACL (if shape present): see job logs"
             ].join("\n");
             github.rest.issues.createComment({
-              issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: summary
+              issue_number: context.issue.number,
+              body
             })
