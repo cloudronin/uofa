@@ -1,4 +1,4 @@
-# Unit of Assurance (UofA) — v0.2-draft
+# Unit of Assurance (UofA) — v0.2
 
 ![validate examples](https://github.com/cloudronin/uofa/actions/workflows/validate.yml/badge.svg)
 
@@ -12,9 +12,70 @@ UofA addresses this through three contributions:
 
 | Contribution | What it does | Mechanism |
 |---|---|---|
-| **C1 — Decision as artifact** | Captures the credibility decision as a portable, tool-independent object with provenance lineage and integrity guarantees | JSON-LD + PROV-DM + digital signatures |
-| **C2 — Completeness enforcement** | Defines what a UofA must contain at each rigor level and enforces it as a computable constraint | SHACL profiles (Minimal / Complete) |
-| **C3 — Quality gates** | Detects substantive credibility gaps — missing UQ, stale inputs, orphan claims — that structural completeness alone cannot catch | Named SPARQL weakener patterns mapped to V&V 40 credibility factors |
+| **C1 — Decision as artifact** | Captures the credibility decision as a portable, tool-independent object with provenance lineage and integrity guarantees | JSON-LD + PROV-DM + SHA-256 hash + ed25519 digital signatures |
+| **C2 — Completeness enforcement** | Defines what a UofA must contain at each rigor level and enforces it as a computable constraint | SHACL profiles (Minimal / Complete) with format-validated integrity fields |
+| **C3 — Quality gates** | Detects substantive credibility gaps — missing UQ, orphan claims, acceptance criteria gaps — including compound risks that no individual query can find | Jena forward-chaining rule engine with compound inference |
+
+---
+
+## Live Demo: Morrison Blood Pump (FDA V&V 40 Case Study)
+
+The `examples/morrison-cou1/` directory contains a complete, working UofA evidence package built from [Morrison et al. (2019)](https://doi.org/10.1097/MAT.0000000000000996) — an FDA OSEL co-authored V&V 40 credibility assessment for a centrifugal blood pump. This is the most widely cited V&V 40 worked example.
+
+**What the demo shows:**
+
+```
+Morrison prose assessment          →  UofA structured evidence package
+  "model deemed credible"               JSON-LD with 13 V&V 40 factors,
+  scattered across 10 pages              provenance chain, integrity hash,
+  of journal article                     machine-verifiable in 30 seconds
+```
+
+**Run it yourself:**
+
+```bash
+pip install pyshacl rdflib cryptography   # one-time setup
+
+# Run the full C1 + C2 + C3 pipeline in one command
+make morrison
+```
+
+That single command runs three checks:
+
+| Step | Make target | What it does |
+|---|---|---|
+| C2 | `make morrison-shacl` | SHACL Complete profile validation — all required fields present |
+| C1 | `make morrison-verify` | SHA-256 hash + ed25519 signature verification — content untampered |
+| C3 | `make morrison-rules` | Jena rule engine — 12 forward-chaining rules detect quality gaps |
+
+The Jena JAR auto-builds on first run (requires Java 17+ and Maven 3.8+).
+
+**What the rule engine finds (29 weakeners across 7 patterns):**
+
+| Pattern | Severity | Hits | What it detects |
+|---|---|---|---|
+| W-EP-01 | Critical | 2 | Orphan claim — no evidence chain to supporting data |
+| W-EP-02 | High | 3 | Broken provenance — validation results with no generation activity |
+| W-AL-01 | High | 4 | Missing uncertainty quantification on validation results |
+| W-AR-01 | Critical | 8 | No acceptance criteria — factor levels set but rationale not encoded |
+| W-AR-05 | High | 4 | Comparator absence — results not linked to reference entities |
+| ⚡ COMPOUND-01 | Critical | 6 | Risk escalation — Critical + High weakeners coexist on same UofA |
+| ⚡ COMPOUND-03 | High | 2 | Assurance level override — declared "Medium" but Critical gaps exist |
+
+The ⚡ compound rules fire on the output of the core rules — this is chained forward-chaining inference that standalone SPARQL queries cannot produce. Same model, same data, same rules: the rule engine reasons about the *interactions* between gaps, not just the gaps themselves.
+
+---
+
+## COU Divergence: The C1 Value Proposition
+
+Morrison contains two Contexts of Use assessing the same CFD model:
+
+- **COU1** (CPB, Class II, Model Risk Level 2) → Decision: **Accepted**
+- **COU2** (VAD, Class III, Model Risk Level 5) → Decision: **Not accepted**
+
+Same model. Same experimental data. Different credibility requirements driven by different model risk. The weakener pattern **W-AL-01 (Missing UQ) fires for COU1 but not COU2** — because COU2 includes Monte Carlo uncertainty quantification that COU1 does not.
+
+This divergence is invisible in the prose paper. It becomes machine-visible in the UofA. That's C1: the credibility *decision* — not just the evidence — captured as a first-class artifact.
 
 ---
 
@@ -25,9 +86,59 @@ UofA is grounded in existing standards rather than inventing new ones:
 - **ASME V&V 40-2018** — Credibility factors, model risk framework, and the Context of Use (COU) concept that drives per-factor assessment
 - **FDA 2023 Final Guidance on CM&S Credibility** — Regulatory expectations for credibility evidence in medical device submissions
 - **NASA-STD-7009B** — CMS credibility assessment standard for models and simulations
-- **W3C PROV-DM / PROV-O** — Provenance data model for artifact lineage (`wasDerivedFrom`, `wasAttributedTo`, `generatedAtTime`)
+- **W3C PROV-DM / PROV-O** — Provenance data model for artifact lineage
 - **W3C SHACL** — Shapes Constraint Language for RDF graph validation
 - **JSON-LD 1.1** — Linked data serialization that stays human-readable
+
+---
+
+## Integrity Verification
+
+Every UofA carries a real cryptographic hash and digital signature — not placeholders.
+
+| Level | What it checks | Mechanism |
+|---|---|---|
+| **Format gate** | Hash and signature are well-formed | SHACL `sh:pattern` regex on both Minimal and Complete profiles |
+| **Content verification** | Hash matches the canonical document content | `sign_uofa.py --verify` recomputes SHA-256 from JSON canonical form |
+| **Cryptographic signature** | Document was signed by the declared authority | ed25519 signature verification against the repo public key |
+
+```bash
+# Mint a sealed UofA (sign after edits)
+make morrison-sign
+
+# Verify integrity
+make morrison-verify
+```
+
+Placeholder strings (e.g., `sha256:placeholder...`) now **fail** SHACL validation. This is deliberate — a UofA claiming ProfileComplete must carry a real hash.
+
+---
+
+## The Jena Rule Engine (C3)
+
+Quality gap detection uses [Apache Jena](https://jena.apache.org/) forward-chaining rules, not just SPARQL queries. The rule engine operates in two levels:
+
+**Level 1 — Core detection rules** match structural patterns against the evidence graph:
+
+| Rule | Category | What it detects |
+|---|---|---|
+| W-EP-01 | Epistemic | Claim with no provenance chain to evidence |
+| W-EP-02 | Epistemic | Validation result with no generation activity |
+| W-AL-01 | Aleatory | Validation result with no uncertainty quantification |
+| W-AR-01 | Argument (D1) | Credibility factor with no acceptance criteria |
+| W-AR-02 | Argument (D2) | Decision "Accepted" but achievedLevel < requiredLevel |
+| W-AR-05 | Argument (D5) | Validation result with no comparator linkage |
+| W-SI-01 | Structural | Missing digital signature |
+| W-SI-02 | Structural | Missing required profile bindings |
+
+**Level 2 — Compound inference rules** fire on Level 1 output:
+
+| Rule | What it detects |
+|---|---|
+| COMPOUND-01 | Critical + High weakeners coexist → escalated compound risk |
+| COMPOUND-03 | Declared assurance level contradicts detected Critical gaps |
+
+The compound rules are the key differentiator versus SPARQL. They reason about the *interactions* between gaps — something that requires chained forward-chaining inference. The RETE algorithm ensures only affected rules re-fire when new triples are added.
 
 ---
 
@@ -46,8 +157,8 @@ The minimum viable UofA. Suitable for evidence capture during live pipeline exec
 | `hasValidationResult` | IRI | At least one validation result |
 | `hasDecisionRecord` | IRI | The credibility decision (accepted/rejected + rationale) |
 | `generatedAtTime` | xsd:dateTime | When this UofA was created |
-| `hash` | string | Content hash for integrity verification |
-| `signature` | string | Digital signature (placeholder OK in synthetic runs) |
+| `hash` | string | Content hash (format-validated: `sha256:<64 hex chars>`) |
+| `signature` | string | Digital signature (format-validated: `ed25519:<hex>`) |
 
 ### Complete Profile
 
@@ -81,19 +192,15 @@ Each factor maps to one row in V&V 40 Table 5-1:
 | `requiredLevel` | Integer 1–5 | Target credibility level for this COU |
 | `achievedLevel` | Integer 1–5 | Actual credibility level achieved |
 
-The 13 allowed factor names correspond to V&V 40 Table 5-1: Software quality assurance, Numerical code verification, Discretization error, Numerical solver error, Use error, Model form, Model inputs, Test samples, Test conditions, Equivalency of input parameters, Output comparison, Relevance of the quantities of interest, and Relevance of the validation activities to the COU.
-
 ### WeakenerAnnotation
 
-Quality gap annotations detected by SPARQL patterns (C3). Optional — a UofA with zero weakeners is valid.
+Quality gap annotations detected by the Jena rule engine (C3). Optional — a UofA with zero weakeners is valid (and desirable).
 
 | Property | Constraint | Purpose |
 |---|---|---|
 | `patternId` | Format: `W-XX-NN` (e.g., `W-EP-01`) | Catalog ID from the weakener pattern taxonomy |
 | `severity` | `Critical` / `High` / `Medium` / `Low` | Impact severity |
 | `affectedNode` | IRI | The specific graph node flagged by this pattern |
-
-The weakener pattern catalog contains 14 named patterns across 5 categories (Epistemic, Aleatory, Ontological, Argument, Structural Integrity), derived from Khakzad Shahandashti et al. (2024) and mapped to V&V 40 credibility factors.
 
 ---
 
@@ -102,50 +209,81 @@ The weakener pattern catalog contains 14 named patterns across 5 categories (Epi
 ```
 spec/
   context/
-    v0.2-draft.jsonld          # JSON-LD @context (term definitions)
+    v0.2.jsonld                # JSON-LD @context (term definitions)
   schemas/
     uofa_shacl.ttl             # SHACL shapes (Minimal + Complete + dispatcher)
 
 examples/
-  mock-medical-minimal.jsonld  # Minimal profile — medical device
-  mock-aero-complete.jsonld    # Complete profile — wind turbine simulation
-  mock-self-contained-complete.jsonld  # Complete profile with weakener annotation
-  medical.json                 # Minimal profile — heart rate monitor
-  auto.json                    # Minimal profile — ABS yaw stability
-  aero.json                    # Minimal profile — flight control lateral axis
-  deprecated/
-    medical.json               # Pre-v0.2 flat schema (kept for reference)
+  morrison-cou1/
+    uofa-morrison-cou1.jsonld  # ✓ Complete profile — Morrison COU1 (CPB, Accepted)
+    uofa_weakener.rules    # 12 forward-chaining rules (9 core + 3 compound)
+    slide-assets/              # Terminal screenshots for NAFEMS presentation
+
+scripts/
+  sign_uofa.py                # Mint (sign) and verify UofA integrity
+  validate_morrison_cou1.py   # pySHACL validation with external context resolution
+
+keys/
+  research.pub                 # ed25519 public key for signature verification
+
+uofa-weakener-rules/       # Jena rule engine (Maven project)
+      src/main/resources/
+            src/main/java/...
+              WeakenerEngine.java    # CLI entry point
+      pom.xml                  # Maven build (Jena 5.3 + picocli)
+    
 ```
 
 ---
 
-## Validation
+## Prerequisites
 
-UofA uses [pySHACL](https://github.com/RDFLib/pySHACL) for validation. The SHACL shapes file enforces both Minimal and Complete profiles through a dispatcher pattern — declare `conformsToProfile` and the correct constraint set activates automatically.
-
-### Quick start
-
-```bash
-pip install pyshacl
-
-# Validate a Minimal-profile example
-pyshacl -s spec/schemas/uofa_shacl.ttl examples/mock-medical-minimal.jsonld
-
-# Validate a Complete-profile example
-pyshacl -s spec/schemas/uofa_shacl.ttl examples/mock-aero-complete.jsonld
-```
-
-A passing result means the UofA satisfies all structural constraints for its declared profile. SHACL handles C2 (completeness enforcement). C3 (quality gates) operates separately via SPARQL queries against the RDF graph.
+| Tool | Version | Purpose |
+|---|---|---|
+| Python 3.10+ | `pip install pyshacl rdflib cryptography` | SHACL validation + integrity verification |
+| Java 17+ | OpenJDK or equivalent | Jena rule engine |
+| Maven 3.8+ | `mvn package` | Build the Jena fat JAR |
 
 ---
 
-## Context of Use and COU Divergence
+## Architecture: One UofA per Context of Use
 
-The `hasContextOfUse` property is required at both Minimal and Complete profiles. This is a deliberate design choice: V&V 40 defines the Context of Use as the foundation of credibility assessment. Without a COU, there is no basis for judging what "adequate" means.
+The v0.2 architecture models credibility assessment at the **COU level**, not the individual factor level. Each UofA packages the complete credibility decision for one Context of Use — including all per-factor assessments as embedded CredibilityFactor nodes and any detected quality gaps as WeakenerAnnotation nodes.
 
-A key property of the UofA architecture is that the **same model and data can produce different credibility decisions** across different COUs. The Morrison et al. (2019) blood pump case study demonstrates this: COU1 (CPB predicate comparison) and COU2 (VAD acceptance) assess the same CFD model but require different credibility levels. The weakener pattern W-AL-01 (Missing UQ) fires for COU1 but not COU2, because COU2's lower model risk does not require the same UQ rigor.
+```
+Morrison Blood Pump Assessment
+├── uofa-morrison-cou1.jsonld (ProfileComplete)
+│   COU1: CPB Use (Class II) — Model Risk Level 2
+│   ├── hasContextOfUse    → COU1 node
+│   ├── bindsRequirement   → hemolysis safety requirement
+│   ├── bindsModel         → ANSYS CFX v.15.0 + Eulerian HI model
+│   ├── bindsDataset       → [PIV data, hemolysis in vitro data]
+│   ├── hasValidationResult → [mesh convergence, PIV velocity, hemolysis comparison]
+│   ├── hasCredibilityFactor → [7 assessed V&V 40 factors]
+│   ├── hasWeakener        → [W-EP-01, W-AL-01, W-AR-01, W-AR-05] + compounds
+│   ├── hasDecisionRecord  → "Accepted for COU1"
+│   ├── hash               → sha256:<real hash>
+│   ├── signature          → ed25519:<real signature>
+│   └── wasDerivedFrom     → Morrison DOI
+│
+└── uofa-morrison-cou2.jsonld (ProfileComplete) [planned]
+    COU2: VAD Use (Class III) — Model Risk Level 5
+    └── W-AL-01 does NOT fire — COU2 has UQ
+```
 
-This is C1's core value proposition: the credibility *decision* — not just the evidence — is captured as a first-class artifact, making COU-specific divergence visible and auditable.
+Shared entities (model, datasets, pump geometry) are referenced by IRI, not duplicated. The divergence between COU1 and COU2 weakener profiles is the central analytical demonstration.
+
+---
+
+## Research Context
+
+UofA is the subject of a Doctor of Engineering praxis at George Washington University. The evaluation uses two FDA case studies:
+
+- **Tier 1 (Retrospective):** Morrison et al. (2019) — FDA generic centrifugal blood pump V&V 40 credibility assessment. Re-expressed as UofA evidence packages with real cryptographic integrity. Rule engine detects 29 quality gaps including 8 compound inferences.
+- **Tier 2 (Prospective):** FDA VICTRE pipeline — live computational workflow instrumented to generate UofAs during execution rather than from retrospective documents.
+- **Tier 3 (Exploratory):** Multi-component stress test on VICTRE — simulates change events to test continuous re-issuance and hierarchical credibility composition.
+
+Early findings will be presented at [NAFEMS Americas 2026](https://www.nafems.org/events/nafems/2026/nafems-americas-conference/) (May 27–29, St. Charles, MO).
 
 ---
 
@@ -153,33 +291,12 @@ This is C1's core value proposition: the credibility *decision* — not just the
 
 | Principle | Meaning |
 |---|---|
-| **Minimal** | Small JSON-LD document, human-readable, one file per claim |
+| **Minimal** | Small JSON-LD document, human-readable, one file per COU |
 | **Semantic** | Aligns with PROV-O, V&V 40, and domain ontologies |
-| **Verifiable** | Digital signatures + content hashing + SHACL validation |
-| **Composable** | UofAs form nodes in system-level assurance graphs |
+| **Verifiable** | Real SHA-256 hashes + ed25519 signatures + SHACL validation |
+| **Composable** | UofAs form nodes in system-level assurance graphs via `wasDerivedFrom` |
 | **Tool-agnostic** | Works with any simulation tool, MBSE platform, or ML pipeline |
-
----
-
-## How UofAs Are Used
-
-**One UofA per credibility claim.** A V&V 40 assessment with 8 credibility factors across 2 COUs produces ~16 UofAs. A system with 120 safety requirements produces ~120 Minimal UofAs during evidence capture, upgraded to Complete when the full credibility assessment is performed.
-
-**Continuous assurance in CI/CD.** When a model changes, affected UofAs are flagged as suspect via weakener patterns (W-AR-04: Model Version Drift, W-EP-03: Stale Input). Only the affected UofAs need re-issuance — unaffected ones carry forward with their existing credibility levels.
-
-**Evidence portability.** A UofA is a self-contained, signed evidence parcel. Send it to a regulator, an OEM, or an auditor — the provenance, integrity, and completeness are built in.
-
----
-
-## Research Context
-
-UofA is the subject of a Doctor of Engineering praxis at George Washington University. The primary evaluation uses two FDA case studies:
-
-- **Tier 1 (Retrospective):** Morrison et al. (2019) — FDA generic centrifugal blood pump V&V 40 credibility assessment. Re-expressed as UofA evidence packages to measure the delta in completeness, provenance richness, and SHACL conformance.
-- **Tier 2 (Prospective):** FDA VICTRE pipeline — live computational workflow instrumented to generate UofAs during execution rather than from retrospective documents.
-- **Tier 3 (Exploratory):** Multi-component stress test on VICTRE — simulates change events to test continuous re-issuance and criticality-tiered economics as feasibility demonstrations.
-
-Early Findings are planned to be presented at **NAFEMS Americas 2026** (May 27–29).
+| **Hide the plumbing** | Practitioners see completeness reports and gap alerts, not triples and SPARQL |
 
 ---
 
@@ -187,8 +304,12 @@ Early Findings are planned to be presented at **NAFEMS Americas 2026** (May 27�
 
 CC0 1.0 — public domain, no restrictions.
 
+The UofA ontology, JSON-LD context, SHACL shapes, and reference examples are open. The Jena rule implementations (compound inference rules, domain-specific composition rules) are proprietary.
+
 ---
 
 ## Contributing
 
 Contributions are welcome, especially real-world UofA examples from practitioners working with CM&S credibility assessment. If you are preparing a CM&S-supported regulatory submission and want to explore UofA packaging for your evidence, please reach out.
+
+**Website:** [crediblesimulation.com](https://crediblesimulation.com)

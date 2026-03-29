@@ -1,4 +1,4 @@
-name: Validate UoFA Examples (SHACL-only)
+name: Validate UofA (SHACL + Integrity + Jena Rules)
 
 on:
   push:
@@ -15,58 +15,17 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install deps
-        run: |
-          python -m pip install --upgrade pip
-          pip install rdflib rdflib-jsonld pyshacl
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
 
-      - name: SHACL validation
-        shell: python
-        run: |
-          import glob, sys, json
-          from pathlib import Path
-          from rdflib import Graph
-          from pyshacl import validate
+      - name: Install Python deps
+        run: pip install pyshacl rdflib cryptography
 
-          # Adjust this path to your actual shapes file
-          # e.g. "shacl/uofa-v0.1.ttl" or "schemas/uofa_shacl.ttl"
-          SHAPE_PATHS = [
-              "schemas/uofa_shacl.ttl"
-          ]
-          shape_file = next((p for p in SHAPE_PATHS if Path(p).exists()), None)
-          if not shape_file:
-              print("No SHACL shape found. Expected one of:", SHAPE_PATHS, file=sys.stderr)
-              sys.exit(1)
+      - name: SHACL validation (all examples)
+        run: make validate
 
-          shapes_g = Graph().parse(shape_file, format="turtle")
-          files = sorted(glob.glob("examples/**/*.json", recursive=True)) + sorted(glob.glob("examples/**/*.jsonld", recursive=True))
-          if not files:
-              print("No example files found in /examples", file=sys.stderr)
-              sys.exit(1)
-
-          failures = 0
-          for f in files:
-              print(f"\n=== {f} ===")
-              try:
-                  # rdflib json-ld parser will follow your remote @context (GitHub raw URL)
-                  g = Graph().parse(f, format="json-ld")
-                  ok, results_graph, results_text = validate(
-                      g,
-                      shacl_graph=shapes_g,
-                      inference='rdfs',
-                      debug=False
-                  )
-                  if ok:
-                      print("✔ SHACL conforms")
-                  else:
-                      print("✖ SHACL non-conformance")
-                      print(results_text)
-                      failures += 1
-              except Exception as e:
-                  print(f"✖ Validation failed: {e}")
-                  failures += 1
-
-          if failures:
-              print(f"\nFailures: {failures}")
-              sys.exit(1)
-          print("\nAll examples conform to SHACL.")
+      - name: Morrison COU1 — full C1+C2+C3 pipeline
+        run: make morrison

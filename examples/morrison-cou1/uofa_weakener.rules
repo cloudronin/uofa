@@ -1,0 +1,260 @@
+# ============================================================================
+# UofA Weakener Detection Rules — v0.2 Schema Alignment
+# ============================================================================
+# Copyright (c) 2026 Vishnu Vettrivel / crediblesimulation.com
+# PROPRIETARY — This rule set is the inference implementation of the UofA
+# weakener pattern catalog. The pattern taxonomy (names, IDs, descriptions)
+# is open; the rule implementations are proprietary IP.
+#
+# Engine: Apache Jena GenericRuleReasoner (FORWARD_RETE mode)
+# Schema: UofA v0.2 (uofa_v0_2.jsonld + uofa_shacl.ttl)
+# Catalog: uofa_weakener_patterns.md (Khakzad et al. 2024 taxonomy)
+#
+# NOTE: makeSkolem must be in the rule BODY (before ->) in RETE mode.
+#       hide() is not available in pure forward mode.
+# ============================================================================
+
+@prefix uofa: <https://uofa.net/vocab#>.
+@prefix prov: <http://www.w3.org/ns/prov#>.
+@prefix rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#>.
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#>.
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#>.
+@prefix schema: <https://schema.org/>.
+
+# ============================================================================
+# CATEGORY 1: EPISTEMIC UNCERTAINTY WEAKENERS
+# ============================================================================
+
+# W-EP-01: Orphan Claim — No Provenance Chain to Evidence
+[w_ep01:
+    (?uofa rdf:type uofa:UnitOfAssurance)
+    (?uofa uofa:bindsClaim ?claim)
+    noValue(?claim, prov:wasDerivedFrom)
+    makeSkolem(?ann, ?uofa, 'W-EP-01', ?claim)
+    ->
+    (?ann rdf:type uofa:WeakenerAnnotation)
+    (?ann uofa:patternId 'W-EP-01')
+    (?ann uofa:severity 'Critical')
+    (?ann uofa:affectedNode ?claim)
+    (?uofa uofa:hasWeakener ?ann)
+]
+
+# W-EP-02: Broken Provenance — ValidationResult with no generation activity
+[w_ep02:
+    (?uofa rdf:type uofa:UnitOfAssurance)
+    (?uofa uofa:hasValidationResult ?result)
+    noValue(?result, prov:wasGeneratedBy)
+    makeSkolem(?ann, ?uofa, 'W-EP-02', ?result)
+    ->
+    (?ann rdf:type uofa:WeakenerAnnotation)
+    (?ann uofa:patternId 'W-EP-02')
+    (?ann uofa:severity 'High')
+    (?ann uofa:affectedNode ?result)
+    (?uofa uofa:hasWeakener ?ann)
+]
+
+# ============================================================================
+# CATEGORY 2: ALEATORY UNCERTAINTY WEAKENERS
+# ============================================================================
+
+# W-AL-01: Missing Uncertainty Quantification
+[w_al01:
+    (?uofa rdf:type uofa:UnitOfAssurance)
+    (?uofa uofa:hasValidationResult ?result)
+    noValue(?result, uofa:hasUncertaintyQuantification)
+    makeSkolem(?ann, ?uofa, 'W-AL-01', ?result)
+    ->
+    (?ann rdf:type uofa:WeakenerAnnotation)
+    (?ann uofa:patternId 'W-AL-01')
+    (?ann uofa:severity 'High')
+    (?ann uofa:affectedNode ?result)
+    (?uofa uofa:hasWeakener ?ann)
+]
+
+# ============================================================================
+# CATEGORY 3: ONTOLOGICAL UNCERTAINTY WEAKENERS
+# ============================================================================
+
+# W-ON-01: Missing Context of Use
+[w_on01:
+    (?uofa rdf:type uofa:UnitOfAssurance)
+    noValue(?uofa, uofa:hasContextOfUse)
+    makeSkolem(?ann, ?uofa, 'W-ON-01')
+    ->
+    (?ann rdf:type uofa:WeakenerAnnotation)
+    (?ann uofa:patternId 'W-ON-01')
+    (?ann uofa:severity 'Critical')
+    (?ann uofa:affectedNode ?uofa)
+    (?uofa uofa:hasWeakener ?ann)
+]
+
+# ============================================================================
+# CATEGORY 4: ARGUMENT UNCERTAINTY WEAKENERS (Defeaters D1-D5)
+# ============================================================================
+
+# W-AR-01: Undermining Defeater (D1) — No Acceptance Criteria
+[w_ar01:
+    (?uofa rdf:type uofa:UnitOfAssurance)
+    (?uofa uofa:hasCredibilityFactor ?factor)
+    (?factor uofa:requiredLevel ?req)
+    noValue(?factor, uofa:acceptanceCriteria)
+    makeSkolem(?ann, ?uofa, 'W-AR-01', ?factor)
+    ->
+    (?ann rdf:type uofa:WeakenerAnnotation)
+    (?ann uofa:patternId 'W-AR-01')
+    (?ann uofa:severity 'Critical')
+    (?ann uofa:affectedNode ?uofa)
+    (?uofa uofa:hasWeakener ?ann)
+]
+
+# W-AR-02: Rebutting Defeater (D2) — Contradictory Result Ignored
+[w_ar02:
+    (?uofa rdf:type uofa:UnitOfAssurance)
+    (?uofa uofa:hasDecisionRecord ?dr)
+    (?dr uofa:outcome 'Accepted')
+    (?uofa uofa:hasCredibilityFactor ?factor)
+    (?factor uofa:requiredLevel ?req)
+    (?factor uofa:achievedLevel ?ach)
+    lessThan(?ach, ?req)
+    makeSkolem(?ann, ?uofa, 'W-AR-02', ?factor)
+    ->
+    (?ann rdf:type uofa:WeakenerAnnotation)
+    (?ann uofa:patternId 'W-AR-02')
+    (?ann uofa:severity 'Critical')
+    (?ann uofa:affectedNode ?factor)
+    (?uofa uofa:hasWeakener ?ann)
+]
+
+# W-AR-05: Undercutting Defeater (D5) — Comparator Absence
+[w_ar05:
+    (?uofa rdf:type uofa:UnitOfAssurance)
+    (?uofa uofa:hasValidationResult ?result)
+    noValue(?result, prov:wasDerivedFrom)
+    makeSkolem(?ann, ?uofa, 'W-AR-05', ?result)
+    ->
+    (?ann rdf:type uofa:WeakenerAnnotation)
+    (?ann uofa:patternId 'W-AR-05')
+    (?ann uofa:severity 'High')
+    (?ann uofa:affectedNode ?result)
+    (?uofa uofa:hasWeakener ?ann)
+]
+
+# ============================================================================
+# CATEGORY 5: STRUCTURAL INTEGRITY WEAKENERS
+# ============================================================================
+
+# W-SI-01: Missing Digital Signature
+[w_si01:
+    (?uofa rdf:type uofa:UnitOfAssurance)
+    noValue(?uofa, uofa:signature)
+    makeSkolem(?ann, ?uofa, 'W-SI-01')
+    ->
+    (?ann rdf:type uofa:WeakenerAnnotation)
+    (?ann uofa:patternId 'W-SI-01')
+    (?ann uofa:severity 'Medium')
+    (?ann uofa:affectedNode ?uofa)
+    (?uofa uofa:hasWeakener ?ann)
+]
+
+# W-SI-02: Incomplete Profile — missing required bindings
+[w_si02_no_req:
+    (?uofa rdf:type uofa:UnitOfAssurance)
+    noValue(?uofa, uofa:bindsRequirement)
+    makeSkolem(?ann, ?uofa, 'W-SI-02', 'bindsRequirement')
+    ->
+    (?ann rdf:type uofa:WeakenerAnnotation)
+    (?ann uofa:patternId 'W-SI-02')
+    (?ann uofa:severity 'High')
+    (?ann uofa:affectedNode ?uofa)
+    (?uofa uofa:hasWeakener ?ann)
+]
+
+[w_si02_no_result:
+    (?uofa rdf:type uofa:UnitOfAssurance)
+    noValue(?uofa, uofa:hasValidationResult)
+    makeSkolem(?ann, ?uofa, 'W-SI-02', 'hasValidationResult')
+    ->
+    (?ann rdf:type uofa:WeakenerAnnotation)
+    (?ann uofa:patternId 'W-SI-02')
+    (?ann uofa:severity 'High')
+    (?ann uofa:affectedNode ?uofa)
+    (?uofa uofa:hasWeakener ?ann)
+]
+
+# ============================================================================
+# COMPOUND RULES — Chained inference BEYOND standalone SPARQL
+# ============================================================================
+# Guards use notEqual against compound IDs instead of regex (RETE-compatible).
+
+# COMPOUND-01: Risk Escalation — Critical + High weakeners coexist
+[compound_escalation:
+    (?uofa rdf:type uofa:UnitOfAssurance)
+    (?uofa uofa:hasWeakener ?w1)
+    (?w1 uofa:severity 'Critical')
+    (?w1 uofa:patternId ?pid1)
+    notEqual(?pid1, 'COMPOUND-01')
+    notEqual(?pid1, 'COMPOUND-02')
+    notEqual(?pid1, 'COMPOUND-03')
+    (?uofa uofa:hasWeakener ?w2)
+    (?w2 uofa:severity 'High')
+    (?w2 uofa:patternId ?pid2)
+    notEqual(?pid2, 'COMPOUND-01')
+    notEqual(?pid2, 'COMPOUND-02')
+    notEqual(?pid2, 'COMPOUND-03')
+    notEqual(?w1, ?w2)
+    makeSkolem(?esc, ?uofa, 'COMPOUND-01', ?pid1, ?pid2)
+    ->
+    (?esc rdf:type uofa:WeakenerAnnotation)
+    (?esc uofa:patternId 'COMPOUND-01')
+    (?esc uofa:severity 'Critical')
+    (?esc uofa:affectedNode ?uofa)
+    (?esc uofa:escalationSource ?w1)
+    (?esc uofa:escalationSource ?w2)
+    (?uofa uofa:hasWeakener ?esc)
+]
+
+# COMPOUND-02: Factor Credibility Erosion
+#[compound_factor_erosion:
+#    (?uofa rdf:type uofa:UnitOfAssurance)
+#    (?uofa uofa:hasCredibilityFactor ?factor)
+#    (?factor uofa:achievedLevel ?ach)
+#    (?factor uofa:requiredLevel ?req)
+#    ge(?ach, ?req)
+#    (?uofa uofa:hasWeakener ?w)
+#    (?w uofa:severity 'High')
+#    (?w uofa:patternId ?wpid)
+#    notEqual(?wpid, 'COMPOUND-01')
+#    notEqual(?wpid, 'COMPOUND-02')
+#    notEqual(?wpid, 'COMPOUND-03')
+#    (?w uofa:affectedNode ?affected)
+#    (?uofa uofa:hasValidationResult ?affected)
+#    makeSkolem(?erosion, ?uofa, 'COMPOUND-02', ?factor, ?w)
+#    ->
+#    (?erosion rdf:type uofa:WeakenerAnnotation)
+#    (?erosion uofa:patternId 'COMPOUND-02')
+#    (?erosion uofa:severity 'Medium')
+#    (?erosion uofa:affectedNode ?factor)
+#    (?erosion uofa:erosionCause ?w)
+#    (?uofa uofa:hasWeakener ?erosion)
+#]
+
+# COMPOUND-03: Assurance Level Override
+[compound_assurance_override:
+    (?uofa rdf:type uofa:UnitOfAssurance)
+    (?uofa uofa:assuranceLevel ?level)
+    notEqual(?level, 'Low')
+    (?uofa uofa:hasWeakener ?w)
+    (?w uofa:severity 'Critical')
+    (?w uofa:patternId ?pid)
+    notEqual(?pid, 'COMPOUND-01')
+    notEqual(?pid, 'COMPOUND-02')
+    notEqual(?pid, 'COMPOUND-03')
+    makeSkolem(?override, ?uofa, 'COMPOUND-03', ?pid)
+    ->
+    (?override rdf:type uofa:WeakenerAnnotation)
+    (?override uofa:patternId 'COMPOUND-03')
+    (?override uofa:severity 'High')
+    (?override uofa:affectedNode ?uofa)
+    (?override uofa:overriddenLevel ?level)
+    (?uofa uofa:hasWeakener ?override)
+]
