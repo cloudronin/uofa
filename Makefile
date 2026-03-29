@@ -11,7 +11,7 @@ PUBKEY     = keys/research.pub
 
 .PHONY: all validate morrison morrison-shacl morrison-rules morrison-verify morrison-build clean
 
-all: validate morrison
+all: clean validate morrison
 	@echo "\n✓ All checks passed."
 
 # ── SHACL validation (all examples) ─────────────────────────
@@ -48,7 +48,7 @@ morrison-rules: morrison-build
 morrison-build:
 	@if [ ! -f $(JAR) ]; then \
 		echo "══ Building Jena rule engine ══"; \
-		cd $(RULES_DIR) && mvn package -q; \
+		cd $(ENG_DIR) && mvn package -q; \
 	fi
 
 # ── Utility targets ─────────────────────────────────────────
@@ -58,7 +58,7 @@ morrison-sign:
 	python scripts/sign_uofa.py $(MORRISON) --key keys/research.key --context $(CONTEXT)
 
 clean:
-	cd $(RULES_DIR) && mvn clean -q
+	cd $(ENG_DIR) && mvn clean -q
 	@echo "✓ Clean."
 
 
