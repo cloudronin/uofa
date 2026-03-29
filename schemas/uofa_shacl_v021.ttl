@@ -1,0 +1,285 @@
+@prefix sh:   <http://www.w3.org/ns/shacl#> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix prov: <http://www.w3.org/ns/prov#> .
+@prefix uofa: <https://uofa.net/vocab#> .
+@prefix dct:  <http://purl.org/dc/terms/> .
+@prefix schema: <https://schema.org/> .
+
+################################################################
+# Dispatcher: pick Minimal vs Complete constraints by profile
+################################################################
+uofa:UnitOfAssurance_ProfileShape
+  a sh:NodeShape ;
+  sh:targetClass uofa:UnitOfAssurance ;
+  # Must declare a known profile
+  sh:property [
+    sh:path uofa:conformsToProfile ;
+    sh:in ( uofa:ProfileMinimal uofa:ProfileComplete ) ;
+    sh:minCount 1 ;
+    sh:message "conformsToProfile must be ProfileMinimal or ProfileComplete." ;
+  ] ;
+  # EITHER MinimalBody when profile = Minimal OR CompleteBody when profile = Complete
+  sh:or (
+    [
+      sh:property [
+        sh:path uofa:conformsToProfile ;
+        sh:hasValue uofa:ProfileMinimal
+      ] ;
+      sh:node uofa:UnitOfAssurance_MinimalBody
+    ]
+    [
+      sh:property [
+        sh:path uofa:conformsToProfile ;
+        sh:hasValue uofa:ProfileComplete
+      ] ;
+      sh:node uofa:UnitOfAssurance_CompleteBody
+    ]
+  ) .
+
+################################################################
+# Minimal body (applies only when ProfileMinimal is chosen)
+################################################################
+uofa:UnitOfAssurance_MinimalBody
+  a sh:NodeShape ;
+  sh:property [
+    sh:path uofa:bindsRequirement ;
+    sh:nodeKind sh:IRI ;
+    sh:minCount 1 ;
+    sh:message "Minimal: must bind at least one Requirement (IRI)." ;
+  ] ;
+  sh:property [
+    sh:path uofa:hasContextOfUse ;
+    sh:nodeKind sh:IRI ;
+    sh:minCount 1 ;
+    sh:message "Minimal: must declare a Context of Use (V&V 40 COU)." ;
+  ] ;
+  sh:property [
+    sh:path uofa:hasValidationResult ;
+    sh:nodeKind sh:IRI ;
+    sh:minCount 1 ;
+    sh:message "Minimal: must include at least one ValidationResult (IRI)." ;
+  ] ;
+  sh:property [
+    sh:path prov:generatedAtTime ;
+    sh:datatype xsd:dateTime ;
+    sh:minCount 1 ;
+    sh:message "Minimal: must have generation timestamp." ;
+  ] ;
+  sh:property [
+    sh:path uofa:hash ;
+    sh:minCount 1 ;
+    sh:pattern "^(sha256|sha384|sha512):[a-f0-9]{64,128}$" ;
+    sh:message "Minimal: must include a content hash in algorithm:hexdigest format (e.g., sha256:<64 hex chars>)." ;
+  ] ;
+  sh:property [
+    sh:path uofa:signature ;
+    sh:minCount 1 ;
+    sh:pattern "^(ed25519|ecdsa-p256):[a-f0-9]+$" ;
+    sh:message "Minimal: must include a digital signature in algorithm:hexdigest format." ;
+  ] ;
+  sh:property [
+    sh:path uofa:hasDecisionRecord ;
+    sh:nodeKind sh:IRI ;
+    sh:minCount 1 ;
+    sh:message "Minimal: must include at least one DecisionRecord (IRI)." ;
+  ] .
+
+################################################################
+# Complete body (applies only when ProfileComplete is chosen)
+################################################################
+uofa:UnitOfAssurance_CompleteBody
+  a sh:NodeShape ;
+  sh:property [
+    sh:path uofa:bindsRequirement ; sh:nodeKind sh:IRI ; sh:minCount 1 ;
+  ] ;
+  sh:property [
+    sh:path uofa:hasContextOfUse ; sh:nodeKind sh:IRI ; sh:minCount 1 ;
+    sh:message "Complete: must declare a Context of Use (V&V 40 COU)." ;
+  ] ;
+  sh:property [
+    sh:path uofa:bindsModel ; sh:nodeKind sh:IRI ; sh:minCount 1 ;
+  ] ;
+  sh:property [
+    sh:path uofa:bindsDataset ; sh:nodeKind sh:IRI ; sh:minCount 1 ;
+  ] ;
+  sh:property [
+    sh:path uofa:hasValidationResult ; sh:nodeKind sh:IRI ; sh:minCount 1 ;
+  ] ;
+  sh:property [
+    sh:path prov:wasDerivedFrom ; sh:nodeKind sh:IRI ; sh:minCount 1 ;
+    sh:message "Complete: link to prior artifact (e.g., parent UoA/run logs)." ;
+  ] ;
+  sh:property [
+    sh:path prov:wasAttributedTo ; sh:nodeKind sh:IRI ; sh:minCount 1 ;
+    sh:message "Complete: identify responsible actor or organization." ;
+  ] ;
+  sh:property [
+    sh:path prov:generatedAtTime ; sh:datatype xsd:dateTime ; sh:minCount 1 ;
+  ] ;
+  sh:property [
+    sh:path uofa:hash ;
+    sh:minCount 1 ;
+    sh:pattern "^(sha256|sha384|sha512):[a-f0-9]{64,128}$" ;
+    sh:message "Complete: hash must be algorithm:hexdigest format (e.g., sha256:<64 hex chars>)." ;
+  ] ;
+  sh:property [
+    sh:path uofa:signature ;
+    sh:minCount 1 ;
+    sh:pattern "^(ed25519|ecdsa-p256):[a-f0-9]+$" ;
+    sh:message "Complete: signature must be algorithm:hexdigest format." ;
+  ] ;
+
+
+  # Credibility
+  sh:property [
+    sh:path uofa:credibilityIndex ;
+    sh:or (
+      [ sh:datatype xsd:decimal ]
+      [ sh:datatype xsd:double ]
+    ) ;
+    sh:minInclusive "0.0"^^xsd:decimal ;
+    sh:maxInclusive "1.0"^^xsd:decimal ;
+  ] ;
+
+  # Trace completeness
+  sh:property [
+    sh:path uofa:traceCompleteness ;
+    sh:or (
+      [ sh:datatype xsd:decimal ]
+      [ sh:datatype xsd:double ]
+    ) ;
+    sh:minInclusive "0.0"^^xsd:decimal ;
+    sh:maxInclusive "1.0"^^xsd:decimal ;
+  ] ;
+
+  # Verification coverage
+  sh:property [
+    sh:path uofa:verificationCoverage ;
+    sh:or (
+      [ sh:datatype xsd:decimal ]
+      [ sh:datatype xsd:double ]
+    ) ;
+    sh:minInclusive "0.0"^^xsd:decimal ;
+    sh:maxInclusive "1.0"^^xsd:decimal ;
+  ] ;
+
+  # Validation coverage
+  sh:property [
+    sh:path uofa:validationCoverage ;
+    sh:or (
+      [ sh:datatype xsd:decimal ]
+      [ sh:datatype xsd:double ]
+    ) ;
+    sh:minInclusive "0.0"^^xsd:decimal ;
+    sh:maxInclusive "1.0"^^xsd:decimal ;
+  ] ;
+
+  # Uncertainty CI width (only lower bound needed)
+  sh:property [
+    sh:path uofa:uncertaintyCIWidth ;
+    sh:or (
+      [ sh:datatype xsd:decimal ]
+      [ sh:datatype xsd:double ]
+    ) ;
+    sh:minInclusive "0.0"^^xsd:decimal ;
+  ] ;
+
+  sh:property [
+    sh:path uofa:hasCredibilityFactor ;
+    sh:node uofa:CredibilityFactorShape ;
+    sh:minCount 1 ;
+    sh:message "Complete: must include at least one CredibilityFactor (V&V 40 Table 5-1)." ;
+  ] ;
+  sh:property [
+    sh:path uofa:hasWeakener ;
+    sh:node uofa:WeakenerAnnotationShape ;
+    # No sh:minCount — zero weakeners is a valid (clean) UofA
+  ] ;
+
+  sh:property [
+    sh:path uofa:assuranceLevel ; sh:in ( "Low" "Medium" "High" ) ;
+  ] ;
+  sh:property [
+    sh:path uofa:criteriaSet ; sh:nodeKind sh:IRI ;
+    sh:message "Complete: reference criteria set used (e.g., VVUQ-90, NASA-7009)." ;
+  ] ;
+  sh:property [
+    sh:path uofa:hasDecisionRecord ; sh:nodeKind sh:IRI ; sh:minCount 1 ;
+  ] .
+
+################################################################
+# CredibilityFactor node shape (V&V 40 Table 5-1)
+################################################################
+uofa:CredibilityFactorShape
+  a sh:NodeShape ;
+  sh:property [
+    sh:path uofa:factorType ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:in (
+      # Verification — Code (5.1.1)
+      "Software quality assurance"
+      "Numerical code verification"
+      # Verification — Calculation (5.1.2)
+      "Discretization error"
+      "Numerical solver error"
+      "Use error"
+      # Validation — Computational model (5.2.1)
+      "Model form"
+      "Model inputs"
+      # Validation — Comparator (5.2.2)
+      "Test samples"
+      "Test conditions"
+      # Validation — Assessment (5.2.3)
+      "Equivalency of input parameters"
+      "Output comparison"
+      # Applicability (5.3)
+      "Relevance of the quantities of interest"
+      "Relevance of the validation activities to the COU"
+    ) ;
+    sh:message "factorType must be a V&V 40 Table 5-1 credibility factor name." ;
+  ] ;
+  sh:property [
+    sh:path uofa:requiredLevel ;
+    sh:datatype xsd:integer ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:minInclusive 1 ;
+    sh:maxInclusive 5 ;
+    sh:message "requiredLevel must be an integer 1–5." ;
+  ] ;
+  sh:property [
+    sh:path uofa:achievedLevel ;
+    sh:datatype xsd:integer ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:minInclusive 1 ;
+    sh:maxInclusive 5 ;
+    sh:message "achievedLevel must be an integer 1–5." ;
+  ] .
+
+################################################################
+# WeakenerAnnotation node shape (C3 quality gate)
+################################################################
+uofa:WeakenerAnnotationShape
+  a sh:NodeShape ;
+  sh:property [
+    sh:path uofa:patternId ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:pattern "^W-(EP|AL|ON|AR|SI)-\\d{2}$" ;
+    sh:message "patternId must match catalog format (e.g., W-EP-01, W-AL-01, W-AR-02)." ;
+  ] ;
+  sh:property [
+    sh:path uofa:severity ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:in ( "Critical" "High" "Medium" "Low" ) ;
+    sh:message "severity must be Critical, High, Medium, or Low." ;
+  ] ;
+  sh:property [
+    sh:path uofa:affectedNode ;
+    sh:nodeKind sh:IRI ;
+    sh:minCount 1 ;
+    sh:message "affectedNode must be an IRI pointing to the flagged graph node." ;
+  ] .

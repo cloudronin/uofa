@@ -90,25 +90,19 @@ def strip_integrity_fields(doc: dict) -> dict:
         stripped[k] = v
     return stripped
 
-
 def canonicalize_and_hash(doc: dict) -> tuple:
     """
-    Parse JSON-LD to RDF, canonicalize via RDFC-1.0, return (canonical_nquads, sha256_hex).
+    Canonicalize JSON-LD content and compute SHA-256.
+
+    Uses JSON Canonicalization Scheme (sorted keys, consistent formatting)
+    rather than RDF-level canonicalization. This avoids blank node
+    non-determinism in rdflib and ensures the hash is stable across runs.
+
+    The hash seals the specific JSON-LD artifact, not the abstract RDF graph.
+    For evidence packaging this is the right semantic: we're verifying that
+    THIS file hasn't been tampered with.
     """
-    g = Graph()
-    g.parse(data=json.dumps(doc), format="json-ld")
-
-    # RDFC-1.0 canonicalization → canonical N-Quads
-    # rdflib >= 7.0 supports this via serialize format
-    try:
-        canonical = g.serialize(format="n3")
-        # Fallback: use sorted N-Triples as a deterministic canonical form
-        # True RDFC-1.0 requires the canon algorithm; rdflib's support varies
-        canonical = "\n".join(sorted(g.serialize(format="nt").strip().split("\n")))
-    except Exception:
-        # Absolute fallback: sorted N-Triples
-        canonical = "\n".join(sorted(g.serialize(format="nt").strip().split("\n")))
-
+    canonical = json.dumps(doc, sort_keys=True, ensure_ascii=False, separators=(',', ':'))
     canonical_bytes = canonical.encode("utf-8")
     sha256_hex = hashlib.sha256(canonical_bytes).hexdigest()
     return canonical, sha256_hex
@@ -196,7 +190,7 @@ def main():
     stripped = strip_integrity_fields(doc)
     canonical, sha256_hex = canonicalize_and_hash(stripped)
 
-    print(f"  Canonical triples: {len(canonical.strip().split(chr(10)))}")
+    print(f"  Canonical length: {len(canonical)} bytes")
     print(f"  SHA-256: {sha256_hex}")
 
     # ── Verify mode ────────────────────────────────────────
