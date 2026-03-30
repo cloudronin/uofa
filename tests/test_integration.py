@@ -16,6 +16,7 @@ import pytest
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 MORRISON = REPO_ROOT / "examples" / "morrison-cou1" / "uofa-morrison-cou1.jsonld"
+MORRISON_COU2 = REPO_ROOT / "examples" / "morrison-cou2" / "uofa-morrison-cou2.jsonld"
 MINIMAL_TEMPLATE = REPO_ROOT / "examples" / "templates" / "uofa-minimal-skeleton.jsonld"
 COMPLETE_TEMPLATE = REPO_ROOT / "examples" / "templates" / "uofa-complete-skeleton.jsonld"
 
@@ -440,12 +441,14 @@ class TestDiff:
 
         result = run_uofa("diff", str(cou1), str(cou2))
         assert result.returncode == 0
-        assert "Only in A" in result.stdout
+        # Table-format output: divergent patterns marked
         assert "W-AL-01" in result.stdout
-        assert "Only in B" in result.stdout
         assert "W-AR-02" in result.stdout
-        assert "Shared" in result.stdout
         assert "W-EP-01" in result.stdout
+        assert "divergent" in result.stdout
+        assert "same" in result.stdout
+        # Divergence explanations section
+        assert "Divergence Explanations" in result.stdout
 
     def test_diff_no_weakeners(self, tmp_path):
         """Two files with no weakeners should show no divergence."""
@@ -465,6 +468,118 @@ class TestDiff:
     def test_diff_missing_file_fails(self):
         result = run_uofa("diff", str(MORRISON), "/nonexistent/file.jsonld")
         assert result.returncode != 0
+
+    def test_diff_identity_block(self):
+        """COU identity metadata is displayed in the header."""
+        result = run_uofa("diff", str(MORRISON), str(MORRISON))
+        assert result.returncode == 0
+        assert "COU Divergence Analysis" in result.stdout
+        assert "Class II" in result.stdout
+        assert "MRL 2" in result.stdout
+        assert "Accepted" in result.stdout
+        assert "Medium" in result.stdout
+
+    def test_diff_morrison_cou1_vs_cou2(self):
+        """Full Morrison demo: COU1 vs COU2 shows divergence with explanations."""
+        result = run_uofa("diff", str(MORRISON), str(MORRISON_COU2))
+        assert result.returncode == 0
+        # Identity block shows both COUs
+        assert "Class II" in result.stdout
+        assert "Class III" in result.stdout
+        # Weakener table present
+        assert "Weakener Patterns" in result.stdout
+        # Summary
+        assert "divergence" in result.stdout
+        # COU1 weakeners should appear as divergent since COU2 has empty hasWeakener
+        assert "W-EP-01" in result.stdout
+
+    def test_diff_compound_separation(self, tmp_path):
+        """COMPOUND patterns appear in a separate sub-table."""
+        cou1 = tmp_path / "cou1.jsonld"
+        cou2 = tmp_path / "cou2.jsonld"
+
+        cou1.write_text(json.dumps({
+            "@context": "https://raw.githubusercontent.com/cloudronin/uofa/main/spec/context/v0.2.jsonld",
+            "id": "https://example.org/cou1", "type": "UnitOfAssurance",
+            "name": "COU1",
+            "hasWeakener": [
+                {"type": "WeakenerAnnotation", "patternId": "W-EP-01", "severity": "Critical",
+                 "affectedNode": "https://example.org/claim1"},
+                {"type": "WeakenerAnnotation", "patternId": "COMPOUND-01", "severity": "Critical",
+                 "affectedNode": "https://example.org/cou1"},
+            ]
+        }))
+        cou2.write_text(json.dumps({
+            "@context": "https://raw.githubusercontent.com/cloudronin/uofa/main/spec/context/v0.2.jsonld",
+            "id": "https://example.org/cou2", "type": "UnitOfAssurance",
+            "name": "COU2",
+            "hasWeakener": [
+                {"type": "WeakenerAnnotation", "patternId": "W-EP-01", "severity": "Critical",
+                 "affectedNode": "https://example.org/claim2"},
+            ]
+        }))
+
+        result = run_uofa("diff", str(cou1), str(cou2))
+        assert result.returncode == 0
+        assert "Compound Patterns" in result.stdout
+        assert "COMPOUND-01" in result.stdout
+
+    def test_diff_severity_breakdown(self):
+        """Summary section includes severity tier breakdown."""
+        result = run_uofa("diff", str(MORRISON), str(MORRISON))
+        assert result.returncode == 0
+        assert "Critical" in result.stdout
+        assert "High" in result.stdout
+
+    def test_diff_minimal_profile_fallback(self, tmp_path):
+        """Minimal profiles without COU metadata degrade gracefully."""
+        f1 = tmp_path / "min1.jsonld"
+        f2 = tmp_path / "min2.jsonld"
+        for f in [f1, f2]:
+            f.write_text(json.dumps({
+                "@context": "https://raw.githubusercontent.com/cloudronin/uofa/main/spec/context/v0.2.jsonld",
+                "id": "https://example.org/min", "type": "UnitOfAssurance",
+                "name": "Minimal UofA",
+            }))
+
+        result = run_uofa("diff", str(f1), str(f2))
+        assert result.returncode == 0
+        assert "(not detected)" in result.stdout
+        assert "No divergence" in result.stdout
+
+    def test_diff_description_passthrough(self, tmp_path):
+        """Weakener descriptions from annotations appear in explanations."""
+        cou1 = tmp_path / "cou1.jsonld"
+        cou2 = tmp_path / "cou2.jsonld"
+
+        cou1.write_text(json.dumps({
+            "@context": "https://raw.githubusercontent.com/cloudronin/uofa/main/spec/context/v0.2.jsonld",
+            "id": "https://example.org/cou1", "type": "UnitOfAssurance",
+            "name": "COU1",
+            "hasWeakener": [
+                {"type": "WeakenerAnnotation", "patternId": "W-AL-01", "severity": "High",
+                 "affectedNode": "https://example.org/val1",
+                 "description": "Missing UQ on validation result."},
+            ]
+        }))
+        cou2.write_text(json.dumps({
+            "@context": "https://raw.githubusercontent.com/cloudronin/uofa/main/spec/context/v0.2.jsonld",
+            "id": "https://example.org/cou2", "type": "UnitOfAssurance",
+            "name": "COU2",
+            "hasWeakener": []
+        }))
+
+        result = run_uofa("diff", str(cou1), str(cou2))
+        assert result.returncode == 0
+        assert "Missing UQ on validation result." in result.stdout
+
+    def test_diff_morrison_explanations_from_description(self):
+        """Morrison COU1 weakener explanations come from the description field."""
+        result = run_uofa("diff", str(MORRISON), str(MORRISON_COU2))
+        assert result.returncode == 0
+        # These come from the description field in the JSON-LD, not hardcoded
+        assert "provenance chain is broken" in result.stdout
+        assert "aleatory uncertainty is uncharacterized" in result.stdout
 
 
 # ── Test: --repo-root flag works with subcommands ─────────────
