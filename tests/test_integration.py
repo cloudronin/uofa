@@ -340,6 +340,101 @@ class TestInit:
         assert "Conforms" in result.stdout
 
 
+# ── Test: uofa diff ───────────────────────────────────────────
+
+class TestDiff:
+    def test_diff_identical_files(self):
+        result = run_uofa("diff", str(MORRISON), str(MORRISON))
+        assert result.returncode == 0
+        assert "No divergence" in result.stdout
+
+    def test_diff_different_weakener_profiles(self, tmp_path):
+        """Create two files with different weakeners and verify divergence."""
+        cou1 = tmp_path / "cou1.jsonld"
+        cou2 = tmp_path / "cou2.jsonld"
+
+        cou1.write_text(json.dumps({
+            "@context": "https://raw.githubusercontent.com/cloudronin/uofa/main/spec/context/v0.2.jsonld",
+            "id": "https://example.org/cou1", "type": "UnitOfAssurance",
+            "name": "COU1",
+            "hasWeakener": [
+                {"type": "WeakenerAnnotation", "patternId": "W-AL-01", "severity": "High",
+                 "affectedNode": "https://example.org/val1"},
+                {"type": "WeakenerAnnotation", "patternId": "W-EP-01", "severity": "Critical",
+                 "affectedNode": "https://example.org/claim1"},
+            ]
+        }))
+        cou2.write_text(json.dumps({
+            "@context": "https://raw.githubusercontent.com/cloudronin/uofa/main/spec/context/v0.2.jsonld",
+            "id": "https://example.org/cou2", "type": "UnitOfAssurance",
+            "name": "COU2",
+            "hasWeakener": [
+                {"type": "WeakenerAnnotation", "patternId": "W-EP-01", "severity": "Critical",
+                 "affectedNode": "https://example.org/claim2"},
+                {"type": "WeakenerAnnotation", "patternId": "W-AR-02", "severity": "Critical",
+                 "affectedNode": "https://example.org/cou2"},
+            ]
+        }))
+
+        result = run_uofa("diff", str(cou1), str(cou2))
+        assert result.returncode == 0
+        assert "Only in A" in result.stdout
+        assert "W-AL-01" in result.stdout
+        assert "Only in B" in result.stdout
+        assert "W-AR-02" in result.stdout
+        assert "Shared" in result.stdout
+        assert "W-EP-01" in result.stdout
+
+    def test_diff_no_weakeners(self, tmp_path):
+        """Two files with no weakeners should show no divergence."""
+        f1 = tmp_path / "clean1.jsonld"
+        f2 = tmp_path / "clean2.jsonld"
+        for f in [f1, f2]:
+            f.write_text(json.dumps({
+                "@context": "https://raw.githubusercontent.com/cloudronin/uofa/main/spec/context/v0.2.jsonld",
+                "id": "https://example.org/clean", "type": "UnitOfAssurance",
+                "name": "Clean UofA",
+            }))
+
+        result = run_uofa("diff", str(f1), str(f2))
+        assert result.returncode == 0
+        assert "No divergence" in result.stdout
+
+    def test_diff_missing_file_fails(self):
+        result = run_uofa("diff", str(MORRISON), "/nonexistent/file.jsonld")
+        assert result.returncode != 0
+
+
+# ── Test: --repo-root flag works with subcommands ─────────────
+
+class TestGlobalFlags:
+    def test_repo_root_after_subcommand(self):
+        result = run_uofa("verify", str(MORRISON), "--repo-root", str(REPO_ROOT))
+        assert result.returncode == 0
+
+    def test_no_color_flag(self):
+        result = run_uofa("verify", str(MORRISON), "--no-color")
+        assert result.returncode == 0
+        # No ANSI escape codes in output
+        assert "\033[" not in result.stdout
+
+
+# ── Test: starter examples pass SHACL ─────────────────────────
+
+class TestStarterExamples:
+    def test_aero_starter_conforms(self):
+        aero = REPO_ROOT / "examples" / "starters" / "uofa-aero-fatigue-minimal.jsonld"
+        if aero.exists():
+            result = run_uofa("shacl", str(aero))
+            assert result.returncode == 0
+
+    def test_structural_starter_conforms(self):
+        bridge = REPO_ROOT / "examples" / "starters" / "uofa-structural-bridge-minimal.jsonld"
+        if bridge.exists():
+            result = run_uofa("shacl", str(bridge))
+            assert result.returncode == 0
+
+
 # ── Test: full round-trip (init -> edit -> sign -> check) ─────
 
 class TestEndToEnd:

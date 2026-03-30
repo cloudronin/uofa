@@ -249,6 +249,9 @@ uofa init my-new-project
 
 # Validate all examples in the repo
 uofa validate
+
+# Compare weakener profiles across two COUs
+uofa diff uofa-cou1.jsonld uofa-cou2.jsonld
 ```
 
 See the [Getting Started Guide](docs/getting-started.md) for a full walkthrough.
@@ -268,7 +271,7 @@ src/uofa_cli/                    # uofa CLI package
   output.py                      # ANSI color helpers
   commands/                      # one module per subcommand
     check.py, shacl.py, verify.py, rules.py,
-    sign.py, keygen.py, validate.py, init.py
+    sign.py, keygen.py, validate.py, init.py, diff.py
 
 spec/
   context/
@@ -283,6 +286,9 @@ examples/
   templates/
     uofa-minimal-skeleton.jsonld # Starter template — Minimal profile
     uofa-complete-skeleton.jsonld # Starter template — Complete profile
+  starters/
+    uofa-aero-fatigue-minimal.jsonld   # Wind turbine fatigue (NASA-STD-7009B)
+    uofa-structural-bridge-minimal.jsonld # Highway bridge FEA load rating
 
 tests/
   test_integration.py            # 32 integration tests (pytest)

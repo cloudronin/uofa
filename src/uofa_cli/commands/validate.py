@@ -8,7 +8,7 @@ from uofa_cli import paths
 
 HELP = "validate all examples against SHACL profiles"
 
-_EXCLUDE_DIRS = {"templates"}
+_EXCLUDE_DIRS = {"templates", "starters"}
 
 
 def add_arguments(parser):

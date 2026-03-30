@@ -13,19 +13,23 @@ def main():
 
 
 def _run():
+    # Shared flags inherited by all subcommands
+    parent = argparse.ArgumentParser(add_help=False)
+    parent.add_argument("--no-color", action="store_true", help="disable colored output")
+    parent.add_argument("--verbose", action="store_true", help="show full tracebacks on error")
+    parent.add_argument("--repo-root", metavar="PATH", help="override repo root auto-detection")
+
     parser = argparse.ArgumentParser(
         prog="uofa",
         description="Create, validate, and sign Unit of Assurance evidence packages.",
+        parents=[parent],
     )
     parser.add_argument("--version", action="version", version=f"uofa {__version__}")
-    parser.add_argument("--no-color", action="store_true", help="disable colored output")
-    parser.add_argument("--verbose", action="store_true", help="show full tracebacks on error")
-    parser.add_argument("--repo-root", metavar="PATH", help="override repo root auto-detection")
 
     sub = parser.add_subparsers(dest="command", title="commands")
 
     # ── Register subcommands ──────────────────────────────────
-    from uofa_cli.commands import keygen, sign, verify, shacl, rules, check, validate, init
+    from uofa_cli.commands import keygen, sign, verify, shacl, rules, check, validate, init, diff
 
     modules = {
         "keygen":   keygen,
@@ -36,10 +40,11 @@ def _run():
         "check":    check,
         "validate": validate,
         "init":     init,
+        "diff":     diff,
     }
 
     for name, mod in modules.items():
-        sp = sub.add_parser(name, help=mod.HELP)
+        sp = sub.add_parser(name, help=mod.HELP, parents=[parent])
         mod.add_arguments(sp)
 
     args = parser.parse_args()
