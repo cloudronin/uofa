@@ -4,6 +4,14 @@ This guide walks you through creating a Unit of Assurance (UofA) evidence packag
 
 ## Prerequisites
 
+**Fastest option — GitHub Codespace (zero install):**
+
+[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/cloudronin/uofa?quickstart=1)
+
+Click the button above. The Codespace comes with Python, Java, Maven, and the `uofa` CLI pre-installed. Skip to [Step 1](#step-1-choose-a-profile).
+
+**Local install:**
+
 ```bash
 # Install the uofa CLI (includes all Python dependencies)
 pip install -e .

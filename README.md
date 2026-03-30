@@ -6,6 +6,12 @@ The **Unit of Assurance** is the smallest independently verifiable bundle of cre
 
 ## Quick Start: Create Your Own UofA
 
+[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/cloudronin/uofa?quickstart=1)
+
+**No install required** — click the button above to open a ready-to-use environment with Python, Java, and the `uofa` CLI pre-installed.
+
+Or run locally:
+
 ```bash
 # 1. Install the uofa CLI
 pip install -e .
@@ -291,7 +297,10 @@ examples/
     uofa-structural-bridge-minimal.jsonld # Highway bridge FEA load rating
 
 tests/
-  test_integration.py            # 32 integration tests (pytest)
+  test_integration.py            # 45 integration tests (pytest)
+
+.devcontainer/
+  devcontainer.json              # GitHub Codespace / VS Code Dev Container config
 
 weakener-engine/                 # Jena rule engine (Maven project)
   src/main/java/.../
@@ -308,6 +317,10 @@ docs/
 ---
 
 ## Prerequisites
+
+**Zero-install option:** [Open in GitHub Codespaces](https://codespaces.new/cloudronin/uofa?quickstart=1) — everything is pre-installed.
+
+**Local install:**
 
 ```bash
 pip install -e .    # installs the uofa CLI and all Python dependencies
