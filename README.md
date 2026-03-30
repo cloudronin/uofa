@@ -292,9 +292,6 @@ weakener-engine/                 # Jena rule engine (Maven project)
     WeakenerEngine.java          # CLI entry point
   pom.xml                        # Maven build (Jena 5.3 + picocli)
 
-scripts/
-  sign_uofa.py                  # (deprecated — use uofa CLI instead)
-
 keys/
   research.pub                   # ed25519 public key for signature verification
 

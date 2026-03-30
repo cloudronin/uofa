@@ -1,7 +1,6 @@
 """Cryptographic integrity operations for UofA evidence packages.
 
-Absorbed from scripts/sign_uofa.py. Provides hashing, signing, and
-verification for UofA JSON-LD files.
+Provides hashing, signing, and verification for UofA JSON-LD files.
 """
 
 import hashlib
