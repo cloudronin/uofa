@@ -84,3 +84,50 @@ def warn(msg: str):
 
 def info(msg: str):
     print(f"  {msg}")
+
+
+def muted(text: str) -> str:
+    return color(text, "dim")
+
+
+def diamond() -> str:
+    return color("◆", "yellow")
+
+
+# ── Table output ────────────────────────────────────────────
+
+def table_separator(widths: list[int]):
+    parts = ["─" * w for w in widths]
+    print(f"  ├─{'─┼─'.join(parts)}─┤")
+
+
+def table_header(columns: list[str], widths: list[int]):
+    cells = [c.center(w) for c, w in zip(columns, widths)]
+    border = "─" * sum(w + 3 for w in widths)
+    print(f"  ┌{border}─┐")
+    print(f"  │ {' │ '.join(cells)} │")
+    table_separator(widths)
+
+
+def table_row(cells: list[str], widths: list[int], highlight: bool = False):
+    padded = []
+    for cell, w in zip(cells, widths):
+        # Strip ANSI to compute visible length for padding
+        visible = _strip_ansi(cell)
+        pad = w - len(visible)
+        padded.append(cell + " " * max(pad, 0))
+    line = f"  │ {' │ '.join(padded)} │"
+    if highlight:
+        print(color(line, "yellow"))
+    else:
+        print(line)
+
+
+def table_footer(widths: list[int]):
+    parts = ["─" * w for w in widths]
+    print(f"  └─{'─┴─'.join(parts)}─┘")
+
+
+def _strip_ansi(text: str) -> str:
+    import re
+    return re.sub(r'\033\[[0-9;]*m', '', text)
