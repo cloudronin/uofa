@@ -4,6 +4,32 @@
 
 The **Unit of Assurance** is the smallest independently verifiable bundle of credibility evidence for computational modeling and simulation (CM&S). It packages the **credibility decision** — who judged what, against what criteria, using what evidence, with what result — as a signed, provenance-linked, machine-verifiable engineering artifact.
 
+## Quick Start: Create Your Own UofA
+
+```bash
+# 1. Install dependencies
+pip install pyshacl rdflib cryptography
+
+# 2. Copy a template
+cp examples/templates/uofa-minimal-skeleton.jsonld my-project-cou1.jsonld
+
+# 3. Edit my-project-cou1.jsonld — fill in your project details
+
+# 4. Generate keys and sign
+python scripts/sign_uofa.py --generate-key keys/my-project.key
+python scripts/sign_uofa.py my-project-cou1.jsonld \
+  --key keys/my-project.key --context spec/context/v0.2.jsonld
+
+# 5. Validate (C1 integrity + C2 SHACL + C3 rule engine)
+make check FILE=my-project-cou1.jsonld
+```
+
+**New to UofA?** See the [Getting Started Guide](docs/getting-started.md) for a step-by-step walkthrough, or study the [Morrison demo](#live-demo-morrison-blood-pump-fda-vv-40-case-study) below.
+
+---
+
+## Why UofA?
+
 UofA exists because the credibility frameworks are not the problem. ASME V&V 40, NASA-STD-7009B, and the FDA's 2023 guidance on CM&S credibility provide clear instructions for *how to assess* simulation credibility. The problem is the **last mile**: there is no standardized construct for packaging, transmitting, and verifying the *evidence and decisions* those assessments produce.
 
 The result is predictable. Credibility decisions live in prose PDFs. Evidence is scattered across tools. Provenance is partial. Audit packaging is manual. And reviewers catch quality gaps by intuition rather than automation.
@@ -201,6 +227,31 @@ Quality gap annotations detected by the Jena rule engine (C3). Optional — a Uo
 | `patternId` | Format: `W-XX-NN` (e.g., `W-EP-01`) | Catalog ID from the weakener pattern taxonomy |
 | `severity` | `Critical` / `High` / `Medium` / `Low` | Impact severity |
 | `affectedNode` | IRI | The specific graph node flagged by this pattern |
+
+---
+
+## Working with Your Own UofA
+
+The Makefile supports parameterized targets so you can validate, sign, and analyze any UofA file — not just the Morrison demo:
+
+```bash
+# Full pipeline (C1 + C2 + C3) on your file
+make check FILE=path/to/your-uofa.jsonld
+
+# Individual steps
+make shacl  FILE=path/to/your-uofa.jsonld    # C2: SHACL validation
+make verify FILE=path/to/your-uofa.jsonld    # C1: Hash + signature check
+make rules  FILE=path/to/your-uofa.jsonld    # C3: Jena weakener detection
+
+# Sign with your own key
+make sign FILE=path/to/your-uofa.jsonld KEY=keys/your.key
+```
+
+Starter templates are in `examples/templates/`:
+- `uofa-minimal-skeleton.jsonld` — Minimal profile (7 required fields)
+- `uofa-complete-skeleton.jsonld` — Complete profile (full V&V 40 assessment)
+
+See the [Getting Started Guide](docs/getting-started.md) for a full walkthrough.
 
 ---
 
