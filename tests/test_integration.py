@@ -277,6 +277,68 @@ class TestValidate:
         result = run_uofa("validate", "--dir", str(tmp_path))
         assert result.returncode != 0  # no files found
 
+    def test_validate_with_verify(self):
+        result = run_uofa("validate", "--verify")
+        assert result.returncode == 0
+        assert "conform" in result.stdout.lower()
+        assert "verified" in result.stdout.lower()
+
+
+# ── Test: uofa schema ────────────────────────────────────────
+
+class TestSchema:
+    def test_schema_generates_file(self, tmp_path):
+        output = tmp_path / "uofa.schema.json"
+        result = run_uofa("schema", "--output", str(output))
+        assert result.returncode == 0
+        assert output.exists()
+
+        with open(output) as f:
+            schema = json.load(f)
+
+        assert schema["$schema"] == "https://json-schema.org/draft/2020-12/schema"
+        assert "oneOf" in schema  # Minimal vs Complete
+        assert "CredibilityFactorShape" in schema.get("$defs", {})
+        assert "WeakenerAnnotationShape" in schema.get("$defs", {})
+
+    def test_schema_contains_factor_enum(self, tmp_path):
+        output = tmp_path / "uofa.schema.json"
+        run_uofa("schema", "--output", str(output))
+
+        with open(output) as f:
+            schema = json.load(f)
+
+        # Find factorType enum in CredibilityFactorShape
+        factor = schema["$defs"]["CredibilityFactorShape"]
+        factor_type = factor["properties"].get("factorType", {})
+        assert "enum" in factor_type
+        assert "Software quality assurance" in factor_type["enum"]
+        assert len(factor_type["enum"]) == 13  # V&V 40 Table 5-1
+
+    def test_schema_contains_severity_enum(self, tmp_path):
+        output = tmp_path / "uofa.schema.json"
+        run_uofa("schema", "--output", str(output))
+
+        with open(output) as f:
+            schema = json.load(f)
+
+        weakener = schema["$defs"]["WeakenerAnnotationShape"]
+        severity = weakener["properties"].get("severity", {})
+        assert "enum" in severity
+        assert set(severity["enum"]) == {"Critical", "High", "Medium", "Low"}
+
+    def test_schema_has_hash_pattern(self, tmp_path):
+        output = tmp_path / "uofa.schema.json"
+        run_uofa("schema", "--output", str(output))
+
+        with open(output) as f:
+            schema = json.load(f)
+
+        # Check Minimal profile has hash pattern
+        minimal_props = schema["oneOf"][0]["allOf"][1]["properties"]
+        assert "pattern" in minimal_props.get("hash", {})
+        assert "sha256" in minimal_props["hash"]["pattern"]
+
 
 # ── Test: uofa init ───────────────────────────────────────────
 

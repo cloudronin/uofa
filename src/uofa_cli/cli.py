@@ -29,7 +29,7 @@ def _run():
     sub = parser.add_subparsers(dest="command", title="commands")
 
     # ── Register subcommands ──────────────────────────────────
-    from uofa_cli.commands import keygen, sign, verify, shacl, rules, check, validate, init, diff
+    from uofa_cli.commands import keygen, sign, verify, shacl, rules, check, validate, init, diff, schema
 
     modules = {
         "keygen":   keygen,
@@ -41,6 +41,7 @@ def _run():
         "validate": validate,
         "init":     init,
         "diff":     diff,
+        "schema":   schema,
     }
 
     for name, mod in modules.items():
