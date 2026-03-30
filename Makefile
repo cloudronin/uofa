@@ -2,14 +2,15 @@
 # The primary CLI is now `uofa`. Install it: pip install -e .
 # These targets delegate to `uofa` commands for backward compatibility.
 
-MORRISON = examples/morrison-cou1/uofa-morrison-cou1.jsonld
-ENG_DIR  = weakener-engine
+MORRISON_COU1 = examples/morrison/cou1/uofa-morrison-cou1.jsonld
+MORRISON_COU2 = examples/morrison/cou2/uofa-morrison-cou2.jsonld
+ENG_DIR       = weakener-engine
 
 FILE ?=
 KEY  ?= keys/research.key
 
-.PHONY: all validate morrison morrison-shacl morrison-rules morrison-verify morrison-build clean
-.PHONY: check shacl verify rules sign build
+.PHONY: all validate morrison morrison-shacl morrison-rules morrison-verify morrison-diff
+.PHONY: morrison-build morrison-sign clean check shacl verify rules sign
 
 # ── Primary targets ─────────────────────────────────────────
 
@@ -38,19 +39,22 @@ sign:
 validate:
 	uofa validate
 
-# ── Morrison COU1: full pipeline ────────────────────────────
+# ── Morrison: full pipeline (COU1) ──────────────────────────
 
 morrison:
-	uofa check $(MORRISON) --build
+	uofa check $(MORRISON_COU1) --build
 
 morrison-shacl:
-	uofa shacl $(MORRISON)
+	uofa shacl $(MORRISON_COU1)
 
 morrison-verify:
-	uofa verify $(MORRISON)
+	uofa verify $(MORRISON_COU1)
 
 morrison-rules:
-	uofa rules $(MORRISON) --build
+	uofa rules $(MORRISON_COU1) --build
+
+morrison-diff:
+	uofa diff $(MORRISON_COU1) $(MORRISON_COU2)
 
 morrison-build:
 	@if [ ! -f $(ENG_DIR)/target/uofa-weakener-engine-0.1.0.jar ]; then \
@@ -59,7 +63,7 @@ morrison-build:
 	fi
 
 morrison-sign:
-	uofa sign $(MORRISON) --key keys/research.key
+	uofa sign $(MORRISON_COU1) --key keys/research.key
 
 clean:
 	cd $(ENG_DIR) && mvn clean -q
