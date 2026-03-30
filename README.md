@@ -258,31 +258,48 @@ See the [Getting Started Guide](docs/getting-started.md) for a full walkthrough.
 ## Repository Structure
 
 ```
+pyproject.toml                   # pip install -e . (installs the uofa CLI)
+
+src/uofa_cli/                    # uofa CLI package
+  cli.py                         # argparse entry point + subcommand dispatch
+  integrity.py                   # SHA-256 hashing + ed25519 signing/verification
+  shacl_friendly.py              # SHACL violation → plain English translator
+  paths.py                       # auto-discovery of spec files, JAR, keys
+  output.py                      # ANSI color helpers
+  commands/                      # one module per subcommand
+    check.py, shacl.py, verify.py, rules.py,
+    sign.py, keygen.py, validate.py, init.py
+
 spec/
   context/
-    v0.2.jsonld                # JSON-LD @context (term definitions)
+    v0.2.jsonld                  # JSON-LD @context (term definitions)
   schemas/
-    uofa_shacl.ttl             # SHACL shapes (Minimal + Complete + dispatcher)
+    uofa_shacl.ttl               # SHACL shapes (Minimal + Complete + dispatcher)
 
 examples/
   morrison-cou1/
-    uofa-morrison-cou1.jsonld  # ✓ Complete profile — Morrison COU1 (CPB, Accepted)
-    uofa_weakener.rules    # 12 forward-chaining rules (9 core + 3 compound)
-    slide-assets/              # Terminal screenshots for NAFEMS presentation
+    uofa-morrison-cou1.jsonld    # ✓ Complete profile — Morrison COU1 (CPB, Accepted)
+    uofa_weakener.rules          # 12 forward-chaining rules (9 core + 3 compound)
+  templates/
+    uofa-minimal-skeleton.jsonld # Starter template — Minimal profile
+    uofa-complete-skeleton.jsonld # Starter template — Complete profile
+
+tests/
+  test_integration.py            # 32 integration tests (pytest)
+
+weakener-engine/                 # Jena rule engine (Maven project)
+  src/main/java/.../
+    WeakenerEngine.java          # CLI entry point
+  pom.xml                        # Maven build (Jena 5.3 + picocli)
 
 scripts/
-  sign_uofa.py                # Mint (sign) and verify UofA integrity
-  validate_morrison_cou1.py   # pySHACL validation with external context resolution
+  sign_uofa.py                  # (deprecated — use uofa CLI instead)
 
 keys/
-  research.pub                 # ed25519 public key for signature verification
+  research.pub                   # ed25519 public key for signature verification
 
-uofa-weakener-rules/       # Jena rule engine (Maven project)
-      src/main/resources/
-            src/main/java/...
-              WeakenerEngine.java    # CLI entry point
-      pom.xml                  # Maven build (Jena 5.3 + picocli)
-    
+docs/
+  getting-started.md             # Step-by-step tutorial for new users
 ```
 
 ---
