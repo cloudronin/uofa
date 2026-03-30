@@ -7,21 +7,19 @@ The **Unit of Assurance** is the smallest independently verifiable bundle of cre
 ## Quick Start: Create Your Own UofA
 
 ```bash
-# 1. Install dependencies
-pip install pyshacl rdflib cryptography
+# 1. Install the uofa CLI
+pip install -e .
 
-# 2. Copy a template
-cp examples/templates/uofa-minimal-skeleton.jsonld my-project-cou1.jsonld
+# 2. Scaffold a new project (creates template + keys)
+uofa init my-project
 
-# 3. Edit my-project-cou1.jsonld — fill in your project details
+# 3. Edit my-project/my-project-cou1.jsonld — fill in your project details
 
-# 4. Generate keys and sign
-python scripts/sign_uofa.py --generate-key keys/my-project.key
-python scripts/sign_uofa.py my-project-cou1.jsonld \
-  --key keys/my-project.key --context spec/context/v0.2.jsonld
+# 4. Sign your evidence package
+uofa sign my-project/my-project-cou1.jsonld --key my-project/keys/my-project.key
 
 # 5. Validate (C1 integrity + C2 SHACL + C3 rule engine)
-make check FILE=my-project-cou1.jsonld
+uofa check my-project/my-project-cou1.jsonld
 ```
 
 **New to UofA?** See the [Getting Started Guide](docs/getting-started.md) for a step-by-step walkthrough, or study the [Morrison demo](#live-demo-morrison-blood-pump-fda-vv-40-case-study) below.
@@ -60,21 +58,21 @@ Morrison prose assessment          →  UofA structured evidence package
 **Run it yourself:**
 
 ```bash
-pip install pyshacl rdflib cryptography   # one-time setup
+pip install -e .    # one-time setup (installs uofa CLI + all Python dependencies)
 
 # Run the full C1 + C2 + C3 pipeline in one command
-make morrison
+uofa check examples/morrison-cou1/uofa-morrison-cou1.jsonld --build
 ```
 
 That single command runs three checks:
 
-| Step | Make target | What it does |
+| Step | Command | What it does |
 |---|---|---|
-| C2 | `make morrison-shacl` | SHACL Complete profile validation — all required fields present |
-| C1 | `make morrison-verify` | SHA-256 hash + ed25519 signature verification — content untampered |
-| C3 | `make morrison-rules` | Jena rule engine — 12 forward-chaining rules detect quality gaps |
+| C2 | `uofa shacl FILE` | SHACL Complete profile validation — all required fields present |
+| C1 | `uofa verify FILE` | SHA-256 hash + ed25519 signature verification — content untampered |
+| C3 | `uofa rules FILE` | Jena rule engine — 12 forward-chaining rules detect quality gaps |
 
-The Jena JAR auto-builds on first run (requires Java 17+ and Maven 3.8+).
+The Jena JAR auto-builds on first run with `--build` (requires Java 17+ and Maven 3.8+).
 
 **What the rule engine finds (29 weakeners across 7 patterns):**
 
@@ -125,15 +123,15 @@ Every UofA carries a real cryptographic hash and digital signature — not place
 | Level | What it checks | Mechanism |
 |---|---|---|
 | **Format gate** | Hash and signature are well-formed | SHACL `sh:pattern` regex on both Minimal and Complete profiles |
-| **Content verification** | Hash matches the canonical document content | `sign_uofa.py --verify` recomputes SHA-256 from JSON canonical form |
+| **Content verification** | Hash matches the canonical document content | `uofa verify` recomputes SHA-256 from JSON canonical form |
 | **Cryptographic signature** | Document was signed by the declared authority | ed25519 signature verification against the repo public key |
 
 ```bash
 # Mint a sealed UofA (sign after edits)
-make morrison-sign
+uofa sign examples/morrison-cou1/uofa-morrison-cou1.jsonld --key keys/research.key
 
 # Verify integrity
-make morrison-verify
+uofa verify examples/morrison-cou1/uofa-morrison-cou1.jsonld
 ```
 
 Placeholder strings (e.g., `sha256:placeholder...`) now **fail** SHACL validation. This is deliberate — a UofA claiming ProfileComplete must carry a real hash.
@@ -232,24 +230,26 @@ Quality gap annotations detected by the Jena rule engine (C3). Optional — a Uo
 
 ## Working with Your Own UofA
 
-The Makefile supports parameterized targets so you can validate, sign, and analyze any UofA file — not just the Morrison demo:
+The `uofa` CLI provides commands for every step of the workflow:
 
 ```bash
 # Full pipeline (C1 + C2 + C3) on your file
-make check FILE=path/to/your-uofa.jsonld
+uofa check path/to/your-uofa.jsonld
 
 # Individual steps
-make shacl  FILE=path/to/your-uofa.jsonld    # C2: SHACL validation
-make verify FILE=path/to/your-uofa.jsonld    # C1: Hash + signature check
-make rules  FILE=path/to/your-uofa.jsonld    # C3: Jena weakener detection
+uofa shacl  path/to/your-uofa.jsonld           # C2: SHACL validation
+uofa verify path/to/your-uofa.jsonld           # C1: Hash + signature check
+uofa rules  path/to/your-uofa.jsonld           # C3: Jena weakener detection
 
 # Sign with your own key
-make sign FILE=path/to/your-uofa.jsonld KEY=keys/your.key
-```
+uofa sign path/to/your-uofa.jsonld --key keys/your.key
 
-Starter templates are in `examples/templates/`:
-- `uofa-minimal-skeleton.jsonld` — Minimal profile (7 required fields)
-- `uofa-complete-skeleton.jsonld` — Complete profile (full V&V 40 assessment)
+# Scaffold a new project
+uofa init my-new-project
+
+# Validate all examples in the repo
+uofa validate
+```
 
 See the [Getting Started Guide](docs/getting-started.md) for a full walkthrough.
 
@@ -289,11 +289,17 @@ uofa-weakener-rules/       # Jena rule engine (Maven project)
 
 ## Prerequisites
 
+```bash
+pip install -e .    # installs the uofa CLI and all Python dependencies
+```
+
 | Tool | Version | Purpose |
 |---|---|---|
-| Python 3.10+ | `pip install pyshacl rdflib cryptography` | SHACL validation + integrity verification |
-| Java 17+ | OpenJDK or equivalent | Jena rule engine |
-| Maven 3.8+ | `mvn package` | Build the Jena fat JAR |
+| Python 3.10+ | Installed via `pip install -e .` | SHACL validation + integrity verification |
+| Java 17+ | OpenJDK or equivalent | Jena rule engine (C3 only) |
+| Maven 3.8+ | `mvn package` | Build the Jena fat JAR (C3 only) |
+
+Java and Maven are only required for the Jena rule engine (C3). Use `uofa check FILE --skip-rules` if Java is not available.
 
 ---
 

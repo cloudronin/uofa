@@ -5,13 +5,15 @@ This guide walks you through creating a Unit of Assurance (UofA) evidence packag
 ## Prerequisites
 
 ```bash
-# Python dependencies
-pip install pyshacl rdflib cryptography
+# Install the uofa CLI (includes all Python dependencies)
+pip install -e .
 
 # Java 17+ and Maven 3.8+ (required only for the rule engine, Step 5)
 java -version   # should show 17+
 mvn -version    # should show 3.8+
 ```
+
+Java is only needed for the Jena rule engine (C3). You can use `--skip-rules` if Java is not available.
 
 ## Step 1: Choose a Profile
 
@@ -24,19 +26,34 @@ UofA has two profiles. Pick the one that fits your situation:
 
 **Starting out?** Begin with Minimal. You can upgrade to Complete later.
 
-## Step 2: Copy a Template
+## Step 2: Scaffold Your Project
 
 ```bash
-# For Minimal profile
-cp examples/templates/uofa-minimal-skeleton.jsonld my-project-cou1.jsonld
+# Creates a directory with template, signing keys, and .gitignore
+uofa init my-project
 
-# For Complete profile
-cp examples/templates/uofa-complete-skeleton.jsonld my-project-cou1.jsonld
+# Or for a Complete profile:
+uofa init my-project --profile complete
+```
+
+This creates:
+```
+my-project/
+  my-project-cou1.jsonld       # template with placeholder values
+  keys/
+    my-project.key             # ed25519 private key (keep secret)
+    my-project.pub             # ed25519 public key (commit this)
+  .gitignore                   # excludes *.key
+```
+
+You can also start manually by copying a template:
+```bash
+cp examples/templates/uofa-minimal-skeleton.jsonld my-project-cou1.jsonld
 ```
 
 ## Step 3: Fill In Your Project Details
 
-Open `my-project-cou1.jsonld` in your editor and replace the placeholder values.
+Open `my-project/my-project-cou1.jsonld` in your editor and replace the placeholder values.
 
 ### Minimal Profile Fields
 
@@ -86,17 +103,11 @@ The `factorType` field accepts exactly these 13 values (from ASME V&V 40 Table 5
 
 You don't need to assess all 13. Include only the factors relevant to your COU.
 
-## Step 4: Generate Keys and Sign
+## Step 4: Sign Your Evidence Package
 
 ```bash
-# Generate a signing keypair (one-time setup)
-python scripts/sign_uofa.py --generate-key keys/my-project.key
-# This creates keys/my-project.key (private) and keys/my-project.pub (public)
-
 # Sign your UofA — this fills in the hash and signature fields
-python scripts/sign_uofa.py my-project-cou1.jsonld \
-  --key keys/my-project.key \
-  --context spec/context/v0.2.jsonld
+uofa sign my-project/my-project-cou1.jsonld --key my-project/keys/my-project.key
 ```
 
 After signing, the `hash` and `signature` fields in your file will contain real values.
@@ -106,23 +117,28 @@ After signing, the `hash` and `signature` fields in your file will contain real 
 ## Step 5: Validate
 
 ```bash
-# SHACL validation — checks all required fields and format constraints
-make check FILE=my-project-cou1.jsonld
+# Full pipeline — SHACL + integrity + rule engine
+uofa check my-project/my-project-cou1.jsonld
 
 # Or run components individually:
-make shacl FILE=my-project-cou1.jsonld     # C2: Completeness
-make verify FILE=my-project-cou1.jsonld    # C1: Integrity (hash + signature)
-make rules FILE=my-project-cou1.jsonld     # C3: Quality gap detection (Jena)
+uofa shacl  my-project/my-project-cou1.jsonld    # C2: Completeness
+uofa verify my-project/my-project-cou1.jsonld    # C1: Integrity (hash + signature)
+uofa rules  my-project/my-project-cou1.jsonld    # C3: Quality gap detection (Jena)
+
+# Skip the rule engine if Java is not available:
+uofa check my-project/my-project-cou1.jsonld --skip-rules
 ```
 
 ### Reading Validation Output
 
-**SHACL passes:** You'll see `Validation Report: Conforms: True`
+**SHACL passes:** You'll see `✓ SHACL validation  Conforms`
 
-**SHACL fails:** The report lists each violation with the property path and a human-readable message. Common issues:
+**SHACL fails:** Each violation shows the field name, a plain-English message, and a fix suggestion. Common issues:
 - Missing a required field → add it
-- Hash/signature still has placeholder zeros → run signing (Step 4)
+- Hash/signature still has placeholder zeros → run `uofa sign` (Step 4)
 - `factorType` not in the allowed list → check spelling against the 13 V&V 40 factors above
+
+Use `uofa shacl FILE --raw` to see the full pyshacl report if you need more detail.
 
 **Rule engine output:** Shows detected weakeners grouped by severity. These are not errors — they're quality gaps in your evidence. For example:
 - `W-AL-01 (High)`: A validation result has no uncertainty quantification linked
@@ -136,8 +152,8 @@ Zero weakeners is valid and desirable. The weakeners tell you where your evidenc
 A typical workflow:
 
 1. **Edit** your `.jsonld` to add evidence, fix gaps, or update the decision
-2. **Re-sign** (`make sign FILE=...`) — editing invalidates the previous hash
-3. **Re-validate** (`make check FILE=...`) — confirm everything still passes
+2. **Re-sign** (`uofa sign FILE --key KEY`) — editing invalidates the previous hash
+3. **Re-validate** (`uofa check FILE`) — confirm everything still passes
 4. **Review weakeners** — address Critical/High gaps before submission
 
 ## What's Next
@@ -145,15 +161,17 @@ A typical workflow:
 - **Study the Morrison example** (`examples/morrison-cou1/`) to see a Complete profile for an FDA V&V 40 case study
 - **Add a second COU** — same model, different context of use, potentially different credibility requirements
 - **Run COU divergence analysis** — compare weakener profiles across COUs to see how risk level affects evidence requirements
-- **Integrate with CI** — add `make check` to your pipeline so credibility evidence is validated on every commit
+- **Integrate with CI** — add `uofa check` to your pipeline so credibility evidence is validated on every commit
 
 ## Reference
 
 | Command | What it does |
 |---------|-------------|
-| `make check FILE=<path>` | Full C1+C2+C3 pipeline on any UofA file |
-| `make shacl FILE=<path>` | SHACL profile validation only |
-| `make verify FILE=<path>` | Hash + signature verification only |
-| `make rules FILE=<path>` | Jena rule engine only |
-| `make sign FILE=<path> KEY=<keypath>` | Sign/re-sign a UofA |
-| `make morrison` | Run the Morrison demo (C1+C2+C3) |
+| `uofa check FILE` | Full C1+C2+C3 pipeline on any UofA file |
+| `uofa shacl FILE` | SHACL profile validation only |
+| `uofa verify FILE` | Hash + signature verification only |
+| `uofa rules FILE` | Jena rule engine only |
+| `uofa sign FILE --key KEY` | Sign/re-sign a UofA |
+| `uofa keygen PATH` | Generate ed25519 signing keypair |
+| `uofa validate` | SHACL validation on all examples |
+| `uofa init NAME` | Scaffold a new UofA project |

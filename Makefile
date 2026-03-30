@@ -1,111 +1,66 @@
-SHACL      = spec/schemas/uofa_shacl.ttl
-CONTEXT    = spec/context/v0.2.jsonld
-MORRISON   = examples/morrison-cou1/uofa-morrison-cou1.jsonld
-RULES_DIR  = examples/morrison-cou1
-ENG_DIR    = weakener-engine
-RULES_FILE = $(RULES_DIR)/uofa_weakener.rules
-JAR        = $(ENG_DIR)/target/uofa-weakener-engine-0.1.0.jar
-PUBKEY     = keys/research.pub
+# ── UofA Makefile (compatibility shim) ──────────────────────
+# The primary CLI is now `uofa`. Install it: pip install -e .
+# These targets delegate to `uofa` commands for backward compatibility.
 
-# User-overridable: make check FILE=my-project.jsonld
-FILE       ?=
-KEY        ?= keys/research.key
+MORRISON = examples/morrison-cou1/uofa-morrison-cou1.jsonld
+ENG_DIR  = weakener-engine
 
-# ── Primary targets ─────────────────────────────────────────
+FILE ?=
+KEY  ?= keys/research.key
 
 .PHONY: all validate morrison morrison-shacl morrison-rules morrison-verify morrison-build clean
 .PHONY: check shacl verify rules sign build
 
+# ── Primary targets ─────────────────────────────────────────
+
 all: clean validate morrison
 	@echo "\n✓ All checks passed."
 
-# ── Generic targets (any UofA file) ─────────────────────────
-# Usage: make check FILE=path/to/your-uofa.jsonld
-#        make sign  FILE=path/to/your-uofa.jsonld KEY=keys/your.key
+# ── Generic targets (delegate to uofa CLI) ──────────────────
 
-check: _require-file shacl verify rules
-	@echo "\n══════════════════════════════════════════════════════════"
-	@echo "  ✓ $(FILE): C1 (integrity) + C2 (SHACL) + C3 (rules)"
-	@echo "══════════════════════════════════════════════════════════"
+check:
+	uofa check $(FILE) --build
 
-shacl: _require-file
-	@echo "══ C2: SHACL profile validation ══"
-	pyshacl -s $(SHACL) -df json-ld -d $(FILE) -f human
+shacl:
+	uofa shacl $(FILE)
 
-verify: _require-file
-	@echo "\n══ C1: Integrity verification (hash + signature) ══"
-	python scripts/sign_uofa.py $(FILE) --verify --pubkey $(PUBKEY) --context $(CONTEXT)
+verify:
+	uofa verify $(FILE)
 
-rules: _require-file build
-	@echo "\n══ C3: Jena rule engine — weakener detection ══"
-	java -jar $(JAR) $(FILE) --rules $(RULES_FILE) --context $(CONTEXT)
+rules:
+	uofa rules $(FILE) --build
 
-sign: _require-file build
-	@echo "══ Signing $(FILE) ══"
-	python scripts/sign_uofa.py $(FILE) --key $(KEY) --context $(CONTEXT)
-
-build:
-	@if [ ! -f $(JAR) ]; then \
-		echo "══ Building Jena rule engine ══"; \
-		cd $(ENG_DIR) && mvn package -q; \
-	fi
-
-_require-file:
-	@if [ -z "$(FILE)" ]; then \
-		echo "Error: FILE is required. Usage: make check FILE=path/to/your-uofa.jsonld"; \
-		exit 1; \
-	fi
-	@if [ ! -f "$(FILE)" ]; then \
-		echo "Error: $(FILE) not found."; \
-		exit 1; \
-	fi
+sign:
+	uofa sign $(FILE) --key $(KEY)
 
 # ── SHACL validation (all examples) ─────────────────────────
 
 validate:
-	@echo "══ SHACL validation: all examples ══"
-	@for f in $$(find examples -name '*.jsonld' -o -name '*.json' | grep -v deprecated | grep -v templates | sort); do \
-		echo "  → $$f"; \
-		pyshacl -s $(SHACL) -df json-ld -d $$f -f human || exit 1; \
-	done
-	@echo "✓ All examples conform.\n"
+	uofa validate
 
 # ── Morrison COU1: full pipeline ────────────────────────────
 
-morrison: morrison-shacl morrison-verify morrison-rules
-	@echo "\n══════════════════════════════════════════════════════════"
-	@echo "  ✓ Morrison COU1: C1 (integrity) + C2 (SHACL) + C3 (rules)"
-	@echo "══════════════════════════════════════════════════════════"
+morrison:
+	uofa check $(MORRISON) --build
 
 morrison-shacl:
-	@echo "══ C2: SHACL Complete profile validation ══"
-	pyshacl -s $(SHACL) -df json-ld -d $(MORRISON) -f human
+	uofa shacl $(MORRISON)
 
 morrison-verify:
-	@echo "\n══ C1: Integrity verification (hash + signature) ══"
-	python scripts/sign_uofa.py $(MORRISON) --verify --pubkey $(PUBKEY) --context $(CONTEXT)
+	uofa verify $(MORRISON)
 
-morrison-rules: morrison-build
-	@echo "\n══ C3: Jena rule engine — weakener detection ══"
-	java -jar $(JAR) $(MORRISON) --rules $(RULES_FILE) --context $(CONTEXT)
-
-# ── Jena build ──────────────────────────────────────────────
+morrison-rules:
+	uofa rules $(MORRISON) --build
 
 morrison-build:
-	@if [ ! -f $(JAR) ]; then \
+	@if [ ! -f $(ENG_DIR)/target/uofa-weakener-engine-0.1.0.jar ]; then \
 		echo "══ Building Jena rule engine ══"; \
 		cd $(ENG_DIR) && mvn package -q; \
 	fi
 
-# ── Utility targets ─────────────────────────────────────────
-
 morrison-sign:
-	@echo "══ Signing Morrison COU1 ══"
-	python scripts/sign_uofa.py $(MORRISON) --key keys/research.key --context $(CONTEXT)
+	uofa sign $(MORRISON) --key keys/research.key
 
 clean:
 	cd $(ENG_DIR) && mvn clean -q
 	@echo "✓ Clean."
-
-
-

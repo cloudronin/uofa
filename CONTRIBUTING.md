@@ -21,17 +21,17 @@ Start from a template in `examples/templates/` and customize it for your domain.
 ## Validating Before Submitting
 
 ```bash
-# Install dependencies
-pip install pyshacl rdflib cryptography
+# Install the CLI
+pip install -e .
 
 # Validate your example passes SHACL
-make check FILE=examples/your-example/your-uofa.jsonld
+uofa check examples/your-example/your-uofa.jsonld
 
 # Or validate all examples at once
-make validate
+uofa validate
 ```
 
-CI runs `make validate` and `make morrison` on every PR.
+CI runs `uofa validate` and `uofa check` on the Morrison example for every PR.
 
 ## Questions?
 

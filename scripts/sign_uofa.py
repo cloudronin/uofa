@@ -2,6 +2,13 @@
 """
 sign_uofa.py — Mint a sealed UofA evidence package
 ═══════════════════════════════════════════════════
+
+DEPRECATED: Use the `uofa` CLI instead:
+  uofa sign FILE --key KEY       (replaces: python sign_uofa.py FILE --key KEY)
+  uofa verify FILE               (replaces: python sign_uofa.py FILE --verify)
+  uofa keygen PATH               (replaces: python sign_uofa.py --generate-key PATH)
+
+Install: pip install -e .  (from repo root)
 Computes a real SHA-256 content hash and ed25519 digital signature
 for a UofA JSON-LD file, replacing any placeholder values.
 
