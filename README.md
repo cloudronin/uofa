@@ -461,4 +461,6 @@ The UofA ontology, JSON-LD context, SHACL shapes, and reference examples are ope
 
 Contributions are welcome, especially real-world UofA examples from practitioners working with CM&S credibility assessment. If you are preparing a CM&S-supported regulatory submission and want to explore UofA packaging for your evidence, please reach out.
 
+For contributors looking to add features or fix bugs, see the [Architecture & Contributor Guide](docs/architecture.md) — it covers the CLI design, subcommand patterns, test structure, and step-by-step instructions for adding new commands, weakener rules, and schema changes.
+
 **Website:** [crediblesimulation.com](https://crediblesimulation.com)
