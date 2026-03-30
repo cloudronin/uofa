@@ -9,7 +9,7 @@ from uofa_cli import paths
 
 HELP = "validate all examples against SHACL profiles"
 
-_EXCLUDE_DIRS = {"templates", "starters"}
+_EXCLUDE_DIRS = {"templates"}
 
 
 def add_arguments(parser):
@@ -68,9 +68,19 @@ def run(args) -> int:
         v_passed = 0
         v_failed = 0
 
+        import json
         for f in files:
             rel = f.relative_to(examples.parent) if examples.parent in f.parents else f
             try:
+                with open(f) as fh:
+                    doc = json.load(fh)
+                declared_hash = doc.get("hash", "")
+                # Skip files with placeholder hashes (unsigned templates/starters)
+                if declared_hash.endswith("0" * 64):
+                    result_line(str(rel), True, "unsigned — skipped")
+                    v_passed += 1
+                    continue
+
                 hash_ok, sig_ok = verify_file(f, pubkey, ctx)
                 ok = hash_ok and sig_ok
                 detail = ""
