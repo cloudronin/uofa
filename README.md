@@ -50,7 +50,7 @@ UofA addresses this through three contributions:
 
 ## Live Demo: Morrison Blood Pump (FDA V&V 40 Case Study)
 
-The `examples/morrison-cou1/` directory contains a complete, working UofA evidence package built from [Morrison et al. (2019)](https://doi.org/10.1097/MAT.0000000000000996) — an FDA OSEL co-authored V&V 40 credibility assessment for a centrifugal blood pump. This is the most widely cited V&V 40 worked example.
+The `examples/morrison/` directory contains complete, working UofA evidence packages built from [Morrison et al. (2019)](https://doi.org/10.1097/MAT.0000000000000996) — an FDA OSEL co-authored V&V 40 credibility assessment for a centrifugal blood pump. This is the most widely cited V&V 40 worked example.
 
 **What the demo shows:**
 
@@ -67,7 +67,7 @@ Morrison prose assessment          →  UofA structured evidence package
 pip install -e .    # one-time setup (installs uofa CLI + all Python dependencies)
 
 # Run the full C1 + C2 + C3 pipeline in one command
-uofa check examples/morrison-cou1/uofa-morrison-cou1.jsonld --build
+uofa check examples/morrison/cou1/uofa-morrison-cou1.jsonld --build
 ```
 
 That single command runs three checks:
@@ -106,8 +106,8 @@ Morrison contains two Contexts of Use assessing the same CFD model:
 Same model. Same experimental data. Different credibility requirements driven by different model risk. The `uofa diff` command surfaces this divergence automatically:
 
 ```bash
-uofa diff examples/morrison-cou1/uofa-morrison-cou1.jsonld \
-         examples/morrison-cou2/uofa-morrison-cou2.jsonld
+uofa diff examples/morrison/cou1/uofa-morrison-cou1.jsonld \
+         examples/morrison/cou2/uofa-morrison-cou2.jsonld
 ```
 
 ```
@@ -187,10 +187,10 @@ Every UofA carries a real cryptographic hash and digital signature — not place
 
 ```bash
 # Mint a sealed UofA (sign after edits)
-uofa sign examples/morrison-cou1/uofa-morrison-cou1.jsonld --key keys/research.key
+uofa sign examples/morrison/cou1/uofa-morrison-cou1.jsonld --key keys/research.key
 
 # Verify integrity
-uofa verify examples/morrison-cou1/uofa-morrison-cou1.jsonld
+uofa verify examples/morrison/cou1/uofa-morrison-cou1.jsonld
 ```
 
 Placeholder strings (e.g., `sha256:placeholder...`) now **fail** SHACL validation. This is deliberate — a UofA claiming ProfileComplete must carry a real hash.
@@ -341,11 +341,12 @@ spec/
     uofa_shacl.ttl               # SHACL shapes (Minimal + Complete + dispatcher)
 
 examples/
-  morrison-cou1/
-    uofa-morrison-cou1.jsonld    # ✓ Complete profile — Morrison COU1 (CPB, Accepted)
+  morrison/
     uofa_weakener.rules          # 12 forward-chaining rules (9 core + 3 compound)
-  morrison-cou2/
-    uofa-morrison-cou2.jsonld    # ✓ Complete profile — Morrison COU2 (VAD, Not accepted)
+    cou1/
+      uofa-morrison-cou1.jsonld  # ✓ Complete profile — Morrison COU1 (CPB, Accepted)
+    cou2/
+      uofa-morrison-cou2.jsonld  # ✓ Complete profile — Morrison COU2 (VAD, Not accepted)
   templates/
     uofa-minimal-skeleton.jsonld # Starter template — Minimal profile
     uofa-complete-skeleton.jsonld # Starter template — Complete profile
@@ -400,7 +401,7 @@ The v0.2 architecture models credibility assessment at the **COU level**, not th
 
 ```
 Morrison Blood Pump Assessment
-├── uofa-morrison-cou1.jsonld (ProfileComplete)
+├── morrison/cou1/uofa-morrison-cou1.jsonld (ProfileComplete)
 │   COU1: CPB Use (Class II) — Model Risk Level 2
 │   ├── hasContextOfUse    → COU1 node
 │   ├── bindsRequirement   → hemolysis safety requirement
@@ -414,7 +415,7 @@ Morrison Blood Pump Assessment
 │   ├── signature          → ed25519:<real signature>
 │   └── wasDerivedFrom     → Morrison DOI
 │
-└── uofa-morrison-cou2.jsonld (ProfileComplete)
+└── morrison/cou2/uofa-morrison-cou2.jsonld (ProfileComplete)
     COU2: VAD Use (Class III) — Model Risk Level 5
     └── W-AL-01 does NOT fire — COU2 has UQ
 ```

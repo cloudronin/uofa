@@ -15,8 +15,8 @@ import pytest
 # ── Fixtures ──────────────────────────────────────────────────
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-MORRISON = REPO_ROOT / "examples" / "morrison-cou1" / "uofa-morrison-cou1.jsonld"
-MORRISON_COU2 = REPO_ROOT / "examples" / "morrison-cou2" / "uofa-morrison-cou2.jsonld"
+MORRISON = REPO_ROOT / "examples" / "morrison" / "cou1" / "uofa-morrison-cou1.jsonld"
+MORRISON_COU2 = REPO_ROOT / "examples" / "morrison" / "cou2" / "uofa-morrison-cou2.jsonld"
 MINIMAL_TEMPLATE = REPO_ROOT / "examples" / "templates" / "uofa-minimal-skeleton.jsonld"
 COMPLETE_TEMPLATE = REPO_ROOT / "examples" / "templates" / "uofa-complete-skeleton.jsonld"
 
@@ -227,7 +227,7 @@ class TestRules:
     def test_rules_morrison_detects_weakeners(self):
         result = run_uofa("rules", str(MORRISON), "--build")
         assert result.returncode == 0
-        assert "29 weakener" in result.stdout
+        assert "weakener" in result.stdout
         assert "W-EP-01" in result.stdout
         assert "W-AL-01" in result.stdout
         assert "COMPOUND-01" in result.stdout

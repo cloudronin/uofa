@@ -8,6 +8,7 @@
 
 ```
                     ┌─────────────────────────────────┐
+                    │  examples/morrison/cou1/         │
                     │  uofa-morrison-cou1.jsonld       │
                     │  (JSON-LD evidence package)      │
                     └──────────┬──────────────────────┘
@@ -61,19 +62,19 @@ mvn package -q
 
 # Run against Morrison COU1
 java -jar target/uofa-weakener-engine-0.1.0.jar \
-    ../uofa-morrison-cou1.jsonld \
+    ../examples/morrison/cou1/uofa-morrison-cou1.jsonld \
     --context ../uofa_v0_2.jsonld
 
 # Output deductions as Turtle
 java -jar target/uofa-weakener-engine-0.1.0.jar \
-    ../uofa-morrison-cou1.jsonld \
+    ../examples/morrison/cou1/uofa-morrison-cou1.jsonld \
     --context ../uofa_v0_2.jsonld \
     --format turtle \
     --output cou1-weakeners.ttl
 
 # Trace rule execution (debug)
 java -jar target/uofa-weakener-engine-0.1.0.jar \
-    ../uofa-morrison-cou1.jsonld \
+    ../examples/morrison/cou1/uofa-morrison-cou1.jsonld \
     --context ../uofa_v0_2.jsonld \
     --trace
 ```
@@ -83,7 +84,7 @@ java -jar target/uofa-weakener-engine-0.1.0.jar \
 ```
 ══════════════════════════════════════════════════════════════
   UofA Weakener Detection Report
-  Input: uofa-morrison-cou1.jsonld
+  Input: examples/morrison/cou1/uofa-morrison-cou1.jsonld
 ══════════════════════════════════════════════════════════════
 
   SUMMARY: ~12-15 weakener(s) detected

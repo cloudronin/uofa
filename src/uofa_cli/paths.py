@@ -63,13 +63,16 @@ def engine_dir(root: Path = None) -> Path:
 
 
 def rules_file(input_path: Path = None, root: Path = None) -> Path:
-    """Find rules file: same directory as input, then default location."""
+    """Find rules file: same dir as input, then parent dir, then default location."""
     if input_path:
         local = input_path.parent / "uofa_weakener.rules"
         if local.exists():
             return local
+        parent = input_path.parent.parent / "uofa_weakener.rules"
+        if parent.exists():
+            return parent
     root = root or find_repo_root()
-    return root / "examples" / "morrison-cou1" / "uofa_weakener.rules"
+    return root / "examples" / "morrison" / "uofa_weakener.rules"
 
 
 def default_pubkey(root: Path = None) -> Path:

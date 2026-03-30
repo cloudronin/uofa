@@ -166,7 +166,7 @@ A typical workflow:
 
 ## What's Next
 
-- **Study the Morrison example** (`examples/morrison-cou1/`) to see a Complete profile for an FDA V&V 40 case study
+- **Study the Morrison example** (`examples/morrison/`) to see Complete profiles for an FDA V&V 40 case study (COU1 and COU2)
 - **Add a second COU** — same model, different context of use, potentially different credibility requirements
 - **Run COU divergence analysis** — compare weakener profiles across COUs to see how risk level affects evidence requirements
 - **Integrate with CI** — add `uofa check` to your pipeline so credibility evidence is validated on every commit
