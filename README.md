@@ -1,4 +1,4 @@
-# Unit of Assurance (UofA) — v0.2
+# Unit of Assurance (UofA) — v0.3
 
 ![validate examples](https://github.com/cloudronin/uofa/actions/workflows/validate.yml/badge.svg)
 
@@ -340,7 +340,7 @@ Java and Maven are only required for the Jena rule engine (C3). Use `uofa check 
 
 ## Architecture: One UofA per Context of Use
 
-The v0.2 architecture models credibility assessment at the **COU level**, not the individual factor level. Each UofA packages the complete credibility decision for one Context of Use — including all per-factor assessments as embedded CredibilityFactor nodes and any detected quality gaps as WeakenerAnnotation nodes.
+The v0.3 architecture models credibility assessment at the **COU level**, not the individual factor level. Each UofA packages the complete credibility decision for one Context of Use — including all per-factor assessments as embedded CredibilityFactor nodes and any detected quality gaps as WeakenerAnnotation nodes.
 
 ```
 Morrison Blood Pump Assessment

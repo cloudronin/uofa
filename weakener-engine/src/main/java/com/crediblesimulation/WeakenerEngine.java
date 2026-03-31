@@ -28,7 +28,7 @@ import java.util.concurrent.Callable;
  * Usage:
  *   java -jar uofa-weakener-engine.jar input.jsonld
  *   java -jar uofa-weakener-engine.jar input.jsonld --rules custom.rules
- *   java -jar uofa-weakener-engine.jar input.jsonld --context uofa_v0_2.jsonld
+ *   java -jar uofa-weakener-engine.jar input.jsonld --context uofa_v0_3.jsonld
  *   java -jar uofa-weakener-engine.jar input.jsonld --format turtle
  *   java -jar uofa-weakener-engine.jar input.jsonld --summary
  */

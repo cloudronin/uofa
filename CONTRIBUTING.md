@@ -11,9 +11,9 @@ Thanks for helping make the **Unit of Assurance (UofA)** better!
 
 Start from a template in `examples/templates/` and customize it for your domain. Your example should:
 
-- Use the v0.2 JSON-LD context:
+- Use the v0.3 JSON-LD context:
   ```json
-  "@context": "https://raw.githubusercontent.com/cloudronin/uofa/main/spec/context/v0.2.jsonld"
+  "@context": "https://raw.githubusercontent.com/cloudronin/uofa/main/spec/context/v0.3.jsonld"
   ```
 - Conform to either Minimal or Complete profile
 - Include a signed hash and signature (see [Getting Started Guide](docs/getting-started.md))

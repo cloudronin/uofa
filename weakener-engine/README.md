@@ -1,7 +1,7 @@
 # UofA Weakener Detection Engine
 
 > **Status:** Implementation scaffold — rules file ready, Java CLI ready for `mvn package`  
-> **Schema:** UofA v0.2 (`uofa_v0_2.jsonld` + `uofa_shacl.ttl`)  
+> **Schema:** UofA v0.3 (`uofa_v0_3.jsonld` + `uofa_shacl.ttl`)  
 > **Engine:** Apache Jena 5.3, GenericRuleReasoner, forward RETE mode
 
 ## Architecture
@@ -63,19 +63,19 @@ mvn package -q
 # Run against Morrison COU1
 java -jar target/uofa-weakener-engine-0.1.0.jar \
     ../examples/morrison/cou1/uofa-morrison-cou1.jsonld \
-    --context ../uofa_v0_2.jsonld
+    --context ../uofa_v0_3.jsonld
 
 # Output deductions as Turtle
 java -jar target/uofa-weakener-engine-0.1.0.jar \
     ../examples/morrison/cou1/uofa-morrison-cou1.jsonld \
-    --context ../uofa_v0_2.jsonld \
+    --context ../uofa_v0_3.jsonld \
     --format turtle \
     --output cou1-weakeners.ttl
 
 # Trace rule execution (debug)
 java -jar target/uofa-weakener-engine-0.1.0.jar \
     ../examples/morrison/cou1/uofa-morrison-cou1.jsonld \
-    --context ../uofa_v0_2.jsonld \
+    --context ../uofa_v0_3.jsonld \
     --trace
 ```
 
@@ -133,9 +133,9 @@ the COU drove different requirements.
 ## NAFEMS Demo Script (90 seconds)
 
 1. **Show:** Morrison COU1 JSON-LD (the evidence package)
-2. **Run:** `java -jar uofa-weakener-engine.jar cou1.jsonld --context uofa_v0_2.jsonld`
+2. **Run:** `java -jar uofa-weakener-engine.jar cou1.jsonld --context uofa_v0_3.jsonld`
 3. **Show:** Summary output — 4 core weakeners + 2 compound inferences
-4. **Run:** `java -jar uofa-weakener-engine.jar cou2.jsonld --context uofa_v0_2.jsonld`
+4. **Run:** `java -jar uofa-weakener-engine.jar cou2.jsonld --context uofa_v0_3.jsonld`
 5. **Show:** W-AL-01 is absent, W-AR-02 appears, COMPOUND-01 has different profile
 6. **Key line:** "Same rules, same model, different evidence quality — because the
    Context of Use drove different requirements. And the compound rules caught

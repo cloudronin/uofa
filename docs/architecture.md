@@ -56,7 +56,7 @@ src/uofa_cli/
     verify.py             # verify hash + signature (C1)
 
 spec/
-  context/v0.2.jsonld     # JSON-LD vocabulary context (@vocab, property mappings)
+  context/v0.3.jsonld     # JSON-LD vocabulary context (@vocab, property mappings)
   schemas/
     uofa_shacl.ttl        # SHACL shapes — single source of truth for validation
     uofa.schema.json      # JSON Schema — generated from SHACL via `uofa schema`
@@ -248,7 +248,7 @@ If you change a validation constraint:
 2. Run `uofa schema` to regenerate the JSON Schema
 3. Run `uofa validate` to verify all examples still conform
 
-The JSON-LD context at `spec/context/v0.2.jsonld` defines the vocabulary mappings. It maps short property names (e.g., `patternId`) to full URIs (e.g., `uofa:patternId`). If you add a new property to the schema, you must also add its mapping here.
+The JSON-LD context at `spec/context/v0.3.jsonld` defines the vocabulary mappings. It maps short property names (e.g., `patternId`) to full URIs (e.g., `uofa:patternId`). If you add a new property to the schema, you must also add its mapping here.
 
 ---
 
@@ -426,7 +426,7 @@ pytest tests/ -v
 
 The SHACL shapes at `spec/schemas/uofa_shacl.ttl` define what fields are required, their types, and allowed values. If you need to add a new field to the UofA vocabulary:
 
-1. **Add the property mapping** to `spec/context/v0.2.jsonld`:
+1. **Add the property mapping** to `spec/context/v0.3.jsonld`:
 
 ```json
 "myNewField": {"@id": "uofa:myNewField", "@type": "xsd:string"}

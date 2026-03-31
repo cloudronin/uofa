@@ -192,7 +192,7 @@ class TestShacl:
     def test_shacl_invalid_file_fails(self, tmp_path):
         bad_file = tmp_path / "bad.jsonld"
         bad_file.write_text(json.dumps({
-            "@context": "https://raw.githubusercontent.com/cloudronin/uofa/main/spec/context/v0.2.jsonld",
+            "@context": "https://raw.githubusercontent.com/cloudronin/uofa/main/spec/context/v0.3.jsonld",
             "id": "https://example.org/bad",
             "type": "UnitOfAssurance",
             "conformsToProfile": "https://uofa.net/vocab#ProfileMinimal",
@@ -210,7 +210,7 @@ class TestShacl:
         """Friendly errors should include fix suggestions."""
         bad_file = tmp_path / "bad.jsonld"
         bad_file.write_text(json.dumps({
-            "@context": "https://raw.githubusercontent.com/cloudronin/uofa/main/spec/context/v0.2.jsonld",
+            "@context": "https://raw.githubusercontent.com/cloudronin/uofa/main/spec/context/v0.3.jsonld",
             "id": "https://example.org/bad",
             "type": "UnitOfAssurance",
             "conformsToProfile": "https://uofa.net/vocab#ProfileMinimal",
@@ -417,7 +417,7 @@ class TestDiff:
         cou2 = tmp_path / "cou2.jsonld"
 
         cou1.write_text(json.dumps({
-            "@context": "https://raw.githubusercontent.com/cloudronin/uofa/main/spec/context/v0.2.jsonld",
+            "@context": "https://raw.githubusercontent.com/cloudronin/uofa/main/spec/context/v0.3.jsonld",
             "id": "https://example.org/cou1", "type": "UnitOfAssurance",
             "name": "COU1",
             "hasWeakener": [
@@ -428,7 +428,7 @@ class TestDiff:
             ]
         }))
         cou2.write_text(json.dumps({
-            "@context": "https://raw.githubusercontent.com/cloudronin/uofa/main/spec/context/v0.2.jsonld",
+            "@context": "https://raw.githubusercontent.com/cloudronin/uofa/main/spec/context/v0.3.jsonld",
             "id": "https://example.org/cou2", "type": "UnitOfAssurance",
             "name": "COU2",
             "hasWeakener": [
@@ -456,7 +456,7 @@ class TestDiff:
         f2 = tmp_path / "clean2.jsonld"
         for f in [f1, f2]:
             f.write_text(json.dumps({
-                "@context": "https://raw.githubusercontent.com/cloudronin/uofa/main/spec/context/v0.2.jsonld",
+                "@context": "https://raw.githubusercontent.com/cloudronin/uofa/main/spec/context/v0.3.jsonld",
                 "id": "https://example.org/clean", "type": "UnitOfAssurance",
                 "name": "Clean UofA",
             }))
@@ -499,7 +499,7 @@ class TestDiff:
         cou2 = tmp_path / "cou2.jsonld"
 
         cou1.write_text(json.dumps({
-            "@context": "https://raw.githubusercontent.com/cloudronin/uofa/main/spec/context/v0.2.jsonld",
+            "@context": "https://raw.githubusercontent.com/cloudronin/uofa/main/spec/context/v0.3.jsonld",
             "id": "https://example.org/cou1", "type": "UnitOfAssurance",
             "name": "COU1",
             "hasWeakener": [
@@ -510,7 +510,7 @@ class TestDiff:
             ]
         }))
         cou2.write_text(json.dumps({
-            "@context": "https://raw.githubusercontent.com/cloudronin/uofa/main/spec/context/v0.2.jsonld",
+            "@context": "https://raw.githubusercontent.com/cloudronin/uofa/main/spec/context/v0.3.jsonld",
             "id": "https://example.org/cou2", "type": "UnitOfAssurance",
             "name": "COU2",
             "hasWeakener": [
@@ -537,7 +537,7 @@ class TestDiff:
         f2 = tmp_path / "min2.jsonld"
         for f in [f1, f2]:
             f.write_text(json.dumps({
-                "@context": "https://raw.githubusercontent.com/cloudronin/uofa/main/spec/context/v0.2.jsonld",
+                "@context": "https://raw.githubusercontent.com/cloudronin/uofa/main/spec/context/v0.3.jsonld",
                 "id": "https://example.org/min", "type": "UnitOfAssurance",
                 "name": "Minimal UofA",
             }))
@@ -553,7 +553,7 @@ class TestDiff:
         cou2 = tmp_path / "cou2.jsonld"
 
         cou1.write_text(json.dumps({
-            "@context": "https://raw.githubusercontent.com/cloudronin/uofa/main/spec/context/v0.2.jsonld",
+            "@context": "https://raw.githubusercontent.com/cloudronin/uofa/main/spec/context/v0.3.jsonld",
             "id": "https://example.org/cou1", "type": "UnitOfAssurance",
             "name": "COU1",
             "hasWeakener": [
@@ -563,7 +563,7 @@ class TestDiff:
             ]
         }))
         cou2.write_text(json.dumps({
-            "@context": "https://raw.githubusercontent.com/cloudronin/uofa/main/spec/context/v0.2.jsonld",
+            "@context": "https://raw.githubusercontent.com/cloudronin/uofa/main/spec/context/v0.3.jsonld",
             "id": "https://example.org/cou2", "type": "UnitOfAssurance",
             "name": "COU2",
             "hasWeakener": []
