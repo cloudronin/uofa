@@ -129,8 +129,44 @@ uofa:UnitOfAssurance_CompleteBody
     sh:message "Complete: signature must be algorithm:hexdigest format." ;
   ] ;
 
+  # ---- v0.3 additions: COU metadata ----
 
-  # Credibility
+  sh:property [
+    sh:path uofa:modelRiskLevel ;
+    sh:datatype xsd:integer ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:minInclusive 1 ;
+    sh:maxInclusive 5 ;
+    sh:message "Complete: modelRiskLevel is required (integer 1–5, per V&V 40 risk matrix)." ;
+  ] ;
+  sh:property [
+    sh:path uofa:deviceClass ;
+    sh:maxCount 1 ;
+    sh:in ( "Class I" "Class II" "Class III" ) ;
+    sh:message "Complete: deviceClass must be Class I, Class II, or Class III (FDA classification)." ;
+  ] ;
+  sh:property [
+    sh:path uofa:couName ;
+    sh:datatype xsd:string ;
+    sh:maxCount 1 ;
+    sh:message "Complete: couName is a human-readable COU label for diff output." ;
+  ] ;
+  sh:property [
+    sh:path uofa:decision ;
+    sh:maxCount 1 ;
+    sh:in ( "Accepted" "Not accepted" ) ;
+    sh:message "Complete: decision must be 'Accepted' or 'Not accepted'." ;
+  ] ;
+  sh:property [
+    sh:path uofa:hasUncertaintyQuantification ;
+    sh:datatype xsd:boolean ;
+    sh:maxCount 1 ;
+    sh:message "Complete: hasUncertaintyQuantification must be a boolean." ;
+  ] ;
+
+  # ---- Credibility metrics (unchanged from v0.2) ----
+
   sh:property [
     sh:path uofa:credibilityIndex ;
     sh:or (
@@ -209,6 +245,14 @@ uofa:UnitOfAssurance_CompleteBody
 
 ################################################################
 # CredibilityFactor node shape (V&V 40 Table 5-1)
+#
+# v0.3 changes:
+#   - factorStatus added (required): drives assessed vs not-assessed
+#   - requiredLevel / achievedLevel now OPTIONAL (removed minCount 1)
+#     Not-assessed factors omit levels; assessed factors should have
+#     them. Jena rules (C3) enforce the semantic constraint that
+#     assessed factors with missing levels fire W-AR-02.
+#   - Level range widened to 0–5 (0 = explicitly unset placeholder)
 ################################################################
 uofa:CredibilityFactorShape
   a sh:NodeShape ;
@@ -240,22 +284,31 @@ uofa:CredibilityFactorShape
     sh:message "factorType must be a V&V 40 Table 5-1 credibility factor name." ;
   ] ;
   sh:property [
-    sh:path uofa:requiredLevel ;
-    sh:datatype xsd:integer ;
+    sh:path uofa:factorStatus ;
     sh:minCount 1 ;
     sh:maxCount 1 ;
-    sh:minInclusive 1 ;
+    sh:in ( "assessed" "not-assessed" "scoped-out" "not-applicable" ) ;
+    sh:message "Every credibility factor must declare its assessment status." ;
+  ] ;
+  sh:property [
+    sh:path uofa:requiredLevel ;
+    sh:datatype xsd:integer ;
+    # No sh:minCount — optional for not-assessed factors.
+    # Jena rule W-AR-02 enforces that assessed factors have levels.
+    sh:maxCount 1 ;
+    sh:minInclusive 0 ;
     sh:maxInclusive 5 ;
-    sh:message "requiredLevel must be an integer 1–5." ;
+    sh:message "requiredLevel must be an integer 0–5 (0 = not set)." ;
   ] ;
   sh:property [
     sh:path uofa:achievedLevel ;
     sh:datatype xsd:integer ;
-    sh:minCount 1 ;
+    # No sh:minCount — optional for not-assessed factors.
+    # Jena rule W-AR-02 enforces that assessed factors have levels.
     sh:maxCount 1 ;
-    sh:minInclusive 1 ;
+    sh:minInclusive 0 ;
     sh:maxInclusive 5 ;
-    sh:message "achievedLevel must be an integer 1–5." ;
+    sh:message "achievedLevel must be an integer 0–5 (0 = not set)." ;
   ] .
 
 ################################################################
