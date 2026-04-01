@@ -232,6 +232,18 @@ class TestRules:
         assert "W-AL-01" in result.stdout
         assert "COMPOUND-01" in result.stdout
 
+    def test_rules_cou2_detects_ep04(self):
+        """COU2 at MRL 5 with not-assessed factors triggers W-EP-04."""
+        result = run_uofa("rules", str(MORRISON_COU2), "--build")
+        assert result.returncode == 0
+        assert "W-EP-04" in result.stdout
+
+    def test_rules_cou1_no_ep04(self):
+        """COU1 at MRL 2 does not trigger W-EP-04."""
+        result = run_uofa("rules", str(MORRISON), "--build")
+        assert result.returncode == 0
+        assert "W-EP-04" not in result.stdout
+
     def test_rules_missing_file_fails(self):
         result = run_uofa("rules", "/nonexistent/file.jsonld")
         assert result.returncode != 0
@@ -580,6 +592,13 @@ class TestDiff:
         # These come from the description field in the JSON-LD, not hardcoded
         assert "provenance chain is broken" in result.stdout
         assert "aleatory uncertainty is uncharacterized" in result.stdout
+
+    def test_diff_ep04_divergence(self):
+        """W-EP-04 fires on COU2 (MRL 5) but not COU1 (MRL 2), showing as divergent."""
+        result = run_uofa("diff", str(MORRISON), str(MORRISON_COU2))
+        assert result.returncode == 0
+        assert "W-EP-04" in result.stdout
+        assert "divergent" in result.stdout
 
 
 # ── Test: uofa packs ─────────────────────────────────────────
