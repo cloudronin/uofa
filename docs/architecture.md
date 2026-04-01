@@ -39,7 +39,7 @@ src/uofa_cli/
   __main__.py             # python -m uofa_cli entry point
   cli.py                  # argparse dispatcher — registers all subcommands
   integrity.py            # SHA-256 hashing + ed25519 signing/verification
-  paths.py                # auto-discovery of repo root and asset paths
+  paths.py                # auto-discovery of repo root, packs, and asset paths
   output.py               # ANSI color helpers + table rendering
   explain.py              # generic divergence explanation (reads description field)
   shacl_friendly.py       # SHACL violation → plain English translator
@@ -48,6 +48,7 @@ src/uofa_cli/
     diff.py               # COU divergence analysis
     init.py               # scaffold new projects
     keygen.py             # generate ed25519 keypair
+    packs.py              # list and inspect installed domain packs
     rules.py              # Jena rule engine (C3)
     schema.py             # generate JSON Schema from SHACL
     shacl.py              # SHACL validation (C2)
@@ -55,15 +56,26 @@ src/uofa_cli/
     validate.py           # bulk validate all examples
     verify.py             # verify hash + signature (C1)
 
+packs/
+  core/                   # Base V&V 40 domain pack
+    pack.json             # Pack manifest (name, version, shapes, rules, etc.)
+    shapes/
+      uofa_shacl.ttl      # SHACL shapes — single source of truth for validation
+    rules/
+      uofa_weakener.rules # Jena forward-chaining rules (12+ patterns)
+    templates/            # (populated when uofa import ships)
+    prompts/              # (populated when uofa extract ships)
+  README.md               # How to create a domain pack
+
 spec/
   context/v0.3.jsonld     # JSON-LD vocabulary context (@vocab, property mappings)
   schemas/
-    uofa_shacl.ttl        # SHACL shapes — single source of truth for validation
+    uofa_shacl.ttl        # SYMLINK → ../../packs/core/shapes/uofa_shacl.ttl
     uofa.schema.json      # JSON Schema — generated from SHACL via `uofa schema`
 
 examples/
   morrison/               # Reference Morrison blood pump case study
-    uofa_weakener.rules   # Jena forward-chaining rules (shared across COUs)
+    uofa_weakener.rules   # SYMLINK → ../../packs/core/rules/uofa_weakener.rules
     cou1/                 # COU1: CPB use (Class II, Accepted)
     cou2/                 # COU2: VAD use (Class III, Not accepted)
   templates/              # Skeleton files used by `uofa init`
@@ -109,6 +121,7 @@ At runtime, the dispatcher calls `modules[args.command].run(args)`.
 - `--no-color` — disables ANSI color output
 - `--verbose` — shows full tracebacks on error
 - `--repo-root PATH` — overrides repo root auto-detection
+- `--pack NAME` — selects the domain pack for shapes, rules, and templates (default: `core`)
 
 ---
 
@@ -165,9 +178,13 @@ Compares weakener profiles between two UofA files. Outputs four sections:
 
 The diff command is entirely pattern-agnostic — it works with any pattern IDs and does not hardcode rule-specific logic.
 
+### `uofa packs [name]`
+
+Lists installed domain packs or inspects a specific pack. Without arguments, shows all packs with version and description. With a pack name, shows full manifest details including shapes path, rules path, standards, and factor counts.
+
 ### `uofa schema`
 
-Generates `spec/schemas/uofa.schema.json` from the SHACL shapes in `spec/schemas/uofa_shacl.ttl`. This ensures the JSON Schema stays in sync with the SHACL source of truth. Uses rdflib to parse Turtle and maps SHACL constraints to JSON Schema properties.
+Generates `spec/schemas/uofa.schema.json` from the SHACL shapes in the active pack. This ensures the JSON Schema stays in sync with the SHACL source of truth. Uses rdflib to parse Turtle and maps SHACL constraints to JSON Schema properties.
 
 ---
 
@@ -190,13 +207,21 @@ All signing and verification logic lives here. Key functions:
 
 Canonicalization: `json.dumps(doc, sort_keys=True, ensure_ascii=False, separators=(',', ':'))`. This is a deterministic JSON canonical form, not RDFC-1.0 (despite the `canonicalizationAlg` field in the document).
 
-### `paths.py` — Asset discovery
+### `paths.py` — Asset discovery and pack resolution
 
-Finds the repo root by searching upward for the marker file `spec/schemas/uofa_shacl.ttl`. All other paths are relative to this root. The root is cached globally after first discovery.
+Finds the repo root by searching upward for the marker file `packs/core/pack.json` or `spec/schemas/uofa_shacl.ttl` (backward compat). All other paths are relative to this root. The root is cached globally after first discovery.
+
+**Pack-aware resolution:** The `--pack` flag (default: `core`) sets the active pack via `set_active_pack()`. Asset functions like `shacl_schema()` and `rules_file()` read from the active pack's manifest (`pack.json`) to locate files. If the pack or manifest is missing, they fall back to the legacy hardcoded paths.
 
 Key pattern: commands never hardcode paths. They call `paths.shacl_schema()`, `paths.jar_path()`, `paths.rules_file(input_path)`, etc.
 
-The `rules_file()` function searches in order: same directory as the input file, then the parent directory, then the default at `examples/morrison/uofa_weakener.rules`. This allows per-project rules files while falling back to the bundled Morrison rules.
+The `rules_file()` function searches in order: same directory as the input file, then the parent directory, then the active pack's rules directory. This allows per-project rules files while falling back to the pack rules.
+
+Additional pack functions:
+- `pack_dir(name)` — returns the directory for a named pack
+- `pack_manifest(name)` — loads and returns `pack.json` as a dict
+- `list_packs()` — discovers all installed packs (directories under `packs/` with `pack.json`)
+- `template_path()` / `extract_prompt()` — resolve template and prompt paths from the manifest
 
 ### `output.py` — Terminal formatting
 
@@ -241,14 +266,14 @@ java -jar weakener-engine/target/uofa-weakener-engine-0.1.0.jar \
 
 ## Spec Files and Schema Strategy
 
-The SHACL shapes at `spec/schemas/uofa_shacl.ttl` are the **single source of truth** for validation constraints. The JSON Schema at `spec/schemas/uofa.schema.json` is **generated** from SHACL via `uofa schema` and should never be edited by hand.
+The SHACL shapes in `packs/core/shapes/uofa_shacl.ttl` are the **single source of truth** for validation constraints. A symlink at `spec/schemas/uofa_shacl.ttl` preserves backward compatibility. The JSON Schema at `spec/schemas/uofa.schema.json` is **generated** from SHACL via `uofa schema` and should never be edited by hand.
 
 If you change a validation constraint:
-1. Edit `uofa_shacl.ttl`
+1. Edit `packs/core/shapes/uofa_shacl.ttl`
 2. Run `uofa schema` to regenerate the JSON Schema
 3. Run `uofa validate` to verify all examples still conform
 
-The JSON-LD context at `spec/context/v0.3.jsonld` defines the vocabulary mappings. It maps short property names (e.g., `patternId`) to full URIs (e.g., `uofa:patternId`). If you add a new property to the schema, you must also add its mapping here.
+The JSON-LD context at `spec/context/v0.3.jsonld` defines the vocabulary mappings. It maps short property names (e.g., `patternId`) to full URIs (e.g., `uofa:patternId`). If you add a new property to the schema, you must also add its mapping here. The context is framework-level (not pack-specific) — all packs share the same vocabulary.
 
 ---
 
@@ -298,7 +323,8 @@ def run_uofa(*args):
 | `TestSchema` | JSON Schema generation, content assertions |
 | `TestInit` | Project scaffolding, template substitution, init-sign-shacl roundtrip |
 | `TestDiff` | Identical files, different profiles, compound separation, identity block, severity breakdown, description passthrough, minimal profile fallback |
-| `TestGlobalFlags` | `--repo-root`, `--no-color` |
+| `TestPacks` | Pack listing, pack detail, missing pack error |
+| `TestGlobalFlags` | `--repo-root`, `--no-color`, `--pack` |
 | `TestStarterExamples` | Starter files conform to SHACL |
 | `TestEndToEnd` | Complete workflow: init → sign → shacl → verify |
 
@@ -374,7 +400,7 @@ pytest tests/ -v
 
 ## Adding a New Weakener Rule
 
-Weakener rules are defined in Jena rule syntax in `.rules` files (e.g., `examples/morrison/uofa_weakener.rules`).
+Weakener rules are defined in Jena rule syntax in `.rules` files. The core rules live at `packs/core/rules/uofa_weakener.rules` (symlinked from `examples/morrison/uofa_weakener.rules` for backward compatibility).
 
 1. **Add the rule** to the `.rules` file:
 
@@ -424,7 +450,7 @@ pytest tests/ -v
 
 ## Modifying the SHACL Schema
 
-The SHACL shapes at `spec/schemas/uofa_shacl.ttl` define what fields are required, their types, and allowed values. If you need to add a new field to the UofA vocabulary:
+The SHACL shapes at `packs/core/shapes/uofa_shacl.ttl` define what fields are required, their types, and allowed values. If you need to add a new field to the UofA vocabulary:
 
 1. **Add the property mapping** to `spec/context/v0.3.jsonld`:
 
@@ -505,4 +531,6 @@ Tests that require Java are gated with `@pytest.mark.skipif(not JAVA_AVAILABLE, 
 
 **Subprocess for Java.** The Jena rule engine runs as a Java subprocess, not via py4j or similar bridges. This keeps the dependency boundary clean — Java is only needed for C3 and can be skipped entirely via `--skip-rules`.
 
-**Convention-based rules discovery.** The `rules_file()` function searches for `uofa_weakener.rules` next to the input file, then one directory up, then falls back to the bundled Morrison rules. This lets projects carry their own rules without CLI changes.
+**Convention-based rules discovery.** The `rules_file()` function searches for `uofa_weakener.rules` next to the input file, then one directory up, then falls back to the active pack's rules. This lets projects carry their own rules without CLI changes.
+
+**Domain pack architecture.** SHACL shapes, Jena rules, templates, and prompts are organized into domain packs under `packs/`. The `core` pack ships with the base V&V 40 rules. Future domain packs (e.g., `cardio-cfd`, `ortho-fatigue`) drop into `packs/` following the same convention. Each pack has a `pack.json` manifest that the CLI reads to discover assets. The `--pack` global flag switches between packs. See `packs/README.md` for the full pack contract.

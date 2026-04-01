@@ -312,9 +312,29 @@ uofa validate
 
 # Compare weakener profiles across two COUs
 uofa diff uofa-cou1.jsonld uofa-cou2.jsonld
+
+# List installed domain packs
+uofa packs
+
+# Use a specific domain pack
+uofa check path/to/your-uofa.jsonld --pack cardio-cfd
 ```
 
 See the [Getting Started Guide](docs/getting-started.md) for a full walkthrough.
+
+---
+
+## Domain Packs
+
+SHACL shapes, Jena rules, templates, and extraction prompts are organized into **domain packs** under `packs/`. The `core` pack ships with the base V&V 40 credibility assessment rules (13 factors, 12+ weakener patterns). Future domain-specific packs (e.g., `cardio-cfd`, `ortho-fatigue`, `aero-structures`) extend the core shapes and rules with domain-specific constraints.
+
+```bash
+$ uofa packs
+Installed packs:
+  core         v0.3.0   Base V&V 40 credibility assessment pack. (13 factors, 12 patterns)   [active]
+```
+
+The `--pack` flag on any command switches the active pack. Per-project rules files next to the input file still take precedence over the pack default. See [`packs/README.md`](packs/README.md) for the full pack contract and instructions for creating domain packs.
 
 ---
 

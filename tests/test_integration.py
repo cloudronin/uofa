@@ -582,6 +582,28 @@ class TestDiff:
         assert "aleatory uncertainty is uncharacterized" in result.stdout
 
 
+# ── Test: uofa packs ─────────────────────────────────────────
+
+class TestPacks:
+    def test_packs_list(self):
+        result = run_uofa("packs")
+        assert result.returncode == 0
+        assert "core" in result.stdout
+
+    def test_packs_detail(self):
+        result = run_uofa("packs", "core")
+        assert result.returncode == 0
+        assert "core" in result.stdout
+        assert "0.3.0" in result.stdout
+        assert "V&V 40" in result.stdout
+        assert "ASME-VV40-2018" in result.stdout
+
+    def test_packs_missing_pack(self):
+        result = run_uofa("packs", "nonexistent-pack")
+        assert result.returncode != 0
+        assert "not found" in result.stdout.lower() or "not found" in result.stderr.lower()
+
+
 # ── Test: --repo-root flag works with subcommands ─────────────
 
 class TestGlobalFlags:
@@ -594,6 +616,12 @@ class TestGlobalFlags:
         assert result.returncode == 0
         # No ANSI escape codes in output
         assert "\033[" not in result.stdout
+
+    def test_pack_flag_default(self):
+        """The --pack flag defaults to core and works normally."""
+        result = run_uofa("packs", "--pack", "core")
+        assert result.returncode == 0
+        assert "core" in result.stdout
 
 
 # ── Test: starter examples pass SHACL ─────────────────────────
