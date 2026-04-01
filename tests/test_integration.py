@@ -451,7 +451,7 @@ class TestDiff:
             ]
         }))
 
-        result = run_uofa("diff", str(cou1), str(cou2))
+        result = run_uofa("diff", str(cou1), str(cou2), "--skip-rules")
         assert result.returncode == 0
         # Table-format output: divergent patterns marked
         assert "W-AL-01" in result.stdout
@@ -463,7 +463,7 @@ class TestDiff:
         assert "Divergence Explanations" in result.stdout
 
     def test_diff_no_weakeners(self, tmp_path):
-        """Two files with no weakeners should show no divergence."""
+        """Two files with no weakeners should show no divergence (skip-rules)."""
         f1 = tmp_path / "clean1.jsonld"
         f2 = tmp_path / "clean2.jsonld"
         for f in [f1, f2]:
@@ -473,7 +473,7 @@ class TestDiff:
                 "name": "Clean UofA",
             }))
 
-        result = run_uofa("diff", str(f1), str(f2))
+        result = run_uofa("diff", str(f1), str(f2), "--skip-rules")
         assert result.returncode == 0
         assert "No divergence" in result.stdout
 
@@ -531,7 +531,7 @@ class TestDiff:
             ]
         }))
 
-        result = run_uofa("diff", str(cou1), str(cou2))
+        result = run_uofa("diff", str(cou1), str(cou2), "--skip-rules")
         assert result.returncode == 0
         assert "Compound Patterns" in result.stdout
         assert "COMPOUND-01" in result.stdout
@@ -554,13 +554,13 @@ class TestDiff:
                 "name": "Minimal UofA",
             }))
 
-        result = run_uofa("diff", str(f1), str(f2))
+        result = run_uofa("diff", str(f1), str(f2), "--skip-rules")
         assert result.returncode == 0
         assert "(not detected)" in result.stdout
         assert "No divergence" in result.stdout
 
     def test_diff_description_passthrough(self, tmp_path):
-        """Weakener descriptions from annotations appear in explanations."""
+        """Weakener descriptions from static annotations appear in explanations (skip-rules)."""
         cou1 = tmp_path / "cou1.jsonld"
         cou2 = tmp_path / "cou2.jsonld"
 
@@ -581,15 +581,15 @@ class TestDiff:
             "hasWeakener": []
         }))
 
-        result = run_uofa("diff", str(cou1), str(cou2))
+        result = run_uofa("diff", str(cou1), str(cou2), "--skip-rules")
         assert result.returncode == 0
         assert "Missing UQ on validation result." in result.stdout
 
     def test_diff_morrison_explanations_from_description(self):
-        """Morrison COU1 weakener explanations come from the description field."""
+        """Morrison diff explanations come from the rules file descriptions."""
         result = run_uofa("diff", str(MORRISON), str(MORRISON_COU2))
         assert result.returncode == 0
-        # These come from the description field in the JSON-LD, not hardcoded
+        # Descriptions come from schema:description in the rules file
         assert "provenance chain is broken" in result.stdout
         assert "aleatory uncertainty is uncharacterized" in result.stdout
 

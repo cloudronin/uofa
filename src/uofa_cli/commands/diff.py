@@ -2,6 +2,7 @@
 
 import json
 import re
+import subprocess
 from pathlib import Path
 
 from uofa_cli.output import (
@@ -9,15 +10,111 @@ from uofa_cli.output import (
     muted, diamond, table_header, table_row, table_separator, table_footer,
 )
 from uofa_cli.explain import explain_divergence
+from uofa_cli import paths
 
 HELP = "compare weakener profiles between two UofA files (COU divergence)"
 
 _SEVERITY_ORDER = ["Critical", "High", "Medium", "Low"]
 
+# Regex to parse pattern lines from Jena rule engine output:
+#   ⚠ W-EP-04 [High] — 6 hit(s)
+#   ⚡ COMPOUND-01 [Critical] — 1 hit(s)
+_ENGINE_PATTERN_RE = re.compile(
+    r'[⚠⚡]\s+((?:W-[A-Z]{2}-\d{2}|COMPOUND-\d{2}))\s+'
+    r'\[(Critical|High|Medium|Low)\]\s+—\s+(\d+)\s+hit'
+)
+
 
 def add_arguments(parser):
     parser.add_argument("file_a", type=Path, help="first UofA JSON-LD file")
     parser.add_argument("file_b", type=Path, help="second UofA JSON-LD file")
+    parser.add_argument("--build", action="store_true",
+                        help="auto-build the Jena JAR if missing")
+    parser.add_argument("--skip-rules", action="store_true",
+                        help="compare static hasWeakener arrays instead of running rules")
+
+
+# ── Rules engine integration ────────────────────────────────
+
+def _parse_weakeners_from_output(stdout: str) -> list[dict]:
+    """Parse Jena rule engine text output into weakener dicts.
+
+    Returns one dict per distinct pattern (deduplicated by patternId).
+    Each dict has: patternId, severity.
+    """
+    seen = {}
+    for m in _ENGINE_PATTERN_RE.finditer(stdout):
+        pid, sev, _hits = m.group(1), m.group(2), m.group(3)
+        if pid not in seen:
+            seen[pid] = {"patternId": pid, "severity": sev}
+    return list(seen.values())
+
+
+def _load_rule_descriptions(rules_path: Path) -> dict[str, str]:
+    """Parse schema:description strings from a .rules file by patternId.
+
+    Scans each rule block for patternId and description literals.
+    Returns {patternId: description}.
+    """
+    descriptions = {}
+    try:
+        text = rules_path.read_text()
+    except (FileNotFoundError, OSError):
+        return descriptions
+
+    # Split into rule blocks (delimited by [...] sections)
+    # Find all patternId and description pairs within the text
+    pid_re = re.compile(r"uofa:patternId\s+'([^']+)'")
+    desc_re = re.compile(r"schema:description\s+'([^']+)'")
+
+    # Process rule blocks separated by blank lines or rule headers
+    current_pid = None
+    for line in text.splitlines():
+        pid_match = pid_re.search(line)
+        if pid_match:
+            current_pid = pid_match.group(1)
+
+        desc_match = desc_re.search(line)
+        if desc_match and current_pid:
+            descriptions[current_pid] = desc_match.group(1)
+            current_pid = None
+
+    return descriptions
+
+
+def _run_rules_engine(jsonld_path: Path, build: bool = False) -> list[dict]:
+    """Run Jena rule engine on a file and return parsed weakener dicts.
+
+    Each dict has: patternId, severity, description (if available).
+    Raises FileNotFoundError if Java or JAR is unavailable.
+    """
+    from uofa_cli.commands.rules import _ensure_java, _ensure_jar
+
+    _ensure_java()
+    jar = _ensure_jar(build)
+
+    rules_path = paths.rules_file(jsonld_path)
+    ctx = paths.context_file()
+
+    cmd = [
+        "java", "-jar", str(jar), str(jsonld_path),
+        "--rules", str(rules_path), "--context", str(ctx),
+    ]
+
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        raise RuntimeError(f"Rule engine failed on {jsonld_path.name}")
+
+    weakeners = _parse_weakeners_from_output(result.stdout)
+
+    # Enrich with descriptions from the rules file
+    descriptions = _load_rule_descriptions(rules_path)
+    for w in weakeners:
+        pid = w["patternId"]
+        if pid in descriptions:
+            w["description"] = descriptions[pid]
+
+    return weakeners
 
 
 # ── Data extraction ──────────────────────────────────────────
@@ -29,7 +126,7 @@ def _load_profile(path: Path) -> dict:
 
 
 def _extract_weakeners(doc: dict) -> list[dict]:
-    """Extract hasWeakener array from a document."""
+    """Extract hasWeakener array from a document (static fallback)."""
     weakeners = doc.get("hasWeakener", [])
     if isinstance(weakeners, dict):
         weakeners = [weakeners]
@@ -226,8 +323,20 @@ def run(args) -> int:
     doc_a = _load_profile(args.file_a)
     doc_b = _load_profile(args.file_b)
 
-    weak_a = _extract_weakeners(doc_a)
-    weak_b = _extract_weakeners(doc_b)
+    # Determine weakener source: rule engine (default) or static hasWeakener
+    if getattr(args, 'skip_rules', False):
+        weak_a = _extract_weakeners(doc_a)
+        weak_b = _extract_weakeners(doc_b)
+    else:
+        try:
+            weak_a = _run_rules_engine(
+                args.file_a, build=getattr(args, 'build', False))
+            weak_b = _run_rules_engine(
+                args.file_b, build=getattr(args, 'build', False))
+        except (FileNotFoundError, RuntimeError):
+            info("Java/Jena not available — falling back to static hasWeakener comparison")
+            weak_a = _extract_weakeners(doc_a)
+            weak_b = _extract_weakeners(doc_b)
 
     set_a = _weakener_set(weak_a)
     set_b = _weakener_set(weak_b)
@@ -245,7 +354,7 @@ def run(args) -> int:
     divergence_count = len(only_a) + len(only_b)
 
     # Section 1: COU Identity Block
-    _print_identity_block(id_a, id_b, len(weak_a), len(weak_b))
+    _print_identity_block(id_a, id_b, len(pids_a), len(pids_b))
 
     # Section 2: Weakener Profile Table
     _print_profile_table(all_pids, set_a, set_b)
