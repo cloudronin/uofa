@@ -62,7 +62,7 @@ packs/
     shapes/
       uofa_shacl.ttl      # SHACL shapes — single source of truth for validation
     rules/
-      uofa_weakener.rules # Jena forward-chaining rules (12+ patterns)
+      uofa_weakener.rules # Jena forward-chaining rules (13 patterns)
     templates/            # (populated when uofa import ships)
     prompts/              # (populated when uofa extract ships)
   README.md               # How to create a domain pack

@@ -35,7 +35,7 @@ Every pack must have a `pack.json` with at minimum `name`, `version`, `shapes`, 
   "template": "templates/uofa-template.xlsx",
   "prompt": "prompts/extract_prompt.txt",
   "factors": 13,
-  "weakener_patterns": 12,
+  "weakener_patterns": 13,
   "author": "Your Name",
   "license": "CC0-1.0"
 }
