@@ -84,36 +84,42 @@ java -jar target/uofa-weakener-engine-0.1.0.jar \
 ```
 ══════════════════════════════════════════════════════════════
   UofA Weakener Detection Report
-  Input: examples/morrison/cou1/uofa-morrison-cou1.jsonld
+  Input: uofa-morrison-cou1.jsonld
 ══════════════════════════════════════════════════════════════
 
-  SUMMARY: ~12-15 weakener(s) detected
+  SUMMARY: 14 weakener(s) detected
   ─────────────────────────────────────────────────
-    Critical:  ~5-7   (W-EP-01, W-AR-01 per factor, COMPOUND-03)
-    High:      ~4-5   (W-AL-01 per result, W-AR-05, COMPOUND-01)
-    Medium:    ~2-3   (W-SI-01 placeholder, COMPOUND-02)
+    Critical:  4
+    High:  10
+
+  ⚡ COMPOUND-01 [Critical] — 3 hit(s)
+      → affected: cou1
+
+  ⚡ COMPOUND-03 [High] — 1 hit(s)
+      → affected: cou1
+
+  ⚠ W-AL-01 [High] — 3 hit(s)         ← fires on ALL 3 validation results
+      → affected: hemolysis-comparison-cou1
+      → affected: mesh-convergence
+      → affected: piv-velocity-comparison
+
+  ⚠ W-AR-05 [High] — 3 hit(s)
+      → affected: mesh-convergence
+      → affected: hemolysis-comparison-cou1
+      → affected: piv-velocity-comparison
 
   ⚠ W-EP-01 [Critical] — 1 hit(s)
       → affected: cou1-hemolysis-adequacy
 
-  ⚠ W-AL-01 [High] — 3 hit(s)         ← fires on ALL 3 validation results
+  ⚠ W-EP-02 [High] — 3 hit(s)
       → affected: mesh-convergence
-      → affected: piv-velocity-comparison
       → affected: hemolysis-comparison-cou1
-
-  ⚠ W-AR-01 [Critical] — 7 hit(s)     ← fires on ALL 7 credibility factors
-      → affected: cou1
-
-  ⚠ W-AR-05 [High] — 3 hit(s)
-      → affected: mesh-convergence
       → affected: piv-velocity-comparison
-      → affected: hemolysis-comparison-cou1
 
-  ⚡ COMPOUND-01 [Critical] — fires    ← W-EP-01 (Critical) + W-AL-01 (High)
-      → affected: cou1
-
-  ⚡ COMPOUND-03 [High] — fires        ← assuranceLevel="Medium" + Critical weakener
-      → affected: cou1
+  ─────────────────────────────────────────────────
+  ⚡ 4 compound inference(s) — these require
+    chained rule reasoning and cannot be detected
+    by standalone SPARQL queries.
 ```
 
 ## Expected COU1 vs COU2 Divergence (NAFEMS Demo Point)
@@ -124,9 +130,8 @@ java -jar target/uofa-weakener-engine-0.1.0.jar \
 | W-EP-02 | Fires | Does NOT fire | COU2 has generation activities |
 | **W-EP-04** | **Does NOT fire** | **Fires 6×** | COU2 has 6 unassessed factors at MRL 5 > 2 |
 | **W-AL-01** | **Fires** | **Does NOT fire** | COU2 has Monte Carlo UQ |
-| W-AR-01 | Fires | Fires | Both have factors without acceptance criteria |
 | W-AR-05 | Fires | Does NOT fire | COU2 has comparator linkages |
-| **COMPOUND-01** | **Fires** | **Fires** | Different weakener combination |
+| **COMPOUND-01** | **Fires** | **Does NOT fire** | COU1 has Critical + High coexisting |
 | COMPOUND-03 | Fires | Does NOT fire | COU2 assurance level is already Low |
 
 **The W-EP-04 divergence is the 13-factor expansion punchline:**
@@ -139,9 +144,9 @@ paper but machine-visible in the UofA.
 
 1. **Show:** Morrison COU1 JSON-LD (the evidence package — 13 factors, 7 assessed)
 2. **Run:** `uofa rules examples/morrison/cou1/uofa-morrison-cou1.jsonld --build`
-3. **Show:** Summary output — 5 core weakeners + 2 compound patterns, W-EP-04 does NOT fire
+3. **Show:** Summary output — 14 weakeners across 4 core + 2 compound patterns, W-EP-04 does NOT fire
 4. **Run:** `uofa rules examples/morrison/cou2/uofa-morrison-cou2.jsonld --build`
-5. **Show:** W-EP-04 fires 6× (unassessed factors at MRL 5), W-AL-01 absent (COU2 has UQ)
+5. **Show:** W-EP-04 fires 6× (unassessed factors at MRL 5), only pattern that fires on COU2
 6. **Run:** `uofa diff examples/morrison/cou1/...jsonld examples/morrison/cou2/...jsonld`
 7. **Key line:** "Morrison only assessed 7 of 13 factors. At MRL 2 that's fine. At MRL 5
    the same gap fires 6 epistemic weakeners. Same data, same rules — risk context drives

@@ -80,17 +80,16 @@ That single command runs three checks:
 
 The Jena JAR auto-builds on first run with `--build` (requires Java 17+ and Maven 3.8+).
 
-**What the rule engine finds (32 weakeners across 7 patterns on COU1):**
+**What the rule engine finds (14 weakeners across 6 patterns on COU1):**
 
 | Pattern | Severity | Hits | What it detects |
 |---|---|---|---|
-| W-EP-01 | Critical | 2 | Orphan claim — no evidence chain to supporting data |
-| W-EP-02 | High | 4 | Broken provenance — validation results with no generation activity |
-| W-AL-01 | High | 4 | Missing uncertainty quantification on validation results |
-| W-AR-01 | Critical | 8 | No acceptance criteria — factor levels set but rationale not encoded |
-| W-AR-05 | High | 4 | Comparator absence — results not linked to reference entities |
-| ⚡ COMPOUND-01 | Critical | 7 | Risk escalation — Critical + High weakeners coexist on same UofA |
-| ⚡ COMPOUND-03 | High | 3 | Assurance level override — declared "Medium" but Critical gaps exist |
+| W-EP-01 | Critical | 1 | Orphan claim — no evidence chain to supporting data |
+| W-EP-02 | High | 3 | Broken provenance — validation results with no generation activity |
+| W-AL-01 | High | 3 | Missing uncertainty quantification on validation results |
+| W-AR-05 | High | 3 | Comparator absence — results not linked to reference entities |
+| ⚡ COMPOUND-01 | Critical | 3 | Risk escalation — Critical + High weakeners coexist on same UofA |
+| ⚡ COMPOUND-03 | High | 1 | Assurance level override — declared "Medium" but Critical gaps exist |
 
 The ⚡ compound rules fire on the output of the core rules — this is chained forward-chaining inference that standalone SPARQL queries cannot produce. Same model, same data, same rules: the rule engine reasons about the *interactions* between gaps, not just the gaps themselves.
 
@@ -121,29 +120,35 @@ uofa diff examples/morrison/cou1/uofa-morrison-cou1.jsonld \
     Model risk level  MRL 2                             MRL 5
             Decision  Accepted                          Not accepted
      Assurance level  Medium                            Low
-           Weakeners  7                                 3
+           Weakeners  6                                 1
 
-══ Weakener Patterns (6) ══
+══ Weakener Patterns (5) ══
   ┌────────────────────────────────────────────────────────────────┐
   │   Pattern    │  Severity  │  COU A  │  COU B  │    Status    │
   ├──────────────┼────────────┼─────────┼─────────┼──────────────┤
   │ W-AL-01      │ [High]     │   ✓     │   ✗     │ ◆ divergent  │
-  │ W-AR-01      │ [Critical] │   ✓     │   ✓     │   same       │
   │ W-AR-05      │ [High]     │   ✓     │   ✗     │ ◆ divergent  │
   │ W-EP-01      │ [Critical] │   ✓     │   ✗     │ ◆ divergent  │
   │ W-EP-02      │ [High]     │   ✓     │   ✗     │ ◆ divergent  │
   │ W-EP-04      │ [High]     │   ✗     │   ✓     │ ◆ divergent  │
   └──────────────┴────────────┴─────────┴─────────┴──────────────┘
 
+══ Compound Patterns (2) ══
+  ┌────────────────────────────────────────────────────────────────┐
+  │   Pattern    │  Severity  │  COU A  │  COU B  │    Status    │
+  ├──────────────┼────────────┼─────────┼─────────┼──────────────┤
+  │ COMPOUND-01  │ [Critical] │   ✓     │   ✗     │ ◆ divergent  │
+  │ COMPOUND-03  │ [High]     │   ✓     │   ✗     │ ◆ divergent  │
+  └──────────────┴────────────┴─────────┴─────────┴──────────────┘
+
 ══ Summary ══
   COU A (COU1: Cardiopulmonary bypass use (Class II)):
-    [Critical] 3
+    [Critical] 2
     [High] 4
   COU B (COU2: Ventricular assist device use (Class III)):
-    [Critical] 2
     [High] 1
 
-  6 divergence(s) detected
+  7 divergence(s) detected
 
 ══ Divergence Explanations ══
 
@@ -378,7 +383,7 @@ Morrison Blood Pump Assessment
 │   ├── bindsDataset       → [PIV data, hemolysis in vitro data]
 │   ├── hasValidationResult → [mesh convergence, PIV velocity, hemolysis comparison]
 │   ├── hasCredibilityFactor → [13 V&V 40 factors: 7 assessed + 6 not-assessed]
-│   ├── hasWeakener        → [W-EP-01, W-EP-02, W-AL-01, W-AR-01, W-AR-05] + compounds
+│   ├── hasWeakener        → [W-EP-01, W-EP-02, W-AL-01, W-AR-05] + compounds
 │   ├── hasDecisionRecord  → "Accepted for COU1"
 │   ├── hash               → sha256:<real hash>
 │   ├── signature          → ed25519:<real signature>
@@ -387,7 +392,7 @@ Morrison Blood Pump Assessment
 └── morrison/cou2/uofa-morrison-cou2.jsonld (ProfileComplete)
     COU2: VAD Use (Class III) — Model Risk Level 5
     ├── hasCredibilityFactor → [13 V&V 40 factors: 7 assessed + 6 not-assessed]
-    ├── hasWeakener        → [W-EP-04 (6×), W-AR-01, COMPOUND-01]
+    ├── hasWeakener        → [W-EP-04 (6×)]
     └── W-AL-01 does NOT fire — COU2 has UQ; W-EP-04 fires 6× on not-assessed factors
 ```
 
