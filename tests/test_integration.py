@@ -21,6 +21,8 @@ MINIMAL_TEMPLATE = REPO_ROOT / "examples" / "templates" / "uofa-minimal-skeleton
 COMPLETE_TEMPLATE = REPO_ROOT / "examples" / "templates" / "uofa-complete-skeleton.jsonld"
 
 JAVA_AVAILABLE = shutil.which("java") is not None
+JENA_JAR = REPO_ROOT / "weakener-engine" / "target" / "uofa-weakener-engine-0.1.0.jar"
+JENA_AVAILABLE = JAVA_AVAILABLE and JENA_JAR.exists()
 CONTEXT_FILE = str(REPO_ROOT / "spec" / "context" / "v0.4.jsonld")
 
 
@@ -132,10 +134,18 @@ class TestVerify:
         assert "Hash match" in result.stdout
         assert "Signature valid" in result.stdout
 
-    def test_verify_unsigned_file_fails(self, tmp_project):
-        _, uofa_file = tmp_project
-        # Template has placeholder zeros — verification should fail
-        result = run_uofa("verify", str(uofa_file))
+    def test_verify_unsigned_file_fails(self, tmp_path):
+        # Create a file with placeholder hash/sig — verification should fail
+        unsigned = tmp_path / "unsigned.jsonld"
+        unsigned.write_text(json.dumps({
+            "@context": CONTEXT_FILE,
+            "id": "https://example.org/unsigned",
+            "type": "UnitOfAssurance",
+            "conformsToProfile": "https://uofa.net/vocab#ProfileMinimal",
+            "hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+            "signature": "ed25519:0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+        }))
+        result = run_uofa("verify", str(unsigned))
         assert result.returncode != 0
 
     def test_sign_then_verify_roundtrip(self, tmp_project):
@@ -223,7 +233,7 @@ class TestShacl:
 
 # ── Test: uofa rules ──────────────────────────────────────────
 
-@pytest.mark.skipif(not JAVA_AVAILABLE, reason="Java not available")
+@pytest.mark.skipif(not JENA_AVAILABLE, reason="Jena JAR not built (run: cd weakener-engine && mvn package)")
 class TestRules:
     def test_rules_morrison_detects_weakeners(self):
         result = run_uofa("rules", str(MORRISON), "--build")
@@ -254,7 +264,7 @@ class TestRules:
 
 class TestCheck:
     def test_check_morrison_all_pass(self):
-        skip_rules = [] if JAVA_AVAILABLE else ["--skip-rules"]
+        skip_rules = [] if JENA_AVAILABLE else ["--skip-rules"]
         result = run_uofa("check", str(MORRISON), *skip_rules)
         assert result.returncode == 0
         assert "C2 SHACL" in result.stdout
@@ -265,7 +275,7 @@ class TestCheck:
         assert result.returncode == 0
         assert "skipped" in result.stdout
 
-    @pytest.mark.skipif(not JAVA_AVAILABLE, reason="Java not available")
+    @pytest.mark.skipif(not JENA_AVAILABLE, reason="Jena JAR not built (run: cd weakener-engine && mvn package)")
     def test_check_morrison_full_pipeline(self):
         result = run_uofa("check", str(MORRISON), "--build")
         assert result.returncode == 0
@@ -299,9 +309,10 @@ class TestValidate:
         assert "conform" in result.stdout.lower()
         assert "verified" in result.stdout.lower()
 
-    def test_validate_aerospace_requires_nasa_pack(self):
-        """Aerospace example fails with vv40 pack (NASA-only factors)."""
-        result = run_uofa("validate", "--dir", str(REPO_ROOT / "examples" / "aerospace"))
+    def test_validate_aerospace_rejects_with_vv40_pack(self):
+        """Aerospace example fails with explicit --pack vv40 (NASA-only factors)."""
+        result = run_uofa("validate", "--dir", str(REPO_ROOT / "examples" / "aerospace"),
+                          "--pack", "vv40")
         assert result.returncode != 0  # NASA factors rejected by vv40
 
     def test_validate_aerospace_with_nasa_pack(self):
@@ -513,6 +524,7 @@ class TestDiff:
         assert "Accepted" in result.stdout
         assert "Medium" in result.stdout
 
+    @pytest.mark.skipif(not JENA_AVAILABLE, reason="Jena JAR not built (run: cd weakener-engine && mvn package)")
     def test_diff_morrison_cou1_vs_cou2(self):
         """Full Morrison demo: COU1 vs COU2 shows divergence with explanations."""
         result = run_uofa("diff", str(MORRISON), str(MORRISON_COU2))
@@ -558,6 +570,7 @@ class TestDiff:
         assert "Compound Patterns" in result.stdout
         assert "COMPOUND-01" in result.stdout
 
+    @pytest.mark.skipif(not JENA_AVAILABLE, reason="Jena JAR not built (run: cd weakener-engine && mvn package)")
     def test_diff_severity_breakdown(self):
         """Summary section includes severity tier breakdown."""
         result = run_uofa("diff", str(MORRISON), str(MORRISON))
@@ -607,6 +620,7 @@ class TestDiff:
         assert result.returncode == 0
         assert "Missing UQ on validation result." in result.stdout
 
+    @pytest.mark.skipif(not JENA_AVAILABLE, reason="Jena JAR not built (run: cd weakener-engine && mvn package)")
     def test_diff_morrison_explanations_from_description(self):
         """Morrison diff explanations come from the rules file descriptions."""
         result = run_uofa("diff", str(MORRISON), str(MORRISON_COU2))
@@ -615,6 +629,7 @@ class TestDiff:
         assert "provenance chain is broken" in result.stdout
         assert "aleatory uncertainty is uncharacterized" in result.stdout
 
+    @pytest.mark.skipif(not JENA_AVAILABLE, reason="Jena JAR not built (run: cd weakener-engine && mvn package)")
     def test_diff_ep04_divergence(self):
         """W-EP-04 fires on COU2 (MRL 5) but not COU1 (MRL 2), showing as divergent."""
         result = run_uofa("diff", str(MORRISON), str(MORRISON_COU2))
