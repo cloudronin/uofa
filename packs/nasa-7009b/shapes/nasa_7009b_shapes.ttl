@@ -3,56 +3,77 @@
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
 # NASA-STD-7009B factor taxonomy (all 19 = 13 V&V 40 shared + 6 NASA-only)
+# Only applies to factors tagged with factorStandard "NASA-STD-7009B"
 uofa:NASA7009BCredibilityFactorShape a sh:NodeShape ;
     sh:targetClass uofa:CredibilityFactor ;
-    sh:property [
-        sh:path uofa:factorType ;
-        sh:in (
-            # --- 13 shared with V&V 40 ---
-            "Software quality assurance"
-            "Numerical code verification"
-            "Discretization error"
-            "Numerical solver error"
-            "Use error"
-            "Model form"
-            "Model inputs"
-            "Test samples"
-            "Test conditions"
-            "Equivalency of input parameters"
-            "Output comparison"
-            "Relevance of the quantities of interest"
-            "Relevance of the validation activities to the COU"
-            # --- 6 NASA-only ---
-            "Data pedigree"
-            "Development technical review"
-            "Development process and product management"
-            "Results uncertainty"
-            "Results robustness"
-            "Use history"
-        ) ;
+    sh:sparql [
         sh:message "factorType must be a valid NASA-STD-7009B credibility factor." ;
+        sh:select """
+            SELECT $this
+            WHERE {
+                $this uofa:factorType ?ft .
+                $this uofa:factorStandard "NASA-STD-7009B" .
+                FILTER (?ft NOT IN (
+                    "Software quality assurance",
+                    "Numerical code verification",
+                    "Discretization error",
+                    "Numerical solver error",
+                    "Use error",
+                    "Model form",
+                    "Model inputs",
+                    "Test samples",
+                    "Test conditions",
+                    "Equivalency of input parameters",
+                    "Output comparison",
+                    "Relevance of the quantities of interest",
+                    "Relevance of the validation activities to the COU",
+                    "Data pedigree",
+                    "Development technical review",
+                    "Development process and product management",
+                    "Results uncertainty",
+                    "Results robustness",
+                    "Use history"
+                ))
+            }
+        """ ;
     ] .
 
-# NASA CAS level range: 0-4 (different from V&V 40's 1-5)
+# NASA CAS level range: 0-4 (only for NASA-STD-7009B factors)
 uofa:NASA7009BLevelRangeShape a sh:NodeShape ;
     sh:targetClass uofa:CredibilityFactor ;
-    sh:property [
-        sh:path uofa:requiredLevel ;
-        sh:minInclusive 0 ;
-        sh:maxInclusive 4 ;
+    sh:sparql [
+        sh:message "NASA-STD-7009B factors must have requiredLevel in range 0-4." ;
+        sh:select """
+            SELECT $this
+            WHERE {
+                $this uofa:factorStandard "NASA-STD-7009B" .
+                $this uofa:requiredLevel ?rl .
+                FILTER (?rl < 0 || ?rl > 4)
+            }
+        """ ;
     ] ;
-    sh:property [
-        sh:path uofa:achievedLevel ;
-        sh:minInclusive 0 ;
-        sh:maxInclusive 4 ;
+    sh:sparql [
+        sh:message "NASA-STD-7009B factors must have achievedLevel in range 0-4." ;
+        sh:select """
+            SELECT $this
+            WHERE {
+                $this uofa:factorStandard "NASA-STD-7009B" .
+                $this uofa:achievedLevel ?al .
+                FILTER (?al < 0 || ?al > 4)
+            }
+        """ ;
     ] .
 
-# Require assessmentPhase for NASA factors
+# Require assessmentPhase only for NASA-STD-7009B factors
 uofa:NASA7009BPhaseShape a sh:NodeShape ;
     sh:targetClass uofa:CredibilityFactor ;
-    sh:property [
-        sh:path uofa:assessmentPhase ;
-        sh:minCount 1 ;
-        sh:in ( "capability" "results" ) ;
+    sh:sparql [
         sh:message "NASA-STD-7009B factors require assessmentPhase (capability or results)." ;
+        sh:select """
+            SELECT $this
+            WHERE {
+                $this uofa:factorStandard "NASA-STD-7009B" .
+                FILTER NOT EXISTS { $this uofa:assessmentPhase ?phase }
+            }
+        """ ;
     ] .

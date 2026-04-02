@@ -67,5 +67,11 @@ def run(args) -> int:
         f.write("\n")
 
     result_line("Migration", True, f"{changes} change(s) applied")
-    info(f"  Run `uofa shacl {args.file}` to verify the migrated file.")
+
+    # Warn about invalidated signature
+    if doc.get("hash") and not doc["hash"].endswith("0" * 64):
+        from uofa_cli.output import color
+        info(f"  {color('Warning:', 'yellow')} Content modified — existing hash/signature are now invalid.")
+        info(f"  Re-sign with: uofa sign {args.file} --key YOUR_KEY")
+
     return 0

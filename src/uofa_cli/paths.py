@@ -108,9 +108,22 @@ def shacl_schema(root: Path = None) -> Path:
     return root / "spec" / "schemas" / "uofa_shacl.ttl"
 
 
+def validate_active_packs(root: Path = None):
+    """Check that all active packs exist. Raises FileNotFoundError if not."""
+    root = root or find_repo_root()
+    available = list_packs(root)
+    for pack_name in _active_packs:
+        if pack_name != "core" and pack_name not in available:
+            raise FileNotFoundError(
+                f"Pack '{pack_name}' not found. "
+                f"Available packs: {', '.join(available)}"
+            )
+
+
 def all_shacl_schemas(root: Path = None) -> list[Path]:
     """Return SHACL shape file paths for core + all active packs."""
     root = root or find_repo_root()
+    validate_active_packs(root)
     paths_list = [shacl_schema(root)]
 
     for pack_name in _active_packs:

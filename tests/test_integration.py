@@ -309,11 +309,13 @@ class TestValidate:
         assert "conform" in result.stdout.lower()
         assert "verified" in result.stdout.lower()
 
-    def test_validate_aerospace_rejects_with_vv40_pack(self):
-        """Aerospace example fails with explicit --pack vv40 (NASA-only factors)."""
+    def test_validate_aerospace_passes_with_vv40_pack(self):
+        """Aerospace example passes with vv40 pack — SPARQL constraints are
+        conditional on factorStandard, so NASA-tagged factors are not checked
+        against V&V 40 factor enum."""
         result = run_uofa("validate", "--dir", str(REPO_ROOT / "examples" / "aerospace"),
                           "--pack", "vv40")
-        assert result.returncode != 0  # NASA factors rejected by vv40
+        assert result.returncode == 0
 
     def test_validate_aerospace_with_nasa_pack(self):
         """Aerospace example passes with nasa-7009b pack."""
@@ -734,3 +736,136 @@ class TestEndToEnd:
         assert result.returncode == 0
         assert "C2 SHACL" in result.stdout
         assert "C1 Integrity" in result.stdout
+
+
+# ── Regression tests: v0.4 verification spec ────────────────
+
+class TestLevelRangeIntersection:
+    """Area 4: Multi-pack level range constraints must be conditional on factorStandard."""
+
+    def test_vv40_level5_passes_with_both_packs(self, tmp_path):
+        """V&V 40 factor at level 5 passes even when NASA pack is also loaded."""
+        f = tmp_path / "level5.jsonld"
+        f.write_text(json.dumps({
+            "@context": CONTEXT_FILE,
+            "id": "https://example.org/test", "type": "UnitOfAssurance",
+            "conformsToProfile": "https://uofa.net/vocab#ProfileMinimal",
+            "bindsRequirement": "https://example.org/req",
+            "hasContextOfUse": "https://example.org/cou",
+            "hasValidationResult": "https://example.org/val",
+            "generatedAtTime": "2026-01-01T00:00:00Z",
+            "hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+            "signature": "ed25519:0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+            "hasDecisionRecord": "https://example.org/dec",
+            "hasCredibilityFactor": [{
+                "type": "CredibilityFactor",
+                "factorType": "Discretization error",
+                "factorStandard": "ASME-VV40-2018",
+                "factorStatus": "assessed",
+                "requiredLevel": 5,
+                "achievedLevel": 5,
+            }],
+        }))
+        result = run_uofa("shacl", str(f), "--pack", "vv40", "--pack", "nasa-7009b")
+        assert result.returncode == 0
+
+    def test_nasa_level0_passes_with_both_packs(self, tmp_path):
+        """NASA factor at level 0 passes even when V&V 40 pack is also loaded."""
+        f = tmp_path / "level0.jsonld"
+        f.write_text(json.dumps({
+            "@context": CONTEXT_FILE,
+            "id": "https://example.org/test", "type": "UnitOfAssurance",
+            "conformsToProfile": "https://uofa.net/vocab#ProfileMinimal",
+            "bindsRequirement": "https://example.org/req",
+            "hasContextOfUse": "https://example.org/cou",
+            "hasValidationResult": "https://example.org/val",
+            "generatedAtTime": "2026-01-01T00:00:00Z",
+            "hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+            "signature": "ed25519:0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+            "hasDecisionRecord": "https://example.org/dec",
+            "hasCredibilityFactor": [{
+                "type": "CredibilityFactor",
+                "factorType": "Data pedigree",
+                "factorStandard": "NASA-STD-7009B",
+                "assessmentPhase": "capability",
+                "factorStatus": "assessed",
+                "requiredLevel": 2,
+                "achievedLevel": 0,
+            }],
+        }))
+        result = run_uofa("shacl", str(f), "--pack", "vv40", "--pack", "nasa-7009b")
+        assert result.returncode == 0
+
+
+class TestPackEdgeCases:
+    """Area 5: Pack loading edge cases."""
+
+    def test_unknown_pack_error(self):
+        result = run_uofa("shacl", str(MORRISON), "--pack", "nonexistent")
+        assert result.returncode != 0
+        combined = result.stdout + result.stderr
+        assert "not found" in combined.lower()
+        assert "nonexistent" in combined
+
+    def test_core_only_accepts_any_factor(self, tmp_path):
+        """--pack core uses core-only shapes: any factorType string passes."""
+        f = tmp_path / "custom-factor.jsonld"
+        f.write_text(json.dumps({
+            "@context": CONTEXT_FILE,
+            "id": "https://example.org/test", "type": "UnitOfAssurance",
+            "conformsToProfile": "https://uofa.net/vocab#ProfileMinimal",
+            "bindsRequirement": "https://example.org/req",
+            "hasContextOfUse": "https://example.org/cou",
+            "hasValidationResult": "https://example.org/val",
+            "generatedAtTime": "2026-01-01T00:00:00Z",
+            "hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+            "signature": "ed25519:0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+            "hasDecisionRecord": "https://example.org/dec",
+            "hasCredibilityFactor": [{
+                "type": "CredibilityFactor",
+                "factorType": "Completely custom factor",
+                "factorStatus": "assessed",
+            }],
+        }))
+        result = run_uofa("shacl", str(f), "--pack", "core")
+        assert result.returncode == 0
+
+
+class TestMigrateVerification:
+    """Area 3: Migrate command edge cases."""
+
+    def test_migrate_idempotency(self):
+        """Migrating an already-v0.4 file is a no-op."""
+        result = run_uofa("migrate", str(MORRISON), "--dry-run")
+        assert result.returncode == 0
+        assert "no changes needed" in result.stdout.lower()
+
+    def test_migrate_warns_about_signature(self, tmp_path):
+        """Migrate warns when content changes invalidate the existing signature."""
+        # Create a fake v0.3 signed file
+        f = tmp_path / "signed-v03.jsonld"
+        f.write_text(json.dumps({
+            "@context": "https://raw.githubusercontent.com/cloudronin/uofa/main/spec/context/v0.3.jsonld",
+            "id": "https://example.org/test", "type": "UnitOfAssurance",
+            "hash": "sha256:abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789",
+            "signature": "ed25519:abcdef0123456789abcdef",
+            "hasCredibilityFactor": [
+                {"type": "CredibilityFactor", "factorType": "Model form", "factorStatus": "assessed"}
+            ],
+        }))
+        result = run_uofa("migrate", str(f))
+        assert result.returncode == 0
+        assert "invalid" in result.stdout.lower() or "re-sign" in result.stdout.lower()
+
+
+class TestDiffCrossStandard:
+    """Area 2: Diff across different standards."""
+
+    def test_diff_vv40_vs_nasa_no_crash(self):
+        """Diffing a V&V 40 file against a NASA file should not crash."""
+        aero = REPO_ROOT / "examples" / "aerospace" / "uofa-aero-nasa7009b.jsonld"
+        result = run_uofa("diff", str(MORRISON), str(aero), "--skip-rules")
+        assert result.returncode == 0
+        # Should show both COUs
+        assert "COU A" in result.stdout
+        assert "COU B" in result.stdout
