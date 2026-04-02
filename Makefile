@@ -9,12 +9,12 @@ ENG_DIR       = weakener-engine
 FILE ?=
 KEY  ?= keys/research.key
 
-.PHONY: all validate morrison morrison-shacl morrison-rules morrison-verify morrison-diff
+.PHONY: all test validate morrison morrison-shacl morrison-rules morrison-verify morrison-diff
 .PHONY: morrison-build morrison-sign clean check shacl verify rules sign
 
 # ── Primary targets ─────────────────────────────────────────
 
-all: clean validate morrison
+all: clean test validate morrison morrison-diff
 	@echo "\n✓ All checks passed."
 
 # ── Generic targets (delegate to uofa CLI) ──────────────────
@@ -24,6 +24,9 @@ check:
 
 shacl:
 	uofa shacl $(FILE)
+
+test:
+	pytest tests/test_integration.py -v
 
 verify:
 	uofa verify $(FILE)
@@ -37,7 +40,7 @@ sign:
 # ── SHACL validation (all examples) ─────────────────────────
 
 validate:
-	uofa validate
+	uofa validate --verify
 
 # ── Morrison: full pipeline (COU1) ──────────────────────────
 
