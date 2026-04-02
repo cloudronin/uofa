@@ -3,7 +3,7 @@
 from pathlib import Path
 
 from uofa_cli.output import step_header, result_line, color
-from uofa_cli.shacl_friendly import run_shacl, print_violations
+from uofa_cli.shacl_friendly import run_shacl_multi, print_violations
 from uofa_cli.integrity import verify_file
 from uofa_cli import paths
 
@@ -35,12 +35,12 @@ def run(args) -> int:
         result_line("No .jsonld files found", False)
         return 1
 
-    shacl = paths.shacl_schema()
+    shacl_paths = paths.all_shacl_schemas()
     passed = 0
     failed = 0
 
     for f in files:
-        conforms, violations = run_shacl(f, shacl)
+        conforms, violations = run_shacl_multi(f, shacl_paths)
         rel = f.relative_to(examples.parent) if examples.parent in f.parents else f
         result_line(str(rel), conforms)
         if conforms:

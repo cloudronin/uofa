@@ -1,3 +1,3 @@
 """UofA CLI — create, validate, and sign Unit of Assurance evidence packages."""
 
-__version__ = "0.2.0"
+__version__ = "0.4.0"

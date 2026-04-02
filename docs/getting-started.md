@@ -23,6 +23,34 @@ mvn -version    # should show 3.8+
 
 Java is only needed for the Jena rule engine (C3). You can use `--skip-rules` if Java is not available.
 
+## Choosing a Domain Pack
+
+Domain packs define the standard-specific validation rules and allowed factor types. Pick the pack that matches your target standard:
+
+| Pack | Standard | Use when |
+|------|----------|----------|
+| `vv40` | ASME V&V 40 | FDA submissions, medical device credibility evidence |
+| `nasa-7009b` | NASA-STD-7009B | NASA M&S credibility assessments |
+
+Pass the `--pack` flag to any command:
+
+```bash
+uofa check my-file.jsonld --pack vv40
+uofa shacl my-file.jsonld --pack nasa-7009b
+```
+
+If you omit `--pack`, the CLI uses the `core` pack, which provides base shapes without standard-specific constraints.
+
+### Migrating from v0.3
+
+If you have existing v0.3 evidence packages, use the `migrate` command to upgrade them to v0.4:
+
+```bash
+uofa migrate my-project/my-cou1.jsonld
+```
+
+This updates the `@context` reference and adjusts fields as needed for the v0.4 vocabulary.
+
 ## Step 1: Choose a Profile
 
 UofA has two profiles. Pick the one that fits your situation:
@@ -87,7 +115,10 @@ On top of Minimal, Complete requires:
 | `bindsDataset` | URI(s) of experimental or reference datasets |
 | `wasDerivedFrom` | URI of the source document (report, DOI, prior UofA) |
 | `wasAttributedTo` | URI of the responsible person or organization |
-| `hasCredibilityFactor` | Array of V&V 40 factor assessments (factorType + requiredLevel + achievedLevel) |
+| `hasCredibilityFactor` | Array of factor assessments (factorType + requiredLevel + achievedLevel). Factor types depend on the active pack. |
+| `factorStandard` | URI of the standard that defines the factor types (e.g., `https://uofa.net/standards/ASME-VV40-2018`) |
+| `assessmentPhase` | Phase of the assessment lifecycle (e.g., `"Planning"`, `"Execution"`, `"Review"`) |
+| `hasEvidence` | URI(s) linking to supporting evidence artifacts |
 | `assuranceLevel` | `"Low"`, `"Medium"`, or `"High"` |
 | `criteriaSet` | URI of the standard used (e.g., `https://uofa.net/criteria/ASME-VV40-2018`) |
 
@@ -100,16 +131,18 @@ URIs don't need to resolve to real web pages. They serve as stable identifiers. 
 
 ### V&V 40 Factor Types
 
-The `factorType` field accepts exactly these 13 values (from ASME V&V 40 Table 5-1):
+When using the `vv40` pack (`--pack vv40`), the `factorType` field accepts exactly these 13 values (from ASME V&V 40 Table 5-1):
 
-**Verification — Code:** `Software quality assurance`, `Numerical code verification`
-**Verification — Calculation:** `Discretization error`, `Numerical solver error`, `Use error`
-**Validation — Model:** `Model form`, `Model inputs`
-**Validation — Comparator:** `Test samples`, `Test conditions`
-**Validation — Assessment:** `Equivalency of input parameters`, `Output comparison`
+**Verification -- Code:** `Software quality assurance`, `Numerical code verification`
+**Verification -- Calculation:** `Discretization error`, `Numerical solver error`, `Use error`
+**Validation -- Model:** `Model form`, `Model inputs`
+**Validation -- Comparator:** `Test samples`, `Test conditions`
+**Validation -- Assessment:** `Equivalency of input parameters`, `Output comparison`
 **Applicability:** `Relevance of the quantities of interest`, `Relevance of the validation activities to the COU`
 
 You don't need to assess all 13. Include only the factors relevant to your COU.
+
+The `nasa-7009b` pack (`--pack nasa-7009b`) defines its own set of factor types aligned with NASA-STD-7009B. Use `uofa packs nasa-7009b` to see the available factors for that standard.
 
 ## Step 4: Sign Your Evidence Package
 
@@ -144,7 +177,7 @@ uofa check my-project/my-project-cou1.jsonld --skip-rules
 **SHACL fails:** Each violation shows the field name, a plain-English message, and a fix suggestion. Common issues:
 - Missing a required field → add it
 - Hash/signature still has placeholder zeros → run `uofa sign` (Step 4)
-- `factorType` not in the allowed list → check spelling against the 13 V&V 40 factors above
+- `factorType` not in the allowed list → check spelling against the factor types defined by your active pack (e.g., `--pack vv40`)
 
 Use `uofa shacl FILE --raw` to see the full pyshacl report if you need more detail.
 
@@ -183,3 +216,5 @@ A typical workflow:
 | `uofa keygen PATH` | Generate ed25519 signing keypair |
 | `uofa validate` | SHACL validation on all examples |
 | `uofa init NAME` | Scaffold a new UofA project |
+| `uofa packs [NAME]` | List installed packs or inspect a specific pack |
+| `uofa migrate FILE` | Migrate a v0.3 file to v0.4 |

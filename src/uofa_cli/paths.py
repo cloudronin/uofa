@@ -6,18 +6,26 @@ from pathlib import Path
 _MARKER = Path("spec") / "schemas" / "uofa_shacl.ttl"
 _PACK_MARKER = Path("packs") / "core" / "pack.json"
 _repo_root_cache = None
-_active_pack = "core"
+_active_packs: list[str] = ["vv40"]
 
 
-def set_active_pack(pack_name: str):
-    """Set the active pack name (called from CLI when --pack is provided)."""
-    global _active_pack
-    _active_pack = pack_name
+def set_active_pack(pack_names):
+    """Set the active pack name(s) (called from CLI when --pack is provided).
+
+    Accepts a single string or list of strings.
+    """
+    global _active_packs
+    if isinstance(pack_names, str):
+        _active_packs = [pack_names]
+    elif isinstance(pack_names, list):
+        _active_packs = pack_names
+    else:
+        _active_packs = [str(pack_names)]
 
 
-def get_active_pack() -> str:
-    """Return the currently active pack name."""
-    return _active_pack
+def get_active_pack() -> list[str]:
+    """Return the currently active pack name(s)."""
+    return _active_packs
 
 
 def find_repo_root(override: str = None) -> Path:
@@ -61,7 +69,8 @@ def find_repo_root(override: str = None) -> Path:
 def pack_dir(pack_name: str = None, root: Path = None) -> Path:
     """Return the directory for the given pack."""
     root = root or find_repo_root()
-    return root / "packs" / (pack_name or _active_pack)
+    name = pack_name or _active_packs[0] if _active_packs else "core"
+    return root / "packs" / name
 
 
 def pack_manifest(pack_name: str = None, root: Path = None) -> dict:
@@ -87,22 +96,42 @@ def list_packs(root: Path = None) -> list[str]:
 # ── Asset paths (pack-aware) ────────────────────────────────
 
 def shacl_schema(root: Path = None) -> Path:
-    """Return SHACL shapes path from the active pack, with fallback to spec/schemas/."""
+    """Return core SHACL shapes path (always loaded)."""
     root = root or find_repo_root()
     try:
-        manifest = pack_manifest(root=root)
-        pack_path = pack_dir(root=root) / manifest["shapes"]
+        manifest = pack_manifest("core", root=root)
+        pack_path = pack_dir("core", root=root) / manifest["shapes"]
         if pack_path.exists():
             return pack_path
     except (FileNotFoundError, KeyError):
         pass
-    # Backward compat fallback
     return root / "spec" / "schemas" / "uofa_shacl.ttl"
+
+
+def all_shacl_schemas(root: Path = None) -> list[Path]:
+    """Return SHACL shape file paths for core + all active packs."""
+    root = root or find_repo_root()
+    paths_list = [shacl_schema(root)]
+
+    for pack_name in _active_packs:
+        if pack_name == "core":
+            continue
+        try:
+            manifest = pack_manifest(pack_name, root=root)
+            shapes_rel = manifest.get("shapes")
+            if shapes_rel:
+                shapes_path = pack_dir(pack_name, root=root) / shapes_rel
+                if shapes_path.exists():
+                    paths_list.append(shapes_path)
+        except (FileNotFoundError, KeyError):
+            pass
+
+    return paths_list
 
 
 def context_file(root: Path = None) -> Path:
     root = root or find_repo_root()
-    return root / "spec" / "context" / "v0.3.jsonld"
+    return root / "spec" / "context" / "v0.4.jsonld"
 
 
 def jar_path(root: Path = None) -> Path:
@@ -116,7 +145,7 @@ def engine_dir(root: Path = None) -> Path:
 
 
 def rules_file(input_path: Path = None, root: Path = None) -> Path:
-    """Find rules file: same dir as input, then parent dir, then pack rules dir."""
+    """Find rules file: same dir as input, then parent dir, then core pack rules dir."""
     if input_path:
         local = input_path.parent / "uofa_weakener.rules"
         if local.exists():
@@ -124,17 +153,38 @@ def rules_file(input_path: Path = None, root: Path = None) -> Path:
         parent = input_path.parent.parent / "uofa_weakener.rules"
         if parent.exists():
             return parent
-    # Pack rules
+    # Core pack rules
     root = root or find_repo_root()
     try:
-        manifest = pack_manifest(root=root)
-        pack_path = pack_dir(root=root) / manifest["rules"]
+        manifest = pack_manifest("core", root=root)
+        pack_path = pack_dir("core", root=root) / manifest["rules"]
         if pack_path.exists():
             return pack_path
     except (FileNotFoundError, KeyError):
         pass
     # Backward compat fallback
     return root / "examples" / "morrison" / "uofa_weakener.rules"
+
+
+def all_rules_files(input_path: Path = None, root: Path = None) -> list[Path]:
+    """Return rules file paths for core + all active packs."""
+    root = root or find_repo_root()
+    paths_list = [rules_file(input_path, root)]
+
+    for pack_name in _active_packs:
+        if pack_name == "core":
+            continue
+        try:
+            manifest = pack_manifest(pack_name, root=root)
+            rules_rel = manifest.get("rules")
+            if rules_rel:
+                rules_path = pack_dir(pack_name, root=root) / rules_rel
+                if rules_path.exists():
+                    paths_list.append(rules_path)
+        except (FileNotFoundError, KeyError):
+            pass
+
+    return paths_list
 
 
 def template_path(root: Path = None) -> Path:

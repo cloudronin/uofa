@@ -37,9 +37,17 @@ def _list_packs() -> int:
         desc = manifest.get("description", "")
         # Truncate description for list view
         short_desc = desc[:60] + "..." if len(desc) > 60 else desc
-        marker = "  [active]" if name == active else ""
+
+        markers = []
+        if name == "core":
+            markers.append("always loaded")
+        if name in active:
+            markers.append("active")
+        marker = f"  [{', '.join(markers)}]" if markers else ""
 
         factors = manifest.get("factors", "?")
+        if factors is None:
+            factors = "any"
         patterns = manifest.get("weakener_patterns", "?")
         info(f"  {name:<12} v{version:<8} {short_desc} ({factors} factors, {patterns} patterns){marker}")
 
@@ -66,12 +74,18 @@ def _show_pack(name: str, verbose: bool) -> int:
     if standards:
         info(f"  Standards:   {', '.join(standards)}")
 
-    shapes_path = pdir / manifest.get("shapes", "")
-    info(f"  Shapes:      {shapes_path.relative_to(paths.find_repo_root())}")
+    shapes_rel = manifest.get("shapes", "")
+    if shapes_rel:
+        shapes_path = pdir / shapes_rel
+        info(f"  Shapes:      {shapes_path.relative_to(paths.find_repo_root())}")
 
-    rules_path = pdir / manifest.get("rules", "")
+    rules_rel = manifest.get("rules")
     patterns = manifest.get("weakener_patterns", "?")
-    info(f"  Rules:       {rules_path.relative_to(paths.find_repo_root())} ({patterns} patterns)")
+    if rules_rel:
+        rules_path = pdir / rules_rel
+        info(f"  Rules:       {rules_path.relative_to(paths.find_repo_root())} ({patterns} patterns)")
+    else:
+        info(f"  Rules:       none ({patterns} patterns)")
 
     template = manifest.get("template", "")
     if template:
@@ -81,7 +95,8 @@ def _show_pack(name: str, verbose: bool) -> int:
     if prompt:
         info(f"  Prompt:      {pdir.relative_to(paths.find_repo_root()) / prompt}")
 
-    info(f"  Factors:     {manifest.get('factors', '?')}")
+    factors = manifest.get("factors")
+    info(f"  Factors:     {factors if factors is not None else 'any (standards-agnostic)'}")
     info(f"  Author:      {manifest.get('author', '—')}")
     info(f"  License:     {manifest.get('license', '—')}")
 

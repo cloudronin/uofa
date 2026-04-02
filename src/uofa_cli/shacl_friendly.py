@@ -46,6 +46,18 @@ _PROPERTY_SEVERITY = {
 }
 
 
+def run_shacl_multi(data_path: Path, shacl_paths: list) -> tuple[bool, list[dict]]:
+    """Run SHACL validation with multiple shape files and return (conforms, violations)."""
+    if len(shacl_paths) == 1:
+        return run_shacl(data_path, shacl_paths[0])
+
+    combined = Graph()
+    for p in shacl_paths:
+        combined.parse(str(p), format="turtle")
+
+    return _run_shacl_graph(data_path, combined)
+
+
 def run_shacl(data_path: Path, shacl_path: Path) -> tuple[bool, list[dict]]:
     """Run SHACL validation and return (conforms, violations).
 
@@ -97,6 +109,56 @@ def run_shacl(data_path: Path, shacl_path: Path) -> tuple[bool, list[dict]]:
         })
 
     # Sort by severity: Critical first
+    severity_order = {"Critical": 0, "High": 1, "Medium": 2, "Low": 3}
+    violations.sort(key=lambda v: severity_order.get(v["severity"], 4))
+
+    return False, violations
+
+
+def _run_shacl_graph(data_path: Path, shacl_graph) -> tuple[bool, list[dict]]:
+    """Run SHACL validation with a pre-built shapes Graph."""
+    conforms, results_graph, results_text = shacl_validate(
+        data_graph=str(data_path),
+        shacl_graph=shacl_graph,
+        data_graph_format="json-ld",
+    )
+
+    if conforms:
+        return True, []
+
+    violations = []
+    for result in results_graph.subjects(SH.resultSeverity, None):
+        path_node = results_graph.value(result, SH.resultPath)
+        message_node = results_graph.value(result, SH.resultMessage)
+        component_node = results_graph.value(result, SH.sourceConstraintComponent)
+        source_node = results_graph.value(result, SH.sourceShape)
+
+        path_str = str(path_node) if path_node else ""
+        message = str(message_node) if message_node else "Validation failed"
+        component = str(component_node) if component_node else ""
+        source = str(source_node) if source_node else ""
+
+        if "OrConstraintComponent" in component and "ProfileShape" in source:
+            violations.append({
+                "path": "Profile",
+                "message": "Required fields for the declared profile are missing.",
+                "fix": "Check that all required fields for your profile are present. "
+                       "Run `uofa shacl FILE --raw` for details.",
+                "severity": "Critical",
+            })
+            continue
+
+        path_label = path_str.rsplit("#", 1)[-1].rsplit("/", 1)[-1] if path_str else "unknown"
+        fix = _FIX_SUGGESTIONS.get(path_str, "")
+        severity = _PROPERTY_SEVERITY.get(path_str, "Medium")
+
+        violations.append({
+            "path": path_label,
+            "message": message,
+            "fix": fix,
+            "severity": severity,
+        })
+
     severity_order = {"Critical": 0, "High": 1, "Medium": 2, "Low": 3}
     violations.sort(key=lambda v: severity_order.get(v["severity"], 4))
 

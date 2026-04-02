@@ -18,8 +18,9 @@ def _run():
     parent.add_argument("--no-color", action="store_true", help="disable colored output")
     parent.add_argument("--verbose", action="store_true", help="show full tracebacks on error")
     parent.add_argument("--repo-root", metavar="PATH", help="override repo root auto-detection")
-    parent.add_argument("--pack", metavar="NAME", default="core",
-                        help="pack to use for shapes, rules, and templates (default: core)")
+    parent.add_argument("--pack", metavar="NAME", action="append",
+                        help="pack(s) to use for shapes, rules, and templates (default: vv40). "
+                             "May be repeated: --pack vv40 --pack nasa-7009b")
 
     parser = argparse.ArgumentParser(
         prog="uofa",
@@ -31,7 +32,7 @@ def _run():
     sub = parser.add_subparsers(dest="command", title="commands")
 
     # ── Register subcommands ──────────────────────────────────
-    from uofa_cli.commands import keygen, sign, verify, shacl, rules, check, validate, init, diff, schema, packs
+    from uofa_cli.commands import keygen, sign, verify, shacl, rules, check, validate, init, diff, schema, packs, migrate
 
     modules = {
         "keygen":   keygen,
@@ -45,6 +46,7 @@ def _run():
         "diff":     diff,
         "schema":   schema,
         "packs":    packs,
+        "migrate":  migrate,
     }
 
     for name, mod in modules.items():
@@ -60,8 +62,8 @@ def _run():
     if args.no_color:
         set_color(False)
 
-    # Set active pack before resolving repo root
-    set_active_pack(args.pack)
+    # Set active pack(s) before resolving repo root
+    set_active_pack(args.pack or ["vv40"])
 
     # Resolve repo root early so commands can use paths.*
     try:

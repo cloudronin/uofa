@@ -3,7 +3,7 @@
 from pathlib import Path
 
 from uofa_cli.output import header, step_header, result_line, color
-from uofa_cli.shacl_friendly import run_shacl, print_results
+from uofa_cli.shacl_friendly import run_shacl_multi, print_results
 from uofa_cli.integrity import verify_file
 from uofa_cli import paths
 
@@ -28,7 +28,8 @@ def run(args) -> int:
 
     # ── C2: SHACL ─────────────────────────────────────────────
     step_header("C2: SHACL profile validation")
-    conforms, violations = run_shacl(args.file, paths.shacl_schema())
+    shacl_paths = paths.all_shacl_schemas()
+    conforms, violations = run_shacl_multi(args.file, shacl_paths)
     print_results(conforms, violations)
     results["C2 SHACL"] = conforms
 

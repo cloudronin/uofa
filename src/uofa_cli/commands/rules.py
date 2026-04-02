@@ -4,6 +4,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 from uofa_cli.output import step_header, error, info, color, severity_badge
@@ -14,7 +15,7 @@ HELP = "detect quality gaps with Jena rule engine (C3)"
 # Patterns to colorize in Jena output
 _SEVERITY_RE = re.compile(r'\[(Critical|High|Medium|Low)\]')
 _COMPOUND_RE = re.compile(r'(⚡\s*COMPOUND-\d+)')
-_PATTERN_RE = re.compile(r'(⚠\s*W-[A-Z]{2}-\d{2})')
+_PATTERN_RE = re.compile(r'(⚠\s*W-[A-Z]+-\d{2})')
 _SUMMARY_LINE_RE = re.compile(r'^(\s*)(Critical|High|Medium|Low):\s+(\d+)$')
 
 
@@ -91,6 +92,30 @@ def _colorize_line(line: str) -> str:
     return line
 
 
+def _combine_rules_files(rules_paths: list[Path]) -> Path:
+    """Concatenate multiple rules files into a single temp file."""
+    if len(rules_paths) == 1:
+        return rules_paths[0]
+
+    tmp = tempfile.NamedTemporaryFile(mode="w", suffix=".rules", delete=False)
+    seen_prefixes = set()
+    for rp in rules_paths:
+        content = rp.read_text()
+        # Deduplicate @prefix declarations
+        lines = []
+        for line in content.splitlines():
+            if line.strip().startswith("@prefix"):
+                if line.strip() not in seen_prefixes:
+                    seen_prefixes.add(line.strip())
+                    lines.append(line)
+            else:
+                lines.append(line)
+        tmp.write("\n".join(lines))
+        tmp.write("\n\n")
+    tmp.close()
+    return Path(tmp.name)
+
+
 def run(args) -> int:
     if not args.file.exists():
         raise FileNotFoundError(f"File not found: {args.file}")
@@ -98,7 +123,12 @@ def run(args) -> int:
     _ensure_java()
     jar = _ensure_jar(args.build)
 
-    rules = args.rules or paths.rules_file(args.file)
+    if args.rules:
+        rules = args.rules
+    else:
+        rules_list = paths.all_rules_files(args.file)
+        rules = _combine_rules_files(rules_list)
+
     ctx = args.context or paths.context_file()
 
     step_header("C3: Jena rule engine — weakener detection")

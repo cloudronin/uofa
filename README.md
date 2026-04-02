@@ -1,4 +1,4 @@
-# Unit of Assurance (UofA) — v0.3
+# Unit of Assurance (UofA) — v0.4
 
 ![validate examples](https://github.com/cloudronin/uofa/actions/workflows/validate.yml/badge.svg)
 
@@ -278,13 +278,16 @@ Everything in Minimal, plus:
 
 ### CredibilityFactor
 
-Each factor maps to one row in V&V 40 Table 5-1:
+Each factor maps to one row in V&V 40 Table 5-1 or NASA-STD-7009B:
 
 | Property | Constraint | Purpose |
 |---|---|---|
-| `factorType` | One of 13 V&V 40 factor names | Which credibility factor is being assessed |
-| `requiredLevel` | Integer 1–5 | Target credibility level for this COU |
-| `achievedLevel` | Integer 1–5 | Actual credibility level achieved |
+| `factorType` | Factor name from the active pack's taxonomy | Which credibility factor is being assessed |
+| `factorStandard` | String (e.g., `"ASME-VV40-2018"`, `"NASA-STD-7009B"`) | Which standard defines this factor |
+| `assessmentPhase` | `"capability"` or `"results"` *(NASA-STD-7009B only)* | NASA CAS assessment phase |
+| `requiredLevel` | Integer (1–5 for V&V 40, 0–4 for NASA-7009B) | Target credibility level for this COU |
+| `achievedLevel` | Integer (1–5 for V&V 40, 0–4 for NASA-7009B) | Actual credibility level achieved |
+| `hasEvidence` | IRI or IRI[] *(optional)* | Links to backing evidence entities |
 
 ### WeakenerAnnotation
 
@@ -328,7 +331,13 @@ uofa diff uofa-cou1.jsonld uofa-cou2.jsonld
 uofa packs
 
 # Use a specific domain pack
-uofa check path/to/your-uofa.jsonld --pack cardio-cfd
+uofa check path/to/your-uofa.jsonld --pack vv40
+
+# Use multiple packs (e.g., V&V 40 + NASA-STD-7009B)
+uofa check path/to/your-uofa.jsonld --pack vv40 --pack nasa-7009b
+
+# Migrate a v0.3 file to v0.4
+uofa migrate path/to/old-file.jsonld
 ```
 
 See the [Getting Started Guide](docs/getting-started.md) for a full walkthrough.
@@ -337,15 +346,17 @@ See the [Getting Started Guide](docs/getting-started.md) for a full walkthrough.
 
 ## Domain Packs
 
-SHACL shapes, Jena rules, templates, and extraction prompts are organized into **domain packs** under `packs/`. The `core` pack ships with the base V&V 40 credibility assessment rules (13 factors, 13 weakener patterns). Future domain-specific packs (e.g., `cardio-cfd`, `ortho-fatigue`, `aero-structures`) extend the core shapes and rules with domain-specific constraints.
+SHACL shapes, Jena rules, templates, and extraction prompts are organized into **domain packs** under `packs/`. The `core` pack ships with standards-agnostic credibility assessment rules (12 weakener patterns). The `vv40` pack provides the ASME V&V 40-2018 factor taxonomy (13 factors), and the `nasa-7009b` pack provides the NASA-STD-7009B factor taxonomy (19 factors, including 6 NASA-only lifecycle factors).
 
 ```bash
 $ uofa packs
 Installed packs:
-  core         v0.3.0   Base V&V 40 credibility assessment pack. (13 factors, 13 patterns)   [active]
+  core         v0.4.0   Core credibility assessment rules.               (any factors, 12 patterns) [always loaded]
+  nasa-7009b   v0.4.0   NASA-STD-7009B credibility assessment factors... (19 factors, 6 patterns)
+  vv40         v0.4.0   ASME V&V 40-2018 credibility factor taxonomy...  (13 factors, 0 patterns)   [active]
 ```
 
-The `--pack` flag on any command switches the active pack. Per-project rules files next to the input file still take precedence over the pack default. See [`packs/README.md`](packs/README.md) for the full pack contract and instructions for creating domain packs.
+The `--pack` flag on any command switches the active pack(s). Multiple packs can be specified to combine factor taxonomies and rules. The default is `--pack vv40` for backward compatibility. Per-project rules files next to the input file still take precedence over the pack default. See [`packs/README.md`](packs/README.md) for the full pack contract and instructions for creating domain packs.
 
 ---
 

@@ -14,7 +14,7 @@ The UofA CLI implements three validation pipelines for credibility evidence pack
 | **C2** | Completeness | Required fields are present and well-formed | SHACL shapes (pyshacl) |
 | **C3** | Quality gates | Substantive credibility gaps | Apache Jena forward-chaining rules (Java subprocess) |
 
-The CLI is a Python package (`uofa_cli`) with 10 subcommands, a set of core modules for cryptography and formatting, and a Java backend for the rule engine.
+The CLI is a Python package (`uofa_cli`) with 11 subcommands, a set of core modules for cryptography and formatting, and a Java backend for the rule engine.
 
 ```
                       uofa <command>
@@ -55,20 +55,29 @@ src/uofa_cli/
     sign.py               # sign UofA files
     validate.py           # bulk validate all examples
     verify.py             # verify hash + signature (C1)
+    migrate.py            # migrate v0.3 files to v0.4
 
 packs/
-  core/                   # Base V&V 40 domain pack
+  core/                   # Base domain pack (pack-agnostic core shapes)
     pack.json             # Pack manifest (name, version, shapes, rules, etc.)
     shapes/
       uofa_shacl.ttl      # SHACL shapes — single source of truth for validation
     rules/
-      uofa_weakener.rules # Jena forward-chaining rules (13 patterns)
+      uofa_weakener.rules # Jena forward-chaining rules
     templates/            # (populated when uofa import ships)
     prompts/              # (populated when uofa extract ships)
+  vv40/                   # ASME V&V 40 domain pack (13 credibility factors)
+    pack.json
+    shapes/               # V&V 40–specific SHACL constraints (factorType enum, etc.)
+    rules/                # V&V 40–specific weakener rules
+  nasa-7009b/             # NASA-STD-7009B domain pack
+    pack.json
+    shapes/               # 7009B-specific SHACL constraints
+    rules/                # 7009B-specific weakener rules
   README.md               # How to create a domain pack
 
 spec/
-  context/v0.3.jsonld     # JSON-LD vocabulary context (@vocab, property mappings)
+  context/v0.4.jsonld     # JSON-LD vocabulary context (@vocab, property mappings)
   schemas/
     uofa_shacl.ttl        # SYMLINK → ../../packs/core/shapes/uofa_shacl.ttl
     uofa.schema.json      # JSON Schema — generated from SHACL via `uofa schema`
@@ -186,6 +195,10 @@ Lists installed domain packs or inspects a specific pack. Without arguments, sho
 
 Generates `spec/schemas/uofa.schema.json` from the SHACL shapes in the active pack. This ensures the JSON Schema stays in sync with the SHACL source of truth. Uses rdflib to parse Turtle and maps SHACL constraints to JSON Schema properties.
 
+### `uofa migrate <file>`
+
+Migrates a v0.3 UofA JSON-LD file to v0.4. Updates the `@context` reference, adds any new required properties with sensible defaults, and adjusts pack-specific fields as needed. Use this when upgrading existing evidence packages to the v0.4 vocabulary.
+
 ---
 
 ## Core Modules
@@ -273,7 +286,7 @@ If you change a validation constraint:
 2. Run `uofa schema` to regenerate the JSON Schema
 3. Run `uofa validate` to verify all examples still conform
 
-The JSON-LD context at `spec/context/v0.3.jsonld` defines the vocabulary mappings. It maps short property names (e.g., `patternId`) to full URIs (e.g., `uofa:patternId`). If you add a new property to the schema, you must also add its mapping here. The context is framework-level (not pack-specific) — all packs share the same vocabulary.
+The JSON-LD context at `spec/context/v0.4.jsonld` defines the vocabulary mappings. It maps short property names (e.g., `patternId`) to full URIs (e.g., `uofa:patternId`). If you add a new property to the schema, you must also add its mapping here. The context is framework-level (not pack-specific) — all packs share the same vocabulary. New properties added in v0.4 include `factorStandard`, `assessmentPhase`, and `hasEvidence`.
 
 ---
 
@@ -452,7 +465,7 @@ pytest tests/ -v
 
 The SHACL shapes at `packs/core/shapes/uofa_shacl.ttl` define what fields are required, their types, and allowed values. If you need to add a new field to the UofA vocabulary:
 
-1. **Add the property mapping** to `spec/context/v0.3.jsonld`:
+1. **Add the property mapping** to `spec/context/v0.4.jsonld`:
 
 ```json
 "myNewField": {"@id": "uofa:myNewField", "@type": "xsd:string"}
@@ -533,4 +546,4 @@ Tests that require Java are gated with `@pytest.mark.skipif(not JAVA_AVAILABLE, 
 
 **Convention-based rules discovery.** The `rules_file()` function searches for `uofa_weakener.rules` next to the input file, then one directory up, then falls back to the active pack's rules. This lets projects carry their own rules without CLI changes.
 
-**Domain pack architecture.** SHACL shapes, Jena rules, templates, and prompts are organized into domain packs under `packs/`. The `core` pack ships with the base V&V 40 rules. Future domain packs (e.g., `cardio-cfd`, `ortho-fatigue`) drop into `packs/` following the same convention. Each pack has a `pack.json` manifest that the CLI reads to discover assets. The `--pack` global flag switches between packs. See `packs/README.md` for the full pack contract.
+**Domain pack architecture.** SHACL shapes, Jena rules, templates, and prompts are organized into domain packs under `packs/`. The `core` pack provides base, pack-agnostic shapes. Two standards-specific packs ship with v0.4: `vv40` (ASME V&V 40, with its 13 credibility factor types) and `nasa-7009b` (NASA-STD-7009B). Standard-specific constraints such as the `factorType` enum are defined in the pack's own SHACL shapes rather than in core. Additional domain packs can be added by dropping into `packs/` following the same convention. Each pack has a `pack.json` manifest that the CLI reads to discover assets. The `--pack` global flag switches between packs, and multi-pack support allows combining constraints from several packs in a single validation run. See `packs/README.md` for the full pack contract.

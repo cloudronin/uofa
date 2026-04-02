@@ -1,0 +1,133 @@
+# ============================================================================
+# NASA-STD-7009B Weakener Detection Rules
+# ============================================================================
+# Extends core weakener rules with NASA-specific quality gap detection.
+# These rules fire on NASA-only factors and evidence requirements.
+#
+# Engine: Apache Jena GenericRuleReasoner (FORWARD_RETE mode)
+# Pack: nasa-7009b v0.4.0
+# ============================================================================
+
+@prefix uofa: <https://uofa.net/vocab#>.
+@prefix prov: <http://www.w3.org/ns/prov#>.
+@prefix rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#>.
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#>.
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#>.
+@prefix schema: <https://schema.org/>.
+
+# ============================================================================
+# W-NASA-01: Data pedigree not assessed at elevated risk
+# Uses approach (b): requires not-assessed factor entry, same as W-EP-04
+# ============================================================================
+[w_nasa01:
+    (?uofa rdf:type uofa:UnitOfAssurance)
+    (?uofa uofa:hasCredibilityFactor ?f)
+    (?f uofa:factorType 'Data pedigree')
+    (?f uofa:factorStatus 'not-assessed')
+    (?uofa uofa:modelRiskLevel ?mrl)
+    greaterThan(?mrl, 1)
+    makeSkolem(?ann, ?uofa, 'W-NASA-01', ?f)
+    ->
+    (?ann rdf:type uofa:WeakenerAnnotation)
+    (?ann uofa:patternId 'W-NASA-01')
+    (?ann uofa:severity 'High')
+    (?ann uofa:affectedNode ?f)
+    (?ann schema:description 'Data pedigree factor is not assessed but model risk level exceeds 1 — input data provenance should be documented at elevated risk.')
+    (?uofa uofa:hasWeakener ?ann)
+]
+
+# ============================================================================
+# W-NASA-02: No review activity linked to technical review factor
+# ============================================================================
+[w_nasa02:
+    (?uofa rdf:type uofa:UnitOfAssurance)
+    (?uofa uofa:hasCredibilityFactor ?f)
+    (?f uofa:factorType 'Development technical review')
+    (?f uofa:factorStatus 'assessed')
+    noValue(?f, uofa:hasEvidence)
+    makeSkolem(?ann, ?uofa, 'W-NASA-02', ?f)
+    ->
+    (?ann rdf:type uofa:WeakenerAnnotation)
+    (?ann uofa:patternId 'W-NASA-02')
+    (?ann uofa:severity 'High')
+    (?ann uofa:affectedNode ?f)
+    (?ann schema:description 'Technical review factor is assessed but has no linked ReviewActivity evidence.')
+    (?uofa uofa:hasWeakener ?ann)
+]
+
+# ============================================================================
+# W-NASA-03: No process attestation linked to process mgmt factor
+# ============================================================================
+[w_nasa03:
+    (?uofa rdf:type uofa:UnitOfAssurance)
+    (?uofa uofa:hasCredibilityFactor ?f)
+    (?f uofa:factorType 'Development process and product management')
+    (?f uofa:factorStatus 'assessed')
+    noValue(?f, uofa:hasEvidence)
+    makeSkolem(?ann, ?uofa, 'W-NASA-03', ?f)
+    ->
+    (?ann rdf:type uofa:WeakenerAnnotation)
+    (?ann uofa:patternId 'W-NASA-03')
+    (?ann uofa:severity 'High')
+    (?ann uofa:affectedNode ?f)
+    (?ann schema:description 'Process management factor is assessed but has no linked ProcessAttestation evidence.')
+    (?uofa uofa:hasWeakener ?ann)
+]
+
+# ============================================================================
+# W-NASA-04: Use history factor not assessed at elevated risk
+# ============================================================================
+[w_nasa04:
+    (?uofa rdf:type uofa:UnitOfAssurance)
+    (?uofa uofa:hasCredibilityFactor ?f)
+    (?f uofa:factorType 'Use history')
+    (?f uofa:factorStatus 'not-assessed')
+    (?uofa uofa:modelRiskLevel ?mrl)
+    greaterThan(?mrl, 2)
+    makeSkolem(?ann, ?uofa, 'W-NASA-04', ?f)
+    ->
+    (?ann rdf:type uofa:WeakenerAnnotation)
+    (?ann uofa:patternId 'W-NASA-04')
+    (?ann uofa:severity 'Medium')
+    (?ann uofa:affectedNode ?f)
+    (?ann schema:description 'Use history is not assessed but model risk level exceeds 2 — prior deployment evidence would strengthen the credibility argument.')
+    (?uofa uofa:hasWeakener ?ann)
+]
+
+# ============================================================================
+# W-NASA-05: Results uncertainty factor assessed but no UQ data linked
+# ============================================================================
+[w_nasa05:
+    (?uofa rdf:type uofa:UnitOfAssurance)
+    (?uofa uofa:hasCredibilityFactor ?f)
+    (?f uofa:factorType 'Results uncertainty')
+    (?f uofa:factorStatus 'assessed')
+    noValue(?uofa, uofa:hasUncertaintyQuantification)
+    makeSkolem(?ann, ?uofa, 'W-NASA-05', ?f)
+    ->
+    (?ann rdf:type uofa:WeakenerAnnotation)
+    (?ann uofa:patternId 'W-NASA-05')
+    (?ann uofa:severity 'High')
+    (?ann uofa:affectedNode ?f)
+    (?ann schema:description 'Results uncertainty factor is assessed but UofA has no UQ data (hasUncertaintyQuantification is missing).')
+    (?uofa uofa:hasWeakener ?ann)
+]
+
+# ============================================================================
+# W-NASA-06: Results robustness factor assessed but no sensitivity analysis
+# ============================================================================
+[w_nasa06:
+    (?uofa rdf:type uofa:UnitOfAssurance)
+    (?uofa uofa:hasCredibilityFactor ?f)
+    (?f uofa:factorType 'Results robustness')
+    (?f uofa:factorStatus 'assessed')
+    noValue(?f, uofa:hasEvidence)
+    makeSkolem(?ann, ?uofa, 'W-NASA-06', ?f)
+    ->
+    (?ann rdf:type uofa:WeakenerAnnotation)
+    (?ann uofa:patternId 'W-NASA-06')
+    (?ann uofa:severity 'High')
+    (?ann uofa:affectedNode ?f)
+    (?ann schema:description 'Results robustness factor is assessed but has no linked SensitivityAnalysis evidence.')
+    (?uofa uofa:hasWeakener ?ann)
+]

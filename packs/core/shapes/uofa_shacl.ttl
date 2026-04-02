@@ -244,15 +244,18 @@ uofa:UnitOfAssurance_CompleteBody
   ] .
 
 ################################################################
-# CredibilityFactor node shape (V&V 40 Table 5-1)
+# CredibilityFactor node shape (standards-agnostic)
 #
-# v0.3 changes:
-#   - factorStatus added (required): drives assessed vs not-assessed
-#   - requiredLevel / achievedLevel now OPTIONAL (removed minCount 1)
-#     Not-assessed factors omit levels; assessed factors should have
-#     them. Jena rules (C3) enforce the semantic constraint that
-#     assessed factors with missing levels fire W-AR-02.
-#   - Level range widened to 0–5 (0 = explicitly unset placeholder)
+# v0.4 changes:
+#   - factorType enum REMOVED from core — now defined by domain
+#     packs (vv40, nasa-7009b). Core only requires factorType to
+#     be a non-empty string.
+#   - factorStandard added (optional): identifies which standard
+#     defines this factor (e.g., "ASME-VV40-2018", "NASA-STD-7009B").
+#   - assessmentPhase added (optional): "capability" or "results"
+#     (used by NASA-STD-7009B, not V&V 40).
+#   - hasEvidence added (optional): IRI link to backing evidence.
+#   - Level range remains 0–5 in core; packs may constrain further.
 ################################################################
 uofa:CredibilityFactorShape
   a sh:NodeShape ;
@@ -260,28 +263,8 @@ uofa:CredibilityFactorShape
     sh:path uofa:factorType ;
     sh:minCount 1 ;
     sh:maxCount 1 ;
-    sh:in (
-      # Verification — Code (5.1.1)
-      "Software quality assurance"
-      "Numerical code verification"
-      # Verification — Calculation (5.1.2)
-      "Discretization error"
-      "Numerical solver error"
-      "Use error"
-      # Validation — Computational model (5.2.1)
-      "Model form"
-      "Model inputs"
-      # Validation — Comparator (5.2.2)
-      "Test samples"
-      "Test conditions"
-      # Validation — Assessment (5.2.3)
-      "Equivalency of input parameters"
-      "Output comparison"
-      # Applicability (5.3)
-      "Relevance of the quantities of interest"
-      "Relevance of the validation activities to the COU"
-    ) ;
-    sh:message "factorType must be a V&V 40 Table 5-1 credibility factor name." ;
+    sh:datatype xsd:string ;
+    sh:message "CredibilityFactor must have a factorType string." ;
   ] ;
   sh:property [
     sh:path uofa:factorStatus ;
@@ -291,10 +274,18 @@ uofa:CredibilityFactorShape
     sh:message "Every credibility factor must declare its assessment status." ;
   ] ;
   sh:property [
+    sh:path uofa:factorStandard ;
+    sh:datatype xsd:string ;
+    sh:maxCount 1 ;
+  ] ;
+  sh:property [
+    sh:path uofa:assessmentPhase ;
+    sh:in ( "capability" "results" ) ;
+    sh:maxCount 1 ;
+  ] ;
+  sh:property [
     sh:path uofa:requiredLevel ;
     sh:datatype xsd:integer ;
-    # No sh:minCount — optional for not-assessed factors.
-    # Jena rule W-AR-02 enforces that assessed factors have levels.
     sh:maxCount 1 ;
     sh:minInclusive 0 ;
     sh:maxInclusive 5 ;
@@ -303,8 +294,6 @@ uofa:CredibilityFactorShape
   sh:property [
     sh:path uofa:achievedLevel ;
     sh:datatype xsd:integer ;
-    # No sh:minCount — optional for not-assessed factors.
-    # Jena rule W-AR-02 enforces that assessed factors have levels.
     sh:maxCount 1 ;
     sh:minInclusive 0 ;
     sh:maxInclusive 5 ;
@@ -320,8 +309,8 @@ uofa:WeakenerAnnotationShape
     sh:path uofa:patternId ;
     sh:minCount 1 ;
     sh:maxCount 1 ;
-    sh:pattern "^(W-(EP|AL|ON|AR|SI)-\\d{2}|COMPOUND-\\d{2})$" ;
-    sh:message "patternId must match catalog format (e.g., W-EP-01, W-AL-01, COMPOUND-01)." ;
+    sh:pattern "^(W-(EP|AL|ON|AR|SI|NASA)-\\d{2}|COMPOUND-\\d{2})$" ;
+    sh:message "patternId must match catalog format (e.g., W-EP-01, W-NASA-02, COMPOUND-01)." ;
   ] ;
   sh:property [
     sh:path uofa:severity ;
@@ -342,3 +331,56 @@ uofa:WeakenerAnnotationShape
     sh:maxCount 1 ;
     sh:message "description should explain why this weakener fires." ;
   ] .
+
+################################################################
+# Evidence class shapes (v0.4 — used by NASA-STD-7009B pack)
+################################################################
+
+uofa:ReviewActivityShape a sh:NodeShape ;
+    sh:targetClass uofa:ReviewActivity ;
+    sh:property [
+        sh:path uofa:reviewer ;
+        sh:minCount 1 ;
+        sh:message "ReviewActivity must identify a reviewer." ;
+    ] ;
+    sh:property [
+        sh:path uofa:reviewType ;
+        sh:in ( "independent" "internal" "peer" ) ;
+    ] .
+
+uofa:ProcessAttestationShape a sh:NodeShape ;
+    sh:targetClass uofa:ProcessAttestation ;
+    sh:property [
+        sh:path uofa:processType ;
+        sh:minCount 1 ;
+        sh:in ( "configuration-management" "sqa" "change-control" "documentation" ) ;
+    ] ;
+    sh:property [
+        sh:path uofa:attestedBy ;
+        sh:minCount 1 ;
+    ] .
+
+uofa:DeploymentRecordShape a sh:NodeShape ;
+    sh:targetClass uofa:DeploymentRecord ;
+    sh:property [
+        sh:path uofa:deployedIn ;
+        sh:minCount 1 ;
+    ] ;
+    sh:property [
+        sh:path uofa:deploymentOutcome ;
+        sh:in ( "successful" "partial" "unsuccessful" ) ;
+    ] .
+
+uofa:InputPedigreeLinkShape a sh:NodeShape ;
+    sh:targetClass uofa:InputPedigreeLink ;
+    sh:property [
+        sh:path uofa:sourceReference ;
+        sh:minCount 1 ;
+        sh:message "InputPedigreeLink must reference the original data source." ;
+    ] ;
+    sh:property [
+        sh:path uofa:pedigreeLevel ;
+        sh:datatype xsd:integer ;
+        sh:minInclusive 0 ;
+        sh:maxInclusive 4 ;
+    ] .
