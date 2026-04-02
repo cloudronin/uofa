@@ -35,7 +35,13 @@ def run(args) -> int:
         result_line("No .jsonld files found", False)
         return 1
 
-    shacl_paths = paths.all_shacl_schemas()
+    # When scanning all examples, use core-only shapes (no factor enum)
+    # unless a specific pack was explicitly requested via --pack.
+    # This avoids rejecting NASA examples when default pack is vv40.
+    if args.pack is None:
+        shacl_paths = [paths.shacl_schema()]
+    else:
+        shacl_paths = paths.all_shacl_schemas()
     passed = 0
     failed = 0
 

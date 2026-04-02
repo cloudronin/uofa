@@ -24,7 +24,7 @@ _FIX_SUGGESTIONS = {
     str(UOFA.conformsToProfile):   "Set conformsToProfile to ProfileMinimal or ProfileComplete.",
     str(UOFA.hash):                "Run `uofa sign FILE --key KEY` to generate a valid hash.",
     str(UOFA.signature):           "Run `uofa sign FILE --key KEY` to generate a valid signature.",
-    str(UOFA.factorType):          "Must be one of the 13 V&V 40 Table 5-1 factor names.",
+    str(UOFA.factorType):          "Must be a valid factor name for the active pack (use --pack to select).",
     str(UOFA.requiredLevel):       "Must be an integer 1-5.",
     str(UOFA.achievedLevel):       "Must be an integer 1-5.",
     str(UOFA.assuranceLevel):      "Must be Low, Medium, or High.",
