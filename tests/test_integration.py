@@ -869,3 +869,102 @@ class TestDiffCrossStandard:
         # Should show both COUs
         assert "COU A" in result.stdout
         assert "COU B" in result.stdout
+
+
+# ── Import command tests ──────────────────────────────────────
+
+STARTER_XLSX = REPO_ROOT / "examples" / "starters" / "uofa-starter-filled.xlsx"
+OPENPYXL_AVAILABLE = True
+try:
+    import openpyxl  # noqa: F401
+except ImportError:
+    OPENPYXL_AVAILABLE = False
+
+
+@pytest.mark.skipif(not OPENPYXL_AVAILABLE, reason="openpyxl not installed")
+class TestImport:
+    """Tests for the uofa import command."""
+
+    def test_import_help(self):
+        result = run_uofa("import", "--help")
+        assert result.returncode == 0
+        assert "Excel workbook" in result.stdout
+
+    def test_import_starter_xlsx(self, tmp_path):
+        """Import the existing starter .xlsx and verify output."""
+        output = tmp_path / "output.jsonld"
+        result = run_uofa("import", str(STARTER_XLSX), "-o", str(output), "--pack", "vv40")
+        assert result.returncode == 0, f"Import failed: {result.stderr}"
+        assert output.exists()
+
+        doc = json.loads(output.read_text())
+        assert doc["type"] == "UnitOfAssurance"
+        assert "ProfileComplete" in doc["conformsToProfile"]
+        assert "hasCredibilityFactor" in doc
+        assert len(doc["hasCredibilityFactor"]) > 0
+        assert doc["provenanceChain"][0]["activityType"] == "ImportActivity"
+
+    def test_import_produces_valid_json(self, tmp_path):
+        output = tmp_path / "output.jsonld"
+        result = run_uofa("import", str(STARTER_XLSX), "-o", str(output), "--pack", "vv40")
+        assert result.returncode == 0
+        doc = json.loads(output.read_text())
+        assert "@context" in doc
+        assert "generatedAtTime" in doc
+        assert doc["hash"].startswith("sha256:")
+
+    def test_import_with_sign(self, tmp_path):
+        """Import + sign produces real hash and signature."""
+        output = tmp_path / "output.jsonld"
+        key = REPO_ROOT / "keys" / "research.key"
+        result = run_uofa("import", str(STARTER_XLSX), "-o", str(output),
+                          "--sign", "--key", str(key), "--pack", "vv40")
+        assert result.returncode == 0
+        assert "Signed" in result.stdout
+
+        doc = json.loads(output.read_text())
+        # After signing, hash should not be all zeros
+        assert doc["hash"] != "sha256:" + "0" * 64
+
+    def test_import_missing_file(self):
+        result = run_uofa("import", "nonexistent.xlsx", "--pack", "vv40")
+        assert result.returncode == 1
+        assert "not found" in result.stderr.lower() or "not found" in result.stdout.lower()
+
+    def test_import_factor_standards_vv40(self, tmp_path):
+        """All factors from VV40 import get ASME-VV40-2018 standard."""
+        output = tmp_path / "output.jsonld"
+        result = run_uofa("import", str(STARTER_XLSX), "-o", str(output), "--pack", "vv40")
+        assert result.returncode == 0
+
+        doc = json.loads(output.read_text())
+        for factor in doc.get("hasCredibilityFactor", []):
+            assert factor["factorStandard"] == "ASME-VV40-2018", (
+                f"Factor {factor['factorType']} has wrong standard"
+            )
+
+    def test_import_default_output_path(self, tmp_path):
+        """Without -o, output goes next to input with .jsonld extension."""
+        # Copy xlsx to tmp_path
+        import shutil
+        xlsx_copy = tmp_path / "test.xlsx"
+        shutil.copy2(STARTER_XLSX, xlsx_copy)
+
+        result = run_uofa("import", str(xlsx_copy), "--pack", "vv40")
+        assert result.returncode == 0
+
+        expected = tmp_path / "test.jsonld"
+        assert expected.exists()
+
+    def test_schema_emit_python(self, tmp_path):
+        """uofa schema --emit python generates importable constants."""
+        output = tmp_path / "constants.py"
+        result = run_uofa("schema", "--emit", "python", "-o", str(output))
+        assert result.returncode == 0
+        assert output.exists()
+
+        content = output.read_text()
+        assert "VV40_FACTOR_NAMES" in content
+        assert "NASA_ALL_FACTOR_NAMES" in content
+        assert "VALID_DECISION_OUTCOMES" in content
+        assert "DO NOT EDIT" in content
