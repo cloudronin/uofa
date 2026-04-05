@@ -14,7 +14,7 @@ KEY  ?= keys/research.key
 
 # ── Primary targets ─────────────────────────────────────────
 
-all: clean test validate morrison morrison-diff
+all: clean morrison-build test validate morrison morrison-diff
 	@echo "\n✓ All checks passed."
 
 # ── Generic targets (delegate to uofa CLI) ──────────────────
