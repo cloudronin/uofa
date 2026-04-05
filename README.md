@@ -48,7 +48,7 @@ UofA addresses this through three contributions:
 
 ## Live Demo: Morrison Blood Pump (FDA V&V 40 Case Study)
 
-The `examples/morrison/` directory contains complete, working UofA evidence packages built from [Morrison et al. (2019)](https://doi.org/10.1097/MAT.0000000000000996) — an FDA OSEL co-authored V&V 40 credibility assessment for a centrifugal blood pump. This is the most widely cited V&V 40 worked example.
+The `packs/vv40/examples/morrison/` directory contains complete, working UofA evidence packages built from [Morrison et al. (2019)](https://doi.org/10.1097/MAT.0000000000000996) — an FDA OSEL co-authored V&V 40 credibility assessment for a centrifugal blood pump. This is the most widely cited V&V 40 worked example.
 
 **What the demo shows:**
 
@@ -65,7 +65,7 @@ Morrison prose assessment          →  UofA structured evidence package
 pip install -e .    # one-time setup (installs uofa CLI + all Python dependencies)
 
 # Run the full C1 + C2 + C3 pipeline in one command
-uofa check examples/morrison/cou1/uofa-morrison-cou1.jsonld --build
+uofa check packs/vv40/examples/morrison/cou1/uofa-morrison-cou1.jsonld --build
 ```
 
 That single command runs three checks:
@@ -103,8 +103,8 @@ Morrison contains two Contexts of Use assessing the same CFD model:
 Same model. Same experimental data. Different credibility requirements driven by different model risk. The `uofa diff` command surfaces this divergence automatically:
 
 ```bash
-uofa diff examples/morrison/cou1/uofa-morrison-cou1.jsonld \
-         examples/morrison/cou2/uofa-morrison-cou2.jsonld
+uofa diff packs/vv40/examples/morrison/cou1/uofa-morrison-cou1.jsonld \
+         packs/vv40/examples/morrison/cou2/uofa-morrison-cou2.jsonld
 ```
 
 ```
@@ -195,10 +195,10 @@ Every UofA carries a real cryptographic hash and digital signature — not place
 
 ```bash
 # Mint a sealed UofA (sign after edits)
-uofa sign examples/morrison/cou1/uofa-morrison-cou1.jsonld --key keys/research.key
+uofa sign packs/vv40/examples/morrison/cou1/uofa-morrison-cou1.jsonld --key keys/research.key
 
 # Verify integrity
-uofa verify examples/morrison/cou1/uofa-morrison-cou1.jsonld
+uofa verify packs/vv40/examples/morrison/cou1/uofa-morrison-cou1.jsonld
 ```
 
 Placeholder strings (e.g., `sha256:placeholder...`) now **fail** SHACL validation. This is deliberate — a UofA claiming ProfileComplete must carry a real hash.
@@ -375,7 +375,7 @@ pip install -e '.[excel]'    # one-time: adds openpyxl dependency
 uofa import my-assessment.xlsx --sign --key keys/research.key --check --pack vv40
 ```
 
-The Excel template has 5 sheets: **Assessment Summary**, **Model & Data**, **Validation Results**, **Credibility Factors**, and **Decision**. Each pack provides a pre-populated template with locked factor names and dropdown validation. See `examples/starters/uofa-starter-filled.xlsx` for a complete filled example.
+The Excel template has 5 sheets: **Assessment Summary**, **Model & Data**, **Validation Results**, **Credibility Factors**, and **Decision**. Each pack provides a pre-populated template with locked factor names and dropdown validation. See `packs/vv40/templates/uofa-starter-filled.xlsx` for a complete filled example.
 
 | Feature | Detail |
 |---|---|

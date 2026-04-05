@@ -87,13 +87,8 @@ spec/
     uofa_shacl.ttl        # SYMLINK → ../../packs/core/shapes/uofa_shacl.ttl
     uofa.schema.json      # JSON Schema — generated from SHACL via `uofa schema`
 
-examples/
-  morrison/               # Reference Morrison blood pump case study
-    uofa_weakener.rules   # SYMLINK → ../../packs/core/rules/uofa_weakener.rules
-    cou1/                 # COU1: CPB use (Class II, Accepted)
-    cou2/                 # COU2: VAD use (Class III, Not accepted)
-  templates/              # Skeleton files used by `uofa init`
-  starters/               # Real-world starter examples
+  # Examples and templates live alongside their pack's shapes and rules.
+  # Each pack is self-contained — no top-level examples/ directory.
 
 weakener-engine/          # Java Jena rule engine
   pom.xml                 # Maven config (Jena 5.3, picocli)
@@ -178,11 +173,11 @@ Runs the full pipeline in order: C2 (SHACL) then C1 (integrity) then C3 (rules).
 
 ### `uofa validate`
 
-Bulk validates all `*.jsonld` files under `examples/` against SHACL. Excludes `templates/` subdirectory. `--verify` additionally checks hash + signature integrity on each file (skips unsigned files with placeholder hashes). `--dir` overrides the scan directory.
+Bulk validates all `*.jsonld` files under `packs/*/examples/` against SHACL. Excludes `templates/` subdirectory. `--verify` additionally checks hash + signature integrity on each file (skips unsigned files with placeholder hashes). `--dir` overrides the scan directory.
 
 ### `uofa init <name>`
 
-Scaffolds a new UofA project. Creates a directory with a template JSON-LD file (from `examples/templates/`), generates a keypair, and creates a `.gitignore`. `--profile minimal|complete` selects the template. `--dir` sets the parent directory.
+Scaffolds a new UofA project. Creates a directory with a template JSON-LD file (from `packs/core/templates/`), generates a keypair, and creates a `.gitignore`. `--profile minimal|complete` selects the template. `--dir` sets the parent directory.
 
 ### `uofa diff <file_a> <file_b>`
 
@@ -349,10 +344,10 @@ def run_uofa(*args):
 
 | Constant | Path | Purpose |
 |---|---|---|
-| `MORRISON` | `examples/morrison/cou1/uofa-morrison-cou1.jsonld` | Reference valid Complete profile (signed) |
-| `MORRISON_COU2` | `examples/morrison/cou2/uofa-morrison-cou2.jsonld` | COU2 variant (different weakener profile) |
-| `MINIMAL_TEMPLATE` | `examples/templates/uofa-minimal-skeleton.jsonld` | Minimal profile skeleton |
-| `COMPLETE_TEMPLATE` | `examples/templates/uofa-complete-skeleton.jsonld` | Complete profile skeleton |
+| `MORRISON` | `packs/vv40/examples/morrison/cou1/uofa-morrison-cou1.jsonld` | Reference valid Complete profile (signed) |
+| `MORRISON_COU2` | `packs/vv40/examples/morrison/cou2/uofa-morrison-cou2.jsonld` | COU2 variant (different weakener profile) |
+| `MINIMAL_TEMPLATE` | `packs/core/templates/uofa-minimal-skeleton.jsonld` | Minimal profile skeleton |
+| `COMPLETE_TEMPLATE` | `packs/core/templates/uofa-complete-skeleton.jsonld` | Complete profile skeleton |
 | `JAVA_AVAILABLE` | `shutil.which("java")` | Gates tests that require the Jena engine |
 
 ### Test classes
@@ -448,7 +443,7 @@ pytest tests/ -v
 
 ## Adding a New Weakener Rule
 
-Weakener rules are defined in Jena rule syntax in `.rules` files. The core rules live at `packs/core/rules/uofa_weakener.rules` (symlinked from `examples/morrison/uofa_weakener.rules` for backward compatibility).
+Weakener rules are defined in Jena rule syntax in `.rules` files. The core rules live at `packs/core/rules/uofa_weakener.rules`.
 
 1. **Add the rule** to the `.rules` file:
 
@@ -485,7 +480,7 @@ uofa schema
 4. **Re-sign any example files** whose weakener arrays you modified:
 
 ```bash
-uofa sign examples/morrison/cou1/uofa-morrison-cou1.jsonld --key keys/research.key
+uofa sign packs/vv40/examples/morrison/cou1/uofa-morrison-cou1.jsonld --key keys/research.key
 ```
 
 5. **Run the full test suite:**
@@ -541,7 +536,7 @@ pytest tests/ -v
 `.github/workflows/validate.yml` runs on every push and PR. It builds the devcontainer and executes:
 - `pytest tests/test_integration.py -v`
 - `uofa validate --verify`
-- `uofa check examples/morrison/cou1/uofa-morrison-cou1.jsonld`
+- `uofa check packs/vv40/examples/morrison/cou1/uofa-morrison-cou1.jsonld`
 
 ### Dev Container / Codespaces
 

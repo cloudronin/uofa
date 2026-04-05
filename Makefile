@@ -2,8 +2,8 @@
 # The primary CLI is now `uofa`. Install it: pip install -e .
 # These targets delegate to `uofa` commands for backward compatibility.
 
-MORRISON_COU1 = examples/morrison/cou1/uofa-morrison-cou1.jsonld
-MORRISON_COU2 = examples/morrison/cou2/uofa-morrison-cou2.jsonld
+MORRISON_COU1 = packs/vv40/examples/morrison/cou1/uofa-morrison-cou1.jsonld
+MORRISON_COU2 = packs/vv40/examples/morrison/cou2/uofa-morrison-cou2.jsonld
 ENG_DIR       = weakener-engine
 
 FILE ?=

@@ -71,7 +71,7 @@ uofa rules my-file.jsonld --pack cardio-cfd
 
 ### Excel Templates
 
-Each pack can include an Excel template in `templates/`. The `uofa import` command uses the active pack to determine valid factor names, level ranges, and evidence types. The `core` and `vv40` packs ship with pre-populated templates; see `examples/starters/uofa-starter-filled.xlsx` for a complete filled example.
+Each pack can include an Excel template in `templates/`. The `uofa import` command uses the active pack to determine valid factor names, level ranges, and evidence types. The `core` and `vv40` packs ship with pre-populated templates; see `packs/vv40/templates/uofa-starter-filled.xlsx` for a complete filled example.
 
 ## Creating a Domain Pack
 

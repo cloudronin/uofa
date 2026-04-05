@@ -175,8 +175,7 @@ def rules_file(input_path: Path = None, root: Path = None) -> Path:
             return pack_path
     except (FileNotFoundError, KeyError):
         pass
-    # Backward compat fallback
-    return root / "examples" / "morrison" / "uofa_weakener.rules"
+    return root / "packs" / "core" / "rules" / "uofa_weakener.rules"
 
 
 def all_rules_files(input_path: Path = None, root: Path = None) -> list[Path]:
@@ -227,12 +226,32 @@ def default_pubkey(root: Path = None) -> Path:
 
 def templates_dir(root: Path = None) -> Path:
     root = root or find_repo_root()
-    return root / "examples" / "templates"
+    return root / "packs" / "core" / "templates"
 
 
 def examples_dir(root: Path = None) -> Path:
+    """Return the first pack examples directory found, for backward compat.
+
+    For scanning all pack examples, use all_example_dirs() instead.
+    """
     root = root or find_repo_root()
-    return root / "examples"
+    # Return first pack with examples/
+    packs_root = root / "packs"
+    for d in sorted(packs_root.iterdir()):
+        if d.is_dir() and (d / "examples").is_dir():
+            return d / "examples"
+    return packs_root / "vv40" / "examples"
+
+
+def all_example_dirs(root: Path = None) -> list[Path]:
+    """Return all pack example directories."""
+    root = root or find_repo_root()
+    packs_root = root / "packs"
+    dirs = []
+    for d in sorted(packs_root.iterdir()):
+        if d.is_dir() and (d / "examples").is_dir():
+            dirs.append(d / "examples")
+    return dirs
 
 
 # ── Project root detection (uofa.toml) ─────────────────────

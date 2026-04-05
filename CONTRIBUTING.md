@@ -9,7 +9,7 @@ Thanks for helping make the **Unit of Assurance (UofA)** better!
 
 ## Adding Examples
 
-Start from a template in `examples/templates/`, import from an Excel workbook (`uofa import`), or customize manually. Your example should:
+Start from a template in `packs/core/templates/`, import from an Excel workbook (`uofa import`), or customize manually. Your example should:
 
 - Use the v0.4 JSON-LD context:
   ```json
@@ -25,7 +25,7 @@ Start from a template in `examples/templates/`, import from an Excel workbook (`
 pip install -e .
 
 # Validate your example passes SHACL
-uofa check examples/your-example/your-uofa.jsonld
+uofa check packs/your-pack/examples/your-uofa.jsonld
 
 # Or validate all examples at once
 uofa validate
