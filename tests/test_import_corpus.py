@@ -1,37 +1,50 @@
-"""Parameterized import tests driven by the test corpus manifest.
+"""Unified E2E import tests: structural + roundtrip + weakener count verification.
 
-Run the corpus generator first:
-    python tests/generate_test_corpus.py --output-dir tests/fixtures/import/
+Fixtures are generated at test time from Python dicts — no committed xlsx files.
+Weakener count tests require Java + Jena JAR and FAIL HARD if unavailable.
 
-Then run these tests:
+Run structural tests (no Java needed):
+    pytest tests/test_import_corpus.py -k "Structural or Roundtrip" -v
+
+Run weakener tests (requires Java + Jena):
+    pytest tests/test_import_corpus.py -k "Weakener or TC70" -v
+
+Full suite:
     pytest tests/test_import_corpus.py -v
 """
 
 import json
+import re
+import shutil
 import subprocess
 import sys
 from pathlib import Path
 
 import pytest
 
+import importlib.util
+
+_gen_path = Path(__file__).parent / "fixtures" / "import" / "generator.py"
+_spec = importlib.util.spec_from_file_location("generator", _gen_path)
+_generator = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(_generator)
+SPECS = _generator.SPECS
+generate_fixture = _generator.generate_fixture
+
 REPO_ROOT = Path(__file__).parent.parent
-CORPUS_DIR = REPO_ROOT / "tests" / "fixtures" / "import"
-MANIFEST_PATH = CORPUS_DIR / "tc_manifest.json"
+CONTEXT_FILE = str(REPO_ROOT / "spec" / "context" / "v0.4.jsonld")
+KEY_FILE = REPO_ROOT / "keys" / "research.key"
+TC70_XLSX = REPO_ROOT / "examples" / "starters" / "uofa-aero-hpt-blade-thermal-gaps.xlsx"
 
+JAVA_AVAILABLE = shutil.which("java") is not None
+JENA_JAR = REPO_ROOT / "weakener-engine" / "target" / "uofa-weakener-engine-0.1.0.jar"
+JENA_AVAILABLE = JAVA_AVAILABLE and JENA_JAR.exists()
 
-def _load_manifest():
-    if not MANIFEST_PATH.exists():
-        return {}
-    return json.loads(MANIFEST_PATH.read_text())
-
-
-MANIFEST = _load_manifest()
-
-# Skip all tests if corpus not generated
-pytestmark = pytest.mark.skipif(
-    not MANIFEST,
-    reason="Test corpus not generated. Run: python tests/generate_test_corpus.py"
-)
+OPENPYXL_AVAILABLE = True
+try:
+    import openpyxl  # noqa: F401
+except ImportError:
+    OPENPYXL_AVAILABLE = False
 
 
 def run_uofa(*args: str) -> subprocess.CompletedProcess:
@@ -41,350 +54,312 @@ def run_uofa(*args: str) -> subprocess.CompletedProcess:
     )
 
 
-# ── Passing test cases ────────────────────────────────────────
+# ── Session fixture: generate all xlsx files ──────────────────
 
 
-PASSING_IDS = [tc_id for tc_id, tc in MANIFEST.items() if tc.get("expect") == "pass"]
+@pytest.fixture(scope="session")
+def fixture_dir(tmp_path_factory):
+    """Generate all test xlsx files into a temp directory."""
+    d = tmp_path_factory.mktemp("e2e_import")
+    for name, spec in SPECS.items():
+        generate_fixture(spec["data"], d / f"{name}.xlsx")
+    return d
 
 
-@pytest.fixture(params=PASSING_IDS)
-def passing_case(request, tmp_path):
-    tc_id = request.param
-    tc = MANIFEST[tc_id]
-    xlsx = CORPUS_DIR / tc["file"]
-    output = tmp_path / "output.jsonld"
+# ── Helpers ───────────────────────────────────────────────────
+
+
+def _import_file(xlsx_path, output_path, packs):
+    """Run uofa import and return (result, doc_or_None)."""
     pack_args = []
-    for p in tc["pack"]:
+    for p in packs:
         pack_args += ["--pack", p]
-
-    result = run_uofa("import", str(xlsx), "--output", str(output), *pack_args)
-    assert result.returncode == 0, f"{tc_id} import failed: {result.stderr}"
-
-    data = json.loads(output.read_text())
-    return tc_id, tc, data, output
-
-
-class TestPassingImport:
-    """Tests for all passing test cases."""
-
-    def test_valid_json(self, passing_case):
-        _, _, data, _ = passing_case
-        assert "@context" in data
-        assert "id" in data
-
-    def test_type_is_uofa(self, passing_case):
-        _, _, data, _ = passing_case
-        assert data["type"] == "UnitOfAssurance"
-
-    def test_context_v04(self, passing_case):
-        _, _, data, _ = passing_case
-        ctx = data.get("@context", "")
-        assert "v0.4" in str(ctx) or "v0_4" in str(ctx)
-
-    def test_provenance_chain(self, passing_case):
-        _, _, data, _ = passing_case
-        chain = data.get("provenanceChain", [])
-        assert len(chain) >= 1
-        assert chain[-1]["activityType"] == "ImportActivity"
-        assert "timestamp" in chain[-1]
-        assert "toolVersion" in chain[-1]
-
-    def test_factor_count(self, passing_case):
-        tc_id, tc, data, _ = passing_case
-        factors = data.get("hasCredibilityFactor", [])
-        assert len(factors) == tc["factor_count"], (
-            f"{tc_id}: expected {tc['factor_count']} factors, got {len(factors)}"
-        )
-
-    def test_validation_result_count(self, passing_case):
-        tc_id, tc, data, _ = passing_case
-        results = data.get("hasValidationResult", [])
-        assert len(results) == tc["validation_result_count"], (
-            f"{tc_id}: expected {tc['validation_result_count']} results, got {len(results)}"
-        )
-
-    def test_has_integrity_fields(self, passing_case):
-        _, _, data, _ = passing_case
-        assert data["hash"].startswith("sha256:")
-        assert data["signature"].startswith("ed25519:")
-        assert data["signatureAlg"] == "ed25519"
-        assert data["canonicalizationAlg"] == "RDFC-1.0"
-
-    def test_has_generated_time(self, passing_case):
-        _, _, data, _ = passing_case
-        assert "generatedAtTime" in data
-        assert "T" in data["generatedAtTime"]
-
-    def test_factor_standard_assignment(self, passing_case):
-        tc_id, tc, data, _ = passing_case
-        if "factor_standards" not in tc:
-            return
-        for factor in data.get("hasCredibilityFactor", []):
-            assert "factorStandard" in factor, (
-                f"{tc_id}: factor {factor['factorType']} missing factorStandard"
-            )
-
-    def test_uri_slugification(self, passing_case):
-        tc_id, tc, data, _ = passing_case
-        if "expected_id" not in tc:
-            return
-        assert data["id"] == tc["expected_id"], (
-            f"{tc_id}: expected {tc['expected_id']}, got {data['id']}"
-        )
-
-
-# ── Error test cases ──────────────────────────────────────────
-
-
-ERROR_IDS = [tc_id for tc_id, tc in MANIFEST.items() if tc.get("expect") == "error"]
-
-
-@pytest.fixture(params=ERROR_IDS)
-def error_case(request):
-    tc_id = request.param
-    tc = MANIFEST[tc_id]
-    xlsx = CORPUS_DIR / tc["file"]
-    pack_args = []
-    for p in tc.get("pack", ["vv40"]):
-        pack_args += ["--pack", p]
-
-    result = run_uofa("import", str(xlsx), *pack_args)
-    return tc_id, tc, result
-
-
-# ── End-to-end roundtrip tests ────────────────────────────────
-
-CONTEXT_FILE = str(REPO_ROOT / "spec" / "context" / "v0.4.jsonld")
-KEY_FILE = REPO_ROOT / "keys" / "research.key"
+    result = run_uofa("import", str(xlsx_path), "--output", str(output_path), *pack_args)
+    doc = None
+    if result.returncode == 0 and output_path.exists():
+        doc = json.loads(output_path.read_text())
+    return result, doc
 
 
 def _import_sign_check(xlsx_path, output_path, packs):
-    """Import → rewrite context to local → sign → check.
-
-    Returns (import_result, check_result, doc).
-    The @context is rewritten to local path so SHACL validation works
-    without network access (same pattern as existing integration tests).
-    """
+    """Import → rewrite context → sign → SHACL check (no Java needed)."""
     pack_args = []
     for p in packs:
         pack_args += ["--pack", p]
 
-    # Step 1: Import
-    import_result = run_uofa("import", str(xlsx_path), "--output", str(output_path), *pack_args)
-    if import_result.returncode != 0:
-        return import_result, None, None
+    # Import
+    result = run_uofa("import", str(xlsx_path), "--output", str(output_path), *pack_args)
+    if result.returncode != 0:
+        return result, None, None
 
-    # Step 2: Rewrite @context to local path for offline SHACL validation
+    # Rewrite @context to local for offline SHACL
     doc = json.loads(output_path.read_text())
     doc["@context"] = CONTEXT_FILE
     output_path.write_text(json.dumps(doc, indent=2, sort_keys=True, ensure_ascii=False) + "\n")
 
-    # Step 3: Sign
-    sign_result = run_uofa("sign", str(output_path), "--key", str(KEY_FILE),
-                           "--context", CONTEXT_FILE)
-    if sign_result.returncode != 0:
-        return import_result, sign_result, None
+    # Sign
+    sign_r = run_uofa("sign", str(output_path), "--key", str(KEY_FILE), "--context", CONTEXT_FILE)
+    if sign_r.returncode != 0:
+        return result, sign_r, None
 
-    # Step 4: Check (C1 integrity + C2 SHACL, skip C3 rules since Jena may not be available)
-    check_result = run_uofa("check", str(output_path), "--skip-rules", *pack_args)
-
-    # Reload signed doc
+    # Check (C1+C2, skip rules)
+    check_r = run_uofa("check", str(output_path), "--skip-rules", *pack_args)
     doc = json.loads(output_path.read_text())
-    return import_result, check_result, doc
+    return result, check_r, doc
 
 
-class TestEndToEndImport:
-    """End-to-end: import xlsx → sign → check passes for each pack and profile."""
-
-    def test_vv40_complete_roundtrip(self, tmp_path):
-        """TC-02: VV40 Complete (13 factors) → sign → C1+C2 pass."""
-        xlsx = CORPUS_DIR / "tc02-vv40-complete-all-assessed.xlsx"
-        output = tmp_path / "tc02.jsonld"
-
-        import_r, check_r, doc = _import_sign_check(xlsx, output, ["vv40"])
-
-        assert import_r.returncode == 0, f"Import failed: {import_r.stderr}"
-        assert check_r.returncode == 0, (
-            f"Check failed after import+sign:\nstdout: {check_r.stdout}\nstderr: {check_r.stderr}"
-        )
-        # Verify real integrity fields (not placeholders)
-        assert doc["hash"] != "sha256:" + "0" * 64
-        assert doc["signature"] != "ed25519:" + "0" * 128
-        assert "ProfileComplete" in doc["conformsToProfile"]
-        assert len(doc["hasCredibilityFactor"]) == 13
-        assert all(f["factorStandard"] == "ASME-VV40-2018"
-                    for f in doc["hasCredibilityFactor"])
-
-    def test_nasa_complete_roundtrip(self, tmp_path):
-        """TC-06: NASA Complete (19 factors) → sign → C1+C2 pass."""
-        xlsx = CORPUS_DIR / "tc06-nasa-complete-19-factors.xlsx"
-        output = tmp_path / "tc06.jsonld"
-
-        import_r, check_r, doc = _import_sign_check(xlsx, output, ["nasa-7009b"])
-
-        assert import_r.returncode == 0, f"Import failed: {import_r.stderr}"
-        assert check_r.returncode == 0, (
-            f"Check failed after import+sign:\nstdout: {check_r.stdout}\nstderr: {check_r.stderr}"
-        )
-        assert "ProfileComplete" in doc["conformsToProfile"]
-        assert len(doc["hasCredibilityFactor"]) == 19
-        # Verify NASA-only factors have correct standard
-        nasa_factors = [f for f in doc["hasCredibilityFactor"]
-                        if f["factorStandard"] == "NASA-STD-7009B"]
-        assert len(nasa_factors) == 6
-        # Verify NASA factors have assessmentPhase
-        assert all("assessmentPhase" in f for f in nasa_factors)
-        # Verify wasGeneratedBy on all validation results
-        for vr in doc["hasValidationResult"]:
-            assert "wasGeneratedBy" in vr
-        # Verify comparedAgainst (not comparesTo)
-        for vr in doc["hasValidationResult"]:
-            assert "comparesTo" not in vr
-
-    def test_vv40_minimal_roundtrip(self, tmp_path):
-        """TC-01: VV40 Minimal → sign → C1+C2 pass."""
-        xlsx = CORPUS_DIR / "tc01-vv40-minimal.xlsx"
-        output = tmp_path / "tc01.jsonld"
-
-        import_r, check_r, doc = _import_sign_check(xlsx, output, ["vv40"])
-
-        assert import_r.returncode == 0, f"Import failed: {import_r.stderr}"
-        assert check_r.returncode == 0, (
-            f"Check failed after import+sign:\nstdout: {check_r.stdout}\nstderr: {check_r.stderr}"
-        )
-        assert "ProfileMinimal" in doc["conformsToProfile"]
-        # Minimal has no factors
-        assert "hasCredibilityFactor" not in doc or len(doc.get("hasCredibilityFactor", [])) == 0
-
-    def test_nasa_minimal_roundtrip(self, tmp_path):
-        """TC-09: NASA Minimal → sign → C1+C2 pass."""
-        xlsx = CORPUS_DIR / "tc09-nasa-minimal.xlsx"
-        output = tmp_path / "tc09.jsonld"
-
-        import_r, check_r, doc = _import_sign_check(xlsx, output, ["nasa-7009b"])
-
-        assert import_r.returncode == 0, f"Import failed: {import_r.stderr}"
-        assert check_r.returncode == 0, (
-            f"Check failed after import+sign:\nstdout: {check_r.stdout}\nstderr: {check_r.stderr}"
-        )
-        assert "ProfileMinimal" in doc["conformsToProfile"]
-
-    def test_aero_hpt_blade_thermal_roundtrip(self, tmp_path):
-        """TC-70: Aerospace HPT blade thermal (NASA, 19 factors, 3 gaps) → sign → C1+C2 pass.
-
-        Expected weakeners when rules run (6 total):
-          W-AR-02 [Critical] — Discretization error ach=1 < req=3, Accepted
-          W-EP-04 [High]     — Results uncertainty not-assessed at MRL 3
-          W-AR-05 [High]     — Mesh convergence no comparedAgainst
-          COMPOUND-01 [Critical] × 2  — W-AR-02 × W-EP-04, W-AR-02 × W-AR-05
-          COMPOUND-03 [High] × 1      — "Medium" assurance contradicts Critical
-        """
-        xlsx = CORPUS_DIR / "tc70-aero-hpt-blade-thermal-gaps.xlsx"
-        output = tmp_path / "tc70.jsonld"
-
-        import_r, check_r, doc = _import_sign_check(xlsx, output, ["nasa-7009b"])
-
-        assert import_r.returncode == 0, f"Import failed: {import_r.stderr}"
-        assert check_r.returncode == 0, (
-            f"Check failed after import+sign:\nstdout: {check_r.stdout}\nstderr: {check_r.stderr}"
-        )
-
-        # Profile and decision
-        assert "ProfileComplete" in doc["conformsToProfile"]
-        assert doc["decision"] == "Accepted"
-
-        # All 19 factors included (assessed + not-assessed + scoped-out)
-        factors = doc["hasCredibilityFactor"]
-        assert len(factors) == 19
-
-        # VV40 shared factors (13) + NASA-only factors (6)
-        vv40 = [f for f in factors if f["factorStandard"] == "ASME-VV40-2018"]
-        nasa = [f for f in factors if f["factorStandard"] == "NASA-STD-7009B"]
-        assert len(vv40) == 13
-        assert len(nasa) == 6
-
-        # NASA factors have assessmentPhase
-        for f in nasa:
-            assert "assessmentPhase" in f, f"NASA factor {f['factorType']} missing assessmentPhase"
-
-        # Gap 1 (W-EP-04): Results uncertainty is not-assessed at MRL 3
-        ru = next(f for f in factors if f["factorType"] == "Results uncertainty")
-        assert ru["factorStatus"] == "not-assessed"
-        assert ru["requiredLevel"] == 3
-        assert "acceptanceCriteria" in ru  # has criteria, just not assessed yet
-
-        # Gap 2 (W-AR-05): Mesh convergence has no comparedAgainst
-        vrs = doc["hasValidationResult"]
-        mesh_vr = next(v for v in vrs if "mesh-convergence" in v.get("id", "").lower())
-        assert "comparedAgainst" not in mesh_vr
-
-        # Gap 3 (W-AR-02): Discretization error achieved < required with Accepted decision
-        disc = next(f for f in factors if f["factorType"] == "Discretization error")
-        assert disc["requiredLevel"] == 3
-        assert disc["achievedLevel"] == 1
-
-        # Numerical solver error is scoped-out (not not-assessed) → no W-EP-04
-        nse = next(f for f in factors if f["factorType"] == "Numerical solver error")
-        assert nse["factorStatus"] == "scoped-out"
-
-        # Output comparison achieved == required → no unintentional W-AR-02
-        oc = next(f for f in factors if f["factorType"] == "Output comparison")
-        assert oc["achievedLevel"] == 3
-        assert oc["requiredLevel"] == 3
-
-        # hasEvidence on NASA factors that need it → silences W-NASA-02/03/06
-        dtr = next(f for f in factors if f["factorType"] == "Development technical review")
-        assert "hasEvidence" in dtr
-        dpm = next(f for f in factors if f["factorType"] == "Development process and product management")
-        assert "hasEvidence" in dpm
-        rr = next(f for f in factors if f["factorType"] == "Results robustness")
-        assert "hasEvidence" in rr
-
-        # comparedAgainst used (not comparesTo) per v0.4 context
-        cascade_vr = next(v for v in vrs if "cascade" in v.get("id", "").lower())
-        assert "comparedAgainst" in cascade_vr
-        assert "comparesTo" not in cascade_vr
-
-        # Evidence types present
-        types = {v["type"] for v in vrs}
-        assert "ValidationResult" in types
-        assert "ReviewActivity" in types
-
-    def test_starter_xlsx_import_and_sign(self, tmp_path):
-        """Existing starter file → import + sign succeeds.
-
-        Note: the starter uses 'Conditional' decision and 'Other' device class
-        which are valid domain values but outside the SHACL sh:in enum, so
-        C2 SHACL may report violations. This test verifies the import pipeline
-        and C1 integrity, not full SHACL conformance.
-        """
-        xlsx = REPO_ROOT / "examples" / "starters" / "uofa-starter-filled.xlsx"
-        output = tmp_path / "starter.jsonld"
-
-        import_r, check_r, doc = _import_sign_check(xlsx, output, ["vv40"])
-
-        assert import_r.returncode == 0, f"Import failed: {import_r.stderr}"
-        # C1 integrity should pass (hash + signature valid after signing)
-        assert "Hash match" in check_r.stdout
-        assert "Signature valid" in check_r.stdout
-        assert "ProfileComplete" in doc["conformsToProfile"]
-        assert len(doc["hasCredibilityFactor"]) > 0
+def _run_rules(jsonld_path, packs):
+    """Run uofa rules --raw and parse weakener output."""
+    pack_args = []
+    for p in packs:
+        pack_args += ["--pack", p]
+    result = run_uofa("rules", str(jsonld_path), "--raw", *pack_args)
+    return result, _parse_weakener_output(result.stdout)
 
 
+def _parse_weakener_output(stdout: str) -> dict:
+    """Parse uofa rules --raw output into structured counts."""
+    patterns = {}
+    total = 0
 
-    """Tests for all error test cases."""
+    for line in stdout.splitlines():
+        m = re.search(r'SUMMARY:\s+(\d+)\s+weakener', line)
+        if m:
+            total = int(m.group(1))
+        # Pattern lines: ⚠ W-AR-02 [Critical] — 1 hit(s)  or  ⚡ COMPOUND-01 [Critical] — 2 hit(s)
+        m = re.search(r'[⚠⚡]\s+(W-[\w]+-\d+|COMPOUND-\d+)\s+\[\w+\]\s+.+?(\d+)\s+hit', line)
+        if m:
+            patterns[m.group(1)] = int(m.group(2))
 
-    def test_error_exit_code(self, error_case):
-        tc_id, tc, result = error_case
-        assert result.returncode == tc["exit_code"], (
-            f"{tc_id}: expected exit {tc['exit_code']}, got {result.returncode}\n"
-            f"stdout: {result.stdout}\nstderr: {result.stderr}"
-        )
+    return {"total": total, "patterns": patterns}
 
-    def test_error_message(self, error_case):
-        tc_id, tc, result = error_case
+
+# ── Parametrized ID lists ─────────────────────────────────────
+
+PASSING_IDS = [k for k, v in SPECS.items() if v.get("expect_import") == "pass"]
+ERROR_IDS = [k for k, v in SPECS.items() if v.get("expect_import") == "error"]
+WEAKENER_IDS = [k for k, v in SPECS.items()
+                if v.get("expect_import") == "pass" and v.get("expected_weakeners") is not None]
+ROUNDTRIP_IDS = [k for k, v in SPECS.items()
+                 if v.get("expect_import") == "pass" and v.get("expected_profile")]
+
+
+# ── Structural tests (no Java needed) ────────────────────────
+
+
+@pytest.mark.skipif(not OPENPYXL_AVAILABLE, reason="openpyxl not installed")
+class TestImportStructural:
+    """JSON shape assertions on imported files. No Java needed."""
+
+    @pytest.fixture(params=PASSING_IDS)
+    def imported(self, request, fixture_dir, tmp_path):
+        name = request.param
+        spec = SPECS[name]
+        xlsx = fixture_dir / f"{name}.xlsx"
+        output = tmp_path / "output.jsonld"
+        result, doc = _import_file(xlsx, output, spec["packs"])
+        assert result.returncode == 0, f"{name} import failed: {result.stderr}"
+        return name, spec, doc
+
+    def test_valid_json_ld(self, imported):
+        _, _, doc = imported
+        assert doc["type"] == "UnitOfAssurance"
+        assert "@context" in doc
+        assert "generatedAtTime" in doc
+
+    def test_factor_count(self, imported):
+        name, spec, doc = imported
+        expected = spec.get("expected_factor_count")
+        if expected is None:
+            return
+        actual = len(doc.get("hasCredibilityFactor", []))
+        assert actual == expected, f"{name}: expected {expected} factors, got {actual}"
+
+    def test_validation_result_count(self, imported):
+        name, spec, doc = imported
+        expected = spec.get("expected_vr_count")
+        if expected is None:
+            return
+        actual = len(doc.get("hasValidationResult", []))
+        assert actual == expected, f"{name}: expected {expected} VRs, got {actual}"
+
+    def test_provenance_chain(self, imported):
+        _, _, doc = imported
+        chain = doc.get("provenanceChain", [])
+        assert len(chain) >= 1
+        assert chain[-1]["activityType"] == "ImportActivity"
+
+    def test_uri_slugification(self, imported):
+        name, spec, doc = imported
+        expected_id = spec.get("expected_id")
+        if expected_id:
+            assert doc["id"] == expected_id
+
+
+@pytest.mark.skipif(not OPENPYXL_AVAILABLE, reason="openpyxl not installed")
+class TestImportErrors:
+    """Error cases produce correct exit codes and messages."""
+
+    @pytest.fixture(params=ERROR_IDS)
+    def error_result(self, request, fixture_dir):
+        name = request.param
+        spec = SPECS[name]
+        xlsx = fixture_dir / f"{name}.xlsx"
+        result = run_uofa("import", str(xlsx), "--pack", spec["packs"][0])
+        return name, spec, result
+
+    def test_error_exit_code(self, error_result):
+        name, _, result = error_result
+        assert result.returncode == 1, f"{name}: expected exit 1, got {result.returncode}"
+
+    def test_error_message(self, error_result):
+        name, spec, result = error_result
+        expected = spec["expect_error"]
         combined = result.stderr + result.stdout
-        assert tc["error_contains"] in combined, (
-            f"{tc_id}: expected '{tc['error_contains']}' in output\n"
-            f"Got: {combined}"
+        assert expected in combined, f"{name}: expected '{expected}' in output"
+
+
+# ── Roundtrip tests (import → sign → SHACL, no Java) ─────────
+
+
+@pytest.mark.skipif(not OPENPYXL_AVAILABLE, reason="openpyxl not installed")
+class TestImportRoundtrip:
+    """Import → sign → C1+C2 check passes for each profile."""
+
+    @pytest.fixture(params=ROUNDTRIP_IDS)
+    def roundtrip(self, request, fixture_dir, tmp_path):
+        name = request.param
+        spec = SPECS[name]
+        xlsx = fixture_dir / f"{name}.xlsx"
+        output = tmp_path / "output.jsonld"
+        import_r, check_r, doc = _import_sign_check(xlsx, output, spec["packs"])
+        return name, spec, import_r, check_r, doc
+
+    def test_import_succeeds(self, roundtrip):
+        name, _, import_r, _, _ = roundtrip
+        assert import_r.returncode == 0, f"{name}: import failed: {import_r.stderr}"
+
+    def test_shacl_passes(self, roundtrip):
+        name, _, _, check_r, _ = roundtrip
+        assert check_r.returncode == 0, (
+            f"{name}: check failed:\nstdout: {check_r.stdout}\nstderr: {check_r.stderr}"
         )
+
+    def test_integrity_valid(self, roundtrip):
+        _, _, _, check_r, doc = roundtrip
+        assert doc["hash"] != "sha256:" + "0" * 64
+        assert "Hash match" in check_r.stdout
+
+
+# ── Weakener count tests (requires Java + Jena) ──────────────
+
+
+@pytest.mark.skipif(not OPENPYXL_AVAILABLE, reason="openpyxl not installed")
+class TestImportWeakeners:
+    """Import → sign → rules → assert exact weakener pattern IDs and counts.
+
+    These tests FAIL HARD if Java/Jena is unavailable.
+    """
+
+    @pytest.fixture(params=WEAKENER_IDS)
+    def weakener_result(self, request, fixture_dir, tmp_path):
+        name = request.param
+        spec = SPECS[name]
+
+        if not JENA_AVAILABLE:
+            pytest.fail(
+                f"Java + Jena JAR required for weakener tests. "
+                f"Install Java 17+ and run: cd weakener-engine && mvn package"
+            )
+
+        xlsx = fixture_dir / f"{name}.xlsx"
+        output = tmp_path / "output.jsonld"
+
+        # Import
+        pack_args = []
+        for p in spec["packs"]:
+            pack_args += ["--pack", p]
+        import_r = run_uofa("import", str(xlsx), "--output", str(output), *pack_args)
+        assert import_r.returncode == 0, f"{name}: import failed: {import_r.stderr}"
+
+        # Rewrite context + sign (needed for valid JSON-LD)
+        doc = json.loads(output.read_text())
+        doc["@context"] = CONTEXT_FILE
+        output.write_text(json.dumps(doc, indent=2, sort_keys=True, ensure_ascii=False) + "\n")
+        sign_r = run_uofa("sign", str(output), "--key", str(KEY_FILE), "--context", CONTEXT_FILE)
+        assert sign_r.returncode == 0, f"{name}: sign failed: {sign_r.stderr}"
+
+        # Run rules
+        rules_r, parsed = _run_rules(output, spec["packs"])
+        return name, spec, rules_r, parsed
+
+    def test_total_weakener_count(self, weakener_result):
+        name, spec, _, parsed = weakener_result
+        expected = spec["expected_weakeners"]["total"]
+        assert parsed["total"] == expected, (
+            f"{name}: expected {expected} total weakeners, got {parsed['total']}. "
+            f"Patterns: {parsed['patterns']}"
+        )
+
+    def test_pattern_ids_and_counts(self, weakener_result):
+        name, spec, _, parsed = weakener_result
+        expected_patterns = spec["expected_weakeners"].get("patterns", {})
+        for pid, expected_count in expected_patterns.items():
+            actual = parsed["patterns"].get(pid, 0)
+            assert actual == expected_count, (
+                f"{name}: {pid} expected {expected_count}, got {actual}"
+            )
+
+    def test_no_unexpected_patterns(self, weakener_result):
+        name, spec, _, parsed = weakener_result
+        expected_pids = set(spec["expected_weakeners"].get("patterns", {}).keys())
+        actual_pids = set(parsed["patterns"].keys())
+        unexpected = actual_pids - expected_pids
+        assert not unexpected, f"{name}: unexpected patterns: {unexpected}"
+
+
+# ── TC-70 starter test (real xlsx, not generated) ─────────────
+
+
+@pytest.mark.skipif(not OPENPYXL_AVAILABLE, reason="openpyxl not installed")
+class TestTC70Starter:
+    """The real TC-70 aerospace starter — 6 weakeners exact."""
+
+    def test_tc70_import_roundtrip(self, tmp_path):
+        """TC-70 imports and passes C1+C2."""
+        if not TC70_XLSX.exists():
+            pytest.skip(f"TC-70 starter not found: {TC70_XLSX}")
+        output = tmp_path / "tc70.jsonld"
+        import_r, check_r, doc = _import_sign_check(TC70_XLSX, output, ["nasa-7009b"])
+        assert import_r.returncode == 0, f"Import failed: {import_r.stderr}"
+        assert check_r.returncode == 0, f"Check failed: {check_r.stdout}"
+        assert len(doc["hasCredibilityFactor"]) == 19
+
+    def test_tc70_weakener_counts(self, tmp_path):
+        """TC-70 produces exactly 6 weakeners: 3 L1 + 2 COMPOUND-01 + 1 COMPOUND-03."""
+        if not TC70_XLSX.exists():
+            pytest.skip(f"TC-70 starter not found: {TC70_XLSX}")
+        if not JENA_AVAILABLE:
+            pytest.fail(
+                "Java + Jena JAR required. "
+                "Install Java 17+ and run: cd weakener-engine && mvn package"
+            )
+
+        output = tmp_path / "tc70.jsonld"
+        pack_args = ["--pack", "nasa-7009b"]
+        run_uofa("import", str(TC70_XLSX), "--output", str(output), *pack_args)
+
+        doc = json.loads(output.read_text())
+        doc["@context"] = CONTEXT_FILE
+        output.write_text(json.dumps(doc, indent=2, sort_keys=True, ensure_ascii=False) + "\n")
+        run_uofa("sign", str(output), "--key", str(KEY_FILE), "--context", CONTEXT_FILE)
+
+        _, parsed = _run_rules(output, ["nasa-7009b"])
+        assert parsed["total"] == 6, f"Expected 6 weakeners, got {parsed['total']}: {parsed['patterns']}"
+        assert parsed["patterns"] == {
+            "W-AR-02": 1,
+            "W-EP-04": 1,
+            "W-AR-05": 1,
+            "COMPOUND-01": 2,
+            "COMPOUND-03": 1,
+        }
