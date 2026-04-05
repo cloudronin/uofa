@@ -14,17 +14,17 @@ The UofA CLI implements three validation pipelines for credibility evidence pack
 | **C2** | Completeness | Required fields are present and well-formed | SHACL shapes (pyshacl) |
 | **C3** | Quality gates | Substantive credibility gaps | Apache Jena forward-chaining rules (Java subprocess) |
 
-The CLI is a Python package (`uofa_cli`) with 11 subcommands, a set of core modules for cryptography and formatting, and a Java backend for the rule engine.
+The CLI is a Python package (`uofa_cli`) with 12 subcommands, a set of core modules for cryptography and formatting, an Excel import pipeline, and a Java backend for the rule engine.
 
 ```
                       uofa <command>
                             │
               ┌─────────────┼─────────────────┐
               │             │                 │
-         Pure Python    Python + Java     Utility
-         ┌────────┐    ┌───────────┐    ┌─────────┐
-         │ sign   │    │ rules     │    │ init    │
-         │ verify │    │ check     │    │ keygen  │
+         Pure Python    Python + Java     Utility        Import
+         ┌────────┐    ┌───────────┐    ┌─────────┐    ┌────────┐
+         │ sign   │    │ rules     │    │ init    │    │ import │
+         │ verify │    │ check     │    │ keygen  │    └────────┘
          │ shacl  │    │           │    │ schema  │
          │ diff   │    │           │    │ validate│
          └────────┘    └───────────┘    └─────────┘
@@ -43,14 +43,18 @@ src/uofa_cli/
   output.py               # ANSI color helpers + table rendering
   explain.py              # generic divergence explanation (reads description field)
   shacl_friendly.py       # SHACL violation → plain English translator
+  excel_constants.py      # GENERATED from SHACL — factor names, enums, level ranges
+  excel_reader.py         # Excel workbook parser + validator (openpyxl)
+  excel_mapper.py         # intermediate dict → JSON-LD with URIs + provenance
   commands/               # one module per subcommand
     check.py              # full C1+C2+C3 pipeline
     diff.py               # COU divergence analysis
+    import_excel.py       # import Excel workbook → JSON-LD (with --sign, --check)
     init.py               # scaffold new projects
     keygen.py             # generate ed25519 keypair
     packs.py              # list and inspect installed domain packs
     rules.py              # Jena rule engine (C3)
-    schema.py             # generate JSON Schema from SHACL
+    schema.py             # generate JSON Schema or Python constants from SHACL
     shacl.py              # SHACL validation (C2)
     sign.py               # sign UofA files
     validate.py           # bulk validate all examples
@@ -64,7 +68,8 @@ packs/
       uofa_shacl.ttl      # SHACL shapes — single source of truth for validation
     rules/
       uofa_weakener.rules # Jena forward-chaining rules
-    templates/            # (populated when uofa import ships)
+    templates/
+      uofa-template.xlsx  # Excel template for uofa import
     prompts/              # (populated when uofa extract ships)
   vv40/                   # ASME V&V 40 domain pack (13 credibility factors)
     pack.json
@@ -97,7 +102,10 @@ weakener-engine/          # Java Jena rule engine
 
 tests/
   test_integration.py     # integration tests covering all subcommands
+  test_import_corpus.py   # parametrized import tests driven by corpus manifest
   test_explain.py         # unit tests for divergence explanation module
+  generate_test_corpus.py # generates Excel test fixtures + tc_manifest.json
+  fixtures/import/        # generated .xlsx test files (TC-01 through TC-62)
 ```
 
 ---
@@ -191,9 +199,21 @@ The diff command is entirely pattern-agnostic — it works with any pattern IDs 
 
 Lists installed domain packs or inspects a specific pack. Without arguments, shows all packs with version and description. With a pack name, shows full manifest details including shapes path, rules path, standards, and factor counts.
 
+### `uofa import <file.xlsx>`
+
+Imports an Excel workbook into a UofA JSON-LD file. The pipeline: `excel_reader.py` (parse + validate) → `excel_mapper.py` (JSON-LD generation) → write → optional sign → optional check.
+
+Arguments: `--output` (default: same path with `.jsonld`), `--sign` + `--key` (signs after writing), `--check` (runs full C1+C2+C3 pipeline), `--profile` (override auto-detection).
+
+The import pipeline uses `excel_constants.py` for factor names, level ranges, and enum validation. This file is **generated** from SHACL shapes via `uofa schema --emit python` — see "Schema Strategy" below.
+
+The reader detects old-format templates (without the Type column in Validation Results) and v2 templates (with evidence type column) automatically. Error messages include sheet name + cell reference for easy debugging.
+
 ### `uofa schema`
 
 Generates `spec/schemas/uofa.schema.json` from the SHACL shapes in the active pack. This ensures the JSON Schema stays in sync with the SHACL source of truth. Uses rdflib to parse Turtle and maps SHACL constraints to JSON Schema properties.
+
+With `--emit python`, generates `src/uofa_cli/excel_constants.py` instead — a Python module containing factor names, level ranges, dropdown enums, and evidence types extracted from all SHACL shapes (core + all packs). This keeps the Excel import pipeline in sync with SHACL without manual constant maintenance.
 
 ### `uofa migrate <file>`
 
@@ -250,6 +270,18 @@ Translates raw pyshacl violations into structured dicts with fields: `path` (fri
 
 A single function, `explain_divergence()`, that reads the `description` field from a `WeakenerAnnotation` dict and formats it into explanation lines. Falls back to showing the `affectedNode` IRI if no description is present. No pattern-specific logic — the rule engine is the authority on *why* a weakener fires.
 
+### Excel Import Pipeline
+
+Three modules handle Excel → JSON-LD conversion:
+
+| Module | Responsibility |
+|---|---|
+| `excel_constants.py` | **Generated** from SHACL. Factor names, level ranges, enum values, evidence types. Also contains hand-maintained Excel layout constants (sheet names, row offsets, category mappings). Regenerate with `uofa schema --emit python`. |
+| `excel_reader.py` | Parses Excel workbooks via openpyxl. Validates required sheets, dropdown values, level ranges. Returns clean intermediate dict. Knows Excel structure, not JSON-LD. |
+| `excel_mapper.py` | Transforms intermediate dict → JSON-LD document. Handles URI slugification, `factorStandard` assignment based on pack, NASA-specific `assessmentPhase`, evidence `@type`, provenance chain injection. Knows JSON-LD, not openpyxl. |
+
+The separation means `excel_reader.py` can be tested without JSON-LD knowledge, and `excel_mapper.py` can be tested without Excel files.
+
 ---
 
 ## The Java Rule Engine
@@ -282,9 +314,10 @@ java -jar weakener-engine/target/uofa-weakener-engine-0.1.0.jar \
 The SHACL shapes in `packs/core/shapes/uofa_shacl.ttl` are the **single source of truth** for validation constraints. A symlink at `spec/schemas/uofa_shacl.ttl` preserves backward compatibility. The JSON Schema at `spec/schemas/uofa.schema.json` is **generated** from SHACL via `uofa schema` and should never be edited by hand.
 
 If you change a validation constraint:
-1. Edit `packs/core/shapes/uofa_shacl.ttl`
+1. Edit `packs/core/shapes/uofa_shacl.ttl` (or the relevant pack shapes)
 2. Run `uofa schema` to regenerate the JSON Schema
-3. Run `uofa validate` to verify all examples still conform
+3. Run `uofa schema --emit python` to regenerate import constants
+4. Run `uofa validate` to verify all examples still conform
 
 The JSON-LD context at `spec/context/v0.4.jsonld` defines the vocabulary mappings. It maps short property names (e.g., `patternId`) to full URIs (e.g., `uofa:patternId`). If you add a new property to the schema, you must also add its mapping here. The context is framework-level (not pack-specific) — all packs share the same vocabulary. New properties added in v0.4 include `factorStandard`, `assessmentPhase`, and `hasEvidence`.
 
@@ -292,10 +325,11 @@ The JSON-LD context at `spec/context/v0.4.jsonld` defines the vocabulary mapping
 
 ## Integration Tests
 
-Tests live in `tests/test_integration.py` and `tests/test_explain.py`. Run them with:
+Tests live in `tests/test_integration.py`, `tests/test_import_corpus.py`, and `tests/test_explain.py`. Run them with:
 
 ```bash
-pip install -e '.[test]'
+pip install -e '.[test,excel]'
+python tests/generate_test_corpus.py   # one-time: generates Excel test fixtures
 pytest tests/ -v
 ```
 
@@ -339,6 +373,7 @@ def run_uofa(*args):
 | `TestPacks` | Pack listing, pack detail, missing pack error |
 | `TestGlobalFlags` | `--repo-root`, `--no-color`, `--pack` |
 | `TestStarterExamples` | Starter files conform to SHACL |
+| `TestImport` | Excel import: starter file, sign, factor standards, default output path, schema emit |
 | `TestEndToEnd` | Complete workflow: init → sign → shacl → verify |
 
 ### Key test patterns

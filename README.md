@@ -14,17 +14,15 @@ Or run locally:
 
 ```bash
 # 1. Install the uofa CLI
-pip install -e .
+pip install -e '.[excel]'
 
-# 2. Scaffold a new project (creates template + keys)
+# 2. Import from Excel (fastest on-ramp for practitioners)
+uofa import my-assessment.xlsx --sign --key keys/research.key --check
+
+# — OR — scaffold from a JSON-LD template
 uofa init my-project
-
-# 3. Edit my-project/my-project-cou1.jsonld — fill in your project details
-
-# 4. Sign your evidence package
+# Edit my-project/my-project-cou1.jsonld — fill in your project details
 uofa sign my-project/my-project-cou1.jsonld --key my-project/keys/my-project.key
-
-# 5. Validate (C1 integrity + C2 SHACL + C3 rule engine)
 uofa check my-project/my-project-cou1.jsonld
 ```
 
@@ -307,6 +305,9 @@ Quality gap annotations detected by the Jena rule engine (C3). Optional — a Uo
 The `uofa` CLI provides commands for every step of the workflow:
 
 ```bash
+# Import from a practitioner-filled Excel workbook (fastest on-ramp)
+uofa import assessment.xlsx --sign --key keys/your.key --check
+
 # Full pipeline (C1 + C2 + C3) on your file
 uofa check path/to/your-uofa.jsonld
 
@@ -318,7 +319,7 @@ uofa rules  path/to/your-uofa.jsonld           # C3: Jena weakener detection
 # Sign with your own key
 uofa sign path/to/your-uofa.jsonld --key keys/your.key
 
-# Scaffold a new project
+# Scaffold a new project from a JSON-LD template
 uofa init my-new-project
 
 # Validate all examples in the repo
@@ -338,6 +339,9 @@ uofa check path/to/your-uofa.jsonld --pack vv40 --pack nasa-7009b
 
 # Migrate a v0.3 file to v0.4
 uofa migrate path/to/old-file.jsonld
+
+# Generate import constants from SHACL (after schema changes)
+uofa schema --emit python
 ```
 
 See the [Getting Started Guide](docs/getting-started.md) for a full walkthrough.
@@ -360,6 +364,30 @@ The `--pack` flag on any command switches the active pack(s). Multiple packs can
 
 ---
 
+## Excel Import: The Practitioner On-Ramp
+
+Simulation engineers fill an Excel workbook, run one command, and get a signed, validated JSON-LD evidence package. The import pipeline handles URI generation, factor standard assignment, provenance tracking, and optional signing + validation in a single invocation.
+
+```bash
+pip install -e '.[excel]'    # one-time: adds openpyxl dependency
+
+# Import from Excel → JSON-LD, sign, and validate in one step
+uofa import my-assessment.xlsx --sign --key keys/research.key --check --pack vv40
+```
+
+The Excel template has 5 sheets: **Assessment Summary**, **Model & Data**, **Validation Results**, **Credibility Factors**, and **Decision**. Each pack provides a pre-populated template with locked factor names and dropdown validation. See `examples/starters/uofa-starter-filled.xlsx` for a complete filled example.
+
+| Feature | Detail |
+|---|---|
+| **VV40 support** | 13 V&V 40 factors, levels 1-5, `factorStandard: "ASME-VV40-2018"` |
+| **NASA-STD-7009B** | 19 factors (13 shared + 6 NASA-only), levels 0-4, `assessmentPhase` auto-assigned |
+| **Evidence types** | `ValidationResult`, `ReviewActivity`, `ProcessAttestation`, `DeploymentRecord`, `InputPedigreeLink` |
+| **Provenance** | `ImportActivity` entry with timestamp, source file, and tool version |
+| **Error messages** | Sheet name + cell reference (e.g., `[Credibility Factors!C7] Required Level must be 1-5`) |
+| **SHACL-synced** | Factor names, level ranges, and enums are generated from SHACL shapes via `uofa schema --emit python` |
+
+---
+
 ## Prerequisites
 
 **Zero-install option:** [Open in GitHub Codespaces](https://codespaces.new/cloudronin/uofa?quickstart=1) — everything is pre-installed.
@@ -367,16 +395,17 @@ The `--pack` flag on any command switches the active pack(s). Multiple packs can
 **Local install:**
 
 ```bash
-pip install -e .    # installs the uofa CLI and all Python dependencies
+pip install -e '.[excel]'   # installs uofa CLI + all Python deps + openpyxl for Excel import
 ```
 
 | Tool | Version | Purpose |
 |---|---|---|
 | Python 3.10+ | Installed via `pip install -e .` | SHACL validation + integrity verification |
+| openpyxl | Installed via `pip install -e '.[excel]'` | Excel import (`uofa import`) |
 | Java 17+ | OpenJDK or equivalent | Jena rule engine (C3 only) |
 | Maven 3.8+ | `mvn package` | Build the Jena fat JAR (C3 only) |
 
-Java and Maven are only required for the Jena rule engine (C3). Use `uofa check FILE --skip-rules` if Java is not available.
+Java and Maven are only required for the Jena rule engine (C3). Use `uofa check FILE --skip-rules` if Java is not available. openpyxl is only required for `uofa import`; all other commands work without it.
 
 ---
 

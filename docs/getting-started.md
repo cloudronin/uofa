@@ -13,15 +13,15 @@ Click the button above. The Codespace comes with Python, Java, Maven, and the `u
 **Local install:**
 
 ```bash
-# Install the uofa CLI (includes all Python dependencies)
-pip install -e .
+# Install the uofa CLI (includes all Python dependencies + Excel import)
+pip install -e '.[excel]'
 
 # Java 17+ and Maven 3.8+ (required only for the rule engine, Step 5)
 java -version   # should show 17+
 mvn -version    # should show 3.8+
 ```
 
-Java is only needed for the Jena rule engine (C3). You can use `--skip-rules` if Java is not available.
+Java is only needed for the Jena rule engine (C3). You can use `--skip-rules` if Java is not available. The `[excel]` extra installs openpyxl for Excel import; omit it if you only work with JSON-LD directly.
 
 ## Choosing a Domain Pack
 
@@ -50,6 +50,31 @@ uofa migrate my-project/my-cou1.jsonld
 ```
 
 This updates the `@context` reference and adjusts fields as needed for the v0.4 vocabulary.
+
+## Option A: Import from Excel (Fastest)
+
+If you prefer working in a spreadsheet, use the Excel import pipeline. Fill in an Excel workbook and convert it to a signed JSON-LD evidence package in one command:
+
+```bash
+# Start from the filled example or a pack template
+cp examples/starters/uofa-starter-filled.xlsx my-assessment.xlsx
+
+# Edit my-assessment.xlsx in Excel — fill in your project details,
+# credibility factors, validation results, and decision
+
+# Import, sign, and validate in one step
+uofa import my-assessment.xlsx --sign --key keys/research.key --check --pack vv40
+```
+
+The Excel template has 5 sheets: **Assessment Summary**, **Model & Data**, **Validation Results**, **Credibility Factors**, and **Decision**. Factor names and categories are pre-populated; you fill in levels, rationale, and status. The import command generates URIs, assigns `factorStandard`, tracks provenance, and writes a complete JSON-LD file.
+
+For NASA-STD-7009B assessments, use `--pack nasa-7009b` — the template expands to 19 factors with `assessmentPhase` auto-assigned from factor categories.
+
+**Prefer editing JSON-LD directly?** Continue with Option B below.
+
+---
+
+## Option B: Scaffold from JSON-LD Template
 
 ## Step 1: Choose a Profile
 
@@ -208,6 +233,7 @@ A typical workflow:
 
 | Command | What it does |
 |---------|-------------|
+| `uofa import FILE.xlsx` | Import Excel workbook to JSON-LD (with optional `--sign`, `--check`) |
 | `uofa check FILE` | Full C1+C2+C3 pipeline on any UofA file |
 | `uofa shacl FILE` | SHACL profile validation only |
 | `uofa verify FILE` | Hash + signature verification only |
@@ -216,5 +242,7 @@ A typical workflow:
 | `uofa keygen PATH` | Generate ed25519 signing keypair |
 | `uofa validate` | SHACL validation on all examples |
 | `uofa init NAME` | Scaffold a new UofA project |
+| `uofa diff FILE_A FILE_B` | Compare weakener profiles across two COUs |
 | `uofa packs [NAME]` | List installed packs or inspect a specific pack |
+| `uofa schema` | Generate JSON Schema from SHACL (`--emit python` for import constants) |
 | `uofa migrate FILE` | Migrate a v0.3 file to v0.4 |

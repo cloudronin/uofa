@@ -27,9 +27,9 @@ Every pack must have a `pack.json` with at minimum `name`, `version`, `shapes`, 
 ```json
 {
   "name": "core",
-  "version": "0.3.0",
-  "description": "Base V&V 40 credibility assessment pack.",
-  "standards": ["ASME-VV40-2018", "FDA-2023-CMS", "NASA-STD-7009B"],
+  "version": "0.4.0",
+  "description": "Core credibility assessment rules.",
+  "standards": [],
   "shapes": "shapes/uofa_shacl.ttl",
   "rules": "rules/uofa_weakener.rules",
   "template": "templates/uofa-template.xlsx",
@@ -61,10 +61,17 @@ uofa packs core
 # Use a specific pack for validation
 uofa check my-file.jsonld --pack cardio-cfd
 
+# Import from Excel using a pack's factor taxonomy
+uofa import assessment.xlsx --pack cardio-cfd
+
 # The --pack flag works with all commands
 uofa shacl my-file.jsonld --pack cardio-cfd
 uofa rules my-file.jsonld --pack cardio-cfd
 ```
+
+### Excel Templates
+
+Each pack can include an Excel template in `templates/`. The `uofa import` command uses the active pack to determine valid factor names, level ranges, and evidence types. The `core` and `vv40` packs ship with pre-populated templates; see `examples/starters/uofa-starter-filled.xlsx` for a complete filled example.
 
 ## Creating a Domain Pack
 
