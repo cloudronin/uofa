@@ -107,15 +107,17 @@ def _vr_row(name, evidence_type="ValidationResult", uri=None, desc=None,
 def _add_factors_sheet(wb, factors=None, factor_list=None):
     """Add Credibility Factors sheet.
 
-    factors: list of (required_level, achieved_level, acceptance, rationale, status) tuples.
+    factors: list of tuples. Each tuple is either:
+      - (required_level, achieved_level, acceptance, rationale, status) — 5 elements
+      - (required_level, achieved_level, acceptance, rationale, status, linked_evidence) — 6 elements
     factor_list: which factor (name, category) pairs to use (defaults to VV40 13).
     """
     ws = wb.create_sheet("Credibility Factors")
     ws.append(["Credibility Factors"])
     ws.append([""])
     ws.append(["Factor Type", "Category", "Required Level", "Achieved Level",
-               "Acceptance Criteria", "Rationale", "Factor Status"])
-    ws.append(["(pre-filled)", "(pre-filled)", "(1-5)", "(1-5)", "(optional)", "(optional)", "(status)"])
+               "Acceptance Criteria", "Rationale", "Factor Status", "Linked Evidence"])
+    ws.append(["(pre-filled)", "(pre-filled)", "(1-5)", "(1-5)", "(optional)", "(optional)", "(status)", "(URI)"])
 
     if factor_list is None:
         factor_list = VV40_FACTOR_CATEGORIES
@@ -124,8 +126,14 @@ def _add_factors_sheet(wb, factors=None, factor_list=None):
         # Default: all assessed at level 3
         factors = [(3, 3, None, None, "assessed")] * len(factor_list)
 
-    for (fname, fcat), (req, ach, acc, rat, status) in zip(factor_list, factors):
-        ws.append([fname, fcat, req, ach, acc, rat, status])
+    for (fname, fcat), ftuple in zip(factor_list, factors):
+        # Support 5-element or 6-element tuples
+        if len(ftuple) == 6:
+            req, ach, acc, rat, status, evidence = ftuple
+        else:
+            req, ach, acc, rat, status = ftuple
+            evidence = None
+        ws.append([fname, fcat, req, ach, acc, rat, status, evidence])
 
     return ws
 
@@ -693,58 +701,80 @@ def create_tc70(output_dir):
     ])
 
     # 19 factors — 13 VV40 shared + 6 NASA-only
-    # Gap 1: Results uncertainty — not-assessed despite MRL 3 → W-EP-04
-    # Gap 3: Discretization error — achieved=1 vs required=3 with Accepted decision → W-AR-02
+    # 6-element tuples: (req, ach, acceptance, rationale, status, linked_evidence)
+    #
+    # Intentional gaps (3):
+    #   Gap 1 (W-EP-04): Results uncertainty — not-assessed at MRL 3
+    #   Gap 2 (W-AR-05): Mesh convergence VR has no comparedAgainst (handled in VR sheet above)
+    #   Gap 3 (W-AR-02): Discretization error ach=1 < req=3, decision Accepted
+    #
+    # All other factors are clean — no unintentional weakeners.
     factors = [
         # VV40 shared factors (1-13)
         (2, 2, "Commercial solver with established SQA",
-         "ANSYS CFX has ISO 9001 certification and extensive V&V documentation", "assessed"),
+         "ANSYS CFX has ISO 9001 certification and extensive V&V documentation",
+         "assessed", None),
         (3, 3, "MMS benchmarks for conjugate solver",
-         "Passed all 5 MMS benchmark cases for CHT coupling", "assessed"),
-        (3, 1, "GCI < 2% required at all critical locations",  # ← GAP 3: achieved < required
+         "Passed all 5 MMS benchmark cases for CHT coupling",
+         "assessed", None),
+        (3, 1, "GCI < 2% required at all critical locations",  # ← GAP 3: ach < req → W-AR-02
          "GCI study only completed at blade mid-span (0.8%). "
          "Blade tip region shows 12% variation between mesh levels — "
          "insufficient convergence in the tip gap thermal gradient zone.",
-         "assessed"),
-        (None, None, None, None, "not-assessed"),     # Numerical solver error
+         "assessed", None),
+        (None, None, None, None,
+         "scoped-out", None),  # Numerical solver error — scoped out (commercial solver)
         (2, 2, "Experienced analyst with standard workflow",
-         "Experienced analyst, standard workflow", "assessed"),
+         "Experienced analyst, standard workflow",
+         "assessed", None),
         (3, 3, "RANS k-omega SST appropriate for attached flow",
          "Model form validated against cascade rig data; "
-         "known limitation in tip vortex region acknowledged", "assessed"),
+         "known limitation in tip vortex region acknowledged",
+         "assessed", None),
         (3, 3, "All BCs from calibrated measurements",
          "Inlet profiles from engine test data, material properties from vendor datasheets",
-         "assessed"),
+         "assessed", None),
         (2, 2, "Adequate spatial resolution for exit plane",
-         "48-point rake provides adequate spatial resolution", "assessed"),
+         "48-point rake provides adequate spatial resolution",
+         "assessed", None),
         (3, 3, "Engine-representative conditions required",
-         "Engine-representative Reynolds and Mach numbers", "assessed"),
+         "Engine-representative Reynolds and Mach numbers",
+         "assessed", None),
         (2, 2, "Geometric fidelity within 0.5mm",
-         "Cascade rig geometry matches engine within 0.5mm", "assessed"),
-        (3, 2, "4.2% max deviation acceptable for screening",
-         "Mean error 1.8% passes; max 4.2% at endwall slightly exceeds 3% target "
-         "but acceptable for preliminary design screening", "assessed"),
+         "Cascade rig geometry matches engine within 0.5mm",
+         "assessed", None),
+        (3, 3, "4.2% max deviation acceptable for screening",  # ← Fixed: ach 2→3 (board accepted)
+         "Mean error 1.8% passes; max 4.2% at endwall within tolerance for screening",
+         "assessed", None),
         (2, 2, "Peak surface temperature is primary QoI",
-         "Peak surface temperature is the primary QoI", "assessed"),
+         "Peak surface temperature is the primary QoI",
+         "assessed", None),
         (2, 2, "Cascade conditions representative of take-off",
-         "Cascade rig conditions representative of take-off", "assessed"),
+         "Cascade rig conditions representative of take-off",
+         "assessed", None),
         # NASA-only factors (14-19)
         (3, 3, "ISO 17025 traceable pedigree required",
          "All input data from ISO 17025 calibrated instruments with traceable pedigree",
-         "assessed"),
+         "assessed", None),
         (3, 3, "Quarterly independent review required",
          "Independent review board conducted quarterly review",
-         "assessed"),
+         "assessed",
+         "https://aeroeng.example.org/validation/review-2026-q1"),  # hasEvidence → silences W-NASA-02
         (2, 2, "CM via version control required",
          "Configuration management via Git + ANSYS Workbench project archive",
-         "assessed"),
-        (3, None, None, None, "not-assessed"),  # ← GAP 1: Results uncertainty → W-EP-04
+         "assessed",
+         "https://aeroeng.example.org/validation/review-2026-q1"),  # hasEvidence → silences W-NASA-03
+        (3, None,
+         "Probabilistic UQ on peak temperature prediction required at MRL 3",  # acceptance criteria → silences W-AR-01
+         None,
+         "not-assessed", None),  # ← GAP 1: Results uncertainty not-assessed → W-EP-04
         (2, 2, "Sensitivity within 2% required",
          "Sensitivity study on inlet turbulence intensity (±20%) shows <1.5% variation in peak T",
-         "assessed"),
+         "assessed",
+         "https://aeroeng.example.org/validation/cascade-temp-comparison"),  # hasEvidence → silences W-NASA-06
         (2, 2, "Prior use in 3+ engine variants",
          "Previous version of CHT model used for preliminary design of 3 engine variants",
-         "assessed"),
+         "assessed", None),
     ]
     _add_factors_sheet(wb, factors=factors, factor_list=ALL_FACTOR_CATEGORIES)
 
@@ -752,11 +782,15 @@ def create_tc70(output_dir):
         wb,
         outcome="Accepted",  # ← Decision "Accepted" despite gap → enables W-AR-02
         rationale=(
-            "Board accepts model for screening-level use despite known gaps. "
-            "Discretization error at blade tip (achieved=1 vs required=3) accepted "
-            "with condition that tip region study is completed before PDR. "
-            "Results uncertainty not yet assessed — to be addressed in next cycle. "
-            "Mesh convergence self-study has no external comparator."
+            "Accepted for preliminary screening use at MRL 3. Board acknowledges three "
+            "known gaps requiring resolution before detailed design phase: "
+            "(1) Discretization error at blade tip is unresolved — 12% mesh sensitivity "
+            "in the critical tip gap region, achieved level 1 vs required level 3; "
+            "(2) Results uncertainty factor is unassessed — no probabilistic UQ on peak "
+            "temperature prediction despite being required at MRL 3; "
+            "(3) Mesh convergence study is a self-convergence check with no independent "
+            "comparator dataset. Board accepted based on screening-level risk tolerance "
+            "with mandatory re-assessment before CDR."
         ),
         criteria_set="https://uofa.net/criteria/NASA-STD-7009B",
         decided_by="Propulsion Credibility Board",

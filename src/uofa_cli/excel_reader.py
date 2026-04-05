@@ -434,6 +434,7 @@ def _read_factors(ws, packs: list[str], errors: list) -> list[dict]:
         acceptance = _cell_value(ws, row, 5)        # E
         rationale = _cell_value(ws, row, 6)         # F
         status = _cell_value(ws, row, 7)            # G
+        linked_evidence = _cell_value(ws, row, 8)   # H — Linked Evidence URI
 
         # Validate factor type
         if factor_type not in valid_names:
@@ -487,6 +488,7 @@ def _read_factors(ws, packs: list[str], errors: list) -> list[dict]:
             "acceptance_criteria": acceptance,
             "rationale": rationale,
             "status": status or "not-assessed",
+            "linked_evidence": linked_evidence,
         })
 
     return factors

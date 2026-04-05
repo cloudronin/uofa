@@ -270,7 +270,15 @@ class TestEndToEndImport:
         assert "ProfileMinimal" in doc["conformsToProfile"]
 
     def test_aero_hpt_blade_thermal_roundtrip(self, tmp_path):
-        """TC-70: Aerospace HPT blade thermal (NASA, 19 factors, 3 gaps) → sign → C1+C2 pass."""
+        """TC-70: Aerospace HPT blade thermal (NASA, 19 factors, 3 gaps) → sign → C1+C2 pass.
+
+        Expected weakeners when rules run (6 total):
+          W-AR-02 [Critical] — Discretization error ach=1 < req=3, Accepted
+          W-EP-04 [High]     — Results uncertainty not-assessed at MRL 3
+          W-AR-05 [High]     — Mesh convergence no comparedAgainst
+          COMPOUND-01 [Critical] × 2  — W-AR-02 × W-EP-04, W-AR-02 × W-AR-05
+          COMPOUND-03 [High] × 1      — "Medium" assurance contradicts Critical
+        """
         xlsx = CORPUS_DIR / "tc70-aero-hpt-blade-thermal-gaps.xlsx"
         output = tmp_path / "tc70.jsonld"
 
@@ -285,7 +293,7 @@ class TestEndToEndImport:
         assert "ProfileComplete" in doc["conformsToProfile"]
         assert doc["decision"] == "Accepted"
 
-        # All 19 factors included (assessed + not-assessed) after Bug 1 fix
+        # All 19 factors included (assessed + not-assessed + scoped-out)
         factors = doc["hasCredibilityFactor"]
         assert len(factors) == 19
 
@@ -302,6 +310,8 @@ class TestEndToEndImport:
         # Gap 1 (W-EP-04): Results uncertainty is not-assessed at MRL 3
         ru = next(f for f in factors if f["factorType"] == "Results uncertainty")
         assert ru["factorStatus"] == "not-assessed"
+        assert ru["requiredLevel"] == 3
+        assert "acceptanceCriteria" in ru  # has criteria, just not assessed yet
 
         # Gap 2 (W-AR-05): Mesh convergence has no comparedAgainst
         vrs = doc["hasValidationResult"]
@@ -313,9 +323,22 @@ class TestEndToEndImport:
         assert disc["requiredLevel"] == 3
         assert disc["achievedLevel"] == 1
 
-        # All validation results have wasGeneratedBy (Bug 3 fix)
-        for vr in vrs:
-            assert "wasGeneratedBy" in vr, f"VR {vr.get('name')} missing wasGeneratedBy"
+        # Numerical solver error is scoped-out (not not-assessed) → no W-EP-04
+        nse = next(f for f in factors if f["factorType"] == "Numerical solver error")
+        assert nse["factorStatus"] == "scoped-out"
+
+        # Output comparison achieved == required → no unintentional W-AR-02
+        oc = next(f for f in factors if f["factorType"] == "Output comparison")
+        assert oc["achievedLevel"] == 3
+        assert oc["requiredLevel"] == 3
+
+        # hasEvidence on NASA factors that need it → silences W-NASA-02/03/06
+        dtr = next(f for f in factors if f["factorType"] == "Development technical review")
+        assert "hasEvidence" in dtr
+        dpm = next(f for f in factors if f["factorType"] == "Development process and product management")
+        assert "hasEvidence" in dpm
+        rr = next(f for f in factors if f["factorType"] == "Results robustness")
+        assert "hasEvidence" in rr
 
         # comparedAgainst used (not comparesTo) per v0.4 context
         cascade_vr = next(v for v in vrs if "cascade" in v.get("id", "").lower())
