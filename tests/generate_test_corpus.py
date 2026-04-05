@@ -582,6 +582,212 @@ def create_tc62(output_dir):
     }
 
 
+# ── Domain scenario generators ────────────────────────────────
+
+
+def create_tc70(output_dir):
+    """TC-70: Aerospace turbine blade thermal — NASA 19 factors, 3 intentional gaps.
+
+    Scenario: Thermal analysis of a high-pressure turbine (HPT) blade during
+    take-off transient using conjugate heat transfer (CHT) CFD. NASA-STD-7009B
+    assessment with 19 credibility factors at MRL 3.
+
+    Three intentional gaps:
+      Gap 1 — Discretization error: achieved=1 vs required=3 (insufficient mesh
+              convergence study for the blade tip region thermal gradient)
+      Gap 2 — Results uncertainty: not-assessed (no UQ on peak metal temperature
+              prediction despite MRL 3 requirement)
+      Gap 3 — Validation result without UQ: the thermal paint comparison has no
+              uncertainty quantification (triggers W-AL-01 if rules run)
+    """
+    wb = openpyxl.Workbook()
+    wb.remove(wb.active)
+
+    _add_summary_sheet(
+        wb,
+        project_name="HPT Blade Thermal",
+        cou_name="Take-off transient peak temperature",
+        cou_description=(
+            "Conjugate heat transfer prediction of peak metal temperature on a "
+            "high-pressure turbine blade during take-off transient (0-35s). "
+            "Prediction supports blade life assessment under LCF cycling. "
+            "Model uses RANS k-omega SST with conjugate solid conduction in "
+            "ANSYS CFX coupled to a 3D blade FE mesh."
+        ),
+        profile="Complete",
+        device_class="Class II",
+        mrl="MRL 3",
+        assurance_level="Medium",
+        standards_ref="NASA-STD-7009B",
+        assessor_name="Dr. A. Patel, Propulsion Credibility Board",
+        assessment_date="2026-03-20",
+        source_doc="https://doi.org/10.2514/6.2026-1234",
+        has_uq="No",
+    )
+
+    _add_model_data_sheet(wb, entities=[
+        ("Requirement", "Blade peak temperature limit",
+         "https://aeroeng.example.org/req/hpt-blade-tmax",
+         "Peak metal temperature must not exceed 1150K during take-off transient",
+         None, "Engine design manual Section 5.3"),
+        ("Model", "ANSYS CFX 2025 R1 — CHT RANS k-omega SST",
+         "https://aeroeng.example.org/model/cfx-cht-hpt-v2",
+         "Conjugate heat transfer: fluid RANS (k-omega SST) coupled to solid conduction, "
+         "3.2M fluid cells + 0.8M solid elements, blade with internal cooling passages",
+         "v2.1", "ANSYS Inc."),
+        ("Dataset", "Turbine cascade rig — thermocouple rake",
+         "https://aeroeng.example.org/data/cascade-rig-tc-2024",
+         "48-point thermocouple rake measurements at cascade exit plane, "
+         "ISO 17025 calibrated, uncertainty ±2.5K",
+         None, "NASA GRC turbine test facility"),
+        ("Dataset", "Thermal paint test — blade surface",
+         "https://aeroeng.example.org/data/thermal-paint-hpt-2025",
+         "Thermal paint indication on HPT blade surface from engine ground test, "
+         "qualitative + semi-quantitative (±25K bands)",
+         None, "Engine test cell Run #47"),
+    ])
+
+    _add_validation_results_sheet(wb, results=[
+        _vr_row(
+            "Cascade rig exit temperature comparison",
+            "ValidationResult",
+            uri="https://aeroeng.example.org/validation/cascade-temp-comparison",
+            desc="CFD-predicted vs measured total temperature at cascade exit plane. "
+                 "Mean error 1.8%, max deviation 4.2% at endwall region.",
+            compares_to="https://aeroeng.example.org/data/cascade-rig-tc-2024",
+            has_uq="Yes",
+            uq_method="Monte Carlo propagation (inlet BC uncertainty + turbulence model sensitivity)",
+            metric="Mean error 1.8%, max 4.2%",
+            pass_fail="Pass",
+        ),
+        _vr_row(
+            "Thermal paint blade surface comparison",
+            "ValidationResult",
+            uri="https://aeroeng.example.org/validation/thermal-paint-comparison",
+            desc="Qualitative comparison of predicted vs thermal paint surface temperature "
+                 "pattern on HPT blade. Hot spot location matches within 2mm.",
+            compares_to="https://aeroeng.example.org/data/thermal-paint-hpt-2025",
+            has_uq="No",       # ← GAP 3: no UQ on this validation result
+            uq_method=None,
+            metric="Hot spot location within 2mm",
+            pass_fail="Pass",
+        ),
+        _vr_row(
+            "Mesh convergence — blade mid-span",
+            "ValidationResult",
+            uri="https://aeroeng.example.org/validation/mesh-convergence-midspan",
+            desc="GCI study at blade mid-span: 3 refinement levels (1.6M, 3.2M, 6.4M cells). "
+                 "GCI for peak surface temperature = 0.8%.",
+            has_uq="Yes",
+            uq_method="Richardson extrapolation with GCI (Roache 1998)",
+            metric="GCI = 0.8%",
+            pass_fail="Pass",
+        ),
+        _vr_row(
+            "Independent technical review",
+            "ReviewActivity",
+            uri="https://aeroeng.example.org/validation/review-2026-q1",
+            desc="Quarterly M&S credibility review by independent review board",
+            compares_to="https://aeroeng.example.org/org/independent-review-board",
+        ),
+    ])
+
+    # 19 factors — 13 VV40 shared + 6 NASA-only
+    # Gap 1: Discretization error — achieved=1 vs required=3
+    # Gap 2: Results uncertainty — not-assessed despite MRL 3
+    factors = [
+        # VV40 shared factors (1-13)
+        (2, 2, "Commercial solver with established SQA",
+         "ANSYS CFX has ISO 9001 certification and extensive V&V documentation", "assessed"),
+        (3, 3, "MMS benchmarks for conjugate solver",
+         "Passed all 5 MMS benchmark cases for CHT coupling", "assessed"),
+        (3, 1, "GCI < 2% required at all critical locations",  # ← GAP 1
+         "GCI study only completed at blade mid-span (0.8%). "
+         "Blade tip region shows 12% variation between mesh levels — "
+         "insufficient convergence in the tip gap thermal gradient zone.",
+         "assessed"),
+        (None, None, None, None, "not-assessed"),     # Numerical solver error
+        (2, 2, None, "Experienced analyst, standard workflow", "assessed"),  # Use error
+        (3, 3, "RANS k-omega SST appropriate for attached flow",
+         "Model form validated against cascade rig data; "
+         "known limitation in tip vortex region acknowledged", "assessed"),
+        (3, 3, "All BCs from calibrated measurements",
+         "Inlet profiles from engine test data, material properties from vendor datasheets",
+         "assessed"),
+        (2, 2, None, "48-point rake provides adequate spatial resolution", "assessed"),
+        (3, 3, None, "Engine-representative Reynolds and Mach numbers", "assessed"),
+        (2, 2, None, "Cascade rig geometry matches engine within 0.5mm", "assessed"),
+        (3, 2, "4.2% max deviation acceptable for screening",
+         "Mean error 1.8% passes; max 4.2% at endwall slightly exceeds 3% target "
+         "but acceptable for preliminary design screening", "assessed"),
+        (2, 2, None, "Peak surface temperature is the primary QoI", "assessed"),
+        (2, 2, None, "Cascade rig conditions representative of take-off", "assessed"),
+        # NASA-only factors (14-19)
+        (3, 3, None,
+         "All input data from ISO 17025 calibrated instruments with traceable pedigree",
+         "assessed"),  # Data pedigree
+        (3, 3, None,
+         "Independent review board conducted quarterly review",
+         "assessed"),  # Development technical review
+        (2, 2, None,
+         "Configuration management via Git + ANSYS Workbench project archive",
+         "assessed"),  # Dev process & product management
+        (3, None, None, None, "not-assessed"),  # ← GAP 2: Results uncertainty — not assessed
+        (2, 2, None,
+         "Sensitivity study on inlet turbulence intensity (±20%) shows <1.5% variation in peak T",
+         "assessed"),  # Results robustness
+        (2, 2, None,
+         "Previous version of CHT model used for preliminary design of 3 engine variants",
+         "assessed"),  # Use history
+    ]
+    _add_factors_sheet(wb, factors=factors, factor_list=ALL_FACTOR_CATEGORIES)
+
+    _add_decision_sheet(
+        wb,
+        outcome="Not accepted",
+        rationale=(
+            "Model shows promise for screening-level predictions but three gaps "
+            "prevent acceptance for detailed design use at MRL 3: "
+            "(1) Discretization error at blade tip is unresolved — 12% mesh sensitivity "
+            "in the critical tip gap region; "
+            "(2) Results uncertainty factor is unassessed — no probabilistic UQ on "
+            "peak temperature prediction despite being required at MRL 3; "
+            "(3) Thermal paint validation lacks uncertainty quantification — "
+            "semi-quantitative nature (±25K bands) not formally characterized. "
+            "Recommend: complete tip region mesh refinement study, perform Monte Carlo "
+            "UQ on peak temperature, and quantify thermal paint comparison uncertainty "
+            "before re-assessment."
+        ),
+        criteria_set="https://uofa.net/criteria/NASA-STD-7009B",
+        decided_by="Propulsion Credibility Board",
+        decision_date="2026-03-20",
+    )
+    _add_lists_sheet(wb)
+
+    path = output_dir / "tc70-aero-hpt-blade-thermal-gaps.xlsx"
+    wb.save(path)
+    return {
+        "file": path.name,
+        "pack": ["nasa-7009b"],
+        "expect": "pass",
+        "profile": "Complete",
+        "factor_count": 17,  # 19 total - 2 not-assessed (solver error + results uncertainty)
+        "validation_result_count": 4,
+        "gaps": [
+            {"factor": "Discretization error", "required": 3, "achieved": 1},
+            {"factor": "Results uncertainty", "status": "not-assessed"},
+            {"validation": "Thermal paint blade surface comparison", "has_uq": False},
+        ],
+        "assertions": [
+            "has_provenance",
+            "has_context_v04",
+            "nasa_factor_standard",
+            "decision_not_accepted",
+            "has_review_activity",
+        ],
+    }
+
+
 # ── Main ──────────────────────────────────────────────────────
 
 
@@ -601,6 +807,7 @@ ALL_GENERATORS = {
     "TC-39": create_tc39,
     "TC-41": create_tc41,
     "TC-62": create_tc62,
+    "TC-70": create_tc70,
 }
 
 

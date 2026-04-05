@@ -263,6 +263,57 @@ class TestEndToEndImport:
         )
         assert "ProfileMinimal" in doc["conformsToProfile"]
 
+    def test_aero_hpt_blade_thermal_roundtrip(self, tmp_path):
+        """TC-70: Aerospace HPT blade thermal (NASA, 19 factors, 3 gaps) → sign → C1+C2 pass."""
+        xlsx = CORPUS_DIR / "tc70-aero-hpt-blade-thermal-gaps.xlsx"
+        output = tmp_path / "tc70.jsonld"
+
+        import_r, check_r, doc = _import_sign_check(xlsx, output, ["nasa-7009b"])
+
+        assert import_r.returncode == 0, f"Import failed: {import_r.stderr}"
+        assert check_r.returncode == 0, (
+            f"Check failed after import+sign:\nstdout: {check_r.stdout}\nstderr: {check_r.stderr}"
+        )
+
+        # Profile and decision
+        assert "ProfileComplete" in doc["conformsToProfile"]
+        assert doc["decision"] == "Not accepted"
+
+        # Factor counts: 19 total rows in sheet, 17 assessed (2 not-assessed excluded)
+        factors = doc["hasCredibilityFactor"]
+        assert len(factors) == 17
+
+        # VV40 shared factors
+        vv40 = [f for f in factors if f["factorStandard"] == "ASME-VV40-2018"]
+        nasa = [f for f in factors if f["factorStandard"] == "NASA-STD-7009B"]
+        assert len(vv40) == 12  # 13 - 1 not-assessed (numerical solver error)
+        assert len(nasa) == 5   # 6 - 1 not-assessed (results uncertainty)
+
+        # NASA factors have assessmentPhase
+        for f in nasa:
+            assert "assessmentPhase" in f, f"NASA factor {f['factorType']} missing assessmentPhase"
+
+        # Gap 1: Discretization error — achieved < required
+        disc = next(f for f in factors if f["factorType"] == "Discretization error")
+        assert disc["requiredLevel"] == 3
+        assert disc["achievedLevel"] == 1
+
+        # Gap 2: Results uncertainty should NOT be in the output (not-assessed)
+        ru_types = [f["factorType"] for f in factors]
+        assert "Results uncertainty" not in ru_types
+
+        # Gap 3: Validation result without UQ
+        vrs = doc["hasValidationResult"]
+        assert len(vrs) == 4
+        paint_vr = next(v for v in vrs if "thermal-paint" in v.get("id", "").lower()
+                        or "thermal paint" in v.get("name", "").lower())
+        assert paint_vr["hasUncertaintyQuantification"] is False
+
+        # Evidence types present
+        types = {v["type"] for v in vrs}
+        assert "ValidationResult" in types
+        assert "ReviewActivity" in types
+
     def test_starter_xlsx_import_and_sign(self, tmp_path):
         """Existing starter file → import + sign succeeds.
 
