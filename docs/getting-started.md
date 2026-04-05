@@ -57,7 +57,7 @@ If you prefer working in a spreadsheet, use the Excel import pipeline. Fill in a
 
 ```bash
 # Start from the filled example or a pack template
-cp examples/starters/uofa-starter-filled.xlsx my-assessment.xlsx
+cp packs/vv40/templates/uofa-starter-filled.xlsx my-assessment.xlsx
 
 # Edit my-assessment.xlsx in Excel — fill in your project details,
 # credibility factors, validation results, and decision
@@ -109,7 +109,7 @@ my-project/
 
 You can also start manually by copying a template:
 ```bash
-cp examples/templates/uofa-minimal-skeleton.jsonld my-project-cou1.jsonld
+cp packs/core/templates/uofa-minimal-skeleton.jsonld my-project-cou1.jsonld
 ```
 
 ## Step 3: Fill In Your Project Details
@@ -224,7 +224,7 @@ A typical workflow:
 
 ## What's Next
 
-- **Study the Morrison example** (`examples/morrison/`) to see Complete profiles for an FDA V&V 40 case study (COU1 and COU2)
+- **Study the Morrison example** (`packs/vv40/examples/morrison/`) to see Complete profiles for an FDA V&V 40 case study (COU1 and COU2)
 - **Add a second COU** — same model, different context of use, potentially different credibility requirements
 - **Run COU divergence analysis** — compare weakener profiles across COUs to see how risk level affects evidence requirements
 - **Integrate with CI** — add `uofa check` to your pipeline so credibility evidence is validated on every commit

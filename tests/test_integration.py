@@ -15,10 +15,10 @@ import pytest
 # ── Fixtures ──────────────────────────────────────────────────
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-MORRISON = REPO_ROOT / "examples" / "morrison" / "cou1" / "uofa-morrison-cou1.jsonld"
-MORRISON_COU2 = REPO_ROOT / "examples" / "morrison" / "cou2" / "uofa-morrison-cou2.jsonld"
-MINIMAL_TEMPLATE = REPO_ROOT / "examples" / "templates" / "uofa-minimal-skeleton.jsonld"
-COMPLETE_TEMPLATE = REPO_ROOT / "examples" / "templates" / "uofa-complete-skeleton.jsonld"
+MORRISON = REPO_ROOT / "packs" / "vv40" / "examples" / "morrison" / "cou1" / "uofa-morrison-cou1.jsonld"
+MORRISON_COU2 = REPO_ROOT / "packs" / "vv40" / "examples" / "morrison" / "cou2" / "uofa-morrison-cou2.jsonld"
+MINIMAL_TEMPLATE = REPO_ROOT / "packs" / "core" / "templates" / "uofa-minimal-skeleton.jsonld"
+COMPLETE_TEMPLATE = REPO_ROOT / "packs" / "core" / "templates" / "uofa-complete-skeleton.jsonld"
 
 JAVA_AVAILABLE = shutil.which("java") is not None
 JENA_JAR = REPO_ROOT / "weakener-engine" / "target" / "uofa-weakener-engine-0.1.0.jar"
@@ -293,7 +293,7 @@ class TestCheck:
 class TestValidate:
     def test_validate_morrison_examples_conform(self):
         """Morrison examples conform with default vv40 pack."""
-        result = run_uofa("validate", "--dir", str(REPO_ROOT / "examples" / "morrison"))
+        result = run_uofa("validate", "--dir", str(REPO_ROOT / "packs" / "vv40" / "examples" / "morrison"))
         assert result.returncode == 0
         assert "conform" in result.stdout.lower()
 
@@ -304,7 +304,7 @@ class TestValidate:
 
     def test_validate_with_verify(self):
         """Morrison examples pass SHACL + integrity with default vv40 pack."""
-        result = run_uofa("validate", "--dir", str(REPO_ROOT / "examples" / "morrison"), "--verify")
+        result = run_uofa("validate", "--dir", str(REPO_ROOT / "packs" / "vv40" / "examples" / "morrison"), "--verify")
         assert result.returncode == 0
         assert "conform" in result.stdout.lower()
         assert "verified" in result.stdout.lower()
@@ -313,13 +313,13 @@ class TestValidate:
         """Aerospace example passes with vv40 pack — SPARQL constraints are
         conditional on factorStandard, so NASA-tagged factors are not checked
         against V&V 40 factor enum."""
-        result = run_uofa("validate", "--dir", str(REPO_ROOT / "examples" / "aerospace"),
+        result = run_uofa("validate", "--dir", str(REPO_ROOT / "packs" / "nasa-7009b" / "examples" / "aerospace"),
                           "--pack", "vv40")
         assert result.returncode == 0
 
     def test_validate_aerospace_with_nasa_pack(self):
         """Aerospace example passes with nasa-7009b pack."""
-        result = run_uofa("validate", "--dir", str(REPO_ROOT / "examples" / "aerospace"),
+        result = run_uofa("validate", "--dir", str(REPO_ROOT / "packs" / "nasa-7009b" / "examples" / "aerospace"),
                           "--pack", "nasa-7009b")
         # May fail on assessmentPhase requirement since it's optional in some factors
         # but the factorType should be accepted
@@ -685,13 +685,13 @@ class TestGlobalFlags:
 
 class TestStarterExamples:
     def test_aero_starter_conforms(self):
-        aero = REPO_ROOT / "examples" / "starters" / "uofa-aero-fatigue-minimal.jsonld"
+        aero = REPO_ROOT / "packs" / "nasa-7009b" / "examples" / "starters" / "uofa-aero-fatigue-minimal.jsonld"
         if aero.exists():
             result = run_uofa("shacl", str(aero))
             assert result.returncode == 0
 
     def test_structural_starter_conforms(self):
-        bridge = REPO_ROOT / "examples" / "starters" / "uofa-structural-bridge-minimal.jsonld"
+        bridge = REPO_ROOT / "packs" / "vv40" / "examples" / "starters" / "uofa-structural-bridge-minimal.jsonld"
         if bridge.exists():
             result = run_uofa("shacl", str(bridge))
             assert result.returncode == 0
@@ -920,7 +920,7 @@ class TestWeakenerPins:
     @pytest.mark.skipif(not JENA_AVAILABLE, reason="Jena rules require Java")
     def test_aero_nasa_weakener_count(self):
         """Aerospace NASA example must produce exactly 45 weakeners."""
-        aero = REPO_ROOT / "examples" / "aerospace" / "uofa-aero-nasa7009b.jsonld"
+        aero = REPO_ROOT / "packs" / "nasa-7009b" / "examples" / "aerospace" / "uofa-aero-nasa7009b.jsonld"
         result = run_uofa("rules", str(aero), "--pack", "nasa-7009b")
         assert result.returncode == 0
         assert "SUMMARY: 45 weakener(s) detected" in result.stdout
@@ -946,7 +946,7 @@ class TestDiffCrossStandard:
 
     def test_diff_vv40_vs_nasa_no_crash(self):
         """Diffing a V&V 40 file against a NASA file should not crash."""
-        aero = REPO_ROOT / "examples" / "aerospace" / "uofa-aero-nasa7009b.jsonld"
+        aero = REPO_ROOT / "packs" / "nasa-7009b" / "examples" / "aerospace" / "uofa-aero-nasa7009b.jsonld"
         result = run_uofa("diff", str(MORRISON), str(aero), "--skip-rules")
         assert result.returncode == 0
         # Should show both COUs
@@ -956,7 +956,7 @@ class TestDiffCrossStandard:
 
 # ── Import command tests ──────────────────────────────────────
 
-STARTER_XLSX = REPO_ROOT / "examples" / "starters" / "uofa-starter-filled.xlsx"
+STARTER_XLSX = REPO_ROOT / "packs" / "vv40" / "templates" / "uofa-starter-filled.xlsx"
 OPENPYXL_AVAILABLE = True
 try:
     import openpyxl  # noqa: F401

@@ -8,7 +8,7 @@
 
 ```
                     ┌─────────────────────────────────┐
-                    │  examples/morrison/cou1/         │
+                    │  packs/vv40/examples/morrison/cou1/         │
                     │  uofa-morrison-cou1.jsonld       │
                     │  (JSON-LD evidence package)      │
                     └──────────┬──────────────────────┘
@@ -62,19 +62,19 @@ mvn package -q
 
 # Run against Morrison COU1
 java -jar target/uofa-weakener-engine-0.1.0.jar \
-    ../examples/morrison/cou1/uofa-morrison-cou1.jsonld \
+    ../packs/vv40/examples/morrison/cou1/uofa-morrison-cou1.jsonld \
     --context ../uofa_v0_3.jsonld
 
 # Output deductions as Turtle
 java -jar target/uofa-weakener-engine-0.1.0.jar \
-    ../examples/morrison/cou1/uofa-morrison-cou1.jsonld \
+    ../packs/vv40/examples/morrison/cou1/uofa-morrison-cou1.jsonld \
     --context ../uofa_v0_3.jsonld \
     --format turtle \
     --output cou1-weakeners.ttl
 
 # Trace rule execution (debug)
 java -jar target/uofa-weakener-engine-0.1.0.jar \
-    ../examples/morrison/cou1/uofa-morrison-cou1.jsonld \
+    ../packs/vv40/examples/morrison/cou1/uofa-morrison-cou1.jsonld \
     --context ../uofa_v0_3.jsonld \
     --trace
 ```
@@ -143,11 +143,11 @@ paper but machine-visible in the UofA.
 ## NAFEMS Demo Script (90 seconds)
 
 1. **Show:** Morrison COU1 JSON-LD (the evidence package — 13 factors, 7 assessed)
-2. **Run:** `uofa rules examples/morrison/cou1/uofa-morrison-cou1.jsonld --build`
+2. **Run:** `uofa rules packs/vv40/examples/morrison/cou1/uofa-morrison-cou1.jsonld --build`
 3. **Show:** Summary output — 14 weakeners across 4 core + 2 compound patterns, W-EP-04 does NOT fire
-4. **Run:** `uofa rules examples/morrison/cou2/uofa-morrison-cou2.jsonld --build`
+4. **Run:** `uofa rules packs/vv40/examples/morrison/cou2/uofa-morrison-cou2.jsonld --build`
 5. **Show:** W-EP-04 fires 6× (unassessed factors at MRL 5), only pattern that fires on COU2
-6. **Run:** `uofa diff examples/morrison/cou1/...jsonld examples/morrison/cou2/...jsonld`
+6. **Run:** `uofa diff packs/vv40/examples/morrison/cou1/...jsonld packs/vv40/examples/morrison/cou2/...jsonld`
 7. **Key line:** "Morrison only assessed 7 of 13 factors. At MRL 2 that's fine. At MRL 5
    the same gap fires 6 epistemic weakeners. Same data, same rules — risk context drives
    the divergence. And the compound rules catch interactions no SPARQL query can see."

@@ -13,23 +13,32 @@ _EXCLUDE_DIRS = {"templates"}
 
 
 def add_arguments(parser):
-    parser.add_argument("--dir", type=Path, help="directory to scan (default: examples/)")
+    parser.add_argument("--dir", type=Path, help="directory to scan (default: all pack examples)")
     parser.add_argument("--verify", action="store_true",
                         help="also verify hash + signature integrity on each file")
     parser.add_argument("--pubkey", type=Path, help="ed25519 public key (default: keys/research.pub)")
 
 
 def run(args) -> int:
-    examples = args.dir or paths.examples_dir()
-    if not examples.exists():
-        raise FileNotFoundError(f"Examples directory not found: {examples}")
+    # Scan a single dir if specified, otherwise all pack example directories
+    if args.dir:
+        scan_dirs = [args.dir]
+    else:
+        scan_dirs = paths.all_example_dirs()
+
+    if not scan_dirs:
+        raise FileNotFoundError("No example directories found in packs/")
 
     step_header("SHACL validation: all examples")
 
     files = sorted(
-        f for f in examples.rglob("*.jsonld")
+        f
+        for d in scan_dirs if d.exists()
+        for f in d.rglob("*.jsonld")
         if not any(part in _EXCLUDE_DIRS for part in f.parts)
     )
+    # Use first scan dir as reference for relative paths
+    examples = scan_dirs[0].parent if len(scan_dirs) == 1 else paths.find_repo_root()
 
     if not files:
         result_line("No .jsonld files found", False)
