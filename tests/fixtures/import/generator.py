@@ -236,17 +236,20 @@ def _clean_base_nasa():
     base["summary"]["model_risk_level"] = "MRL 1"
     base["factors"] = _clean_nasa_factors()
     # Add a ReviewActivity VR so W-NASA-02 has evidence available
+    # Must include has_uq to prevent W-AL-01 firing on these VRs
     base["validation_results"].append({
         "name": "Technical review",
         "evidence_type": "ReviewActivity",
         "uri": "https://example.org/validation/review",
         "compares_to": "https://example.org/org/reviewer",
+        "has_uq": "No",
     })
     base["validation_results"].append({
         "name": "Process attestation",
         "evidence_type": "ProcessAttestation",
         "uri": "https://example.org/validation/process",
         "compares_to": "https://example.org/org/attester",
+        "has_uq": "No",
     })
     return base
 
