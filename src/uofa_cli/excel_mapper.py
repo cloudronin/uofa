@@ -261,4 +261,8 @@ def _map_factor(factor: dict, packs: list[str]) -> dict:
         if phase:
             f["assessmentPhase"] = phase
 
+    # Linked evidence URI (from Excel column H)
+    if factor.get("linked_evidence"):
+        f["hasEvidence"] = factor["linked_evidence"]
+
     return f
