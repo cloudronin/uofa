@@ -10,13 +10,14 @@ HELP = "import an Excel workbook into a UofA JSON-LD file"
 
 
 def add_arguments(parser):
-    parser.add_argument("file", type=Path, help="Excel workbook (.xlsx)")
+    parser.add_argument("file", nargs="?", type=Path,
+                        help="Excel workbook (.xlsx). If omitted, reads template from uofa.toml")
     parser.add_argument("--output", "-o", type=Path,
                         help="output path (default: same directory, .jsonld extension)")
     parser.add_argument("--sign", action="store_true",
                         help="sign the output after generation")
     parser.add_argument("--key", "-k", type=Path,
-                        help="path to ed25519 private key (required with --sign)")
+                        help="path to ed25519 private key (required with --sign, or auto-detected from project)")
     parser.add_argument("--check", action="store_true",
                         help="run all quality gates on the output")
     parser.add_argument("--profile", choices=["minimal", "complete"],
@@ -27,7 +28,20 @@ def run(args) -> int:
     from uofa_cli.excel_reader import read_workbook, ImportError as ExcelImportError
     from uofa_cli.excel_mapper import map_to_jsonld
 
+    # ── Project-aware defaults ───────────────────────────────
+    project_root = paths.find_project_root()
+    config = paths.load_project_config(project_root) if project_root else {}
+
+    # Resolve input file: CLI > uofa.toml template > error
     xlsx = args.file
+    if not xlsx and config.get("template"):
+        template = config["template"]
+        if template.exists():
+            xlsx = template
+    if not xlsx:
+        error("No Excel file specified and no template found in uofa.toml")
+        return 1
+
     if not xlsx.exists():
         error(f"File not found: {xlsx}")
         return 1
@@ -36,7 +50,12 @@ def run(args) -> int:
         error(f"Expected .xlsx file, got: {xlsx.suffix}")
         return 1
 
+    # Resolve pack: CLI dispatcher already sets active pack from --pack flag.
+    # If no --pack was given and we're in a project, override with toml pack.
     packs = paths.get_active_pack()
+    if not getattr(args, "pack", None) and config.get("pack"):
+        packs = [config["pack"]]
+        paths.set_active_pack(packs)
 
     step_header(f"Importing {xlsx.name}")
 
@@ -57,6 +76,8 @@ def run(args) -> int:
 
     # ── Write output ─────────────────────────────────────────
     output = args.output
+    if not output and config.get("output"):
+        output = config["output"] / f"{xlsx.stem}.jsonld"
     if not output:
         output = xlsx.with_suffix(".jsonld")
 
@@ -79,16 +100,22 @@ def run(args) -> int:
 
     # ── Optional: Sign ───────────────────────────────────────
     if args.sign:
-        if not args.key:
-            error("--sign requires --key <path>")
+        key = args.key
+        # Auto-detect key from project if not specified
+        if not key and project_root:
+            key_candidates = list((project_root / "keys").glob("*.key"))
+            if key_candidates:
+                key = key_candidates[0]
+        if not key:
+            error("--sign requires --key <path> (or run inside a project with keys/)")
             return 1
-        if not args.key.exists():
-            error(f"Key file not found: {args.key}")
+        if not key.exists():
+            error(f"Key file not found: {key}")
             return 1
 
         from uofa_cli.integrity import sign_file
         ctx = paths.context_file()
-        sha256_hex, sig_hex = sign_file(output, args.key, ctx)
+        sha256_hex, sig_hex = sign_file(output, key, ctx)
         result_line("Signed", True)
         info(f"  SHA-256: {sha256_hex[:16]}...")
 
