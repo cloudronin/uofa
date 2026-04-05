@@ -312,10 +312,14 @@ def create_tc06(output_dir):
     _add_validation_results_sheet(wb, results=[
         _vr_row("Validation 1", has_uq="Yes", uq_method="Monte Carlo",
                 compares_to="https://example.org/data/1"),
-        _vr_row("Tech review", "ReviewActivity"),
-        _vr_row("Process check", "ProcessAttestation"),
-        _vr_row("Deploy record", "DeploymentRecord"),
-        _vr_row("Data source", "InputPedigreeLink"),
+        _vr_row("Tech review", "ReviewActivity",
+                compares_to="https://example.org/org/reviewer-1"),
+        _vr_row("Process check", "ProcessAttestation",
+                compares_to="https://example.org/org/qa-team"),
+        _vr_row("Deploy record", "DeploymentRecord",
+                compares_to="https://example.org/system/flight-test-1"),
+        _vr_row("Data source", "InputPedigreeLink",
+                compares_to="https://example.org/data/arc-jet-facility"),
     ])
     factors = [(3, 3, None, None, "assessed")] * 19
     _add_factors_sheet(wb, factors=factors, factor_list=ALL_FACTOR_CATEGORIES)

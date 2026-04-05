@@ -152,7 +152,139 @@ def error_case(request):
     return tc_id, tc, result
 
 
-class TestErrorImport:
+# ── End-to-end roundtrip tests ────────────────────────────────
+
+CONTEXT_FILE = str(REPO_ROOT / "spec" / "context" / "v0.4.jsonld")
+KEY_FILE = REPO_ROOT / "keys" / "research.key"
+
+
+def _import_sign_check(xlsx_path, output_path, packs):
+    """Import → rewrite context to local → sign → check.
+
+    Returns (import_result, check_result, doc).
+    The @context is rewritten to local path so SHACL validation works
+    without network access (same pattern as existing integration tests).
+    """
+    pack_args = []
+    for p in packs:
+        pack_args += ["--pack", p]
+
+    # Step 1: Import
+    import_result = run_uofa("import", str(xlsx_path), "--output", str(output_path), *pack_args)
+    if import_result.returncode != 0:
+        return import_result, None, None
+
+    # Step 2: Rewrite @context to local path for offline SHACL validation
+    doc = json.loads(output_path.read_text())
+    doc["@context"] = CONTEXT_FILE
+    output_path.write_text(json.dumps(doc, indent=2, sort_keys=True, ensure_ascii=False) + "\n")
+
+    # Step 3: Sign
+    sign_result = run_uofa("sign", str(output_path), "--key", str(KEY_FILE),
+                           "--context", CONTEXT_FILE)
+    if sign_result.returncode != 0:
+        return import_result, sign_result, None
+
+    # Step 4: Check (C1 integrity + C2 SHACL, skip C3 rules since Jena may not be available)
+    check_result = run_uofa("check", str(output_path), "--skip-rules", *pack_args)
+
+    # Reload signed doc
+    doc = json.loads(output_path.read_text())
+    return import_result, check_result, doc
+
+
+class TestEndToEndImport:
+    """End-to-end: import xlsx → sign → check passes for each pack and profile."""
+
+    def test_vv40_complete_roundtrip(self, tmp_path):
+        """TC-02: VV40 Complete (13 factors) → sign → C1+C2 pass."""
+        xlsx = CORPUS_DIR / "tc02-vv40-complete-all-assessed.xlsx"
+        output = tmp_path / "tc02.jsonld"
+
+        import_r, check_r, doc = _import_sign_check(xlsx, output, ["vv40"])
+
+        assert import_r.returncode == 0, f"Import failed: {import_r.stderr}"
+        assert check_r.returncode == 0, (
+            f"Check failed after import+sign:\nstdout: {check_r.stdout}\nstderr: {check_r.stderr}"
+        )
+        # Verify real integrity fields (not placeholders)
+        assert doc["hash"] != "sha256:" + "0" * 64
+        assert doc["signature"] != "ed25519:" + "0" * 128
+        assert "ProfileComplete" in doc["conformsToProfile"]
+        assert len(doc["hasCredibilityFactor"]) == 13
+        assert all(f["factorStandard"] == "ASME-VV40-2018"
+                    for f in doc["hasCredibilityFactor"])
+
+    def test_nasa_complete_roundtrip(self, tmp_path):
+        """TC-06: NASA Complete (19 factors) → sign → C1+C2 pass."""
+        xlsx = CORPUS_DIR / "tc06-nasa-complete-19-factors.xlsx"
+        output = tmp_path / "tc06.jsonld"
+
+        import_r, check_r, doc = _import_sign_check(xlsx, output, ["nasa-7009b"])
+
+        assert import_r.returncode == 0, f"Import failed: {import_r.stderr}"
+        assert check_r.returncode == 0, (
+            f"Check failed after import+sign:\nstdout: {check_r.stdout}\nstderr: {check_r.stderr}"
+        )
+        assert "ProfileComplete" in doc["conformsToProfile"]
+        assert len(doc["hasCredibilityFactor"]) == 19
+        # Verify NASA-only factors have correct standard
+        nasa_factors = [f for f in doc["hasCredibilityFactor"]
+                        if f["factorStandard"] == "NASA-STD-7009B"]
+        assert len(nasa_factors) == 6
+        # Verify NASA factors have assessmentPhase
+        assert all("assessmentPhase" in f for f in nasa_factors)
+
+    def test_vv40_minimal_roundtrip(self, tmp_path):
+        """TC-01: VV40 Minimal → sign → C1+C2 pass."""
+        xlsx = CORPUS_DIR / "tc01-vv40-minimal.xlsx"
+        output = tmp_path / "tc01.jsonld"
+
+        import_r, check_r, doc = _import_sign_check(xlsx, output, ["vv40"])
+
+        assert import_r.returncode == 0, f"Import failed: {import_r.stderr}"
+        assert check_r.returncode == 0, (
+            f"Check failed after import+sign:\nstdout: {check_r.stdout}\nstderr: {check_r.stderr}"
+        )
+        assert "ProfileMinimal" in doc["conformsToProfile"]
+        # Minimal has no factors
+        assert "hasCredibilityFactor" not in doc or len(doc.get("hasCredibilityFactor", [])) == 0
+
+    def test_nasa_minimal_roundtrip(self, tmp_path):
+        """TC-09: NASA Minimal → sign → C1+C2 pass."""
+        xlsx = CORPUS_DIR / "tc09-nasa-minimal.xlsx"
+        output = tmp_path / "tc09.jsonld"
+
+        import_r, check_r, doc = _import_sign_check(xlsx, output, ["nasa-7009b"])
+
+        assert import_r.returncode == 0, f"Import failed: {import_r.stderr}"
+        assert check_r.returncode == 0, (
+            f"Check failed after import+sign:\nstdout: {check_r.stdout}\nstderr: {check_r.stderr}"
+        )
+        assert "ProfileMinimal" in doc["conformsToProfile"]
+
+    def test_starter_xlsx_import_and_sign(self, tmp_path):
+        """Existing starter file → import + sign succeeds.
+
+        Note: the starter uses 'Conditional' decision and 'Other' device class
+        which are valid domain values but outside the SHACL sh:in enum, so
+        C2 SHACL may report violations. This test verifies the import pipeline
+        and C1 integrity, not full SHACL conformance.
+        """
+        xlsx = REPO_ROOT / "examples" / "starters" / "uofa-starter-filled.xlsx"
+        output = tmp_path / "starter.jsonld"
+
+        import_r, check_r, doc = _import_sign_check(xlsx, output, ["vv40"])
+
+        assert import_r.returncode == 0, f"Import failed: {import_r.stderr}"
+        # C1 integrity should pass (hash + signature valid after signing)
+        assert "Hash match" in check_r.stdout
+        assert "Signature valid" in check_r.stdout
+        assert "ProfileComplete" in doc["conformsToProfile"]
+        assert len(doc["hasCredibilityFactor"]) > 0
+
+
+
     """Tests for all error test cases."""
 
     def test_error_exit_code(self, error_case):
