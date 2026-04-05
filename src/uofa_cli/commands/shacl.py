@@ -1,5 +1,7 @@
 """uofa shacl — SHACL validation with friendly error messages."""
 
+from __future__ import annotations
+
 from pathlib import Path
 
 from uofa_cli.output import step_header

@@ -4,6 +4,8 @@ Knows about Excel structure (sheets, rows, cells) but nothing about JSON-LD.
 Returns a clean intermediate dict that excel_mapper.py transforms into JSON-LD.
 """
 
+from __future__ import annotations
+
 from pathlib import Path
 
 from uofa_cli.excel_constants import (

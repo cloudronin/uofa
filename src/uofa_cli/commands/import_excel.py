@@ -1,5 +1,7 @@
 """uofa import — import an Excel workbook into a UofA JSON-LD file."""
 
+from __future__ import annotations
+
 import json
 from pathlib import Path
 

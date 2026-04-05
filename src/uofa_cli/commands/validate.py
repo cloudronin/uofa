@@ -1,5 +1,7 @@
 """uofa validate — SHACL validation (and optional integrity check) on all example UofA files."""
 
+from __future__ import annotations
+
 from pathlib import Path
 
 from uofa_cli.output import step_header, result_line, color

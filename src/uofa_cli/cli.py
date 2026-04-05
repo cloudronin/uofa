@@ -1,5 +1,7 @@
 """UofA CLI entry point — argparse dispatcher for all subcommands."""
 
+from __future__ import annotations
+
 import argparse
 import sys
 
@@ -32,7 +34,7 @@ def _run():
     sub = parser.add_subparsers(dest="command", title="commands")
 
     # ── Register subcommands ──────────────────────────────────
-    from uofa_cli.commands import keygen, sign, verify, shacl, rules, check, validate, init, diff, schema, packs, migrate, import_excel
+    from uofa_cli.commands import keygen, sign, verify, shacl, rules, check, validate, init, diff, schema, packs, migrate, import_excel, extract_cmd
 
     modules = {
         "keygen":   keygen,
@@ -48,6 +50,7 @@ def _run():
         "packs":    packs,
         "migrate":  migrate,
         "import":   import_excel,
+        "extract":  extract_cmd,
     }
 
     for name, mod in modules.items():

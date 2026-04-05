@@ -1,5 +1,7 @@
 """uofa verify — verify hash and signature of a UofA file."""
 
+from __future__ import annotations
+
 from pathlib import Path
 
 from uofa_cli.integrity import verify_file

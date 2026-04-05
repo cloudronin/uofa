@@ -1,5 +1,7 @@
 """uofa diff — compare weakener profiles across two UofA files."""
 
+from __future__ import annotations
+
 import json
 import re
 import subprocess

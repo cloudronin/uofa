@@ -1,5 +1,7 @@
 """uofa sign — sign a UofA evidence package with ed25519."""
 
+from __future__ import annotations
+
 from pathlib import Path
 
 from uofa_cli.integrity import sign_file

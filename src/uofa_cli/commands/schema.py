@@ -1,5 +1,7 @@
 """uofa schema — generate JSON Schema (or Python constants) from SHACL shapes."""
 
+from __future__ import annotations
+
 import json
 import re
 import textwrap

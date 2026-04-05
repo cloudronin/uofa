@@ -1,5 +1,7 @@
 """uofa migrate — upgrade UofA JSON-LD files from v0.3 to v0.4."""
 
+from __future__ import annotations
+
 import json
 from pathlib import Path
 

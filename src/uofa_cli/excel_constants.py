@@ -9,6 +9,8 @@ Source shapes:
     /Users/vishnu/Library/CloudStorage/Dropbox/SystemsEngineering/Praxis/uofa_github/.claude/worktrees/musing-nash/packs/nasa-7009b/shapes/nasa_7009b_shapes.ttl
 """
 
+from __future__ import annotations
+
 # ── SHACL-derived constants (do not edit) ─────────────────────
 
 VV40_FACTOR_NAMES: list[str] = [

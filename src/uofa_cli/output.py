@@ -1,5 +1,7 @@
 """ANSI color helpers and formatted output for the UofA CLI."""
 
+from __future__ import annotations
+
 import os
 import sys
 

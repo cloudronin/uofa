@@ -1,5 +1,7 @@
 """uofa check — run the full C1+C2+C3 pipeline on a UofA file."""
 
+from __future__ import annotations
+
 from pathlib import Path
 
 from uofa_cli.output import header, step_header, result_line, color

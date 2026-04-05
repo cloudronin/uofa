@@ -1,5 +1,7 @@
 """uofa packs — list and inspect installed domain packs."""
 
+from __future__ import annotations
+
 from uofa_cli.output import header, info, result_line
 from uofa_cli import paths
 

@@ -1,5 +1,7 @@
 """uofa rules — run the Jena rule engine for weakener detection."""
 
+from __future__ import annotations
+
 import re
 import shutil
 import subprocess

@@ -1,5 +1,7 @@
 """Auto-discovery of UofA repo assets (spec files, JAR, keys, packs)."""
 
+from __future__ import annotations
+
 import json
 from pathlib import Path
 

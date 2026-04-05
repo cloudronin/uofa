@@ -1,0 +1,48 @@
+# ANSYS CFX Solver Configuration
+# Morrison et al. (2019) — Centrifugal Blood Pump Hemolysis Study
+# FDA OSEL / CDRH Computational Modeling
+# ──────────────────────────────────────────────────────
+
+[General]
+Solver                    = ANSYS CFX v15.0
+Analysis Type             = Steady State
+Domain Type               = Single rotating reference frame
+Turbulence Model          = SST k-omega
+Double Precision          = Yes
+
+[Mesh]
+Mesh Generator            = ANSYS Meshing
+Element Type              = Tetrahedral with prism boundary layers
+Prism Layers              = 15
+First Layer Height (mm)   = 0.005
+Growth Ratio              = 1.2
+Production Mesh Elements  = 2,097,152  (Fine)
+GCI (Fine→Extrafine)      = 0.9%
+
+[Boundary Conditions]
+Inlet Type                = Mass Flow Rate
+Inlet Flow Rate (LPM)    = 5.0
+Outlet Type               = Static Pressure
+Outlet Pressure (mmHg)    = 0.0 (gauge)
+Wall Condition            = No-slip, smooth
+Rotational Speed (RPM)    = 3000
+Blood Model               = Newtonian (density=1056 kg/m3, viscosity=0.0035 Pa·s)
+
+[Hemolysis Model]
+Model Type                = Eulerian Scalar Transport
+Damage Function           = Power Law (Giersiepen et al., 1990)
+Exponent (alpha)          = 0.785
+Exponent (beta)           = 2.416
+Constant (C)              = 3.62e-7
+MIH Calculation           = Volume-averaged at outlet
+
+[Convergence]
+Residual Target           = 1.0e-5
+Max Iterations            = 2000
+Timescale Control         = Auto
+Monitor Points            = Outlet MIH, Impeller Torque, Pressure Rise
+
+[Output]
+Results Format            = CFX-Post compatible (.res)
+Export Variables           = Velocity, Pressure, Wall Shear Stress, Hemolysis Index
+Coordinate System         = Cartesian (pump axis = Z)

@@ -3,6 +3,8 @@
 Provides hashing, signing, and verification for UofA JSON-LD files.
 """
 
+from __future__ import annotations
+
 import hashlib
 import json
 from pathlib import Path

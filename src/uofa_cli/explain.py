@@ -6,6 +6,8 @@ No pattern-specific logic — the rule engine is the authority on *why*
 a weakener fires.
 """
 
+from __future__ import annotations
+
 
 def _cou_name(doc: dict) -> str:
     """Extract a short COU display name from a UofA document."""

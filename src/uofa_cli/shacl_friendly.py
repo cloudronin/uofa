@@ -1,5 +1,7 @@
 """Translate SHACL validation results into user-friendly messages."""
 
+from __future__ import annotations
+
 from pathlib import Path
 
 from pyshacl import validate as shacl_validate

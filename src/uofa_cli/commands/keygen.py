@@ -1,5 +1,7 @@
 """uofa keygen — generate ed25519 keypair for signing UofA packages."""
 
+from __future__ import annotations
+
 from pathlib import Path
 
 from uofa_cli.integrity import generate_keypair
