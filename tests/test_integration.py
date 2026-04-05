@@ -858,6 +858,89 @@ class TestMigrateVerification:
         assert "invalid" in result.stdout.lower() or "re-sign" in result.stdout.lower()
 
 
+class TestWeakenerPins:
+    """Pin weakener counts on hand-authored example files.
+
+    These are regression guards — if a rule change shifts a count,
+    the test forces an explicit decision to update the expectation.
+    """
+
+    @pytest.mark.skipif(not JENA_AVAILABLE, reason="Jena rules require Java")
+    def test_morrison_cou1_weakener_count(self):
+        """Morrison COU1 must produce exactly 14 weakeners (slides 15-17)."""
+        result = run_uofa("rules", str(MORRISON))
+        assert result.returncode == 0
+        assert "SUMMARY: 14 weakener(s) detected" in result.stdout
+        # L1: W-EP-01(1) + W-EP-02(3) + W-AL-01(3) + W-AR-05(3) = 10
+        assert "W-EP-01" in result.stdout
+        assert "W-EP-02" in result.stdout
+        assert "W-AL-01" in result.stdout
+        assert "W-AR-05" in result.stdout
+        # Compound: COMPOUND-01(3) + COMPOUND-03(1) = 4
+        assert "COMPOUND-01" in result.stdout
+        assert "COMPOUND-03" in result.stdout
+        # These should NOT fire on COU1
+        assert "W-EP-04" not in result.stdout
+        assert "W-AR-01" not in result.stdout
+        assert "W-AR-02" not in result.stdout
+
+    @pytest.mark.skipif(not JENA_AVAILABLE, reason="Jena rules require Java")
+    def test_morrison_cou2_weakener_count(self):
+        """Morrison COU2 must produce exactly 6 weakeners (all W-EP-04)."""
+        result = run_uofa("rules", str(MORRISON_COU2))
+        assert result.returncode == 0
+        assert "SUMMARY: 6 weakener(s) detected" in result.stdout
+        assert "W-EP-04" in result.stdout
+        # COU2 should ONLY have W-EP-04 — no other patterns
+        assert "W-EP-01" not in result.stdout
+        assert "W-EP-02" not in result.stdout
+        assert "W-AL-01" not in result.stdout
+        assert "W-AR-05" not in result.stdout
+        assert "W-AR-01" not in result.stdout
+        assert "W-AR-02" not in result.stdout
+        assert "COMPOUND-01" not in result.stdout
+        assert "COMPOUND-03" not in result.stdout
+
+    @pytest.mark.skipif(not JENA_AVAILABLE, reason="Jena rules require Java")
+    def test_morrison_diff_divergence_count(self):
+        """Morrison COU1 vs COU2 diff must show exactly 7 divergences."""
+        result = run_uofa("diff", str(MORRISON), str(MORRISON_COU2))
+        assert result.returncode == 0
+        assert "7 divergence(s) detected" in result.stdout
+        # 5 L1 divergent patterns
+        assert "W-AL-01" in result.stdout
+        assert "W-AR-05" in result.stdout
+        assert "W-EP-01" in result.stdout
+        assert "W-EP-02" in result.stdout
+        assert "W-EP-04" in result.stdout
+        # 2 compound divergent patterns
+        assert "COMPOUND-01" in result.stdout
+        assert "COMPOUND-03" in result.stdout
+
+    @pytest.mark.skipif(not JENA_AVAILABLE, reason="Jena rules require Java")
+    def test_aero_nasa_weakener_count(self):
+        """Aerospace NASA example must produce exactly 45 weakeners."""
+        aero = REPO_ROOT / "examples" / "aerospace" / "uofa-aero-nasa7009b.jsonld"
+        result = run_uofa("rules", str(aero), "--pack", "nasa-7009b")
+        assert result.returncode == 0
+        assert "SUMMARY: 45 weakener(s) detected" in result.stdout
+        # L1 patterns present
+        assert "W-EP-01" in result.stdout
+        assert "W-EP-02" in result.stdout
+        assert "W-EP-04" in result.stdout
+        assert "W-AL-01" in result.stdout
+        assert "W-AR-01" in result.stdout
+        assert "W-AR-02" in result.stdout
+        assert "W-AR-05" in result.stdout
+        # Compounds
+        assert "COMPOUND-01" in result.stdout
+        assert "COMPOUND-03" in result.stdout
+        # NASA-specific rules should NOT fire (all 3 have hasEvidence)
+        assert "W-NASA-02" not in result.stdout
+        assert "W-NASA-03" not in result.stdout
+        assert "W-NASA-06" not in result.stdout
+
+
 class TestDiffCrossStandard:
     """Area 2: Diff across different standards."""
 

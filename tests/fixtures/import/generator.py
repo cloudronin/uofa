@@ -430,6 +430,41 @@ for f in _nasa_ru_unassessed["factors"]:
         f["achieved_level"] = None
         f["acceptance_criteria"] = None
 
+# Dual-pack with gaps: VV40 factor missing criteria + NASA factor missing evidence
+_dual_pack_gaps = copy.deepcopy(_NASA)
+# Remove acceptance_criteria from "Model form" (VV40 factor) → W-AR-01
+for f in _dual_pack_gaps["factors"]:
+    if f["factor_type"] == "Model form":
+        f["acceptance_criteria"] = None
+        break
+# Remove linked_evidence from "Development technical review" → W-NASA-02
+for f in _dual_pack_gaps["factors"]:
+    if f["factor_type"] == "Development technical review":
+        f["linked_evidence"] = None
+        break
+
+# NASA scoped-out at MRL 3 — should NOT fire W-EP-04
+_nasa_scoped_out = copy.deepcopy(_NASA)
+_nasa_scoped_out["summary"]["model_risk_level"] = "MRL 3"
+for f in _nasa_scoped_out["factors"]:
+    if f["factor_type"] == "Results uncertainty":
+        f["status"] = "scoped-out"
+        f["required_level"] = None
+        f["achieved_level"] = None
+        f["acceptance_criteria"] = None
+        break
+
+# NASA not-applicable at MRL 3 — should NOT fire W-EP-04
+_nasa_not_applicable = copy.deepcopy(_NASA)
+_nasa_not_applicable["summary"]["model_risk_level"] = "MRL 3"
+for f in _nasa_not_applicable["factors"]:
+    if f["factor_type"] == "Use history":
+        f["status"] = "not-applicable"
+        f["required_level"] = None
+        f["achieved_level"] = None
+        f["acceptance_criteria"] = None
+        break
+
 
 # ── SPECS registry ────────────────────────────────────────────
 
@@ -659,6 +694,52 @@ SPECS = {
         "expected_factor_count": 19,
         "expected_vr_count": 3,
         "expected_weakeners": {"total": 1, "patterns": {"W-EP-04": 1}},
+    },
+
+    # --- Dual-pack tests ---
+    "e2e-dual-pack": {
+        "packs": ["vv40", "nasa-7009b"],
+        "data": _NASA,  # Clean NASA base (superset of VV40) — 0 weakeners
+        "expect_import": "pass",
+        "expected_profile": "Complete",
+        "expected_factor_count": 19,
+        "expected_vr_count": 3,
+        "expected_weakeners": {"total": 0, "patterns": {}},
+    },
+    "e2e-dual-pack-with-gaps": {
+        "packs": ["vv40", "nasa-7009b"],
+        "data": _dual_pack_gaps,
+        "expect_import": "pass",
+        "expected_profile": "Complete",
+        "expected_factor_count": 19,
+        "expected_vr_count": 3,
+        # W-AR-01(Critical) from VV40 factor + W-NASA-02(High) from NASA factor
+        # assuranceLevel=Low → no COMPOUND-03
+        # COMPOUND-01: 1 Critical × 1 High = 1
+        "expected_weakeners": {
+            "total": 3,
+            "patterns": {"W-AR-01": 1, "W-NASA-02": 1, "COMPOUND-01": 1},
+        },
+    },
+
+    # --- NASA status negative tests ---
+    "e2e-nasa-scoped-out-no-fire": {
+        "packs": ["nasa-7009b"],
+        "data": _nasa_scoped_out,
+        "expect_import": "pass",
+        "expected_profile": "Complete",
+        "expected_factor_count": 19,
+        "expected_vr_count": 3,
+        "expected_weakeners": {"total": 0, "patterns": {}},
+    },
+    "e2e-nasa-not-applicable-no-fire": {
+        "packs": ["nasa-7009b"],
+        "data": _nasa_not_applicable,
+        "expect_import": "pass",
+        "expected_profile": "Complete",
+        "expected_factor_count": 19,
+        "expected_vr_count": 3,
+        "expected_weakeners": {"total": 0, "patterns": {}},
     },
 }
 
