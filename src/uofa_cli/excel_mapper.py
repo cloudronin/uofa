@@ -173,8 +173,9 @@ def _entity_uri(base: str, entity_type: str, entity: dict) -> str:
 
 def _map_validation_result(base: str, vr: dict) -> dict:
     """Map a validation result intermediate dict to JSON-LD."""
+    etype = vr["evidence_type"]
     result = {
-        "type": vr["evidence_type"],
+        "type": etype,
     }
 
     if vr.get("uri"):
@@ -198,6 +199,20 @@ def _map_validation_result(base: str, vr: dict) -> dict:
         result["metricValue"] = vr["metric_value"]
     if vr.get("pass_fail"):
         result["passFail"] = vr["pass_fail"]
+
+    # Add SHACL-required properties for evidence sub-types.
+    # These shapes have mandatory fields that the generic Excel columns
+    # don't capture, so we populate from available data or defaults.
+    if etype == "ReviewActivity":
+        result["reviewer"] = vr.get("compares_to") or f"{base}/org/reviewer"
+        result["reviewType"] = "internal"
+    elif etype == "ProcessAttestation":
+        result["processType"] = "documentation"
+        result["attestedBy"] = vr.get("compares_to") or f"{base}/org/attester"
+    elif etype == "DeploymentRecord":
+        result["deployedIn"] = vr.get("compares_to") or f"{base}/system/deployment"
+    elif etype == "InputPedigreeLink":
+        result["sourceReference"] = vr.get("compares_to") or vr.get("uri") or f"{base}/data/source"
 
     return result
 
