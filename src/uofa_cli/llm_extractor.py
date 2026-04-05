@@ -225,19 +225,32 @@ def _chunked_extraction(
 
 
 def _call_llm(prompt: str, model: str, pack_name: str = "vv40") -> str:
-    """Call the LLM — routes to mock or litellm."""
+    """Call the LLM — routes to mock, ollama direct, or litellm."""
     if model == "mock":
         return _mock_extract(pack_name)
-
+    if model.startswith("ollama/"):
+        import requests as req
+        model_name = model.replace("ollama/", "")
+        resp = req.post(
+            "http://localhost:11434/api/chat",
+            json={
+                "model": model_name,
+                "messages": [{"role": "user", "content": prompt}],
+                "stream": False,
+                "think": False,
+                "format": "json",
+            },
+            timeout=1800,
+        )
+        resp.raise_for_status()
+        return resp.json()["message"]["content"]
     import litellm
-
     messages = [{"role": "user", "content": prompt}]
-
-    # Thinking mode control for Qwen 3
-    if "qwen3" in model.lower() or "qwen3.5" in model.lower():
-        messages[0]["content"] = "/no_think\n" + messages[0]["content"]
-
-    response = litellm.completion(model=model, messages=messages)
+    response = litellm.completion(
+        model=model,
+        messages=messages,
+        timeout=1800,
+    )
     return response.choices[0].message.content
 
 
