@@ -135,7 +135,15 @@ IMPORTANT RULES:
 
 
 def build_prompt(corpus_text: str, pack_prompt_path: Path, pack_name: str) -> str:
-    """Combine pack-specific factor definitions with corpus and output schema."""
+    """Combine pack-specific factor definitions with corpus and output schema.
+
+    If the pack prompt contains a ``{corpus}`` placeholder, the prompt is
+    treated as self-contained — the placeholder is replaced with the corpus
+    text and no additional schema instructions are appended.
+
+    Otherwise falls back to the legacy concatenation approach (pack prompt +
+    evidence + JSON schema instructions).
+    """
     pack_prompt = ""
     if pack_prompt_path.is_file():
         pack_prompt = pack_prompt_path.read_text(encoding="utf-8")
@@ -146,6 +154,11 @@ def build_prompt(corpus_text: str, pack_prompt_path: Path, pack_name: str) -> st
                 pack_prompt = f.read_text(encoding="utf-8")
                 break
 
+    # Self-contained prompt with {corpus} placeholder
+    if "{corpus}" in pack_prompt:
+        return pack_prompt.replace("{corpus}", corpus_text)
+
+    # Legacy: concatenate pack prompt + evidence + schema
     parts = [
         pack_prompt,
         "\n\n--- EVIDENCE DOCUMENTS ---\n",
@@ -165,11 +178,17 @@ def extract(
     pack_name: str,
     pack_prompt_path: Path | None = None,
     token_budget: int = 24000,
+    thinking: bool = False,
 ) -> ExtractionResult:
     """Run LLM extraction on the corpus.
 
     If corpus fits in token_budget, sends as single prompt.
     Otherwise, chunks by file and merges results.
+
+    Args:
+        thinking: If True, enable thinking/reasoning mode for models that
+            support it (e.g. qwen3/qwen3.5). Default is False for faster
+            structured extraction.
     """
     if pack_prompt_path is None:
         from uofa_cli import paths
@@ -179,11 +198,17 @@ def extract(
 
     if corpus.total_tokens <= token_budget:
         prompt = build_prompt(corpus_text, pack_prompt_path, pack_name)
-        raw_response = _call_llm(prompt, model, pack_name)
+        raw_response = _call_llm(prompt, model, pack_name, thinking=thinking)
         raw_json = _parse_response(raw_response)
     else:
         # Chunk by file and merge
-        raw_json = _chunked_extraction(corpus, model, pack_name, pack_prompt_path, token_budget)
+        raw_json = _chunked_extraction(
+            corpus, model, pack_name, pack_prompt_path, token_budget,
+            thinking=thinking,
+        )
+
+    # Save raw response for debugging
+    _save_debug_response(raw_json)
 
     result = _json_to_result(raw_json, pack_name)
     result.model_used = model
@@ -192,12 +217,22 @@ def extract(
     return result
 
 
+def _save_debug_response(raw_json: dict) -> None:
+    """Save raw LLM JSON response to /tmp for debugging."""
+    try:
+        debug_path = Path("/tmp/uofa-extract-last-response.json")
+        debug_path.write_text(json.dumps(raw_json, indent=2), encoding="utf-8")
+    except OSError:
+        pass  # Non-critical — don't fail extraction over debug logging
+
+
 def _chunked_extraction(
     corpus: ExtractionCorpus,
     model: str,
     pack_name: str,
     pack_prompt_path: Path,
     token_budget: int,
+    thinking: bool = False,
 ) -> dict:
     """Process files in batches when corpus exceeds budget."""
     from uofa_cli.document_reader import ExtractionCorpus as EC
@@ -217,15 +252,26 @@ def _chunked_extraction(
         )
         corpus_text = assemble_corpus_text(sub_corpus)
         prompt = build_prompt(corpus_text, pack_prompt_path, pack_name)
-        raw = _call_llm(prompt, model, pack_name)
+        raw = _call_llm(prompt, model, pack_name, thinking=thinking)
         parsed = _parse_response(raw)
         all_results.append(parsed)
 
     return _merge_json_results(all_results)
 
 
-def _call_llm(prompt: str, model: str, pack_name: str = "vv40") -> str:
-    """Call the LLM — routes to mock, ollama direct, or litellm."""
+def _call_llm(
+    prompt: str,
+    model: str,
+    pack_name: str = "vv40",
+    thinking: bool = False,
+) -> str:
+    """Call the LLM — routes to mock, ollama direct, or litellm.
+
+    Args:
+        thinking: If True, enable thinking/reasoning mode. For qwen3/qwen3.5
+            models via Ollama this means setting ``think: true`` in the API
+            call. Default is False for faster structured extraction.
+    """
     if model == "mock":
         return _mock_extract(pack_name)
     if model.startswith("ollama/"):
@@ -237,7 +283,7 @@ def _call_llm(prompt: str, model: str, pack_name: str = "vv40") -> str:
                 "model": model_name,
                 "messages": [{"role": "user", "content": prompt}],
                 "stream": False,
-                "think": False,
+                "think": thinking,
                 "format": "json",
             },
             timeout=1800,

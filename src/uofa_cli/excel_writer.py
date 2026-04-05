@@ -186,6 +186,7 @@ def _write_validation_sheet(ws, results: list[dict[str, FieldExtraction]]) -> No
             "description": 4,
             "compares_to": 5,
             "has_uq": 6,
+            "uq_method": 7,
             "metric_value": 8,
             "pass_fail": 9,
         }

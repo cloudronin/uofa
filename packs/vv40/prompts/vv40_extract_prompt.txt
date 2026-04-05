@@ -1,38 +1,127 @@
-You are extracting credibility assessment data from a document that follows ASME V&V 40-2018.
+You are a credibility assessment assistant for computational modeling and simulation (CM&S). You are given a collection of evidence documents from a V&V (Verification and Validation) study. Your task is to extract structured credibility assessment data from these documents.
 
-The V&V 40 standard defines 13 credibility factors organized into three categories:
+## Task
 
-Verification — Code (5.1.1):
-  1. Software quality assurance
-  2. Numerical code verification
+Read the evidence corpus below and extract:
+1. **Assessment Summary** — project identity, context of use, device class, model risk level
+2. **Model & Data** — computational models, requirements, datasets referenced
+3. **Validation Results** — what was tested, metrics, pass/fail, uncertainty quantification
+4. **Credibility Factors** — map evidence to the 13 ASME V&V 40 credibility factors (Table 5-1)
+5. **Decision** — was the model accepted, not accepted, or conditionally accepted
 
-Verification — Calculation (5.1.2):
-  3. Discretization error
-  4. Numerical solver error
-  5. Use error
+## V&V 40 Credibility Factors (Table 5-1)
 
-Validation — Computational model (5.2.1):
-  6. Model form
-  7. Model inputs
+For each factor, assess the evidence and assign an integer level (1-5) where:
+- 1 = Minimal or no evidence
+- 2 = Basic evidence, some gaps
+- 3 = Adequate evidence for typical use
+- 4 = Thorough evidence with quantified uncertainties
+- 5 = Comprehensive evidence exceeding typical requirements
 
-Validation — Comparator (5.2.2):
-  8. Test samples
-  9. Test conditions
+### Verification — Code
+1. **Software quality assurance**: Evidence that the simulation software has been tested and verified. Look for: commercial solver certification, regression testing, version control, ISO quality processes.
+2. **Numerical code verification**: Evidence the code correctly solves the governing equations. Look for: comparison to analytical solutions, method of manufactured solutions (MMS), benchmark problems.
 
-Validation — Assessment (5.2.3):
-  10. Equivalency of input parameters
-  11. Output comparison
+### Verification — Calculation
+3. **Discretization error**: Evidence that spatial/temporal discretization is adequate. Look for: mesh convergence studies, Grid Convergence Index (GCI), Richardson extrapolation, adaptive refinement.
+4. **Numerical solver error**: Evidence that iterative solver convergence is adequate. Look for: residual targets, convergence monitoring, iteration counts, solver settings.
+5. **Use error**: Evidence that the model was set up correctly. Look for: independent review, boundary condition verification, mesh quality checks, post-processing validation.
 
-Applicability (5.3):
-  12. Relevance of the quantities of interest
-  13. Relevance of the validation activities to the COU
+### Validation — Model
+6. **Model form**: Evidence the mathematical model represents the physics. Look for: governing equations justification, turbulence model selection rationale, constitutive model validation, known limitations documented.
+7. **Model inputs**: Evidence that input data is accurate and well-characterized. Look for: material properties from testing, boundary conditions from measurements, geometry from CAD/CMM, input uncertainty characterization.
 
-For each factor, extract:
-- factorType: one of the 13 names above (exact match required)
-- factorStatus: "assessed" or "not-assessed"
-- requiredLevel: integer 1-5 (if assessed)
-- achievedLevel: integer 1-5 (if assessed)
-- acceptanceCriteria: the acceptance criteria text (if assessed)
-- rationale: the justification text (if assessed)
+### Validation — Comparator
+8. **Test samples**: Evidence that experimental test articles are adequate. Look for: number of specimens, statistical characterization, production-representative samples, sample size justification.
+9. **Test conditions**: Evidence that test conditions are well-controlled and measured. Look for: calibrated instruments, controlled environment, measurement uncertainty, test standards (ASTM, ISO).
 
-Set factorStandard to "ASME-VV40-2018" for all factors.
+### Validation — Assessment
+10. **Equivalency of input parameters**: Evidence that model inputs match experimental conditions. Look for: input parameter comparison, measurement uncertainty propagation, boundary condition matching.
+11. **Output comparison**: Evidence comparing model predictions to experimental data. Look for: quantitative metrics (error percentages, correlation coefficients), multiple comparison points, statistical validation metrics, uncertainty bands.
+
+### Applicability
+12. **Relevance of the quantities of interest**: Evidence the model outputs are relevant to the decision. Look for: QoI directly measures the safety/performance concern, measurable both computationally and experimentally.
+13. **Relevance of the validation activities to the COU**: Evidence validation conditions match the intended use. Look for: same operating conditions, same geometry, same physics regime. Note gaps where validation doesn't cover the full COU envelope.
+
+## Required Level Estimation
+
+Required level should reflect the Model Risk Level (MRL). For MRL 2, typical required levels are 2-3. For MRL 5, required levels are 4-5. If the documents specify required levels explicitly, use those. Otherwise estimate from the MRL.
+
+## Confidence Scoring Guide
+
+- 0.90-1.00 = value is explicitly stated in the text
+- 0.70-0.89 = value is strongly implied by the evidence
+- 0.50-0.69 = value is inferred or partially supported
+- 0.30-0.49 = uncertain, weak evidence
+- 0.00-0.29 = guessing or no evidence
+
+## Output Format
+
+Return ONLY a JSON object with the following structure. No markdown, no explanation, no preamble. Just the JSON.
+
+{
+  "assessment_summary": {
+    "project_name": {"value": "string", "confidence": 0.0-1.0, "source_file": "filename", "source_page": null},
+    "cou_name": {"value": "string", "confidence": 0.0-1.0, "source_file": "filename", "source_page": null},
+    "cou_description": {"value": "string or null", "confidence": 0.0-1.0, "source_file": "filename", "source_page": null},
+    "profile": {"value": "Complete", "confidence": 0.0-1.0, "source_file": null, "source_page": null},
+    "device_class": {"value": "Class I or Class II or Class III", "confidence": 0.0-1.0, "source_file": "filename", "source_page": null},
+    "model_risk_level": {"value": "MRL 1 through MRL 5", "confidence": 0.0-1.0, "source_file": "filename", "source_page": null},
+    "assurance_level": {"value": "Low or Medium or High", "confidence": 0.0-1.0, "source_file": "filename", "source_page": null},
+    "standards_reference": {"value": "ASME-VV40-2018", "confidence": 0.0-1.0, "source_file": "filename", "source_page": null},
+    "assessor_name": {"value": "string or null", "confidence": 0.0-1.0, "source_file": "filename", "source_page": null},
+    "has_uq": {"value": "Yes or No", "confidence": 0.0-1.0, "source_file": null, "source_page": null}
+  },
+  "model_and_data": [
+    {
+      "entity_type": {"value": "Requirement or Model or Dataset", "confidence": 0.0-1.0, "source_file": "filename"},
+      "name": {"value": "string", "confidence": 0.0-1.0, "source_file": "filename"},
+      "uri": {"value": "string or null", "confidence": 0.0-1.0, "source_file": "filename"},
+      "description": {"value": "string or null", "confidence": 0.0-1.0, "source_file": "filename"}
+    }
+  ],
+  "validation_results": [
+    {
+      "name": {"value": "string", "confidence": 0.0-1.0, "source_file": "filename"},
+      "evidence_type": {"value": "ValidationResult", "confidence": 0.0-1.0, "source_file": "filename"},
+      "description": {"value": "string", "confidence": 0.0-1.0, "source_file": "filename"},
+      "compares_to": {"value": "string or null", "confidence": 0.0-1.0, "source_file": "filename"},
+      "has_uq": {"value": "Yes or No", "confidence": 0.0-1.0, "source_file": "filename"},
+      "uq_method": {"value": "string or null", "confidence": 0.0-1.0, "source_file": "filename"},
+      "metric_value": {"value": "string or null", "confidence": 0.0-1.0, "source_file": "filename"},
+      "pass_fail": {"value": "Pass or Fail or Inconclusive", "confidence": 0.0-1.0, "source_file": "filename"}
+    }
+  ],
+  "credibility_factors": [
+    {
+      "factor_type": {"value": "exact factor name from list above", "confidence": 0.0-1.0, "source_file": "filename"},
+      "required_level": {"value": 1-5, "confidence": 0.0-1.0, "source_file": "filename"},
+      "achieved_level": {"value": 1-5, "confidence": 0.0-1.0, "source_file": "filename"},
+      "acceptance_criteria": {"value": "string or null", "confidence": 0.0-1.0, "source_file": "filename"},
+      "rationale": {"value": "brief evidence summary", "confidence": 0.0-1.0, "source_file": "filename"},
+      "status": {"value": "assessed or not-assessed", "confidence": 0.0-1.0, "source_file": "filename"}
+    }
+  ],
+  "decision": {
+    "outcome": {"value": "Accepted or Not accepted or Conditional", "confidence": 0.0-1.0, "source_file": "filename", "source_page": null},
+    "rationale": {"value": "string", "confidence": 0.0-1.0, "source_file": "filename", "source_page": null},
+    "decided_by": {"value": "string or null", "confidence": 0.0-1.0, "source_file": "filename", "source_page": null},
+    "decision_date": {"value": "YYYY-MM-DD or null", "confidence": 0.0-1.0, "source_file": "filename", "source_page": null}
+  }
+}
+
+## Rules
+
+- Return ONLY valid JSON. No markdown fences, no explanation text before or after.
+- If you cannot find evidence for a field, set value to null and confidence to 0.0. Do NOT fabricate.
+- Factor levels MUST be integers 1-5. Do not use text like "High" or "Medium".
+- Factor type names MUST be exactly one of the 13 names listed above. Do not paraphrase.
+- Each field MUST include source_file citing which document the evidence came from.
+- A single credibility factor may draw evidence from multiple files. Cite the primary source.
+- For credibility factors: assess based on EXPLICIT evidence in the documents. Do not infer levels from absence of information — absence means the factor may be not-assessed.
+- Include ALL 13 factors in your response, even if some have status "not-assessed".
+- Look for dates in decision records, memos, and report headers.
+
+## Evidence Corpus
+
+{corpus}

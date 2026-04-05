@@ -19,6 +19,10 @@ def add_arguments(parser):
                         help="output Excel path (default: {source}-extracted.xlsx)")
     parser.add_argument("--glob", default=None,
                         help="file filter pattern (e.g. '*.pdf' or '*.pdf,*.docx')")
+    parser.add_argument("--thinking", action="store_true", default=False,
+                        help="enable thinking/reasoning mode (slower, may improve accuracy)")
+    parser.add_argument("--prompt-version", default=None,
+                        help="tag for scoring log tracking (e.g. 'v2-detailed')")
 
 
 def run(args) -> int:
@@ -97,7 +101,10 @@ def run(args) -> int:
     pack_prompt_path = paths.extract_prompt()
 
     try:
-        result = extract(corpus, model, pack_name, pack_prompt_path)
+        result = extract(
+            corpus, model, pack_name, pack_prompt_path,
+            thinking=getattr(args, "thinking", False),
+        )
     except Exception as exc:
         error(f"Extraction failed: {exc}")
         if getattr(args, "verbose", False):
