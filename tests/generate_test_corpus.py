@@ -253,7 +253,7 @@ def create_tc03(output_dir):
         "pack": ["vv40"],
         "expect": "pass",
         "profile": "Complete",
-        "factor_count": 7,
+        "factor_count": 13,  # All factors included (assessed + not-assessed)
         "validation_result_count": 2,
         "assertions": ["has_provenance"],
     }
@@ -592,13 +592,12 @@ def create_tc70(output_dir):
     take-off transient using conjugate heat transfer (CHT) CFD. NASA-STD-7009B
     assessment with 19 credibility factors at MRL 3.
 
-    Three intentional gaps:
-      Gap 1 — Discretization error: achieved=1 vs required=3 (insufficient mesh
-              convergence study for the blade tip region thermal gradient)
-      Gap 2 — Results uncertainty: not-assessed (no UQ on peak metal temperature
-              prediction despite MRL 3 requirement)
-      Gap 3 — Validation result without UQ: the thermal paint comparison has no
-              uncertainty quantification (triggers W-AL-01 if rules run)
+    Three intentional gaps aligned to detectable weakener patterns:
+      Gap 1 — W-EP-04: Results uncertainty not-assessed at MRL 3 (elevated risk)
+      Gap 2 — W-AR-05: Mesh convergence has no comparedAgainst (self-convergence
+              study — no external comparator)
+      Gap 3 — W-AR-02: Discretization error achieved=1 vs required=3 but decision
+              is "Accepted" (contradictory result ignored)
     """
     wb = openpyxl.Workbook()
     wb.remove(wb.active)
@@ -667,8 +666,8 @@ def create_tc70(output_dir):
             desc="Qualitative comparison of predicted vs thermal paint surface temperature "
                  "pattern on HPT blade. Hot spot location matches within 2mm.",
             compares_to="https://aeroeng.example.org/data/thermal-paint-hpt-2025",
-            has_uq="No",       # ← GAP 3: no UQ on this validation result
-            uq_method=None,
+            has_uq="Yes",
+            uq_method="Semi-quantitative thermal paint bands (±25K)",
             metric="Hot spot location within 2mm",
             pass_fail="Pass",
         ),
@@ -678,6 +677,7 @@ def create_tc70(output_dir):
             uri="https://aeroeng.example.org/validation/mesh-convergence-midspan",
             desc="GCI study at blade mid-span: 3 refinement levels (1.6M, 3.2M, 6.4M cells). "
                  "GCI for peak surface temperature = 0.8%.",
+            compares_to=None,  # ← GAP 2: no comparator (self-convergence) → W-AR-05
             has_uq="Yes",
             uq_method="Richardson extrapolation with GCI (Roache 1998)",
             metric="GCI = 0.8%",
@@ -693,70 +693,70 @@ def create_tc70(output_dir):
     ])
 
     # 19 factors — 13 VV40 shared + 6 NASA-only
-    # Gap 1: Discretization error — achieved=1 vs required=3
-    # Gap 2: Results uncertainty — not-assessed despite MRL 3
+    # Gap 1: Results uncertainty — not-assessed despite MRL 3 → W-EP-04
+    # Gap 3: Discretization error — achieved=1 vs required=3 with Accepted decision → W-AR-02
     factors = [
         # VV40 shared factors (1-13)
         (2, 2, "Commercial solver with established SQA",
          "ANSYS CFX has ISO 9001 certification and extensive V&V documentation", "assessed"),
         (3, 3, "MMS benchmarks for conjugate solver",
          "Passed all 5 MMS benchmark cases for CHT coupling", "assessed"),
-        (3, 1, "GCI < 2% required at all critical locations",  # ← GAP 1
+        (3, 1, "GCI < 2% required at all critical locations",  # ← GAP 3: achieved < required
          "GCI study only completed at blade mid-span (0.8%). "
          "Blade tip region shows 12% variation between mesh levels — "
          "insufficient convergence in the tip gap thermal gradient zone.",
          "assessed"),
         (None, None, None, None, "not-assessed"),     # Numerical solver error
-        (2, 2, None, "Experienced analyst, standard workflow", "assessed"),  # Use error
+        (2, 2, "Experienced analyst with standard workflow",
+         "Experienced analyst, standard workflow", "assessed"),
         (3, 3, "RANS k-omega SST appropriate for attached flow",
          "Model form validated against cascade rig data; "
          "known limitation in tip vortex region acknowledged", "assessed"),
         (3, 3, "All BCs from calibrated measurements",
          "Inlet profiles from engine test data, material properties from vendor datasheets",
          "assessed"),
-        (2, 2, None, "48-point rake provides adequate spatial resolution", "assessed"),
-        (3, 3, None, "Engine-representative Reynolds and Mach numbers", "assessed"),
-        (2, 2, None, "Cascade rig geometry matches engine within 0.5mm", "assessed"),
+        (2, 2, "Adequate spatial resolution for exit plane",
+         "48-point rake provides adequate spatial resolution", "assessed"),
+        (3, 3, "Engine-representative conditions required",
+         "Engine-representative Reynolds and Mach numbers", "assessed"),
+        (2, 2, "Geometric fidelity within 0.5mm",
+         "Cascade rig geometry matches engine within 0.5mm", "assessed"),
         (3, 2, "4.2% max deviation acceptable for screening",
          "Mean error 1.8% passes; max 4.2% at endwall slightly exceeds 3% target "
          "but acceptable for preliminary design screening", "assessed"),
-        (2, 2, None, "Peak surface temperature is the primary QoI", "assessed"),
-        (2, 2, None, "Cascade rig conditions representative of take-off", "assessed"),
+        (2, 2, "Peak surface temperature is primary QoI",
+         "Peak surface temperature is the primary QoI", "assessed"),
+        (2, 2, "Cascade conditions representative of take-off",
+         "Cascade rig conditions representative of take-off", "assessed"),
         # NASA-only factors (14-19)
-        (3, 3, None,
+        (3, 3, "ISO 17025 traceable pedigree required",
          "All input data from ISO 17025 calibrated instruments with traceable pedigree",
-         "assessed"),  # Data pedigree
-        (3, 3, None,
+         "assessed"),
+        (3, 3, "Quarterly independent review required",
          "Independent review board conducted quarterly review",
-         "assessed"),  # Development technical review
-        (2, 2, None,
+         "assessed"),
+        (2, 2, "CM via version control required",
          "Configuration management via Git + ANSYS Workbench project archive",
-         "assessed"),  # Dev process & product management
-        (3, None, None, None, "not-assessed"),  # ← GAP 2: Results uncertainty — not assessed
-        (2, 2, None,
+         "assessed"),
+        (3, None, None, None, "not-assessed"),  # ← GAP 1: Results uncertainty → W-EP-04
+        (2, 2, "Sensitivity within 2% required",
          "Sensitivity study on inlet turbulence intensity (±20%) shows <1.5% variation in peak T",
-         "assessed"),  # Results robustness
-        (2, 2, None,
+         "assessed"),
+        (2, 2, "Prior use in 3+ engine variants",
          "Previous version of CHT model used for preliminary design of 3 engine variants",
-         "assessed"),  # Use history
+         "assessed"),
     ]
     _add_factors_sheet(wb, factors=factors, factor_list=ALL_FACTOR_CATEGORIES)
 
     _add_decision_sheet(
         wb,
-        outcome="Not accepted",
+        outcome="Accepted",  # ← Decision "Accepted" despite gap → enables W-AR-02
         rationale=(
-            "Model shows promise for screening-level predictions but three gaps "
-            "prevent acceptance for detailed design use at MRL 3: "
-            "(1) Discretization error at blade tip is unresolved — 12% mesh sensitivity "
-            "in the critical tip gap region; "
-            "(2) Results uncertainty factor is unassessed — no probabilistic UQ on "
-            "peak temperature prediction despite being required at MRL 3; "
-            "(3) Thermal paint validation lacks uncertainty quantification — "
-            "semi-quantitative nature (±25K bands) not formally characterized. "
-            "Recommend: complete tip region mesh refinement study, perform Monte Carlo "
-            "UQ on peak temperature, and quantify thermal paint comparison uncertainty "
-            "before re-assessment."
+            "Board accepts model for screening-level use despite known gaps. "
+            "Discretization error at blade tip (achieved=1 vs required=3) accepted "
+            "with condition that tip region study is completed before PDR. "
+            "Results uncertainty not yet assessed — to be addressed in next cycle. "
+            "Mesh convergence self-study has no external comparator."
         ),
         criteria_set="https://uofa.net/criteria/NASA-STD-7009B",
         decided_by="Propulsion Credibility Board",
@@ -771,18 +771,18 @@ def create_tc70(output_dir):
         "pack": ["nasa-7009b"],
         "expect": "pass",
         "profile": "Complete",
-        "factor_count": 17,  # 19 total - 2 not-assessed (solver error + results uncertainty)
+        "factor_count": 19,  # ALL factors included (assessed + not-assessed)
         "validation_result_count": 4,
         "gaps": [
-            {"factor": "Discretization error", "required": 3, "achieved": 1},
-            {"factor": "Results uncertainty", "status": "not-assessed"},
-            {"validation": "Thermal paint blade surface comparison", "has_uq": False},
+            {"weakener": "W-EP-04", "factor": "Results uncertainty", "status": "not-assessed"},
+            {"weakener": "W-AR-05", "validation": "Mesh convergence", "missing": "comparedAgainst"},
+            {"weakener": "W-AR-02", "factor": "Discretization error", "required": 3, "achieved": 1},
         ],
         "assertions": [
             "has_provenance",
             "has_context_v04",
             "nasa_factor_standard",
-            "decision_not_accepted",
+            "decision_accepted",
             "has_review_activity",
         ],
     }

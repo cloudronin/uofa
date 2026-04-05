@@ -234,6 +234,12 @@ class TestEndToEndImport:
         assert len(nasa_factors) == 6
         # Verify NASA factors have assessmentPhase
         assert all("assessmentPhase" in f for f in nasa_factors)
+        # Verify wasGeneratedBy on all validation results
+        for vr in doc["hasValidationResult"]:
+            assert "wasGeneratedBy" in vr
+        # Verify comparedAgainst (not comparesTo)
+        for vr in doc["hasValidationResult"]:
+            assert "comparesTo" not in vr
 
     def test_vv40_minimal_roundtrip(self, tmp_path):
         """TC-01: VV40 Minimal → sign → C1+C2 pass."""
@@ -277,37 +283,44 @@ class TestEndToEndImport:
 
         # Profile and decision
         assert "ProfileComplete" in doc["conformsToProfile"]
-        assert doc["decision"] == "Not accepted"
+        assert doc["decision"] == "Accepted"
 
-        # Factor counts: 19 total rows in sheet, 17 assessed (2 not-assessed excluded)
+        # All 19 factors included (assessed + not-assessed) after Bug 1 fix
         factors = doc["hasCredibilityFactor"]
-        assert len(factors) == 17
+        assert len(factors) == 19
 
-        # VV40 shared factors
+        # VV40 shared factors (13) + NASA-only factors (6)
         vv40 = [f for f in factors if f["factorStandard"] == "ASME-VV40-2018"]
         nasa = [f for f in factors if f["factorStandard"] == "NASA-STD-7009B"]
-        assert len(vv40) == 12  # 13 - 1 not-assessed (numerical solver error)
-        assert len(nasa) == 5   # 6 - 1 not-assessed (results uncertainty)
+        assert len(vv40) == 13
+        assert len(nasa) == 6
 
         # NASA factors have assessmentPhase
         for f in nasa:
             assert "assessmentPhase" in f, f"NASA factor {f['factorType']} missing assessmentPhase"
 
-        # Gap 1: Discretization error — achieved < required
+        # Gap 1 (W-EP-04): Results uncertainty is not-assessed at MRL 3
+        ru = next(f for f in factors if f["factorType"] == "Results uncertainty")
+        assert ru["factorStatus"] == "not-assessed"
+
+        # Gap 2 (W-AR-05): Mesh convergence has no comparedAgainst
+        vrs = doc["hasValidationResult"]
+        mesh_vr = next(v for v in vrs if "mesh-convergence" in v.get("id", "").lower())
+        assert "comparedAgainst" not in mesh_vr
+
+        # Gap 3 (W-AR-02): Discretization error achieved < required with Accepted decision
         disc = next(f for f in factors if f["factorType"] == "Discretization error")
         assert disc["requiredLevel"] == 3
         assert disc["achievedLevel"] == 1
 
-        # Gap 2: Results uncertainty should NOT be in the output (not-assessed)
-        ru_types = [f["factorType"] for f in factors]
-        assert "Results uncertainty" not in ru_types
+        # All validation results have wasGeneratedBy (Bug 3 fix)
+        for vr in vrs:
+            assert "wasGeneratedBy" in vr, f"VR {vr.get('name')} missing wasGeneratedBy"
 
-        # Gap 3: Validation result without UQ
-        vrs = doc["hasValidationResult"]
-        assert len(vrs) == 4
-        paint_vr = next(v for v in vrs if "thermal-paint" in v.get("id", "").lower()
-                        or "thermal paint" in v.get("name", "").lower())
-        assert paint_vr["hasUncertaintyQuantification"] is False
+        # comparedAgainst used (not comparesTo) per v0.4 context
+        cascade_vr = next(v for v in vrs if "cascade" in v.get("id", "").lower())
+        assert "comparedAgainst" in cascade_vr
+        assert "comparesTo" not in cascade_vr
 
         # Evidence types present
         types = {v["type"] for v in vrs}
