@@ -26,7 +26,7 @@ shacl:
 	uofa shacl $(FILE)
 
 test:
-	pytest tests/test_integration.py -v
+	pytest tests/ -v
 
 verify:
 	uofa verify $(FILE)
