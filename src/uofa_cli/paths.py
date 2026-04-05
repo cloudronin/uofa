@@ -233,3 +233,51 @@ def templates_dir(root: Path = None) -> Path:
 def examples_dir(root: Path = None) -> Path:
     root = root or find_repo_root()
     return root / "examples"
+
+
+# ── Project root detection (uofa.toml) ─────────────────────
+
+
+def find_project_root(start: Path = None) -> Path | None:
+    """Walk up from start (default: cwd) looking for uofa.toml.
+
+    Returns the directory containing uofa.toml, or None if not found.
+    """
+    current = (start or Path.cwd()).resolve()
+    while True:
+        if (current / "uofa.toml").is_file():
+            return current
+        parent = current.parent
+        if parent == current:
+            return None
+        current = parent
+
+
+def load_project_config(project_root: Path) -> dict:
+    """Load and parse uofa.toml from a project root.
+
+    Returns a flat dict with resolved values.
+    """
+    try:
+        import tomllib
+    except ModuleNotFoundError:
+        import tomli as tomllib  # type: ignore[no-redef]
+
+    toml_path = project_root / "uofa.toml"
+    with open(toml_path, "rb") as f:
+        raw = tomllib.load(f)
+
+    project = raw.get("project", {})
+    paths_section = raw.get("paths", {})
+    extract = raw.get("extract", {})
+
+    return {
+        "name": project.get("name", project_root.name),
+        "pack": project.get("pack", "vv40"),
+        "profile": project.get("profile", "complete"),
+        "output": project_root / paths_section.get("output", "."),
+        "evidence": project_root / paths_section.get("evidence", "evidence"),
+        "template": project_root / paths_section.get("template", "uofa-template.xlsx"),
+        "provider": extract.get("provider", "ollama"),
+        "model": extract.get("model", "llama3.2"),
+    }

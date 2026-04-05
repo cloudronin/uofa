@@ -1051,3 +1051,147 @@ class TestImport:
         assert "NASA_ALL_FACTOR_NAMES" in content
         assert "VALID_DECISION_OUTCOMES" in content
         assert "DO NOT EDIT" in content
+
+
+# ── Project system tests ──────────────────────────────────────
+
+
+class TestProjectRoot:
+    """Tests for find_project_root() and load_project_config()."""
+
+    def test_finds_toml_in_current_dir(self, tmp_path):
+        from uofa_cli.paths import find_project_root
+        (tmp_path / "uofa.toml").write_text('[project]\nname = "test"\n')
+        assert find_project_root(tmp_path) == tmp_path
+
+    def test_finds_toml_in_parent(self, tmp_path):
+        from uofa_cli.paths import find_project_root
+        (tmp_path / "uofa.toml").write_text('[project]\nname = "test"\n')
+        child = tmp_path / "subdir"
+        child.mkdir()
+        assert find_project_root(child) == tmp_path
+
+    def test_returns_none_when_no_toml(self, tmp_path):
+        from uofa_cli.paths import find_project_root
+        assert find_project_root(tmp_path) is None
+
+    def test_load_config_defaults(self, tmp_path):
+        from uofa_cli.paths import load_project_config
+        (tmp_path / "uofa.toml").write_text('[project]\nname = "test"\n')
+        config = load_project_config(tmp_path)
+        assert config["name"] == "test"
+        assert config["pack"] == "vv40"
+        assert config["profile"] == "complete"
+
+    def test_load_config_custom_pack(self, tmp_path):
+        from uofa_cli.paths import load_project_config
+        (tmp_path / "uofa.toml").write_text(
+            '[project]\nname = "test"\npack = "nasa-7009b"\n'
+        )
+        config = load_project_config(tmp_path)
+        assert config["pack"] == "nasa-7009b"
+
+
+@pytest.mark.skipif(not OPENPYXL_AVAILABLE, reason="openpyxl not installed")
+class TestInitProject:
+    """Tests for the enhanced uofa init with project system."""
+
+    def test_init_creates_toml(self, tmp_path):
+        result = run_uofa("init", "test-proj", "--dir", str(tmp_path))
+        assert result.returncode == 0
+        toml_path = tmp_path / "test-proj" / "uofa.toml"
+        assert toml_path.exists()
+        content = toml_path.read_text()
+        assert 'name = "test-proj"' in content
+        assert 'pack = "vv40"' in content
+        assert 'profile = "complete"' in content
+
+    def test_init_creates_evidence_dir(self, tmp_path):
+        run_uofa("init", "test-proj", "--dir", str(tmp_path))
+        assert (tmp_path / "test-proj" / "evidence").is_dir()
+        assert (tmp_path / "test-proj" / "evidence" / ".gitkeep").exists()
+
+    def test_init_creates_readme(self, tmp_path):
+        run_uofa("init", "test-proj", "--dir", str(tmp_path))
+        readme = tmp_path / "test-proj" / "README.md"
+        assert readme.exists()
+        content = readme.read_text()
+        assert "test-proj" in content
+        assert "uofa import" in content
+
+    def test_init_creates_excel_template(self, tmp_path):
+        run_uofa("init", "test-proj", "--dir", str(tmp_path))
+        assert (tmp_path / "test-proj" / "uofa-template.xlsx").exists()
+
+    def test_init_with_nasa_pack(self, tmp_path):
+        run_uofa("init", "test-proj", "--pack", "nasa-7009b", "--dir", str(tmp_path))
+        toml = (tmp_path / "test-proj" / "uofa.toml").read_text()
+        assert 'pack = "nasa-7009b"' in toml
+
+    def test_init_with_minimal_profile(self, tmp_path):
+        run_uofa("init", "test-proj", "--profile", "minimal", "--dir", str(tmp_path))
+        toml = (tmp_path / "test-proj" / "uofa.toml").read_text()
+        assert 'profile = "minimal"' in toml
+
+    def test_init_existing_dir_still_fails(self, tmp_path):
+        (tmp_path / "test-proj").mkdir()
+        result = run_uofa("init", "test-proj", "--dir", str(tmp_path))
+        assert result.returncode != 0
+
+
+@pytest.mark.skipif(not OPENPYXL_AVAILABLE, reason="openpyxl not installed")
+class TestImportProjectAware:
+    """Tests for project-aware import behavior."""
+
+    def test_import_outside_project_requires_file(self, tmp_path):
+        """Import outside any project with no file arg -> error."""
+        result = subprocess.run(
+            [sys.executable, "-m", "uofa_cli", "import", "--pack", "vv40"],
+            capture_output=True, text=True, cwd=str(tmp_path),
+        )
+        assert result.returncode == 1
+        combined = result.stderr + result.stdout
+        assert "No Excel file" in combined
+
+    def test_import_finds_template_from_toml(self, tmp_path):
+        """Import inside a project uses template from uofa.toml."""
+        # Create project
+        run_uofa("init", "test-proj", "--dir", str(tmp_path))
+        proj = tmp_path / "test-proj"
+        # Copy a real filled xlsx as the template
+        import shutil
+        shutil.copy2(STARTER_XLSX, proj / "uofa-template.xlsx")
+        # Import with no file arg from project dir
+        result = subprocess.run(
+            [sys.executable, "-m", "uofa_cli", "import"],
+            capture_output=True, text=True, cwd=str(proj),
+        )
+        assert result.returncode == 0, f"Import failed: {result.stderr}"
+        assert (proj / "uofa-template.jsonld").exists()
+
+    def test_import_finds_key_from_project(self, tmp_path):
+        """Import --sign without --key finds key in project keys/ dir."""
+        run_uofa("init", "test-proj", "--dir", str(tmp_path))
+        proj = tmp_path / "test-proj"
+        import shutil
+        shutil.copy2(STARTER_XLSX, proj / "uofa-template.xlsx")
+        result = subprocess.run(
+            [sys.executable, "-m", "uofa_cli", "import", "--sign"],
+            capture_output=True, text=True, cwd=str(proj),
+        )
+        assert result.returncode == 0, f"Import failed: {result.stderr}"
+        assert "Signed" in result.stdout
+
+    def test_import_explicit_file_overrides_toml(self, tmp_path):
+        """Explicit file arg overrides toml template path."""
+        run_uofa("init", "test-proj", "--dir", str(tmp_path))
+        proj = tmp_path / "test-proj"
+        import shutil
+        custom = proj / "custom.xlsx"
+        shutil.copy2(STARTER_XLSX, custom)
+        result = subprocess.run(
+            [sys.executable, "-m", "uofa_cli", "import", "custom.xlsx"],
+            capture_output=True, text=True, cwd=str(proj),
+        )
+        assert result.returncode == 0
+        assert (proj / "custom.jsonld").exists()
