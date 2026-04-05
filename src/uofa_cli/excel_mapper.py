@@ -100,9 +100,11 @@ def map_to_jsonld(data: dict, packs: list[str], source_path: Path) -> dict:
         doc["wasAttributedTo"] = f"{base}/org/{slugify(summary['assessor_name'])}"
 
     # ── Credibility Factors (Complete profile) ───────────────
+    # Include ALL factors (assessed AND not-assessed) so the rule engine
+    # can detect unassessed gaps at elevated risk (W-EP-04).
     if factors:
         doc["hasCredibilityFactor"] = [
-            _map_factor(f, packs) for f in factors if f["status"] == "assessed"
+            _map_factor(f, packs) for f in factors
         ]
 
     # ── Decision Record ──────────────────────────────────────
@@ -188,7 +190,8 @@ def _map_validation_result(base: str, vr: dict) -> dict:
     if vr.get("description"):
         result["description"] = vr["description"]
     if vr.get("compares_to"):
-        result["comparesTo"] = vr["compares_to"]
+        # v0.4 vocabulary uses "comparedAgainst" (not "comparesTo")
+        result["comparedAgainst"] = vr["compares_to"]
     if vr.get("has_uq") == "Yes":
         result["hasUncertaintyQuantification"] = True
         if vr.get("uq_method"):
@@ -199,6 +202,14 @@ def _map_validation_result(base: str, vr: dict) -> dict:
         result["metricValue"] = vr["metric_value"]
     if vr.get("pass_fail"):
         result["passFail"] = vr["pass_fail"]
+
+    # Auto-generate wasGeneratedBy activity so W-EP-02 doesn't fire on
+    # every imported validation result (the Excel template has no column
+    # for generation activity).
+    result["wasGeneratedBy"] = {
+        "id": f"{result['id']}/activity",
+        "type": "prov:Activity",
+    }
 
     # Add SHACL-required properties for evidence sub-types.
     # These shapes have mandatory fields that the generic Excel columns
