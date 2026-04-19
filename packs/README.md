@@ -53,13 +53,19 @@ packs/
 
   nasa-7009b/                   # NASA-STD-7009B (19 factors, 6 NASA-only)
     pack.json
-    shapes/nasa_7009b_shapes.ttl  # Factor name enum + level range 0-4 + phase
-    rules/nasa_7009b_weakener.rules  # 6 NASA-specific weakener rules
-    templates/                  # (uses core template)
+    shapes/nasa_7009b_shapes.ttl         # Factor name enum + level range 0-4 + phase
+    rules/nasa_7009b_weakener.rules      # 6 NASA-specific weakener rules
+    templates/
+      nasa-7009b-template.xlsx           # 19-factor Excel template (pre-filled Category column)
     examples/
-      aerospace/                # TPS thermal protection system example
-      starters/                 # HPT blade thermal + aero fatigue starters
+      aerospace/                         # HPT blade CHT case study (2 COUs, full pipeline demo)
+        aero-evidence-cou1.zip           # 10-doc evidence bundle: take-off transient, MRL 3
+        aero-evidence-cou2.zip           # 10-doc evidence bundle: cruise steady-state, MRL 4
+        uofa-aero-cou1-nasa7009b.jsonld  # Reasoned output: W-AR-02 fires (Accepted + gaps)
+        uofa-aero-cou2-nasa7009b.jsonld  # Reasoned output: W-AR-02 at zero (Not Accepted)
+      starters/                          # HPT blade thermal + aero fatigue starter JSON-LDs
     prompts/
+      nasa_7009b_extract_prompt.txt      # 19-factor LLM extraction prompt
 ```
 
 ## Pack Manifest (`pack.json`)

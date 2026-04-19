@@ -225,6 +225,7 @@ A typical workflow:
 ## What's Next
 
 - **Study the Morrison example** (`packs/vv40/examples/morrison/`) to see Complete profiles for an FDA V&V 40 case study (COU1 and COU2)
+- **Run the NASA aerospace roundtrip** — `packs/nasa-7009b/examples/aerospace/` ships two zipped evidence bundles (take-off + cruise) plus their reasoned outputs. Exercise the full `uofa extract → import → rules` pipeline on real documents: `uofa extract tests/fixtures/extract/aero-evidence-cou1 --pack nasa-7009b --model ollama/qwen3.5:4b`. See the [aerospace demo section of the README](../README.md#live-demo-hpt-blade-cht-nasa-std-7009b-aerospace).
 - **Add a second COU** — same model, different context of use, potentially different credibility requirements
 - **Run COU divergence analysis** — compare weakener profiles across COUs to see how risk level affects evidence requirements
 - **Integrate with CI** — add `uofa check` to your pipeline so credibility evidence is validated on every commit
@@ -233,11 +234,13 @@ A typical workflow:
 
 | Command | What it does |
 |---------|-------------|
+| `uofa extract DIR` | LLM-extract credibility data from evidence documents into a pack xlsx (`--model`, `--pack`, `-o`) |
 | `uofa import FILE.xlsx` | Import Excel workbook to JSON-LD (with optional `--sign`, `--check`) |
 | `uofa check FILE` | Full C1+C2+C3 pipeline on any UofA file |
 | `uofa shacl FILE` | SHACL profile validation only |
 | `uofa verify FILE` | Hash + signature verification only |
-| `uofa rules FILE` | Jena rule engine only |
+| `uofa rules FILE` | Jena rule engine only (human-readable summary) |
+| `uofa rules FILE --format jsonld -o REASONED.jsonld` | Jena rule engine writing reasoned JSON-LD with weakener annotations |
 | `uofa sign FILE --key KEY` | Sign/re-sign a UofA |
 | `uofa keygen PATH` | Generate ed25519 signing keypair |
 | `uofa validate` | SHACL validation on all examples |

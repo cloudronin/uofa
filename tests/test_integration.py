@@ -918,27 +918,32 @@ class TestWeakenerPins:
         assert "COMPOUND-03" in result.stdout
 
     @pytest.mark.skipif(not JENA_AVAILABLE, reason="Jena rules require Java")
-    def test_aero_nasa_weakener_count(self):
-        """Aerospace NASA example must produce exactly 45 weakeners."""
-        aero = REPO_ROOT / "packs" / "nasa-7009b" / "examples" / "aerospace" / "uofa-aero-nasa7009b.jsonld"
+    def test_aero_cou1_accept_fires_w_ar_02(self):
+        """COU1 (take-off, Accepted): W-AR-02 fires multiple times on narrative-stated level gaps."""
+        aero = REPO_ROOT / "packs" / "nasa-7009b" / "examples" / "aerospace" / "uofa-aero-cou1-nasa7009b.jsonld"
         result = run_uofa("rules", str(aero), "--pack", "nasa-7009b")
         assert result.returncode == 0
-        assert "SUMMARY: 45 weakener(s) detected" in result.stdout
-        # L1 patterns present
-        assert "W-EP-01" in result.stdout
-        assert "W-EP-02" in result.stdout
-        assert "W-EP-04" in result.stdout
-        assert "W-AL-01" in result.stdout
-        assert "W-AR-01" in result.stdout
+        # COU1 fires W-AR-02 under Accepted decision + level gaps
         assert "W-AR-02" in result.stdout
-        assert "W-AR-05" in result.stdout
-        # Compounds
+        assert "W-EP-04" in result.stdout
         assert "COMPOUND-01" in result.stdout
-        assert "COMPOUND-03" in result.stdout
-        # NASA-specific rules should NOT fire (all 3 have hasEvidence)
-        assert "W-NASA-02" not in result.stdout
-        assert "W-NASA-03" not in result.stdout
-        assert "W-NASA-06" not in result.stdout
+
+    @pytest.mark.skipif(not JENA_AVAILABLE, reason="Jena rules require Java")
+    def test_aero_cou2_not_accepted_keeps_w_ar_02_at_zero(self):
+        """COU2 (cruise, Not Accepted): W-AR-02 must NOT fire even with 4+ not-assessed factors.
+
+        This is the Morrison-COU2 parity mechanism and the NAFEMS divergence headline.
+        If W-AR-02 appears in the cruise/NotAccepted output, either the decision
+        outcome is being parsed as 'Accepted' or the W-AR-02 rule is matching
+        a different property.
+        """
+        aero = REPO_ROOT / "packs" / "nasa-7009b" / "examples" / "aerospace" / "uofa-aero-cou2-nasa7009b.jsonld"
+        result = run_uofa("rules", str(aero), "--pack", "nasa-7009b")
+        assert result.returncode == 0
+        # The headline assertion
+        assert "W-AR-02" not in result.stdout, "W-AR-02 fired on a Not Accepted decision"
+        # But W-EP-04 still fires on the not-assessed factors at MRL > 2
+        assert "W-EP-04" in result.stdout
 
 
 class TestDiffCrossStandard:
@@ -946,7 +951,7 @@ class TestDiffCrossStandard:
 
     def test_diff_vv40_vs_nasa_no_crash(self):
         """Diffing a V&V 40 file against a NASA file should not crash."""
-        aero = REPO_ROOT / "packs" / "nasa-7009b" / "examples" / "aerospace" / "uofa-aero-nasa7009b.jsonld"
+        aero = REPO_ROOT / "packs" / "nasa-7009b" / "examples" / "aerospace" / "uofa-aero-cou1-nasa7009b.jsonld"
         result = run_uofa("diff", str(MORRISON), str(aero), "--skip-rules")
         assert result.returncode == 0
         # Should show both COUs
