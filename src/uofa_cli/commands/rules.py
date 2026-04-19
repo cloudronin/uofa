@@ -27,6 +27,11 @@ def add_arguments(parser):
     parser.add_argument("--context", "-c", type=Path, help="JSON-LD context file")
     parser.add_argument("--build", action="store_true", help="auto-build the Jena JAR if missing")
     parser.add_argument("--raw", action="store_true", help="show raw output without coloring")
+    parser.add_argument("--format", "-f", default="summary",
+                        choices=["summary", "turtle", "ntriples", "jsonld"],
+                        help="output format (default: summary)")
+    parser.add_argument("--output", "-o", type=Path,
+                        help="write reasoned output to a file (default: stdout)")
 
 
 def _ensure_java():
@@ -137,8 +142,14 @@ def run(args) -> int:
     sys.stdout.flush()
 
     cmd = ["java", "-jar", str(jar), str(args.file), "--rules", str(rules), "--context", str(ctx)]
+    if args.format and args.format != "summary":
+        cmd += ["--format", args.format]
+    if args.output:
+        cmd += ["--output", str(args.output)]
 
-    if args.raw:
+    # If writing to a file, the engine produces no stdout content for the caller
+    # to colorize — just pipe through.
+    if args.output or args.raw:
         result = subprocess.run(cmd, capture_output=False)
         return result.returncode
 

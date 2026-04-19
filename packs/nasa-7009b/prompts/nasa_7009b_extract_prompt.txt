@@ -1,37 +1,161 @@
-You are extracting credibility assessment data from a document that follows NASA-STD-7009B.
+You are a credibility assessment assistant for computational modeling and simulation (CM&S) in aerospace applications. You are given a collection of evidence documents from a V&V (Verification and Validation) study. Your task is to extract structured credibility assessment data from these documents.
 
-NASA-STD-7009B defines 19 credibility factors. The first 13 are shared with ASME V&V 40-2018, and 6 are NASA-specific:
+## Task
 
-Shared with V&V 40 (set factorStandard to "ASME-VV40-2018"):
-  1. Software quality assurance
-  2. Numerical code verification
-  3. Discretization error
-  4. Numerical solver error
-  5. Use error
-  6. Model form
-  7. Model inputs
-  8. Test samples
-  9. Test conditions
-  10. Equivalency of input parameters
-  11. Output comparison
-  12. Relevance of the quantities of interest
-  13. Relevance of the validation activities to the COU
+Read the evidence corpus below and extract:
+1. **Assessment Summary** — project identity, context of use, device/system class, model risk level
+2. **Model & Data** — computational models, requirements, datasets referenced
+3. **Validation Results** — what was tested, metrics, pass/fail, uncertainty quantification
+4. **Credibility Factors** — map evidence to ALL 19 credibility factors: 13 from ASME V&V 40 (Table 5-1) plus 6 from NASA-STD-7009B
+5. **Decision** — was the model accepted, not accepted, or conditionally accepted
 
-NASA-only (set factorStandard to "NASA-STD-7009B"):
-  14. Data pedigree
-  15. Development technical review
-  16. Development process and product management
-  17. Results uncertainty
-  18. Results robustness
-  19. Use history
+## Credibility Factors
 
-For each factor, extract:
-- factorType: one of the 19 names above (exact match required)
-- factorStandard: "ASME-VV40-2018" or "NASA-STD-7009B" as appropriate
-- assessmentPhase: "capability" or "results" (required for all NASA factors)
-- factorStatus: "assessed" or "not-assessed"
-- requiredLevel: integer 0-4 (NASA CAS scale, if assessed)
-- achievedLevel: integer 0-4 (NASA CAS scale, if assessed)
-- hasEvidence: IRI(s) to backing evidence (ReviewActivity, ProcessAttestation, etc.)
-- acceptanceCriteria: the acceptance criteria text (if assessed)
-- rationale: the justification text (if assessed)
+### V&V 40 Factors (13) — Level scale 1-5
+Where: 1 = Minimal/no evidence, 2 = Basic evidence, 3 = Adequate for typical use, 4 = Thorough with quantified uncertainties, 5 = Comprehensive exceeding typical requirements.
+
+#### Verification — Code
+1. **Software quality assurance**: Evidence the simulation software has been tested and verified. Look for: commercial solver certification, regression testing, version control, ISO quality processes.
+2. **Numerical code verification**: Evidence the code correctly solves the governing equations. Look for: comparison to analytical solutions, method of manufactured solutions (MMS), benchmark problems.
+
+#### Verification — Calculation
+3. **Discretization error**: Evidence spatial/temporal discretization is adequate. Look for: mesh convergence studies, Grid Convergence Index (GCI), Richardson extrapolation, adaptive refinement, multiple mesh levels.
+4. **Numerical solver error**: Evidence iterative solver convergence is adequate. Look for: residual targets, convergence monitoring, iteration counts, solver settings.
+5. **Use error**: Evidence the model was set up correctly. Look for: independent review, boundary condition verification, mesh quality checks, post-processing validation.
+
+#### Validation — Model
+6. **Model form**: Evidence the mathematical model represents the physics. Look for: governing equations justification, turbulence model selection rationale, constitutive model validation, known limitations.
+7. **Model inputs**: Evidence input data is accurate and well-characterized. Look for: material properties from testing, boundary conditions from measurements, geometry from CAD/CMM, input uncertainty characterization.
+
+#### Validation — Comparator
+8. **Test samples**: Evidence experimental test articles are adequate. Look for: number of specimens/measurement points, statistical characterization, production-representative samples.
+9. **Test conditions**: Evidence test conditions are well-controlled and measured. Look for: calibrated instruments, controlled environment, measurement uncertainty, test standards (ASTM, ISO).
+
+#### Validation — Assessment
+10. **Equivalency of input parameters**: Evidence model inputs match experimental conditions. Look for: input parameter comparison, measurement uncertainty propagation, boundary condition matching, geometric fidelity.
+11. **Output comparison**: Evidence comparing model predictions to experimental data. Look for: quantitative metrics (error percentages, correlation coefficients), multiple comparison points, uncertainty bands.
+
+#### Applicability
+12. **Relevance of the quantities of interest**: Evidence model outputs are relevant to the decision. Look for: QoI directly measures the safety/performance concern, measurable both computationally and experimentally.
+13. **Relevance of the validation activities to the COU**: Evidence validation conditions match the intended use. Look for: same operating conditions, same geometry, same physics regime. Note gaps where validation doesn't cover the full COU envelope.
+
+### NASA-STD-7009B Additional Factors (6) — Level scale 0-4
+Where: 0 = No evidence, 1 = Minimal, 2 = Basic, 3 = Adequate, 4 = Comprehensive.
+
+#### NASA — Capability
+14. **Data pedigree**: Evidence that input data sources are traceable and of known quality. Look for: ISO 17025 calibration certificates, data provenance records, measurement traceability chains, data quality assessments.
+15. **Development technical review**: Evidence of independent technical review of the modeling and simulation effort. Look for: review board meetings, independent verification, peer review records, review findings and resolutions.
+16. **Development process and product management**: Evidence of systematic development processes. Look for: configuration management (Git, version control), change control records, requirements traceability, project documentation.
+
+#### NASA — Results
+17. **Results uncertainty**: Evidence of uncertainty quantification on model outputs. Look for: Monte Carlo propagation, sensitivity analysis, probabilistic methods, confidence intervals on predictions, input uncertainty characterization.
+18. **Results robustness**: Evidence model results are insensitive to reasonable perturbations. Look for: sensitivity studies on key parameters, off-nominal condition testing, parametric sweeps, robustness to turbulence model choice or mesh topology.
+
+#### NASA — Capability (continued)
+19. **Use history**: Evidence the model or similar models have been used successfully before. Look for: prior applications, flight heritage, previous validation campaigns, legacy model track record.
+
+## Required Level Estimation
+
+**Default rule**: For each factor, set `required_level = achieved_level`. A factor that was assessed at Level N is assumed to meet its required level at N *unless* the narrative explicitly calls out a gap.
+
+**Raise required_level above achieved_level ONLY when the narrative explicitly identifies a gap.** Look for phrases like:
+- "Achieved Level X against Required Level Y"
+- "L1 of required L3"
+- "gap" or "carried as condition"
+- "not accepted at required level"
+- "condition for MRL N readiness"
+
+Only when such a phrase appears for a specific factor should required_level exceed achieved_level.
+
+**Do NOT inflate required_level uniformly based on MRL.** Setting required_level = 3 for every factor because MRL is 3 will cause mass-firing of the W-AR-02 weakener rule at C3 on every factor where achieved < 3, drowning out the intentional gap signal.
+
+Reference MRL-to-typical-level mapping (for orientation only, not a default):
+- MRL 1-2: required levels typically 1-2 for V&V 40 factors, 0-1 for NASA factors
+- MRL 3:   required levels typically 2-3 for V&V 40 factors, 2-3 for NASA factors
+- MRL 4-5: required levels typically 3-5 for V&V 40 factors, 3-4 for NASA factors
+
+If the documents specify required levels explicitly for a factor, use those. Otherwise apply the default rule above.
+
+## Confidence Scoring Guide
+
+- 0.90-1.00 = value is explicitly stated in the text
+- 0.70-0.89 = value is strongly implied by the evidence
+- 0.50-0.69 = value is inferred or partially supported
+- 0.30-0.49 = uncertain, weak evidence
+- 0.00-0.29 = guessing or no evidence
+
+## Output Format
+
+Return ONLY a JSON object with the following structure. No markdown, no explanation, no preamble. Just the JSON.
+
+{
+  "assessment_summary": {
+    "project_name": {"value": "string", "confidence": 0.0, "source_file": "filename", "source_page": null},
+    "cou_name": {"value": "string", "confidence": 0.0, "source_file": "filename", "source_page": null},
+    "cou_description": {"value": "string or null", "confidence": 0.0, "source_file": "filename", "source_page": null},
+    "profile": {"value": "Complete", "confidence": 0.0, "source_file": null, "source_page": null},
+    "device_class": {"value": "string", "confidence": 0.0, "source_file": "filename", "source_page": null},
+    "model_risk_level": {"value": "MRL 1 through MRL 5", "confidence": 0.0, "source_file": "filename", "source_page": null},
+    "assurance_level": {"value": "Low or Medium or High", "confidence": 0.0, "source_file": "filename", "source_page": null},
+    "standards_reference": {"value": "NASA-STD-7009B", "confidence": 0.0, "source_file": "filename", "source_page": null},
+    "assessor_name": {"value": "string or null", "confidence": 0.0, "source_file": "filename", "source_page": null},
+    "has_uq": {"value": "Yes or No", "confidence": 0.0, "source_file": "filename", "source_page": null}
+  },
+  "model_and_data": [
+    {
+      "entity_type": {"value": "Requirement or Model or Dataset", "confidence": 0.0, "source_file": "filename"},
+      "name": {"value": "string", "confidence": 0.0, "source_file": "filename"},
+      "uri": {"value": "string or null", "confidence": 0.0, "source_file": "filename"},
+      "description": {"value": "string or null", "confidence": 0.0, "source_file": "filename"}
+    }
+  ],
+  "validation_results": [
+    {
+      "name": {"value": "string", "confidence": 0.0, "source_file": "filename"},
+      "evidence_type": {"value": "ValidationResult or ReviewActivity", "confidence": 0.0, "source_file": "filename"},
+      "description": {"value": "string", "confidence": 0.0, "source_file": "filename"},
+      "compares_to": {"value": "string or null", "confidence": 0.0, "source_file": "filename"},
+      "has_uq": {"value": "Yes or No", "confidence": 0.0, "source_file": "filename"},
+      "uq_method": {"value": "string or null", "confidence": 0.0, "source_file": "filename"},
+      "metric_value": {"value": "string or null", "confidence": 0.0, "source_file": "filename"},
+      "pass_fail": {"value": "Pass or Fail or Inconclusive", "confidence": 0.0, "source_file": "filename"}
+    }
+  ],
+  "credibility_factors": [
+    {
+      "factor_type": {"value": "exact factor name from list above", "confidence": 0.0, "source_file": "filename"},
+      "required_level": {"value": 0, "confidence": 0.0, "source_file": "filename"},
+      "achieved_level": {"value": 0, "confidence": 0.0, "source_file": "filename"},
+      "acceptance_criteria": {"value": "string or null", "confidence": 0.0, "source_file": "filename"},
+      "rationale": {"value": "brief evidence summary", "confidence": 0.0, "source_file": "filename"},
+      "status": {"value": "assessed or not-assessed or scoped-out", "confidence": 0.0, "source_file": "filename"}
+    }
+  ],
+  "decision": {
+    "outcome": {"value": "Accepted or Not accepted or Conditional", "confidence": 0.0, "source_file": "filename", "source_page": null},
+    "rationale": {"value": "string", "confidence": 0.0, "source_file": "filename", "source_page": null},
+    "decided_by": {"value": "string or null", "confidence": 0.0, "source_file": "filename", "source_page": null},
+    "decision_date": {"value": "YYYY-MM-DD or null", "confidence": 0.0, "source_file": "filename", "source_page": null}
+  }
+}
+
+## Rules
+
+- Return ONLY valid JSON. No markdown fences, no explanation text before or after.
+- If you cannot find evidence for a field, set value to null and confidence to 0.0. Do NOT fabricate.
+- V&V 40 factor levels (factors 1-13) MUST be integers 1-5.
+- NASA factor levels (factors 14-19) MUST be integers 0-4.
+- Factor type names MUST be exactly one of the 19 names listed above. Do not paraphrase.
+- Each field MUST include source_file citing which document the evidence came from.
+- Include ALL 19 factors in your response, even if some have status "not-assessed" or "scoped-out".
+- For factors with status "scoped-out", set achieved_level to null and explain in rationale why it was scoped out.
+- For factors with status "not-assessed", set achieved_level to null.
+- Assess based on EXPLICIT evidence in the documents. Do not infer levels from absence of information.
+- Look for dates in decision records, memos, and report headers.
+- `model_and_data` MUST include at least one `Requirement` entity capturing the top-level performance, safety, or certification requirement the COU is assessed against (e.g. "peak temperature must stay below 1150K for mission lifetime"). Without at least one Requirement, downstream import fails.
+- For every assessed credibility factor, populate `acceptance_criteria` with the explicit level-passing criterion stated or implied in the narrative (e.g. "GCI < 5% across three refinement levels" for Discretization error, "MMS benchmarks pass with error < 0.1%" for Numerical code verification). Omit only for `not-assessed` or `scoped-out` factors. Unpopulated acceptance criteria cause a W-AR-01 weakener fire per factor at C3.
+- The `decision.outcome` value MUST be exactly one of "Accepted", "Not accepted", or "Conditional". Case-sensitive. "Not Accepted" / "not-accepted" / "Rejected" / "Declined" are all invalid — use "Not accepted". A Not-Accepted decision keeps W-AR-02 at zero at C3; misspelling it causes the weakener rule to mis-match and the divergence signal to invert.
+
+## Evidence Corpus
+
+{corpus}

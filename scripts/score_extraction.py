@@ -1,12 +1,19 @@
 #!/usr/bin/env python3
-"""Score extract accuracy against Morrison ground truth.
+"""Score extract accuracy against ground truth for a (pack, case) bundle.
 
 Usage:
-    python scripts/score_extraction.py [--model ollama/qwen3.5:4b] [--prompt-version v1]
+    # Morrison/vv40 (default case=cou1)
+    python scripts/score_extraction.py --pack vv40 --model ollama/qwen3.5:4b --prompt-version v1
 
-Runs uofa extract on morrison-evidence/, parses the output Excel,
-and scores against the ground truth. Prints detailed results and
-appends to a log file for tracking prompt iterations.
+    # Aero/nasa-7009b, both COUs
+    python scripts/score_extraction.py --pack nasa-7009b --case cou1 --model ollama/qwen3.5:4b --prompt-version v1-nasa-aero
+    python scripts/score_extraction.py --pack nasa-7009b --case cou2 --model ollama/qwen3.5:4b --prompt-version v1-nasa-aero
+
+Pipeline: extract -> parse xlsx -> factor scoring. If the ground truth
+declares an expected_weakeners block, also: import -> rules --format
+jsonld -o reasoned.jsonld -> parse -> weakener scoring. Hard gate on
+must_not_fire patterns and structural_invariants. Appends a log entry
+per run to extract_accuracy_log.jsonl.
 """
 
 import argparse
@@ -14,25 +21,63 @@ import json
 import subprocess
 import sys
 import tempfile
+from collections import Counter
 from datetime import datetime
 from pathlib import Path
 
 _ROOT = Path(__file__).resolve().parent.parent
-_EVIDENCE_DIR = _ROOT / "tests" / "fixtures" / "extract" / "morrison-evidence"
-_GROUND_TRUTH = _ROOT / "tests" / "fixtures" / "extract" / "ground_truth" / "morrison-cou1.json"
 _LOG_PATH = _ROOT / "scripts" / "extract_accuracy_log.jsonl"
+
+# (pack, case) -> (evidence_dir_name, ground_truth_filename, factor_names_symbol)
+# factor_names_symbol is resolved at runtime via excel_constants import to
+# avoid pulling the module in at module load time.
+PACK_CASE_FIXTURES: dict[tuple[str, str], tuple[str, str, str]] = {
+    ("vv40", "cou1"):      ("morrison-evidence",    "morrison-cou1.json",       "VV40_FACTOR_NAMES"),
+    ("nasa-7009b", "cou1"): ("aero-evidence-cou1",  "aero-cou1-nasa7009b.json", "NASA_ALL_FACTOR_NAMES"),
+    ("nasa-7009b", "cou2"): ("aero-evidence-cou2",  "aero-cou2-nasa7009b.json", "NASA_ALL_FACTOR_NAMES"),
+}
+
+
+def resolve_fixture(pack: str, case: str) -> tuple[Path, Path, list[str]]:
+    """Return (evidence_dir, ground_truth_path, factor_names_list) for a pack/case pair."""
+    key = (pack, case)
+    if key not in PACK_CASE_FIXTURES:
+        raise SystemExit(
+            f"Unknown (pack, case): {key!r}. Known: {list(PACK_CASE_FIXTURES.keys())}"
+        )
+    ev_name, gt_name, fn_symbol = PACK_CASE_FIXTURES[key]
+    from uofa_cli import excel_constants  # noqa: WPS433 (deferred import)
+    factor_names = getattr(excel_constants, fn_symbol)
+    return (
+        _ROOT / "tests" / "fixtures" / "extract" / ev_name,
+        _ROOT / "tests" / "fixtures" / "extract" / "ground_truth" / gt_name,
+        factor_names,
+    )
+
+
+def _uofa_env() -> dict:
+    """Build the subprocess env with repo src/ on PYTHONPATH for in-tree runs."""
+    import os
+    env = os.environ.copy()
+    src = str(_ROOT / "src")
+    existing = env.get("PYTHONPATH", "")
+    env["PYTHONPATH"] = f"{src}:{existing}" if existing else src
+    return env
 
 
 def run_extraction(model: str, evidence_dir: Path, output_xlsx: Path, pack: str = "vv40") -> bool:
     """Run uofa extract and return success status."""
+    # NOTE: --pack must follow the subcommand — argparse with parents+action=append
+    # drops the top-level value otherwise.
     cmd = [
-        sys.executable, "-m", "uofa_cli", "extract", str(evidence_dir),
-        "--model", model,
+        sys.executable, "-m", "uofa_cli",
+        "extract", str(evidence_dir),
         "--pack", pack,
+        "--model", model,
         "-o", str(output_xlsx),
         "--verbose",
     ]
-    result = subprocess.run(cmd, capture_output=True, text=True, cwd=str(_ROOT))
+    result = subprocess.run(cmd, capture_output=True, text=True, cwd=str(_ROOT), env=_uofa_env())
     print(result.stdout)
     if result.returncode != 0:
         print(f"EXTRACT FAILED: {result.stderr}", file=sys.stderr)
@@ -40,7 +85,7 @@ def run_extraction(model: str, evidence_dir: Path, output_xlsx: Path, pack: str 
     return True
 
 
-def parse_extracted_xlsx(xlsx_path: Path) -> dict:
+def parse_extracted_xlsx(xlsx_path: Path, factor_names: list[str]) -> dict:
     """Parse the extracted Excel file into a dict matching ground truth structure.
 
     Reads:
@@ -49,6 +94,9 @@ def parse_extracted_xlsx(xlsx_path: Path) -> dict:
     - Validation Results sheet -> result list
     - Credibility Factors sheet -> factor list
     - Decision sheet -> outcome, rationale, decided_by, date
+
+    factor_names: list of canonical factor name strings for this pack. Used
+    to locate factor rows in the Credibility Factors sheet (column A).
     """
     import openpyxl
 
@@ -118,10 +166,9 @@ def parse_extracted_xlsx(xlsx_path: Path) -> dict:
     # -- Credibility Factors --
     if "Credibility Factors" in wb.sheetnames:
         ws = wb["Credibility Factors"]
-        from uofa_cli.excel_constants import VV40_FACTOR_NAMES
         for row in range(1, ws.max_row + 1):
             factor_type = ws.cell(row=row, column=1).value
-            if factor_type and str(factor_type) in VV40_FACTOR_NAMES:
+            if factor_type and str(factor_type) in factor_names:
                 result["credibility_factors"].append({
                     "factor_type": str(factor_type),
                     "required_level": ws.cell(row=row, column=3).value,
@@ -297,6 +344,191 @@ def score_decision(extracted_decision: dict, ground_truth_decision: dict) -> dic
     return results
 
 
+# ── Weakener pipeline (C3 scoring) ───────────────────────────────────
+
+
+def run_import(xlsx_path: Path, jsonld_path: Path, pack: str) -> bool:
+    """Run uofa import to produce an (unsigned) jsonld from the extracted xlsx."""
+    cmd = [
+        sys.executable, "-m", "uofa_cli",
+        "import", str(xlsx_path),
+        "--pack", pack,
+        "-o", str(jsonld_path),
+    ]
+    result = subprocess.run(cmd, capture_output=True, text=True, cwd=str(_ROOT), env=_uofa_env())
+    if result.returncode != 0:
+        print(f"IMPORT FAILED:\nstdout: {result.stdout}\nstderr: {result.stderr}", file=sys.stderr)
+        return False
+    return True
+
+
+def run_rules_jsonld(jsonld_path: Path, reasoned_path: Path, pack: str) -> bool:
+    """Run uofa rules with --format jsonld, writing reasoned output to reasoned_path."""
+    cmd = [
+        sys.executable, "-m", "uofa_cli",
+        "rules", str(jsonld_path),
+        "--pack", pack,
+        "--format", "jsonld", "-o", str(reasoned_path), "--build",
+    ]
+    result = subprocess.run(cmd, capture_output=True, text=True, cwd=str(_ROOT), env=_uofa_env())
+    if result.returncode != 0:
+        print(f"RULES FAILED:\nstdout: {result.stdout}\nstderr: {result.stderr}", file=sys.stderr)
+        return False
+    return True
+
+
+def parse_reasoned_weakeners(reasoned_path: Path) -> Counter:
+    """Parse a reasoned jsonld and return a Counter of pattern_id -> count."""
+    data = json.loads(reasoned_path.read_text())
+    counts: Counter = Counter()
+    PATTERN_KEY = "https://uofa.net/vocab#patternId"
+    for node in data.get("@graph", []):
+        pid = node.get(PATTERN_KEY)
+        if pid:
+            # pid may be a string or an {"@value": ...} wrapper
+            if isinstance(pid, dict):
+                pid = pid.get("@value", "")
+            counts[str(pid)] += 1
+    return counts
+
+
+def score_weakeners(actual: Counter, expected: dict) -> dict:
+    """Score weakener fires against expected_weakeners block.
+
+    Returns dict with:
+      - deterministic_fires_verified: bool
+      - must_not_fire_verified: bool
+      - structural_invariants_passed: bool
+      - per_check: list of {"check": str, "passed": bool, "detail": str}
+      - weakener_totals: dict(pattern -> count) (plus '__total__' sum)
+    """
+    per_check: list[dict] = []
+
+    # 1. Deterministic core fires
+    det_ok = True
+    for pattern, spec in expected.get("deterministic_core_fires", {}).items():
+        actual_count = actual.get(pattern, 0)
+        if "count" in spec:
+            want = spec["count"]
+            ok = actual_count == want
+            per_check.append({
+                "check": f"{pattern} count == {want}",
+                "passed": ok,
+                "detail": f"actual={actual_count}",
+            })
+            det_ok = det_ok and ok
+        elif "count_min" in spec and "count_max" in spec:
+            lo, hi = spec["count_min"], spec["count_max"]
+            ok = lo <= actual_count <= hi
+            per_check.append({
+                "check": f"{pattern} count in [{lo}, {hi}]",
+                "passed": ok,
+                "detail": f"actual={actual_count}",
+            })
+            det_ok = det_ok and ok
+        elif "count_min" in spec:
+            lo = spec["count_min"]
+            ok = actual_count >= lo
+            per_check.append({
+                "check": f"{pattern} count >= {lo}",
+                "passed": ok,
+                "detail": f"actual={actual_count}",
+            })
+            det_ok = det_ok and ok
+
+    # 2. Must-not-fire
+    must_not_ok = True
+    for pattern in expected.get("must_not_fire", []):
+        actual_count = actual.get(pattern, 0)
+        ok = actual_count == 0
+        per_check.append({
+            "check": f"{pattern} must NOT fire",
+            "passed": ok,
+            "detail": f"actual={actual_count}",
+        })
+        must_not_ok = must_not_ok and ok
+
+    # 3. Structural invariants
+    inv = expected.get("structural_invariants", {})
+    inv_ok = True
+    total = sum(actual.values())
+    total_min = inv.get("total_count_min")
+    total_max = inv.get("total_count_max")
+    if total_min is not None:
+        ok = total >= total_min
+        per_check.append({"check": f"total >= {total_min}", "passed": ok, "detail": f"actual={total}"})
+        inv_ok = inv_ok and ok
+    if total_max is not None:
+        ok = total <= total_max
+        per_check.append({"check": f"total <= {total_max}", "passed": ok, "detail": f"actual={total}"})
+        inv_ok = inv_ok and ok
+    # Skip the special total_* keys we already processed above.
+    _skip = {"total_count_min", "total_count_max"}
+    for key, value in inv.items():
+        if key in _skip or key.endswith("_rationale"):
+            continue
+        if key.endswith("_count_exact"):
+            pattern = _normalize_pattern_name(key[:-len("_count_exact")])
+            actual_count = actual.get(pattern, 0)
+            ok = actual_count == value
+            per_check.append({
+                "check": f"{pattern} count == {value}",
+                "passed": ok,
+                "detail": f"actual={actual_count}",
+            })
+            inv_ok = inv_ok and ok
+        elif key.endswith("_count_min"):
+            pattern = _normalize_pattern_name(key[:-len("_count_min")])
+            actual_count = actual.get(pattern, 0)
+            ok = actual_count >= value
+            per_check.append({
+                "check": f"{pattern} count >= {value}",
+                "passed": ok,
+                "detail": f"actual={actual_count}",
+            })
+            inv_ok = inv_ok and ok
+
+    totals = dict(actual)
+    totals["__total__"] = total
+
+    return {
+        "deterministic_fires_verified": det_ok,
+        "must_not_fire_verified": must_not_ok,
+        "structural_invariants_passed": inv_ok,
+        "per_check": per_check,
+        "weakener_totals": totals,
+    }
+
+
+def _normalize_pattern_name(key: str) -> str:
+    """Convert w_ep_04 / w_ar_02 / compound_01 snake_case to W-EP-04 / COMPOUND-01."""
+    parts = key.split("_")
+    # Uppercase all parts, join with '-'
+    return "-".join(p.upper() for p in parts)
+
+
+def print_weakener_report(w_scores: dict, expected: dict) -> None:
+    print(f"\n  WEAKENERS")
+    print(f"  {'─' * 50}")
+    totals = w_scores["weakener_totals"]
+    total = totals.get("__total__", 0)
+    print(f"  Total fires: {total}")
+    for pid in sorted(k for k in totals if k != "__total__"):
+        print(f"    {pid}: {totals[pid]}")
+    print(f"\n  Checks:")
+    for c in w_scores["per_check"]:
+        icon = "+" if c["passed"] else "x"
+        print(f"    {icon} {c['check']} ({c['detail']})")
+    gates = [
+        ("deterministic fires", w_scores["deterministic_fires_verified"]),
+        ("must-not-fire",       w_scores["must_not_fire_verified"]),
+        ("structural invariants", w_scores["structural_invariants_passed"]),
+    ]
+    print(f"\n  Weakener gates:")
+    for label, ok in gates:
+        print(f"    {'+' if ok else 'x'} {label}")
+
+
 def print_report(factor_scores, summary_scores, decision_scores, model, prompt_version):
     """Print a formatted accuracy report."""
     print("\n" + "=" * 70)
@@ -344,18 +576,29 @@ def print_report(factor_scores, summary_scores, decision_scores, model, prompt_v
     return gate_pass
 
 
-def append_to_log(model, prompt_version, factor_scores, summary_scores, decision_scores):
+def append_to_log(
+    model, prompt_version, pack, case,
+    factor_scores, summary_scores, decision_scores,
+    weakener_scores=None,
+):
     """Append results to a tracking log for prompt iteration history."""
     entry = {
         "timestamp": datetime.now().isoformat(),
         "model": model,
         "prompt_version": prompt_version,
+        "pack": pack,
+        "case": case,
         "factor_f1": round(factor_scores["overall_f1"], 3),
         "factor_detection": round(factor_scores["detection_rate"], 3),
         "factor_level_accuracy": round(factor_scores["level_accuracy"], 3),
         "summary_accuracy": round(summary_scores["accuracy"], 3),
         "decision_outcome_match": decision_scores["outcome_match"],
     }
+    if weakener_scores is not None:
+        entry["weakener_totals"] = weakener_scores["weakener_totals"]
+        entry["deterministic_fires_verified"] = weakener_scores["deterministic_fires_verified"]
+        entry["must_not_fire_verified"] = weakener_scores["must_not_fire_verified"]
+        entry["structural_invariants_passed"] = weakener_scores["structural_invariants_passed"]
     _LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
     with open(_LOG_PATH, "a") as f:
         f.write(json.dumps(entry) + "\n")
@@ -370,34 +613,42 @@ def main():
                         help="prompt version tag for tracking")
     parser.add_argument("--pack", default="vv40",
                         help="pack name (default: vv40)")
+    parser.add_argument("--case", default="cou1",
+                        help="case within the pack (default: cou1)")
     parser.add_argument("--xlsx", type=Path, default=None,
                         help="skip extraction and score an existing xlsx file")
+    parser.add_argument("--reasoned", type=Path, default=None,
+                        help="path to write reasoned jsonld (default: temp file; committed path for slide assets)")
+    parser.add_argument("--skip-weakeners", action="store_true",
+                        help="skip the import+rules weakener pipeline even if ground truth declares expected_weakeners")
     args = parser.parse_args()
 
-    if not _GROUND_TRUTH.exists():
-        print(f"Ground truth not found: {_GROUND_TRUTH}", file=sys.stderr)
+    evidence_dir, ground_truth_path, factor_names = resolve_fixture(args.pack, args.case)
+
+    if not ground_truth_path.exists():
+        print(f"Ground truth not found: {ground_truth_path}", file=sys.stderr)
         return 1
 
-    gt = json.loads(_GROUND_TRUTH.read_text())
+    gt = json.loads(ground_truth_path.read_text())
 
     if args.xlsx:
         output_xlsx = args.xlsx
     else:
-        if not _EVIDENCE_DIR.exists():
-            print(f"Evidence directory not found: {_EVIDENCE_DIR}", file=sys.stderr)
+        if not evidence_dir.exists():
+            print(f"Evidence directory not found: {evidence_dir}", file=sys.stderr)
             return 1
 
         output_xlsx = Path(tempfile.mktemp(suffix=".xlsx"))
         print(f"Output: {output_xlsx}")
 
-        if not run_extraction(args.model, _EVIDENCE_DIR, output_xlsx, args.pack):
+        if not run_extraction(args.model, evidence_dir, output_xlsx, args.pack):
             return 1
 
     if not output_xlsx.exists():
         print(f"Output file not found: {output_xlsx}", file=sys.stderr)
         return 1
 
-    extracted = parse_extracted_xlsx(output_xlsx)
+    extracted = parse_extracted_xlsx(output_xlsx, factor_names)
 
     factor_scores = score_factors(
         extracted["credibility_factors"],
@@ -417,9 +668,36 @@ def main():
         args.model, args.prompt_version,
     )
 
+    # ── Weakener pipeline (if ground truth declares expected_weakeners) ──
+    weakener_scores = None
+    if "expected_weakeners" in gt and not args.skip_weakeners:
+        jsonld_path = Path(tempfile.mktemp(suffix=".jsonld"))
+        reasoned_path = args.reasoned or Path(tempfile.mktemp(suffix="-reasoned.jsonld"))
+        print(f"\n  Import -> {jsonld_path}")
+        if not run_import(output_xlsx, jsonld_path, args.pack):
+            print("IMPORT failed; skipping weakener scoring", file=sys.stderr)
+        else:
+            print(f"  Rules  -> {reasoned_path}")
+            if not run_rules_jsonld(jsonld_path, reasoned_path, args.pack):
+                print("RULES failed; skipping weakener scoring", file=sys.stderr)
+            else:
+                counts = parse_reasoned_weakeners(reasoned_path)
+                weakener_scores = score_weakeners(counts, gt["expected_weakeners"])
+                print_weakener_report(weakener_scores, gt["expected_weakeners"])
+                # Any weakener gate failing makes the overall run fail
+                w_gate_pass = (
+                    weakener_scores["deterministic_fires_verified"]
+                    and weakener_scores["must_not_fire_verified"]
+                    and weakener_scores["structural_invariants_passed"]
+                )
+                gate_pass = gate_pass and w_gate_pass
+                if not w_gate_pass:
+                    print(f"\n  x WEAKENER GATE FAIL", file=sys.stderr)
+
     append_to_log(
-        args.model, args.prompt_version,
+        args.model, args.prompt_version, args.pack, args.case,
         factor_scores, summary_scores, decision_scores,
+        weakener_scores,
     )
 
     return 0 if gate_pass else 1

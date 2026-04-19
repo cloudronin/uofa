@@ -61,6 +61,8 @@ def run(args) -> int:
             context=args.context,
             build=args.build,
             raw=False,
+            format="summary",
+            output=None,
         )
         try:
             rc = rules_mod.run(rules_args)
