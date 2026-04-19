@@ -1,0 +1,69 @@
+# ANSYS CFX 2025 R1 Solver Configuration
+# HPT Blade Conjugate Heat Transfer - Cruise Steady-State (COU2)
+# ---------------------------------------------------------------
+# NOTE: This configuration re-uses COU1 (take-off) model form, mesh,
+# turbulence closure, and numerical settings with operating-point changes
+# ONLY. See aero-evidence-cou1/cfx_solver_settings.txt for model form.
+
+[General]
+Solver                    = ANSYS CFX 2025 R1
+Analysis Type             = Steady State
+Domain Type               = Rotating frame + solid conduction
+Turbulence Model          = SST k-omega
+Double Precision          = Yes
+Model Version             = HPT-CRUISE-v2.1 (branched from HPT-TOFF-v2.1)
+
+[Engine Operating Point]
+Condition                 = Cruise steady-state, FL350, M0.82
+Inlet Total Temperature   = 1450 K (profile from engine test Run #63, cruise)
+Inlet Total Pressure      = 18.0 bar
+Outlet Static Pressure    = 7.8 bar
+Rotational Speed          = 10,500 RPM
+Cooling Flow Ratio        = 3.5% of mainstream
+Reynolds Number (chord)   = 0.85e6 (engine cruise)
+Exit Mach Number          = 0.88 (engine cruise)
+
+[Cascade Rig Match - CRITICAL GAP]
+Cascade Reynolds Number   = 1.20e6 (used to validate COU1)
+Cascade Exit Mach         = 0.92 (used to validate COU1)
+Reynolds Delta at Cruise  = (1.20e6 - 0.85e6) / 0.85e6 = +41 percent
+                          = Cascade Re is 41% HIGHER than cruise engine Re.
+                          = Outside the take-off match envelope (4.8%) for
+                          = which the cascade rig was designed.
+Mach Delta at Cruise      = (0.92 - 0.88) / 0.88 = +4.5 percent
+Temperature Ratio Delta   = Cascade T/T_ref calibrated for take-off (1650K);
+                          = cruise operating point has different Tu/T and
+                          = different radiation contribution not captured
+                          = in cascade.
+Rig Representativeness    = NOT representative of cruise. Cascade designed
+                          = and instrumented for take-off mid-span only.
+
+[Mesh]
+Mesh                      = Inherited from COU1 (6,400,000 cells, mid-span focus)
+                          = No re-meshing performed for cruise.
+Note                      = COU1 tip region gap also applies to COU2 inheritance.
+
+[Boundary Conditions]
+Inlet Type                = Total Temperature + Total Pressure radial profile
+                          = from engine test Run #63 (cruise)
+Wall Condition            = Conjugate heat transfer (same as COU1)
+Rotor-Stator Interface    = Frozen rotor
+
+[Material]
+Blade Material            = Inconel 718 (same as COU1, lot MC-2024-0341)
+Thermal Conductivity      = Re-evaluated at cruise temperature range
+                          = 11.1 W/(m K) at 700K (cruise peak metal)
+Specific Heat             = 428 J/(kg K) at cruise temperature
+Density                   = 8190 kg/m3
+
+[Convergence]
+Residual Target (RMS)     = 1.0e-6 (all equations)
+Max Iterations            = 3000
+Actual Convergence        = 1847 iterations, residuals 2.1e-7 to 5.4e-7
+Numerical Error Estimate  = Bounded within discretization error budget.
+
+[Results Summary - Cruise]
+Peak Metal Temperature    = 1063 K (mid-span, pressure side trailing edge)
+                          = Acceptance criterion: <= 1080 K. MET.
+Creep Damage Accumulation = 0.64 Miner fraction over 25,000 hours
+                          = Acceptance criterion: <= 0.70. MET.

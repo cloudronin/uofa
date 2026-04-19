@@ -1,0 +1,112 @@
+# Aerospace Evidence Folder - HPT Blade CHT Analysis (COU1)
+# Take-off Transient Peak Temperature Prediction
+# NASA-STD-7009B Credibility Assessment at MRL 3
+# -----------------------------------------------------------
+#
+# Bundle: aero-evidence-cou1
+# Pack:   nasa-7009b
+# Decision: Accepted (with conditions) - ACTION ITEMS PENDING FOR MRL 4
+#
+# Files (10):
+#   cou_definition.docx
+#   cfx_solver_settings.txt
+#   cascade_rig_temperature_data.csv
+#   mesh_convergence_study.csv
+#   sensitivity_study_turbulence_intensity.csv
+#   credibility_assessment_narrative.docx
+#   review_board_minutes_2026Q1.txt
+#   risk_assessment_memo.pdf
+#   decision_rationale.pdf
+#   EVIDENCE_MANIFEST.txt (this file)
+#
+# Intentional credibility gaps:
+#
+#   Level gaps (achievedLevel < requiredLevel) with decision Accepted:
+#     Factor 1.3 Discretization Error:     L1 achieved / L3 required
+#                                          (tip region mesh not assessed)
+#     Factor 4.3 Film Cooling Validation:  L1 achieved / L3 required
+#                                          (cascade not film-cooled)
+#     Factor 4.2 Relevance of Validation:  L2 achieved / L3 required
+#                                          (cascade limitations noted)
+#
+#   Not-assessed factor at elevated risk (MRL 3 > 2):
+#     Factor 5.4 Results Uncertainty:      factorStatus = not-assessed
+#                                          (probabilistic UQ not completed
+#                                          for engine COU)
+#
+#   Decision: "Accepted" with known gaps present — triggers W-AR-02
+#
+# Expected core rule fires (aero-cou1, MRL 3, decision Accepted):
+#
+#   W-AR-02 (Rebutting Defeater — Contradictory Result Ignored):
+#     Fires when decision outcome is 'Accepted' AND achievedLevel <
+#     requiredLevel. Fires once per gap factor:
+#       1x on Factor 1.3 Discretization (L1/L3)
+#       1x on Factor 4.3 Film Cooling (L1/L3)
+#       1x on Factor 4.2 Relevance of Validation (L2/L3)
+#     Total: 3 W-AR-02 fires. Severity: Critical.
+#
+#   W-EP-04 (Unassessed Factor at Elevated Risk):
+#     Fires for each not-assessed factor when modelRiskLevel > 2.
+#     MRL = 3. Factor 5.4 Results Uncertainty is not-assessed.
+#     Total: 1 W-EP-04 fire. Severity: High.
+#
+#   COMPOUND-01 (Risk Escalation — Critical + High coexist):
+#     Fires when any Critical weakener coexists with any High weakener.
+#     W-AR-02 (Critical) + W-EP-04 (High) coexist.
+#     Total: 1 COMPOUND-01 fire (may fire multiple times with different
+#     Critical/High pairings depending on engine matching semantics).
+#
+# Expected NASA pack rule fires (evidence-linking dependent):
+#
+#   W-NASA-01 (Data pedigree not-assessed + MRL>1):
+#     Does NOT fire. Data Pedigree is assessed at Level 3.
+#
+#   W-NASA-02 (Dev tech review assessed + no evidence linked):
+#     Fires if import does not link review_board_minutes_2026Q1.txt.
+#
+#   W-NASA-03 (Process mgmt assessed + no evidence linked):
+#     Fires if import does not link configuration management evidence.
+#
+#   W-NASA-04 (Use history not-assessed + MRL>2):
+#     Does NOT fire. Use History is assessed at Level 2.
+#
+#   W-NASA-05 (Results uncertainty assessed + no UQ linked):
+#     Does NOT fire. Results Uncertainty is not-assessed (rule requires
+#     factorStatus = 'assessed').
+#
+#   W-NASA-06 (Results robustness assessed + no sensitivity linked):
+#     Fires if import does not link sensitivity_study_turbulence_
+#     intensity.csv as SensitivityAnalysis evidence.
+#
+# Structural parallel to Morrison COU1:
+#   Morrison COU1: 14 weakeners across 6 distinct patterns, decision
+#                  Accepted with multiple W-AR-02 fires and associated
+#                  compounds.
+#   Aero COU1:     ~5 core fires (3x W-AR-02 + 1x W-EP-04 + 1x
+#                  COMPOUND-01) plus possible NASA pack and structural
+#                  fires. 3-5 distinct patterns.
+#
+#   Both cases are the "diverse-gap, accept-despite-gap" profile where
+#   W-AR-02 is the headliner pattern.
+#
+# Narrative thesis for NAFEMS:
+#   "COU1 (take-off, MRL 3, Accepted) fires W-AR-02 multiple times with
+#    W-EP-04 on the one not-assessed factor, plus COMPOUND-01 escalation.
+#    The divergence pattern from COU2 comes from the decision field:
+#    Accepted triggers W-AR-02 on every level gap; Not Accepted keeps
+#    W-AR-02 at zero regardless of how many level gaps exist. This is
+#    the key mechanism Morrison demonstrates and that we reproduce here
+#    in the aerospace domain."
+#
+# USAGE:
+#   uofa extract aero-evidence-cou1/ --pack nasa-7009b -o aero-cou1.xlsx
+#   # human review of xlsx
+#   uofa import aero-cou1.xlsx -o aero-cou1.jsonld
+#   uofa check aero-cou1.jsonld
+#   uofa reason aero-cou1.jsonld -o aero-cou1-reasoned.jsonld
+#   # expect:
+#   #   - 3x W-AR-02 fires (factors 1.3, 4.3, 4.2)
+#   #   - 1x W-EP-04 fire (factor 5.4)
+#   #   - 1+ COMPOUND-01 fires
+#   #   - possible NASA pack fires from evidence-linking
