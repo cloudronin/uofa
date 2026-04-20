@@ -37,7 +37,24 @@ from uofa_cli.adversarial.spec_loader import (
 
 GENERATOR_VERSION = "0.1.0"
 
-LLMCaller = Callable[[str, str, dict], tuple[str, int]]
+
+@dataclass
+class LLMCallResult:
+    """Result of one LLM call, carrying the effective params actually sent.
+
+    ``effective_params`` reflects what was transmitted after litellm's
+    drop_params behavior and any provider-side deprecation fallbacks.
+    ``call_metadata`` documents observable facts about how the call
+    proceeded (reproducibility-relevant).
+    """
+
+    text: str
+    tokens: int
+    effective_params: dict
+    call_metadata: dict
+
+
+LLMCaller = Callable[[str, str, dict], LLMCallResult]
 
 
 @dataclass
@@ -221,7 +238,7 @@ class AdversarialGenerator:
                 )
 
             try:
-                response_text, tokens = self._llm(
+                call = self._llm(
                     system_prompt,
                     retry_prompt,
                     {
@@ -236,10 +253,10 @@ class AdversarialGenerator:
                 self.logger.warning("variant %d attempt %d: %s", variant_num, attempt, last_error)
                 break
 
-            tokens_total += tokens
+            tokens_total += call.tokens
 
             try:
-                pkg = _parse_json_response(response_text)
+                pkg = _parse_json_response(call.text)
             except ValueError as e:
                 last_error = f"unparseable JSON response: {e}"
                 self.logger.warning(
@@ -252,13 +269,11 @@ class AdversarialGenerator:
                 pkg,
                 spec,
                 variant_num,
-                model_params={
-                    "model": spec.generation_model,
-                    "temperature": spec.temperature,
-                    "max_tokens": spec.max_tokens,
-                    "seed": spec.seed,
-                },
-                tokens=tokens,
+                effective_params=call.effective_params,
+                call_metadata=call.call_metadata,
+                shacl_retries=attempt - 1,
+                model_requested=spec.generation_model,
+                tokens=call.tokens,
             )
             pkg = self._merge_stamps(pkg, skeleton.get("top_level_stamps", {}))
 
@@ -306,10 +321,22 @@ class AdversarialGenerator:
         pkg: dict,
         spec: AdversarialSpec,
         variant_num: int,
-        model_params: dict,
+        effective_params: dict,
+        call_metadata: dict,
+        shacl_retries: int,
+        model_requested: str,
         tokens: int,
     ) -> dict:
         timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+        # modelParams now reflects what was actually sent (post drop_params
+        # and deprecation fallback), NOT the spec-requested values. Exclude
+        # transport-level keys like `model` and `messages`.
+        model_params = {
+            k: v for k, v in effective_params.items()
+            if k not in {"model", "messages"}
+        }
+
         block = {
             "generatorVersion": GENERATOR_VERSION,
             "toolVersion": f"uofa-cli {__version__}",
@@ -318,11 +345,15 @@ class AdversarialGenerator:
             "specId": spec.spec_id,
             "specPath": str(spec.spec_path),
             "specHash": f"sha256:{spec.spec_hash}",
-            "generationModel": model_params.get("model"),
-            "modelParams": {
-                "temperature": model_params.get("temperature"),
-                "max_tokens": model_params.get("max_tokens"),
-                "seed": model_params.get("seed"),
+            "generationModel": effective_params.get("model", model_requested),
+            "modelParams": model_params,
+            "callMetadata": {
+                "dropParamsActive":         call_metadata.get("dropParamsActive", False),
+                "deprecationFallbackFired": call_metadata.get("deprecationFallbackFired", False),
+                "shaclRetries":             shacl_retries,
+                "modelRequested":           model_requested,
+                "modelReturned":            call_metadata.get("modelReturned"),
+                "litellmVersion":           call_metadata.get("litellmVersion"),
             },
             "generationTimestamp": timestamp,
             "targetWeakener": spec.target_weakener,
@@ -402,17 +433,27 @@ class AdversarialGenerator:
 # ── Default LLM caller (mock / ollama / litellm) ─────────────
 
 
-def _default_llm_caller(system_prompt: str, user_prompt: str, params: dict) -> tuple[str, int]:
+def _default_llm_caller(system_prompt: str, user_prompt: str, params: dict) -> LLMCallResult:
     """Dispatch by ``params['model']`` to mock / ollama HTTP / litellm."""
     model = params["model"]
     if model == "mock":
-        return mock_response(params), 0
+        return LLMCallResult(
+            text=mock_response(params),
+            tokens=0,
+            effective_params=dict(params),
+            call_metadata={
+                "dropParamsActive": False,
+                "deprecationFallbackFired": False,
+                "modelReturned": "mock",
+                "litellmVersion": "n/a",
+            },
+        )
     if model.startswith("ollama/"):
         return _call_ollama(system_prompt, user_prompt, params)
     return _call_litellm(system_prompt, user_prompt, params)
 
 
-def _call_ollama(system_prompt: str, user_prompt: str, params: dict) -> tuple[str, int]:
+def _call_ollama(system_prompt: str, user_prompt: str, params: dict) -> LLMCallResult:
     import requests
 
     model_name = params["model"].replace("ollama/", "", 1)
@@ -437,17 +478,44 @@ def _call_ollama(system_prompt: str, user_prompt: str, params: dict) -> tuple[st
     data = resp.json()
     content = data.get("message", {}).get("content", "")
     tokens = data.get("eval_count", 0) + data.get("prompt_eval_count", 0)
-    return content, tokens
+
+    # Ollama honors temperature/max_tokens/seed. All spec params survive.
+    effective_params = {k: v for k, v in params.items() if v is not None}
+    return LLMCallResult(
+        text=content,
+        tokens=tokens,
+        effective_params=effective_params,
+        call_metadata={
+            "dropParamsActive": False,
+            "deprecationFallbackFired": False,
+            "modelReturned": params["model"],
+            "litellmVersion": "n/a",
+        },
+    )
 
 
-def _call_litellm(system_prompt: str, user_prompt: str, params: dict) -> tuple[str, int]:
+def _call_litellm(system_prompt: str, user_prompt: str, params: dict) -> LLMCallResult:
     import litellm
 
     # Drop provider-unsupported params silently (e.g. Anthropic rejects `seed`).
     litellm.drop_params = True
 
+    model = params["model"]
+    is_anthropic = "claude" in model.lower() or "anthropic" in model.lower()
+
+    # Start from the spec params; we'll mutate as drop_params / fallback apply.
+    effective_params: dict = {"model": model}
+    if params.get("max_tokens") is not None:
+        effective_params["max_tokens"] = params["max_tokens"]
+    if params.get("seed") is not None and not is_anthropic:
+        # Anthropic's API does not accept `seed`; litellm drops it when
+        # drop_params is True. Reflect that in the effective params.
+        effective_params["seed"] = params["seed"]
+    if params.get("temperature") is not None:
+        effective_params["temperature"] = params["temperature"]
+
     base_kwargs = {
-        "model": params["model"],
+        "model": model,
         "messages": [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
@@ -457,16 +525,19 @@ def _call_litellm(system_prompt: str, user_prompt: str, params: dict) -> tuple[s
     }
     seed = params.get("seed")
     if seed is not None:
-        base_kwargs["seed"] = seed
+        base_kwargs["seed"] = seed  # litellm strips for Anthropic with drop_params=True.
 
     # Newer Claude Opus/Sonnet models (4.7+) deprecated `temperature` — attempt
     # with it, fall back gracefully if the provider rejects it.
     temperature = params.get("temperature", 0.7)
+    deprecation_fallback_fired = False
     try:
         response = litellm.completion(**base_kwargs, temperature=temperature)
     except litellm.BadRequestError as e:
         msg = str(e).lower()
         if "temperature" in msg and "deprecated" in msg:
+            deprecation_fallback_fired = True
+            effective_params.pop("temperature", None)
             response = litellm.completion(**base_kwargs)
         else:
             raise
@@ -476,7 +547,35 @@ def _call_litellm(system_prompt: str, user_prompt: str, params: dict) -> tuple[s
     usage = getattr(response, "usage", None)
     if usage:
         tokens = getattr(usage, "total_tokens", 0) or 0
-    return content, tokens
+
+    model_returned = getattr(response, "model", None) or model
+    litellm_version = _litellm_version()
+
+    return LLMCallResult(
+        text=content,
+        tokens=tokens,
+        effective_params=effective_params,
+        call_metadata={
+            "dropParamsActive": bool(litellm.drop_params),
+            "deprecationFallbackFired": deprecation_fallback_fired,
+            "modelReturned": model_returned,
+            "litellmVersion": litellm_version,
+        },
+    )
+
+
+def _litellm_version() -> str:
+    """Resolve the installed litellm version via importlib.metadata.
+
+    litellm's package does not expose ``__version__``; the canonical source
+    is the distribution metadata. Falls back to "unknown" on any failure.
+    """
+    try:
+        from importlib.metadata import PackageNotFoundError, version
+
+        return version("litellm")
+    except Exception:
+        return "unknown"
 
 
 def _parse_json_response(text: str) -> dict:

@@ -40,9 +40,13 @@ variants=$(ls "$OUT"/*.jsonld 2>/dev/null | wc -l | tr -d ' ')
 pass "step 3: manifest present + $variants variants"
 
 # ── Step 4: each variant passes SHACL ───────────────────────
+# `uofa check` exits 1 when C1 integrity fails (expected on unsigned synthetic
+# packages), so we capture output with `|| true` and grep locally rather than
+# piping (which would trip pipefail).
 shacl_fail=0
 for f in "$OUT"/*.jsonld; do
-    if ! uofa check "$f" --skip-rules --build 2>&1 | grep -q "✓ C2"; then
+    output=$(uofa check "$f" --skip-rules --build 2>&1 || true)
+    if ! echo "$output" | grep -q "✓ C2"; then
         shacl_fail=$((shacl_fail + 1))
         echo "  SHACL failed: $(basename "$f")"
     fi
@@ -53,7 +57,8 @@ pass "step 4: all $variants variants pass SHACL"
 # ── Step 5: at least one triggers W-AR-05 ───────────────────
 hits=0
 for f in "$OUT"/*.jsonld; do
-    if uofa check "$f" --build 2>&1 | grep -q "W-AR-05"; then
+    output=$(uofa check "$f" --build 2>&1 || true)
+    if echo "$output" | grep -q "W-AR-05"; then
         hits=$((hits + 1))
     fi
 done

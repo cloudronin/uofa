@@ -11,6 +11,7 @@ from uofa_cli.adversarial.generator import (
     AdversarialGenerator,
     GENERATOR_VERSION,
     GenerationResult,
+    LLMCallResult,
     _parse_json_response,
 )
 from uofa_cli.adversarial.hash_utils import (
@@ -31,7 +32,19 @@ def _mock_caller(response_path: Path = MOCK_FIXTURE):
     def caller(system, user, params):
         assert system
         assert user
-        return text, 1234
+        return LLMCallResult(
+            text=text,
+            tokens=1234,
+            effective_params={
+                k: v for k, v in params.items() if v is not None
+            },
+            call_metadata={
+                "dropParamsActive": False,
+                "deprecationFallbackFired": False,
+                "modelReturned": params.get("model", "test"),
+                "litellmVersion": "test",
+            },
+        )
 
     return caller
 
@@ -74,7 +87,17 @@ def test_provenance_injected_into_package(valid_spec_path, tmp_path):
         assert block["specId"] == spec.spec_id
         assert block["generatorVersion"] == GENERATOR_VERSION
         assert block["promptTemplateId"].startswith("d3_undercutting_inference.")
-        # Hash verifies.
+        # v1.2 callMetadata block.
+        assert "callMetadata" in block
+        cm = block["callMetadata"]
+        assert cm["modelRequested"] == spec.generation_model
+        assert cm["litellmVersion"] == "test"
+        assert cm["dropParamsActive"] is False
+        assert cm["deprecationFallbackFired"] is False
+        assert cm["shaclRetries"] == 0
+        # modelParams reflects effective params (not hardcoded keys).
+        assert "modelParams" in block
+        # Hash verifies (covers callMetadata automatically).
         ok, stored, recomputed = verify_provenance_block_hash(block)
         assert ok, (stored, recomputed)
 
@@ -121,7 +144,17 @@ def test_shacl_failure_exhausts_retries(valid_spec_path, tmp_path):
 
     def bad_caller(system, user, params):
         call_count["n"] += 1
-        return json.dumps(bad_pkg), 100
+        return LLMCallResult(
+            text=json.dumps(bad_pkg),
+            tokens=100,
+            effective_params={k: v for k, v in params.items() if v is not None},
+            call_metadata={
+                "dropParamsActive": False,
+                "deprecationFallbackFired": False,
+                "modelReturned": params.get("model", "test"),
+                "litellmVersion": "test",
+            },
+        )
 
     gen = AdversarialGenerator(pack=spec.pack, llm_caller=bad_caller)
     result = gen.generate(spec, tmp_path, max_shacl_retries=2)

@@ -64,3 +64,22 @@ def test_hash_stable_across_key_reordering():
     block_a = {"b": 2, "a": 1, "c": 3}
     block_b = {"a": 1, "c": 3, "b": 2}
     assert compute_provenance_block_hash(block_a) == compute_provenance_block_hash(block_b)
+
+
+def test_hash_changes_when_call_metadata_changes():
+    """v1.2 callMetadata is nested inside the block; any change must flip the hash."""
+    base = _sample_block()
+    base["callMetadata"] = {
+        "dropParamsActive": True,
+        "deprecationFallbackFired": False,
+        "shaclRetries": 0,
+        "modelRequested": "claude-opus-4-7",
+        "modelReturned": "claude-opus-4-7",
+        "litellmVersion": "1.34.5",
+    }
+    h_before = compute_provenance_block_hash(base)
+
+    mutated = {**base, "callMetadata": {**base["callMetadata"], "deprecationFallbackFired": True}}
+    h_after = compute_provenance_block_hash(mutated)
+
+    assert h_before != h_after, "hash must change when callMetadata changes"
