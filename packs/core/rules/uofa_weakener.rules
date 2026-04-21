@@ -416,6 +416,67 @@
 ]
 
 # ============================================================================
+# W-PROV-01: Provenance Chain Incomplete (ported from Python at v0.5.2 §5.3)
+# ============================================================================
+# Strategy: three-rule chain (seed + extend × 3 + detect) implements the
+# upstream BFS that the Python detector performed over rdflib. Transitive
+# closure is materialized as uofa:_provScope triples (runtime-only, not in
+# the v0.5 context or SHACL shapes).
+#
+#   Seed:   every claim is "in provenance scope" for its owning UofA.
+#   Extend: for any node in scope reached via wasDerivedFrom / wasGeneratedBy /
+#           prov:used, mark its upstream target as also in scope.
+#   Detect: for any node in scope that (a) is not itself a claim, (b) has no
+#           upstream edge of any of the three types, and (c) is not marked
+#           uofa:isFoundationalEvidence, fire W-PROV-01 Critical.
+#
+# RETE-safety: the detector rule's noValue clauses test ORIGINAL input
+# triples (prov:wasDerivedFrom / wasGeneratedBy / prov:used / bindsClaim /
+# isFoundationalEvidence) — not the derived _provScope triples — so there is
+# no ordering race with forward-chained materialization.
+
+[w_prov01_seed_claim:
+    (?uofa rdf:type uofa:UnitOfAssurance)
+    (?uofa uofa:bindsClaim ?claim)
+    -> (?claim uofa:_provScope ?uofa)
+]
+
+[w_prov01_extend_derived:
+    (?a uofa:_provScope ?uofa)
+    (?a prov:wasDerivedFrom ?b)
+    -> (?b uofa:_provScope ?uofa)
+]
+
+[w_prov01_extend_generated:
+    (?a uofa:_provScope ?uofa)
+    (?a prov:wasGeneratedBy ?b)
+    -> (?b uofa:_provScope ?uofa)
+]
+
+[w_prov01_extend_used:
+    (?a uofa:_provScope ?uofa)
+    (?a prov:used ?b)
+    -> (?b uofa:_provScope ?uofa)
+]
+
+[w_prov01_detect:
+    (?node uofa:_provScope ?uofa)
+    noValue(?node, prov:wasDerivedFrom)
+    noValue(?node, prov:wasGeneratedBy)
+    noValue(?node, prov:used)
+    noValue(?anyU, uofa:bindsClaim, ?node)
+    noValue(?node, uofa:isFoundationalEvidence, 'true'^^xsd:boolean)
+    makeSkolem(?ann, ?uofa, 'W-PROV-01', ?node)
+    ->
+    (?ann rdf:type uofa:WeakenerAnnotation)
+    (?ann uofa:patternId 'W-PROV-01')
+    (?ann uofa:severity 'Critical')
+    (?ann uofa:affectedNode ?node)
+    (?ann schema:description 'Provenance chain terminates at a node that has no upstream derivation/generation/use edge and is not marked uofa:isFoundationalEvidence=true — chain is incomplete.')
+    (?uofa uofa:hasWeakener ?ann)
+]
+
+# ============================================================================
 # COMPOUND RULES — Chained inference BEYOND standalone SPARQL
 # ============================================================================
 # Guards use notEqual against compound IDs instead of regex (RETE-compatible).
