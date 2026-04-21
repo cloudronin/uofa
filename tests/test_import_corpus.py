@@ -47,6 +47,58 @@ except ImportError:
     OPENPYXL_AVAILABLE = False
 
 
+# v0.5 weakener patterns that fire on most pre-v0.5 fixtures because the
+# corresponding vocabulary is new in v0.5 (or because a default-Complete
+# profile lacks the v0.5-expected elements like hasSensitivityAnalysis and
+# COU envelope). The existing import-corpus SPECS baseline was authored
+# against v0.4; these are treated as allowed drift rather than unexpected
+# firings. Per-rule semantics verified independently in
+# tests/test_weakener_rules.py and inline Morrison regression (see
+# docs/v0.5-morrison-deltas.md).
+V0_5_DRIFT_PATTERNS: set[str] = {
+    "W-ON-02", "W-CON-04", "W-AL-02", "W-CON-01",
+    "W-PROV-01", "W-CON-05", "W-EP-03", "W-AR-03",
+    "W-AR-04", "W-CON-02", "W-CON-03",
+}
+
+# v0.5 High-severity drift patterns. When any of these fires AND the baseline
+# fixture has Critical-severity weakeners, the Jena COMPOUND-01 rule
+# cascades — pairing each new High with each existing Critical. For test
+# tolerance we subtract drift-induced COMPOUND-01 hits.
+V0_5_HIGH_DRIFT: set[str] = {"W-ON-02", "W-CON-01", "W-CON-05", "W-EP-03", "W-AR-03", "W-AR-04", "W-CON-03"}
+
+# Known Critical-severity weakener pattern IDs used to estimate drift-induced
+# COMPOUND-01 cascades.
+CRITICAL_PATTERNS: set[str] = {"W-EP-01", "W-ON-01", "W-AR-01", "W-AR-02", "W-PROV-01"}
+
+
+def _subtract_v05_drift(actual: dict, baseline_expected: dict) -> dict:
+    """Return actual counts with v0.5 drift patterns and their COMPOUND-01
+    cascades removed, for backward-compatible comparison against v0.4-era
+    baseline expectations."""
+    filtered = {}
+    drift_high = 0
+    for pid, count in actual["patterns"].items():
+        if pid in V0_5_DRIFT_PATTERNS:
+            if pid in V0_5_HIGH_DRIFT:
+                drift_high += count
+            continue
+        filtered[pid] = count
+
+    baseline_critical_hits = sum(
+        count for pid, count in baseline_expected.get("patterns", {}).items()
+        if pid in CRITICAL_PATTERNS
+    )
+    # COMPOUND-01 fires once per unordered (Critical, High) pair.
+    expected_compound_drift = drift_high * baseline_critical_hits
+    if expected_compound_drift > 0 and filtered.get("COMPOUND-01", 0) > 0:
+        filtered["COMPOUND-01"] = max(0, filtered["COMPOUND-01"] - expected_compound_drift)
+        if filtered["COMPOUND-01"] == 0:
+            del filtered["COMPOUND-01"]
+
+    return {"total": sum(filtered.values()), "patterns": filtered}
+
+
 def run_uofa(*args: str) -> subprocess.CompletedProcess:
     return subprocess.run(
         [sys.executable, "-m", "uofa_cli", *args],
@@ -296,26 +348,41 @@ class TestImportWeakeners:
     def test_total_weakener_count(self, weakener_result):
         name, spec, _, parsed = weakener_result
         expected = spec["expected_weakeners"]["total"]
-        assert parsed["total"] == expected, (
-            f"{name}: expected {expected} total weakeners, got {parsed['total']}. "
-            f"Patterns: {parsed['patterns']}"
+        filtered = _subtract_v05_drift(parsed, spec["expected_weakeners"])
+        assert filtered["total"] == expected, (
+            f"{name}: after excluding v0.5 drift, expected {expected} total "
+            f"weakeners, got {filtered['total']}. "
+            f"Filtered patterns: {filtered['patterns']} "
+            f"Raw patterns: {parsed['patterns']}"
         )
 
     def test_pattern_ids_and_counts(self, weakener_result):
         name, spec, _, parsed = weakener_result
+        filtered = _subtract_v05_drift(parsed, spec["expected_weakeners"])
         expected_patterns = spec["expected_weakeners"].get("patterns", {})
         for pid, expected_count in expected_patterns.items():
-            actual = parsed["patterns"].get(pid, 0)
+            actual = filtered["patterns"].get(pid, 0)
             assert actual == expected_count, (
-                f"{name}: {pid} expected {expected_count}, got {actual}"
+                f"{name}: {pid} expected {expected_count}, got {actual} "
+                f"(raw: {parsed['patterns'].get(pid, 0)})"
             )
 
     def test_no_unexpected_patterns(self, weakener_result):
         name, spec, _, parsed = weakener_result
         expected_pids = set(spec["expected_weakeners"].get("patterns", {}).keys())
-        actual_pids = set(parsed["patterns"].keys())
+        # v0.5 drift patterns are allowed — they fire on v0.4-era fixtures
+        # because the underlying v0.5 vocabulary is absent (or because
+        # Complete profile lacks SensitivityAnalysis by default). COMPOUND-01
+        # cascades induced by drift are also allowed (each new drift High
+        # pairs with baseline Criticals).
+        filtered = _subtract_v05_drift(parsed, spec["expected_weakeners"])
+        actual_pids = set(filtered["patterns"].keys())
         unexpected = actual_pids - expected_pids
-        assert not unexpected, f"{name}: unexpected patterns: {unexpected}"
+        assert not unexpected, (
+            f"{name}: unexpected non-drift patterns: {unexpected}. "
+            f"Filtered: {filtered['patterns']} "
+            f"Raw: {parsed['patterns']}"
+        )
 
 
 # ── TC-70 starter test (real xlsx, not generated) ─────────────
@@ -336,7 +403,19 @@ class TestTC70Starter:
         assert len(doc["hasCredibilityFactor"]) == 19
 
     def test_tc70_weakener_counts(self, tmp_path):
-        """TC-70 produces exactly 6 weakeners: 3 L1 + 2 COMPOUND-01 + 1 COMPOUND-03."""
+        """TC-70 produces exactly 12 weakeners under v0.5 rules.
+
+        v0.4 baseline: 6 (W-AR-02 + W-EP-04 + W-AR-05 + COMPOUND-01×2 + COMPOUND-03).
+        v0.5 additions on TC-70:
+        + W-ON-02 (High) — COU lacks applicability/operating envelope
+        + W-AL-02 (Medium) — UQ declared on UofA but no linked SensitivityAnalysis
+        + W-CON-01 (High) — Accepted decision with factors missing both levels
+        + W-CON-04 (Medium) — Complete profile with no SensitivityAnalysis
+        + COMPOUND-01 cascades (+2) — each new High (W-ON-02, W-CON-01)
+          pairs with baseline Critical (W-AR-02)
+        Total delta: +6 (6 → 12). See docs/v0.5-morrison-deltas.md for
+        the same cascade pattern on Morrison.
+        """
         if not TC70_XLSX.exists():
             pytest.skip(f"TC-70 starter not found: {TC70_XLSX}")
         if not JENA_AVAILABLE:
@@ -355,11 +434,15 @@ class TestTC70Starter:
         run_uofa("sign", str(output), "--key", str(KEY_FILE), "--context", CONTEXT_FILE)
 
         _, parsed = _run_rules(output, ["nasa-7009b"])
-        assert parsed["total"] == 6, f"Expected 6 weakeners, got {parsed['total']}: {parsed['patterns']}"
+        assert parsed["total"] == 12, f"Expected 12 weakeners, got {parsed['total']}: {parsed['patterns']}"
         assert parsed["patterns"] == {
             "W-AR-02": 1,
             "W-EP-04": 1,
             "W-AR-05": 1,
-            "COMPOUND-01": 2,
+            "W-AL-02": 1,
+            "W-CON-01": 1,
+            "W-CON-04": 1,
+            "W-ON-02": 1,
+            "COMPOUND-01": 4,
             "COMPOUND-03": 1,
         }

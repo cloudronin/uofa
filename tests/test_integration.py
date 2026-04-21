@@ -61,7 +61,7 @@ class TestCLIBasics:
     def test_version(self):
         result = run_uofa("--version")
         assert result.returncode == 0
-        assert "0.4.0" in result.stdout
+        assert "0.5.0" in result.stdout
 
     def test_no_command_shows_help(self):
         result = run_uofa()
@@ -652,7 +652,7 @@ class TestPacks:
         result = run_uofa("packs", "core")
         assert result.returncode == 0
         assert "core" in result.stdout
-        assert "0.4.0" in result.stdout
+        assert "0.5.0" in result.stdout
         assert "Standards-agnostic" in result.stdout or "agnostic" in result.stdout.lower()
 
     def test_packs_missing_pack(self):
