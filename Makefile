@@ -10,7 +10,7 @@ FILE ?=
 KEY  ?= keys/research.key
 
 .PHONY: all test validate morrison morrison-shacl morrison-rules morrison-verify morrison-diff
-.PHONY: morrison-build morrison-sign clean check shacl verify rules sign
+.PHONY: morrison-build morrison-sign clean check shacl verify rules sign corpus corpus-clean
 
 # ── Primary targets ─────────────────────────────────────────
 
@@ -71,3 +71,14 @@ morrison-sign:
 clean:
 	cd $(ENG_DIR) && mvn clean -q
 	@echo "✓ Clean."
+
+# ── Pre-Tester QA Corpus v2 ─────────────────────────────────
+# Builds 18 deterministic test fixtures under corpus/{edge-cases,import-tests}.
+# Requires the [corpus] optional deps: pip install -e '.[corpus]'
+
+corpus:
+	python corpus/build.py
+
+corpus-clean:
+	rm -rf corpus/edge-cases corpus/import-tests
+	@echo "✓ Corpus cleaned."

@@ -11,21 +11,6 @@ from uofa_cli import paths
 
 HELP = "list all weakener patterns across active packs"
 
-# Python-implemented rules live outside .rules files; the catalog enumerates them
-# from this registry so `uofa catalog` accurately reflects what fires.
-PYTHON_RULES: list[tuple[str, str, str, str]] = [
-    # (pack, pattern_id, severity, description)
-    ("core", "W-PROV-01", "Critical",
-     "Provenance chain terminates at a node without upstream edges that is "
-     "not marked uofa:isFoundationalEvidence=true."),
-    ("core", "W-CON-02", "Medium",
-     "UofA references an identifier that does not resolve within the graph "
-     "and has no documented external-fetch hint."),
-    ("core", "W-CON-05", "High",
-     "VerificationActivity declared on the UofA with no Evidence linked via "
-     "prov:wasGeneratedBy."),
-]
-
 # Patterns in the rule body: a header comment then a rule block with
 # patternId + severity + schema:description in the tail. The variable name
 # (?ann, ?esc, ?override, …) varies across rules, so the regex binds on the
@@ -56,20 +41,11 @@ def run(args) -> int:
 
 
 def _collect_patterns() -> list[dict]:
-    """Gather all patterns from .rules files in active packs + Python rules."""
+    """Gather all patterns from .rules files in active packs."""
     records: list[dict] = []
     for pack_name in _active_with_core():
         for rec in _parse_rules_for_pack(pack_name):
             records.append(rec)
-
-    for pack, pid, severity, description in PYTHON_RULES:
-        records.append({
-            "pack": pack,
-            "patternId": pid,
-            "severity": severity,
-            "description": description,
-            "engine": "python",
-        })
 
     return sorted(records, key=lambda r: (r["pack"], r["patternId"]))
 

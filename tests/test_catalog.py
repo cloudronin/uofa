@@ -25,14 +25,20 @@ def test_catalog_lists_all_23_core_patterns():
     assert len(core) == 23, f"expected 23 core patterns, got {len(core)}: {[r['patternId'] for r in core]}"
 
 
-def test_catalog_includes_python_rules():
+def test_catalog_ported_rules_report_jena_engine():
+    """W-PROV-01, W-CON-02, W-CON-05 were ported from Python to Jena at v0.5.2.
+    The catalog must now report them as engine="jena" alongside the rest of
+    the core ruleset."""
     result = _run("--format", "json")
     assert result.returncode == 0
     records = json.loads(result.stdout)
     pids = {r["patternId"]: r for r in records}
     for pid in ("W-PROV-01", "W-CON-02", "W-CON-05"):
         assert pid in pids, f"{pid} missing from catalog"
-        assert pids[pid]["engine"] == "python"
+        assert pids[pid]["engine"] == "jena", (
+            f"{pid} should report engine=jena after v0.5.2 single-engine "
+            f"refactor; got {pids[pid]['engine']}"
+        )
 
 
 def test_catalog_includes_all_v0_5_additions():

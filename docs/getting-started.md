@@ -222,6 +222,23 @@ A typical workflow:
 3. **Re-validate** (`uofa check FILE`) — confirm everything still passes
 4. **Review weakeners** — address Critical/High gaps before submission
 
+## Evidence format limitations
+
+Guidance from the Pre-Tester QA Corpus runs:
+
+- **`uofa extract` works best on structured reports of 10+ pages with
+  tables.** Performance degrades on slide decks, scanned (image-only)
+  documents, and brief memos. Scanned PDFs will parse but yield the
+  sentinel chunk `(image-only PDF — no extractable text)`; use OCR
+  upstream if you need the text.
+- **UofA prefers UTF-8 files.** Non-UTF-8 input (e.g., Shift-JIS, CP1252)
+  is handled via a `chardet` fallback but may produce warnings or
+  mojibake — save sources as UTF-8 where possible.
+- **Password-protected Excel workbooks are refused with a named error**;
+  remove the password before running `uofa import` or `uofa extract`.
+- **Corrupted or truncated PDFs** produce a named warning rather than
+  crashing the pipeline; the file is skipped.
+
 ## What's Next
 
 - **Study the Morrison example** (`packs/vv40/examples/morrison/`) to see Complete profiles for an FDA V&V 40 case study (COU1 and COU2)
