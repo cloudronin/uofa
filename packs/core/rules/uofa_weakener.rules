@@ -390,6 +390,31 @@
     (?subj uofa:hasWeakener ?ann)
 ]
 
+# W-CON-05: Activity-Evidence Consistency. Fires High on a VerificationActivity
+# declared via uofa:hasVerificationActivity when no Evidence in the graph
+# links to it via prov:wasGeneratedBy — the activity is a procedural
+# placeholder rather than real verification.
+#
+# Option A (single-stage, no marker materialization) per v0.5.2 spec §5.2.
+# The historical two-stage port hit a forward-RETE ordering bug; this
+# collapses the match into one rule body that only references INPUT data
+# triples (no derived intermediate). noValue on an unbound ?evidence acts
+# as an existential: succeeds when NO triple of shape
+# (any-subject prov:wasGeneratedBy ?act) exists in the graph.
+[w_con05:
+    (?uofa rdf:type uofa:UnitOfAssurance)
+    (?uofa uofa:hasVerificationActivity ?act)
+    noValue(?evidence, prov:wasGeneratedBy, ?act)
+    makeSkolem(?ann, ?uofa, 'W-CON-05', ?act)
+    ->
+    (?ann rdf:type uofa:WeakenerAnnotation)
+    (?ann uofa:patternId 'W-CON-05')
+    (?ann uofa:severity 'High')
+    (?ann uofa:affectedNode ?act)
+    (?ann schema:description 'VerificationActivity is declared on the UofA but no Evidence is linked via prov:wasGeneratedBy — the activity is a procedural placeholder rather than real verification.')
+    (?uofa uofa:hasWeakener ?ann)
+]
+
 # ============================================================================
 # COMPOUND RULES — Chained inference BEYOND standalone SPARQL
 # ============================================================================

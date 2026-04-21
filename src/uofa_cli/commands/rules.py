@@ -163,8 +163,8 @@ def run(args) -> int:
     python_annotations = []
     if not args.format or args.format == "summary":
         for detector_name, detector in (("W-PROV-01", detect_w_prov_01),
-                                        # W-CON-02 ported to Jena at v0.5.2.
-                                        ("W-CON-05", detect_w_con_05)):
+                                        # W-CON-02, W-CON-05 ported to Jena at v0.5.2.
+                                        ):
             try:
                 python_annotations.extend(detector(args.file, ctx))
             except Exception as e:  # noqa: BLE001
