@@ -55,6 +55,25 @@
     (?uofa uofa:hasWeakener ?ann)
 ]
 
+# W-EP-03: Stale Input Data — dataset consumed predates current model revision
+[w_ep03:
+    (?uofa rdf:type uofa:UnitOfAssurance)
+    (?uofa uofa:modelRevisionDate ?revDate)
+    (?uofa uofa:hasValidationResult ?result)
+    (?result prov:wasGeneratedBy ?activity)
+    (?activity prov:used ?dataset)
+    (?dataset uofa:dataVintage ?vintage)
+    lessThan(?vintage, ?revDate)
+    makeSkolem(?ann, ?uofa, 'W-EP-03', ?dataset)
+    ->
+    (?ann rdf:type uofa:WeakenerAnnotation)
+    (?ann uofa:patternId 'W-EP-03')
+    (?ann uofa:severity 'High')
+    (?ann uofa:affectedNode ?dataset)
+    (?ann schema:description 'Input dataset vintage predates the current model revision date — input data may be stale relative to the model it exercises.')
+    (?uofa uofa:hasWeakener ?ann)
+]
+
 # W-EP-04: Unassessed Factor at Elevated Risk
 [w_ep04:
     (?uofa rdf:type uofa:UnitOfAssurance)
@@ -91,6 +110,22 @@
     (?uofa uofa:hasWeakener ?ann)
 ]
 
+# W-AL-02: Sensitivity Gap — UQ present but no documented sensitivity analysis
+[w_al02:
+    (?uofa rdf:type uofa:UnitOfAssurance)
+    (?uofa uofa:hasValidationResult ?result)
+    (?result uofa:hasUncertaintyQuantification ?uq)
+    noValue(?uofa, uofa:hasSensitivityAnalysis)
+    makeSkolem(?ann, ?uofa, 'W-AL-02', ?uofa)
+    ->
+    (?ann rdf:type uofa:WeakenerAnnotation)
+    (?ann uofa:patternId 'W-AL-02')
+    (?ann uofa:severity 'Medium')
+    (?ann uofa:affectedNode ?uofa)
+    (?ann schema:description 'Uncertainty quantification is reported but no sensitivity analysis is linked — the drivers of uncertainty are undocumented.')
+    (?uofa uofa:hasWeakener ?ann)
+]
+
 # ============================================================================
 # CATEGORY 3: ONTOLOGICAL UNCERTAINTY WEAKENERS
 # ============================================================================
@@ -106,6 +141,22 @@
     (?ann uofa:severity 'Critical')
     (?ann uofa:affectedNode ?uofa)
     (?ann schema:description 'UofA has no Context of Use — intended use and risk context are undefined.')
+    (?uofa uofa:hasWeakener ?ann)
+]
+
+# W-ON-02: Unbounded Applicability — COU declared but no envelope
+[w_on02:
+    (?uofa rdf:type uofa:UnitOfAssurance)
+    (?uofa uofa:hasContextOfUse ?cou)
+    noValue(?cou, uofa:hasApplicabilityConstraint)
+    noValue(?cou, uofa:hasOperatingEnvelope)
+    makeSkolem(?ann, ?uofa, 'W-ON-02', ?cou)
+    ->
+    (?ann rdf:type uofa:WeakenerAnnotation)
+    (?ann uofa:patternId 'W-ON-02')
+    (?ann uofa:severity 'High')
+    (?ann uofa:affectedNode ?cou)
+    (?ann schema:description 'Context of Use has neither an applicability constraint nor an operating envelope — the COU is declared but its boundary of validity is undocumented.')
     (?uofa uofa:hasWeakener ?ann)
 ]
 
@@ -145,6 +196,27 @@
     (?ann uofa:severity 'Critical')
     (?ann uofa:affectedNode ?factor)
     (?ann schema:description 'Credibility factor achievedLevel is below requiredLevel, yet the decision outcome is Accepted — contradictory result ignored.')
+    (?uofa uofa:hasWeakener ?ann)
+]
+
+# W-AR-03: Undercutting Defeater (D3) — Inference Method Mismatch
+# Requirement specifies a required verification method; the activity that
+# produced the supporting result used a different activityType.
+[w_ar03:
+    (?uofa rdf:type uofa:UnitOfAssurance)
+    (?uofa uofa:bindsRequirement ?req)
+    (?req uofa:requiredVerificationMethod ?required)
+    (?uofa uofa:hasValidationResult ?result)
+    (?result prov:wasGeneratedBy ?activity)
+    (?activity uofa:activityType ?actual)
+    notEqual(?required, ?actual)
+    makeSkolem(?ann, ?uofa, 'W-AR-03', ?activity)
+    ->
+    (?ann rdf:type uofa:WeakenerAnnotation)
+    (?ann uofa:patternId 'W-AR-03')
+    (?ann uofa:severity 'High')
+    (?ann uofa:affectedNode ?activity)
+    (?ann schema:description 'Requirement requires a specific verification method but the supporting activity used a different activityType — evidence does not answer the question the requirement asked.')
     (?uofa uofa:hasWeakener ?ann)
 ]
 
