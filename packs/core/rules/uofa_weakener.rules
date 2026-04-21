@@ -363,13 +363,118 @@
     (?uofa uofa:hasWeakener ?ann)
 ]
 
-# W-CON-05 is implemented in Python (src/uofa_cli/python_rules/activity_evidence.py).
-# The two-stage Jena approach (stage 1: mark activities that have produced
-# evidence; stage 2: noValue check) fails because forward-RETE evaluates
-# noValue before stage 1's derived marker triples are observable — stage 2
-# fires on activities whose hasProducedEvidence marker is about to be added
-# but has not yet been added, producing false positives. Python post-pass
-# evaluates over the complete graph once inference is done.
+# W-CON-02: Identifier Resolution (local-graph, v0.5). Fires when a UofA
+# references an identifier via uofa:referencesIdentifier whose target IRI
+# neither resolves locally (has no declared rdf:type — the canonical signal
+# that a resource is defined within the graph) nor carries a schema:url
+# external-fetch hint. Remote HTTP resolution is out of scope for v0.5
+# (see UofA_v052_Single_Engine_Refactor_Spec_v1_0.md §2).
+#
+# Semantic note: rdf:type is used as the "local subject" proxy in place of
+# rdflib's g.subjects() set because materializing a per-subject marker via
+# a forward-chaining rule triggers a RETE ordering bug (noValue evaluates
+# before the marker lands — the same class of bug that motivated v0.5.1's
+# Python detector). Every meaningful UofA node declares rdf:type; unresolved
+# identifiers do not. Severity Medium mirrors v0.5.1 semantics.
+[w_con02:
+    (?subj uofa:referencesIdentifier ?obj)
+    noValue(?obj, rdf:type)
+    noValue(?obj, schema:url)
+    makeSkolem(?ann, ?subj, 'W-CON-02', ?obj)
+    ->
+    (?ann rdf:type uofa:WeakenerAnnotation)
+    (?ann uofa:patternId 'W-CON-02')
+    (?ann uofa:severity 'Medium')
+    (?ann uofa:affectedNode ?subj)
+    (?ann schema:description 'UofA references an identifier whose target does not resolve within the graph and has no documented external-fetch hint.')
+    (?subj uofa:hasWeakener ?ann)
+]
+
+# W-CON-05: Activity-Evidence Consistency. Fires High on a VerificationActivity
+# declared via uofa:hasVerificationActivity when no Evidence in the graph
+# links to it via prov:wasGeneratedBy — the activity is a procedural
+# placeholder rather than real verification.
+#
+# Option A (single-stage, no marker materialization) per v0.5.2 spec §5.2.
+# The historical two-stage port hit a forward-RETE ordering bug; this
+# collapses the match into one rule body that only references INPUT data
+# triples (no derived intermediate). noValue on an unbound ?evidence acts
+# as an existential: succeeds when NO triple of shape
+# (any-subject prov:wasGeneratedBy ?act) exists in the graph.
+[w_con05:
+    (?uofa rdf:type uofa:UnitOfAssurance)
+    (?uofa uofa:hasVerificationActivity ?act)
+    noValue(?evidence, prov:wasGeneratedBy, ?act)
+    makeSkolem(?ann, ?uofa, 'W-CON-05', ?act)
+    ->
+    (?ann rdf:type uofa:WeakenerAnnotation)
+    (?ann uofa:patternId 'W-CON-05')
+    (?ann uofa:severity 'High')
+    (?ann uofa:affectedNode ?act)
+    (?ann schema:description 'VerificationActivity is declared on the UofA but no Evidence is linked via prov:wasGeneratedBy — the activity is a procedural placeholder rather than real verification.')
+    (?uofa uofa:hasWeakener ?ann)
+]
+
+# ============================================================================
+# W-PROV-01: Provenance Chain Incomplete (ported from Python at v0.5.2 §5.3)
+# ============================================================================
+# Strategy: three-rule chain (seed + extend × 3 + detect) implements the
+# upstream BFS that the Python detector performed over rdflib. Transitive
+# closure is materialized as uofa:_provScope triples (runtime-only, not in
+# the v0.5 context or SHACL shapes).
+#
+#   Seed:   every claim is "in provenance scope" for its owning UofA.
+#   Extend: for any node in scope reached via wasDerivedFrom / wasGeneratedBy /
+#           prov:used, mark its upstream target as also in scope.
+#   Detect: for any node in scope that (a) is not itself a claim, (b) has no
+#           upstream edge of any of the three types, and (c) is not marked
+#           uofa:isFoundationalEvidence, fire W-PROV-01 Critical.
+#
+# RETE-safety: the detector rule's noValue clauses test ORIGINAL input
+# triples (prov:wasDerivedFrom / wasGeneratedBy / prov:used / bindsClaim /
+# isFoundationalEvidence) — not the derived _provScope triples — so there is
+# no ordering race with forward-chained materialization.
+
+[w_prov01_seed_claim:
+    (?uofa rdf:type uofa:UnitOfAssurance)
+    (?uofa uofa:bindsClaim ?claim)
+    -> (?claim uofa:_provScope ?uofa)
+]
+
+[w_prov01_extend_derived:
+    (?a uofa:_provScope ?uofa)
+    (?a prov:wasDerivedFrom ?b)
+    -> (?b uofa:_provScope ?uofa)
+]
+
+[w_prov01_extend_generated:
+    (?a uofa:_provScope ?uofa)
+    (?a prov:wasGeneratedBy ?b)
+    -> (?b uofa:_provScope ?uofa)
+]
+
+[w_prov01_extend_used:
+    (?a uofa:_provScope ?uofa)
+    (?a prov:used ?b)
+    -> (?b uofa:_provScope ?uofa)
+]
+
+[w_prov01_detect:
+    (?node uofa:_provScope ?uofa)
+    noValue(?node, prov:wasDerivedFrom)
+    noValue(?node, prov:wasGeneratedBy)
+    noValue(?node, prov:used)
+    noValue(?anyU, uofa:bindsClaim, ?node)
+    noValue(?node, uofa:isFoundationalEvidence, 'true'^^xsd:boolean)
+    makeSkolem(?ann, ?uofa, 'W-PROV-01', ?node)
+    ->
+    (?ann rdf:type uofa:WeakenerAnnotation)
+    (?ann uofa:patternId 'W-PROV-01')
+    (?ann uofa:severity 'Critical')
+    (?ann uofa:affectedNode ?node)
+    (?ann schema:description 'Provenance chain terminates at a node that has no upstream derivation/generation/use edge and is not marked uofa:isFoundationalEvidence=true — chain is incomplete.')
+    (?uofa uofa:hasWeakener ?ann)
+]
 
 # ============================================================================
 # COMPOUND RULES — Chained inference BEYOND standalone SPARQL

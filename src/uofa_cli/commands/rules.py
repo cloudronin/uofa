@@ -11,7 +11,6 @@ from pathlib import Path
 
 from uofa_cli.output import step_header, error, info, color, severity_badge
 from uofa_cli import paths
-from uofa_cli.python_rules import detect_w_prov_01, detect_w_con_02, detect_w_con_05
 
 HELP = "detect quality gaps with Jena rule engine (C3)"
 
@@ -157,80 +156,10 @@ def run(args) -> int:
     # Capture and colorize output
     result = subprocess.run(cmd, capture_output=True, text=True)
 
-    # W-PROV-01 and W-CON-02 run as Python post-passes. Forward RETE cannot
-    # express transitive-closure absence (W-PROV-01) or cross-subject dangling
-    # reference checks (W-CON-02). Only runs on --format summary.
-    python_annotations = []
-    if not args.format or args.format == "summary":
-        for detector_name, detector in (("W-PROV-01", detect_w_prov_01),
-                                        ("W-CON-02", detect_w_con_02),
-                                        ("W-CON-05", detect_w_con_05)):
-            try:
-                python_annotations.extend(detector(args.file, ctx))
-            except Exception as e:  # noqa: BLE001
-                # Never block Jena output on a Python-pass failure.
-                print(f"  ({detector_name} Python detector skipped: {e})", file=sys.stderr)
-
-    lines = result.stdout.splitlines()
-    if python_annotations:
-        lines = _merge_python_annotations(lines, python_annotations)
-
-    for line in lines:
+    for line in result.stdout.splitlines():
         print(_colorize_line(line))
 
     if result.stderr:
         print(result.stderr, file=sys.stderr, end="")
 
     return result.returncode
-
-
-def _merge_python_annotations(jena_lines: list[str], annotations: list[dict]) -> list[str]:
-    """Fold Python-rule annotations into Jena's summary output.
-
-    - Bumps the "SUMMARY: N weakener(s) detected" line by len(annotations).
-    - Bumps per-severity counts (currently all W-PROV-01 are Critical).
-    - Appends a W-PROV-01 section after the last existing ⚠ block.
-    """
-    n_new = len(annotations)
-    by_severity = {"Critical": 0, "High": 0, "Medium": 0, "Low": 0}
-    by_pid: dict[str, list[dict]] = {}
-    for ann in annotations:
-        by_severity[ann["severity"]] = by_severity.get(ann["severity"], 0) + 1
-        by_pid.setdefault(ann["patternId"], []).append(ann)
-
-    out: list[str] = []
-    summary_re = re.compile(r"^(\s*)SUMMARY:\s+(\d+)\s+weakener\(s\) detected(.*)$")
-    sev_re = _SUMMARY_LINE_RE
-    last_pattern_block_end = -1
-
-    for i, line in enumerate(jena_lines):
-        m = summary_re.match(line)
-        if m:
-            indent, n, tail = m.group(1), int(m.group(2)), m.group(3)
-            out.append(f"{indent}SUMMARY: {n + n_new} weakener(s) detected{tail}")
-            continue
-
-        m = sev_re.match(line)
-        if m:
-            indent, sev, n = m.group(1), m.group(2), int(m.group(3))
-            new_n = n + by_severity.get(sev, 0)
-            out.append(f"{indent}{sev}: {' ' * max(1, 6 - len(str(new_n)))}{new_n}")
-            continue
-
-        out.append(line)
-        if line.strip().startswith(("⚠", "→ affected:")):
-            last_pattern_block_end = len(out)
-
-    # Append the W-PROV-01 block after the last Jena ⚠ block (or at end).
-    insert_at = last_pattern_block_end if last_pattern_block_end > 0 else len(out)
-    new_block: list[str] = []
-    for pid in sorted(by_pid):
-        anns = by_pid[pid]
-        severity = anns[0]["severity"]
-        new_block.append(f"  ⚠ {pid} [{severity}] — {len(anns)} hit(s)")
-        for ann in anns:
-            short = ann["affectedNode"].rsplit("/", 1)[-1].rsplit("#", 1)[-1]
-            new_block.append(f"      → affected: {short}")
-
-    out[insert_at:insert_at] = new_block
-    return out
