@@ -22,7 +22,7 @@ _SEVERITY_ORDER = ["Critical", "High", "Medium", "Low"]
 #   ⚠ W-EP-04 [High] — 6 hit(s)
 #   ⚡ COMPOUND-01 [Critical] — 1 hit(s)
 _ENGINE_PATTERN_RE = re.compile(
-    r'[⚠⚡]\s+((?:W-[A-Z]{2}-\d{2}|COMPOUND-\d{2}))\s+'
+    r'[⚠⚡]\s+((?:W-[A-Z]{2,}-\d{2}|COMPOUND-\d{2}))\s+'
     r'\[(Critical|High|Medium|Low)\]\s+—\s+(\d+)\s+hit'
 )
 

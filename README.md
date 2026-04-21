@@ -123,19 +123,22 @@ uofa diff packs/vv40/examples/morrison/cou1/uofa-morrison-cou1.jsonld \
     Model risk level  MRL 2                             MRL 5
             Decision  Accepted                          Not accepted
      Assurance level  Medium                            Low
-           Weakeners  7                                 4
+           Weakeners  9                                 6
 
-══ Weakener Patterns (7) ══
+══ Weakener Patterns (10) ══
   ┌────────────────────────────────────────────────────────────────┐
   │   Pattern    │  Severity  │  COU A  │  COU B  │    Status    │
   ├──────────────┼────────────┼─────────┼─────────┼──────────────┤
   │ W-AL-01      │ [High]     │   ✓     │   ✗     │ ◆ divergent  │
   │ W-AL-02      │ [Medium]   │   ✗     │   ✓     │ ◆ divergent  │
   │ W-AR-05      │ [High]     │   ✓     │   ✗     │ ◆ divergent  │
+  │ W-CON-01     │ [High]     │   ✓     │   ✗     │ ◆ divergent  │
+  │ W-CON-04     │ [Medium]   │   ✓     │   ✓     │   same       │
   │ W-EP-01      │ [Critical] │   ✓     │   ✗     │ ◆ divergent  │
   │ W-EP-02      │ [High]     │   ✓     │   ✗     │ ◆ divergent  │
   │ W-EP-04      │ [High]     │   ✗     │   ✓     │ ◆ divergent  │
   │ W-ON-02      │ [High]     │   ✓     │   ✓     │   same       │
+  │ W-PROV-01    │ [Critical] │   ✗     │   ✓     │ ◆ divergent  │
   └──────────────┴────────────┴─────────┴─────────┴──────────────┘
 
 ══ Compound Patterns (2) ══
@@ -149,31 +152,52 @@ uofa diff packs/vv40/examples/morrison/cou1/uofa-morrison-cou1.jsonld \
 ══ Summary ══
   COU A (COU1: Cardiopulmonary bypass use (Class II)):
     [Critical] 2
-    [High] 5
-  COU B (COU2: Ventricular assist device use (Class III)):
-    [Critical] 1
-    [High] 2
+    [High] 6
     [Medium] 1
+  COU B (COU2: Ventricular assist device use (Class III)):
+    [Critical] 2
+    [High] 2
+    [Medium] 2
 
-  7 divergence(s) detected
+  9 divergence(s) detected
 
 ══ Divergence Explanations ══
 
+  [High] COMPOUND-03 — only in COU A
+    COU1: Cardiopulmonary bypass use (Class II): Assurance level is not Low, yet Critical weakeners exist — stated assurance level may be overstated.
+    COU2: Ventricular assist device use (Class III): pattern does not fire.
+
   [High] W-AL-01 — only in COU A
-    COU1: Validation result has no uncertainty quantification —
-    aleatory uncertainty is uncharacterized.
-    COU2: pattern does not fire.
+    COU1: Cardiopulmonary bypass use (Class II): Validation result has no uncertainty quantification — aleatory uncertainty is uncharacterized.
+    COU2: Ventricular assist device use (Class III): pattern does not fire.
+
+  [High] W-AR-05 — only in COU A
+    COU1: Cardiopulmonary bypass use (Class II): Validation result has no comparedAgainst link — comparator data source is absent.
+    COU2: Ventricular assist device use (Class III): pattern does not fire.
+
+  [High] W-CON-01 — only in COU A
+    COU1: Cardiopulmonary bypass use (Class II): Decision is Accepted but a credibility factor has neither requiredLevel nor achievedLevel — the acceptance rests on an unestablished factor.
+    COU2: Ventricular assist device use (Class III): pattern does not fire.
+
+  [Critical] W-EP-01 — only in COU A
+    COU1: Cardiopulmonary bypass use (Class II): Claim has no prov:wasDerivedFrom link to evidence — provenance chain is broken.
+    COU2: Ventricular assist device use (Class III): pattern does not fire.
+
+  [High] W-EP-02 — only in COU A
+    COU1: Cardiopulmonary bypass use (Class II): Validation result has no prov:wasGeneratedBy — generation activity is missing.
+    COU2: Ventricular assist device use (Class III): pattern does not fire.
 
   [Medium] W-AL-02 — only in COU B
-    COU2: Uncertainty quantification is reported but no sensitivity
-    analysis is linked — the drivers of uncertainty are undocumented.
-    COU1: pattern does not fire.
+    COU2: Ventricular assist device use (Class III): Uncertainty quantification is reported but no sensitivity analysis is linked — the drivers of uncertainty are undocumented.
+    COU1: Cardiopulmonary bypass use (Class II): pattern does not fire.
 
   [High] W-EP-04 — only in COU B
-    COU2: Credibility factor is not assessed but model risk level
-    exceeds 2 — unassessed factors at elevated risk weaken the
-    credibility argument.
-    COU1: pattern does not fire.
+    COU2: Ventricular assist device use (Class III): Credibility factor is not assessed but model risk level exceeds 2 — unassessed factors at elevated risk weaken the credibility argument.
+    COU1: Cardiopulmonary bypass use (Class II): pattern does not fire.
+
+  [Critical] W-PROV-01 — only in COU B
+    COU2: Ventricular assist device use (Class III): Provenance chain terminates at a node that has no upstream derivation/generation/use edge and is not marked uofa:isFoundationalEvidence=true — chain is incomplete.
+    COU1: Cardiopulmonary bypass use (Class II): pattern does not fire.
 ```
 
 The output has four sections: **identity block** (side-by-side COU metadata), **weakener profile table** (✓/✗ presence with divergence markers), **summary counts** (per-severity breakdown), and **divergence explanations** (from the `description` field on each WeakenerAnnotation — generated by the rule engine, not hardcoded in the diff command).
