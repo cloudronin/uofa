@@ -867,18 +867,26 @@ class TestWeakenerPins:
 
     @pytest.mark.skipif(not JENA_AVAILABLE, reason="Jena rules require Java")
     def test_morrison_cou1_weakener_count(self):
-        """Morrison COU1 must produce exactly 14 weakeners (slides 15-17)."""
+        """Morrison COU1 must produce exactly 16 weakeners under v0.5 rules.
+
+        v0.4 baseline: 14 (see v0.4.0-nafems tag). v0.5 additions on COU1:
+        + W-ON-02 (1)  — CPB COU lacks applicability/operating-envelope
+        + COMPOUND-01 cascade (1)  — W-ON-02 High pairs with an existing Critical
+        Other v0.5 rules do not fire on COU1 (see docs/v0.5-morrison-deltas.md).
+        """
         result = run_uofa("rules", str(MORRISON))
         assert result.returncode == 0
-        assert "SUMMARY: 14 weakener(s) detected" in result.stdout
-        # L1: W-EP-01(1) + W-EP-02(3) + W-AL-01(3) + W-AR-05(3) = 10
+        assert "SUMMARY: 16 weakener(s) detected" in result.stdout
+        # Baseline: W-EP-01(1) + W-EP-02(3) + W-AL-01(3) + W-AR-05(3) = 10
         assert "W-EP-01" in result.stdout
         assert "W-EP-02" in result.stdout
         assert "W-AL-01" in result.stdout
         assert "W-AR-05" in result.stdout
-        # Compound: COMPOUND-01(3) + COMPOUND-03(1) = 4
+        # Compound: COMPOUND-01(4) + COMPOUND-03(1) = 5 (COMPOUND-01 +1 under v0.5)
         assert "COMPOUND-01" in result.stdout
         assert "COMPOUND-03" in result.stdout
+        # v0.5 addition on COU1: unbounded applicability on the CPB COU
+        assert "W-ON-02" in result.stdout
         # These should NOT fire on COU1
         assert "W-EP-04" not in result.stdout
         assert "W-AR-01" not in result.stdout
@@ -886,12 +894,26 @@ class TestWeakenerPins:
 
     @pytest.mark.skipif(not JENA_AVAILABLE, reason="Jena rules require Java")
     def test_morrison_cou2_weakener_count(self):
-        """Morrison COU2 must produce exactly 6 weakeners (all W-EP-04)."""
+        """Morrison COU2 must produce exactly 15 weakeners under v0.5 rules.
+
+        v0.4 baseline: 6 (all W-EP-04). v0.5 additions on COU2:
+        + W-ON-02 (1)  — VAD COU lacks applicability/operating-envelope
+        + W-AL-02 (1)  — UQ is declared but no SensitivityAnalysis on the UofA
+        + W-PROV-01 (7) — Python post-pass: 7 chain nodes (validation results
+          and datasets reachable from the Claim) lack upstream edges and are
+          not marked uofa:isFoundationalEvidence=true. Expected until the
+          Morrison example is updated to mark its foundational evidence.
+        """
         result = run_uofa("rules", str(MORRISON_COU2))
         assert result.returncode == 0
-        assert "SUMMARY: 6 weakener(s) detected" in result.stdout
+        assert "SUMMARY: 15 weakener(s) detected" in result.stdout
         assert "W-EP-04" in result.stdout
-        # COU2 should ONLY have W-EP-04 — no other patterns
+        assert "W-ON-02" in result.stdout
+        assert "W-AL-02" in result.stdout
+        assert "W-PROV-01" in result.stdout
+        # COU2 still has no Jena-Critical weakener (W-PROV-01 is the only
+        # Critical and is Python-generated) → no COMPOUND cascade under the
+        # existing Jena COMPOUND-01/03 rules.
         assert "W-EP-01" not in result.stdout
         assert "W-EP-02" not in result.stdout
         assert "W-AL-01" not in result.stdout
@@ -903,19 +925,26 @@ class TestWeakenerPins:
 
     @pytest.mark.skipif(not JENA_AVAILABLE, reason="Jena rules require Java")
     def test_morrison_diff_divergence_count(self):
-        """Morrison COU1 vs COU2 diff must show exactly 7 divergences."""
+        """Morrison COU1 vs COU2 diff shows 7 unique patterns under v0.5.
+
+        v0.4 baseline: 7 patterns (5 L1 divergent + 2 compound divergent).
+        v0.5 shift: W-ON-02 is SHARED (fires on both COUs) and W-AL-02 is
+        divergent (fires only on COU2). Compound rows are not listed in the
+        v0.5 diff table output format.
+        """
         result = run_uofa("diff", str(MORRISON), str(MORRISON_COU2))
         assert result.returncode == 0
-        assert "7 divergence(s) detected" in result.stdout
-        # 5 L1 divergent patterns
+        assert "Weakener Patterns (7)" in result.stdout
+        # Divergent on COU1 only
         assert "W-AL-01" in result.stdout
         assert "W-AR-05" in result.stdout
         assert "W-EP-01" in result.stdout
         assert "W-EP-02" in result.stdout
+        # Divergent on COU2 only
         assert "W-EP-04" in result.stdout
-        # 2 compound divergent patterns
-        assert "COMPOUND-01" in result.stdout
-        assert "COMPOUND-03" in result.stdout
+        assert "W-AL-02" in result.stdout
+        # Shared across both COUs (new in v0.5)
+        assert "W-ON-02" in result.stdout
 
     @pytest.mark.skipif(not JENA_AVAILABLE, reason="Jena rules require Java")
     def test_aero_cou1_accept_fires_w_ar_02(self):
