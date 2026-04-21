@@ -11,7 +11,6 @@ from pathlib import Path
 
 from uofa_cli.output import step_header, error, info, color, severity_badge
 from uofa_cli import paths
-from uofa_cli.python_rules import detect_w_prov_01, detect_w_con_02, detect_w_con_05
 
 HELP = "detect quality gaps with Jena rule engine (C3)"
 
