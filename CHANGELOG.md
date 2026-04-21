@@ -2,6 +2,60 @@
 
 All notable changes to this project are documented here.
 
+## [0.5.0] — 2026-04-21
+
+### Added — v0.5 JSON-LD context
+
+- **New optional vocabulary** (`spec/context/v0.5.jsonld`): 12 additions backing the expanded weakener catalog. All backward-compatible — every v0.4 property is preserved; new properties are optional at the SHACL level.
+  - Data vintage / model revision: `dataVintage`, `modelRevisionDate`
+  - Evidence timestamps: `evidenceTimestamp`, `signatureTimestamp`
+  - Provenance marking: `isFoundationalEvidence`
+  - Model versioning: `modelVersion` (on ModelConfiguration)
+  - Sensitivity + activities: `hasSensitivityAnalysis`, `hasVerificationActivity`
+  - Identifier resolution: `referencesIdentifier`
+  - Staged CLARISSA vocabulary for v0.6 W-AR-06/W-AR-07: `residualRiskJustification`, `consideredAlternative`, `knownLimitation`
+
+### Added — Weakener catalog expansion (12 → 23 patterns)
+
+Eleven new weakener patterns join the `packs/core` catalog. All validated via unit-test fixtures under `tests/fixtures/weakeners/` (27 tests pass) plus inline Morrison regression (see `docs/v0.5-morrison-deltas.md`).
+
+- **W-ON-02** (High) — Unbounded Applicability: COU lacks both `hasApplicabilityConstraint` and `hasOperatingEnvelope`.
+- **W-AR-03** (High) — Inference Method Mismatch: requirement's `requiredVerificationMethod` differs from generating activity's `activityType`.
+- **W-AR-04** (High) — Model Version Drift: `ModelConfiguration.modelVersion` ≠ UofA's `currentModelVersion`.
+- **W-AL-02** (Medium) — Sensitivity Gap: UQ declared but no `hasSensitivityAnalysis` linked.
+- **W-EP-03** (High) — Stale Input Data: dataset `dataVintage` predates UofA `modelRevisionDate`.
+- **W-CON-01** (High) — Factor-Decision Consistency: `Accepted` decision with credibility factors lacking both `requiredLevel` and `achievedLevel`.
+- **W-CON-03** (High) — Future-dated Evidence: `evidenceTimestamp` > UofA `signatureTimestamp`.
+- **W-CON-04** (Medium) — Profile-Structure Consistency: Complete profile with no `hasSensitivityAnalysis` (single-branch v0.5; broader enumeration deferred to v0.6).
+- **W-CON-02** (Medium, **Python**) — Identifier Resolution: `referencesIdentifier` target neither resolves locally nor has an external-fetch hint.
+- **W-CON-05** (High, **Python**) — Activity-Evidence Consistency: `hasVerificationActivity` declared with no evidence linked via `prov:wasGeneratedBy`.
+- **W-PROV-01** (Critical, **Python**) — Provenance Chain Incomplete: BFS upstream from `bindsClaim` — emit at nodes without upstream edges that are not marked `uofa:isFoundationalEvidence=true`.
+
+### Added — CLI
+
+- **`uofa catalog`** — enumerates all weakener patterns across active packs. `--format json` for machine-readable output. Covers Jena rules and Python-implemented rules. Satisfies the "catalog CLI" deliverable.
+
+### Changed — Morrison regression deltas
+
+| | v0.4.0-nafems (baseline) | v0.5.0-pre-phase2 | Delta |
+|---|---|---|---|
+| Morrison COU1 | 14 | 24 | +10 (W-ON-02 + W-CON-01×6 + W-CON-04 + COMPOUND-01×2 cascades) |
+| Morrison COU2 | 6 | 16 | +10 (W-ON-02 + W-AL-02 + W-CON-04 + W-PROV-01×7) |
+
+Per-rule attribution in `docs/v0.5-morrison-deltas.md`.
+
+### Release-branch discipline
+
+- **Frozen reference tag** `v0.4.0-nafems` (on commit `e11b2b4`) preserves the exact state used for NAFEMS demo slide screenshots. All screenshots regenerated from v0.5 will show different counts; the demo runs from the frozen tag regardless.
+- **v0.5.0-pre-phase2** tag lands on `main` as the Phase 2 experimental baseline.
+
+### Known limitations
+
+- Python post-pass rules (W-PROV-01, W-CON-02, W-CON-05) do not feed back into the Jena `COMPOUND-01` cascade. Python-generated Critical weakeners are reported but not paired with Jena-detected High weakeners via the existing compound rule. Compound cascade across engines is deferred to v0.6.
+- W-CON-04 ships one branch (Complete profile missing SensitivityAnalysis). Broader ProfileComplete structural enumeration is deferred to v0.6 once distinct semantics beyond SHACL enforcement are settled.
+- W-CON-02 limits identifier resolution to the local graph plus HTTP(S) URL self-documentation; no HTTP fetch attempts in v0.5.
+- COMPOUND-02 (Factor Credibility Erosion) remains deferred (commented out in `packs/core/rules/uofa_weakener.rules`). `uofa catalog` filters it out.
+
 ## [0.4.1] — 2026-04-04
 ### Added
 - **`uofa import` command:** Imports practitioner-filled Excel workbooks into signed, validated JSON-LD UofA artifacts. Supports VV40 (13 factors) and NASA-STD-7009B (19 factors) packs, v2 evidence types (`ReviewActivity`, `ProcessAttestation`, `DeploymentRecord`, `InputPedigreeLink`), automatic URI generation, `assessmentPhase` assignment, and `ImportActivity` provenance tracking. Optional `--sign` and `--check` flags for one-command import-sign-validate workflow.
