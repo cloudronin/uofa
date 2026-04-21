@@ -11,7 +11,7 @@ from pathlib import Path
 
 from uofa_cli.output import step_header, error, info, color, severity_badge
 from uofa_cli import paths
-from uofa_cli.python_rules import detect_w_prov_01
+from uofa_cli.python_rules import detect_w_prov_01, detect_w_con_02
 
 HELP = "detect quality gaps with Jena rule engine (C3)"
 
@@ -157,15 +157,18 @@ def run(args) -> int:
     # Capture and colorize output
     result = subprocess.run(cmd, capture_output=True, text=True)
 
-    # W-PROV-01 runs as a Python post-pass (forward RETE cannot express
-    # transitive-closure absence). Only runs on --format summary.
+    # W-PROV-01 and W-CON-02 run as Python post-passes. Forward RETE cannot
+    # express transitive-closure absence (W-PROV-01) or cross-subject dangling
+    # reference checks (W-CON-02). Only runs on --format summary.
     python_annotations = []
     if not args.format or args.format == "summary":
-        try:
-            python_annotations = detect_w_prov_01(args.file, ctx)
-        except Exception as e:  # noqa: BLE001
-            # Never block Jena output on a Python-pass failure.
-            print(f"  (W-PROV-01 Python detector skipped: {e})", file=sys.stderr)
+        for detector_name, detector in (("W-PROV-01", detect_w_prov_01),
+                                        ("W-CON-02", detect_w_con_02)):
+            try:
+                python_annotations.extend(detector(args.file, ctx))
+            except Exception as e:  # noqa: BLE001
+                # Never block Jena output on a Python-pass failure.
+                print(f"  ({detector_name} Python detector skipped: {e})", file=sys.stderr)
 
     lines = result.stdout.splitlines()
     if python_annotations:

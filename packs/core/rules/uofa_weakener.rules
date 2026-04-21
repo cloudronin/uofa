@@ -305,6 +305,47 @@
 # CATEGORY 6: UofA-NATIVE CONSISTENCY WEAKENERS (W-CON)
 # ============================================================================
 
+# W-CON-01: Factor-Decision Consistency — Accepted decision with unrated factors
+# UofA decision outcome is Accepted, but one or more credibility factors have
+# neither requiredLevel nor achievedLevel declared. A decision cannot be
+# justified on factor levels that were never established.
+[w_con01:
+    (?uofa rdf:type uofa:UnitOfAssurance)
+    (?uofa uofa:hasDecisionRecord ?dr)
+    (?dr uofa:outcome 'Accepted')
+    (?uofa uofa:hasCredibilityFactor ?f)
+    noValue(?f, uofa:requiredLevel)
+    noValue(?f, uofa:achievedLevel)
+    makeSkolem(?ann, ?uofa, 'W-CON-01', ?f)
+    ->
+    (?ann rdf:type uofa:WeakenerAnnotation)
+    (?ann uofa:patternId 'W-CON-01')
+    (?ann uofa:severity 'High')
+    (?ann uofa:affectedNode ?f)
+    (?ann schema:description 'Decision is Accepted but a credibility factor has neither requiredLevel nor achievedLevel — the acceptance rests on an unestablished factor.')
+    (?uofa uofa:hasWeakener ?ann)
+]
+
+# W-CON-04: Profile-Structure Consistency — Complete profile missing SensitivityAnalysis
+# Narrow-scoped for v0.5: the spec §4.6 proposes multiple structural checks for
+# ProfileComplete, but most overlap with SHACL required fields (enforced at
+# validation time, not as a weakener). SensitivityAnalysis is the clearest
+# Complete-expected-but-SHACL-optional element; see docs/v0.5-morrison-deltas.md
+# for the full enumeration and the v0.6-deferred branches.
+[w_con04_no_sa:
+    (?uofa rdf:type uofa:UnitOfAssurance)
+    (?uofa uofa:conformsToProfile uofa:ProfileComplete)
+    noValue(?uofa, uofa:hasSensitivityAnalysis)
+    makeSkolem(?ann, ?uofa, 'W-CON-04', 'no-sensitivity-analysis')
+    ->
+    (?ann rdf:type uofa:WeakenerAnnotation)
+    (?ann uofa:patternId 'W-CON-04')
+    (?ann uofa:severity 'Medium')
+    (?ann uofa:affectedNode ?uofa)
+    (?ann schema:description 'UofA conforms to ProfileComplete but declares no SensitivityAnalysis — a Complete profile is structurally expected to document sensitivity analysis alongside uncertainty quantification.')
+    (?uofa uofa:hasWeakener ?ann)
+]
+
 # W-CON-03: Future-dated Evidence — evidence dated after the UofA signature
 [w_con03:
     (?uofa rdf:type uofa:UnitOfAssurance)
