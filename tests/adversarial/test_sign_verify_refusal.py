@@ -105,7 +105,7 @@ def test_verify_warns_on_block_tamper(synthetic_sample, tmp_path):
 def test_sign_still_works_on_non_synthetic(tmp_path, research_key):
     """Regression: signing a normal (non-synthetic) file must still succeed."""
     pkg = {
-        "@context": "https://raw.githubusercontent.com/cloudronin/uofa/main/spec/context/v0.4.jsonld",
+        "@context": "https://raw.githubusercontent.com/cloudronin/uofa/main/spec/context/v0.5.jsonld",
         "id": "https://uofa.net/test/normal",
         "type": "UnitOfAssurance",
         "conformsToProfile": "https://uofa.net/vocab#ProfileMinimal",

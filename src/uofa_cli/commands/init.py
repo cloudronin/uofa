@@ -53,12 +53,12 @@ def run(args) -> int:
     content = content.replace("example.org/my-project", f"example.org/{args.name}")
     content = content.replace("YOUR PROJECT NAME", args.name)
     content = content.replace(
-        '"../../spec/context/v0.4.jsonld"',
-        '"https://raw.githubusercontent.com/cloudronin/uofa/main/spec/context/v0.4.jsonld"'
+        '"../../spec/context/v0.5.jsonld"',
+        '"https://raw.githubusercontent.com/cloudronin/uofa/main/spec/context/v0.5.jsonld"'
     )
     content = content.replace(
-        '"../../../spec/context/v0.4.jsonld"',
-        '"https://raw.githubusercontent.com/cloudronin/uofa/main/spec/context/v0.4.jsonld"'
+        '"../../../spec/context/v0.5.jsonld"',
+        '"https://raw.githubusercontent.com/cloudronin/uofa/main/spec/context/v0.5.jsonld"'
     )
 
     output_file = project_dir / f"{args.name}-cou1.jsonld"

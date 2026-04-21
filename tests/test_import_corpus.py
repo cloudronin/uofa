@@ -32,7 +32,7 @@ SPECS = _generator.SPECS
 generate_fixture = _generator.generate_fixture
 
 REPO_ROOT = Path(__file__).parent.parent
-CONTEXT_FILE = str(REPO_ROOT / "spec" / "context" / "v0.4.jsonld")
+CONTEXT_FILE = str(REPO_ROOT / "spec" / "context" / "v0.5.jsonld")
 KEY_FILE = REPO_ROOT / "keys" / "research.key"
 TC70_XLSX = REPO_ROOT / "packs" / "nasa-7009b" / "examples" / "starters" / "uofa-aero-hpt-blade-thermal-gaps.xlsx"
 

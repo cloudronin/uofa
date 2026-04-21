@@ -23,7 +23,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-CTX = "../../../spec/context/v0.4.jsonld"  # relative to the fixture file
+CTX = "../../../spec/context/v0.5.jsonld"  # relative to the fixture file
 
 # All 19 NASA-STD-7009B factor names in canonical order
 VV40_FACTORS = [

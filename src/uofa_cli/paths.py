@@ -146,7 +146,7 @@ def all_shacl_schemas(root: Path = None) -> list[Path]:
 
 def context_file(root: Path = None) -> Path:
     root = root or find_repo_root()
-    return root / "spec" / "context" / "v0.4.jsonld"
+    return root / "spec" / "context" / "v0.5.jsonld"
 
 
 def jar_path(root: Path = None) -> Path:

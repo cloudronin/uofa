@@ -82,7 +82,7 @@ packs/
   README.md               # How to create a domain pack
 
 spec/
-  context/v0.4.jsonld     # JSON-LD vocabulary context (@vocab, property mappings)
+  context/v0.5.jsonld     # JSON-LD vocabulary context (@vocab, property mappings)
   schemas/
     uofa_shacl.ttl        # SYMLINK → ../../packs/core/shapes/uofa_shacl.ttl
     uofa.schema.json      # JSON Schema — generated from SHACL via `uofa schema`
@@ -314,7 +314,7 @@ If you change a validation constraint:
 3. Run `uofa schema --emit python` to regenerate import constants
 4. Run `uofa validate` to verify all examples still conform
 
-The JSON-LD context at `spec/context/v0.4.jsonld` defines the vocabulary mappings. It maps short property names (e.g., `patternId`) to full URIs (e.g., `uofa:patternId`). If you add a new property to the schema, you must also add its mapping here. The context is framework-level (not pack-specific) — all packs share the same vocabulary. New properties added in v0.4 include `factorStandard`, `assessmentPhase`, and `hasEvidence`.
+The JSON-LD context at `spec/context/v0.5.jsonld` defines the vocabulary mappings. It maps short property names (e.g., `patternId`) to full URIs (e.g., `uofa:patternId`). If you add a new property to the schema, you must also add its mapping here. The context is framework-level (not pack-specific) — all packs share the same vocabulary. New properties added in v0.5 back the expanded weakener catalog: `dataVintage`, `modelRevisionDate`, `hasSensitivityAnalysis`, `modelVersion`, `evidenceTimestamp`, `signatureTimestamp`, `isFoundationalEvidence`, `hasVerificationActivity`, `referencesIdentifier`, `residualRiskJustification`, `consideredAlternative`, and `knownLimitation`.
 
 ---
 
@@ -495,7 +495,7 @@ pytest tests/ -v
 
 The SHACL shapes at `packs/core/shapes/uofa_shacl.ttl` define what fields are required, their types, and allowed values. If you need to add a new field to the UofA vocabulary:
 
-1. **Add the property mapping** to `spec/context/v0.4.jsonld`:
+1. **Add the property mapping** to `spec/context/v0.5.jsonld`:
 
 ```json
 "myNewField": {"@id": "uofa:myNewField", "@type": "xsd:string"}

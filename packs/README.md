@@ -95,7 +95,7 @@ Every pack must have a `pack.json` with at minimum `name`, `version`, and `shape
 2. **Shapes extend, never replace, the core shapes.** A domain pack's SHACL file adds domain-specific constraints. The CLI loads core + pack shapes together.
 3. **Rules are additive.** Domain rules file is loaded *after* core rules. Domain patterns use a pack-specific prefix (e.g., `W-NASA-xx`) to avoid ID collisions.
 4. **Template is standalone.** A domain template includes all core fields plus domain-specific ones.
-5. **Examples are self-contained.** Each example `.jsonld` file uses a relative `@context` path to `spec/context/v0.4.jsonld`. The `uofa validate` command auto-discovers examples across all packs.
+5. **Examples are self-contained.** Each example `.jsonld` file uses a relative `@context` path to `spec/context/v0.5.jsonld`. The `uofa validate` command auto-discovers examples across all packs.
 
 ## Using Packs
 

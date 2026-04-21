@@ -167,5 +167,5 @@ PROFILE_URIS: dict[str, str] = {
 FACTOR_STANDARD_VV40 = "ASME-VV40-2018"
 FACTOR_STANDARD_NASA = "NASA-STD-7009B"
 
-CONTEXT_URL = "https://raw.githubusercontent.com/cloudronin/uofa/main/spec/context/v0.4.jsonld"
+CONTEXT_URL = "https://raw.githubusercontent.com/cloudronin/uofa/main/spec/context/v0.5.jsonld"
 BASE_URI = "https://uofa.net/instances"

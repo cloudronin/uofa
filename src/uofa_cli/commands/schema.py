@@ -588,7 +588,7 @@ def _generate_python_constants(shacl_paths: list[Path]) -> str:
     lines.append('FACTOR_STANDARD_VV40 = "ASME-VV40-2018"')
     lines.append('FACTOR_STANDARD_NASA = "NASA-STD-7009B"')
     lines.append("")
-    lines.append('CONTEXT_URL = "https://raw.githubusercontent.com/cloudronin/uofa/main/spec/context/v0.4.jsonld"')
+    lines.append('CONTEXT_URL = "https://raw.githubusercontent.com/cloudronin/uofa/main/spec/context/v0.5.jsonld"')
     lines.append('BASE_URI = "https://uofa.net/instances"')
     lines.append("")
 

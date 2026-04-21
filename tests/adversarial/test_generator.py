@@ -134,7 +134,7 @@ def test_shacl_failure_exhausts_retries(valid_spec_path, tmp_path):
     # A package that is well-formed JSON but fails ProfileMinimal SHACL
     # (missing bindsRequirement).
     bad_pkg = {
-        "@context": "https://raw.githubusercontent.com/cloudronin/uofa/main/spec/context/v0.4.jsonld",
+        "@context": "https://raw.githubusercontent.com/cloudronin/uofa/main/spec/context/v0.5.jsonld",
         "id": "https://uofa.net/synth/bad",
         "type": "UnitOfAssurance",
         "conformsToProfile": "https://uofa.net/vocab#ProfileMinimal",

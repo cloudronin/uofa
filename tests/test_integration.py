@@ -23,7 +23,7 @@ COMPLETE_TEMPLATE = REPO_ROOT / "packs" / "core" / "templates" / "uofa-complete-
 JAVA_AVAILABLE = shutil.which("java") is not None
 JENA_JAR = REPO_ROOT / "weakener-engine" / "target" / "uofa-weakener-engine-0.1.0.jar"
 JENA_AVAILABLE = JAVA_AVAILABLE and JENA_JAR.exists()
-CONTEXT_FILE = str(REPO_ROOT / "spec" / "context" / "v0.4.jsonld")
+CONTEXT_FILE = str(REPO_ROOT / "spec" / "context" / "v0.5.jsonld")
 
 
 def run_uofa(*args: str) -> subprocess.CompletedProcess:
