@@ -951,25 +951,30 @@ class TestWeakenerPins:
 
     @pytest.mark.skipif(not JENA_AVAILABLE, reason="Jena rules require Java")
     def test_morrison_diff_divergence_count(self):
-        """Morrison COU1 vs COU2 diff shows 7 unique patterns under v0.5.
+        """Morrison COU1 vs COU2 diff shows 10 unique L1 patterns at v0.5.2.
 
-        v0.4 baseline: 7 patterns (5 L1 divergent + 2 compound divergent).
-        v0.5 shift: W-ON-02 is SHARED (fires on both COUs) and W-AL-02 is
-        divergent (fires only on COU2). Compound rows are not listed in the
-        v0.5 diff table output format.
+        Post-diff-fix (multi-letter category regex): the table now
+        includes W-CON-* and W-PROV-* which the prior two-letter regex
+        silently dropped. 8 L1 divergent + 2 L1 shared (W-CON-04,
+        W-ON-02) + 1 compound divergent (COMPOUND-03) = 9 total
+        divergences reported by the summary line.
         """
         result = run_uofa("diff", str(MORRISON), str(MORRISON_COU2))
         assert result.returncode == 0
-        assert "Weakener Patterns (7)" in result.stdout
+        assert "Weakener Patterns (10)" in result.stdout
+        assert "9 divergence(s) detected" in result.stdout
         # Divergent on COU1 only
         assert "W-AL-01" in result.stdout
         assert "W-AR-05" in result.stdout
+        assert "W-CON-01" in result.stdout
         assert "W-EP-01" in result.stdout
         assert "W-EP-02" in result.stdout
         # Divergent on COU2 only
         assert "W-EP-04" in result.stdout
         assert "W-AL-02" in result.stdout
-        # Shared across both COUs (new in v0.5)
+        assert "W-PROV-01" in result.stdout
+        # Shared across both COUs
+        assert "W-CON-04" in result.stdout
         assert "W-ON-02" in result.stdout
 
     @pytest.mark.skipif(not JENA_AVAILABLE, reason="Jena rules require Java")

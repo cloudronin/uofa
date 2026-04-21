@@ -166,7 +166,7 @@ Same model, same data, same rules → COU1 (MRL 2, Accepted) has 24 weakeners
 dominated by W-CON-01 (6× under the Accepted gate) and a W-EP-01 orphan claim
 that cascades into 5 COMPOUND-01 firings. COU2 (MRL 5, Not Accepted) has 18
 weakeners dominated by W-PROV-01 (7×) on unresolved provenance roots plus
-W-EP-04 (6×) on unassessed factors at elevated model risk. Seven patterns
+W-EP-04 (6×) on unassessed factors at elevated model risk. Nine patterns
 diverge between the two COUs. Morrison only assessed 7 of 13 factors — the
 gap is invisible in the prose paper but machine-visible in the UofA.
 

@@ -573,7 +573,7 @@ UofA is the subject of a Doctor of Engineering praxis at George Washington Unive
 
   - **Morrison COU2** (MRL 5, Not Accepted): 18 weakeners including 9 Critical (7 W-PROV-01 provenance-chain orphans plus 2 COMPOUND-01 cascades), 7 High (6 W-EP-04 on unassessed factors at elevated model risk, 1 W-ON-02), and 2 Medium.
 
-  The cross-COU divergence (7 pattern-level divergences between COU1 and COU2) is the central analytical demonstration: same model, same data, different credibility requirements driven by different model risk produce measurably different credibility evidence profiles.
+  The cross-COU divergence (9 pattern-level divergences between COU1 and COU2) is the central analytical demonstration: same model, same data, different credibility requirements driven by different model risk produce measurably different credibility evidence profiles.
 - **Tier 2 (Prospective):** FDA VICTRE pipeline — live computational workflow instrumented to generate UofAs during execution rather than from retrospective documents.
 - **Tier 3 (Exploratory):** Multi-component stress test on VICTRE — simulates change events to test continuous re-issuance and hierarchical credibility composition.
 
