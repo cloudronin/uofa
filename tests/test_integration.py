@@ -902,39 +902,52 @@ class TestWeakenerPins:
 
     @pytest.mark.skipif(not JENA_AVAILABLE, reason="Jena rules require Java")
     def test_morrison_cou2_weakener_count(self):
-        """Morrison COU2 must produce exactly 16 weakeners under v0.5 rules.
+        """Morrison COU2 must produce exactly 18 weakeners under v0.5.2 rules.
 
         v0.4 baseline: 6 (all W-EP-04). v0.5 additions on COU2:
         + W-ON-02 (1)   — VAD COU lacks applicability/operating-envelope
         + W-AL-02 (1)   — UQ is declared but no SensitivityAnalysis on the UofA
         + W-CON-04 (1)  — Complete profile with no SensitivityAnalysis
-        + W-PROV-01 (7) — Python post-pass: 7 chain nodes (validation results
-          and datasets reachable from the Claim) lack upstream edges and are
-          not marked uofa:isFoundationalEvidence=true. Expected until the
-          Morrison example is updated to mark its foundational evidence.
-        Total delta: +10 (6 → 16). W-CON-01 does NOT fire on COU2 — decision
+        + W-PROV-01 (7) — Provenance chain terminates at 7 chain nodes
+          (validation results and datasets reachable from the Claim) that lack
+          upstream edges and are not marked uofa:isFoundationalEvidence=true.
+          Ported from Python to Jena at v0.5.2 (see
+          UofA_v052_Single_Engine_Refactor_Spec §5.3); the v0.5.1 Python
+          detector emitted the same 7 firings but they were invisible to the
+          Jena COMPOUND-01 rule. Under v0.5.2 single-engine, the Criticals
+          are on the graph and cascade normally.
+        + COMPOUND-01 (2) — NEW at v0.5.2. The 7 Critical W-PROV-01 firings
+          pair with the High-severity W-EP-04 and W-ON-02 pattern IDs
+          through COMPOUND-01's (Critical, High) cascade. makeSkolem
+          deduplicates by (pid1, pid2), so 7×(W-EP-04 + W-ON-02) collapses
+          to 2 distinct cascade annotations.
+
+        Total delta: +12 (6 → 18). W-CON-01 does NOT fire on COU2 — decision
         outcome is 'Not accepted', so W-CON-01's Accepted precondition fails.
         """
         result = run_uofa("rules", str(MORRISON_COU2))
         assert result.returncode == 0
-        assert "SUMMARY: 16 weakener(s) detected" in result.stdout
+        assert "SUMMARY: 18 weakener(s) detected" in result.stdout
         assert "W-EP-04" in result.stdout
         assert "W-ON-02" in result.stdout
         assert "W-AL-02" in result.stdout
         assert "W-CON-04" in result.stdout
         assert "W-PROV-01" in result.stdout
+        # v0.5.2 cascade: 7 W-PROV-01 Criticals pair with W-EP-04/W-ON-02 Highs
+        # → 2 COMPOUND-01 firings. COMPOUND-03 requires assuranceLevel != Low
+        # on the UofA in addition to a Critical; COU2's assurance stance does
+        # not satisfy that condition, so COMPOUND-03 does not fire.
+        assert "COMPOUND-01" in result.stdout
+        assert "COMPOUND-03" not in result.stdout
         # COU2 decision outcome is 'Not accepted' → W-CON-01 does not fire.
         assert "W-CON-01" not in result.stdout
-        # COU2 still has no Jena-Critical weakener (W-PROV-01 is Python-generated)
-        # → no COMPOUND cascade under the existing Jena COMPOUND-01/03 rules.
+        # COU2 still has none of the COU1-specific L1 Jena patterns
         assert "W-EP-01" not in result.stdout
         assert "W-EP-02" not in result.stdout
         assert "W-AL-01" not in result.stdout
         assert "W-AR-05" not in result.stdout
         assert "W-AR-01" not in result.stdout
         assert "W-AR-02" not in result.stdout
-        assert "COMPOUND-01" not in result.stdout
-        assert "COMPOUND-03" not in result.stdout
 
     @pytest.mark.skipif(not JENA_AVAILABLE, reason="Jena rules require Java")
     def test_morrison_diff_divergence_count(self):
