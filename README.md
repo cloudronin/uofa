@@ -1,4 +1,4 @@
-# Unit of Assurance (UofA) — v0.4
+# Unit of Assurance (UofA) — v0.5.2
 
 ![validate examples](https://github.com/cloudronin/uofa/actions/workflows/validate.yml/badge.svg)
 
@@ -74,11 +74,11 @@ That single command runs three checks:
 |---|---|---|
 | C2 | `uofa shacl FILE` | SHACL Complete profile validation — all required fields present |
 | C1 | `uofa verify FILE` | SHA-256 hash + ed25519 signature verification — content untampered |
-| C3 | `uofa rules FILE` | Jena rule engine — 13 forward-chaining rules detect quality gaps |
+| C3 | `uofa rules FILE` | Jena rule engine — 23 forward-chaining rules (21 core + 2 compound) detect quality gaps |
 
 The Jena JAR auto-builds on first run with `--build` (requires Java 17+ and Maven 3.8+).
 
-**What the rule engine finds (14 weakeners across 6 patterns on COU1):**
+**What the rule engine finds on Morrison COU1 at v0.5.2 (24 weakeners across 9 patterns):**
 
 | Pattern | Severity | Hits | What it detects |
 |---|---|---|---|
@@ -86,8 +86,13 @@ The Jena JAR auto-builds on first run with `--build` (requires Java 17+ and Mave
 | W-EP-02 | High | 3 | Broken provenance — validation results with no generation activity |
 | W-AL-01 | High | 3 | Missing uncertainty quantification on validation results |
 | W-AR-05 | High | 3 | Comparator absence — results not linked to reference entities |
-| ⚡ COMPOUND-01 | Critical | 3 | Risk escalation — Critical + High weakeners coexist on same UofA |
+| W-CON-01 | High | 6 | Accepted decision with factors lacking both requiredLevel and achievedLevel |
+| W-CON-04 | Medium | 1 | Complete profile with no sensitivity analysis linked |
+| W-ON-02 | High | 1 | COU lacks both applicability constraint and operating envelope |
+| ⚡ COMPOUND-01 | Critical | 5 | Risk escalation — Critical + High weakeners coexist on same UofA |
 | ⚡ COMPOUND-03 | High | 1 | Assurance level override — declared "Medium" but Critical gaps exist |
+
+The v0.5.2 catalog includes 23 core weakener patterns spanning epistemic, aleatoric, ontological, structural, consistency, provenance, and argumentation categories. Run `uofa catalog` to list the full set. The Morrison COU1 example fires 9 of those 23 (7 Level-1 rules plus 2 compound rules).
 
 The ⚡ compound rules fire on the output of the core rules — this is chained forward-chaining inference that standalone SPARQL queries cannot produce. Same model, same data, same rules: the rule engine reasons about the *interactions* between gaps, not just the gaps themselves.
 
@@ -118,33 +123,37 @@ uofa diff packs/vv40/examples/morrison/cou1/uofa-morrison-cou1.jsonld \
     Model risk level  MRL 2                             MRL 5
             Decision  Accepted                          Not accepted
      Assurance level  Medium                            Low
-           Weakeners  6                                 1
+           Weakeners  7                                 4
 
-══ Weakener Patterns (5) ══
+══ Weakener Patterns (7) ══
   ┌────────────────────────────────────────────────────────────────┐
   │   Pattern    │  Severity  │  COU A  │  COU B  │    Status    │
   ├──────────────┼────────────┼─────────┼─────────┼──────────────┤
   │ W-AL-01      │ [High]     │   ✓     │   ✗     │ ◆ divergent  │
+  │ W-AL-02      │ [Medium]   │   ✗     │   ✓     │ ◆ divergent  │
   │ W-AR-05      │ [High]     │   ✓     │   ✗     │ ◆ divergent  │
   │ W-EP-01      │ [Critical] │   ✓     │   ✗     │ ◆ divergent  │
   │ W-EP-02      │ [High]     │   ✓     │   ✗     │ ◆ divergent  │
   │ W-EP-04      │ [High]     │   ✗     │   ✓     │ ◆ divergent  │
+  │ W-ON-02      │ [High]     │   ✓     │   ✓     │   same       │
   └──────────────┴────────────┴─────────┴─────────┴──────────────┘
 
 ══ Compound Patterns (2) ══
   ┌────────────────────────────────────────────────────────────────┐
   │   Pattern    │  Severity  │  COU A  │  COU B  │    Status    │
   ├──────────────┼────────────┼─────────┼─────────┼──────────────┤
-  │ COMPOUND-01  │ [Critical] │   ✓     │   ✗     │ ◆ divergent  │
+  │ COMPOUND-01  │ [Critical] │   ✓     │   ✓     │   same       │
   │ COMPOUND-03  │ [High]     │   ✓     │   ✗     │ ◆ divergent  │
   └──────────────┴────────────┴─────────┴─────────┴──────────────┘
 
 ══ Summary ══
   COU A (COU1: Cardiopulmonary bypass use (Class II)):
     [Critical] 2
-    [High] 4
+    [High] 5
   COU B (COU2: Ventricular assist device use (Class III)):
-    [High] 1
+    [Critical] 1
+    [High] 2
+    [Medium] 1
 
   7 divergence(s) detected
 
@@ -154,6 +163,11 @@ uofa diff packs/vv40/examples/morrison/cou1/uofa-morrison-cou1.jsonld \
     COU1: Validation result has no uncertainty quantification —
     aleatory uncertainty is uncharacterized.
     COU2: pattern does not fire.
+
+  [Medium] W-AL-02 — only in COU B
+    COU2: Uncertainty quantification is reported but no sensitivity
+    analysis is linked — the drivers of uncertainty are undocumented.
+    COU1: pattern does not fire.
 
   [High] W-EP-04 — only in COU B
     COU2: Credibility factor is not assessed but model risk level
@@ -270,28 +284,18 @@ Placeholder strings (e.g., `sha256:placeholder...`) now **fail** SHACL validatio
 
 Quality gap detection uses [Apache Jena](https://jena.apache.org/) forward-chaining rules, not just SPARQL queries. The rule engine operates in two levels:
 
-**Level 1 — Core detection rules** match structural patterns against the evidence graph:
+**Level 1 — Core detection rules** (21 patterns in v0.5.2) match structural patterns against the evidence graph. Categories include epistemic (W-EP-*), aleatoric (W-AL-*), ontological (W-ON-*), structural (W-SI-*), consistency (W-CON-*), provenance (W-PROV-*), and argumentation (W-AR-*). Run `uofa catalog` for the full list with descriptions.
 
-| Rule | Category | What it detects |
-|---|---|---|
-| W-EP-01 | Epistemic | Claim with no provenance chain to evidence |
-| W-EP-02 | Epistemic | Validation result with no generation activity |
-| W-EP-04 | Epistemic | Unassessed credibility factor at elevated model risk (MRL > 2) |
-| W-AL-01 | Aleatory | Validation result with no uncertainty quantification |
-| W-AR-01 | Argument (D1) | Credibility factor with no acceptance criteria |
-| W-AR-02 | Argument (D2) | Decision "Accepted" but achievedLevel < requiredLevel |
-| W-AR-05 | Argument (D5) | Validation result with no comparator linkage |
-| W-SI-01 | Structural | Missing digital signature |
-| W-SI-02 | Structural | Missing required profile bindings |
-
-**Level 2 — Compound inference rules** fire on Level 1 output:
+**Level 2 — Compound inference rules** (2 active in v0.5.2) fire on the output of Level 1 rules:
 
 | Rule | What it detects |
 |---|---|
 | COMPOUND-01 | Critical + High weakeners coexist → escalated compound risk |
 | COMPOUND-03 | Declared assurance level contradicts detected Critical gaps |
 
-The compound rules are the key differentiator versus SPARQL. They reason about the *interactions* between gaps — something that requires chained forward-chaining inference. The RETE algorithm ensures only affected rules re-fire when new triples are added.
+COMPOUND-02 ships in the rules file but is currently commented out pending v0.6 design review; `uofa catalog` filters it from listing output.
+
+The compound rules are the key differentiator versus SPARQL. They reason about the *interactions* between gaps — something that requires chained forward-chaining inference. As of v0.5.2, all weakener rules (including previously Python-implemented W-CON-02, W-CON-05, W-PROV-01) evaluate in a single Jena forward-chaining pass, enabling compound rules to reason over the full weakener set.
 
 ---
 
@@ -441,14 +445,16 @@ Spec file format and the full design are documented in [UofA_Adversarial_Gen_Spe
 
 ## Domain Packs
 
-SHACL shapes, Jena rules, templates, and extraction prompts are organized into **domain packs** under `packs/`. The `core` pack ships with standards-agnostic credibility assessment rules (12 weakener patterns). The `vv40` pack provides the ASME V&V 40-2018 factor taxonomy (13 factors), and the `nasa-7009b` pack provides the NASA-STD-7009B factor taxonomy (19 factors, including 6 NASA-only lifecycle factors).
+SHACL shapes, Jena rules, templates, and extraction prompts are organized into **domain packs** under `packs/`. The `core` pack ships with standards-agnostic credibility assessment rules (23 weakener patterns as of v0.5.2, up from 12 in v0.4). The `vv40` pack provides the ASME V&V 40-2018 factor taxonomy (13 factors), and the `nasa-7009b` pack provides the NASA-STD-7009B factor taxonomy (19 factors, including 6 NASA-only lifecycle factors).
 
 ```bash
 $ uofa packs
-Installed packs:
-  core         v0.4.0   Core credibility assessment rules.               (any factors, 12 patterns) [always loaded]
-  nasa-7009b   v0.4.0   NASA-STD-7009B credibility assessment factors... (19 factors, 6 patterns)
-  vv40         v0.4.0   ASME V&V 40-2018 credibility factor taxonomy...  (13 factors, 0 patterns)   [active]
+════════════════════════════════════════════════════════
+  Installed packs
+════════════════════════════════════════════════════════
+    core         v0.5.0    Core credibility assessment rules. Standards-agnostic. (any factors, 23 patterns)  [always loaded]
+    nasa-7009b   v0.5.0    NASA-STD-7009B credibility assessment factors (19 factors: 1... (19 factors, 6 patterns)
+    vv40         v0.5.0    ASME V&V 40-2018 credibility factor taxonomy (13 factors). (13 factors, 0 patterns)  [active]
 ```
 
 The `--pack` flag on any command switches the active pack(s). Multiple packs can be specified to combine factor taxonomies and rules. The default is `--pack vv40` for backward compatibility. Per-project rules files next to the input file still take precedence over the pack default. See [`packs/README.md`](packs/README.md) for the full pack contract and instructions for creating domain packs.
@@ -502,7 +508,7 @@ Java and Maven are only required for the Jena rule engine (C3). Use `uofa check 
 
 ## Architecture: One UofA per Context of Use
 
-The v0.3 architecture models credibility assessment at the **COU level**, not the individual factor level. Each UofA packages the complete credibility decision for one Context of Use — including all per-factor assessments as embedded CredibilityFactor nodes and any detected quality gaps as WeakenerAnnotation nodes.
+UofA models credibility assessment at the **COU level**, not the individual factor level. Each UofA packages the complete credibility decision for one Context of Use — including all per-factor assessments as embedded CredibilityFactor nodes and any detected quality gaps as WeakenerAnnotation nodes.
 
 ```
 Morrison Blood Pump Assessment
@@ -514,7 +520,7 @@ Morrison Blood Pump Assessment
 │   ├── bindsDataset       → [PIV data, hemolysis in vitro data]
 │   ├── hasValidationResult → [mesh convergence, PIV velocity, hemolysis comparison]
 │   ├── hasCredibilityFactor → [13 V&V 40 factors: 7 assessed + 6 not-assessed]
-│   ├── hasWeakener        → [W-EP-01, W-EP-02, W-AL-01, W-AR-05] + compounds
+│   ├── hasWeakener        → [W-EP-01, W-EP-02 (3×), W-AL-01 (3×), W-AR-05 (3×), W-CON-01 (6×), W-CON-04, W-ON-02] + [COMPOUND-01 (5×), COMPOUND-03]
 │   ├── hasDecisionRecord  → "Accepted for COU1"
 │   ├── hash               → sha256:<real hash>
 │   ├── signature          → ed25519:<real signature>
@@ -523,8 +529,10 @@ Morrison Blood Pump Assessment
 └── morrison/cou2/uofa-morrison-cou2.jsonld (ProfileComplete)
     COU2: VAD Use (Class III) — Model Risk Level 5
     ├── hasCredibilityFactor → [13 V&V 40 factors: 7 assessed + 6 not-assessed]
-    ├── hasWeakener        → [W-EP-04 (6×)]
-    └── W-AL-01 does NOT fire — COU2 has UQ; W-EP-04 fires 6× on not-assessed factors
+    ├── hasWeakener        → [W-PROV-01 (7×), W-EP-04 (6×), W-ON-02, W-AL-02, W-CON-04] + [COMPOUND-01 (2×)]
+    └── At MRL 5 the risk-driven catalog shifts: W-PROV-01 dominates COU2 (7 provenance-chain orphans),
+        W-EP-04 fires 6× on not-assessed factors, and two of W-PROV-01's Criticals coexist with High
+        weakeners on `cou2` — triggering 2 COMPOUND-01 cascades that were unreachable pre-v0.5.2.
 ```
 
 Shared entities (model, datasets, pump geometry) are referenced by IRI, not duplicated. The divergence between COU1 and COU2 weakener profiles is the central analytical demonstration.
@@ -535,7 +543,13 @@ Shared entities (model, datasets, pump geometry) are referenced by IRI, not dupl
 
 UofA is the subject of a Doctor of Engineering praxis at George Washington University. The evaluation uses two FDA case studies:
 
-- **Tier 1 (Retrospective):** Morrison et al. (2019) — FDA generic centrifugal blood pump V&V 40 credibility assessment. Re-expressed as UofA evidence packages with real cryptographic integrity. Full 13-factor assessment (7 assessed, 6 not-assessed) with risk-driven divergence: COU1 (MRL 2) passes cleanly while COU2 (MRL 5) triggers 6 epistemic gap weakeners (W-EP-04) on unassessed factors.
+- **Tier 1 (Retrospective):** Morrison et al. (2019) — FDA generic centrifugal blood pump V&V 40 credibility assessment. Re-expressed as UofA evidence packages with real cryptographic integrity. Full 13-factor assessment (7 assessed, 6 not-assessed) with risk-driven divergence across the v0.5.2 catalog:
+
+  - **Morrison COU1** (MRL 2, Accepted): 24 weakeners including 6 Critical (1 W-EP-01 orphan claim plus 5 COMPOUND-01 cascades from coexisting Critical and High weakeners), 17 High (W-CON-01 on 6 factors with missing level assertions under the Accepted decision, plus W-AL-01, W-AR-05, W-EP-02, W-ON-02), and 1 Medium (W-CON-04 structural gap).
+
+  - **Morrison COU2** (MRL 5, Not Accepted): 18 weakeners including 9 Critical (7 W-PROV-01 provenance-chain orphans plus 2 COMPOUND-01 cascades), 7 High (6 W-EP-04 on unassessed factors at elevated model risk, 1 W-ON-02), and 2 Medium.
+
+  The cross-COU divergence (7 pattern-level divergences between COU1 and COU2) is the central analytical demonstration: same model, same data, different credibility requirements driven by different model risk produce measurably different credibility evidence profiles.
 - **Tier 2 (Prospective):** FDA VICTRE pipeline — live computational workflow instrumented to generate UofAs during execution rather than from retrospective documents.
 - **Tier 3 (Exploratory):** Multi-component stress test on VICTRE — simulates change events to test continuous re-issuance and hierarchical credibility composition.
 
