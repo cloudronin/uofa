@@ -34,7 +34,7 @@ packs/
   core/                         # Base pack — standards-agnostic core shapes + rules
     pack.json
     shapes/uofa_shacl.ttl       # Core SHACL (always loaded, all packs extend this)
-    rules/uofa_weakener.rules   # 9 core + 2 compound weakener rules
+    rules/uofa_weakener.rules   # 21 core + 2 active compound weakener rules (23 patterns as of v0.5.2)
     templates/
       uofa-template.xlsx        # Generic Excel template
       uofa-minimal-skeleton.jsonld
@@ -75,7 +75,7 @@ Every pack must have a `pack.json` with at minimum `name`, `version`, and `shape
 ```json
 {
   "name": "vv40",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "ASME V&V 40-2018 credibility factor taxonomy (13 factors).",
   "standards": ["ASME-VV40-2018", "FDA-2023-CMS"],
   "shapes": "shapes/vv40_shapes.ttl",
