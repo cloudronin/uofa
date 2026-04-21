@@ -11,7 +11,7 @@ from pathlib import Path
 
 from uofa_cli.output import step_header, error, info, color, severity_badge
 from uofa_cli import paths
-from uofa_cli.python_rules import detect_w_prov_01, detect_w_con_02
+from uofa_cli.python_rules import detect_w_prov_01, detect_w_con_02, detect_w_con_05
 
 HELP = "detect quality gaps with Jena rule engine (C3)"
 
@@ -163,7 +163,8 @@ def run(args) -> int:
     python_annotations = []
     if not args.format or args.format == "summary":
         for detector_name, detector in (("W-PROV-01", detect_w_prov_01),
-                                        ("W-CON-02", detect_w_con_02)):
+                                        ("W-CON-02", detect_w_con_02),
+                                        ("W-CON-05", detect_w_con_05)):
             try:
                 python_annotations.extend(detector(args.file, ctx))
             except Exception as e:  # noqa: BLE001
