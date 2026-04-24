@@ -25,19 +25,21 @@ def test_catalog_lists_all_23_core_patterns():
     assert len(core) == 23, f"expected 23 core patterns, got {len(core)}: {[r['patternId'] for r in core]}"
 
 
-def test_catalog_ported_rules_report_jena_engine():
+def test_catalog_ported_rules_report_core_pack():
     """W-PROV-01, W-CON-02, W-CON-05 were ported from Python to Jena at v0.5.2.
-    The catalog must now report them as engine="jena" alongside the rest of
-    the core ruleset."""
+    Post-v0.5.3 the per-row column is the source pack, not the engine — they
+    belong to core alongside the rest of the base ruleset."""
     result = _run("--format", "json")
     assert result.returncode == 0
     records = json.loads(result.stdout)
     pids = {r["patternId"]: r for r in records}
     for pid in ("W-PROV-01", "W-CON-02", "W-CON-05"):
         assert pid in pids, f"{pid} missing from catalog"
-        assert pids[pid]["engine"] == "jena", (
-            f"{pid} should report engine=jena after v0.5.2 single-engine "
-            f"refactor; got {pids[pid]['engine']}"
+        assert pids[pid]["pack"] == "core", (
+            f"{pid} should report pack=core; got {pids[pid]['pack']}"
+        )
+        assert "engine" not in pids[pid], (
+            f"{pid} still carries legacy 'engine' field; v0.5.3 renamed this to 'pack'"
         )
 
 
@@ -76,3 +78,43 @@ def test_catalog_table_format_includes_core_total():
     assert result.returncode == 0
     assert "Pack: core" in result.stdout
     assert "23 patterns" in result.stdout
+
+
+def test_catalog_honors_pack_flag():
+    """Fix A: --pack nasa-7009b enumerates core + NASA, 29 total."""
+    result = _run("--pack", "nasa-7009b")
+    assert result.returncode == 0
+    assert "W-NASA-01" in result.stdout
+    assert "W-NASA-06" in result.stdout
+    assert "Pack: nasa-7009b" in result.stdout
+    assert "Total: 29 patterns" in result.stdout
+
+
+def test_catalog_default_shows_core_only():
+    """Fix A: default behaviour (no --pack) shows core only, no NASA rules."""
+    result = _run()
+    assert result.returncode == 0
+    assert "Pack: core" in result.stdout
+    assert "W-NASA" not in result.stdout
+    assert "Total: 23 patterns" in result.stdout
+
+
+def test_catalog_shows_pack_label_not_jena():
+    """Fix A1: per-row source tag is pack-of-origin, not legacy [jena]."""
+    result = _run("--pack", "nasa-7009b")
+    assert result.returncode == 0
+    assert "[jena]" not in result.stdout
+    assert "[core]" in result.stdout
+    assert "[nasa-7009b]" in result.stdout
+
+
+def test_catalog_json_has_pack_field_not_engine():
+    """Fix A1: JSON schema field is 'pack', not 'engine'."""
+    result = _run("--pack", "nasa-7009b", "--format", "json")
+    assert result.returncode == 0
+    patterns = json.loads(result.stdout)
+    assert len(patterns) == 29
+    for p in patterns:
+        assert "pack" in p
+        assert "engine" not in p
+        assert p["pack"] in ("core", "nasa-7009b")

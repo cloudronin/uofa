@@ -33,6 +33,11 @@ def add_arguments(parser):
 
 
 def run(args) -> int:
+    # Re-apply active pack from args: the subparser's --pack action clobbers
+    # the parent parser's value at parse time, so the global set in cli.py
+    # may not reflect what the user passed after the subcommand name.
+    if args.pack:
+        paths.set_active_pack(args.pack)
     records = _collect_patterns()
     if args.format == "json":
         print(json.dumps(records, indent=2))
@@ -99,7 +104,6 @@ def _parse_rules_for_pack(pack_name: str) -> list[dict]:
             "patternId": pid,
             "severity": m.group("severity"),
             "description": m.group("description") or m.group("summary") or "",
-            "engine": "jena",
         })
     return records
 
@@ -118,12 +122,12 @@ def _render_table(records: list[dict]) -> int:
         header(f"Pack: {pack_name} ({len(entries)} patterns)")
         for r in entries:
             sev = severity_badge(r["severity"])
-            engine = color(f"[{r['engine']}]", "dim")
+            pack_tag = color(f"[{r['pack']}]", "dim")
             pid = color(r["patternId"], "yellow")
             desc = r["description"]
             if len(desc) > 90:
                 desc = desc[:87] + "..."
-            info(f"  {pid:<16} {sev} {engine}  {desc}")
+            info(f"  {pid:<16} {sev} {pack_tag}  {desc}")
         total += len(entries)
 
     info("")

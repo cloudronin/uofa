@@ -59,6 +59,15 @@ def _run():
         sp = sub.add_parser(name, help=mod.HELP, parents=[parent])
         mod.add_arguments(sp)
 
+    # Pre-parse --pack so values supplied BEFORE the subcommand are preserved.
+    # With parents=[parent], subparsers inherit a --pack action whose default
+    # of None clobbers a top-level --pack value at full-parse time. The pre-
+    # parse recovers it so `uofa --pack X catalog` and `uofa catalog --pack X`
+    # behave identically.
+    _pre_pack = argparse.ArgumentParser(add_help=False)
+    _pre_pack.add_argument("--pack", action="append")
+    _pre_args, _ = _pre_pack.parse_known_args()
+
     args = parser.parse_args()
 
     if not args.command:
@@ -69,7 +78,7 @@ def _run():
         set_color(False)
 
     # Set active pack(s) before resolving repo root
-    set_active_pack(args.pack or ["vv40"])
+    set_active_pack(_pre_args.pack or args.pack or ["vv40"])
 
     # Resolve repo root early so commands can use paths.*
     try:
