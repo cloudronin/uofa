@@ -60,6 +60,9 @@ _GAP_PROBE_REGISTRY: dict[str, str] = {
 #: Sentinel module path for negative_control specs.
 _NEGATIVE_CONTROL_MODULE = "uofa_cli.adversarial.prompts.negative_controls"
 
+#: Sentinel module path for multi-target interaction specs.
+_INTERACTION_MODULE = "uofa_cli.adversarial.prompts.multi_target"
+
 _MOCK_FIXTURE_ENV = "UOFA_ADVERSARIAL_MOCK_FIXTURE"
 
 
@@ -88,10 +91,12 @@ def resolve_template_module_path(spec) -> str | None:
     Pure mapping function (no import). Used by AdversarialSpec to compute
     ``prompt_template_id`` and ``_template_module``.
     """
-    if spec.coverage_intent in ("confirm_existing", "interaction"):
+    if spec.coverage_intent == "confirm_existing":
         if spec.target_weakener:
             return _REGISTRY.get(spec.target_weakener)
         return None
+    if spec.coverage_intent == "interaction":
+        return _INTERACTION_MODULE
     if spec.coverage_intent == "gap_probe":
         if not spec.source_taxonomy:
             return None

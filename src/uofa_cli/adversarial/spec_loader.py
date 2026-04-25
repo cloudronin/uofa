@@ -148,11 +148,12 @@ def _build_spec(raw: dict, spec_path: Path) -> AdversarialSpec:
             f"target.coverage_intent must be one of {sorted(VALID_INTENTS)}, got {intent!r}"
         )
 
-    # gap_probe specs may declare weakener: null and defeater_type: null per
-    # spec §6.2 — they target literature-defined defeaters that do NOT map
-    # to a UofA pattern. confirm_existing / interaction / negative_control
-    # specs must declare a weakener.
-    weakener_required = intent in ("confirm_existing", "interaction", "negative_control")
+    # gap_probe and negative_control specs may declare weakener: null and
+    # defeater_type: null. gap_probe targets literature-defined defeaters
+    # that do not map to UofA patterns (spec §6.2). negative_control
+    # specs target NO weakener at all — the expectation is zero firings.
+    # confirm_existing and interaction specs must declare a weakener.
+    weakener_required = intent in ("confirm_existing", "interaction")
     weakener_raw = target.get("weakener")
     defeater_raw = target.get("defeater_type")
 

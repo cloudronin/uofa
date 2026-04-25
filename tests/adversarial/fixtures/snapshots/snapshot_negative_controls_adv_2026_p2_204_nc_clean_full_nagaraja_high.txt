@@ -1,0 +1,187 @@
+── SYSTEM ──
+Do NOT include `uofa:residualRiskJustification`, `uofa:consideredAlternative`,
+or `uofa:knownLimitation` in the generated package. These are reserved for
+v0.6 rules and should not appear in v0.5-era test data.
+
+You generate synthetic simulation-credibility evidence in JSON-LD for ASME
+V&V 40 analysis. Packages are used to test a weakener-detection system.
+
+Requirements:
+1. Structurally complete. All required fields populated.
+2. Passes SHACL validation against the vv40 pack.
+3. Contains exactly the targeted weakness described below.
+4. Plausible on a quick read. The flaw must be subtle, not trivial.
+
+Output ONLY the JSON-LD package as a single valid JSON object. No commentary.
+No markdown fences. No trailing text. Close every brace.
+
+── USER ──
+Target weakener: (negative_control) (NC-4 fully-assessed Nagaraja COU1 archetype (orthopedic))
+Defeater type: negative_control — clean package
+Subtlety level: high
+
+Base COU skeleton (preserve the identity block verbatim in the output):
+{
+  "assuranceLevel": "Medium",
+  "conformsToProfile": "https://uofa.net/vocab#ProfileComplete",
+  "couName": "CPB use",
+  "decision": "Accepted",
+  "description": "V&V 40 credibility assessment for CFD hemolysis prediction of the FDA generic centrifugal blood pump under cardiopulmonary bypass (CPB) conditions. COU1 evaluates whether the computational model can identify worst-case hemolysis operating conditions for a Class II CPB device at Model Risk Level 2. Full 13-factor assessment: 7 factors assessed (all meeting required levels), 6 factors not assessed (acceptable at MRL 2).",
+  "deviceClass": "Class II",
+  "id": "https://uofa.net/morrison/cou1",
+  "modelRiskLevel": 2,
+  "name": "Morrison COU1 \u2014 CPB hemolysis credibility assessment"
+}
+
+Context of Use (copy verbatim as hasContextOfUse):
+{
+  "decisionConsequence": "High",
+  "description": "A CFD model is used to evaluate the sensitivity of pump-induced hemolysis to variations in component dimensions for a centrifugal blood pump used during cardiopulmonary bypass surgery. Model influence is MEDIUM (testing confirms results); decision consequence is HIGH (incorrect tolerance decision could impact clinical hemolysis levels). Model Risk Level 2.",
+  "deviceClass": "Class II",
+  "id": "https://uofa.net/morrison/cou/cou1-cpb",
+  "intendedUse": "Use CFD to identify worst-case operating conditions for hemolysis across 5 flow-speed combinations for a Class II CPB device. Results compared against predicate device hemolysis using relative hemolysis index (RH < 1 acceptance criterion).",
+  "modelInfluence": "Medium",
+  "name": "COU1: Cardiopulmonary bypass use (Class II)",
+  "type": "ContextOfUse"
+}
+
+Factor scaffolding — for each stub, fill requiredLevel, achievedLevel,
+factorStatus, acceptanceCriteria, rationale (leave factorType and
+factorStandard unchanged):
+[
+  {
+    "factorStandard": "ASME-VV40-2018",
+    "factorType": "Software quality assurance",
+    "type": "CredibilityFactor"
+  },
+  {
+    "factorStandard": "ASME-VV40-2018",
+    "factorType": "Numerical code verification",
+    "type": "CredibilityFactor"
+  },
+  {
+    "factorStandard": "ASME-VV40-2018",
+    "factorType": "Discretization error",
+    "type": "CredibilityFactor"
+  },
+  {
+    "factorStandard": "ASME-VV40-2018",
+    "factorType": "Test conditions",
+    "type": "CredibilityFactor"
+  },
+  {
+    "factorStandard": "ASME-VV40-2018",
+    "factorType": "Output comparison",
+    "type": "CredibilityFactor"
+  },
+  {
+    "factorStandard": "ASME-VV40-2018",
+    "factorType": "Relevance of the quantities of interest",
+    "type": "CredibilityFactor"
+  },
+  {
+    "factorStandard": "ASME-VV40-2018",
+    "factorType": "Relevance of the validation activities to the COU",
+    "type": "CredibilityFactor"
+  },
+  {
+    "factorStandard": "ASME-VV40-2018",
+    "factorType": "Numerical solver error",
+    "type": "CredibilityFactor"
+  },
+  {
+    "factorStandard": "ASME-VV40-2018",
+    "factorType": "Use error",
+    "type": "CredibilityFactor"
+  },
+  {
+    "factorStandard": "ASME-VV40-2018",
+    "factorType": "Model form",
+    "type": "CredibilityFactor"
+  },
+  {
+    "factorStandard": "ASME-VV40-2018",
+    "factorType": "Model inputs",
+    "type": "CredibilityFactor"
+  },
+  {
+    "factorStandard": "ASME-VV40-2018",
+    "factorType": "Test samples",
+    "type": "CredibilityFactor"
+  },
+  {
+    "factorStandard": "ASME-VV40-2018",
+    "factorType": "Equivalency of input parameters",
+    "type": "CredibilityFactor"
+  }
+]
+
+Task: generate a Complete-profile orthopedic-domain UofA at MRL 3 covering all 13 V&V 40 factors with appropriate rigor. Use Nagaraja COU1 as the structural template.
+
+Different orthopedic procedure narrative; same factor structure.
+
+(negative_control) TRIGGER (CRITICAL — do not skip):
+Emit a COMPLETELY clean UnitOfAssurance package. Every required field is populated correctly. Every CredibilityFactor is either 'assessed' with both `requiredLevel` and `achievedLevel` (and achievedLevel >= requiredLevel) AND `acceptanceCriteria` linked, OR 'scoped-out' / 'not-applicable' WITH a documented rationale. Provenance chain is complete back to foundational evidence. ValidationResults all have `comparedAgainst`, `prov:wasGeneratedBy`, and `hasUncertaintyQuantification` links. The decision rationale is detailed and grounded in the structured evidence. NO weakener should fire on this package.
+
+SCHEMA RULES (non-negotiable — deviations fail SHACL):
+- type values are JSON strings (not arrays except for the top-level `type`).
+- `requiredLevel` and `achievedLevel` are INTEGERS 1..5. Never strings like
+  "Gradation 2". Emit `"requiredLevel": 2`, not `"requiredLevel": "Gradation 2"`.
+- `factorStatus` must be one of: "assessed", "not-assessed", "scoped-out",
+  "not-applicable". Never "Met", "Complete", "Passed", etc.
+- `factorStandard` stays as "ASME-VV40-2018".
+- `hasContextOfUse`, `hasDecisionRecord`: inline objects with `id` field.
+- `hasValidationResult`: array of inline objects, each with `id` and `type`.
+- `bindsRequirement`, `bindsModel`: IRI strings.
+- `bindsDataset`: array of IRI strings.
+- `hasWeakener`: empty array [].
+- `generatedAtTime`: ISO-8601 string, e.g. "2026-04-19T00:00:00Z".
+- `hash`: "sha256:" followed by exactly 64 lowercase hex chars.
+- `signature`: "ed25519:" followed by lowercase hex chars.
+
+Required top-level fields (emit EXACTLY these values):
+  "@context": "https://raw.githubusercontent.com/cloudronin/uofa/main/spec/context/v0.5.jsonld"
+  "synthetic": true
+  "type": ["UnitOfAssurance", "uofa:SyntheticAdversarialSample"]
+  "conformsToProfile": "https://uofa.net/vocab#ProfileMinimal"
+
+Required decision outcome: Accepted
+
+Minimal skeleton to follow (fill in content, do NOT copy verbatim):
+{
+  "@context": "https://raw.githubusercontent.com/cloudronin/uofa/main/spec/context/v0.5.jsonld",
+  "id": "https://uofa.net/synth/<unique-id>",
+  "type": ["UnitOfAssurance", "uofa:SyntheticAdversarialSample"],
+  "synthetic": true,
+  "conformsToProfile": "https://uofa.net/vocab#ProfileMinimal",
+  "name": "...",
+  "description": "...",
+  "bindsRequirement": "https://uofa.net/synth/req/...",
+  "bindsClaim": "https://uofa.net/synth/claim/...",
+  "bindsModel": "https://uofa.net/synth/model/...",
+  "bindsDataset": ["https://uofa.net/synth/data/..."],
+  "hasContextOfUse": { /* the object above, verbatim */ },
+  "hasValidationResult": [
+    {
+      "id": "https://uofa.net/synth/validation/<id>",
+      "type": "ValidationResult",
+      "name": "..."
+    }
+  ],
+  "wasDerivedFrom": "https://doi.org/...",
+  "wasAttributedTo": "https://uofa.net/synth/org/...",
+  "generatedAtTime": "2026-04-19T00:00:00Z",
+  "hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+  "signature": "ed25519:0000000000000000000000000000000000000000000000000000000000000000",
+  "hasCredibilityFactor": [ /* from scaffolding above, fill fields */ ],
+  "hasWeakener": [],
+  "hasDecisionRecord": {
+    "id": "https://uofa.net/synth/decision/...",
+    "type": "DecisionRecord",
+    "actor": "https://uofa.net/synth/actor/...",
+    "role": "Credibility assessment team",
+    "outcome": "Accepted",
+    "rationale": "...",
+    "decidedAt": "2026-04-19T00:00:00Z"
+  }
+}

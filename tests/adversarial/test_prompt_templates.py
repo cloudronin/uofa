@@ -110,15 +110,19 @@ PHASE2_SPECS = sorted(
 def _snapshot_key(spec) -> str:
     """Stable per-spec snapshot identifier.
 
-    confirm_existing/interaction: weakener id (lowercase, underscores).
-    gap_probe: full source_taxonomy with slashes/hyphens flattened.
-    negative_control: spec_id (each NC is unique).
+    confirm_existing: weakener id (lowercase, underscores) — one snapshot
+        per unique weakener.
+    gap_probe: full source_taxonomy with slashes/hyphens flattened — one
+        snapshot per unique sub-type.
+    interaction: spec_id flattened — multiple INT specs share the primary
+        target_weakener so we key by spec_id to avoid file collision.
+    negative_control: spec_id — each NC is a distinct archetype.
     """
-    if spec.coverage_intent in ("confirm_existing", "interaction"):
+    if spec.coverage_intent == "confirm_existing":
         return spec.target_weakener.replace("-", "_").lower()
     if spec.coverage_intent == "gap_probe":
         return (spec.source_taxonomy or "unknown").replace("/", "_").replace("-", "_")
-    if spec.coverage_intent == "negative_control":
+    if spec.coverage_intent in ("interaction", "negative_control"):
         return spec.spec_id.replace("-", "_")
     return spec.spec_id
 
