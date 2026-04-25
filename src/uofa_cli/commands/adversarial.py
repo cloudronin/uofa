@@ -12,7 +12,7 @@ def add_arguments(parser):
     sub = parser.add_subparsers(
         dest="adversarial_command",
         title="adversarial commands",
-        metavar="{generate,run,analyze}",
+        metavar="{generate,run,analyze,prep-review}",
     )
 
     # ----- generate (Phase 1 single-spec entry point) -----
@@ -113,6 +113,28 @@ def add_arguments(parser):
         "--check-pack", default="vv40", help="pack to use for `uofa check` (default: vv40)"
     )
 
+    # ----- prep-review (Phase 2 D3 v1.8) -----
+    pr = sub.add_parser(
+        "prep-review",
+        help="generate Phase 3 reviewer prep packets from a classified outcomes.csv",
+    )
+    pr.add_argument(
+        "--outcomes", type=Path, required=True,
+        help="path to outcomes.csv produced by `uofa adversarial analyze`",
+    )
+    pr.add_argument(
+        "--output", type=Path, required=True,
+        help="output directory for review packets (created if missing)",
+    )
+    pr.add_argument(
+        "--include", default="cov-miss,cov-wrong",
+        help="comma-separated outcome classes to package (default: cov-miss,cov-wrong)",
+    )
+    pr.add_argument(
+        "--max-cases", type=int, default=50,
+        help="cap the total number of packets emitted (default: 50)",
+    )
+
 
 def run(args) -> int:
     cmd = getattr(args, "adversarial_command", None)
@@ -125,11 +147,15 @@ def run(args) -> int:
     if cmd == "analyze":
         from uofa_cli.adversarial.classifier import run_analyze
         return run_analyze(args)
+    if cmd == "prep-review":
+        from uofa_cli.adversarial.prep_review import run_prep_review
+        return run_prep_review(args)
 
     print("usage: uofa adversarial <subcommand>")
     print()
     print("subcommands:")
-    print("  generate   generate from a single spec (Phase 1)")
-    print("  run        batch-orchestrate generation across spec directories (Phase 2)")
-    print("  analyze    classify a batch's outcomes; emit CSV + HTML reports (Phase 2)")
+    print("  generate     generate from a single spec (Phase 1)")
+    print("  run          batch-orchestrate generation across spec directories (Phase 2)")
+    print("  analyze      classify a batch's outcomes; emit CSV + HTML reports (Phase 2)")
+    print("  prep-review  generate Phase 3 reviewer prep packets from outcomes.csv (Phase 2 D3)")
     return 0

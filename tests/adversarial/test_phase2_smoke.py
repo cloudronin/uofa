@@ -229,6 +229,33 @@ def test_phase2_e2e_smoke(tmp_path):
     # HTML perf appendix
     assert "Performance characterization" in html
 
+    # D3 (v1.8) gate #26: prep-review on this batch's outcomes.csv produces
+    # ≥1 packet + INDEX.md.
+    from uofa_cli.adversarial.prep_review import run_prep_review
+    review_dir = tmp_path / "review_packets"
+    rc_pr = run_prep_review(argparse.Namespace(
+        outcomes=outcomes_path,
+        output=review_dir,
+        include="cov-miss,cov-wrong",
+        max_cases=50,
+    ))
+    # The smoke set has 4 gap_probe rows — every one is a COV-MISS or
+    # COV-WRONG (mock LLM does not trigger taxonomy-specific defeaters).
+    # rc 0 = wrote ≥1 packet; rc 1 = no matches.
+    assert rc_pr in (0, 1)
+    if rc_pr == 0:
+        assert (review_dir / "INDEX.md").exists()
+        md_files = list(review_dir.glob("*_review.md"))
+        assert len(md_files) >= 1, "expected ≥1 review packet from gap_probe rows"
+        # INDEX.md content
+        idx = (review_dir / "INDEX.md").read_text()
+        assert "Phase 3 review packet index" in idx
+        assert "Total packets:" in idx
+        # Per-packet structure
+        sample = md_files[0].read_text()
+        assert "Source taxonomy attribution" in sample
+        assert "Reviewer questions" in sample
+
     # outcome_class should include both confirm_existing and gap_probe verdicts
     classes = set(r["outcome_class"] for r in rows)
     confirm_rows = [r for r in rows if r["coverage_intent"] == "confirm_existing"]
