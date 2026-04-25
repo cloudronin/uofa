@@ -193,7 +193,41 @@ def test_phase2_e2e_smoke(tmp_path):
     assert populated_cou1 >= 1, "expected at least one row with morrison_cou1 recall"
 
     # HTML report should render the COU-dependent rules header row.
-    assert "COU-dependent rules" in html_path.read_text()
+    html = html_path.read_text()
+    assert "COU-dependent rules" in html
+
+    # D2 (v1.8) gate #25: outcomes.csv has 5 timing columns; rule_timing.csv
+    # exists with the expected schema; HTML perf appendix renders.
+    d2_columns = {
+        "total_eval_ms", "jena_load_ms", "jena_inference_ms",
+        "output_serialize_ms", "eval_host_id",
+    }
+    assert d2_columns.issubset(set(reader.fieldnames or []))
+    # Every package row carries an eval_host_id (non-empty)
+    for r in rows:
+        assert r["eval_host_id"], f"missing eval_host_id on row {r['spec_id']}"
+    # total_eval_ms is non-zero for at least the smoke test's successful
+    # generations (mock LLM still incurs subprocess + parse cost on `uofa rules`).
+    nonzero_timings = [r for r in rows if int(r["total_eval_ms"] or 0) > 0]
+    assert len(nonzero_timings) >= 1, "expected ≥1 row with non-zero total_eval_ms"
+
+    # rule_timing.csv per §10.5
+    from uofa_cli.adversarial.classifier import RULE_TIMING_FIELDS
+    rule_timing_path = report_dir / "rule_timing.csv"
+    assert rule_timing_path.exists()
+    with open(rule_timing_path) as f:
+        rt_reader = csv.DictReader(f)
+        list(rt_reader)  # consume to populate fieldnames
+        assert tuple(rt_reader.fieldnames or ()) == RULE_TIMING_FIELDS
+
+    # batch_manifest.timing_fallback_note populated
+    bm = json.loads((out_dir / "batch_manifest.json").read_text())
+    assert bm.get("timing_fallback_note"), (
+        "expected batch_manifest.timing_fallback_note to be set after analyze"
+    )
+
+    # HTML perf appendix
+    assert "Performance characterization" in html
 
     # outcome_class should include both confirm_existing and gap_probe verdicts
     classes = set(r["outcome_class"] for r in rows)

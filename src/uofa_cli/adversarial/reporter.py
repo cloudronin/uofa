@@ -284,6 +284,77 @@ def _view3_precision_recall(rows) -> str:
     return "\n".join(rows_html)
 
 
+def _percentile(values: list[int], pct: float) -> int:
+    """Linear-interpolation percentile (0..1). Returns 0 on empty input."""
+    if not values:
+        return 0
+    sv = sorted(values)
+    if pct <= 0:
+        return sv[0]
+    if pct >= 1:
+        return sv[-1]
+    # Nearest-rank: index = ceil(p * n) - 1
+    import math
+    idx = max(0, min(len(sv) - 1, math.ceil(pct * len(sv)) - 1))
+    return sv[idx]
+
+
+def _perf_appendix(rows) -> str:
+    """D2 (v1.8) §11.2 performance characterization appendix.
+
+    Reads ``total_eval_ms`` from each row. If no row carries timing data,
+    renders a placeholder noting the unavailability.
+    """
+    import os as _os
+
+    timings = [int(getattr(r, "total_eval_ms", 0) or 0) for r in rows]
+    timings_nonzero = [t for t in timings if t > 0]
+    if not timings_nonzero:
+        return (
+            "<p><em>No per-package timing data captured (total_eval_ms is "
+            "zero for every row). See batch_manifest.timing_fallback_note for "
+            "details.</em></p>"
+        )
+
+    hw_spec = _os.environ.get(
+        "UOFA_HW_SPEC", "hardware spec not configured (set UOFA_HW_SPEC env var)"
+    )
+    median = _percentile(timings_nonzero, 0.5)
+    p95 = _percentile(timings_nonzero, 0.95)
+    mean = sum(timings_nonzero) // len(timings_nonzero)
+    out = [
+        f"<p>Hardware: {escape(hw_spec)}</p>",
+        '<table class="metric-table">',
+        "<thead><tr><th>Metric</th><th>Value (ms)</th></tr></thead>",
+        "<tbody>",
+        f"<tr><td>Mean total_eval_ms</td><td>{mean}</td></tr>",
+        f"<tr><td>Median total_eval_ms</td><td>{median}</td></tr>",
+        f"<tr><td>p95 total_eval_ms</td><td>{p95}</td></tr>",
+        f"<tr><td>Sample size</td><td>{len(timings_nonzero)}</td></tr>",
+        "</tbody></table>",
+    ]
+
+    # Slowest 20 packages
+    indexed = sorted(
+        ((int(getattr(r, "total_eval_ms", 0) or 0), r) for r in rows),
+        key=lambda kv: kv[0],
+        reverse=True,
+    )[:20]
+    out.append("<h3>Slowest 20 packages</h3>")
+    out.append("<table class='metric-table'>")
+    out.append(
+        "<thead><tr><th>spec_id</th><th>variant</th><th>total_eval_ms</th></tr></thead>"
+    )
+    out.append("<tbody>")
+    for ms, r in indexed:
+        out.append(
+            f"<tr><td>{escape(r.spec_id)}</td>"
+            f"<td>{r.variant_num}</td><td>{ms}</td></tr>"
+        )
+    out.append("</tbody></table>")
+    return "\n".join(out)
+
+
 def write_html_report(rows, out_path: Path) -> None:
     """Render the three-view report as ``out_path``.
 
@@ -318,6 +389,8 @@ def write_html_report(rows, out_path: Path) -> None:
         _view2_literature_coverage(rows),
         f"<h2 id='view3'>View 3 — Precision / recall summary</h2>",
         _view3_precision_recall(rows),
+        f"<h2 id='perf'>Performance characterization (v1.8 D2)</h2>",
+        _perf_appendix(rows),
         f"<p style='font-size:0.8rem;color:#999;'>n = {len(rows)} package rows.</p>",
         "</body></html>",
     ]

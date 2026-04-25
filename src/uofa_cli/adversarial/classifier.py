@@ -37,8 +37,11 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import os
 import re
+import socket
 import subprocess
+import time
 from collections import Counter, defaultdict
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -123,6 +126,12 @@ class _OutcomeRow:
     # whose base_cou doesn't match a shipped COU. Internal-only — not written
     # to outcomes.csv (v1.8 §10.3 only adds D2 timing columns).
     base_cou_key: str | None = None
+    # D2 (v1.8) per-package timing capture; see Phase 2 Spec §5.4.
+    total_eval_ms: int = 0
+    jena_load_ms: int = 0
+    jena_inference_ms: int = 0
+    output_serialize_ms: int = 0
+    eval_host_id: str = ""
 
 
 def _detect_baseline_key(base_cou: str | None) -> str | None:
@@ -154,12 +163,34 @@ def _parse_rule_firings_from_check(stdout: str) -> dict[str, int]:
     return firings
 
 
-def _run_rules_on_package(package_path: Path, pack: str = "vv40") -> dict[str, int]:
-    """Invoke `uofa rules` on a package and return parsed firings.
+def _resolve_eval_host_id() -> str:
+    """D2 (v1.8) host id: env var override or hostname fallback."""
+    return os.environ.get("UOFA_EVAL_HOST_ID") or socket.gethostname() or "unknown"
 
-    Returns an empty dict on subprocess error so the classifier records
-    GEN-INVALID rather than crashing.
+
+def _run_rules_on_package(
+    package_path: Path, pack: str = "vv40"
+) -> tuple[dict[str, int], dict[str, int]]:
+    """Invoke `uofa rules` on a package and return (firings, timings).
+
+    timings dict keys: ``total_eval_ms``, ``jena_load_ms``,
+    ``jena_inference_ms``, ``output_serialize_ms``. The Jena split is
+    best-effort — without Java-side instrumentation we cannot separate
+    load from inference, so ``jena_load_ms`` is 0 and ``jena_inference_ms``
+    carries the lumped subprocess cost. ``output_serialize_ms`` is the
+    Python-side parse time. See Phase 2 Spec v1.8 §5.4 fallback.
+
+    Returns ({}, {timings}) on subprocess error so the classifier records
+    GEN-INVALID without crashing.
     """
+    timings = {
+        "total_eval_ms": 0,
+        "jena_load_ms": 0,
+        "jena_inference_ms": 0,
+        "output_serialize_ms": 0,
+    }
+
+    t_start = time.perf_counter_ns()
     try:
         result = subprocess.run(
             ["python", "-m", "uofa_cli", "rules", "--pack", pack, str(package_path)],
@@ -168,8 +199,20 @@ def _run_rules_on_package(package_path: Path, pack: str = "vv40") -> dict[str, i
             timeout=120,
         )
     except (subprocess.TimeoutExpired, OSError):
-        return {}
-    return _parse_rule_firings_from_check(result.stdout)
+        timings["total_eval_ms"] = int((time.perf_counter_ns() - t_start) / 1_000_000)
+        return {}, timings
+    t_subprocess_end = time.perf_counter_ns()
+
+    firings = _parse_rule_firings_from_check(result.stdout)
+    t_parse_end = time.perf_counter_ns()
+
+    subprocess_ms = int((t_subprocess_end - t_start) / 1_000_000)
+    parse_ms = int((t_parse_end - t_subprocess_end) / 1_000_000)
+    timings["total_eval_ms"] = subprocess_ms + parse_ms
+    # Lump subprocess time into jena_inference_ms (see docstring fallback).
+    timings["jena_inference_ms"] = subprocess_ms
+    timings["output_serialize_ms"] = parse_ms
+    return firings, timings
 
 
 def _classify(
@@ -253,6 +296,17 @@ def _scan_outcomes(
         )
     batch = json.loads(manifest_path.read_text())
 
+    # D2 (v1.8): single host id per analyze invocation.
+    eval_host_id = _resolve_eval_host_id()
+
+    # Per-rule timing accumulator for rule_timing.csv (D2). Keyed by
+    # (rule_id, package_path); value is rule_eval_ms. With Jena's native
+    # per-rule timing unavailable, we record only that the rule fired
+    # (rule_eval_ms = 0 placeholder) so the CSV is shape-correct for
+    # downstream consumers. The fallback note in batch_manifest documents
+    # the limitation.
+    rule_timing_rows: list[dict] = []
+
     rows: list[_OutcomeRow] = []
 
     for per_spec in batch.get("perSpecResults", []):
@@ -305,10 +359,26 @@ def _scan_outcomes(
                 package_path is not None and package_path.exists() and shacl_passed
             )
 
-            firings = (
-                _run_rules_on_package(package_path, pack=pack)
-                if package_exists else {}
-            )
+            if package_exists:
+                firings, timings = _run_rules_on_package(package_path, pack=pack)
+            else:
+                firings, timings = {}, {
+                    "total_eval_ms": 0,
+                    "jena_load_ms": 0,
+                    "jena_inference_ms": 0,
+                    "output_serialize_ms": 0,
+                }
+
+            # D2: collect per-rule timing rows. Jena native per-rule timing
+            # is not exposed; record rule_fired only (rule_eval_ms 0).
+            for pat in firings:
+                rule_timing_rows.append({
+                    "rule_id": pat,
+                    "package_path": str(package_path) if package_path else "",
+                    "rule_eval_ms": 0,
+                    "rule_fired": "True",
+                })
+
             firings_subtracted = _subtract_baseline(firings, baseline_count)
 
             outcome_class, target_fired = _classify(
@@ -340,7 +410,16 @@ def _scan_outcomes(
                 tokens=tokens,
                 cost_usd=variant.get("estimatedCostUsd", 0.0),
                 base_cou_key=baseline_key,
+                total_eval_ms=timings["total_eval_ms"],
+                jena_load_ms=timings["jena_load_ms"],
+                jena_inference_ms=timings["jena_inference_ms"],
+                output_serialize_ms=timings["output_serialize_ms"],
+                eval_host_id=eval_host_id,
             ))
+    # Stash rule_timing_rows on the function for run_analyze to pick up.
+    # (Cleaner than rewiring the return tuple; classifier callers within
+    # the codebase only consume rows.)
+    _scan_outcomes._last_rule_timing_rows = rule_timing_rows  # type: ignore[attr-defined]
     return rows
 
 
@@ -512,6 +591,58 @@ def _write_summary_csv(rows: list[_OutcomeRow], out_path: Path) -> None:
             })
 
 
+RULE_TIMING_FIELDS: tuple[str, ...] = (
+    "rule_id",
+    "package_path",
+    "rule_eval_ms",
+    "rule_fired",
+)
+
+#: Fallback note recorded in <batch_dir>/batch_manifest.json when per-rule
+#: timing is unavailable from Jena natively. Per Phase 2 Spec v1.8 §10.5,
+#: the rule_timing.csv file is written with the per-(rule, package) firing
+#: rows but rule_eval_ms is set to 0 (Jena GenericRuleReasoner does not
+#: expose per-rule wall-clock without Java-side instrumentation).
+RULE_TIMING_FALLBACK_NOTE: str = (
+    "Per-rule wall-clock timing is not exposed by Jena's GenericRuleReasoner "
+    "(FORWARD_RETE) without Java-side instrumentation. rule_timing.csv "
+    "records (rule, package) firing pairs with rule_eval_ms=0; the lumped "
+    "subprocess time appears in outcomes.csv jena_inference_ms / "
+    "total_eval_ms. Phase 2 Spec v1.8 §10.5 acknowledges this fallback."
+)
+
+
+def _write_rule_timing_csv(rule_timing_rows: list[dict], out_path: Path) -> None:
+    """D2 (v1.8) §10.5: per-(rule, package) timing CSV.
+
+    Always writes a schema-conformant header. The Jena native fallback path
+    sets rule_eval_ms=0 on every row (see RULE_TIMING_FALLBACK_NOTE).
+    """
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(out_path, "w", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=RULE_TIMING_FIELDS)
+        w.writeheader()
+        for row in rule_timing_rows:
+            w.writerow({k: row.get(k, "") for k in RULE_TIMING_FIELDS})
+
+
+def _annotate_batch_manifest_with_timing_fallback(in_dir: Path) -> None:
+    """Append D2 timing_fallback_note to the batch manifest if not already
+    present. Idempotent — safe to call from analyze even when the runner
+    didn't write it during generation."""
+    manifest_path = in_dir / "batch_manifest.json"
+    if not manifest_path.exists():
+        return
+    try:
+        manifest = json.loads(manifest_path.read_text())
+    except (OSError, json.JSONDecodeError):
+        return
+    if manifest.get("timing_fallback_note"):
+        return
+    manifest["timing_fallback_note"] = RULE_TIMING_FALLBACK_NOTE
+    manifest_path.write_text(json.dumps(manifest, indent=2))
+
+
 def run_analyze(args) -> int:
     """Entry point for ``uofa adversarial analyze``."""
     in_dir: Path = args.in_dir
@@ -533,10 +664,16 @@ def run_analyze(args) -> int:
     outcomes_path = out_dir / "outcomes.csv"
     matrix_path = out_dir / "matrix.csv"
     summary_path = out_dir / "summary.csv"
+    rule_timing_path = out_dir / "rule_timing.csv"
 
     _write_outcomes_csv(rows, outcomes_path)
     _write_matrix_csv(rows, matrix_path)
     _write_summary_csv(rows, summary_path)
+
+    # D2: rule_timing.csv (fallback path — see RULE_TIMING_FALLBACK_NOTE).
+    rule_timing_rows = getattr(_scan_outcomes, "_last_rule_timing_rows", [])
+    _write_rule_timing_csv(rule_timing_rows, rule_timing_path)
+    _annotate_batch_manifest_with_timing_fallback(in_dir)
 
     # HTML report (delegated to reporter.py)
     from uofa_cli.adversarial.reporter import write_html_report
@@ -548,5 +685,6 @@ def run_analyze(args) -> int:
     result_line("outcomes", True, str(outcomes_path))
     result_line("matrix", True, str(matrix_path))
     result_line("summary", True, str(summary_path))
+    result_line("rule_timing", True, str(rule_timing_path))
     result_line("report", True, str(html_path))
     return 0

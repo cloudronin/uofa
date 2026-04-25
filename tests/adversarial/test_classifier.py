@@ -582,3 +582,126 @@ def test_d1_outcomes_csv_does_not_export_base_cou_key(tmp_path):
     assert "base_cou_key" not in (reader.fieldnames or [])
     # Sanity: row data is still correctly written.
     assert loaded[0]["spec_id"] == "t1"
+
+
+# ----- D2: time-to-fire instrumentation (Phase 2 §5.4 / §10.3 v1.8) -----
+
+
+def test_d2_resolve_eval_host_id_default_uses_hostname():
+    """Default host id is socket.gethostname()."""
+    import socket
+    import os
+    from uofa_cli.adversarial.classifier import _resolve_eval_host_id
+
+    # Save & clear the env var
+    saved = os.environ.pop("UOFA_EVAL_HOST_ID", None)
+    try:
+        host = _resolve_eval_host_id()
+        assert host == socket.gethostname() or host == "unknown"
+    finally:
+        if saved is not None:
+            os.environ["UOFA_EVAL_HOST_ID"] = saved
+
+
+def test_d2_resolve_eval_host_id_env_override(monkeypatch):
+    """UOFA_EVAL_HOST_ID overrides the hostname."""
+    from uofa_cli.adversarial.classifier import _resolve_eval_host_id
+    monkeypatch.setenv("UOFA_EVAL_HOST_ID", "test-host-42")
+    assert _resolve_eval_host_id() == "test-host-42"
+
+
+def test_d2_outcomes_csv_includes_d2_timing_columns(tmp_path):
+    """outcomes.csv schema gains 5 D2 timing columns per v1.8 §10.3."""
+    from uofa_cli.adversarial.classifier import _write_outcomes_csv
+
+    rows = [_row_obj(
+        spec_id="t1",
+        rules_fired="W-AR-01",
+    )]
+    # Set timing fields on the row directly
+    rows[0].total_eval_ms = 1234
+    rows[0].jena_load_ms = 0
+    rows[0].jena_inference_ms = 1200
+    rows[0].output_serialize_ms = 34
+    rows[0].eval_host_id = "test-host"
+
+    out = tmp_path / "outcomes.csv"
+    _write_outcomes_csv(rows, out)
+    with open(out) as f:
+        reader = csv.DictReader(f)
+        loaded = list(reader)
+    expected = {
+        "total_eval_ms", "jena_load_ms", "jena_inference_ms",
+        "output_serialize_ms", "eval_host_id",
+    }
+    assert expected.issubset(set(reader.fieldnames or []))
+    assert loaded[0]["total_eval_ms"] == "1234"
+    assert loaded[0]["eval_host_id"] == "test-host"
+
+
+def test_d2_rule_timing_csv_schema(tmp_path):
+    """rule_timing.csv conforms to §10.5 schema."""
+    from uofa_cli.adversarial.classifier import (
+        _write_rule_timing_csv,
+        RULE_TIMING_FIELDS,
+    )
+    rows = [
+        {"rule_id": "W-AR-05", "package_path": "/p/v1.jsonld",
+         "rule_eval_ms": 0, "rule_fired": "True"},
+        {"rule_id": "W-AL-01", "package_path": "/p/v1.jsonld",
+         "rule_eval_ms": 0, "rule_fired": "True"},
+    ]
+    out = tmp_path / "rule_timing.csv"
+    _write_rule_timing_csv(rows, out)
+    with open(out) as f:
+        reader = csv.DictReader(f)
+        loaded = list(reader)
+    assert tuple(reader.fieldnames or ()) == RULE_TIMING_FIELDS
+    assert len(loaded) == 2
+    assert loaded[0]["rule_id"] == "W-AR-05"
+
+
+def test_d2_rule_timing_csv_empty_input_writes_header_only(tmp_path):
+    """Even with no rule_timing rows, the file is created with the schema
+    header (per v1.8 §10.5 fallback path)."""
+    from uofa_cli.adversarial.classifier import (
+        _write_rule_timing_csv,
+        RULE_TIMING_FIELDS,
+    )
+    out = tmp_path / "rule_timing.csv"
+    _write_rule_timing_csv([], out)
+    assert out.exists()
+    with open(out) as f:
+        reader = csv.DictReader(f)
+        loaded = list(reader)
+    assert tuple(reader.fieldnames or ()) == RULE_TIMING_FIELDS
+    assert loaded == []
+
+
+def test_d2_batch_manifest_timing_fallback_note(tmp_path):
+    """run_analyze annotates batch_manifest with the timing fallback note."""
+    import json
+    from uofa_cli.adversarial.classifier import (
+        _annotate_batch_manifest_with_timing_fallback,
+        RULE_TIMING_FALLBACK_NOTE,
+    )
+    bm = tmp_path / "batch_manifest.json"
+    bm.write_text(json.dumps({"specsLoaded": 1}))
+    _annotate_batch_manifest_with_timing_fallback(tmp_path)
+    annotated = json.loads(bm.read_text())
+    assert annotated["timing_fallback_note"] == RULE_TIMING_FALLBACK_NOTE
+
+
+def test_d2_annotate_idempotent(tmp_path):
+    """Calling the annotate helper twice does not corrupt the manifest."""
+    import json
+    from uofa_cli.adversarial.classifier import (
+        _annotate_batch_manifest_with_timing_fallback,
+    )
+    bm = tmp_path / "batch_manifest.json"
+    bm.write_text(json.dumps({"specsLoaded": 1}))
+    _annotate_batch_manifest_with_timing_fallback(tmp_path)
+    first = json.loads(bm.read_text())
+    _annotate_batch_manifest_with_timing_fallback(tmp_path)
+    second = json.loads(bm.read_text())
+    assert first == second

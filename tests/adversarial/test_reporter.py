@@ -156,3 +156,41 @@ def test_view1_per_cou_collapsible_rendered_per_pattern(tmp_path):
     assert "<details>" in html
     assert "<summary>" in html
     assert "Morrison COU1" in html  # COU label appears in the details list
+
+
+# ----- D2: performance characterization appendix (v1.8 §11.2) -----
+
+
+def test_perf_appendix_renders_when_timing_present(tmp_path):
+    """Perf appendix shows mean/median/p95 when total_eval_ms is populated."""
+    rows = [_row(target_weakener="W-AR-01", outcome_class="COV-HIT")]
+    rows[0].total_eval_ms = 1500
+    rows[0].eval_host_id = "test-host"
+    out = tmp_path / "index.html"
+    write_html_report(rows, out)
+    html = out.read_text()
+    assert "Performance characterization" in html
+    assert "Mean total_eval_ms" in html
+    assert "Median total_eval_ms" in html
+    assert "p95 total_eval_ms" in html
+
+
+def test_perf_appendix_handles_no_timing_data(tmp_path):
+    """When all total_eval_ms = 0, perf appendix renders the placeholder."""
+    rows = [_row(target_weakener="W-AR-01", outcome_class="COV-HIT")]
+    rows[0].total_eval_ms = 0
+    out = tmp_path / "index.html"
+    write_html_report(rows, out)
+    html = out.read_text()
+    assert "No per-package timing data captured" in html
+
+
+def test_perf_appendix_uses_uofa_hw_spec_env_var(tmp_path, monkeypatch):
+    """UOFA_HW_SPEC env var threads into the perf appendix header."""
+    monkeypatch.setenv("UOFA_HW_SPEC", "Apple M4 Pro 24-core 36GB")
+    rows = [_row(target_weakener="W-AR-01", outcome_class="COV-HIT")]
+    rows[0].total_eval_ms = 100
+    out = tmp_path / "index.html"
+    write_html_report(rows, out)
+    html = out.read_text()
+    assert "Apple M4 Pro 24-core 36GB" in html
