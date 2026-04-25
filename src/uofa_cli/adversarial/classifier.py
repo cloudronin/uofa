@@ -17,12 +17,19 @@ Output CSVs (per spec §10.3, §10.4, §11.2):
 
     outcomes.csv  per-package row
     matrix.csv    aggregated catalog × subtlety pivot
-    summary.csv   precision/recall View-3 metrics
+    summary.csv   per-pattern aggregate (one row per shipped UofA core
+                  pattern; schema per UofA_Phase2_M4_Cleanup_Spec.md)
 
 Baseline subtraction: when a spec's ``base_cou`` is a shipped example
 (Morrison COU1=24, COU2=18, Nagaraja COU1=32) the classifier records
 ``baseline_firings_count`` and ``baseline_firings_minus_target`` so the
 caller can distinguish target-rule firings from pre-existing ones.
+
+Note on summary.csv: View-3 overall precision/recall metrics
+(catalog_recall, catalog_precision_1_minus_fpr, gap_probe_miss_rate)
+are emitted in the HTML report's View 3 only — they were previously
+also written to summary.csv but were moved out so summary.csv can
+carry the per-pattern aggregate that the D1 extension spec depends on.
 """
 
 from __future__ import annotations
@@ -45,6 +52,33 @@ BASELINE_FIRINGS: dict[str, int] = {
     "morrison/cou2": 18,
     "nagaraja/cou1": 32,
 }
+
+
+# Active UofA core patterns at v0.5.4. Source of truth:
+# packs/core/rules/uofa_weakener.rules (`uofa catalog` reports the
+# same 23 IDs at v0.5.4 HEAD; COMPOUND-02 is commented out and
+# excluded). Used as the row index for summary.csv per-pattern aggregate.
+_CORE_PATTERN_IDS: tuple[str, ...] = (
+    "W-AR-01", "W-AR-02", "W-AR-03", "W-AR-04", "W-AR-05",
+    "W-EP-01", "W-EP-02", "W-EP-03", "W-EP-04",
+    "W-AL-01", "W-AL-02",
+    "W-ON-01", "W-ON-02",
+    "W-SI-01", "W-SI-02",
+    "W-CON-01", "W-CON-02", "W-CON-03", "W-CON-04", "W-CON-05",
+    "W-PROV-01",
+    "COMPOUND-01", "COMPOUND-03",
+)
+
+
+SUMMARY_FIELDS: tuple[str, ...] = (
+    "pattern_id",
+    "confirm_existing_count",
+    "confirm_existing_hits",
+    "recall",
+    "negative_control_firings",
+    "gap_probe_firings",
+    "total_firings_across_battery",
+)
 
 
 @dataclass
@@ -319,41 +353,75 @@ def _write_matrix_csv(rows: list[_OutcomeRow], out_path: Path) -> None:
             w.writerow([pattern, subtlety, f"{rate:.3f}", counts["hit"], total])
 
 
-def _write_summary_csv(rows: list[_OutcomeRow], out_path: Path) -> None:
-    """View-3 precision / recall metrics per spec §11.2."""
-    by_class = Counter(r.outcome_class for r in rows)
+def _split_rules_fired(rules_fired: str) -> set[str]:
+    """Split a comma-separated ``rules_fired`` field into a set of pattern IDs."""
+    if not rules_fired:
+        return set()
+    return {p.strip() for p in rules_fired.split(",") if p.strip()}
 
-    confirm_total = sum(1 for r in rows if r.coverage_intent == "confirm_existing")
-    confirm_hits = sum(
-        1 for r in rows
-        if r.coverage_intent == "confirm_existing"
-        and r.outcome_class in ("COV-HIT", "COV-HIT-PLUS")
-    )
-    nc_total = sum(1 for r in rows if r.coverage_intent == "negative_control")
-    nc_wrong = sum(
-        1 for r in rows
-        if r.coverage_intent == "negative_control"
-        and r.outcome_class == "COV-CLEAN-WRONG"
-    )
-    gp_total = sum(1 for r in rows if r.coverage_intent == "gap_probe")
-    gp_miss = sum(
-        1 for r in rows
-        if r.coverage_intent == "gap_probe"
-        and r.outcome_class == "COV-MISS"
-    )
+
+def _write_summary_csv(rows: list[_OutcomeRow], out_path: Path) -> None:
+    """Per-pattern aggregate, one row per active UofA core pattern.
+
+    Schema per `UofA_Phase2_M4_Cleanup_Spec.md` (closes v1.7 §13.1 gate #9
+    and unblocks the D1 extension spec, which appends per-COU breakdown
+    columns to this same file):
+
+        pattern_id, confirm_existing_count, confirm_existing_hits, recall,
+        negative_control_firings, gap_probe_firings,
+        total_firings_across_battery
+
+    All counts derived from *rows* — no re-evaluation of packages.
+    """
+    # Per-pattern accumulators, indexed by pattern_id from _CORE_PATTERN_IDS.
+    confirm_count: Counter[str] = Counter()
+    confirm_hits: Counter[str] = Counter()
+    nc_firings: Counter[str] = Counter()
+    gp_firings: Counter[str] = Counter()
+    total_firings: Counter[str] = Counter()
+
+    for r in rows:
+        fired = _split_rules_fired(r.rules_fired)
+
+        # Total firings across the battery — per pattern.
+        for pat in fired:
+            total_firings[pat] += 1
+
+        # confirm_existing: count attempts and hits per target pattern.
+        if r.coverage_intent == "confirm_existing" and r.target_weakener:
+            confirm_count[r.target_weakener] += 1
+            # ``target_rule_fired`` arrives here as a Python bool from
+            # _OutcomeRow but the same code path runs after CSV reads
+            # produce strings; accept both.
+            tr = r.target_rule_fired
+            if (tr is True) or (isinstance(tr, str) and tr.strip().lower() == "true"):
+                confirm_hits[r.target_weakener] += 1
+
+        if r.coverage_intent == "negative_control":
+            for pat in fired:
+                nc_firings[pat] += 1
+
+        if r.coverage_intent == "gap_probe":
+            for pat in fired:
+                gp_firings[pat] += 1
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
     with open(out_path, "w", newline="") as f:
-        w = csv.writer(f)
-        w.writerow(["metric", "value", "denominator", "source_battery"])
-        recall = confirm_hits / confirm_total if confirm_total else 0.0
-        precision = (1 - (nc_wrong / nc_total)) if nc_total else 1.0
-        miss_rate = gp_miss / gp_total if gp_total else 0.0
-        w.writerow(["catalog_recall", f"{recall:.3f}", confirm_total, "confirm_existing"])
-        w.writerow(["catalog_precision_1_minus_fpr", f"{precision:.3f}", nc_total, "negative_controls"])
-        w.writerow(["gap_probe_miss_rate", f"{miss_rate:.3f}", gp_total, "gap_probe"])
-        for cls, count in sorted(by_class.items()):
-            w.writerow([f"count_{cls}", count, len(rows), "all"])
+        w = csv.DictWriter(f, fieldnames=SUMMARY_FIELDS)
+        w.writeheader()
+        for pat in _CORE_PATTERN_IDS:
+            n = confirm_count[pat]
+            h = confirm_hits[pat]
+            recall_str = f"{(h / n):.3f}" if n else ""
+            w.writerow({
+                "pattern_id": pat,
+                "confirm_existing_count": n,
+                "confirm_existing_hits": h,
+                "recall": recall_str,
+                "negative_control_firings": nc_firings[pat],
+                "gap_probe_firings": gp_firings[pat],
+                "total_firings_across_battery": total_firings[pat],
+            })
 
 
 def run_analyze(args) -> int:

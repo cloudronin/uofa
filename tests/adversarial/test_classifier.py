@@ -2,14 +2,20 @@
 
 from __future__ import annotations
 
+import csv
+
 from uofa_cli.adversarial.classifier import (
     _build_matrix,
+    _CORE_PATTERN_IDS,
     _classify,
     _detect_baseline_key,
     _OutcomeRow,
     _parse_rule_firings_from_check,
+    _split_rules_fired,
     _subtract_baseline,
+    _write_summary_csv,
     BASELINE_FIRINGS,
+    SUMMARY_FIELDS,
 )
 
 
@@ -239,3 +245,174 @@ def test_build_matrix_excludes_non_confirm_existing():
     ]
     pivot = _build_matrix(rows)
     assert pivot == {}
+
+
+# ----- summary.csv per-pattern schema (M4 cleanup) -----
+
+
+def test_core_pattern_ids_count_is_23():
+    """Spec §13.1 gate #9 / cleanup spec: summary.csv must have exactly
+    23 rows — one per shipped active core pattern at v0.5.4."""
+    assert len(_CORE_PATTERN_IDS) == 23
+    # Spot-check a few canonical IDs for typo resistance.
+    assert "W-AR-05" in _CORE_PATTERN_IDS
+    assert "W-PROV-01" in _CORE_PATTERN_IDS
+    assert "COMPOUND-01" in _CORE_PATTERN_IDS
+    assert "COMPOUND-03" in _CORE_PATTERN_IDS
+    # COMPOUND-02 is commented out in the rules file, so excluded.
+    assert "COMPOUND-02" not in _CORE_PATTERN_IDS
+
+
+def test_summary_fields_match_cleanup_spec():
+    assert SUMMARY_FIELDS == (
+        "pattern_id",
+        "confirm_existing_count",
+        "confirm_existing_hits",
+        "recall",
+        "negative_control_firings",
+        "gap_probe_firings",
+        "total_firings_across_battery",
+    )
+
+
+def test_split_rules_fired_handles_empty_and_comma_separated():
+    assert _split_rules_fired("") == set()
+    assert _split_rules_fired("W-AR-05") == {"W-AR-05"}
+    assert _split_rules_fired("W-AR-05,W-AL-01,COMPOUND-01") == {
+        "W-AR-05", "W-AL-01", "COMPOUND-01"
+    }
+    # Tolerates whitespace
+    assert _split_rules_fired("W-AR-05, W-AL-01") == {"W-AR-05", "W-AL-01"}
+
+
+def test_write_summary_csv_emits_23_rows_and_correct_schema(tmp_path):
+    rows = [
+        _row_obj(coverage_intent="confirm_existing", target_weakener="W-AR-01",
+                 outcome_class="COV-HIT", rules_fired="W-AR-01",
+                 target_rule_fired=True),
+        _row_obj(coverage_intent="confirm_existing", target_weakener="W-AR-01",
+                 outcome_class="COV-MISS", rules_fired="",
+                 target_rule_fired=False),
+        _row_obj(coverage_intent="confirm_existing", target_weakener="W-EP-01",
+                 outcome_class="COV-HIT-PLUS", rules_fired="W-EP-01,W-AL-01",
+                 target_rule_fired=True),
+    ]
+    out = tmp_path / "summary.csv"
+    _write_summary_csv(rows, out)
+
+    with open(out) as f:
+        reader = csv.DictReader(f)
+        loaded = list(reader)
+
+    # Schema
+    assert tuple(reader.fieldnames or ()) == SUMMARY_FIELDS
+    # Exactly 23 rows
+    assert len(loaded) == 23
+    # All 23 patterns appear, in registry order
+    assert [r["pattern_id"] for r in loaded] == list(_CORE_PATTERN_IDS)
+
+
+def test_write_summary_csv_aggregates_confirm_existing(tmp_path):
+    """confirm_existing_count / hits / recall aggregate per target pattern."""
+    rows = [
+        _row_obj(coverage_intent="confirm_existing", target_weakener="W-AR-01",
+                 rules_fired="W-AR-01", target_rule_fired=True),
+        _row_obj(coverage_intent="confirm_existing", target_weakener="W-AR-01",
+                 rules_fired="", target_rule_fired=False),
+        _row_obj(coverage_intent="confirm_existing", target_weakener="W-AR-01",
+                 rules_fired="W-AR-01", target_rule_fired=True),
+    ]
+    out = tmp_path / "summary.csv"
+    _write_summary_csv(rows, out)
+    by_pat = {r["pattern_id"]: r for r in csv.DictReader(open(out))}
+
+    war01 = by_pat["W-AR-01"]
+    assert war01["confirm_existing_count"] == "3"
+    assert war01["confirm_existing_hits"] == "2"
+    assert war01["recall"] == "0.667"
+
+
+def test_write_summary_csv_recall_empty_when_no_attempts(tmp_path):
+    rows = []
+    out = tmp_path / "summary.csv"
+    _write_summary_csv(rows, out)
+    by_pat = {r["pattern_id"]: r for r in csv.DictReader(open(out))}
+
+    # Every pattern has zero attempts; recall is the empty string per spec.
+    for pat in _CORE_PATTERN_IDS:
+        assert by_pat[pat]["confirm_existing_count"] == "0"
+        assert by_pat[pat]["recall"] == ""
+
+
+def test_write_summary_csv_aggregates_negative_control_and_gap_probe(tmp_path):
+    rows = [
+        # NC fires W-AR-05 (precision bug)
+        _row_obj(coverage_intent="negative_control", target_weakener=None,
+                 rules_fired="W-AR-05", target_rule_fired=False,
+                 outcome_class="COV-CLEAN-WRONG"),
+        # NC clean
+        _row_obj(coverage_intent="negative_control", target_weakener=None,
+                 rules_fired="", target_rule_fired=False,
+                 outcome_class="COV-CLEAN-CORRECT"),
+        # gap_probe fires W-CON-03 (informative)
+        _row_obj(coverage_intent="gap_probe", target_weakener=None,
+                 rules_fired="W-CON-03", target_rule_fired=False,
+                 outcome_class="COV-WRONG"),
+        # gap_probe also fires W-CON-03
+        _row_obj(coverage_intent="gap_probe", target_weakener=None,
+                 rules_fired="W-CON-03", target_rule_fired=False,
+                 outcome_class="COV-WRONG"),
+    ]
+    out = tmp_path / "summary.csv"
+    _write_summary_csv(rows, out)
+    by_pat = {r["pattern_id"]: r for r in csv.DictReader(open(out))}
+
+    assert by_pat["W-AR-05"]["negative_control_firings"] == "1"
+    assert by_pat["W-AR-05"]["gap_probe_firings"] == "0"
+    assert by_pat["W-AR-05"]["total_firings_across_battery"] == "1"
+
+    assert by_pat["W-CON-03"]["gap_probe_firings"] == "2"
+    assert by_pat["W-CON-03"]["negative_control_firings"] == "0"
+    assert by_pat["W-CON-03"]["total_firings_across_battery"] == "2"
+
+    # Patterns that never fired show all-zero counts.
+    assert by_pat["W-PROV-01"]["total_firings_across_battery"] == "0"
+
+
+def test_write_summary_csv_target_rule_fired_string_form(tmp_path):
+    """When rows are reconstructed from CSV reads, target_rule_fired is
+    'True' / 'False' strings. The aggregator must handle both forms."""
+    rows = [
+        _row_obj(coverage_intent="confirm_existing", target_weakener="W-AR-01",
+                 rules_fired="W-AR-01", target_rule_fired="True"),
+        _row_obj(coverage_intent="confirm_existing", target_weakener="W-AR-01",
+                 rules_fired="", target_rule_fired="False"),
+    ]
+    out = tmp_path / "summary.csv"
+    _write_summary_csv(rows, out)
+    by_pat = {r["pattern_id"]: r for r in csv.DictReader(open(out))}
+    assert by_pat["W-AR-01"]["confirm_existing_count"] == "2"
+    assert by_pat["W-AR-01"]["confirm_existing_hits"] == "1"
+
+
+def test_summary_csv_total_firings_reconciles_with_rules_fired(tmp_path):
+    """Acceptance criterion: aggregate values reconcile against outcomes.csv.
+
+    Sum of total_firings_across_battery across all patterns should equal
+    the total number of (row, fired_pattern) pairs.
+    """
+    rows = [
+        _row_obj(rules_fired="W-AR-01"),
+        _row_obj(rules_fired="W-AR-01,W-AL-01,COMPOUND-01"),
+        _row_obj(rules_fired=""),
+        _row_obj(rules_fired="W-EP-01,W-AL-01"),
+    ]
+    out = tmp_path / "summary.csv"
+    _write_summary_csv(rows, out)
+
+    expected_total_firings = sum(
+        len(_split_rules_fired(r.rules_fired)) for r in rows
+    )  # = 1 + 3 + 0 + 2 = 6
+    actual = sum(int(row["total_firings_across_battery"])
+                 for row in csv.DictReader(open(out)))
+    assert actual == expected_total_firings == 6

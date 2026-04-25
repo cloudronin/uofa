@@ -158,6 +158,28 @@ def test_phase2_e2e_smoke(tmp_path):
     }
     assert expected_fields.issubset(set(reader.fieldnames or []))
 
+    # summary.csv per-pattern schema (M4 cleanup, gate #9 closure):
+    # exactly 23 rows (one per active core pattern), correct fieldnames,
+    # values reconcile against the outcomes.csv firings.
+    from uofa_cli.adversarial.classifier import (
+        _CORE_PATTERN_IDS,
+        SUMMARY_FIELDS,
+        _split_rules_fired,
+    )
+    with open(summary_path) as f:
+        sreader = csv.DictReader(f)
+        srows = list(sreader)
+    assert tuple(sreader.fieldnames or ()) == SUMMARY_FIELDS
+    assert len(srows) == 23
+    assert [s["pattern_id"] for s in srows] == list(_CORE_PATTERN_IDS)
+
+    # Reconcile total_firings_across_battery against outcomes.csv.
+    expected_total = sum(
+        len(_split_rules_fired(r["rules_fired"])) for r in rows
+    )
+    actual_total = sum(int(s["total_firings_across_battery"]) for s in srows)
+    assert actual_total == expected_total
+
     # outcome_class should include both confirm_existing and gap_probe verdicts
     classes = set(r["outcome_class"] for r in rows)
     confirm_rows = [r for r in rows if r["coverage_intent"] == "confirm_existing"]
