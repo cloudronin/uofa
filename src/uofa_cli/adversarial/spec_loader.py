@@ -30,6 +30,7 @@ VALID_SUBTLETIES = {"low", "medium", "high"}
 VALID_DECISIONS = {"Accepted", "Not accepted", "Conditional"}
 VALID_MODES = {"skeleton", "narrative-only"}
 VALID_UNCERTAINTY = {"epistemic", "aleatory", "ontological", "argument", "structural"}
+VALID_PROMPT_VARIANTS = {"p0", "p1", "p2"}
 SPEC_ID_RE = re.compile(r"^[a-z0-9-]+$")
 WEAKENER_ID_RE = re.compile(r"patternId\s+'((?:W-[A-Z]+-\d{2})|(?:COMPOUND-\d{2}))'")
 NEGATIVE_CONTROL_SENTINEL = "control/none"
@@ -73,6 +74,10 @@ class AdversarialSpec:
     spec_path: Path
     source_taxonomy: str | None
     raw: dict = field(repr=False)
+    #: Phase 2 v1.8 §7.6 paraphrasing dispatch key. ``"p0"`` is the canonical
+    #: prompt template; ``"p1"``/``"p2"`` route through paraphrase
+    #: substitutions (see ``prompts/paraphrase.py``).
+    prompt_variant: str = "p0"
 
     def prompt_template_id(self) -> str:
         """E.g. ``'d3_undercutting_inference.W_AR_05'`` or
@@ -259,6 +264,13 @@ def _build_spec(raw: dict, spec_path: Path) -> AdversarialSpec:
             f"generation.subtlety must be one of {sorted(VALID_SUBTLETIES)}, got {subtlety!r}"
         )
 
+    prompt_variant = gen.get("prompt_variant", "p0")
+    if prompt_variant not in VALID_PROMPT_VARIANTS:
+        raise SpecValidationError(
+            f"generation.prompt_variant must be one of "
+            f"{sorted(VALID_PROMPT_VARIANTS)}, got {prompt_variant!r}"
+        )
+
     temperature = float(gen.get("temperature", 0.7))
     max_tokens = int(gen.get("max_tokens", 4000))
     seed = gen.get("seed")
@@ -297,6 +309,7 @@ def _build_spec(raw: dict, spec_path: Path) -> AdversarialSpec:
         spec_path=spec_path,
         source_taxonomy=source_taxonomy,
         raw=raw,
+        prompt_variant=prompt_variant,
     )
 
 

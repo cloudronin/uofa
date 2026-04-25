@@ -107,12 +107,40 @@ def resolve_template_module_path(spec) -> str | None:
     return None
 
 
+class _ParaphrasedTemplate:
+    """Module-shaped wrapper that applies a §7.6 paraphrase pass to the
+    parent template's :func:`render` output before returning it.
+
+    Exposes ``render(spec, context) -> (sys, user)`` and ``PROMPT_VERSION``
+    so call sites that read either attribute (generator manifest +
+    rendering pipeline) work transparently. The wrapper is constructed
+    only when ``spec.prompt_variant != "p0"``; the canonical p0 path
+    keeps the original module object.
+    """
+
+    def __init__(self, parent: ModuleType, variant: str) -> None:
+        self._parent = parent
+        self._variant = variant
+        parent_version = getattr(parent, "PROMPT_VERSION", "unknown")
+        self.PROMPT_VERSION = f"{parent_version}+{variant}"
+
+    def render(self, spec, context):
+        from uofa_cli.adversarial.prompts.paraphrase import apply_paraphrase
+        sys_prompt, user_prompt = self._parent.render(spec, context)
+        return apply_paraphrase(self._variant, sys_prompt, user_prompt)
+
+
 def get_template_for_spec(spec) -> ModuleType:
     """Return the prompt-template module for *spec*, dispatching by
     ``coverage_intent``.
 
-    Generators should prefer this over :func:`get_template` so gap_probe and
-    negative_control specs are routed correctly.
+    When ``spec.prompt_variant`` is ``"p1"`` or ``"p2"`` (Phase 2 v1.8
+    §7.6 paraphrasing), the canonical module is wrapped in a
+    :class:`_ParaphrasedTemplate` that applies a deterministic
+    substitution pass to the rendered prompts.
+
+    Generators should prefer this over :func:`get_template` so gap_probe
+    and negative_control specs are routed correctly.
     """
     mod_path = resolve_template_module_path(spec)
     if not mod_path:
@@ -122,7 +150,11 @@ def get_template_for_spec(spec) -> ModuleType:
             f"target_weakener={spec.target_weakener!r}, "
             f"source_taxonomy={spec.source_taxonomy!r})"
         )
-    return importlib.import_module(mod_path)
+    parent = importlib.import_module(mod_path)
+    variant = getattr(spec, "prompt_variant", "p0") or "p0"
+    if variant == "p0":
+        return parent
+    return _ParaphrasedTemplate(parent, variant)
 
 
 def mock_response(params: dict) -> str:

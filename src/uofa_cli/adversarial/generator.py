@@ -36,6 +36,8 @@ from uofa_cli.adversarial.skeleton import SkeletonLoadError, load_base_cou_skele
 from uofa_cli.adversarial.spec_loader import (
     AdversarialSpec,
     SpecValidationError,
+    VALID_SUBTLETIES,
+    _resolve_base_cou,
     load_spec,
 )
 
@@ -648,10 +650,10 @@ def run_generate(args) -> int:
     # Apply runner fan-out overrides (Phase 2 v1.8 §3): when set, replace
     # the spec's declared subtlety / base_cou for this run only. Validation
     # mirrors spec_loader (subtlety is enum; base_cou is resolved against
-    # the repo).
+    # the repo). Module-level imports avoid Python's local-variable
+    # shadowing footgun on the SpecValidationError except clause above.
     subtlety_override = getattr(args, "subtlety_override", None)
     if subtlety_override:
-        from uofa_cli.adversarial.spec_loader import VALID_SUBTLETIES
         if subtlety_override not in VALID_SUBTLETIES:
             error(
                 f"--subtlety-override has invalid value {subtlety_override!r}; "
@@ -662,10 +664,6 @@ def run_generate(args) -> int:
 
     base_cou_override = getattr(args, "base_cou_override", None)
     if base_cou_override:
-        from uofa_cli.adversarial.spec_loader import (
-            SpecValidationError,
-            _resolve_base_cou,
-        )
         try:
             spec.base_cou = _resolve_base_cou(base_cou_override)
         except SpecValidationError as e:
