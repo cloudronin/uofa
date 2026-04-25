@@ -1,4 +1,7 @@
-"""Spec loader tests — §11.1 of the adversarial spec."""
+"""Spec loader tests — §11.1 of the adversarial spec.
+
+Phase 2 additions: source_taxonomy field validation per Phase 2 Spec v1.7 §5.2.
+"""
 
 from __future__ import annotations
 
@@ -6,8 +9,11 @@ import pytest
 
 from uofa_cli.adversarial.spec_loader import (
     AdversarialSpec,
+    SourceTaxonomyError,
     SpecValidationError,
+    default_taxonomy_for_pattern,
     load_spec,
+    resolve_taxonomy_path,
 )
 
 
@@ -83,3 +89,79 @@ def test_factor_names_normalize_camelcase(tmp_path, valid_spec_path):
     out.write_text(text)
     spec = load_spec(out)
     assert "Model form" in spec.factors
+
+
+# ---- Phase 2: source_taxonomy validation (spec §5.2) ---- #
+
+
+def test_confirm_existing_default_taxonomy_populated(valid_spec_path):
+    """When source_taxonomy is omitted on confirm_existing, default attribution applies."""
+    spec = load_spec(valid_spec_path)
+    assert spec.coverage_intent == "confirm_existing"
+    assert spec.source_taxonomy == (
+        "jarzebowicz-wardzinski/argument_defeaters/D5-undercutting-comparator"
+    )
+
+
+def test_confirm_existing_explicit_taxonomy_preserved(
+    confirm_existing_explicit_taxonomy_spec_path,
+):
+    spec = load_spec(confirm_existing_explicit_taxonomy_spec_path)
+    assert spec.source_taxonomy == (
+        "jarzebowicz-wardzinski/argument_defeaters/D3-undercutting"
+    )
+
+
+def test_gap_probe_valid_taxonomy_loads(gap_probe_valid_spec_path):
+    spec = load_spec(gap_probe_valid_spec_path)
+    assert spec.coverage_intent == "gap_probe"
+    assert spec.source_taxonomy == "gohar/evidence_validity/data-drift"
+
+
+def test_gap_probe_missing_taxonomy_rejected(gap_probe_missing_taxonomy_spec_path):
+    with pytest.raises(SourceTaxonomyError, match="required for coverage_intent=gap_probe"):
+        load_spec(gap_probe_missing_taxonomy_spec_path)
+
+
+def test_gap_probe_unresolved_taxonomy_rejected(gap_probe_unresolved_taxonomy_spec_path):
+    with pytest.raises(SourceTaxonomyError, match="does not resolve"):
+        load_spec(gap_probe_unresolved_taxonomy_spec_path)
+
+
+def test_negative_control_valid_sentinel(negative_control_valid_spec_path):
+    spec = load_spec(negative_control_valid_spec_path)
+    assert spec.coverage_intent == "negative_control"
+    assert spec.source_taxonomy == "control/none"
+
+
+def test_negative_control_non_sentinel_rejected(negative_control_bad_taxonomy_spec_path):
+    with pytest.raises(SourceTaxonomyError, match="control/none"):
+        load_spec(negative_control_bad_taxonomy_spec_path)
+
+
+def test_source_taxonomy_error_inherits_from_spec_validation_error():
+    """SourceTaxonomyError must be a SpecValidationError subclass so generic
+    spec-validation handlers continue to catch it.
+    """
+    assert issubclass(SourceTaxonomyError, SpecValidationError)
+
+
+def test_resolve_taxonomy_path_three_levels():
+    """Path resolver handles three-level identifiers (taxonomy/category/subtype)."""
+    assert resolve_taxonomy_path("gohar/requirements/missing")
+    assert not resolve_taxonomy_path("gohar/requirements/this-does-not-exist")
+    assert not resolve_taxonomy_path("nonexistent-taxonomy/foo/bar")
+
+
+def test_resolve_taxonomy_path_four_levels():
+    """Path resolver handles nested logical_fallacies sub-categories."""
+    assert resolve_taxonomy_path("gohar/logical_fallacies/relevance/red-herring")
+    assert not resolve_taxonomy_path("gohar/logical_fallacies/relevance/no-such-fallacy")
+
+
+def test_default_attribution_lookup():
+    """Default attribution table provides a source_taxonomy for every shipped pattern."""
+    assert default_taxonomy_for_pattern("W-AR-05") == (
+        "jarzebowicz-wardzinski/argument_defeaters/D5-undercutting-comparator"
+    )
+    assert default_taxonomy_for_pattern("W-NONEXISTENT-99") is None

@@ -359,6 +359,7 @@ class AdversarialGenerator:
             "targetWeakener": spec.target_weakener,
             "targetDefeaterType": spec.defeater_type,
             "coverageIntent": spec.coverage_intent,
+            "sourceTaxonomy": spec.source_taxonomy,
             "subtletyLevel": spec.subtlety,
             "tokens": tokens,
             "variantNum": variant_num,

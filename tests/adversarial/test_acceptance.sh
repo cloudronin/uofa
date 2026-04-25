@@ -14,7 +14,7 @@ set -euo pipefail
 
 cd "$(git rev-parse --show-toplevel)"
 
-SPEC=specs/w_ar_05_baseline.yaml
+SPEC=specs/confirm_existing/w_ar_05.yaml
 OUT=out/adversarial/w_ar_05
 KEY=keys/research
 

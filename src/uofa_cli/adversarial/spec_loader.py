@@ -1,6 +1,7 @@
 """Parse and validate adversarial generation specs (YAML).
 
 Spec format: UofA_Adversarial_Gen_Spec_v1.1 §5. Validation rules §5.2.
+Phase 2 source-taxonomy field added per UofA_Adversarial_Gen_Phase2_Spec_v1_7.md §5.2.
 Loader is pack-aware: the `pack` field selects the factor registry and the
 rule files used to harvest known weakener IDs.
 
@@ -12,6 +13,7 @@ abstract pack-metadata API rather than hardcoded dispatch in
 from __future__ import annotations
 
 import difflib
+import json
 import re
 from dataclasses import dataclass, field
 from functools import lru_cache
@@ -23,17 +25,27 @@ from uofa_cli.excel_constants import NASA_ALL_FACTOR_NAMES, VV40_FACTOR_NAMES
 from uofa_cli.integrity import canonicalize_and_hash
 
 VALID_DEFEATERS = {"D1", "D2", "D3", "D4", "D5", "structural"}
-VALID_INTENTS = {"confirm_existing", "gap_probe"}
+VALID_INTENTS = {"confirm_existing", "gap_probe", "negative_control", "interaction"}
 VALID_SUBTLETIES = {"low", "medium", "high"}
 VALID_DECISIONS = {"Accepted", "Not accepted", "Conditional"}
 VALID_MODES = {"skeleton", "narrative-only"}
 VALID_UNCERTAINTY = {"epistemic", "aleatory", "ontological", "argument", "structural"}
 SPEC_ID_RE = re.compile(r"^[a-z0-9-]+$")
 WEAKENER_ID_RE = re.compile(r"patternId\s+'(W-[A-Z]{2}-\d{2})'")
+NEGATIVE_CONTROL_SENTINEL = "control/none"
 
 
 class SpecValidationError(ValueError):
     """Raised when a spec YAML fails validation. Generator maps to exit code 3."""
+
+
+class SourceTaxonomyError(SpecValidationError):
+    """Raised when source_taxonomy validation fails. Generator maps to exit code 5.
+
+    Per UofA_Adversarial_Gen_Phase2_Spec_v1_7.md §5.2, gap_probe specs must declare
+    a source_taxonomy that resolves against ``packs/core/source_taxonomies.json``;
+    negative_control specs must use the sentinel ``"control/none"``.
+    """
 
 
 @dataclass
@@ -59,6 +71,7 @@ class AdversarialSpec:
     include_provenance: bool
     spec_hash: str
     spec_path: Path
+    source_taxonomy: str | None
     raw: dict = field(repr=False)
 
     def prompt_template_id(self) -> str:
@@ -204,6 +217,8 @@ def _build_spec(raw: dict, spec_path: Path) -> AdversarialSpec:
     name_template = output.get("package_name_template", "{spec_id}-v{variant_num:02d}")
     include_provenance = bool(output.get("include_provenance", True))
 
+    source_taxonomy = _validate_source_taxonomy(target, intent, weakener)
+
     _, spec_hash = canonicalize_and_hash(raw)
 
     return AdversarialSpec(
@@ -228,8 +243,148 @@ def _build_spec(raw: dict, spec_path: Path) -> AdversarialSpec:
         include_provenance=include_provenance,
         spec_hash=spec_hash,
         spec_path=spec_path,
+        source_taxonomy=source_taxonomy,
         raw=raw,
     )
+
+
+# ----- Source-taxonomy registry (Phase 2, spec §6.1) ----- #
+
+
+@lru_cache(maxsize=1)
+def _load_source_taxonomy_registry() -> dict:
+    """Load and cache ``packs/core/source_taxonomies.json``.
+
+    Returns an empty dict on FileNotFoundError so spec_loader can still parse
+    existing fixtures during early Phase 2 work where the registry may not yet
+    be populated. Validation that requires the registry will fall back gracefully.
+    """
+    try:
+        root = paths.find_repo_root()
+    except FileNotFoundError:
+        return {}
+    registry_path = root / "packs" / "core" / "source_taxonomies.json"
+    if not registry_path.exists():
+        return {}
+    try:
+        with open(registry_path) as f:
+            return json.load(f)
+    except (OSError, json.JSONDecodeError) as e:
+        raise SourceTaxonomyError(
+            f"failed to parse source taxonomy registry at {registry_path}: {e}"
+        ) from e
+
+
+def resolve_taxonomy_path(path: str, registry: dict | None = None) -> bool:
+    """Return True if *path* resolves against the registry's categories tree.
+
+    Path format: ``<taxonomy>/<category>/[<sub_category>/]<sub_type>``. Two- and
+    three-level nesting both supported (e.g., ``gohar/requirements/missing`` or
+    ``gohar/logical_fallacies/relevance/red-herring``).
+    """
+    if registry is None:
+        registry = _load_source_taxonomy_registry()
+    if not registry:
+        return False
+    parts = path.split("/")
+    if len(parts) < 3:
+        return False
+    tax_name, *rest = parts
+    tax = registry.get("taxonomies", {}).get(tax_name)
+    if not tax:
+        return False
+    node: Any = tax.get("categories", {})
+    for p in rest[:-1]:
+        if isinstance(node, dict):
+            node = node.get(p)
+            if node is None:
+                return False
+        else:
+            return False
+    leaf = rest[-1]
+    if isinstance(node, list):
+        return leaf in node
+    if isinstance(node, dict):
+        return leaf in node
+    return False
+
+
+def default_taxonomy_for_pattern(weakener_id: str, registry: dict | None = None) -> str | None:
+    """Return the default source_taxonomy attribution for a UofA pattern, if defined.
+
+    Used when ``coverage_intent: confirm_existing`` and the spec omits the
+    ``source_taxonomy`` field.
+    """
+    if registry is None:
+        registry = _load_source_taxonomy_registry()
+    if not registry:
+        return None
+    table = registry.get("default_attribution_for_uofa_pattern", {})
+    return table.get(weakener_id)
+
+
+def _validate_source_taxonomy(
+    target: dict, coverage_intent: str, weakener_id: str
+) -> str | None:
+    """Validate ``target.source_taxonomy`` per spec §5.2 and return resolved value.
+
+    - ``gap_probe``: required, must resolve in registry. Missing/unresolved → SourceTaxonomyError.
+    - ``confirm_existing``: optional. If omitted, use the registry's default attribution
+      for the target weakener. If supplied, must resolve.
+    - ``negative_control``: must equal the sentinel ``"control/none"``.
+    - ``interaction``: optional, no resolution required (multi-target attribution
+      is recorded per-template, not per-spec).
+    """
+    raw_value = target.get("source_taxonomy")
+    if raw_value is not None and not isinstance(raw_value, str):
+        raise SourceTaxonomyError(
+            f"target.source_taxonomy must be a string, "
+            f"got {type(raw_value).__name__}"
+        )
+
+    registry = _load_source_taxonomy_registry()
+
+    if coverage_intent == "negative_control":
+        if raw_value != NEGATIVE_CONTROL_SENTINEL:
+            raise SourceTaxonomyError(
+                f"target.source_taxonomy for coverage_intent=negative_control must be "
+                f"{NEGATIVE_CONTROL_SENTINEL!r}, got {raw_value!r}"
+            )
+        return NEGATIVE_CONTROL_SENTINEL
+
+    if coverage_intent == "gap_probe":
+        if not raw_value:
+            raise SourceTaxonomyError(
+                "target.source_taxonomy is required for coverage_intent=gap_probe. "
+                "Provide a path like 'gohar/evidence_validity/data-drift' "
+                "(see packs/core/source_taxonomies.json)."
+            )
+        if registry and not resolve_taxonomy_path(raw_value, registry):
+            raise SourceTaxonomyError(
+                f"target.source_taxonomy {raw_value!r} does not resolve in the "
+                f"registry at packs/core/source_taxonomies.json"
+            )
+        return raw_value
+
+    if coverage_intent == "confirm_existing":
+        if raw_value:
+            if registry and not resolve_taxonomy_path(raw_value, registry):
+                raise SourceTaxonomyError(
+                    f"target.source_taxonomy {raw_value!r} does not resolve in the "
+                    f"registry at packs/core/source_taxonomies.json"
+                )
+            return raw_value
+        # Fall back to the default attribution for this UofA pattern
+        default = default_taxonomy_for_pattern(weakener_id, registry)
+        return default
+
+    # interaction: optional, no validation required
+    if raw_value and registry and not resolve_taxonomy_path(raw_value, registry):
+        raise SourceTaxonomyError(
+            f"target.source_taxonomy {raw_value!r} does not resolve in the "
+            f"registry at packs/core/source_taxonomies.json"
+        )
+    return raw_value
 
 
 def _require(container: dict, dotted_name: str, expected_type: type, *, src=None, key: str = None) -> Any:

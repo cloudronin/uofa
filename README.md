@@ -451,11 +451,11 @@ export ANTHROPIC_API_KEY=sk-ant-...              # generation defaults to claude
 
 # Generate 5 synthetic packages targeting W-AR-05 (comparator absence / mismatch)
 uofa adversarial generate \
-  --spec specs/w_ar_05_baseline.yaml \
+  --spec specs/confirm_existing/w_ar_05.yaml \
   --out out/adversarial/w_ar_05/
 
 # Dry-run: render the prompt without calling the LLM
-uofa adversarial generate --spec specs/w_ar_05_baseline.yaml --out /tmp/dry --dry-run
+uofa adversarial generate --spec specs/confirm_existing/w_ar_05.yaml --out /tmp/dry --dry-run
 
 # Run the full Phase 1 acceptance script
 bash tests/adversarial/test_acceptance.sh
