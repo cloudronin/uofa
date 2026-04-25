@@ -645,6 +645,33 @@ def run_generate(args) -> int:
     if args.model:
         spec.generation_model = args.model
 
+    # Apply runner fan-out overrides (Phase 2 v1.8 §3): when set, replace
+    # the spec's declared subtlety / base_cou for this run only. Validation
+    # mirrors spec_loader (subtlety is enum; base_cou is resolved against
+    # the repo).
+    subtlety_override = getattr(args, "subtlety_override", None)
+    if subtlety_override:
+        from uofa_cli.adversarial.spec_loader import VALID_SUBTLETIES
+        if subtlety_override not in VALID_SUBTLETIES:
+            error(
+                f"--subtlety-override has invalid value {subtlety_override!r}; "
+                f"allowed: {sorted(VALID_SUBTLETIES)}"
+            )
+            return 3
+        spec.subtlety = subtlety_override
+
+    base_cou_override = getattr(args, "base_cou_override", None)
+    if base_cou_override:
+        from uofa_cli.adversarial.spec_loader import (
+            SpecValidationError,
+            _resolve_base_cou,
+        )
+        try:
+            spec.base_cou = _resolve_base_cou(base_cou_override)
+        except SpecValidationError as e:
+            error(f"--base-cou-override resolution failed: {e}")
+            return 3
+
     generator = AdversarialGenerator(pack=spec.pack, llm_caller=_default_llm_caller)
 
     dry_run = bool(getattr(args, "dry_run", False))

@@ -96,6 +96,35 @@ def add_arguments(parser):
     run_sub.add_argument(
         "--dry-run", action="store_true", help="dry-run mode (per-spec render, no LLM)"
     )
+    run_sub.add_argument(
+        "--subtlety-override",
+        default=None,
+        help=(
+            "comma-separated list of subtlety values (low,medium,high) — when "
+            "set, ignore each spec's declared subtlety and run once per value; "
+            "output dirs gain a _<subtlety> suffix"
+        ),
+    )
+    run_sub.add_argument(
+        "--base-cou-override",
+        default=None,
+        help=(
+            "comma-separated list of base_cou paths — when set, ignore each "
+            "spec's declared base_cou and run once per path; applies only to "
+            "specs whose coverage_intent is confirm_existing or "
+            "negative_control (gap_probe and interaction stay pinned per §7); "
+            "output dirs gain a _<vendor>-<cou> suffix"
+        ),
+    )
+    run_sub.add_argument(
+        "--cost-preview",
+        action="store_true",
+        help=(
+            "walk discovered specs (with overrides applied), report total "
+            "package count and estimated USD cost, exit 0 without invoking "
+            "the LLM"
+        ),
+    )
 
     # ----- analyze (Phase 2 outcome classifier, spec §10) -----
     an = sub.add_parser(
