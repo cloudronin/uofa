@@ -180,6 +180,21 @@ def test_phase2_e2e_smoke(tmp_path):
     actual_total = sum(int(s["total_firings_across_battery"]) for s in srows)
     assert actual_total == expected_total
 
+    # D1 (v1.8) columns present in summary.csv schema and reachable.
+    d1_columns = {
+        "recall_morrison_cou1", "recall_morrison_cou2", "recall_nagaraja",
+        "recall_min_per_cou", "recall_cou_disparity", "cou_dependent_flag",
+    }
+    assert d1_columns.issubset(set(sreader.fieldnames or []))
+    # The smoke specs all use base_cou packs/vv40/examples/morrison/cou1, so
+    # at least one row's recall_morrison_cou1 is populated; other COU columns
+    # remain empty (no Nagaraja or COU2 specs in smoke set).
+    populated_cou1 = sum(1 for s in srows if s["recall_morrison_cou1"])
+    assert populated_cou1 >= 1, "expected at least one row with morrison_cou1 recall"
+
+    # HTML report should render the COU-dependent rules header row.
+    assert "COU-dependent rules" in html_path.read_text()
+
     # outcome_class should include both confirm_existing and gap_probe verdicts
     classes = set(r["outcome_class"] for r in rows)
     confirm_rows = [r for r in rows if r["coverage_intent"] == "confirm_existing"]

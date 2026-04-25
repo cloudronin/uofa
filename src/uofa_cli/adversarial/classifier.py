@@ -78,7 +78,27 @@ SUMMARY_FIELDS: tuple[str, ...] = (
     "negative_control_firings",
     "gap_probe_firings",
     "total_firings_across_battery",
+    # D1 (v1.8) per-COU coverage delta columns
+    "recall_morrison_cou1",
+    "recall_morrison_cou2",
+    "recall_nagaraja",
+    "recall_min_per_cou",
+    "recall_cou_disparity",
+    "cou_dependent_flag",
 )
+
+
+# D1 (v1.8): _detect_baseline_key returns one of these for shipped base COUs.
+# These are the column-name suffixes used in summary.csv per-COU columns.
+_COU_KEY_TO_COLUMN: dict[str, str] = {
+    "morrison/cou1": "recall_morrison_cou1",
+    "morrison/cou2": "recall_morrison_cou2",
+    "nagaraja/cou1": "recall_nagaraja",
+}
+
+# D1 (v1.8): rules with recall disparity >= this threshold across base COUs
+# are flagged as COU-dependent. Threshold per Phase 2 Spec v1.8 §10.4.
+COU_DEPENDENT_DISPARITY_THRESHOLD: float = 0.30
 
 
 @dataclass
@@ -98,6 +118,11 @@ class _OutcomeRow:
     shacl_retries: int
     tokens: int
     cost_usd: float
+    # D1 (v1.8): which base COU this row's spec was generated against. Values
+    # are keys of BASELINE_FIRINGS ("morrison/cou1" etc.) or None for specs
+    # whose base_cou doesn't match a shipped COU. Internal-only — not written
+    # to outcomes.csv (v1.8 §10.3 only adds D2 timing columns).
+    base_cou_key: str | None = None
 
 
 def _detect_baseline_key(base_cou: str | None) -> str | None:
@@ -314,15 +339,25 @@ def _scan_outcomes(
                 shacl_retries=shacl_retries,
                 tokens=tokens,
                 cost_usd=variant.get("estimatedCostUsd", 0.0),
+                base_cou_key=baseline_key,
             ))
     return rows
 
 
+# Internal-only _OutcomeRow fields that are NOT exported to outcomes.csv.
+# (D1 v1.8: base_cou_key is internal to the per-COU aggregator; v1.8 §10.3
+# does not add a base_cou column to outcomes.csv.)
+_OUTCOMES_CSV_EXCLUDED_FIELDS: frozenset[str] = frozenset({"base_cou_key"})
+
+
 def _write_outcomes_csv(rows: list[_OutcomeRow], out_path: Path) -> None:
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    fieldnames = list(_OutcomeRow.__dataclass_fields__)
+    fieldnames = [
+        f for f in _OutcomeRow.__dataclass_fields__
+        if f not in _OUTCOMES_CSV_EXCLUDED_FIELDS
+    ]
     with open(out_path, "w", newline="") as f:
-        w = csv.DictWriter(f, fieldnames=fieldnames)
+        w = csv.DictWriter(f, fieldnames=fieldnames, extrasaction="ignore")
         w.writeheader()
         for row in rows:
             w.writerow(asdict(row))
@@ -380,6 +415,15 @@ def _write_summary_csv(rows: list[_OutcomeRow], out_path: Path) -> None:
     gp_firings: Counter[str] = Counter()
     total_firings: Counter[str] = Counter()
 
+    # D1 (v1.8): per-(pattern, base_cou_key) accumulators for per-COU recall.
+    per_cou_count: dict[tuple[str, str], int] = defaultdict(int)
+    per_cou_hits: dict[tuple[str, str], int] = defaultdict(int)
+
+    def _is_truthy(value) -> bool:
+        return (value is True) or (
+            isinstance(value, str) and value.strip().lower() == "true"
+        )
+
     for r in rows:
         fired = _split_rules_fired(r.rules_fired)
 
@@ -393,9 +437,16 @@ def _write_summary_csv(rows: list[_OutcomeRow], out_path: Path) -> None:
             # ``target_rule_fired`` arrives here as a Python bool from
             # _OutcomeRow but the same code path runs after CSV reads
             # produce strings; accept both.
-            tr = r.target_rule_fired
-            if (tr is True) or (isinstance(tr, str) and tr.strip().lower() == "true"):
+            hit = _is_truthy(r.target_rule_fired)
+            if hit:
                 confirm_hits[r.target_weakener] += 1
+
+            # D1: per-COU bucketing (only when row carries a base_cou_key).
+            cou_key = getattr(r, "base_cou_key", None)
+            if cou_key in _COU_KEY_TO_COLUMN:
+                per_cou_count[(r.target_weakener, cou_key)] += 1
+                if hit:
+                    per_cou_hits[(r.target_weakener, cou_key)] += 1
 
         if r.coverage_intent == "negative_control":
             for pat in fired:
@@ -413,6 +464,37 @@ def _write_summary_csv(rows: list[_OutcomeRow], out_path: Path) -> None:
             n = confirm_count[pat]
             h = confirm_hits[pat]
             recall_str = f"{(h / n):.3f}" if n else ""
+
+            # D1: per-COU recall computation.
+            per_cou_recall: dict[str, str] = {
+                col: "" for col in _COU_KEY_TO_COLUMN.values()
+            }
+            non_empty_recalls: list[float] = []
+            for cou_key, col_name in _COU_KEY_TO_COLUMN.items():
+                count = per_cou_count.get((pat, cou_key), 0)
+                if count == 0:
+                    continue
+                hits = per_cou_hits.get((pat, cou_key), 0)
+                value = hits / count
+                per_cou_recall[col_name] = f"{value:.3f}"
+                non_empty_recalls.append(value)
+
+            if len(non_empty_recalls) >= 1:
+                recall_min = f"{min(non_empty_recalls):.3f}"
+            else:
+                recall_min = ""
+
+            if len(non_empty_recalls) >= 2:
+                disparity = max(non_empty_recalls) - min(non_empty_recalls)
+                disparity_str = f"{disparity:.3f}"
+                cou_dependent = (
+                    "True" if disparity >= COU_DEPENDENT_DISPARITY_THRESHOLD
+                    else "False"
+                )
+            else:
+                disparity_str = ""
+                cou_dependent = ""
+
             w.writerow({
                 "pattern_id": pat,
                 "confirm_existing_count": n,
@@ -421,6 +503,12 @@ def _write_summary_csv(rows: list[_OutcomeRow], out_path: Path) -> None:
                 "negative_control_firings": nc_firings[pat],
                 "gap_probe_firings": gp_firings[pat],
                 "total_firings_across_battery": total_firings[pat],
+                "recall_morrison_cou1": per_cou_recall["recall_morrison_cou1"],
+                "recall_morrison_cou2": per_cou_recall["recall_morrison_cou2"],
+                "recall_nagaraja": per_cou_recall["recall_nagaraja"],
+                "recall_min_per_cou": recall_min,
+                "recall_cou_disparity": disparity_str,
+                "cou_dependent_flag": cou_dependent,
             })
 
 

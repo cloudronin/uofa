@@ -106,3 +106,53 @@ def test_write_html_report_with_no_rows(tmp_path):
     html = out.read_text()
     assert "No confirm_existing rows" in html
     assert "No gap_probe rows" in html
+
+
+# ----- D1: View 1 per-COU additions (v1.8) -----
+
+
+def _row_with_cou(base_cou_key, **overrides):
+    overrides["base_cou_key"] = base_cou_key
+    return _row(**overrides)
+
+
+def test_view1_cou_dependent_header_when_no_disparity(tmp_path):
+    """When no rule is COU-dependent, header row reads the spec sentinel."""
+    rows = [
+        _row_with_cou("morrison/cou1", target_weakener="W-AR-01", outcome_class="COV-HIT"),
+        _row_with_cou("morrison/cou2", target_weakener="W-AR-01", outcome_class="COV-HIT"),
+        _row_with_cou("nagaraja/cou1", target_weakener="W-AR-01", outcome_class="COV-HIT"),
+    ]
+    out = tmp_path / "index.html"
+    write_html_report(rows, out)
+    html = out.read_text()
+    assert "COU-dependent rules" in html
+    assert "No rules show COU-dependent firing behavior at the 30% disparity threshold." in html
+
+
+def test_view1_cou_dependent_header_lists_disparity_pattern(tmp_path):
+    """When a pattern has ≥30% disparity, it appears in the header row."""
+    rows = [
+        # W-EP-01: 100% on COU1, 0% on Nagaraja → 100% disparity
+        _row_with_cou("morrison/cou1", target_weakener="W-EP-01", outcome_class="COV-HIT"),
+        _row_with_cou("nagaraja/cou1", target_weakener="W-EP-01", outcome_class="COV-MISS"),
+    ]
+    out = tmp_path / "index.html"
+    write_html_report(rows, out)
+    html = out.read_text()
+    # Header row mentions W-EP-01
+    assert "<strong>COU-dependent rules:</strong>" in html
+    assert "W-EP-01" in html
+
+
+def test_view1_per_cou_collapsible_rendered_per_pattern(tmp_path):
+    """Each pattern row gets a <details> per-COU breakdown."""
+    rows = [
+        _row_with_cou("morrison/cou1", target_weakener="W-AR-01", outcome_class="COV-HIT"),
+    ]
+    out = tmp_path / "index.html"
+    write_html_report(rows, out)
+    html = out.read_text()
+    assert "<details>" in html
+    assert "<summary>" in html
+    assert "Morrison COU1" in html  # COU label appears in the details list

@@ -45,6 +45,13 @@ td.candidate      { border: 2px dashed #4caf50; background: #e8f5e9; color: #2e7
 .legend span { display: inline-block; padding: 0.15rem 0.6rem; margin-right: 0.5rem;
                border-radius: 3px; font-size: 0.8rem; }
 .metric-table td:nth-child(2) { font-weight: 600; }
+.cou-dependent-header { background: #fff3e0; padding: 0.5rem 0.75rem;
+                        border-left: 4px solid #ff9800; margin-top: 1rem;
+                        font-size: 0.9rem; }
+.cou-flag-true  { color: #d84315; font-weight: 600; }
+.cou-flag-false { color: #2e7d32; }
+details summary  { cursor: pointer; font-size: 0.85rem; }
+details ul        { margin: 0.25rem 0 0 1.25rem; padding: 0; font-size: 0.85rem; }
 """
 
 
@@ -60,8 +67,52 @@ def _outcome_class_to_css(outcome_class: str) -> str:
     }.get(outcome_class, "cell-empty")
 
 
+def _per_cou_breakdown(rows):
+    """D1 (v1.8): aggregate per-(pattern, base_cou_key) recall and disparity flag.
+
+    Returns ``(per_cou_recalls, cou_dependent_patterns)``:
+      - per_cou_recalls: {pattern_id: {col_name: float | None}}
+      - cou_dependent_patterns: sorted list of pattern_ids with disparity ≥ 0.30
+    """
+    cou_columns = {
+        "morrison/cou1": "Morrison COU1",
+        "morrison/cou2": "Morrison COU2",
+        "nagaraja/cou1": "Nagaraja COU1",
+    }
+    counts: dict[tuple[str, str], dict[str, int]] = defaultdict(lambda: {"hit": 0, "total": 0})
+    for r in rows:
+        if r.coverage_intent != "confirm_existing" or not r.target_weakener:
+            continue
+        cou_key = getattr(r, "base_cou_key", None)
+        if cou_key not in cou_columns:
+            continue
+        bucket = counts[(r.target_weakener, cou_key)]
+        bucket["total"] += 1
+        if r.outcome_class in ("COV-HIT", "COV-HIT-PLUS"):
+            bucket["hit"] += 1
+
+    per_pattern_recalls: dict[str, dict[str, float | None]] = {}
+    cou_dependent: list[str] = []
+    for (pat, cou_key), bucket in counts.items():
+        per_pattern_recalls.setdefault(pat, {label: None for label in cou_columns.values()})
+        if bucket["total"] == 0:
+            continue
+        per_pattern_recalls[pat][cou_columns[cou_key]] = bucket["hit"] / bucket["total"]
+
+    for pat, recalls in per_pattern_recalls.items():
+        non_empty = [v for v in recalls.values() if v is not None]
+        if len(non_empty) >= 2:
+            disparity = max(non_empty) - min(non_empty)
+            if disparity >= 0.30:
+                cou_dependent.append(pat)
+    cou_dependent.sort()
+    return per_pattern_recalls, cou_dependent
+
+
 def _view1_catalog_self_coverage(rows) -> str:
-    """Heatmap: UofA pattern × subtlety."""
+    """Heatmap: UofA pattern × subtlety, plus D1 per-COU breakdown collapsibles
+    and a "COU-dependent rules" header row (v1.8 §11.2).
+    """
     pivot: dict[tuple[str, str], dict[str, int]] = defaultdict(lambda: {"hit": 0, "total": 0})
     patterns = set()
     for r in rows:
@@ -76,10 +127,29 @@ def _view1_catalog_self_coverage(rows) -> str:
     if not patterns:
         return "<p><em>No confirm_existing rows; View 1 unavailable.</em></p>"
 
+    # D1 v1.8: per-COU breakdown + COU-dependent header row
+    per_pattern_recalls, cou_dependent = _per_cou_breakdown(rows)
+
+    out: list[str] = []
+
+    # Header row: COU-dependent rules (always rendered, even when empty).
+    if cou_dependent:
+        out.append(
+            '<p class="cou-dependent-header"><strong>COU-dependent rules:</strong> '
+            + ", ".join(escape(p) for p in cou_dependent) + "</p>"
+        )
+    else:
+        out.append(
+            '<p class="cou-dependent-header"><strong>COU-dependent rules:</strong> '
+            'No rules show COU-dependent firing behavior at the 30% disparity threshold.</p>'
+        )
+
     subtlety_levels = ["low", "medium", "high"]
-    out = ['<table>', '<thead><tr><th>Pattern</th>']
+    out.append('<table>')
+    out.append('<thead><tr><th>Pattern</th>')
     for s in subtlety_levels:
         out.append(f"<th>{escape(s)}</th>")
+    out.append('<th>per-COU breakdown</th>')
     out.append("</tr></thead><tbody>")
     for pat in sorted(patterns):
         out.append(f"<tr><td>{escape(pat)}</td>")
@@ -94,6 +164,28 @@ def _view1_catalog_self_coverage(rows) -> str:
             out.append(
                 f'<td class="{css}">{rate:.0%} ({counts["hit"]}/{total})</td>'
             )
+        # D1 collapsible per-COU column (HTML5 <details>, hidden by default).
+        cou_recalls = per_pattern_recalls.get(pat, {})
+        non_empty = [v for v in cou_recalls.values() if v is not None]
+        disparity_label = ""
+        if len(non_empty) >= 2:
+            d = max(non_empty) - min(non_empty)
+            disparity_label = (
+                f" <span class='cou-flag-true'>COU-dependent</span>" if d >= 0.30
+                else f" <span class='cou-flag-false'>uniform</span>"
+            )
+        details_rows = []
+        for label, value in cou_recalls.items():
+            if value is None:
+                details_rows.append(f"<li>{escape(label)}: <em>n/a</em></li>")
+            else:
+                details_rows.append(f"<li>{escape(label)}: {value:.0%}</li>")
+        out.append(
+            "<td class='cell-empty'>"
+            f"<details><summary>show{disparity_label}</summary>"
+            f"<ul>{''.join(details_rows) or '<li><em>no per-COU data</em></li>'}</ul>"
+            "</details></td>"
+        )
         out.append("</tr>")
     out.append("</tbody></table>")
     return "\n".join(out)

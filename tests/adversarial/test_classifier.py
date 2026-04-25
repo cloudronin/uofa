@@ -263,7 +263,8 @@ def test_core_pattern_ids_count_is_23():
     assert "COMPOUND-02" not in _CORE_PATTERN_IDS
 
 
-def test_summary_fields_match_cleanup_spec():
+def test_summary_fields_match_cleanup_spec_plus_d1():
+    """First 7 fields per M4 cleanup spec; last 6 per Phase 2 §10.4 D1 (v1.8)."""
     assert SUMMARY_FIELDS == (
         "pattern_id",
         "confirm_existing_count",
@@ -272,6 +273,12 @@ def test_summary_fields_match_cleanup_spec():
         "negative_control_firings",
         "gap_probe_firings",
         "total_firings_across_battery",
+        "recall_morrison_cou1",
+        "recall_morrison_cou2",
+        "recall_nagaraja",
+        "recall_min_per_cou",
+        "recall_cou_disparity",
+        "cou_dependent_flag",
     )
 
 
@@ -416,3 +423,162 @@ def test_summary_csv_total_firings_reconciles_with_rules_fired(tmp_path):
     actual = sum(int(row["total_firings_across_battery"])
                  for row in csv.DictReader(open(out)))
     assert actual == expected_total_firings == 6
+
+
+# ----- D1: per-COU coverage delta reporting (Phase 2 §10.4 v1.8) -----
+
+
+def _row_obj_with_cou(base_cou_key, **overrides):
+    """Helper: build an _OutcomeRow with a base_cou_key set."""
+    overrides["base_cou_key"] = base_cou_key
+    return _row_obj(**overrides)
+
+
+def test_d1_per_cou_recall_three_cous_distinct(tmp_path):
+    """Three confirm_existing variants targeting W-AR-01 across 3 base COUs;
+    summary.csv records one recall value per COU."""
+    rows = [
+        # Morrison COU1: 2/2 = 100%
+        _row_obj_with_cou("morrison/cou1",
+                          coverage_intent="confirm_existing",
+                          target_weakener="W-AR-01",
+                          target_rule_fired=True),
+        _row_obj_with_cou("morrison/cou1",
+                          coverage_intent="confirm_existing",
+                          target_weakener="W-AR-01",
+                          target_rule_fired=True),
+        # Morrison COU2: 1/2 = 50%
+        _row_obj_with_cou("morrison/cou2",
+                          coverage_intent="confirm_existing",
+                          target_weakener="W-AR-01",
+                          target_rule_fired=True),
+        _row_obj_with_cou("morrison/cou2",
+                          coverage_intent="confirm_existing",
+                          target_weakener="W-AR-01",
+                          target_rule_fired=False),
+        # Nagaraja: 0/2 = 0%
+        _row_obj_with_cou("nagaraja/cou1",
+                          coverage_intent="confirm_existing",
+                          target_weakener="W-AR-01",
+                          target_rule_fired=False),
+        _row_obj_with_cou("nagaraja/cou1",
+                          coverage_intent="confirm_existing",
+                          target_weakener="W-AR-01",
+                          target_rule_fired=False),
+    ]
+    out = tmp_path / "summary.csv"
+    _write_summary_csv(rows, out)
+    by_pat = {r["pattern_id"]: r for r in csv.DictReader(open(out))}
+
+    war01 = by_pat["W-AR-01"]
+    assert war01["recall_morrison_cou1"] == "1.000"
+    assert war01["recall_morrison_cou2"] == "0.500"
+    assert war01["recall_nagaraja"] == "0.000"
+    assert war01["recall_min_per_cou"] == "0.000"
+    # disparity = 1.000 - 0.000 = 1.000 ≥ 0.30 → cou_dependent_flag True
+    assert war01["recall_cou_disparity"] == "1.000"
+    assert war01["cou_dependent_flag"] == "True"
+
+
+def test_d1_disparity_below_threshold_flag_false(tmp_path):
+    """Recall variation < 30% across COUs → cou_dependent_flag = False."""
+    rows = [
+        _row_obj_with_cou("morrison/cou1",
+                          coverage_intent="confirm_existing",
+                          target_weakener="W-EP-01",
+                          target_rule_fired=True),
+        _row_obj_with_cou("morrison/cou2",
+                          coverage_intent="confirm_existing",
+                          target_weakener="W-EP-01",
+                          target_rule_fired=True),
+        # Nagaraja: 8/10 = 80% (disparity vs COU1's 100% = 20%)
+        *[
+            _row_obj_with_cou("nagaraja/cou1",
+                              coverage_intent="confirm_existing",
+                              target_weakener="W-EP-01",
+                              target_rule_fired=True)
+            for _ in range(8)
+        ],
+        *[
+            _row_obj_with_cou("nagaraja/cou1",
+                              coverage_intent="confirm_existing",
+                              target_weakener="W-EP-01",
+                              target_rule_fired=False)
+            for _ in range(2)
+        ],
+    ]
+    out = tmp_path / "summary.csv"
+    _write_summary_csv(rows, out)
+    by_pat = {r["pattern_id"]: r for r in csv.DictReader(open(out))}
+
+    wep01 = by_pat["W-EP-01"]
+    assert wep01["recall_morrison_cou1"] == "1.000"
+    assert wep01["recall_morrison_cou2"] == "1.000"
+    assert wep01["recall_nagaraja"] == "0.800"
+    # disparity = 1.000 - 0.800 = 0.200 < 0.30 → False
+    assert wep01["recall_cou_disparity"] == "0.200"
+    assert wep01["cou_dependent_flag"] == "False"
+
+
+def test_d1_empty_columns_when_no_per_cou_data(tmp_path):
+    """A pattern with no per-COU bucketed rows yields empty per-COU columns."""
+    rows: list = []  # no rows at all
+    out = tmp_path / "summary.csv"
+    _write_summary_csv(rows, out)
+    by_pat = {r["pattern_id"]: r for r in csv.DictReader(open(out))}
+
+    war05 = by_pat["W-AR-05"]
+    assert war05["recall_morrison_cou1"] == ""
+    assert war05["recall_morrison_cou2"] == ""
+    assert war05["recall_nagaraja"] == ""
+    assert war05["recall_min_per_cou"] == ""
+    assert war05["recall_cou_disparity"] == ""
+    assert war05["cou_dependent_flag"] == ""
+
+
+def test_d1_disparity_threshold_at_exactly_30_percent(tmp_path):
+    """At exactly 0.30 disparity, the flag is True (≥ comparison)."""
+    rows = [
+        # Morrison COU1: 1/1 = 100%
+        _row_obj_with_cou("morrison/cou1",
+                          coverage_intent="confirm_existing",
+                          target_weakener="W-CON-01",
+                          target_rule_fired=True),
+        # Morrison COU2: 7/10 = 70%
+        *[
+            _row_obj_with_cou("morrison/cou2",
+                              coverage_intent="confirm_existing",
+                              target_weakener="W-CON-01",
+                              target_rule_fired=True)
+            for _ in range(7)
+        ],
+        *[
+            _row_obj_with_cou("morrison/cou2",
+                              coverage_intent="confirm_existing",
+                              target_weakener="W-CON-01",
+                              target_rule_fired=False)
+            for _ in range(3)
+        ],
+    ]
+    out = tmp_path / "summary.csv"
+    _write_summary_csv(rows, out)
+    by_pat = {r["pattern_id"]: r for r in csv.DictReader(open(out))}
+    wcon = by_pat["W-CON-01"]
+    # 1.000 - 0.700 = 0.300 → True (≥ threshold)
+    assert wcon["recall_cou_disparity"] == "0.300"
+    assert wcon["cou_dependent_flag"] == "True"
+
+
+def test_d1_outcomes_csv_does_not_export_base_cou_key(tmp_path):
+    """v1.8 §10.3 only adds D2 timing columns to outcomes.csv; base_cou_key
+    stays internal to the classifier."""
+    from uofa_cli.adversarial.classifier import _write_outcomes_csv
+    rows = [_row_obj_with_cou("morrison/cou1", spec_id="t1")]
+    out = tmp_path / "outcomes.csv"
+    _write_outcomes_csv(rows, out)
+    with open(out) as f:
+        reader = csv.DictReader(f)
+        loaded = list(reader)
+    assert "base_cou_key" not in (reader.fieldnames or [])
+    # Sanity: row data is still correctly written.
+    assert loaded[0]["spec_id"] == "t1"
