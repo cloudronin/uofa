@@ -20,6 +20,7 @@ from uofa_cli.adversarial.runner import (
 REPO_ROOT = Path(__file__).parent.parent.parent
 CONFIRM_DIR = REPO_ROOT / "specs" / "confirm_existing"
 GAP_DIR = REPO_ROOT / "specs" / "gap_probe"
+CROSS_PACK_DIR = REPO_ROOT / "specs" / "cross_pack"
 
 
 def _build_args(out_dir: Path, batch: list[Path], **overrides) -> argparse.Namespace:
@@ -325,6 +326,30 @@ def test_run_batch_invalid_subtlety_override_returns_2(tmp_path):
         out_dir, [batch_dir], subtlety_override="low,bogus"
     )
     assert run_batch(args) == 2
+
+
+# ───────────────────── P2: M6.1 cross-pack battery (v1.8 §7.4) ─────────────────────
+
+
+def test_cross_pack_battery_all_specs_load_and_run_under_mock(tmp_path):
+    """End-to-end mock-LLM run across the entire specs/cross_pack/ battery.
+    Expects 10 specs × 3 variants = 30 packages per Phase 2 §3."""
+    pytest.importorskip("yaml")
+    if not CROSS_PACK_DIR.exists():
+        pytest.skip("cross_pack specs not present")
+    spec_files = sorted(CROSS_PACK_DIR.glob("*.yaml"))
+    if len(spec_files) < 10:
+        pytest.skip(f"expected 10 cross_pack specs, found {len(spec_files)}")
+
+    out_dir = tmp_path / "out"
+    args = _build_args(out_dir, [CROSS_PACK_DIR])
+    rc = run_batch(args)
+    assert rc == 0, "cross_pack battery must succeed under mock LLM"
+
+    manifest = json.loads((out_dir / "batch_manifest.json").read_text())
+    assert manifest["specsLoaded"] == 10
+    assert manifest["specsSucceeded"] == 10
+    assert manifest["totalPackages"] == 30  # §3: 10 × 3 = 30
 
 
 def test_run_batch_subtlety_override_creates_suffixed_output_dirs(tmp_path):
