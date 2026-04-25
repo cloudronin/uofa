@@ -51,8 +51,8 @@ class SourceTaxonomyError(SpecValidationError):
 @dataclass
 class AdversarialSpec:
     spec_id: str
-    target_weakener: str
-    defeater_type: str
+    target_weakener: str | None
+    defeater_type: str | None
     uncertainty_category: str
     coverage_intent: str
     pack: str
@@ -75,21 +75,31 @@ class AdversarialSpec:
     raw: dict = field(repr=False)
 
     def prompt_template_id(self) -> str:
-        """E.g. 'd3_undercutting_inference.W_AR_05'."""
-        return f"{self._template_module()}.{self.target_weakener.replace('-', '_')}"
+        """E.g. ``'d3_undercutting_inference.W_AR_05'`` or
+        ``'evidence_validity.gohar_evidence_validity_data_drift'`` for
+        gap_probe specs without a target weakener.
+        """
+        if self.target_weakener:
+            suffix = self.target_weakener.replace("-", "_")
+        elif self.source_taxonomy:
+            suffix = (
+                self.source_taxonomy.replace("/", "_").replace("-", "_")
+            )
+        else:
+            suffix = "unknown"
+        return f"{self._template_module()}.{suffix}"
 
     def _template_module(self) -> str:
-        # Derived from the prompt registry rather than a parallel map so the
-        # two sources cannot drift. Imported lazily to avoid a load-time
-        # cycle (spec_loader is imported by adversarial/__init__.py).
-        from uofa_cli.adversarial.prompts import _REGISTRY
+        from uofa_cli.adversarial.prompts import resolve_template_module_path
 
-        mod_path = _REGISTRY.get(self.target_weakener)
+        mod_path = resolve_template_module_path(self)
         if not mod_path:
             raise NotImplementedError(
-                f"No prompt template registered for {self.target_weakener}"
+                f"No prompt template registered for spec {self.spec_id!r} "
+                f"(coverage_intent={self.coverage_intent!r}, "
+                f"target_weakener={self.target_weakener!r}, "
+                f"source_taxonomy={self.source_taxonomy!r})"
             )
-        # 'uofa_cli.adversarial.prompts.<short_name>' -> '<short_name>'
         return mod_path.rsplit(".", 1)[-1]
 
 
@@ -130,11 +140,48 @@ def _build_spec(raw: dict, spec_path: Path) -> AdversarialSpec:
         )
 
     target = _require(raw, "target", dict)
-    weakener = _require(target, "target.weakener", str, src=target, key="weakener")
-    defeater = _require(target, "target.defeater_type", str, src=target, key="defeater_type")
     intent = _require(
         target, "target.coverage_intent", str, src=target, key="coverage_intent"
     )
+    if intent not in VALID_INTENTS:
+        raise SpecValidationError(
+            f"target.coverage_intent must be one of {sorted(VALID_INTENTS)}, got {intent!r}"
+        )
+
+    # gap_probe specs may declare weakener: null and defeater_type: null per
+    # spec §6.2 — they target literature-defined defeaters that do NOT map
+    # to a UofA pattern. confirm_existing / interaction / negative_control
+    # specs must declare a weakener.
+    weakener_required = intent in ("confirm_existing", "interaction", "negative_control")
+    weakener_raw = target.get("weakener")
+    defeater_raw = target.get("defeater_type")
+
+    if weakener_required:
+        if not isinstance(weakener_raw, str):
+            raise SpecValidationError(
+                f"target.weakener must be a string for coverage_intent={intent!r}, "
+                f"got {type(weakener_raw).__name__}"
+            )
+        if not isinstance(defeater_raw, str):
+            raise SpecValidationError(
+                f"target.defeater_type must be a string for coverage_intent={intent!r}, "
+                f"got {type(defeater_raw).__name__}"
+            )
+        weakener = weakener_raw
+        defeater = defeater_raw
+    else:
+        # gap_probe: weakener and defeater_type may be null
+        if weakener_raw is not None and not isinstance(weakener_raw, str):
+            raise SpecValidationError(
+                f"target.weakener must be a string or null, got {type(weakener_raw).__name__}"
+            )
+        if defeater_raw is not None and not isinstance(defeater_raw, str):
+            raise SpecValidationError(
+                f"target.defeater_type must be a string or null, got {type(defeater_raw).__name__}"
+            )
+        weakener = weakener_raw
+        defeater = defeater_raw
+
     uncertainty = _require(
         target,
         "target.uncertainty_category",
@@ -143,13 +190,9 @@ def _build_spec(raw: dict, spec_path: Path) -> AdversarialSpec:
         key="uncertainty_category",
     )
 
-    if defeater not in VALID_DEFEATERS:
+    if defeater is not None and defeater not in VALID_DEFEATERS:
         raise SpecValidationError(
-            f"target.defeater_type must be one of {sorted(VALID_DEFEATERS)}, got {defeater!r}"
-        )
-    if intent not in VALID_INTENTS:
-        raise SpecValidationError(
-            f"target.coverage_intent must be one of {sorted(VALID_INTENTS)}, got {intent!r}"
+            f"target.defeater_type must be one of {sorted(VALID_DEFEATERS)} or null, got {defeater!r}"
         )
     if uncertainty not in VALID_UNCERTAINTY:
         raise SpecValidationError(
@@ -162,12 +205,13 @@ def _build_spec(raw: dict, spec_path: Path) -> AdversarialSpec:
         raise SpecValidationError(f"pack must be a string, got {type(pack_name).__name__}")
     _validate_pack_exists(pack_name)
 
-    known_weakeners = _known_weakener_ids(pack_name)
-    if weakener not in known_weakeners:
-        raise SpecValidationError(
-            f"target.weakener {weakener!r} not found in pack {pack_name!r} rule registry. "
-            f"Known weakeners: {sorted(known_weakeners)}"
-        )
+    if weakener is not None:
+        known_weakeners = _known_weakener_ids(pack_name)
+        if weakener not in known_weakeners:
+            raise SpecValidationError(
+                f"target.weakener {weakener!r} not found in pack {pack_name!r} rule registry. "
+                f"Known weakeners: {sorted(known_weakeners)}"
+            )
 
     pkg_ctx = _require(raw, "package_context", dict)
     mode = pkg_ctx.get("mode", "skeleton")

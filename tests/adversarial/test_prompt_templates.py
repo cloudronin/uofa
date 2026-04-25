@@ -95,11 +95,32 @@ def test_mock_response_returns_json():
         assert types == "uofa:SyntheticAdversarialSample"
 
 
-# ----- Phase 2: snapshot all confirm_existing templates -----
+# ----- Phase 2: snapshot all template specs -----
 
 REPO_ROOT = Path(__file__).parent.parent.parent
 PHASE2_SNAPSHOTS = FIXTURES / "snapshots"
-PHASE2_SPECS = sorted((REPO_ROOT / "specs" / "confirm_existing").glob("*.yaml"))
+PHASE2_SPECS = sorted(
+    list((REPO_ROOT / "specs" / "confirm_existing").glob("*.yaml"))
+    + list((REPO_ROOT / "specs" / "gap_probe").glob("*.yaml"))
+    + list((REPO_ROOT / "specs" / "negative_controls").glob("*.yaml"))
+    + list((REPO_ROOT / "specs" / "interaction").glob("*.yaml"))
+)
+
+
+def _snapshot_key(spec) -> str:
+    """Stable per-spec snapshot identifier.
+
+    confirm_existing/interaction: weakener id (lowercase, underscores).
+    gap_probe: full source_taxonomy with slashes/hyphens flattened.
+    negative_control: spec_id (each NC is unique).
+    """
+    if spec.coverage_intent in ("confirm_existing", "interaction"):
+        return spec.target_weakener.replace("-", "_").lower()
+    if spec.coverage_intent == "gap_probe":
+        return (spec.source_taxonomy or "unknown").replace("/", "_").replace("-", "_")
+    if spec.coverage_intent == "negative_control":
+        return spec.spec_id.replace("-", "_")
+    return spec.spec_id
 
 
 @pytest.mark.parametrize("spec_path", PHASE2_SPECS, ids=lambda p: p.stem)
@@ -107,29 +128,29 @@ PHASE2_SPECS = sorted((REPO_ROOT / "specs" / "confirm_existing").glob("*.yaml"))
 def test_confirm_existing_snapshot(spec_path, subtlety):
     """One snapshot per (template, subtlety). Refresh with UOFA_UPDATE_SNAPSHOTS=1.
 
-    Spec §12.3: ~105 snapshots when full battery ships. Phase 2 Milestone 1
-    contributes 22 templates × 3 subtlety = 66 of those.
+    Spec §12.3: ~105 snapshots when full battery ships. Phase 2 covers
+    confirm_existing (22 × 3 = 66), gap_probe (22 × 3 = 66), negative_control
+    (10 × 3 = 30), interaction (6 × 3 = 18). The legacy W-AR-05 fixtures
+    live in fixtures/ rather than fixtures/snapshots/ and are covered by
+    ``test_snapshot_prompt`` above.
     """
     from uofa_cli.adversarial.skeleton import load_base_cou_skeleton
     from uofa_cli.adversarial.spec_loader import load_spec
-    from uofa_cli.adversarial.prompts import get_template
+    from uofa_cli.adversarial.prompts import get_template_for_spec
 
-    # The legacy W-AR-05 snapshots live in fixtures/, not fixtures/snapshots/.
-    # That test (test_snapshot_prompt above) covers W-AR-05; we skip here so
-    # the two suites do not duplicate.
     if spec_path.stem == "w_ar_05":
         pytest.skip("W-AR-05 covered by legacy test_snapshot_prompt")
 
     spec = load_spec(spec_path)
     spec.subtlety = subtlety
     skeleton = load_base_cou_skeleton(spec.base_cou, pack=spec.pack)
-    template = get_template(spec.target_weakener)
+    template = get_template_for_spec(spec)
     system, user = template.render(spec, skeleton)
 
     module_short = spec._template_module()
-    weakener_id = spec.target_weakener.replace("-", "_").lower()
     snapshot_file = (
-        PHASE2_SNAPSHOTS / f"snapshot_{module_short}_{weakener_id}_{subtlety}.txt"
+        PHASE2_SNAPSHOTS
+        / f"snapshot_{module_short}_{_snapshot_key(spec)}_{subtlety}.txt"
     )
     rendered = f"── SYSTEM ──\n{system}\n── USER ──\n{user}"
 
@@ -144,6 +165,6 @@ def test_confirm_existing_snapshot(spec_path, subtlety):
     )
     expected = snapshot_file.read_text()
     assert rendered == expected, (
-        f"snapshot mismatch for {spec.target_weakener} {subtlety}. "
+        f"snapshot mismatch for {spec.spec_id} ({subtlety}). "
         f"Re-run with UOFA_UPDATE_SNAPSHOTS=1 to refresh."
     )

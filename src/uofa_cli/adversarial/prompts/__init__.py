@@ -1,7 +1,16 @@
 """Prompt-template registry.
 
-Phase 1 ships one template (W-AR-05). Phase 2 scales by adding keys to
-``_REGISTRY`` and modules under ``prompts/``.
+Phase 1 ships one confirm_existing template (W-AR-05). Phase 2 adds:
+
+- 22 more confirm_existing templates (one per shipped UofA pattern)
+- 23 gap_probe templates dispatched by ``source_taxonomy`` prefix
+- 10 negative_control templates (single ``negative_controls`` module)
+- 6 interaction templates (single ``multi_target`` module)
+
+confirm_existing / interaction specs route by ``target_weakener``.
+gap_probe specs route by the first two segments of ``source_taxonomy``
+(e.g., ``gohar/evidence_validity/data-drift`` → ``gohar/evidence_validity``).
+negative_control specs route via the sentinel ``"control/none"``.
 """
 
 from __future__ import annotations
@@ -11,6 +20,7 @@ import json
 from pathlib import Path
 from types import ModuleType
 
+#: Maps target_weakener IDs to prompt-template modules.
 _REGISTRY: dict[str, str] = {
     "W-AR-01": "uofa_cli.adversarial.prompts.d1_undermining",
     "W-AR-02": "uofa_cli.adversarial.prompts.d2_rebutting",
@@ -37,20 +47,75 @@ _REGISTRY: dict[str, str] = {
     "COMPOUND-03": "uofa_cli.adversarial.prompts.compound",
 }
 
+#: Maps source_taxonomy prefix (taxonomy/category) to prompt-template modules
+#: for gap_probe specs. Modules dispatch internally by the leaf sub-type.
+_GAP_PROBE_REGISTRY: dict[str, str] = {
+    "gohar/evidence_validity": "uofa_cli.adversarial.prompts.evidence_validity",
+    "gohar/requirements": "uofa_cli.adversarial.prompts.requirements_engineering",
+    "gohar/contextual": "uofa_cli.adversarial.prompts.contextual",
+    "greenwell/sufficiency": "uofa_cli.adversarial.prompts.logical_fallacies",
+    "clarissa-machinery/workflow": "uofa_cli.adversarial.prompts.clarissa_machinery",
+}
+
+#: Sentinel module path for negative_control specs.
+_NEGATIVE_CONTROL_MODULE = "uofa_cli.adversarial.prompts.negative_controls"
+
 _MOCK_FIXTURE_ENV = "UOFA_ADVERSARIAL_MOCK_FIXTURE"
 
 
 class TemplateNotFoundError(Exception):
-    """Raised when no prompt template exists for a weakener id."""
+    """Raised when no prompt template exists for a weakener id or spec."""
 
 
 def get_template(weakener_id: str) -> ModuleType:
-    """Return the prompt-template module for *weakener_id*."""
+    """Return the prompt-template module for *weakener_id*.
+
+    confirm_existing / interaction call site. For gap_probe and
+    negative_control specs use :func:`get_template_for_spec` instead.
+    """
     mod_path = _REGISTRY.get(weakener_id)
     if not mod_path:
         raise TemplateNotFoundError(
-            f"No Phase 1 prompt template for {weakener_id!r}. "
+            f"No prompt template registered for weakener {weakener_id!r}. "
             f"Available: {sorted(_REGISTRY)}"
+        )
+    return importlib.import_module(mod_path)
+
+
+def resolve_template_module_path(spec) -> str | None:
+    """Return the module path for *spec*'s prompt template, or None.
+
+    Pure mapping function (no import). Used by AdversarialSpec to compute
+    ``prompt_template_id`` and ``_template_module``.
+    """
+    if spec.coverage_intent in ("confirm_existing", "interaction"):
+        if spec.target_weakener:
+            return _REGISTRY.get(spec.target_weakener)
+        return None
+    if spec.coverage_intent == "gap_probe":
+        if not spec.source_taxonomy:
+            return None
+        prefix = "/".join(spec.source_taxonomy.split("/")[:2])
+        return _GAP_PROBE_REGISTRY.get(prefix)
+    if spec.coverage_intent == "negative_control":
+        return _NEGATIVE_CONTROL_MODULE
+    return None
+
+
+def get_template_for_spec(spec) -> ModuleType:
+    """Return the prompt-template module for *spec*, dispatching by
+    ``coverage_intent``.
+
+    Generators should prefer this over :func:`get_template` so gap_probe and
+    negative_control specs are routed correctly.
+    """
+    mod_path = resolve_template_module_path(spec)
+    if not mod_path:
+        raise TemplateNotFoundError(
+            f"No prompt template for spec {spec.spec_id!r} "
+            f"(coverage_intent={spec.coverage_intent!r}, "
+            f"target_weakener={spec.target_weakener!r}, "
+            f"source_taxonomy={spec.source_taxonomy!r})"
         )
     return importlib.import_module(mod_path)
 

@@ -27,7 +27,11 @@ from uofa_cli.adversarial.hash_utils import (
     compute_provenance_block_hash,
 )
 from uofa_cli.adversarial.model_costs import estimate_cost
-from uofa_cli.adversarial.prompts import get_template, mock_response
+from uofa_cli.adversarial.prompts import (
+    get_template,
+    get_template_for_spec,
+    mock_response,
+)
 from uofa_cli.adversarial.skeleton import SkeletonLoadError, load_base_cou_skeleton
 from uofa_cli.adversarial.spec_loader import (
     AdversarialSpec,
@@ -202,7 +206,7 @@ class AdversarialGenerator:
     def _render_prompts(
         self, spec: AdversarialSpec, variant_num: int, skeleton: dict
     ) -> tuple[str, str]:
-        template = get_template(spec.target_weakener)
+        template = get_template_for_spec(spec)
         return template.render(spec, skeleton)
 
     def _attempt_variant(
@@ -340,7 +344,7 @@ class AdversarialGenerator:
         block = {
             "generatorVersion": GENERATOR_VERSION,
             "toolVersion": f"uofa-cli {__version__}",
-            "promptTemplateVersion": get_template(spec.target_weakener).PROMPT_VERSION,
+            "promptTemplateVersion": get_template_for_spec(spec).PROMPT_VERSION,
             "promptTemplateId": spec.prompt_template_id(),
             "specId": spec.spec_id,
             "specPath": str(spec.spec_path),
