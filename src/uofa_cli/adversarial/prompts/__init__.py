@@ -12,7 +12,29 @@ from pathlib import Path
 from types import ModuleType
 
 _REGISTRY: dict[str, str] = {
+    "W-AR-01": "uofa_cli.adversarial.prompts.d1_undermining",
+    "W-AR-02": "uofa_cli.adversarial.prompts.d2_rebutting",
+    "W-AR-03": "uofa_cli.adversarial.prompts.d3_undercutting_inference",
+    "W-AR-04": "uofa_cli.adversarial.prompts.d3_undercutting_model",
     "W-AR-05": "uofa_cli.adversarial.prompts.d3_undercutting_inference",
+    "W-EP-01": "uofa_cli.adversarial.prompts.epistemic",
+    "W-EP-02": "uofa_cli.adversarial.prompts.epistemic",
+    "W-EP-03": "uofa_cli.adversarial.prompts.epistemic",
+    "W-EP-04": "uofa_cli.adversarial.prompts.epistemic",
+    "W-AL-01": "uofa_cli.adversarial.prompts.aleatory",
+    "W-AL-02": "uofa_cli.adversarial.prompts.aleatory",
+    "W-ON-01": "uofa_cli.adversarial.prompts.ontological",
+    "W-ON-02": "uofa_cli.adversarial.prompts.ontological",
+    "W-SI-01": "uofa_cli.adversarial.prompts.structural",
+    "W-SI-02": "uofa_cli.adversarial.prompts.structural",
+    "W-CON-01": "uofa_cli.adversarial.prompts.consistency",
+    "W-CON-02": "uofa_cli.adversarial.prompts.consistency",
+    "W-CON-03": "uofa_cli.adversarial.prompts.consistency",
+    "W-CON-04": "uofa_cli.adversarial.prompts.consistency",
+    "W-CON-05": "uofa_cli.adversarial.prompts.consistency",
+    "W-PROV-01": "uofa_cli.adversarial.prompts.provenance",
+    "COMPOUND-01": "uofa_cli.adversarial.prompts.compound",
+    "COMPOUND-03": "uofa_cli.adversarial.prompts.compound",
 }
 
 _MOCK_FIXTURE_ENV = "UOFA_ADVERSARIAL_MOCK_FIXTURE"

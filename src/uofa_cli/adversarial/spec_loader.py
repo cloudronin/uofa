@@ -31,7 +31,7 @@ VALID_DECISIONS = {"Accepted", "Not accepted", "Conditional"}
 VALID_MODES = {"skeleton", "narrative-only"}
 VALID_UNCERTAINTY = {"epistemic", "aleatory", "ontological", "argument", "structural"}
 SPEC_ID_RE = re.compile(r"^[a-z0-9-]+$")
-WEAKENER_ID_RE = re.compile(r"patternId\s+'(W-[A-Z]{2}-\d{2})'")
+WEAKENER_ID_RE = re.compile(r"patternId\s+'((?:W-[A-Z]+-\d{2})|(?:COMPOUND-\d{2}))'")
 NEGATIVE_CONTROL_SENTINEL = "control/none"
 
 
@@ -79,11 +79,18 @@ class AdversarialSpec:
         return f"{self._template_module()}.{self.target_weakener.replace('-', '_')}"
 
     def _template_module(self) -> str:
-        if self.target_weakener == "W-AR-05":
-            return "d3_undercutting_inference"
-        raise NotImplementedError(
-            f"No Phase 1 prompt template for {self.target_weakener}"
-        )
+        # Derived from the prompt registry rather than a parallel map so the
+        # two sources cannot drift. Imported lazily to avoid a load-time
+        # cycle (spec_loader is imported by adversarial/__init__.py).
+        from uofa_cli.adversarial.prompts import _REGISTRY
+
+        mod_path = _REGISTRY.get(self.target_weakener)
+        if not mod_path:
+            raise NotImplementedError(
+                f"No prompt template registered for {self.target_weakener}"
+            )
+        # 'uofa_cli.adversarial.prompts.<short_name>' -> '<short_name>'
+        return mod_path.rsplit(".", 1)[-1]
 
 
 def load_spec(path: Path) -> AdversarialSpec:

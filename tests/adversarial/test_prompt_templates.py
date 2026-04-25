@@ -93,3 +93,57 @@ def test_mock_response_returns_json():
         assert "uofa:SyntheticAdversarialSample" in types
     else:
         assert types == "uofa:SyntheticAdversarialSample"
+
+
+# ----- Phase 2: snapshot all confirm_existing templates -----
+
+REPO_ROOT = Path(__file__).parent.parent.parent
+PHASE2_SNAPSHOTS = FIXTURES / "snapshots"
+PHASE2_SPECS = sorted((REPO_ROOT / "specs" / "confirm_existing").glob("*.yaml"))
+
+
+@pytest.mark.parametrize("spec_path", PHASE2_SPECS, ids=lambda p: p.stem)
+@pytest.mark.parametrize("subtlety", ["low", "medium", "high"])
+def test_confirm_existing_snapshot(spec_path, subtlety):
+    """One snapshot per (template, subtlety). Refresh with UOFA_UPDATE_SNAPSHOTS=1.
+
+    Spec §12.3: ~105 snapshots when full battery ships. Phase 2 Milestone 1
+    contributes 22 templates × 3 subtlety = 66 of those.
+    """
+    from uofa_cli.adversarial.skeleton import load_base_cou_skeleton
+    from uofa_cli.adversarial.spec_loader import load_spec
+    from uofa_cli.adversarial.prompts import get_template
+
+    # The legacy W-AR-05 snapshots live in fixtures/, not fixtures/snapshots/.
+    # That test (test_snapshot_prompt above) covers W-AR-05; we skip here so
+    # the two suites do not duplicate.
+    if spec_path.stem == "w_ar_05":
+        pytest.skip("W-AR-05 covered by legacy test_snapshot_prompt")
+
+    spec = load_spec(spec_path)
+    spec.subtlety = subtlety
+    skeleton = load_base_cou_skeleton(spec.base_cou, pack=spec.pack)
+    template = get_template(spec.target_weakener)
+    system, user = template.render(spec, skeleton)
+
+    module_short = spec._template_module()
+    weakener_id = spec.target_weakener.replace("-", "_").lower()
+    snapshot_file = (
+        PHASE2_SNAPSHOTS / f"snapshot_{module_short}_{weakener_id}_{subtlety}.txt"
+    )
+    rendered = f"── SYSTEM ──\n{system}\n── USER ──\n{user}"
+
+    if os.environ.get("UOFA_UPDATE_SNAPSHOTS") == "1":
+        snapshot_file.parent.mkdir(parents=True, exist_ok=True)
+        snapshot_file.write_text(rendered)
+        pytest.skip(f"snapshot refreshed: {snapshot_file.name}")
+
+    assert snapshot_file.exists(), (
+        f"missing snapshot {snapshot_file.name}. Run with "
+        f"UOFA_UPDATE_SNAPSHOTS=1 to generate."
+    )
+    expected = snapshot_file.read_text()
+    assert rendered == expected, (
+        f"snapshot mismatch for {spec.target_weakener} {subtlety}. "
+        f"Re-run with UOFA_UPDATE_SNAPSHOTS=1 to refresh."
+    )
