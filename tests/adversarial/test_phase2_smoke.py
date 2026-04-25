@@ -211,14 +211,20 @@ def test_phase2_e2e_smoke(tmp_path):
     nonzero_timings = [r for r in rows if int(r["total_eval_ms"] or 0) > 0]
     assert len(nonzero_timings) >= 1, "expected ≥1 row with non-zero total_eval_ms"
 
-    # rule_timing.csv per §10.5
-    from uofa_cli.adversarial.classifier import RULE_TIMING_FIELDS
+    # rule_timing.csv omit-with-note per §10.5: under the Jena native
+    # fallback, rule_timing.csv is intentionally absent and a companion
+    # FALLBACK_NOTE.txt explains why.
     rule_timing_path = report_dir / "rule_timing.csv"
-    assert rule_timing_path.exists()
-    with open(rule_timing_path) as f:
-        rt_reader = csv.DictReader(f)
-        list(rt_reader)  # consume to populate fieldnames
-        assert tuple(rt_reader.fieldnames or ()) == RULE_TIMING_FIELDS
+    rule_timing_note = report_dir / "rule_timing.csv.FALLBACK_NOTE.txt"
+    assert not rule_timing_path.exists(), (
+        "rule_timing.csv must be omitted under the Jena native fallback"
+    )
+    assert rule_timing_note.exists(), (
+        "expected rule_timing.csv.FALLBACK_NOTE.txt companion under fallback"
+    )
+    note_body = rule_timing_note.read_text()
+    assert "rule_timing.csv intentionally omitted" in note_body
+    assert "Jena" in note_body  # references the underlying limitation
 
     # batch_manifest.timing_fallback_note populated
     bm = json.loads((out_dir / "batch_manifest.json").read_text())

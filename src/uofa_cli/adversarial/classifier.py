@@ -598,25 +598,30 @@ RULE_TIMING_FIELDS: tuple[str, ...] = (
     "rule_fired",
 )
 
-#: Fallback note recorded in <batch_dir>/batch_manifest.json when per-rule
-#: timing is unavailable from Jena natively. Per Phase 2 Spec v1.8 §10.5,
-#: the rule_timing.csv file is written with the per-(rule, package) firing
-#: rows but rule_eval_ms is set to 0 (Jena GenericRuleReasoner does not
-#: expose per-rule wall-clock without Java-side instrumentation).
+#: Fallback note recorded in <batch_dir>/batch_manifest.json (and in the
+#: companion rule_timing.csv.FALLBACK_NOTE.txt) when per-rule timing is
+#: unavailable from Jena natively. Per Phase 2 Spec v1.8 §10.5, under this
+#: fallback rule_timing.csv is OMITTED (an all-zeros rule_eval_ms file would
+#: be a misleading measurement). The lumped subprocess wall-clock instead
+#: appears in outcomes.csv jena_inference_ms / total_eval_ms.
 RULE_TIMING_FALLBACK_NOTE: str = (
     "Per-rule wall-clock timing is not exposed by Jena's GenericRuleReasoner "
-    "(FORWARD_RETE) without Java-side instrumentation. rule_timing.csv "
-    "records (rule, package) firing pairs with rule_eval_ms=0; the lumped "
-    "subprocess time appears in outcomes.csv jena_inference_ms / "
-    "total_eval_ms. Phase 2 Spec v1.8 §10.5 acknowledges this fallback."
+    "(FORWARD_RETE) without Java-side instrumentation. Per Phase 2 Spec v1.8 "
+    "§10.5, rule_timing.csv is intentionally omitted under this fallback "
+    "rather than emitted with rule_eval_ms=0 on every row (which would be a "
+    "Jena-limitation marker, not a measurement). The lumped subprocess time "
+    "appears in outcomes.csv jena_inference_ms / total_eval_ms, and this "
+    "limitation is also recorded in batch_manifest.timing_fallback_note."
 )
 
 
 def _write_rule_timing_csv(rule_timing_rows: list[dict], out_path: Path) -> None:
     """D2 (v1.8) §10.5: per-(rule, package) timing CSV.
 
-    Always writes a schema-conformant header. The Jena native fallback path
-    sets rule_eval_ms=0 on every row (see RULE_TIMING_FALLBACK_NOTE).
+    Reserved for the future non-fallback path (Java-side instrumentation
+    exposing per-rule wall-clock). Under the current Jena GenericRuleReasoner
+    fallback, ``run_analyze`` does NOT call this — see
+    ``_write_rule_timing_fallback_note`` and RULE_TIMING_FALLBACK_NOTE.
     """
     out_path.parent.mkdir(parents=True, exist_ok=True)
     with open(out_path, "w", newline="") as f:
@@ -624,6 +629,24 @@ def _write_rule_timing_csv(rule_timing_rows: list[dict], out_path: Path) -> None
         w.writeheader()
         for row in rule_timing_rows:
             w.writerow({k: row.get(k, "") for k in RULE_TIMING_FIELDS})
+
+
+def _write_rule_timing_fallback_note(out_path: Path) -> None:
+    """D2 (v1.8) §10.5 omit-with-note: write a companion text file alongside
+    the place rule_timing.csv would have lived, explaining the omission.
+
+    The note text is RULE_TIMING_FALLBACK_NOTE plus a header line so a human
+    opening the file in the batch directory understands why rule_timing.csv
+    is absent.
+    """
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    body = (
+        "rule_timing.csv intentionally omitted (Jena native per-rule timing "
+        "fallback).\n\n"
+        + RULE_TIMING_FALLBACK_NOTE
+        + "\n"
+    )
+    out_path.write_text(body)
 
 
 def _annotate_batch_manifest_with_timing_fallback(in_dir: Path) -> None:
@@ -664,15 +687,18 @@ def run_analyze(args) -> int:
     outcomes_path = out_dir / "outcomes.csv"
     matrix_path = out_dir / "matrix.csv"
     summary_path = out_dir / "summary.csv"
-    rule_timing_path = out_dir / "rule_timing.csv"
+    rule_timing_note_path = out_dir / "rule_timing.csv.FALLBACK_NOTE.txt"
 
     _write_outcomes_csv(rows, outcomes_path)
     _write_matrix_csv(rows, matrix_path)
     _write_summary_csv(rows, summary_path)
 
-    # D2: rule_timing.csv (fallback path — see RULE_TIMING_FALLBACK_NOTE).
-    rule_timing_rows = getattr(_scan_outcomes, "_last_rule_timing_rows", [])
-    _write_rule_timing_csv(rule_timing_rows, rule_timing_path)
+    # D2 (v1.8 §10.5): rule_timing.csv is intentionally OMITTED under the
+    # Jena native fallback path. An all-zeros rule_eval_ms file would be a
+    # misleading measurement; instead, drop a companion FALLBACK_NOTE
+    # alongside the place where the file would have lived, and record the
+    # same note in batch_manifest.timing_fallback_note.
+    _write_rule_timing_fallback_note(rule_timing_note_path)
     _annotate_batch_manifest_with_timing_fallback(in_dir)
 
     # HTML report (delegated to reporter.py)
@@ -685,6 +711,7 @@ def run_analyze(args) -> int:
     result_line("outcomes", True, str(outcomes_path))
     result_line("matrix", True, str(matrix_path))
     result_line("summary", True, str(summary_path))
-    result_line("rule_timing", True, str(rule_timing_path))
+    result_line("rule_timing", False, "omitted — Jena native fallback "
+                f"(see {rule_timing_note_path.name})")
     result_line("report", True, str(html_path))
     return 0
