@@ -61,7 +61,7 @@ uofa adversarial run \
   --base-cou-override packs/vv40/examples/morrison/cou1,packs/vv40/examples/morrison/cou2,packs/vv40/examples/nagaraja/cou1 \
   --out out/adversarial/phase2/$DATE/ \
   --model claude-sonnet-4-6 \
-  --max-cost 290.00 \
+  --max-cost 400.00 \
   --parallel 3 \
   --strict-circularity \
   2>&1 | tee out/adversarial/phase2/$DATE/run.log
@@ -75,8 +75,14 @@ uofa adversarial run \
 >   negative_control) the three base COUs. gap_probe and interaction
 >   specs pin a single base_cou by §7 design and the runner enforces this
 >   automatically — the override is silently ignored for those batteries.
-> * `--max-cost 290.00` — leaves $40 headroom against the $330 ceiling
->   per §3. If hit, `--resume` continues from the per-spec manifest.
+> * `--max-cost 400.00` — recalibrated after the Apr 25 mini live smoke
+>   showed actual sonnet-4-6 cost ≈ $0.079/package vs §3's $0.04/pkg
+>   estimate (≈ 2× higher because output is ~12k tokens not 4k). Full
+>   battery at 4,440 packages × $0.079 ≈ $351; the $400 cap leaves
+>   ~$49 headroom for variance + retry overhead. If still hit,
+>   `--resume` continues from the per-spec manifest. §3's "$330
+>   ceiling" is now historical — the live spend target is
+>   **~$351 actual**.
 > * `--parallel 3` — Anthropic tier 4 (~80 RPM) tolerates this; back off
 >   to `--parallel 1` if rate-limit errors appear in `run.log`.
 > * `--strict-circularity` — gen model ≠ extract model. Mandatory for §3
