@@ -19,8 +19,6 @@ def _row(**overrides):
         outcome_class="COV-HIT",
         rules_fired="W-AR-01",
         target_rule_fired=True,
-        baseline_firings_count=None,
-        baseline_firings_minus_target=None,
         section_6_7_candidate=None,
         shacl_retries=0,
         tokens=100,

@@ -20,10 +20,11 @@ Output CSVs (per spec §10.3, §10.4, §11.2):
     summary.csv   per-pattern aggregate (one row per shipped UofA core
                   pattern; schema per UofA_Phase2_M4_Cleanup_Spec.md)
 
-Baseline subtraction: when a spec's ``base_cou`` is a shipped example
-(Morrison COU1=24, COU2=18, Nagaraja COU1=32) the classifier records
-``baseline_firings_count`` and ``baseline_firings_minus_target`` so the
-caller can distinguish target-rule firings from pre-existing ones.
+Skeleton-mode generation: each synthetic package is a fresh standalone
+generation, not a delta against the underlying base COU. The classifier
+therefore reads observed Jena rule firings directly — no baseline
+subtraction, no inheritance assumption. ``base_cou_key`` is still
+recorded per row so summary.csv can bucket recall by COU (D1, v1.8 §10.4).
 
 Note on summary.csv: View-3 overall precision/recall metrics
 (catalog_recall, catalog_precision_1_minus_fpr, gap_probe_miss_rate)
@@ -47,14 +48,6 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
 from uofa_cli.output import error, info, result_line, warn
-
-
-# v0.5.2 baselines per Phase 2 Spec v1.7 §3.1.
-BASELINE_FIRINGS: dict[str, int] = {
-    "morrison/cou1": 24,
-    "morrison/cou2": 18,
-    "nagaraja/cou1": 32,
-}
 
 
 # Active UofA core patterns at v0.5.4. Source of truth:
@@ -115,14 +108,12 @@ class _OutcomeRow:
     outcome_class: str
     rules_fired: str
     target_rule_fired: bool
-    baseline_firings_count: int | None
-    baseline_firings_minus_target: int | None
     section_6_7_candidate: str | None
     shacl_retries: int
     tokens: int
     cost_usd: float
     # D1 (v1.8): which base COU this row's spec was generated against. Values
-    # are keys of BASELINE_FIRINGS ("morrison/cou1" etc.) or None for specs
+    # are keys of _COU_KEY_TO_COLUMN ("morrison/cou1" etc.) or None for specs
     # whose base_cou doesn't match a shipped COU. Internal-only — not written
     # to outcomes.csv (v1.8 §10.3 only adds D2 timing columns).
     base_cou_key: str | None = None
@@ -135,11 +126,15 @@ class _OutcomeRow:
 
 
 def _detect_baseline_key(base_cou: str | None) -> str | None:
-    """Match ``packs/vv40/examples/morrison/cou1`` → ``morrison/cou1``."""
+    """Match ``packs/vv40/examples/morrison/cou1`` → ``morrison/cou1``.
+
+    Used by D1 per-COU recall bucketing in summary.csv. The matched key
+    is one of the entries in :data:`_COU_KEY_TO_COLUMN`.
+    """
     if not base_cou:
         return None
     s = str(base_cou)
-    for key in BASELINE_FIRINGS:
+    for key in _COU_KEY_TO_COLUMN:
         if key in s:
             return key
     return None
@@ -218,19 +213,20 @@ def _run_rules_on_package(
 def _classify(
     coverage_intent: str,
     target_weakener: str | None,
-    firings_minus_baseline: dict[str, int],
+    firings: dict[str, int],
     package_exists: bool,
 ) -> tuple[str, bool]:
     """Return ``(outcome_class, target_rule_fired)``.
 
-    *firings_minus_baseline* should already have the base-COU baseline
-    subtracted; it represents the firings ATTRIBUTABLE to the synthetic
-    perturbation in the generated package.
+    *firings* is the raw ``{pattern_id: hit_count}`` dict observed by
+    running the rule engine on the synthetic package. Skeleton-mode
+    generation produces standalone packages, so observed firings ARE
+    attributable to the package itself — no baseline subtraction.
     """
     if not package_exists:
         return "GEN-INVALID", False
 
-    fired = set(firings_minus_baseline.keys())
+    fired = set(firings.keys())
     target_fired = bool(target_weakener and target_weakener in fired)
 
     if coverage_intent == "negative_control":
@@ -259,29 +255,6 @@ def _classify(
     if not fired:
         return "COV-MISS", False
     return "COV-WRONG", False
-
-
-def _subtract_baseline(
-    firings: dict[str, int], baseline_count: int | None
-) -> dict[str, int]:
-    """Reduce per-pattern hit counts by approximating the baseline as a
-    proportional reduction. Conservative: preserves any fired pattern as
-    a positive count if the baseline does not fully account for it.
-    """
-    if baseline_count is None:
-        return firings
-    total = sum(firings.values())
-    if total <= baseline_count:
-        return {}
-    # Conservative trimming: assume baseline scales proportionally and
-    # subtract that fraction from each pattern's hit count, floor at 0.
-    factor = baseline_count / max(total, 1)
-    out = {}
-    for pat, count in firings.items():
-        delta = max(0, count - int(round(count * factor)))
-        if delta:
-            out[pat] = delta
-    return out
 
 
 def _scan_outcomes(
@@ -322,7 +295,10 @@ def _scan_outcomes(
             continue
         per_spec_manifest = json.loads(per_spec_manifest_path.read_text())
 
-        # Detect baseline from spec_path -> base_cou (best effort: read spec).
+        # Detect base_cou key from spec_path → base_cou (best effort: read
+        # spec). Used downstream for D1 per-COU recall bucketing in
+        # summary.csv. ``base_cou_key`` is None when the spec's base_cou
+        # doesn't match a shipped COU (e.g., NASA cross-pack specs).
         baseline_key = None
         try:
             spec_path = Path(per_spec["spec_path"])
@@ -331,9 +307,6 @@ def _scan_outcomes(
             baseline_key = _detect_baseline_key(str(spec_obj.base_cou))
         except Exception:
             pass
-        baseline_count = (
-            BASELINE_FIRINGS.get(baseline_key) if baseline_key else None
-        )
 
         for variant in per_spec_manifest.get("variants", []):
             variant_num = variant.get("variantNum") or variant.get("variant_num")
@@ -379,19 +352,14 @@ def _scan_outcomes(
                     "rule_fired": "True",
                 })
 
-            firings_subtracted = _subtract_baseline(firings, baseline_count)
-
             outcome_class, target_fired = _classify(
                 coverage_intent=coverage_intent,
                 target_weakener=target_weakener,
-                firings_minus_baseline=firings_subtracted,
+                firings=firings,
                 package_exists=package_exists,
             )
 
-            rules_fired_str = ",".join(sorted(firings_subtracted.keys()))
-            baseline_minus = (
-                baseline_count - sum(firings.values()) if baseline_count else None
-            )
+            rules_fired_str = ",".join(sorted(firings.keys()))
 
             rows.append(_OutcomeRow(
                 spec_id=spec_id,
@@ -403,8 +371,6 @@ def _scan_outcomes(
                 outcome_class=outcome_class,
                 rules_fired=rules_fired_str,
                 target_rule_fired=target_fired,
-                baseline_firings_count=baseline_count,
-                baseline_firings_minus_target=baseline_minus,
                 section_6_7_candidate=None,
                 shacl_retries=shacl_retries,
                 tokens=tokens,

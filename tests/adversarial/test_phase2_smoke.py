@@ -148,15 +148,20 @@ def test_phase2_e2e_smoke(tmp_path):
         reader = csv.DictReader(f)
         rows = list(reader)
     assert len(rows) == 8, f"expected 8 outcome rows, got {len(rows)}"
-    # Schema fields present
+    # Schema fields present (post classifier-cleanup: no baseline_firings_*)
     expected_fields = {
         "spec_id", "variant_num", "target_weakener", "source_taxonomy",
         "coverage_intent", "subtlety", "outcome_class", "rules_fired",
-        "target_rule_fired", "baseline_firings_count",
-        "baseline_firings_minus_target", "section_6_7_candidate",
+        "target_rule_fired", "section_6_7_candidate",
         "shacl_retries", "tokens", "cost_usd",
     }
     assert expected_fields.issubset(set(reader.fieldnames or []))
+    # Negative assertion: deleted baseline columns must NOT reappear
+    forbidden = {"baseline_firings_count", "baseline_firings_minus_target"}
+    assert not (forbidden & set(reader.fieldnames or [])), (
+        "outcomes.csv must not contain deleted baseline columns "
+        f"(found: {forbidden & set(reader.fieldnames or [])})"
+    )
 
     # summary.csv per-pattern schema (M4 cleanup, gate #9 closure):
     # exactly 23 rows (one per active core pattern), correct fieldnames,
