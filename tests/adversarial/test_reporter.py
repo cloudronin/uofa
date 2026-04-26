@@ -96,6 +96,46 @@ def test_view3_metrics_match_input(tmp_path):
     assert "50.0%" in html or "50%" in html
 
 
+def test_view3_metrics_exclude_gen_invalid_from_denominators(tmp_path):
+    """GEN-INVALID rows must NOT inflate any of the three View 3 denominators.
+
+    Smoke evidence: SMOKE-suite-p3 had 18 confirm_existing rows where 3 were
+    GEN-INVALID (p2 refusal). Pre-fix recall = 15/18 = 83.3%. Post-fix recall
+    must be 15/15 = 100%.
+    """
+    rows = [
+        # 2 evaluable confirm_existing rows, both hit
+        _row(coverage_intent="confirm_existing", outcome_class="COV-HIT"),
+        _row(coverage_intent="confirm_existing", outcome_class="COV-HIT-PLUS"),
+        # 1 GEN-INVALID — must be excluded from confirm_total
+        _row(coverage_intent="confirm_existing", outcome_class="GEN-INVALID"),
+        # 1 evaluable NC, no firings → CLEAN-CORRECT
+        _row(coverage_intent="negative_control", target_weakener=None,
+             outcome_class="COV-CLEAN-CORRECT"),
+        # 1 GEN-INVALID NC — must be excluded from nc_total
+        _row(coverage_intent="negative_control", target_weakener=None,
+             outcome_class="GEN-INVALID"),
+        # 1 evaluable gap_probe, miss
+        _row(coverage_intent="gap_probe", target_weakener=None,
+             source_taxonomy="gohar/evidence_validity/data-drift",
+             outcome_class="COV-MISS"),
+        # 1 GEN-INVALID gap_probe — must be excluded from gp_total
+        _row(coverage_intent="gap_probe", target_weakener=None,
+             source_taxonomy="gohar/evidence_validity/data-drift",
+             outcome_class="GEN-INVALID"),
+    ]
+    out = tmp_path / "index.html"
+    write_html_report(rows, out)
+    html = out.read_text()
+    # Catalog recall: 2 hits / 2 evaluable = 100% (NOT 66.7%)
+    assert "100.0%" in html
+    # confirm_existing (n=2) — denominator excludes GEN-INVALID (was n=3)
+    assert "n=2" in html
+    # negative_controls (n=1) — denominator excludes GEN-INVALID (was n=2)
+    # gap_probe (n=1) — denominator excludes GEN-INVALID (was n=2)
+    assert html.count("n=1") >= 2
+
+
 def test_write_html_report_with_no_rows(tmp_path):
     """Empty input should not crash; report should render placeholder text."""
     out = tmp_path / "index.html"

@@ -103,6 +103,26 @@ def test_view3_markdown_renders_table(tmp_path):
     assert "0.0%" in body    # NC precision (1/1 wrong)
 
 
+def test_view3_markdown_excludes_gen_invalid_from_denominators(tmp_path):
+    """Mirrors reporter._view3_precision_recall: GEN-INVALID rows do NOT
+    count toward any per-battery denominator. Smoke evidence: SMOKE-suite-p3
+    saw 15/18 = 83.3% recall pre-fix; truthful answer is 15/15 = 100%."""
+    mod = _load_script("export_view3_markdown.py")
+    rows = [
+        # 2 evaluable confirm_existing hits
+        {"spec_id": "s1", "outcome_class": "COV-HIT",
+         "coverage_intent": "confirm_existing"},
+        {"spec_id": "s2", "outcome_class": "COV-HIT-PLUS",
+         "coverage_intent": "confirm_existing"},
+        # 1 GEN-INVALID — must be excluded
+        {"spec_id": "s3", "outcome_class": "GEN-INVALID",
+         "coverage_intent": "confirm_existing"},
+    ]
+    metrics = mod.compute_view3_metrics(rows)
+    assert metrics["catalog_recall"] == 1.0   # 2/2, not 2/3
+    assert metrics["n_confirm"] == 2          # 2, not 3
+
+
 def test_view3_markdown_returns_2_when_outcomes_missing(tmp_path):
     mod = _load_script("export_view3_markdown.py")
     rc = mod.main([

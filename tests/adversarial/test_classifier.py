@@ -331,6 +331,37 @@ def test_write_summary_csv_aggregates_confirm_existing(tmp_path):
     assert war01["recall"] == "0.667"
 
 
+def test_write_summary_csv_excludes_gen_invalid_from_recall_denominator(tmp_path):
+    """GEN-INVALID rows must NOT inflate confirm_existing_count.
+
+    Smoke evidence: the SMOKE-suite-p3 batch saw W-AR-05 recall = 6/9 = 0.667
+    only because 3 rows were GEN-INVALID (Anthropic refusal); excluding those
+    yields the truthful 6/6 = 1.000.
+    """
+    rows = [
+        # 2 successful hits
+        _row_obj(coverage_intent="confirm_existing", target_weakener="W-AR-01",
+                 rules_fired="W-AR-01", target_rule_fired=True,
+                 outcome_class="COV-HIT"),
+        _row_obj(coverage_intent="confirm_existing", target_weakener="W-AR-01",
+                 rules_fired="W-AR-01", target_rule_fired=True,
+                 outcome_class="COV-HIT"),
+        # 1 GEN-INVALID — should NOT count toward the denominator
+        _row_obj(coverage_intent="confirm_existing", target_weakener="W-AR-01",
+                 rules_fired="", target_rule_fired=False,
+                 outcome_class="GEN-INVALID"),
+    ]
+    out = tmp_path / "summary.csv"
+    _write_summary_csv(rows, out)
+    by_pat = {r["pattern_id"]: r for r in csv.DictReader(open(out))}
+
+    war01 = by_pat["W-AR-01"]
+    # 2 evaluable rows, both hit → recall = 1.000 (NOT 2/3 = 0.667)
+    assert war01["confirm_existing_count"] == "2"
+    assert war01["confirm_existing_hits"] == "2"
+    assert war01["recall"] == "1.000"
+
+
 def test_write_summary_csv_recall_empty_when_no_attempts(tmp_path):
     rows = []
     out = tmp_path / "summary.csv"

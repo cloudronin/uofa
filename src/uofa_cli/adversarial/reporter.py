@@ -241,19 +241,35 @@ def _view2_literature_coverage(rows) -> str:
 
 def _view3_precision_recall(rows) -> str:
     by_class = Counter(r.outcome_class for r in rows)
-    confirm_total = sum(1 for r in rows if r.coverage_intent == "confirm_existing")
+    # Exclude GEN-INVALID from per-battery denominators: those rows represent
+    # generation failures where no package was evaluable, not coverage data
+    # points. Including them would deflate every reported metric by the
+    # gen-failure rate.
+    confirm_total = sum(
+        1 for r in rows
+        if r.coverage_intent == "confirm_existing"
+        and r.outcome_class != "GEN-INVALID"
+    )
     confirm_hits = sum(
         1 for r in rows
         if r.coverage_intent == "confirm_existing"
         and r.outcome_class in ("COV-HIT", "COV-HIT-PLUS")
     )
-    nc_total = sum(1 for r in rows if r.coverage_intent == "negative_control")
+    nc_total = sum(
+        1 for r in rows
+        if r.coverage_intent == "negative_control"
+        and r.outcome_class != "GEN-INVALID"
+    )
     nc_wrong = sum(
         1 for r in rows
         if r.coverage_intent == "negative_control"
         and r.outcome_class == "COV-CLEAN-WRONG"
     )
-    gp_total = sum(1 for r in rows if r.coverage_intent == "gap_probe")
+    gp_total = sum(
+        1 for r in rows
+        if r.coverage_intent == "gap_probe"
+        and r.outcome_class != "GEN-INVALID"
+    )
     gp_miss = sum(
         1 for r in rows
         if r.coverage_intent == "gap_probe"

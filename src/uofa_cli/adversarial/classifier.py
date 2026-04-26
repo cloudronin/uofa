@@ -477,7 +477,14 @@ def _write_summary_csv(rows: list[_OutcomeRow], out_path: Path) -> None:
             total_firings[pat] += 1
 
         # confirm_existing: count attempts and hits per target pattern.
-        if r.coverage_intent == "confirm_existing" and r.target_weakener:
+        # Exclude GEN-INVALID rows — those represent generation failures
+        # where no package was evaluable, not coverage misses. Including
+        # them would deflate per-pattern recall by the gen-failure rate.
+        if (
+            r.coverage_intent == "confirm_existing"
+            and r.target_weakener
+            and r.outcome_class != "GEN-INVALID"
+        ):
             confirm_count[r.target_weakener] += 1
             # ``target_rule_fired`` arrives here as a Python bool from
             # _OutcomeRow but the same code path runs after CSV reads

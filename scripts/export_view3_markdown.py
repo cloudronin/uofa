@@ -32,19 +32,34 @@ def compute_view3_metrics(rows: list[dict]) -> dict:
       n_confirm / n_nc / n_gp       — per-battery sample sizes
     """
     by_class = Counter(r.get("outcome_class", "") for r in rows)
-    confirm_total = sum(1 for r in rows if r.get("coverage_intent") == "confirm_existing")
+    # Exclude GEN-INVALID from per-battery denominators (mirrors
+    # reporter._view3_precision_recall): those rows represent generation
+    # failures, not coverage data points.
+    confirm_total = sum(
+        1 for r in rows
+        if r.get("coverage_intent") == "confirm_existing"
+        and r.get("outcome_class") != "GEN-INVALID"
+    )
     confirm_hits = sum(
         1 for r in rows
         if r.get("coverage_intent") == "confirm_existing"
         and r.get("outcome_class") in ("COV-HIT", "COV-HIT-PLUS")
     )
-    nc_total = sum(1 for r in rows if r.get("coverage_intent") == "negative_control")
+    nc_total = sum(
+        1 for r in rows
+        if r.get("coverage_intent") == "negative_control"
+        and r.get("outcome_class") != "GEN-INVALID"
+    )
     nc_wrong = sum(
         1 for r in rows
         if r.get("coverage_intent") == "negative_control"
         and r.get("outcome_class") == "COV-CLEAN-WRONG"
     )
-    gp_total = sum(1 for r in rows if r.get("coverage_intent") == "gap_probe")
+    gp_total = sum(
+        1 for r in rows
+        if r.get("coverage_intent") == "gap_probe"
+        and r.get("outcome_class") != "GEN-INVALID"
+    )
     gp_miss = sum(
         1 for r in rows
         if r.get("coverage_intent") == "gap_probe"
