@@ -185,6 +185,9 @@ Closes gate **#18**; soft gates **#30 / #31**.
 ### Saturday — exports
 
 ```bash
+# One-time: install the export extras (weasyprint pulls cairo/pango)
+pip install -e '.[export]'
+
 # Re-run analyze across every batch (cheap; idempotent)
 for d in out/adversarial/phase2/2026-05-{16,18,19,20}*; do
   uofa adversarial analyze --in "$d" --out "$d/coverage/"
