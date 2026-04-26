@@ -60,15 +60,32 @@ def run_shacl_multi(data_path: Path, shacl_paths: list) -> tuple[bool, list[dict
     return _run_shacl_graph(data_path, combined)
 
 
+def _load_data_graph(data_path: Path) -> Graph:
+    """Pre-parse a JSON-LD data file into an rdflib Graph.
+
+    Workaround for a pyshacl ↔ rdflib interaction bug: when pyshacl is
+    given ``data_graph=<path-string>`` it routes the file through an
+    internal IO[bytes] stream that is sometimes consumed before
+    rdflib's JSON-LD parser reads it, surfacing as
+    ``orjson.JSONDecodeError: unexpected character: line 1 column 1
+    (char 0)`` even though the file is non-empty and valid. Loading
+    the data graph with rdflib directly first, then handing the
+    parsed Graph to pyshacl, is reliable.
+    """
+    g = Graph()
+    g.parse(str(data_path), format="json-ld")
+    return g
+
+
 def run_shacl(data_path: Path, shacl_path: Path) -> tuple[bool, list[dict]]:
     """Run SHACL validation and return (conforms, violations).
 
     Each violation is a dict with keys: path, message, fix, severity.
     """
+    data_g = _load_data_graph(data_path)
     conforms, results_graph, results_text = shacl_validate(
-        data_graph=str(data_path),
+        data_graph=data_g,
         shacl_graph=str(shacl_path),
-        data_graph_format="json-ld",
     )
 
     if conforms:
@@ -118,11 +135,14 @@ def run_shacl(data_path: Path, shacl_path: Path) -> tuple[bool, list[dict]]:
 
 
 def _run_shacl_graph(data_path: Path, shacl_graph) -> tuple[bool, list[dict]]:
-    """Run SHACL validation with a pre-built shapes Graph."""
+    """Run SHACL validation with a pre-built shapes Graph.
+
+    Uses :func:`_load_data_graph` to side-step the pyshacl path-loading bug.
+    """
+    data_g = _load_data_graph(data_path)
     conforms, results_graph, results_text = shacl_validate(
-        data_graph=str(data_path),
+        data_graph=data_g,
         shacl_graph=shacl_graph,
-        data_graph_format="json-ld",
     )
 
     if conforms:
