@@ -165,11 +165,16 @@ Soft gate **#29** (paraphrase robustness).
 DATE=2026-05-20-quality
 uofa adversarial run \
   --batch specs/quality_benchmark/ \
-  --out out/adversarial/phase2/$DATE/ \
+  --subtlety-override low,high \
   --models claude-sonnet-4-6,claude-opus-4-7,claude-haiku-4-5-20251001 \
+  --out out/adversarial/phase2/$DATE/ \
   --strict-circularity
 uofa adversarial analyze --in out/adversarial/phase2/$DATE/ --out out/adversarial/phase2/$DATE/coverage/
 ```
+
+> Math: 8 specs × 2 subtlety × 3 models × 2 variants = **96 packages** ✓
+> matches §3. Each output dir is suffixed `_<subtlety>_<model_short>`,
+> e.g., `adv-2026-p2-qb-01-w-ar-01_low_sonnet/`.
 
 Closes gate **#18**; soft gates **#30 / #31**.
 

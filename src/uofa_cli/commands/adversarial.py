@@ -125,6 +125,15 @@ def add_arguments(parser):
             "the LLM"
         ),
     )
+    run_sub.add_argument(
+        "--models",
+        default=None,
+        help=(
+            "comma-separated list of model ids — when set, ignore --model "
+            "and run each spec once per listed model (Phase 2 §7.7 quality "
+            "benchmark fan-out); output dirs gain a _<model_short> suffix"
+        ),
+    )
 
     # ----- analyze (Phase 2 outcome classifier, spec §10) -----
     an = sub.add_parser(

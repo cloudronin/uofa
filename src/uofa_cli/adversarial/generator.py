@@ -441,9 +441,15 @@ class AdversarialGenerator:
 
 
 def _default_llm_caller(system_prompt: str, user_prompt: str, params: dict) -> LLMCallResult:
-    """Dispatch by ``params['model']`` to mock / ollama HTTP / litellm."""
+    """Dispatch by ``params['model']`` to mock / ollama HTTP / litellm.
+
+    Any model id starting with ``mock`` (``mock``, ``mock-haiku``,
+    ``mock-sonnet`` etc.) routes to the mock fixture path. Phase 2 §7.7
+    tests use the prefixed forms to exercise multi-model fan-out without
+    real API calls.
+    """
     model = params["model"]
-    if model == "mock":
+    if model == "mock" or model.startswith("mock-"):
         return LLMCallResult(
             text=mock_response(params),
             tokens=0,
@@ -451,7 +457,7 @@ def _default_llm_caller(system_prompt: str, user_prompt: str, params: dict) -> L
             call_metadata={
                 "dropParamsActive": False,
                 "deprecationFallbackFired": False,
-                "modelReturned": "mock",
+                "modelReturned": model,
                 "litellmVersion": "n/a",
             },
         )

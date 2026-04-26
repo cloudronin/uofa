@@ -150,7 +150,7 @@ def _cou_short(raw_path: str) -> str:
 
 @dataclass
 class _ExpandedCell:
-    """One realized (spec, subtlety, base_cou) triple after fan-out.
+    """One realized (spec, subtlety, base_cou, model) tuple after fan-out.
 
     ``out_dir_suffix`` is the trailing string to append to ``spec_id`` when
     constructing the per-cell output directory; empty when no overrides
@@ -160,7 +160,22 @@ class _ExpandedCell:
     spec_path: Path
     subtlety_override: str | None
     base_cou_override: str | None
+    model_override: str | None
     out_dir_suffix: str
+
+
+def _model_short(raw_model: str) -> str:
+    """Compact label for an output dir suffix derived from a model id.
+
+    Anthropic model ids look like ``claude-sonnet-4-6`` or
+    ``claude-haiku-4-5-20251001``. The second segment (sonnet / opus /
+    haiku) is descriptive enough for an output-dir tag.
+    """
+    parts = raw_model.split("-")
+    if len(parts) >= 2 and parts[0] == "claude":
+        return parts[1].lower()
+    # Fallback — sanitize the whole id
+    return raw_model.lower().replace("/", "-")
 
 
 def _expand_specs(
@@ -168,11 +183,15 @@ def _expand_specs(
     *,
     subtlety_overrides: list[str],
     base_cou_overrides: list[str],
+    models_overrides: list[str] | None = None,
 ) -> list[_ExpandedCell]:
-    """Cartesian-product spec × subtlety_override × base_cou_override.
+    """Cartesian-product spec × subtlety × base_cou × model.
 
     See module docstring for the per-battery convention enforced via
-    :data:`_BASE_COU_FAN_INTENTS`.
+    :data:`_BASE_COU_FAN_INTENTS`. ``models_overrides`` is the §7.7
+    quality-benchmark fan-out: when non-empty, every cell is duplicated
+    once per listed model, each with its own ``_<model_short>`` suffix
+    appended.
     """
     out: list[_ExpandedCell] = []
     for category, spec_path in discovered:
@@ -187,22 +206,29 @@ def _expand_specs(
             if (base_cou_overrides and cou_eligible)
             else [None]
         )
+        model_list: list[str | None] = (
+            list(models_overrides) if models_overrides else [None]
+        )
 
         for sub in sub_list:
             for cou in cou_list:
-                parts: list[str] = []
-                if sub:
-                    parts.append(sub)
-                if cou:
-                    parts.append(_cou_short(cou))
-                suffix = ("_" + "_".join(parts)) if parts else ""
-                out.append(_ExpandedCell(
-                    category=category,
-                    spec_path=spec_path,
-                    subtlety_override=sub,
-                    base_cou_override=cou,
-                    out_dir_suffix=suffix,
-                ))
+                for mdl in model_list:
+                    parts: list[str] = []
+                    if sub:
+                        parts.append(sub)
+                    if cou:
+                        parts.append(_cou_short(cou))
+                    if mdl:
+                        parts.append(_model_short(mdl))
+                    suffix = ("_" + "_".join(parts)) if parts else ""
+                    out.append(_ExpandedCell(
+                        category=category,
+                        spec_path=spec_path,
+                        subtlety_override=sub,
+                        base_cou_override=cou,
+                        model_override=mdl,
+                        out_dir_suffix=suffix,
+                    ))
     return out
 
 
@@ -215,12 +241,16 @@ def _run_cost_preview(
     """Walk expanded cells, sum projected package counts, print a roll-up.
 
     No LLM calls. Each cell contributes ``spec.n_variants`` packages. We
-    load each unique spec at most once (cells share a spec_path).
-    Returns 0 unconditionally — preview is advisory only.
+    load each unique spec at most once (cells share a spec_path). Cost is
+    summed per cell using the cell's ``model_override`` when set,
+    otherwise falling back to *model*. Returns 0 unconditionally —
+    preview is advisory only.
     """
     spec_cache: dict[Path, int] = {}
     by_category: dict[str, dict] = {}
+    by_model: dict[str, int] = {}
     total_packages = 0
+    total_cost = 0.0
     skipped: list[tuple[Path, str]] = []
 
     for cell in expanded:
@@ -242,16 +272,22 @@ def _run_cost_preview(
         bucket["cells"] += 1
         bucket["packages"] += n_pkgs
 
+        cell_model = cell.model_override or model
+        by_model[cell_model] = by_model.get(cell_model, 0) + n_pkgs
+        total_cost += estimate_cost(cell_model, n_pkgs * tokens_per_pkg)
+
     info("Cost preview (no LLM calls):")
     info(f"  cells: {len(expanded)} (post fan-out)")
     info(f"  unique specs: {len(spec_cache)}")
     for cat in sorted(by_category):
         b = by_category[cat]
         info(f"  {cat}: {b['cells']} cells → {b['packages']} packages")
-    cost = estimate_cost(model, total_packages * tokens_per_pkg)
+    if len(by_model) > 1:
+        for m in sorted(by_model):
+            info(f"    model {m}: {by_model[m]} packages")
     info(
         f"Total: {total_packages} packages "
-        f"(~{tokens_per_pkg} tokens/pkg) → est. ${cost:.2f} at {model}"
+        f"(~{tokens_per_pkg} tokens/pkg) → est. ${total_cost:.2f}"
     )
     if skipped:
         warn(f"  {len(skipped)} spec(s) skipped due to load errors:")
@@ -280,17 +316,20 @@ def _build_args_for_spec(
     *,
     subtlety_override: str | None = None,
     base_cou_override: str | None = None,
+    model_override: str | None = None,
 ) -> argparse.Namespace:
     """Construct the argparse Namespace ``run_generate`` expects.
 
-    The two ``*_override`` parameters thread through to ``run_generate``,
-    which applies them to the loaded spec in-place before dispatching to
-    the generator.
+    The three ``*_override`` parameters thread through to ``run_generate``,
+    which applies subtlety and base_cou to the loaded spec in-place
+    before dispatching to the generator. ``model_override`` (when set)
+    replaces ``parent_args.model`` so the generator's existing
+    ``args.model``-based override path applies — no spec mutation needed.
     """
     return argparse.Namespace(
         spec=spec_path,
         out=out_dir,
-        model=getattr(parent_args, "model", None),
+        model=model_override or getattr(parent_args, "model", None),
         max_retries=getattr(parent_args, "max_retries", 3),
         dry_run=getattr(parent_args, "dry_run", False),
         strict_circularity=getattr(parent_args, "strict_circularity", False),
@@ -370,6 +409,7 @@ def _process_spec(
         target_dir,
         subtlety_override=cell.subtlety_override,
         base_cou_override=cell.base_cou_override,
+        model_override=cell.model_override,
     )
     rc = run_generate(args)
 
@@ -408,6 +448,7 @@ def run_batch(args) -> int:
     # ----- override flag parsing & validation -----
     subtlety_overrides = _parse_csv_flag(getattr(args, "subtlety_override", None))
     base_cou_overrides = _parse_csv_flag(getattr(args, "base_cou_override", None))
+    models_overrides = _parse_csv_flag(getattr(args, "models", None))
     bad_subtlety = [s for s in subtlety_overrides if s not in VALID_SUBTLETIES]
     if bad_subtlety:
         error(
@@ -415,17 +456,24 @@ def run_batch(args) -> int:
             f"allowed: {sorted(VALID_SUBTLETIES)}"
         )
         return 2
+    if models_overrides and getattr(args, "model", None):
+        warn(
+            "--models <list> overrides the singular --model; ignoring "
+            f"--model={args.model!r}"
+        )
 
     expanded = _expand_specs(
         discovered,
         subtlety_overrides=subtlety_overrides,
         base_cou_overrides=base_cou_overrides,
+        models_overrides=models_overrides,
     )
     fan_note = ""
-    if subtlety_overrides or base_cou_overrides:
+    if subtlety_overrides or base_cou_overrides or models_overrides:
         fan_note = (
             f" (fan-out: subtlety={subtlety_overrides or '∅'}, "
-            f"base_cou={base_cou_overrides or '∅'} → "
+            f"base_cou={base_cou_overrides or '∅'}, "
+            f"models={models_overrides or '∅'} → "
             f"{len(expanded)} cell(s))"
         )
     info(
@@ -502,6 +550,7 @@ def run_batch(args) -> int:
         "strictCircularity": bool(getattr(args, "strict_circularity", False)),
         "subtletyOverride": subtlety_overrides or None,
         "baseCouOverride": base_cou_overrides or None,
+        "modelsOverride": models_overrides or None,
         "halted": halted_at is not None,
         "haltedBefore": str(halted_at) if halted_at else None,
         "perSpecResults": [asdict(r) for r in results],

@@ -12,6 +12,7 @@ from uofa_cli.adversarial.runner import (
     _cou_short,
     _discover_specs,
     _expand_specs,
+    _model_short,
     _parse_csv_flag,
     run_batch,
 )
@@ -21,6 +22,7 @@ REPO_ROOT = Path(__file__).parent.parent.parent
 CONFIRM_DIR = REPO_ROOT / "specs" / "confirm_existing"
 GAP_DIR = REPO_ROOT / "specs" / "gap_probe"
 CROSS_PACK_DIR = REPO_ROOT / "specs" / "cross_pack"
+QB_DIR = REPO_ROOT / "specs" / "quality_benchmark"
 
 
 def _build_args(out_dir: Path, batch: list[Path], **overrides) -> argparse.Namespace:
@@ -38,6 +40,7 @@ def _build_args(out_dir: Path, batch: list[Path], **overrides) -> argparse.Names
         subtlety_override=None,
         base_cou_override=None,
         cost_preview=False,
+        models=None,
     )
     base.update(overrides)
     return argparse.Namespace(**base)
@@ -350,6 +353,107 @@ def test_cross_pack_battery_all_specs_load_and_run_under_mock(tmp_path):
     assert manifest["specsLoaded"] == 10
     assert manifest["specsSucceeded"] == 10
     assert manifest["totalPackages"] == 30  # §3: 10 × 3 = 30
+
+
+# ───────────────────── P4: M6.3 quality benchmark + --models (v1.8 §7.7) ─────────────────────
+
+
+def test_model_short_extracts_second_segment():
+    assert _model_short("claude-sonnet-4-6") == "sonnet"
+    assert _model_short("claude-opus-4-7") == "opus"
+    assert _model_short("claude-haiku-4-5-20251001") == "haiku"
+    # Non-claude id → sanitized fallback
+    assert _model_short("ollama/llama3") == "ollama-llama3"
+
+
+def test_expand_specs_models_fanout(tmp_path):
+    """--models fans each cell into N model variants with _<short> suffix."""
+    spec = tmp_path / "ce.yaml"
+    spec.write_text("target:\n  coverage_intent: confirm_existing\n")
+    cells = _expand_specs(
+        [("ce", spec)],
+        subtlety_overrides=[],
+        base_cou_overrides=[],
+        models_overrides=["claude-sonnet-4-6", "claude-haiku-4-5", "claude-opus-4-7"],
+    )
+    assert len(cells) == 3
+    assert sorted(c.model_override for c in cells) == [
+        "claude-haiku-4-5", "claude-opus-4-7", "claude-sonnet-4-6"
+    ]
+    assert {c.out_dir_suffix for c in cells} == {"_sonnet", "_haiku", "_opus"}
+
+
+def test_expand_specs_combined_subtlety_and_models(tmp_path):
+    """2 subtlety × 3 models = 6 cells per spec, suffix _<sub>_<model>."""
+    spec = tmp_path / "ce.yaml"
+    spec.write_text("target:\n  coverage_intent: confirm_existing\n")
+    cells = _expand_specs(
+        [("ce", spec)],
+        subtlety_overrides=["low", "high"],
+        base_cou_overrides=[],
+        models_overrides=["claude-sonnet-4-6", "claude-haiku-4-5", "claude-opus-4-7"],
+    )
+    assert len(cells) == 6
+    suffixes = {c.out_dir_suffix for c in cells}
+    assert suffixes == {
+        "_low_sonnet", "_low_haiku", "_low_opus",
+        "_high_sonnet", "_high_haiku", "_high_opus",
+    }
+
+
+def test_quality_benchmark_battery_present_with_8_specs():
+    if not QB_DIR.exists():
+        pytest.skip("quality_benchmark specs not present")
+    yamls = sorted(QB_DIR.glob("*.yaml"))
+    assert len(yamls) == 8
+
+
+def test_qb_battery_with_subtlety_and_models_fanout_e2e(tmp_path):
+    """Full §7.7 fan-out: 8 specs × 2 subtlety × 3 models × 2 variants = 96 packages."""
+    pytest.importorskip("yaml")
+    if not QB_DIR.exists():
+        pytest.skip("quality_benchmark specs not present")
+
+    out_dir = tmp_path / "out"
+    args = _build_args(
+        out_dir,
+        [QB_DIR],
+        model=None,  # --models takes priority
+        subtlety_override="low,high",
+        models="mock-sonnet,mock-haiku,mock-opus",
+    )
+    rc = run_batch(args)
+    assert rc == 0
+    manifest = json.loads((out_dir / "batch_manifest.json").read_text())
+    # 8 specs × 2 subtlety × 3 models = 48 cells
+    assert manifest["specsLoaded"] == 48
+    assert manifest["specsSucceeded"] == 48
+    # 48 cells × 2 variants = 96 packages
+    assert manifest["totalPackages"] == 96
+    assert manifest["modelsOverride"] == ["mock-sonnet", "mock-haiku", "mock-opus"]
+
+
+def test_run_batch_models_override_warns_about_singular_model(tmp_path, capsys):
+    """When both --models and --model are set, --models wins and a warning fires."""
+    pytest.importorskip("yaml")
+    spec_filename = "w-ar-01.yaml"
+    if not (CONFIRM_DIR / spec_filename).exists():
+        pytest.skip(f"spec {spec_filename} not present")
+    batch_dir = tmp_path / "batch"
+    batch_dir.mkdir()
+    (batch_dir / spec_filename).write_text(
+        (CONFIRM_DIR / spec_filename).read_text()
+    )
+
+    out_dir = tmp_path / "out"
+    args = _build_args(
+        out_dir, [batch_dir], model="claude-sonnet-4-6", models="mock-haiku"
+    )
+    rc = run_batch(args)
+    captured = capsys.readouterr()
+    assert "--models <list> overrides" in (captured.out + captured.err)
+    # The cell uses mock-haiku, so the run still succeeds
+    assert rc == 0
 
 
 def test_run_batch_subtlety_override_creates_suffixed_output_dirs(tmp_path):
