@@ -35,7 +35,9 @@ class IterPoint:
     recall: float
     precision: float
     specificity: float
-    decision: str  # accepted-auto | reverted | etc.
+    nc_fpr: float
+    decision: str           # accepted-auto | provisional | reverted | etc.
+    target_zone_reached: bool = False
 
 
 def _load_iterations(log_path: Path, rule_id: str) -> list[IterPoint]:
@@ -59,9 +61,29 @@ def _load_iterations(log_path: Path, rule_id: str) -> list[IterPoint]:
                 recall=float(train.get("recall", 0.0)),
                 precision=float(train.get("precision", 0.0)),
                 specificity=float(train.get("specificity", 0.0)),
+                nc_fpr=float(train.get("nc_fpr", 0.0)),
                 decision=rec.get("review_decision", ""),
+                target_zone_reached=bool(rec.get("target_zone_reached", False)),
             ))
     return points
+
+
+def _color_for_iter(p: IterPoint) -> str:
+    """Color a per-iter point per the metric-gate policy:
+
+    - green (target zone): accepted-auto OR accepted-no-edit
+    - yellow (provisional): cleared hard floors but not target zone
+    - red (reverted): hard floor violation, sentinel loosening, or no-op
+    - gray: stuck / rejected-baseline / unknown
+    """
+    d = p.decision
+    if d in ("accepted-auto", "accepted-no-edit"):
+        return "green"
+    if d == "provisional":
+        return "gold"
+    if d in ("reverted", "rejected-noop"):
+        return "red"
+    return "gray"
 
 
 def plot_rule_trajectory(
@@ -86,29 +108,55 @@ def plot_rule_trajectory(
                    color="gray", s=120, label="baseline (specificity)", zorder=5)
 
     if pts:
-        accepted = [p for p in pts if p.decision == "accepted-auto"]
-        reverted = [p for p in pts if p.decision != "accepted-auto"]
-        if accepted:
-            xs = [p.recall for p in accepted]
-            ax.plot(xs, [p.precision for p in accepted], "-o",
-                    color="C0", label="precision (accepted)")
-            ax.plot(xs, [p.specificity for p in accepted], "--s",
-                    color="C0", label="specificity (accepted)")
-            for p in accepted:
+        # Bucket points by decision color
+        green = [p for p in pts if _color_for_iter(p) == "green"]
+        yellow = [p for p in pts if _color_for_iter(p) == "gold"]
+        red = [p for p in pts if _color_for_iter(p) == "red"]
+        gray = [p for p in pts if _color_for_iter(p) == "gray"]
+
+        # Solid line through GREEN (locked) iterations on precision axis
+        if green:
+            xs = [p.recall for p in green]
+            ax.plot(xs, [p.precision for p in green], "-o",
+                    color="green", label="precision (target zone)")
+            ax.plot(xs, [p.specificity for p in green], "--s",
+                    color="green", label="specificity (target zone)")
+            for p in green:
                 ax.annotate(f"#{p.iteration}",
                             (p.recall, p.precision),
                             textcoords="offset points", xytext=(5, 5), fontsize=8)
-        if reverted:
-            ax.scatter([p.recall for p in reverted], [p.precision for p in reverted],
+        # Yellow markers for provisional
+        if yellow:
+            ax.scatter([p.recall for p in yellow], [p.precision for p in yellow],
+                       marker="o", color="gold", alpha=0.7,
+                       label="precision (provisional)")
+            ax.scatter([p.recall for p in yellow], [p.specificity for p in yellow],
+                       marker="s", color="gold", alpha=0.7,
+                       label="specificity (provisional)")
+            for p in yellow:
+                ax.annotate(f"#{p.iteration}",
+                            (p.recall, p.precision),
+                            textcoords="offset points", xytext=(5, 5),
+                            fontsize=8, color="goldenrod")
+        # Red markers for reverted
+        if red:
+            ax.scatter([p.recall for p in red], [p.precision for p in red],
                        marker="x", color="red", alpha=0.5,
                        label="precision (reverted)")
-            ax.scatter([p.recall for p in reverted], [p.specificity for p in reverted],
+            ax.scatter([p.recall for p in red], [p.specificity for p in red],
                        marker="+", color="red", alpha=0.5,
                        label="specificity (reverted)")
+        # Gray markers for stuck/rejected-baseline
+        if gray:
+            ax.scatter([p.recall for p in gray], [p.precision for p in gray],
+                       marker="d", color="gray", alpha=0.5,
+                       label="precision (stuck/rejected)")
 
-    # Reference lines per spec §5
+    # Reference lines per the new policy
     ax.axvline(0.90, color="green", linestyle=":", alpha=0.4, label="recall ≥ 0.90 (target)")
     ax.axhline(0.90, color="green", linestyle=":", alpha=0.4, label="metric ≥ 0.90 (target)")
+    # Hard floors
+    ax.axvline(0.80, color="red", linestyle=":", alpha=0.3, label="recall hard floor 0.80")
 
     ax.set_xlim(0, 1.05)
     ax.set_ylim(0, 1.05)

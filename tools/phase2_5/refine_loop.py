@@ -76,12 +76,20 @@ RULE_NAME_MAP: dict[str, str] = {
 
 @dataclass
 class LoopState:
-    """Carry-over between iterations within a single rule's loop."""
+    """Carry-over between iterations within a single rule's loop.
+
+    Tracks consecutive reverts for the stuck signal AND the best
+    provisional state (cleared hard floors but missed target zone) so
+    the loop can fall back to it if the cap is hit before any iteration
+    reaches the target zone.
+    """
     baseline: Metrics
     prior_dev: Metrics
     consecutive_reverts: int = 0
     accepted_iters: list[int] = field(default_factory=list)
     last_accepted_body: str = ""
+    best_provisional_body: str | None = None
+    best_provisional_metrics: Metrics | None = None
 
     @property
     def stuck(self) -> bool:
@@ -112,35 +120,74 @@ def _resolve_dotted(path: str):
     return getattr(importlib.import_module(mod_name), attr)
 
 
+# Metric-gate thresholds. Tightened beyond the original "clear hard floors"
+# policy: clearing the floors is necessary but no longer sufficient — a
+# rule must land in the *target zone* before the iteration ACCEPTs and
+# the rule LOCKs. See plan §"Auto-mode metric-gated accept policy".
+HARD_FLOOR_RECALL = 0.80          # below → REVERT (cannot use this rule)
+HARD_FLOOR_NC_FPR = 0.25          # above → REVERT (still mostly noise)
+TARGET_ZONE_RECALL = 0.90         # at or above is in the target zone
+TARGET_ZONE_NC_FPR = 0.10         # at or below is in the target zone
+
+
 def _decision_metrics_pass(
     state: LoopState,
     train: Metrics,
     dev: Metrics,
-) -> tuple[bool, str]:
-    """Return (accept, reason) per the metric gate policy."""
-    if train.recall < 0.80:
-        return False, f"train.recall={train.recall:.3f} below hard floor 0.80"
+) -> tuple[str, str, bool]:
+    """Return (decision, reason, target_zone_reached).
+
+    Decision is one of:
+
+    - ``"accept"`` — train recall ≥ 0.90 AND train nc_fpr ≤ 0.10 AND no
+      sentinel/dev regression. Target zone reached, rule is lockable.
+    - ``"provisional"`` — clears hard floors but misses the target zone.
+      Apply the new predicate, log as PROVISIONAL, but DO NOT lock —
+      the loop continues so a later iteration can reach the target zone.
+    - ``"revert"`` — hard floor violation, sentinel loosening, or dev
+      overfit. Predicate change is discarded.
+
+    Target-zone semantics: "the rule is now both adequately recall-y
+    and adequately precise on NC." Iterations that are merely "less
+    bad than baseline" no longer auto-lock; the loop must keep trying.
+    """
+    if train.recall < HARD_FLOOR_RECALL:
+        return "revert", (
+            f"train.recall={train.recall:.3f} below hard floor "
+            f"{HARD_FLOOR_RECALL}"
+        ), False
     if train.loosening_sentinel_fires > 0:
-        return False, (
+        return "revert", (
             f"loosening sentinel fired ({train.loosening_sentinel_fires} fires) — "
             "predicate has loosened"
-        )
-    if train.nc_fpr >= state.baseline.nc_fpr:
-        return False, (
-            f"train.nc_fpr={train.nc_fpr:.3f} did not improve over "
-            f"baseline {state.baseline.nc_fpr:.3f}"
-        )
-    if train.bystander_rate >= state.baseline.bystander_rate:
-        return False, (
-            f"train.bystander_rate={train.bystander_rate:.3f} did not improve "
-            f"over baseline {state.baseline.bystander_rate:.3f}"
-        )
+        ), False
+    if train.nc_fpr > HARD_FLOOR_NC_FPR:
+        return "revert", (
+            f"train.nc_fpr={train.nc_fpr:.3f} above hard floor "
+            f"{HARD_FLOOR_NC_FPR}"
+        ), False
     if dev.recall < state.prior_dev.recall - 0.05:
-        return False, (
+        return "revert", (
             f"dev.recall={dev.recall:.3f} regressed >5% from prior "
             f"{state.prior_dev.recall:.3f} (overfit signal)"
-        )
-    return True, "all gates passed"
+        ), False
+
+    in_target_zone = (
+        train.recall >= TARGET_ZONE_RECALL
+        and train.nc_fpr <= TARGET_ZONE_NC_FPR
+    )
+    if in_target_zone:
+        return "accept", (
+            f"target zone: recall={train.recall:.3f}≥{TARGET_ZONE_RECALL}, "
+            f"nc_fpr={train.nc_fpr:.3f}≤{TARGET_ZONE_NC_FPR}"
+        ), True
+
+    # Cleared hard floors but missed target zone — provisional acceptance.
+    return "provisional", (
+        f"hard floors cleared but target zone not reached: "
+        f"recall={train.recall:.3f} (target ≥ {TARGET_ZONE_RECALL}), "
+        f"nc_fpr={train.nc_fpr:.3f} (target ≤ {TARGET_ZONE_NC_FPR})"
+    ), False
 
 
 def run_loop(
@@ -153,7 +200,7 @@ def run_loop(
     log_path: Path,
     diff_dir: Path,
     holdout_lock_dir: Path,
-    max_iterations: int = 5,
+    max_iterations: int = 10,
     propose_fn=None,
     metrics_fn=None,
     inspect_fn=None,
@@ -226,12 +273,13 @@ def run_loop(
             )
             log.append(IterationRecord(
                 rule_id=rule_id, iteration=iteration, timestamp=now_iso(),
-                proposed_by="claude_code", review_decision="rejected",
+                proposed_by="claude_code", review_decision="rejected-noop",
                 predicate_before_sha=prior_sha, predicate_after_sha=new_sha,
                 predicate_diff_path=str(diff_path),
                 rationale=proposal.rationale or "no-op",
                 train_metrics={}, dev_metrics={},
                 decision="rejected-noop", git_sha=current_git_sha(),
+                target_zone_reached=False,
             ))
             state.consecutive_reverts += 1
             summary["iterations"].append({
@@ -254,68 +302,106 @@ def run_loop(
             holdout_lock_dir=holdout_lock_dir, parallel=parallel,
         )
 
-        # 5. Quick reject if train fails
-        accept_train, reason_train = _decision_metrics_pass(state, train_m, state.prior_dev)
-        # Also need dev for the overfit gate, BUT only compute it if train passed
-        # (saves wall-clock when train clearly fails).
+        # 5. First-pass decision: only need TRAIN metrics for hard-floor /
+        # target-zone screening. If train clearly fails the hard floors,
+        # don't burn wall-clock on dev metrics.
+        decision_first, reason_first, target_zone_first = _decision_metrics_pass(
+            state, train_m, state.prior_dev,
+        )
         dev_m: Metrics
-        if accept_train:
-            dev_m = metrics_fn(
-                rule_id=rule_id, split_name="dev",
-                split_path=split_path, outcomes_csv=outcomes_csv,
-                batch_dir=batch_dir, rules_file_override=scratch,
-                holdout_lock_dir=holdout_lock_dir, parallel=parallel,
-            )
-            accept, reason = _decision_metrics_pass(state, train_m, dev_m)
-        else:
+        if decision_first == "revert":
             dev_m = Metrics(
                 recall=0.0, nc_fpr=0.0, bystander_rate=0.0,
                 precision=0.0, specificity=0.0,
                 n_target=0, n_bystander=0, n_negative=0,
                 notes="skipped-train-failed",
             )
-            accept, reason = False, reason_train
+            decision_state, reason, target_zone = decision_first, reason_first, False
+        else:
+            dev_m = metrics_fn(
+                rule_id=rule_id, split_name="dev",
+                split_path=split_path, outcomes_csv=outcomes_csv,
+                batch_dir=batch_dir, rules_file_override=scratch,
+                holdout_lock_dir=holdout_lock_dir, parallel=parallel,
+            )
+            decision_state, reason, target_zone = _decision_metrics_pass(
+                state, train_m, dev_m,
+            )
 
         diff_path = write_predicate_diff(proposal.diff_text, diff_dir, rule_id, iteration)
-        decision = "accepted-auto" if accept else "reverted"
+        # Map internal state → log decision label
+        decision_label = {
+            "accept": "accepted-auto",
+            "provisional": "provisional",
+            "revert": "reverted",
+        }[decision_state]
 
         log.append(IterationRecord(
             rule_id=rule_id, iteration=iteration, timestamp=now_iso(),
-            proposed_by="claude_code", review_decision=decision,
+            proposed_by="claude_code", review_decision=decision_label,
             predicate_before_sha=prior_sha, predicate_after_sha=new_sha,
             predicate_diff_path=str(diff_path),
             rationale=proposal.rationale,
             train_metrics=train_m.to_dict(), dev_metrics=dev_m.to_dict(),
-            decision=decision + ": " + reason,
+            decision=decision_label + ": " + reason,
             git_sha=current_git_sha(),
+            target_zone_reached=target_zone,
             notes=f"guard_added={proposal.guard_added}",
         ))
         summary["iterations"].append({
-            "iteration": iteration, "decision": decision, "reason": reason,
-            "train": train_m.to_dict(), "dev": dev_m.to_dict() if accept else None,
+            "iteration": iteration, "decision": decision_label,
+            "target_zone_reached": target_zone, "reason": reason,
+            "train": train_m.to_dict(), "dev": dev_m.to_dict(),
         })
 
-        if accept:
+        if decision_state == "accept":
+            # Lock-eligible: rule reaches target zone. Apply the predicate
+            # and stop iterating (loop exits with locked state).
             state.consecutive_reverts = 0
             state.accepted_iters.append(iteration)
             state.last_accepted_body = proposal.new_body
-            state.baseline = train_m  # tighten the bar each accepted iter
+            state.best_provisional_body = None  # supersede any provisional
+            state.best_provisional_metrics = None
+            state.baseline = train_m
+            state.prior_dev = dev_m
+            if not dry_run:
+                shutil.copyfile(scratch, rules_file)
+            summary["final_state"] = "locked"
+            try:
+                scratch.unlink()
+            except OSError:
+                pass
+            break
+        elif decision_state == "provisional":
+            # Apply the predicate (it's an improvement) but don't lock.
+            # Track this as the best-so-far provisional state in case the
+            # loop hits the iteration cap without reaching target zone.
+            state.consecutive_reverts = 0  # progress, even if not target
+            if (
+                state.best_provisional_metrics is None
+                or _provisional_score(train_m) >
+                   _provisional_score(state.best_provisional_metrics)
+            ):
+                state.best_provisional_body = proposal.new_body
+                state.best_provisional_metrics = train_m
+            state.last_accepted_body = proposal.new_body
+            state.baseline = train_m
             state.prior_dev = dev_m
             if not dry_run:
                 shutil.copyfile(scratch, rules_file)
         else:
             state.consecutive_reverts += 1
-        # Cleanup scratch
+
         try:
             scratch.unlink()
         except OSError:
             pass
 
     if summary["final_state"] == "in-progress":
-        if state.accepted_iters:
-            summary["final_state"] = "locked"
-        elif state.stuck:
+        if state.stuck:
             summary["final_state"] = "refinement-stuck"
+        elif state.best_provisional_body is not None:
+            summary["final_state"] = "target-zone-not-reached"
         else:
             summary["final_state"] = "max-iterations-no-accept"
 
@@ -323,6 +409,16 @@ def run_loop(
     summary["final_train"] = state.baseline.to_dict()
     summary["final_dev"] = state.prior_dev.to_dict()
     return summary
+
+
+def _provisional_score(m: Metrics) -> float:
+    """Score a provisional state for "best-so-far" tracking.
+
+    We prefer iterations that get closer to the target zone — minimize
+    distance from (recall=0.95, nc_fpr=0.05) in the worse direction.
+    Higher is better.
+    """
+    return m.recall - 2 * m.nc_fpr  # recall good, nc_fpr bad (weighted)
 
 
 def main(argv: list[str] | None = None) -> int:

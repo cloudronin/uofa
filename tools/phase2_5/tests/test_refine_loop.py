@@ -79,13 +79,17 @@ class _StubProposal:
 
 
 def test_loop_accepts_obvious_improvement(tmp_path: Path):
-    """Mocked metrics that monotonically improve → loop accepts."""
+    """Mocked metrics that improve into the target zone → loop ACCEPTs.
+
+    Target zone is recall≥0.90 AND nc_fpr≤0.10. The first iter clears
+    hard floors (nc_fpr=0.20) but is provisional; the second iter
+    enters the target zone (nc_fpr=0.05) and the loop locks.
+    """
     rules_file = tmp_path / "uofa_weakener.rules"
     rules_file.write_text(SAMPLE_RULES)
 
     split_path = _write_split_for_rule(tmp_path, "W-EP-01")
 
-    # Stub propose: returns a different body each iter so the loop applies it
     counter = {"n": 0}
 
     def stub_propose(rule_id, rule_body, misfires):
@@ -98,7 +102,6 @@ def test_loop_accepts_obvious_improvement(tmp_path: Path):
             diff_text=f"--- old\n+++ new\n@@ -1 +1 @@\n-uofa:Foo\n+uofa:FooV{counter['n']}\n",
         )
 
-    # Stub metrics: baseline = bad; every override = better
     def stub_metrics(rule_id, split_name, *, rules_file_override=None, **kwargs):
         if rules_file_override is None:
             return Metrics(
@@ -106,15 +109,71 @@ def test_loop_accepts_obvious_improvement(tmp_path: Path):
                 precision=0.30, specificity=0.20,
                 n_target=10, n_bystander=10, n_negative=10,
             )
-        # improving each call: nc_fpr decreases, bystander_rate decreases
-        # We use the counter to ensure monotonic improvement.
+        # iter 1: provisional (clears 0.25 floor but above 0.10 target)
+        # iter 2: target zone reached
         n = counter["n"]
+        nc_fpr_seq = [0.20, 0.05, 0.02]
+        nc_fpr = nc_fpr_seq[min(n - 1, len(nc_fpr_seq) - 1)]
         return Metrics(
-            recall=0.92, nc_fpr=max(0.05, 0.80 - 0.20 * n),
-            bystander_rate=max(0.02, 0.50 - 0.15 * n),
-            precision=0.30 + 0.10 * n, specificity=1 - max(0.05, 0.80 - 0.20 * n),
+            recall=0.92, nc_fpr=nc_fpr,
+            bystander_rate=0.05,
+            precision=0.30 + 0.10 * n, specificity=1 - nc_fpr,
             n_target=10, n_bystander=10, n_negative=10,
         )
+
+    def stub_inspect(rule_id, outcomes_csv, batch_dir, **kwargs):
+        return {"rule_id": rule_id, "nc_misfires": [], "bystander_misfires": []}
+
+    summary = run_loop(
+        rule_id="W-EP-01",
+        rules_file=rules_file,
+        split_path=split_path,
+        outcomes_csv=_stub_outcomes(tmp_path),
+        batch_dir=tmp_path,
+        log_path=tmp_path / "log.jsonl",
+        diff_dir=tmp_path / "diffs",
+        holdout_lock_dir=tmp_path / "locks",
+        max_iterations=5,
+        propose_fn=stub_propose,
+        metrics_fn=stub_metrics,
+        inspect_fn=stub_inspect,
+    )
+    assert summary["final_state"] == "locked"
+    assert len(summary["accepted_iterations"]) >= 1
+    # The rules file should have the latest accepted body's marker.
+    assert "uofa:FooV" in rules_file.read_text()
+
+
+def test_loop_provisional_caps_at_max_iter(tmp_path: Path):
+    """Mocked metrics that clear hard floors but never reach target zone.
+
+    Loop should run to max_iterations, applying each provisional change
+    but never locking. Final state = target-zone-not-reached.
+    """
+    rules_file = tmp_path / "uofa_weakener.rules"
+    rules_file.write_text(SAMPLE_RULES)
+    split_path = _write_split_for_rule(tmp_path, "W-EP-01")
+
+    counter = {"n": 0}
+
+    def stub_propose(rule_id, rule_body, misfires):
+        counter["n"] += 1
+        new = rule_body.replace("uofa:Foo", f"uofa:FooV{counter['n']}")
+        return _StubProposal(
+            rule_id=rule_id, rationale=f"v{counter['n']}", guard_added="x",
+            new_body=new,
+            diff_text=f"@@ -1 +1 @@\n-uofa:Foo\n+uofa:FooV{counter['n']}\n",
+        )
+
+    def stub_metrics(rule_id, split_name, *, rules_file_override=None, **kwargs):
+        if rules_file_override is None:
+            return Metrics(recall=0.95, nc_fpr=0.80, bystander_rate=0.50,
+                           precision=0.30, specificity=0.20,
+                           n_target=10, n_bystander=10, n_negative=10)
+        # All provisional: nc_fpr hangs at 0.18 (clears 0.25 floor, above 0.10 target)
+        return Metrics(recall=0.92, nc_fpr=0.18, bystander_rate=0.05,
+                       precision=0.50, specificity=0.82,
+                       n_target=10, n_bystander=10, n_negative=10)
 
     def stub_inspect(rule_id, outcomes_csv, batch_dir, **kwargs):
         return {"rule_id": rule_id, "nc_misfires": [], "bystander_misfires": []}
@@ -133,10 +192,9 @@ def test_loop_accepts_obvious_improvement(tmp_path: Path):
         metrics_fn=stub_metrics,
         inspect_fn=stub_inspect,
     )
-    assert summary["final_state"] == "locked"
-    assert len(summary["accepted_iterations"]) >= 1
-    # The rules file should have the latest accepted body's marker.
-    assert "uofa:FooV" in rules_file.read_text()
+    assert summary["final_state"] == "target-zone-not-reached"
+    # No iterations should be in accepted_iterations (provisional, not accepted)
+    assert len(summary["accepted_iterations"]) == 0
 
 
 def test_loop_marks_stuck_after_three_reverts(tmp_path: Path):

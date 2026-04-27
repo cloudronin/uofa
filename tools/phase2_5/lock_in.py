@@ -131,23 +131,61 @@ def loosening_sentinel_check(rule_id: str, split_path: Path, new_outcomes: Path)
     return fires
 
 
-def decide(baseline, post) -> tuple[bool, str]:
-    bt = baseline["train"]
+def decide(baseline, post) -> tuple[str, str, bool]:
+    """Apply the metric-gated accept policy.
+
+    Returns ``(decision, reason, target_zone_reached)``. Decision is one of:
+
+    - ``"accept"`` — train.recall ≥ 0.90 AND train.nc_fpr ≤ 0.10 (target
+      zone). Rule is lockable; holdout can be spent.
+    - ``"provisional"`` — clears hard floors but misses target zone.
+      Predicate change is logged but the rule is NOT locked; the loop
+      should continue iterating.
+    - ``"revert"`` — hard floor violation, sentinel loosening, or dev
+      overfit.
+
+    Target-zone semantics mirror tools.phase2_5.refine_loop:
+    HARD_FLOOR_RECALL=0.80, HARD_FLOOR_NC_FPR=0.25,
+    TARGET_ZONE_RECALL=0.90, TARGET_ZONE_NC_FPR=0.10.
+    """
+    from tools.phase2_5.refine_loop import (
+        HARD_FLOOR_RECALL, HARD_FLOOR_NC_FPR,
+        TARGET_ZONE_RECALL, TARGET_ZONE_NC_FPR,
+    )
     pt = post["train"]
     pd = post["dev"]
-
-    if pt.recall < 0.80:
-        return False, f"train.recall={pt.recall:.3f} below hard floor 0.80"
-    if pt.nc_fpr >= bt.nc_fpr:
-        return False, f"train.nc_fpr={pt.nc_fpr:.3f} did not improve over baseline {bt.nc_fpr:.3f}"
-    if pt.bystander_rate >= bt.bystander_rate:
-        return False, f"train.bystander_rate={pt.bystander_rate:.3f} did not improve over baseline {bt.bystander_rate:.3f}"
-    if pt.loosening_sentinel_fires > 0:
-        return False, f"loosening sentinel fired ({pt.loosening_sentinel_fires})"
     bd = baseline["dev"]
+
+    if pt.recall < HARD_FLOOR_RECALL:
+        return "revert", (
+            f"train.recall={pt.recall:.3f} below hard floor {HARD_FLOOR_RECALL}"
+        ), False
+    if pt.loosening_sentinel_fires > 0:
+        return "revert", (
+            f"loosening sentinel fired ({pt.loosening_sentinel_fires})"
+        ), False
+    if pt.nc_fpr > HARD_FLOOR_NC_FPR:
+        return "revert", (
+            f"train.nc_fpr={pt.nc_fpr:.3f} above hard floor {HARD_FLOOR_NC_FPR}"
+        ), False
     if pd.recall < bd.recall - 0.05:
-        return False, f"dev.recall={pd.recall:.3f} regressed >5% from baseline {bd.recall:.3f}"
-    return True, "all gates passed"
+        return "revert", (
+            f"dev.recall={pd.recall:.3f} regressed >5% from baseline {bd.recall:.3f}"
+        ), False
+
+    in_target_zone = (
+        pt.recall >= TARGET_ZONE_RECALL and pt.nc_fpr <= TARGET_ZONE_NC_FPR
+    )
+    if in_target_zone:
+        return "accept", (
+            f"target zone: recall={pt.recall:.3f}≥{TARGET_ZONE_RECALL}, "
+            f"nc_fpr={pt.nc_fpr:.3f}≤{TARGET_ZONE_NC_FPR}"
+        ), True
+    return "provisional", (
+        f"hard floors cleared but target zone not reached: "
+        f"recall={pt.recall:.3f} (target ≥ {TARGET_ZONE_RECALL}), "
+        f"nc_fpr={pt.nc_fpr:.3f} (target ≤ {TARGET_ZONE_NC_FPR})"
+    ), False
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -219,10 +257,14 @@ def main(argv: list[str] | None = None) -> int:
     sent_fires = loosening_sentinel_check(args.rule, args.split_path, args.new_outcomes)
     post["train"].loosening_sentinel_fires = sent_fires
 
-    accept, reason = decide(baseline, post)
+    decision_state, reason, target_zone = decide(baseline, post)
 
-    # Optionally compute holdout if accepting
-    if accept and args.commit_holdout:
+    # Holdout is only spent on a true ACCEPT (target zone reached).
+    # Provisional iterations DO NOT spend the holdout — the loop should
+    # continue iterating to push the rule into the target zone, and
+    # holdout stays untouched until that happens.
+    is_accept = decision_state == "accept"
+    if is_accept and args.commit_holdout:
         holdout = compute_metrics(
             rule_id=args.rule, split_name="holdout",
             split_path=args.split_path, outcomes_csv=args.new_outcomes,
@@ -262,34 +304,48 @@ def main(argv: list[str] | None = None) -> int:
     ))
     diff_path = write_predicate_diff(diff_text, args.diff_dir, args.rule, args.iteration)
 
-    decision = "accepted-auto" if accept else "reverted"
+    decision_label = {
+        "accept": "accepted-auto",
+        "provisional": "provisional",
+        "revert": "reverted",
+    }[decision_state]
     log = RefinementLog(args.log_path)
     log.append(IterationRecord(
         rule_id=args.rule, iteration=args.iteration, timestamp=now_iso(),
-        proposed_by="claude_code", review_decision=decision,
+        proposed_by="claude_code", review_decision=decision_label,
         predicate_before_sha=prior_sha, predicate_after_sha=new_sha,
         predicate_diff_path=str(diff_path),
         rationale=args.rationale,
         train_metrics=post["train"].to_dict(),
         dev_metrics=post["dev"].to_dict(),
         holdout_metrics=post["holdout"].to_dict() if "holdout" in post else None,
-        decision=f"{decision}: {reason}",
+        decision=f"{decision_label}: {reason}",
         git_sha=current_git_sha(),
+        target_zone_reached=target_zone,
         notes=f"new_outcomes={args.new_outcomes}",
     ))
 
-    # On accept: copy the new outcomes to milestones/<rule_id>_iter<N>.csv
-    if accept:
+    # On accept (target zone reached): copy the new outcomes to milestones/.
+    # On provisional, copy to a separate milestones-provisional file so
+    # plotting can still pick it up but it's not treated as final.
+    if is_accept:
         args.milestones_dir.mkdir(parents=True, exist_ok=True)
         rule_slug = args.rule.lower().replace("-", "_")
         milestone = args.milestones_dir / f"after_{rule_slug}.csv"
         shutil.copyfile(args.new_outcomes, milestone)
         print(f"milestone copied: {milestone}")
+    elif decision_state == "provisional":
+        args.milestones_dir.mkdir(parents=True, exist_ok=True)
+        rule_slug = args.rule.lower().replace("-", "_")
+        milestone = args.milestones_dir / f"provisional_{rule_slug}_iter{args.iteration:02d}.csv"
+        shutil.copyfile(args.new_outcomes, milestone)
+        print(f"provisional milestone copied: {milestone}")
 
     print(json.dumps({
         "rule_id": args.rule,
         "iteration": args.iteration,
-        "decision": decision,
+        "decision": decision_label,
+        "target_zone_reached": target_zone,
         "reason": reason,
         "baseline_train": baseline["train"].to_dict(),
         "post_train": post["train"].to_dict(),

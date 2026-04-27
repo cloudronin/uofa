@@ -23,15 +23,16 @@ class IterationRecord:
     iteration: int
     timestamp: str
     proposed_by: str               # "claude_code" | "manual"
-    review_decision: str           # "accepted" | "accepted-auto" | "rejected" | "reverted" | "stuck" | "loosened-rejected"
+    review_decision: str           # "accepted-auto" | "provisional" | "reverted" | "rejected-noop" | "stuck" | "rejected-baseline" | "accepted-no-edit"
     predicate_before_sha: str
     predicate_after_sha: str
     predicate_diff_path: str
     rationale: str
     train_metrics: dict
     dev_metrics: dict
-    decision: str                  # final state machine state
+    decision: str                  # final state machine state (with reason)
     git_sha: str
+    target_zone_reached: bool = False  # train.recall ≥ 0.90 AND train.nc_fpr ≤ 0.10
     holdout_metrics: dict | None = None
     notes: str = ""
 
