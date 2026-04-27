@@ -63,6 +63,9 @@ from tools.phase2_5.metrics import (
 
 # Map rule_id (catalog ID) → Jena rule name (lowercase, underscored)
 # Verified against packs/core/rules/uofa_weakener.rules.
+# Note: W-CON-04 is implemented across multiple rule arms in the file
+# (w_con04_no_sa, ...). For lock-in / stuck logging we use the primary
+# arm; the predicate diff captures the relevant body.
 RULE_NAME_MAP: dict[str, str] = {
     "W-EP-01":     "w_ep01",
     "W-ON-02":     "w_on02",
@@ -70,7 +73,7 @@ RULE_NAME_MAP: dict[str, str] = {
     "COMPOUND-03": "compound_assurance_override",
     "W-AR-02":     "w_ar02",
     "W-CON-01":    "w_con01",
-    "W-CON-04":    "w_con04",
+    "W-CON-04":    "w_con04_no_sa",
 }
 
 

@@ -355,7 +355,8 @@ def main(argv: list[str] | None = None) -> int:
         "loosening_sentinel_fires": sent_fires,
         "diff_path": str(diff_path),
     }, indent=2))
-    return 0 if accept else 2
+    # Exit 0 on accept (target zone), 1 on provisional, 2 on revert
+    return {"accept": 0, "provisional": 1, "revert": 2}[decision_state]
 
 
 if __name__ == "__main__":
