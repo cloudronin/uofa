@@ -45,22 +45,34 @@ from tools.phase2_5.metrics import AFFECTED_RULES, compute_metrics
 from tools.phase2_5.refine_loop import RULE_NAME_MAP
 
 
-BASELINE_OUTCOMES = Path("out/adversarial/phase2/2026-04-26/coverage/outcomes.csv")
+M5_BASELINE_OUTCOMES = Path("out/adversarial/phase2/2026-04-26/coverage/outcomes.csv")
 
 
-def baseline_metrics(rule_id: str, split_path: Path, lock_dir: Path):
-    """Read M5 baseline outcomes.csv and compute baseline metrics."""
+def baseline_metrics(
+    rule_id: str, split_path: Path, lock_dir: Path,
+    baseline_outcomes: Path = M5_BASELINE_OUTCOMES,
+):
+    """Compute baseline metrics from *baseline_outcomes*.
+
+    Default points at the M5 baseline; for COMPOUND rules whose firing
+    rate shifted when an upstream atomic rule (W-EP-01 / W-ON-02)
+    locked, pass the post-atomic-lock outcomes.csv so the metric gate
+    measures against the CURRENT state, not the obsolete M5 numbers.
+    See Phase 2.5 plan §"COMPOUND-01 needs a re-baseline" — the chain
+    means COMPOUND-01's NC FPR drops from 89.8% to ~22% just from the
+    W-EP-01 fix, with no COMPOUND-01 predicate edit.
+    """
     return {
         "train": compute_metrics(
             rule_id=rule_id, split_name="train",
-            split_path=split_path, outcomes_csv=BASELINE_OUTCOMES,
-            batch_dir=BASELINE_OUTCOMES.parent.parent,
+            split_path=split_path, outcomes_csv=baseline_outcomes,
+            batch_dir=baseline_outcomes.parent.parent,
             rules_file_override=None, holdout_lock_dir=lock_dir,
         ),
         "dev": compute_metrics(
             rule_id=rule_id, split_name="dev",
-            split_path=split_path, outcomes_csv=BASELINE_OUTCOMES,
-            batch_dir=BASELINE_OUTCOMES.parent.parent,
+            split_path=split_path, outcomes_csv=baseline_outcomes,
+            batch_dir=baseline_outcomes.parent.parent,
             rules_file_override=None, holdout_lock_dir=lock_dir,
         ),
     }
@@ -176,6 +188,13 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--commit-holdout", action="store_true",
                    help="if metric gates pass, ALSO compute holdout (spends lock)")
     p.add_argument("--force-holdout", action="store_true")
+    p.add_argument(
+        "--baseline-outcomes", type=Path, default=M5_BASELINE_OUTCOMES,
+        help="reference outcomes.csv to compute baseline metrics from. "
+             "For COMPOUND rules after an atomic rule locks, pass the post-"
+             "atomic outcomes.csv so the metric gate uses the CURRENT state, "
+             "not the obsolete M5 numbers (see plan §COMPOUND re-baseline).",
+    )
     args = p.parse_args(argv)
 
     if args.split_path is None:
@@ -184,8 +203,13 @@ def main(argv: list[str] | None = None) -> int:
 
     rule_name = RULE_NAME_MAP[args.rule]
 
-    # Compute baseline (M5) and post-iter metrics
-    baseline = baseline_metrics(args.rule, args.split_path, args.lock_dir)
+    # Compute baseline and post-iter metrics. Default baseline is M5;
+    # COMPOUND rules pass --baseline-outcomes pointing at the post-atomic-
+    # rule lock outcomes (see plan §COMPOUND re-baseline).
+    baseline = baseline_metrics(
+        args.rule, args.split_path, args.lock_dir,
+        baseline_outcomes=args.baseline_outcomes,
+    )
     post = post_iter_metrics(
         args.rule, args.split_path, args.new_outcomes, args.lock_dir,
         want_holdout=False,
