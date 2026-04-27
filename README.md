@@ -13,8 +13,10 @@ The **Unit of Assurance** is the smallest independently verifiable bundle of cre
 Or run locally:
 
 ```bash
-# 1. Install the uofa CLI
-pip install -e '.[excel]'
+# 1. Install the uofa CLI (one command — bundles Python deps, the rule
+#    engine JAR, and an OpenJDK 17 JRE inside the wheel; no Java or Maven
+#    install required).
+pip install uofa
 
 # 2. Import from Excel (fastest on-ramp for practitioners)
 uofa import my-assessment.xlsx --sign --key keys/research.key --check
@@ -25,6 +27,11 @@ uofa init my-project
 uofa sign my-project/my-project-cou1.jsonld --key my-project/keys/my-project.key
 uofa check my-project/my-project-cou1.jsonld
 ```
+
+Platform wheels are published for macOS (arm64 + x86_64), Linux (x86_64 +
+aarch64), and Windows (x86_64). The `uofa[extract]` extra adds the LLM-
+backed prose-to-UofA pipeline; see `uofa setup --help` for one-time runtime
+installation.
 
 **New to UofA?** See the [Getting Started Guide](docs/getting-started.md) for a step-by-step walkthrough, or study the [Morrison demo](#live-demo-morrison-blood-pump-fda-vv-40-case-study) below.
 
@@ -62,10 +69,10 @@ Morrison prose assessment          →  UofA structured evidence package
 **Run it yourself:**
 
 ```bash
-pip install -e .    # one-time setup (installs uofa CLI + all Python dependencies)
+pip install uofa     # bundles the rule engine JAR + an OpenJDK 17 JRE
 
 # Run the full C1 + C2 + C3 pipeline in one command
-uofa check packs/vv40/examples/morrison/cou1/uofa-morrison-cou1.jsonld --build
+uofa check packs/vv40/examples/morrison/cou1/uofa-morrison-cou1.jsonld
 ```
 
 That single command runs three checks:
@@ -76,7 +83,11 @@ That single command runs three checks:
 | C1 | `uofa verify FILE` | SHA-256 hash + ed25519 signature verification — content untampered |
 | C3 | `uofa rules FILE` | Jena rule engine — 23 forward-chaining rules (21 core + 2 compound) detect quality gaps |
 
-The Jena JAR auto-builds on first run with `--build` (requires Java 17+ and Maven 3.8+).
+The bundled JAR + JRE inside the wheel mean no Maven, no separate Java
+install, and no `--build` flag is needed. Source-tree contributors can
+still build the JAR via `cd weakener-engine && mvn package` and run from
+their own checkout — the bundled JRE only activates inside an installed
+wheel.
 
 **What the rule engine finds on Morrison COU1 at v0.5.2 (24 weakeners across 9 patterns):**
 

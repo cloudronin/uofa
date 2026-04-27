@@ -1,9 +1,16 @@
 name: Release Wheels
 
-# PR 1 + PR 2 scope. Builds two wheel variants from the same source:
-#   * py3-none-any        — bundles the JAR; user still needs system Java 17+
-#   * manylinux_2_28_x86_64 — bundles JAR AND OpenJDK 17 LTS JRE; no Java needed
-# PR 3 will fan out the second variant to macOS / Linux arm / Windows.
+# PR 3 scope: full 6-wheel matrix.
+#   * py3-none-any                   — bundles JAR; system Java still required
+#   * py3-none-manylinux_2_28_x86_64
+#   * py3-none-manylinux_2_28_aarch64
+#   * py3-none-macosx_11_0_x86_64
+#   * py3-none-macosx_11_0_arm64
+#   * py3-none-win_amd64
+#
+# Each platform-tagged wheel bundles the JAR AND a per-platform OpenJDK 17
+# JRE; no system Java needed at runtime. Smoke tests run on native runners
+# of each OS to confirm the bundled JRE is the one being executed.
 
 on:
   push:
@@ -57,6 +64,22 @@ jobs:
             artifact: uofa-cli-wheel-manylinux-x86_64
             env_jar: ''
             env_platform: 'manylinux_2_28_x86_64'
+          - variant: linux-aarch64
+            artifact: uofa-cli-wheel-manylinux-aarch64
+            env_jar: ''
+            env_platform: 'manylinux_2_28_aarch64'
+          - variant: macos-x86_64
+            artifact: uofa-cli-wheel-macos-x86_64
+            env_jar: ''
+            env_platform: 'macosx_11_0_x86_64'
+          - variant: macos-arm64
+            artifact: uofa-cli-wheel-macos-arm64
+            env_jar: ''
+            env_platform: 'macosx_11_0_arm64'
+          - variant: win-amd64
+            artifact: uofa-cli-wheel-win-amd64
+            env_jar: ''
+            env_platform: 'win_amd64'
     steps:
       - uses: actions/checkout@v4
 
@@ -130,50 +153,173 @@ jobs:
         run: |
           /tmp/uofa-pure-venv/bin/python <<'PY'
           from uofa_cli import paths
-          jar = paths.bundled_jar()
-          assert jar is not None, "bundled JAR missing from py3-none-any wheel"
-          assert paths.bundled_jre_executable() is None, (
-              "py3-none-any wheel should not include a JRE"
-          )
-          print(f"OK: JAR={jar}")
+          assert paths.bundled_jar() is not None, "bundled JAR missing"
+          assert paths.bundled_jre_executable() is None, "py3-none-any wheel should not include a JRE"
+          print(f"OK: JAR={paths.bundled_jar()}")
           PY
 
       - name: Run uofa check against Morrison example
         run: |
           /tmp/uofa-pure-venv/bin/uofa check packs/vv40/examples/morrison/cou1/uofa-morrison-cou1.jsonld
 
-  smoke-bundled-jre:
-    # manylinux_2_28_x86_64 wheel: bundled JAR AND JRE; no system Java needed.
+  smoke-linux-x86_64:
     needs: build-wheel
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Download manylinux wheel
-        uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v4
         with:
           name: uofa-cli-wheel-manylinux-x86_64
           path: dist/
-
       - name: Smoke test in python:3.11-slim Docker (no Java preinstalled)
         run: |
           docker run --rm \
             -v "$PWD:/work" -w /work \
             python:3.11-slim bash -c '
               set -euo pipefail
-              echo "--- confirm no system Java ---"
               if command -v java; then echo "FAIL: java unexpectedly on PATH"; exit 1; fi
-              echo "--- install wheel ---"
-              pip install --quiet dist/*manylinux*.whl
-              echo "--- confirm bundled JRE wired up ---"
+              pip install --quiet dist/*manylinux_2_28_x86_64*.whl
               python - <<PY
               from uofa_cli import paths
               jre = paths.bundled_jre_executable()
-              assert jre is not None, "bundled JRE missing from manylinux wheel"
-              assert jre.exists() and jre.is_file(), f"{jre} is not a file"
-              print(f"OK: JRE={jre}")
-              print(f"OK: java_executable()={paths.java_executable()}")
+              assert jre is not None and jre.exists(), "bundled JRE missing"
+              assert "site-packages" in str(jre), "bundled JRE not from wheel install"
+              print(f"OK: java_executable={paths.java_executable()}")
               PY
-              echo "--- run uofa check (no system Java available) ---"
               uofa check packs/vv40/examples/morrison/cou1/uofa-morrison-cou1.jsonld
             '
+
+  smoke-linux-aarch64:
+    needs: build-wheel
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: uofa-cli-wheel-manylinux-aarch64
+          path: dist/
+      - name: Smoke test in python:3.11-slim Docker (no Java preinstalled)
+        run: |
+          docker run --rm \
+            -v "$PWD:/work" -w /work \
+            python:3.11-slim bash -c '
+              set -euo pipefail
+              if command -v java; then echo "FAIL: java unexpectedly on PATH"; exit 1; fi
+              pip install --quiet dist/*manylinux_2_28_aarch64*.whl
+              python - <<PY
+              from uofa_cli import paths
+              jre = paths.bundled_jre_executable()
+              assert jre is not None and jre.exists(), "bundled JRE missing"
+              assert "site-packages" in str(jre), "bundled JRE not from wheel install"
+              print(f"OK: java_executable={paths.java_executable()}")
+              PY
+              uofa check packs/vv40/examples/morrison/cou1/uofa-morrison-cou1.jsonld
+            '
+
+  smoke-macos:
+    needs: build-wheel
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-13
+            artifact: uofa-cli-wheel-macos-x86_64
+            wheel_glob: '*macosx_11_0_x86_64*.whl'
+          - runner: macos-14
+            artifact: uofa-cli-wheel-macos-arm64
+            wheel_glob: '*macosx_11_0_arm64*.whl'
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: dist/
+
+      - name: Hide system Java (Gatekeeper-safe pruning of PATH)
+        run: |
+          # macOS GHA runners have Java preinstalled; mask it so we prove the
+          # bundled JRE is the one being used.
+          echo "JAVA_HOME=" >> "$GITHUB_ENV"
+          # Strip every PATH segment that resolves a 'java' binary.
+          new_path=""
+          IFS=':'
+          for p in $PATH; do
+            if [ -x "$p/java" ]; then continue; fi
+            new_path="${new_path:+$new_path:}$p"
+          done
+          echo "PATH=$new_path" >> "$GITHUB_ENV"
+
+      - name: Confirm no system Java
+        run: |
+          if command -v java; then echo "FAIL: java still on PATH after pruning"; exit 1; fi
+          echo "OK: no system Java on PATH"
+
+      - name: Install wheel and run uofa check
+        run: |
+          python -m venv /tmp/uofa-venv
+          /tmp/uofa-venv/bin/pip install --upgrade pip
+          /tmp/uofa-venv/bin/pip install dist/${{ matrix.wheel_glob }}
+          /tmp/uofa-venv/bin/python <<'PY'
+          from uofa_cli import paths
+          jre = paths.bundled_jre_executable()
+          assert jre is not None and jre.exists(), "bundled JRE missing"
+          assert "site-packages" in str(jre), f"unexpected JRE source: {jre}"
+          print(f"OK: java_executable={paths.java_executable()}")
+          PY
+          /tmp/uofa-venv/bin/uofa check packs/vv40/examples/morrison/cou1/uofa-morrison-cou1.jsonld
+
+  smoke-windows:
+    needs: build-wheel
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: uofa-cli-wheel-win-amd64
+          path: dist/
+
+      - name: Hide system Java (PATH prune)
+        shell: pwsh
+        run: |
+          $env:JAVA_HOME = ""
+          $newPath = ($env:PATH -split ';' | Where-Object {
+              -not (Test-Path (Join-Path $_ 'java.exe'))
+          }) -join ';'
+          "JAVA_HOME=" | Out-File -FilePath $env:GITHUB_ENV -Append
+          "PATH=$newPath" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Confirm no system Java
+        shell: pwsh
+        run: |
+          if (Get-Command java -ErrorAction SilentlyContinue) {
+              Write-Error "FAIL: java still on PATH"; exit 1
+          }
+          Write-Host "OK: no system Java on PATH"
+
+      - name: Install wheel and run uofa check
+        shell: pwsh
+        run: |
+          python -m venv $env:RUNNER_TEMP\uofa-venv
+          & $env:RUNNER_TEMP\uofa-venv\Scripts\pip.exe install --upgrade pip
+          $wheel = (Get-ChildItem dist\*win_amd64*.whl)[0].FullName
+          & $env:RUNNER_TEMP\uofa-venv\Scripts\pip.exe install $wheel
+          $py = "$env:RUNNER_TEMP\uofa-venv\Scripts\python.exe"
+          & $py -c @"
+          from uofa_cli import paths
+          jre = paths.bundled_jre_executable()
+          assert jre is not None and jre.exists(), 'bundled JRE missing'
+          assert 'site-packages' in str(jre), f'unexpected JRE source: {jre}'
+          print(f'OK: java_executable={paths.java_executable()}')
+          "@
+          & $env:RUNNER_TEMP\uofa-venv\Scripts\uofa.exe check packs/vv40/examples/morrison/cou1/uofa-morrison-cou1.jsonld

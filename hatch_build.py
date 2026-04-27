@@ -145,7 +145,9 @@ class UofaBundleHook(BuildHookInterface):
         expected_sha = entry["sha256"]
         strip_prefix = entry["strip_prefix"]
         archive_format = entry["archive_format"]
-        release = manifest.get("meta", {}).get("adoptium_release", "unknown")
+        # Per-platform JRE version (Adoptium rolls out unevenly across
+        # platforms, so a single global label would mislabel half the wheels).
+        release = entry.get("version", "unknown")
 
         runtime_dir = Path(self.root) / "src" / "uofa_cli" / "_runtime"
         jre_dir = runtime_dir / "jre"

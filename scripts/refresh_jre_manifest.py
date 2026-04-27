@@ -56,13 +56,17 @@ def fetch_latest(os_tag: str, arch: str) -> dict:
     binary = release["binaries"][0]["package"]
     release_name = release["release_name"]  # e.g. "jdk-17.0.19+10"
 
-    # Adoptium tarballs and zips extract to a top-level directory named
-    # "<release>-jre" by convention (e.g. "jdk-17.0.19+10-jre/bin/java").
+    # Adoptium tarballs/zips extract to a top-level directory named
+    # "<release>-jre" by convention. On macOS the JRE is wrapped in a
+    # BSD-style app bundle, so the actual bin/java lives nested under
+    # Contents/Home — strip past it.
     strip_prefix = f"{release_name}-jre"
+    if os_tag == "mac":
+        strip_prefix = f"{strip_prefix}/Contents/Home"
 
     fmt = "zip" if binary["name"].endswith(".zip") else "tar.gz"
     return {
-        "release_name": release_name,
+        "version": release_name,
         "url": binary["link"],
         "sha256": binary["checksum"],
         "strip_prefix": strip_prefix,
@@ -71,7 +75,7 @@ def fetch_latest(os_tag: str, arch: str) -> dict:
     }
 
 
-def render_manifest(platform_data: dict[str, dict], release_label: str) -> str:
+def render_manifest(platform_data: dict[str, dict]) -> str:
     lines: list[str] = [
         "# Pinned OpenJDK 17 LTS JRE binaries — one per platform-specific wheel.",
         "#",
@@ -85,13 +89,13 @@ def render_manifest(platform_data: dict[str, dict], release_label: str) -> str:
         "# Exception. See LICENSES/LICENSE-openjdk.txt.",
         "",
         "[meta]",
-        f'adoptium_release = "{release_label}"',
         f'last_refreshed = "{date.today().isoformat()}"',
         "",
     ]
     for platform_tag, info in platform_data.items():
         lines.extend([
             f"[platforms.{platform_tag}]",
+            f'version = "{info["version"]}"',
             f'url = "{info["url"]}"',
             f'sha256 = "{info["sha256"]}"',
             f'strip_prefix = "{info["strip_prefix"]}"',
@@ -124,13 +128,17 @@ def main() -> int:
         "--check", action="store_true",
         help="exit 1 if the manifest would change (CI freshness gate)",
     )
+    parser.add_argument(
+        "--all", action="store_true",
+        help="refresh all known platforms (PLATFORM_MAP), not just the "
+             "ones currently in the manifest",
+    )
     args = parser.parse_args()
 
-    platforms = load_existing_platforms()
+    platforms = list(PLATFORM_MAP.keys()) if args.all else load_existing_platforms()
     print(f"Refreshing {len(platforms)} platform(s)...", file=sys.stderr)
 
     fetched: dict[str, dict] = {}
-    release_label = ""
     for platform_tag in platforms:
         if platform_tag not in PLATFORM_MAP:
             print(f"  skip {platform_tag}: no API mapping", file=sys.stderr)
@@ -138,11 +146,10 @@ def main() -> int:
         os_tag, arch = PLATFORM_MAP[platform_tag]
         info = fetch_latest(os_tag, arch)
         fetched[platform_tag] = info
-        release_label = info["release_name"]  # all platforms share the same release
         size_mb = info["size_bytes"] / (1024 * 1024)
-        print(f"  {platform_tag}: {info['release_name']} ({size_mb:.1f} MB)", file=sys.stderr)
+        print(f"  {platform_tag}: {info['version']} ({size_mb:.1f} MB)", file=sys.stderr)
 
-    new_manifest = render_manifest(fetched, release_label)
+    new_manifest = render_manifest(fetched)
     existing = MANIFEST.read_text() if MANIFEST.exists() else ""
 
     if existing == new_manifest:

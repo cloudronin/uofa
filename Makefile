@@ -11,6 +11,7 @@ KEY  ?= keys/research.key
 
 .PHONY: all test validate morrison morrison-shacl morrison-rules morrison-verify morrison-diff
 .PHONY: morrison-build morrison-sign clean check shacl verify rules sign corpus corpus-clean
+.PHONY: clean-bundled
 
 # ── Primary targets ─────────────────────────────────────────
 
@@ -71,6 +72,19 @@ morrison-sign:
 clean:
 	cd $(ENG_DIR) && mvn clean -q
 	@echo "✓ Clean."
+
+# Recovery target for the dev-shadowing failure mode: if you ever build a
+# wheel locally with UOFA_KEEP_BUNDLE=1 (or interrupt a build mid-flight),
+# the staged JAR + JRE remain under src/uofa_cli/_engine and _runtime/.
+# paths.bundled_jre_executable() will then prefer those staged binaries
+# over system Java for every subsequent test run — and a wrong-architecture
+# JRE causes "Exec format error". This target wipes the staged artifacts.
+clean-bundled:
+	rm -rf src/uofa_cli/_engine/uofa-weakener-engine-0.1.0.jar
+	rm -rf src/uofa_cli/_runtime/jre
+	rm -f  src/uofa_cli/_runtime/PLATFORM
+	rm -f  src/uofa_cli/_runtime/JRE_VERSION
+	@echo "✓ Bundled wheel artifacts removed from source tree."
 
 # ── Pre-Tester QA Corpus v2 ─────────────────────────────────
 # Builds 18 deterministic test fixtures under corpus/{edge-cases,import-tests}.

@@ -39,6 +39,51 @@ uofa validate
 
 CI runs `uofa validate` and `uofa check` on the Morrison example for every PR.
 
+## Building wheels (release maintainers)
+
+The `release-wheels.yml` workflow produces six wheels per release: a
+`py3-none-any` wheel that bundles only the rule-engine JAR (system Java
+17+ still required), plus per-platform wheels for macOS arm64 / x86_64,
+Linux x86_64 / aarch64, and Windows x86_64 that bundle the JAR **and** an
+OpenJDK 17 JRE so end users need no Java install.
+
+Local wheel builds use the same Hatchling custom hook in `hatch_build.py`:
+
+```bash
+# Bundle JAR only (no JRE) — Python-only wheel.
+UOFA_BUNDLE_JAR=1 python -m build --wheel
+
+# Bundle JAR + per-platform JRE (downloads ~40 MB from Adoptium).
+UOFA_BUNDLE_PLATFORM=manylinux_2_28_x86_64 python -m build --wheel
+UOFA_BUNDLE_PLATFORM=macosx_11_0_arm64     python -m build --wheel
+# ...etc. Valid keys are the headings under [platforms.*] in jre_manifest.toml.
+```
+
+The hook auto-cleans staged artifacts in `finalize()` so the bundled JRE
+never lingers in your source tree between builds. If you ever interrupt a
+build mid-flight (Ctrl-C, OOM, etc.) and end up with a stale staged JRE,
+restore the source tree with:
+
+```bash
+make clean-bundled
+```
+
+This matters because `paths.bundled_jre_executable()` prefers the staged
+JRE over your system Java for any subsequent in-source-tree test run, and
+a wrong-architecture binary surfaces as `[Errno 8] Exec format error`.
+
+The pinned Adoptium URLs and SHA-256s live in `jre_manifest.toml`. Refresh
+quarterly:
+
+```bash
+python scripts/refresh_jre_manifest.py            # update existing platforms
+python scripts/refresh_jre_manifest.py --all      # bootstrap full set
+python scripts/refresh_jre_manifest.py --check    # CI freshness gate
+```
+
+When OpenJDK 17 CVEs land, run the refresh, run the wheel build CI, and
+ship a patch release.
+
 ## Questions?
 
 If you are preparing a CM&S-supported regulatory submission and want to explore UofA packaging for your evidence, please reach out at [crediblesimulation.com](https://crediblesimulation.com).
