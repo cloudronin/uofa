@@ -16,7 +16,6 @@ import os
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
 
 
 _CONFIG_FILENAME = "config.toml"
@@ -115,35 +114,45 @@ def load_config() -> SetupConfig | None:
 
 
 def save_config(cfg: SetupConfig) -> None:
-    """Atomically write SetupConfig to ~/.uofa/config.toml."""
-    try:
-        import tomli_w
-    except ModuleNotFoundError as e:
-        raise RuntimeError(
-            "tomli_w is required to write ~/.uofa/config.toml; "
-            "install with: pip install uofa[extract]"
-        ) from e
+    """Atomically write SetupConfig to ~/.uofa/config.toml.
 
-    payload: dict[str, Any] = {
-        "runtime": {
-            "mode": cfg.mode,
-            "ollama_binary": str(cfg.ollama_binary),
-            "ollama_port": cfg.ollama_port,
-        },
-        "model": {"tag": cfg.model_tag},
-        "meta": {
-            "installed_at": cfg.installed_at,
-            "uofa_version": cfg.uofa_version,
-        },
-    }
+    Uses a hand-rolled TOML writer (small fixed schema, no dependency on
+    tomli_w) so this works in environments that haven't installed the
+    [extract] extra — which the test environment is one example of.
+    """
+    lines: list[str] = ["[runtime]"]
+    lines.append(f"mode = {_toml_str(cfg.mode)}")
+    lines.append(f"ollama_binary = {_toml_str(str(cfg.ollama_binary))}")
+    lines.append(f"ollama_port = {int(cfg.ollama_port)}")
     if cfg.ollama_models_dir is not None:
-        payload["runtime"]["ollama_models_dir"] = str(cfg.ollama_models_dir)
+        lines.append(f"ollama_models_dir = {_toml_str(str(cfg.ollama_models_dir))}")
+    lines.append("")
+    lines.append("[model]")
+    lines.append(f"tag = {_toml_str(cfg.model_tag)}")
+    lines.append("")
+    lines.append("[meta]")
+    lines.append(f"installed_at = {_toml_str(cfg.installed_at)}")
+    lines.append(f"uofa_version = {_toml_str(cfg.uofa_version)}")
+    text = "\n".join(lines) + "\n"
 
     path = config_path()
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_suffix(".toml.tmp")
-    tmp.write_bytes(tomli_w.dumps(payload).encode("utf-8"))
+    tmp.write_text(text, encoding="utf-8")
     tmp.replace(path)
+
+
+def _toml_str(value: str) -> str:
+    """Encode *value* as a TOML basic string. Escapes the characters TOML
+    requires inside a basic string: backslash, double quote, control chars."""
+    escaped = (
+        value.replace("\\", "\\\\")
+             .replace('"', '\\"')
+             .replace("\n", "\\n")
+             .replace("\r", "\\r")
+             .replace("\t", "\\t")
+    )
+    return f'"{escaped}"'
 
 
 # ── Readiness check (called from extract_cmd) ─────────────────
