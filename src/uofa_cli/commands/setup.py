@@ -7,7 +7,7 @@ import sys
 import time
 from pathlib import Path
 
-from uofa_cli import setup_install, setup_state, setup_verify
+from uofa_cli import setup_bundle, setup_install, setup_state, setup_uninstall, setup_verify
 from uofa_cli.output import error, info, step_header
 
 HELP = "install or verify the LLM extract runtime (Ollama + qwen3.5:4b)"
@@ -16,47 +16,64 @@ _DEFAULT_MODEL = "qwen3.5:4b"
 
 
 def add_arguments(parser: argparse.ArgumentParser) -> None:
-    sub = parser.add_subparsers(dest="setup_cmd", required=False)
-
-    install_p = sub.add_parser(
-        "install",
-        help="download Ollama runtime + pull the qwen3.5:4b model (default)",
+    # Top-level options that select install variants without requiring a
+    # subcommand keyword. `--bundle <path>` and `--create-bundle <path>`
+    # mirror the spec wording in REQ-DIST-004.
+    parser.add_argument(
+        "--bundle", type=Path, default=None,
+        help="install from an offline bundle (REQ-DIST-004 air-gapped path)",
     )
-    install_p.add_argument(
+    parser.add_argument(
+        "--create-bundle", type=Path, default=None, dest="create_bundle",
+        help="package the current install into a tar.gz for an offline machine",
+    )
+    parser.add_argument(
         "--model", default=_DEFAULT_MODEL,
         help=f"model tag to pull (default: {_DEFAULT_MODEL})",
     )
-    install_p.add_argument(
+    parser.add_argument(
         "--port", type=int, default=11434,
         help="port for the managed Ollama daemon (default: 11434)",
     )
-    install_p.add_argument(
+    parser.add_argument(
         "--no-byo", action="store_true",
         help="skip BYO Ollama detection; install a UofA-managed copy",
     )
-    install_p.add_argument(
+    parser.add_argument(
         "--yes", "-y", action="store_true",
-        help="skip the pre-download confirmation prompt",
+        help="skip confirmation prompts (downloads, uninstall)",
     )
-    install_p.add_argument(
+    parser.add_argument(
         "--no-verify", action="store_true",
         help="skip the post-install verify step",
     )
+
+    sub = parser.add_subparsers(dest="setup_cmd", required=False)
 
     sub.add_parser(
         "verify",
         help="run a known extraction against a fixture and assert F1 >= 0.95",
     )
 
+    sub.add_parser(
+        "uninstall",
+        help="remove the UofA-managed Ollama runtime + model (REQ-DIST-007)",
+    )
+
 
 def run(args: argparse.Namespace) -> int:
-    cmd = getattr(args, "setup_cmd", None) or "install"
-    if cmd == "install":
-        return _run_install(args)
+    cmd = getattr(args, "setup_cmd", None)
     if cmd == "verify":
         return _run_verify(args)
-    error(f"Unknown setup subcommand: {cmd}")
-    return 2
+    if cmd == "uninstall":
+        return _run_uninstall(args)
+
+    # No subcommand: pick install path based on flags.
+    if getattr(args, "create_bundle", None) is not None:
+        return _run_create_bundle(args)
+    if getattr(args, "bundle", None) is not None:
+        return _run_install_from_bundle(args)
+    return _run_install(args)
 
 
 # ── install ────────────────────────────────────────────────────
@@ -134,6 +151,96 @@ def _run_verify(args: argparse.Namespace) -> int:
         return 0
     error(f"✗ {result.diagnostic} (after {result.elapsed_seconds:.1f}s)")
     return 1
+
+
+# ── create-bundle / install-from-bundle (REQ-DIST-004) ─────────
+
+
+def _run_create_bundle(args: argparse.Namespace) -> int:
+    step_header("uofa setup --create-bundle — package install for offline transport")
+    cfg = setup_state.load_config()
+    if cfg is None:
+        error("No install to bundle. Run `uofa setup` first.")
+        return 1
+    output = args.create_bundle
+    if output.is_dir():
+        output = output / setup_bundle.default_bundle_filename()
+    info(f"  Bundle target: {output}")
+    info(f"  Source binary: {cfg.ollama_binary}")
+    info(f"  Source models: {cfg.ollama_models_dir or '~/.ollama/models'}")
+    info(f"  Model:         {cfg.model_tag}")
+    if not args.yes and not _confirm("Proceed with bundle creation? [y/N] "):
+        info("Aborted.")
+        return 1
+    try:
+        result_path = setup_bundle.create_bundle(
+            output, cfg=cfg, model_tag=cfg.model_tag,
+        )
+    except FileNotFoundError as e:
+        error(str(e))
+        return 1
+    size_mb = result_path.stat().st_size / (1024 * 1024)
+    info(f"✓ Wrote {result_path} ({size_mb:.1f} MB)")
+    info("Transfer this file to the air-gapped machine and run:")
+    info(f"  uofa setup --bundle {result_path.name}")
+    return 0
+
+
+def _run_install_from_bundle(args: argparse.Namespace) -> int:
+    step_header("uofa setup --bundle — install from offline bundle")
+    bundle_path = args.bundle
+    if not bundle_path.is_file():
+        error(f"Bundle not found: {bundle_path}")
+        return 1
+    info(f"Reading {bundle_path}")
+    try:
+        cfg = setup_bundle.consume_bundle(bundle_path, on_status=info)
+    except setup_bundle.PlatformMismatchError as e:
+        error(str(e))
+        return 1
+    except (FileNotFoundError, ValueError) as e:
+        error(f"Bundle install failed: {e}")
+        return 1
+
+    info("")
+    info("Running verify against the unpacked install...")
+    result = setup_verify.verify(cfg, on_status=info)
+    if result.ok:
+        info(f"✓ {result.diagnostic} (in {result.elapsed_seconds:.1f}s)")
+        info(f"  Try next: uofa extract <your-pdf>")
+        return 0
+    error(f"✗ Verify failed: {result.diagnostic}")
+    return 1
+
+
+# ── uninstall (REQ-DIST-007) ───────────────────────────────────
+
+
+def _run_uninstall(args: argparse.Namespace) -> int:
+    step_header("uofa setup uninstall — remove managed runtime + model")
+    cfg = setup_state.load_config()
+    plan = setup_uninstall.plan_uninstall(cfg)
+    if not plan.targets:
+        info("Nothing to remove.")
+        return 0
+
+    info("Will remove:")
+    for target in plan.targets:
+        info(f"  {target}")
+    info(f"Disk space to free: {plan.mb_to_free:.1f} MB")
+    if cfg is not None and cfg.mode == "byo":
+        info(f"Will NOT touch BYO Ollama at {cfg.ollama_binary}")
+
+    if not args.yes and not _confirm("Proceed with uninstall? [y/N] "):
+        info("Aborted.")
+        return 1
+
+    result = setup_uninstall.uninstall(cfg, on_status=info)
+    info(f"✓ Removed {len(result.removed)} target(s); freed {result.bytes_freed / (1024*1024):.1f} MB")
+    if result.skipped:
+        for s in result.skipped:
+            info(f"  (skipped {s})")
+    return 0
 
 
 # ── helpers ────────────────────────────────────────────────────

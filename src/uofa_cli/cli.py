@@ -34,7 +34,7 @@ def _run():
     sub = parser.add_subparsers(dest="command", title="commands")
 
     # ── Register subcommands ──────────────────────────────────
-    from uofa_cli.commands import keygen, sign, verify, shacl, rules, check, validate, init, diff, schema, packs, migrate, import_excel, extract_cmd, adversarial, catalog, setup
+    from uofa_cli.commands import keygen, sign, verify, shacl, rules, check, validate, init, diff, schema, packs, migrate, import_excel, extract_cmd, adversarial, catalog, setup, demo
 
     modules = {
         "keygen":      keygen,
@@ -54,6 +54,7 @@ def _run():
         "extract":     extract_cmd,
         "adversarial": adversarial,
         "setup":       setup,
+        "demo":        demo,
     }
 
     for name, mod in modules.items():

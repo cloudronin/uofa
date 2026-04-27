@@ -4,6 +4,21 @@
 
 The **Unit of Assurance** is the smallest independently verifiable bundle of credibility evidence for computational modeling and simulation (CM&S). It packages the **credibility decision** — who judged what, against what criteria, using what evidence, with what result — as a signed, provenance-linked, machine-verifiable engineering artifact.
 
+## Conference Attendees: Run the 30-Second Demo
+
+```bash
+pip install uofa
+uofa demo
+```
+
+The bundled fixture exercises the full C1 (signature + integrity) +
+C2 (SHACL) + C3 (Jena rule engine) pipeline against a small pre-computed
+UofA artifact — no Java install, no LLM runtime, no internet required.
+Use it to verify "yes, this tool actually does what the speaker claimed"
+in under a minute.
+
+When you're ready to encode your own evidence, see the Quick Start below.
+
 ## Quick Start: Create Your Own UofA
 
 [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/cloudronin/uofa?quickstart=1)

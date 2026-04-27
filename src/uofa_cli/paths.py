@@ -62,6 +62,13 @@ def find_repo_root(override: str = None) -> Path:
             _repo_root_cache = parent
             return parent
 
+    # Wheel-bundled snapshot: pyproject.toml force-includes packs/ + spec/
+    # under <package>/_data/repo/ so installed wheels work from any cwd.
+    bundled = pkg_dir / "_data" / "repo"
+    if (bundled / _PACK_MARKER).exists() or (bundled / _MARKER).exists():
+        _repo_root_cache = bundled
+        return bundled
+
     raise FileNotFoundError(
         "Could not find UofA repo root. "
         "Run from inside the repo or pass --repo-root PATH."
