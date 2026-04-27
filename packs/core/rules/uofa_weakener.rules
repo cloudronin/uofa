@@ -26,9 +26,17 @@
 # ============================================================================
 
 # W-EP-01: Orphan Claim — No Provenance Chain to Evidence
+# Phase 2.5 iter 1: added `(?claim rdf:type uofa:Claim)` guard.
+# The bindsClaim property points to a URI; the rule now requires that
+# URI to actually be defined inline as a uofa:Claim. Without this guard
+# the rule fires on every package whose claim is just a hanging URI
+# handle (no inline definition) — i.e., on every NC package, blowing
+# precision to 5%. The semantic intent ("orphan claim with broken
+# provenance") only makes sense when the claim is structurally present.
 [w_ep01:
     (?uofa rdf:type uofa:UnitOfAssurance)
     (?uofa uofa:bindsClaim ?claim)
+    (?claim rdf:type uofa:Claim)
     noValue(?claim, prov:wasDerivedFrom)
     makeSkolem(?ann, ?uofa, 'W-EP-01', ?claim)
     ->
