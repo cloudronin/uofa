@@ -276,9 +276,12 @@ def _call_llm(
         return _mock_extract(pack_name)
     if model.startswith("ollama/"):
         import requests as req
+        from uofa_cli import setup_state
+        cfg = setup_state.load_config()
+        port = cfg.ollama_port if cfg else 11434
         model_name = model.replace("ollama/", "")
         resp = req.post(
-            "http://localhost:11434/api/chat",
+            f"http://127.0.0.1:{port}/api/chat",
             json={
                 "model": model_name,
                 "messages": [{"role": "user", "content": prompt}],

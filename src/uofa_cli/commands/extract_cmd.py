@@ -10,6 +10,18 @@ from uofa_cli import paths
 HELP = "extract assessment data from evidence documents into an Excel template"
 
 
+def _model_bypasses_local_setup(model: str) -> bool:
+    """True if *model* points at a remote provider that doesn't need uofa setup.
+
+    The setup_state guard is only meaningful for the local Ollama daemon
+    path. litellm targets like ``openai/gpt-4o`` or ``anthropic/claude-...``
+    talk to a cloud API and have their own credential plumbing.
+    """
+    if model.startswith("ollama/"):
+        return False
+    return "/" in model  # litellm provider/model_name convention
+
+
 def add_arguments(parser):
     parser.add_argument("source", nargs="*", type=Path,
                         help="file or folder path(s) containing evidence documents")
@@ -29,6 +41,7 @@ def run(args) -> int:
     from uofa_cli.document_reader import discover_files, read_corpus
     from uofa_cli.llm_extractor import extract
     from uofa_cli.excel_writer import write_extraction
+    from uofa_cli import setup_state
 
     # ── Project-aware defaults ───────────────────────────────
     project_root = paths.find_project_root()
@@ -42,10 +55,22 @@ def run(args) -> int:
         paths.set_active_pack(packs)
     pack_name = packs[0]
 
-    # Resolve model: CLI > uofa.toml > default
+    # Resolve model: CLI > uofa.toml > setup config > default
     model = args.model
     if not model:
-        model = config.get("model", "qwen3:4b")
+        model = config.get("model")
+    if not model:
+        cfg = setup_state.load_config()
+        model = cfg.model_tag if cfg else "qwen3.5:4b"
+
+    # ── REQ-DIST-002 AC 3: extract requires `uofa setup` for live LLM use.
+    # mock + non-Ollama litellm targets (e.g. cloud APIs) bypass the check.
+    if model != "mock" and not _model_bypasses_local_setup(model):
+        try:
+            setup_state.assert_ready()
+        except setup_state.SetupNotReadyError as e:
+            error(str(e))
+            return 1
 
     # Resolve sources: CLI > uofa.toml evidence dir > error
     sources = args.source

@@ -457,7 +457,7 @@ See the [Getting Started Guide](docs/getting-started.md) for a full walkthrough.
 `uofa adversarial generate` synthesizes JSON-LD evidence packages that target specific weakener patterns, then validates them against SHACL. The tool is an **instrument** for empirically characterizing rule coverage — it feeds the methodology section of Chapter 3 and the September 2026 JVVUQ paper. Synthetic packages are flagged and refused by `uofa sign` and `uofa verify` so they can never be mistaken for real evidence.
 
 ```bash
-pip install -e '.[llm]'                          # one-time: adds litellm + pyyaml
+pip install -e '.[extract]'                          # one-time: adds litellm + pyyaml
 export ANTHROPIC_API_KEY=sk-ant-...              # generation defaults to claude-opus-4-7
 
 # Generate 5 synthetic packages targeting W-AR-05 (comparator absence / mismatch)

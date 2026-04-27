@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-pytest.importorskip("yaml", reason="PyYAML is required for adversarial specs; install .[llm]")
+pytest.importorskip("yaml", reason="PyYAML is required for adversarial specs; install .[extract]")
 
 
 FIXTURES = Path(__file__).parent / "fixtures"

@@ -118,7 +118,7 @@ def load_spec(path: Path) -> AdversarialSpec:
     except ModuleNotFoundError as e:
         raise SpecValidationError(
             "PyYAML is required to load adversarial specs. "
-            "Install with: pip install -e '.[llm]'"
+            "Install with: pip install -e '.[extract]'"
         ) from e
 
     path = Path(path)

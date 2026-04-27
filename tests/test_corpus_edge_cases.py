@@ -56,7 +56,7 @@ PDF_CASES = {"corrupted-file.pdf", "huge-appendix.pdf", "scanned-report.pdf"}
 
 def _skip_reason(filename: str) -> str | None:
     if filename in PDF_CASES and not _HAS_PDFPLUMBER:
-        return "pdfplumber not installed — install '.[llm]' or '.[corpus]' to cover PDFs"
+        return "pdfplumber not installed — install '.[extract]' or '.[corpus]' to cover PDFs"
     if not (EDGE_DIR / filename).exists():
         return f"{filename} missing — run `make corpus` first"
     return None
