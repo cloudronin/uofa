@@ -11,14 +11,59 @@ Each finding has: severity, fix candidate (prompt vs. spec vs. classifier), and 
 
 ## Mid-run findings (Apr 26 M5 run)
 
-### F1 — W-ON-01 prompt template omits `hasContextOfUse`
+### F1 — Weakener semantics conflict with SHACL profile shapes (NOT a prompt bug)
 
-- **Severity:** High (causes ~20% gen_invalid rate on the 5 W-ON-01 cells at low+medium subtlety; cells finished but with mostly empty packages)
-- **Symptom:** 5 W-ON-01 cells (low+medium × 3 base_cous) accumulated 50 / 46 / 45 / 36 / 26 retries before `max_retries=4` cut them off. Single SHACL violation in every failed file: `Profile: Required fields for the declared profile are missing`. The missing field is **`hasContextOfUse`**.
-- **Root cause:** `src/uofa_cli/adversarial/prompts/ontological.py` frames the W-ON-01 weakener as "validation evidence comes from a *different* domain than the CoU." The LLM interprets "domain mismatch" as "leave the CoU out" rather than "include a CoU but with mismatched domain content."
-- **Why retries didn't recover:** the runner feeds back the SHACL violation message, but it's too generic ("Required fields for the declared profile are missing") — doesn't pinpoint `hasContextOfUse`. The LLM keeps making the same omission.
-- **Fix candidate:** add an explicit "preserve the identity block including hasContextOfUse verbatim — the domain mismatch goes INSIDE the validation evidence, not in the CoU itself" directive to the W-ON-01 user prompt. Same fix pattern that already works in the compound-* templates.
-- **Blocks:** M6.2 only. The high gen_invalid rate is itself valid Phase 2 §11 / §13.3 data ("the synthetic generator can't reliably produce W-ON-01 triggers at low/medium subtlety without prompt-template revision").
+**Important correction (Apr 27):** I initially diagnosed F1 as a prompt-template bug ("LLM is being told the wrong thing and dropping required fields"). After actually reading the prompt source + the SHACL shapes, **the prompt is doing exactly what it's supposed to do — the bug is a design tension between the weakener semantics and the SHACL shapes**.
+
+#### F1a — W-ON-01 (missing Context of Use)
+
+- **W-ON-01 *is* "the package has no `hasContextOfUse`."** That's the literal weakener definition.
+- The W-ON-01 prompt template (`prompts/ontological.py:34-38`) correctly instructs: "Emit `conformsToProfile: ProfileMinimal`. Do NOT emit `hasContextOfUse` anywhere."
+- The W-ON-01 prompt comment explicitly assumed: *"Phase 2 confirm_existing for W-ON-01 therefore generates the rare-but-possible Minimal-profile package whose Minimal SHACL allows hasContextOfUse to be absent. The classifier is expected to accept this as the documented W-ON-01 scope."*
+- **That assumption is wrong.** Reading `packs/core/shapes/uofa_shacl.ttl:50-55`:
+  ```turtle
+  uofa:UnitOfAssurance_MinimalBody
+    sh:property [
+      sh:path uofa:hasContextOfUse ;
+      sh:minCount 1 ;       # ProfileMinimal REQUIRES hasContextOfUse
+    ] ;
+  ```
+- Both ProfileMinimal AND ProfileComplete require `hasContextOfUse`. There is no SHACL profile under which a W-ON-01 package can conform.
+
+#### F1b — W-SI-01 (missing signature)
+
+- Same pattern: W-SI-01 *is* "the package has no `signature`" (`prompts/structural.py:28`).
+- ProfileMinimal SHACL (`uofa_shacl.ttl:74-79`) requires `signature` with `minCount 1`.
+- Same fundamental conflict.
+
+#### What this means for catalog_recall
+
+The runner's SHACL gate categorically prevents generation of W-ON-01 / W-SI-01 packages at any subtlety. Most variants exhausted `max_retries=4` and were marked GEN-INVALID. **Reporting catalog_recall as "0%" or "near-zero" for these patterns would be misleading — the rules never had a chance to fire because no evaluable package was produced.**
+
+Implemented Apr 27: the classifier now distinguishes:
+- `recall = "<float>"` — measured, n>0 evaluable rows
+- `recall = "not_measurable"` — n=0 evaluable rows but ≥1 GEN-INVALID rows targeting this pattern (F1-class weakeners fall here)
+- `recall = ""` — no confirm_existing rows targeting this pattern at all
+
+The reporter's View 1 catalog × subtlety pivot renders these cells as "not measurable" with a dedicated CSS class instead of "0%". See `tests/adversarial/test_classifier.py::test_write_summary_csv_recall_marks_not_measurable_when_only_gen_invalid` and `tests/adversarial/test_reporter.py::test_view1_renders_not_measurable_for_all_gen_invalid_cell` for the pinned behavior.
+
+#### Three real options for resolving F1 in M6.2 / Phase 3
+
+| Option | Description | Effort | Caveat |
+|---|---|---|---|
+| **A. Accept** | Document "not measurable" as the honest signal. Don't try to test these weakeners until the SHACL/weakener tension is resolved at the design level. | $0, ~30 min docs | Catalog coverage for these 2 patterns becomes a Phase 3 reviewer question, not a Phase 2 metric |
+| **B. Fix the runner** | Add a "weakener bypasses SHACL retry-gate" mechanism for weakeners that semantically require omitting required fields. The package gets written; analyze classifies based on rule firings even though SHACL didn't conform. | $15-20 + 2-4h code | Requires careful design — might need a new outcome class `GEN-NON-CONFORMING-BY-DESIGN` to distinguish from GEN-INVALID |
+| **C. Loosen SHACL** | Edit `packs/core/shapes/uofa_shacl.ttl` so ProfileMinimal allows these fields to be absent | $15-20 + 30 min | Alters the core schema; affects EVERY user of the pack, not just adversarial. Probably not the right answer. |
+
+**Decision (Apr 27): Option A for now.** Continued with M5 analyze; documented the design tension here. M6.2 / Phase 3 will revisit with proper time + design pass.
+
+#### Other weakeners potentially affected
+
+The required ProfileMinimal fields are: `bindsRequirement`, `hasContextOfUse`, `hasValidationResult`, `generatedAtTime`, `hash`, `signature`, `hasDecisionRecord`. ProfileComplete additionally requires `bindsModel`, `bindsDataset`, `hasCredibilityFactor`. Any weakener whose semantic requires omitting one of these fields will hit the same F1-class issue. Worth auditing the full weakener catalog during M6.2.
+
+#### Side note: SHACL retry-feedback message is too generic
+
+The runner appends the SHACL violation message to the retry prompt. For F1-class failures the message is "Required fields for the declared profile are missing" — without naming *which* field. **Even outside F1**, this is a worth-fixing usability issue: improving `shacl_friendly.py`'s ProfileShape violation translation to name the missing fields would make retries actually useful for the LLM. M6.2 candidate (separate from the F1 design-tension question above).
 
 ### F2 — Paraphrase variant `p2` triggers Anthropic safety-filter refusal
 
@@ -40,6 +85,20 @@ Each finding has: severity, fix candidate (prompt vs. spec vs. classifier), and 
 - **Severity:** Was medium — would have deflated all View 3 metrics by the gen-failure rate.
 - **Status:** Fixed in commit `9554b34`. Recall, precision, and gap-probe-miss-rate now correctly exclude `GEN-INVALID` rows from their denominators.
 - **Note for Phase 3 reviewers:** the M5 catalog recall in the final report is the truthful version (evaluable rows only).
+
+### F6 — `--max-cost` accounting double-counts resume-skipped cells
+
+- **Severity:** Medium (caused a spurious M5 halt during the second resume; harmless to data, just bookkeeping)
+- **Symptom:** Resumed M5 with `--max-cost 100` halted at 70 cells with $101 reported "cost", but 0 of those 70 cells actually issued LLM calls — they were all `--resume`-skipped from prior runs. The runner's `accumulated_cost` sums every cell's `estimated_cost_usd` (whether skipped or freshly run), and the cap check halts based on the combined sum.
+- **Root cause:** `src/uofa_cli/adversarial/runner.py::run_batch` accumulates cost from both newly-processed and resume-skipped cells:
+  ```python
+  res = _process_spec(args, cell, out_root, args.resume)
+  accumulated_cost += res.estimated_cost_usd  # includes prior cost on skip
+  ```
+  This is meaningful for "total cost the manifest reports" but wrong for "how much will I spend on THIS resume."
+- **Fix candidate:** track `accumulated_cost_this_run` separately for the cap check (only summing actually-processed cells), while still preserving `accumulated_cost` for the manifest's cumulative figure.
+- **Workaround used during M5:** bump `--max-cost` to effectively-unlimited (`500`) for the resume; the actual incremental spend is much smaller than the cap, so this is safe.
+- **Blocks:** M6.2 only. Doesn't affect M5 data integrity, just the cap-halt UX during resume.
 
 ### F5 — pyshacl/rdflib stream-consume bug (already fixed)
 
