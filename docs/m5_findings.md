@@ -144,39 +144,76 @@ All recovered through the runner's per-variant retry loop. No spec-level impact.
 
 ---
 
-## Post-M5 findings (populated after analyze runs)
+## Post-M5 findings (Apr 27 analyze)
 
-> _This section will be filled in by post-M5 triage per `docs/phase2_runbook.md` §1. Categories below mirror the runbook's triage decision tree._
+> _Populated from `out/adversarial/phase2/2026-04-26/coverage/{outcomes,summary,matrix}.csv` and the rendered `index.html`._
+
+### Headline outcome distribution (n = 4,605 rows)
+
+| Battery | n | Outcome distribution |
+|---|---|---|
+| confirm_existing | 4,005 | **2,661 HIT-PLUS / 965 WRONG / 379 GEN-INVALID** (recall = 73.4%) |
+| gap_probe | 330 | 0 MISS / 329 WRONG / 1 GEN-INVALID (miss rate = 0%) |
+| interaction | 90 | 90 HIT-PLUS / 0 misses (target fires 100%) |
+| negative_controls | 180 | **176 CLEAN-WRONG / 4 GEN-INVALID** (precision = 0%, FPR = 100%) |
+
+Notably absent: **0 COV-HIT** (target alone) and **0 COV-MISS** (zero rules firing). Every package triggered *something*; when the target fires, bystanders fire too.
+
+### View 3 metrics
+
+| Metric | Value | Threshold (runbook §1) | Status |
+|---|---|---|---|
+| Catalog recall (HIT + HIT+) | **73.4%** | <70% triggers triage | ⚠ borderline (3.4% above threshold) |
+| Catalog precision (1 − FPR) | **0.0%** | <90% triggers triage | ✗ **major finding — worst-case** |
+| Gap-probe MISS rate | **0.0%** | none documented; informational | informational only |
+
+### Two big Phase 2 takeaways
+
+#### Finding M5-A: Catalog is systemically over-eager (FPR = 100%)
+
+Every clean negative-control package (176 of 180 evaluable, the other 4 GEN-INVALID) triggered at least one rule firing. The catalog's rules are not specific enough — they fire on packages that should be quiet.
+
+This is the most actionable Phase 3 reviewer signal in the entire M5 dataset. Worth detailed §6.7-style investigation: inspect a sample of `COV-CLEAN-WRONG` rows in `outcomes.csv`, see *which* rules fired, and decide whether each is (a) a too-permissive rule pattern, (b) a synthetic-generator artifact (NC packages too "rich" because LLMs over-produce structure), or (c) a legitimate concern the rule correctly detected (FPR = false positive only if the rule fires on something genuinely clean).
+
+#### Finding M5-B: 0 COV-HIT, 100% HIT-PLUS — high inter-rule correlation
+
+When a target rule fires, other rules fire too. Across 2,661 HIT-PLUS confirm_existing rows, ZERO had only the target firing. The catalog has strong inter-rule correlation — possibly because the synthetic packages are structurally complex enough that multiple rules pattern-match simultaneously, or because the rules themselves overlap semantically.
+
+Implication: the "rule independence" assumption that underlies simple recall/precision metrics is broken. Phase 3 should consider per-rule precision (which rule contributed to which firing) rather than just package-level outcome class.
 
 ### Gen-invalid rate by battery
 
-- _Pending M5 completion + analyze._
-- Threshold: >5% on any battery is a triage trigger.
-- Expected per-battery rough rates based on mid-run data: confirm_existing 5–10% (concentrated on W-ON-01), gap_probe ?, NC ?, interaction ?.
+| Battery | n_total | gen_invalid | rate | vs runbook threshold (>5%) |
+|---|---|---|---|---|
+| confirm_existing | 4,005 | 379 | **9.5%** | ⚠ **above threshold** |
+| gap_probe | 330 | 1 | 0.3% | ✓ |
+| interaction | 90 | 0 | 0.0% | ✓ |
+| negative_controls | 180 | 4 | 2.2% | ✓ |
 
-### Catalog recall (View 3)
+The confirm_existing 9.5% is **concentrated almost entirely on F1-class cells** (W-ON-01 + W-SI-01 — the design-tension weakeners that semantically force omission of SHACL-required fields). Excluding F1 cells, the residual rate is well under threshold. The "not_measurable" sentinel in summary.csv flags these patterns specifically.
 
-- _Pending._
-- Threshold: <70% on any pattern is worth investigating.
-- Per-pattern rates already available in summary.csv after analyze.
+### Catalog precision = 0% — what fired on the clean controls?
 
-### Catalog precision (View 3)
+_Per-rule breakdown TODO: walk `outcomes.csv` for `outcome_class == "COV-CLEAN-WRONG"` rows, tabulate `rules_fired` to identify which catalog rules are the FPR drivers. Highest-firing rules are the prime candidates for §13.3 catalog audit._
 
-- _Pending._
-- Threshold: <90% precision (i.e., FPR > 10% on negative_controls) is a triage trigger.
-- Smoke evidence: NC precision was 0% on a 3-package sample — suggests synthetic generator over-produces structurally rich packages even when prompted as "clean controls."
+### COU disparity (D1)
 
-### COU disparity (D1, summary.csv)
+Per `summary.csv`: per-pattern `recall_morrison_cou1` / `_cou2` / `_nagaraja` columns are populated. `cou_dependent_flag` flags patterns with ≥30% recall disparity across COUs. Top COU-dependent rules to surface in Phase 3 reviewer sessions are listed in summary.csv.
 
-- _Pending._
-- Threshold: any pattern with `cou_dependent_flag=True` (≥30% disparity across base_cous) is a finding.
-- Mid-run not yet observable since per-COU columns require all 3 base_cous to have data per pattern.
+### Section §6.7 candidates (gap_probe COV-MISS)
 
-### Section §6.7 candidates
+**0 COV-MISS rows on gap_probe** — every gap_probe variant fired at least one rule (classified as COV-WRONG since gap_probe specs have target_weakener=null, so any firing counts as "wrong-target"). This means the catalog is *covering* the literature taxonomy gaps in some way — but probably with non-targeted rules.
 
-- _Pending._
-- These are gap_probe COV-MISS rows that look like real catalog gaps (vs noise).
-- D3 reviewer prep packets enumerate these for Phase 3 reviewers.
+Triage approach: walk `outcomes.csv` for `coverage_intent == "gap_probe"` rows, group by `source_taxonomy`, tabulate `rules_fired`. For each (taxonomy, rule_set) pair, Phase 3 reviewers assess: (a) is the firing rule semantically correct for this gap? (b) if not, is it a candidate for a new rule that better captures the literature concept?
+
+D3 prep-review CLI generates per-spec reviewer packets for this triage. Run when ready:
+
+```bash
+uofa adversarial prep-review \
+  --outcomes out/adversarial/phase2/2026-04-26/coverage/outcomes.csv \
+  --output   out/adversarial/phase2/2026-04-26/review_packets/ \
+  --max-cases 50
+```
 
 ---
 
