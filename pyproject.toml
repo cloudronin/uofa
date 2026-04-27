@@ -77,6 +77,21 @@ uofa = "uofa_cli.cli:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/uofa_cli"]
+# .jar is .gitignored; mark as artifact so the bundled rule-engine JAR
+# (populated by hatch_build.py when UOFA_BUNDLE_JAR=1) ships in the wheel.
+artifacts = ["src/uofa_cli/_engine/*.jar"]
+
+[tool.hatch.build.targets.sdist]
+# Keep platform-specific bundled artifacts out of the sdist; sdist consumers
+# rebuild the JAR via Maven.
+exclude = [
+    "src/uofa_cli/_engine/*.jar",
+]
+
+[tool.hatch.build.hooks.custom]
+# Activated only when UOFA_BUNDLE_JAR=1 (or, in later PRs,
+# UOFA_BUNDLE_PLATFORM=<tag>); otherwise no-op so editable installs work.
+path = "hatch_build.py"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

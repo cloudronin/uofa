@@ -149,9 +149,31 @@ def context_file(root: Path = None) -> Path:
     return root / "spec" / "context" / "v0.5.jsonld"
 
 
+_BUNDLED_JAR_NAME = "uofa-weakener-engine-0.1.0.jar"
+
+
+def _package_dir() -> Path:
+    """Directory containing this package (the installed/editable uofa_cli/)."""
+    return Path(__file__).parent
+
+
+def bundled_jar() -> Path | None:
+    """Return the JAR bundled inside the wheel, or None if not present.
+
+    Populated at wheel-build time by hatch_build.py when UOFA_BUNDLE_JAR=1.
+    Editable installs from a source checkout will not have it; callers fall
+    back to the Maven-built JAR under weakener-engine/target/.
+    """
+    p = _package_dir() / "_engine" / _BUNDLED_JAR_NAME
+    return p if p.exists() else None
+
+
 def jar_path(root: Path = None) -> Path:
+    bundled = bundled_jar()
+    if bundled is not None:
+        return bundled
     root = root or find_repo_root()
-    return root / "weakener-engine" / "target" / "uofa-weakener-engine-0.1.0.jar"
+    return root / "weakener-engine" / "target" / _BUNDLED_JAR_NAME
 
 
 def engine_dir(root: Path = None) -> Path:
