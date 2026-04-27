@@ -331,6 +331,34 @@ def test_write_summary_csv_aggregates_confirm_existing(tmp_path):
     assert war01["recall"] == "0.667"
 
 
+def test_write_summary_csv_recall_marks_not_measurable_when_only_gen_invalid(tmp_path):
+    """When all confirm_existing rows for a pattern are GEN-INVALID, recall is
+    'not_measurable' — distinct from "" (no data) and from 0.000 (rule missed).
+
+    Rationale: W-ON-01 / W-SI-01 weakeners semantically force the LLM to omit
+    SHACL-required fields, so the runner's SHACL gate categorically prevents
+    evaluable packages. Reporting 0% would be wrong (the rules never had a
+    chance to fire). See m5_findings.md F1.
+    """
+    rows = [
+        _row_obj(coverage_intent="confirm_existing", target_weakener="W-ON-01",
+                 rules_fired="", target_rule_fired=False,
+                 outcome_class="GEN-INVALID"),
+        _row_obj(coverage_intent="confirm_existing", target_weakener="W-ON-01",
+                 rules_fired="", target_rule_fired=False,
+                 outcome_class="GEN-INVALID"),
+    ]
+    out = tmp_path / "summary.csv"
+    _write_summary_csv(rows, out)
+    by_pat = {r["pattern_id"]: r for r in csv.DictReader(open(out))}
+
+    won01 = by_pat["W-ON-01"]
+    assert won01["confirm_existing_count"] == "0"   # no evaluable rows
+    assert won01["confirm_existing_hits"] == "0"
+    # Critical: recall is NOT empty and NOT "0.000" — it's an explicit sentinel.
+    assert won01["recall"] == "not_measurable"
+
+
 def test_write_summary_csv_excludes_gen_invalid_from_recall_denominator(tmp_path):
     """GEN-INVALID rows must NOT inflate confirm_existing_count.
 

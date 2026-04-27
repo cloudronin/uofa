@@ -454,8 +454,9 @@ def _write_summary_csv(rows: list[_OutcomeRow], out_path: Path) -> None:
     All counts derived from *rows* — no re-evaluation of packages.
     """
     # Per-pattern accumulators, indexed by pattern_id from _CORE_PATTERN_IDS.
-    confirm_count: Counter[str] = Counter()
+    confirm_count: Counter[str] = Counter()         # evaluable rows only
     confirm_hits: Counter[str] = Counter()
+    confirm_invalid: Counter[str] = Counter()       # GEN-INVALID rows targeting
     nc_firings: Counter[str] = Counter()
     gp_firings: Counter[str] = Counter()
     total_firings: Counter[str] = Counter()
@@ -477,9 +478,13 @@ def _write_summary_csv(rows: list[_OutcomeRow], out_path: Path) -> None:
             total_firings[pat] += 1
 
         # confirm_existing: count attempts and hits per target pattern.
-        # Exclude GEN-INVALID rows — those represent generation failures
-        # where no package was evaluable, not coverage misses. Including
-        # them would deflate per-pattern recall by the gen-failure rate.
+        # Exclude GEN-INVALID rows from the recall denominator — those are
+        # generation failures, not coverage misses. But track them in
+        # confirm_invalid so we can distinguish "no data for this pattern"
+        # (empty recall) from "all data was unevaluable" (not_measurable).
+        if r.coverage_intent == "confirm_existing" and r.target_weakener:
+            if r.outcome_class == "GEN-INVALID":
+                confirm_invalid[r.target_weakener] += 1
         if (
             r.coverage_intent == "confirm_existing"
             and r.target_weakener
@@ -515,7 +520,24 @@ def _write_summary_csv(rows: list[_OutcomeRow], out_path: Path) -> None:
         for pat in _CORE_PATTERN_IDS:
             n = confirm_count[pat]
             h = confirm_hits[pat]
-            recall_str = f"{(h / n):.3f}" if n else ""
+            inv = confirm_invalid[pat]
+            # Recall semantics (Phase 2 §11):
+            #   ""              — no confirm_existing rows targeting this
+            #                     pattern (pattern not in the experiment)
+            #   "<float>"       — n>0 evaluable rows; standard recall
+            #   "not_measurable" — n=0 evaluable but inv>0; e.g. weakener
+            #                     semantics force gen-invalid (W-ON-01 omits
+            #                     hasContextOfUse, W-SI-01 omits signature),
+            #                     which the SHACL gate rejects → no
+            #                     evaluable packages exist. Reporting "0%"
+            #                     would imply rules failed to fire when in
+            #                     fact rules never had a chance.
+            if n > 0:
+                recall_str = f"{(h / n):.3f}"
+            elif inv > 0:
+                recall_str = "not_measurable"
+            else:
+                recall_str = ""
 
             # D1: per-COU recall computation.
             per_cou_recall: dict[str, str] = {

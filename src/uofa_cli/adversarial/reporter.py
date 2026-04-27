@@ -41,6 +41,7 @@ td.cell-clean-ok  { background: #b3e5fc; color: #14365c; }
 td.cell-clean-bad { background: #ff8a65; color: white; }
 td.cell-gen-invalid { background: #9e9e9e; color: white; }
 td.cell-empty     { background: #f5f5f5; color: #999; }
+td.cell-not-measurable { background: #424242; color: #fff; font-style: italic; }
 td.candidate      { border: 2px dashed #4caf50; background: #e8f5e9; color: #2e7d32; }
 .legend span { display: inline-block; padding: 0.15rem 0.6rem; margin-right: 0.5rem;
                border-radius: 3px; font-size: 0.8rem; }
@@ -112,14 +113,24 @@ def _per_cou_breakdown(rows):
 def _view1_catalog_self_coverage(rows) -> str:
     """Heatmap: UofA pattern × subtlety, plus D1 per-COU breakdown collapsibles
     and a "COU-dependent rules" header row (v1.8 §11.2).
+
+    Cells where all rows are GEN-INVALID render as "not measurable" rather
+    than "0%" — the rules never had a chance to fire because no evaluable
+    package was produced. See m5_findings.md F1 for the W-ON-01 / W-SI-01
+    case (weakener semantics force omission of SHACL-required fields).
     """
-    pivot: dict[tuple[str, str], dict[str, int]] = defaultdict(lambda: {"hit": 0, "total": 0})
+    pivot: dict[tuple[str, str], dict[str, int]] = defaultdict(
+        lambda: {"hit": 0, "total": 0, "invalid": 0}
+    )
     patterns = set()
     for r in rows:
         if r.coverage_intent != "confirm_existing" or not r.target_weakener:
             continue
         patterns.add(r.target_weakener)
         key = (r.target_weakener, r.subtlety)
+        if r.outcome_class == "GEN-INVALID":
+            pivot[key]["invalid"] += 1
+            continue
         pivot[key]["total"] += 1
         if r.outcome_class in ("COV-HIT", "COV-HIT-PLUS"):
             pivot[key]["hit"] += 1
@@ -154,8 +165,18 @@ def _view1_catalog_self_coverage(rows) -> str:
     for pat in sorted(patterns):
         out.append(f"<tr><td>{escape(pat)}</td>")
         for s in subtlety_levels:
-            counts = pivot.get((pat, s), {"hit": 0, "total": 0})
+            counts = pivot.get((pat, s), {"hit": 0, "total": 0, "invalid": 0})
             total = counts["total"]
+            invalid = counts.get("invalid", 0)
+            if total == 0 and invalid > 0:
+                # No evaluable rows for this (pattern, subtlety), but
+                # GEN-INVALID rows exist — rules never had a chance.
+                out.append(
+                    f'<td class="cell-not-measurable" '
+                    f'title="all {invalid} variant(s) GEN-INVALID — see m5_findings.md F1">'
+                    f'not measurable</td>'
+                )
+                continue
             if total == 0:
                 out.append('<td class="cell-empty">—</td>')
                 continue

@@ -96,6 +96,39 @@ def test_view3_metrics_match_input(tmp_path):
     assert "50.0%" in html or "50%" in html
 
 
+def test_view1_renders_not_measurable_for_all_gen_invalid_cell(tmp_path):
+    """View 1 catalog × subtlety pivot: a (pattern, subtlety) cell where
+    every confirm_existing row is GEN-INVALID renders as 'not measurable'
+    rather than '0%'. The rules never had a chance to fire."""
+    rows = [
+        # 3 GEN-INVALID rows for W-ON-01 at low subtlety
+        _row(coverage_intent="confirm_existing", target_weakener="W-ON-01",
+             subtlety="low", outcome_class="GEN-INVALID"),
+        _row(coverage_intent="confirm_existing", target_weakener="W-ON-01",
+             subtlety="low", outcome_class="GEN-INVALID"),
+        _row(coverage_intent="confirm_existing", target_weakener="W-ON-01",
+             subtlety="low", outcome_class="GEN-INVALID"),
+        # Plus a healthy W-AR-01 high cell to keep the pivot non-empty
+        _row(coverage_intent="confirm_existing", target_weakener="W-AR-01",
+             subtlety="high", outcome_class="COV-HIT"),
+    ]
+    out = tmp_path / "index.html"
+    write_html_report(rows, out)
+    html = out.read_text()
+    # Sentinel + CSS class present
+    assert "not measurable" in html
+    assert "cell-not-measurable" in html
+    # Should NOT show "0%" or "0/3" for the W-ON-01 low cell
+    # (other cells may legitimately show 0% — we only care about the W-ON-01 cell)
+    # The W-ON-01 row should contain the not-measurable sentinel
+    war01_row_start = html.find("W-AR-01")
+    won01_row_start = html.find("W-ON-01")
+    # W-ON-01 row should mention "not measurable" somewhere within its row scope
+    # (between W-ON-01 mention and the next </tr>)
+    won01_row = html[won01_row_start:html.find("</tr>", won01_row_start)]
+    assert "not measurable" in won01_row
+
+
 def test_view3_metrics_exclude_gen_invalid_from_denominators(tmp_path):
     """GEN-INVALID rows must NOT inflate any of the three View 3 denominators.
 
