@@ -81,6 +81,22 @@ SUMMARY_FIELDS: tuple[str, ...] = (
     "recall_min_per_cou",
     "recall_cou_disparity",
     "cou_dependent_flag",
+    # M5-B (v0.5.7) per-rule precision columns. Address the "0 COV-HIT,
+    # 100% HIT-PLUS" finding from Apr 27 M5 analyze: when a target rule
+    # fires, other rules fire too, so package-level outcome class
+    # conflates per-rule specificity with rule overlap. These columns
+    # decompose:
+    #   nc_fpr — fraction of negative_control packages where THIS rule
+    #            fired. Direct FPR-driver signal: large values point at
+    #            over-permissive rule patterns deserving §13.3 audit.
+    #   precision_when_fires — across ALL rows where this rule fired
+    #            (any intent), fraction where the spec actually targeted
+    #            this rule (intent==confirm_existing or interaction with
+    #            target_weakener == this rule). Low values mean the rule
+    #            fires on the wrong things; high values mean it's a
+    #            specific, well-targeted detector.
+    "nc_fpr",
+    "precision_when_fires",
 )
 
 
@@ -257,10 +273,68 @@ def _classify(
     return "COV-WRONG", False
 
 
+@dataclass
+class _PackageWork:
+    """One per-variant work item for the parallel Jena phase.
+
+    Pre-computed metadata so the Jena phase only needs `package_path` +
+    `package_exists`; the classification phase reuses everything else
+    via field name. Held in original iteration order so the final rows
+    list is identical to the sequential implementation.
+    """
+    spec_id: str
+    variant_num: int
+    target_weakener: str | None
+    source_taxonomy: str | None
+    coverage_intent: str
+    subtlety: str
+    shacl_retries: int
+    tokens: int
+    cost_usd: float
+    base_cou_key: str | None
+    package_path: Path | None
+    package_exists: bool
+    # Filled in by the Jena phase:
+    firings: dict[str, int] = field(default_factory=dict)
+    timings: dict[str, int] = field(
+        default_factory=lambda: {
+            "total_eval_ms": 0,
+            "jena_load_ms": 0,
+            "jena_inference_ms": 0,
+            "output_serialize_ms": 0,
+        }
+    )
+
+
+def _run_rules_on_work(work: _PackageWork, pack: str) -> _PackageWork:
+    """Thread worker: invoke Jena on *work*'s package and stash results.
+
+    Returns the same _PackageWork instance with `firings` and `timings`
+    populated. Returning the work item (rather than a tuple) makes the
+    caller's `as_completed` reassembly trivial — the work item carries
+    its own original-order index implicitly via list position.
+    """
+    if work.package_exists and work.package_path is not None:
+        work.firings, work.timings = _run_rules_on_package(
+            work.package_path, pack=pack
+        )
+    return work
+
+
 def _scan_outcomes(
-    in_dir: Path, pack: str
+    in_dir: Path, pack: str, parallel: int = 1
 ) -> list[_OutcomeRow]:
-    """Walk the batch_manifest.perSpecResults and produce per-package rows."""
+    """Walk the batch_manifest.perSpecResults and produce per-package rows.
+
+    *parallel* controls the Jena concurrency. Default 1 preserves the
+    sequential behavior. Higher values use a ThreadPoolExecutor over the
+    per-package `_run_rules_on_package` calls — each spawns its own JVM
+    subprocess so thread-safety is essentially free. Phase 2 §11 metric
+    semantics are unchanged: classification + accumulation happen
+    sequentially in original order after the parallel Jena phase
+    completes, so outcomes.csv row order is identical to the sequential
+    implementation.
+    """
     manifest_path = in_dir / "batch_manifest.json"
     if not manifest_path.exists():
         raise FileNotFoundError(
@@ -281,6 +355,12 @@ def _scan_outcomes(
     rule_timing_rows: list[dict] = []
 
     rows: list[_OutcomeRow] = []
+    # Phase 1: build the work list in original (perSpecResults × variants)
+    # order. Each item is a _PackageWork carrying everything Phase 2 (Jena)
+    # and Phase 3 (classify+accumulate) need. Holding original order in
+    # this list guarantees outcomes.csv row order is preserved when
+    # parallel > 1.
+    work_items: list[_PackageWork] = []
 
     for per_spec in batch.get("perSpecResults", []):
         spec_id = per_spec["spec_id"]
@@ -332,56 +412,85 @@ def _scan_outcomes(
                 package_path is not None and package_path.exists() and shacl_passed
             )
 
-            if package_exists:
-                firings, timings = _run_rules_on_package(package_path, pack=pack)
-            else:
-                firings, timings = {}, {
-                    "total_eval_ms": 0,
-                    "jena_load_ms": 0,
-                    "jena_inference_ms": 0,
-                    "output_serialize_ms": 0,
-                }
-
-            # D2: collect per-rule timing rows. Jena native per-rule timing
-            # is not exposed; record rule_fired only (rule_eval_ms 0).
-            for pat in firings:
-                rule_timing_rows.append({
-                    "rule_id": pat,
-                    "package_path": str(package_path) if package_path else "",
-                    "rule_eval_ms": 0,
-                    "rule_fired": "True",
-                })
-
-            outcome_class, target_fired = _classify(
-                coverage_intent=coverage_intent,
-                target_weakener=target_weakener,
-                firings=firings,
-                package_exists=package_exists,
-            )
-
-            rules_fired_str = ",".join(sorted(firings.keys()))
-
-            rows.append(_OutcomeRow(
+            work_items.append(_PackageWork(
                 spec_id=spec_id,
                 variant_num=variant_num or 0,
                 target_weakener=target_weakener,
                 source_taxonomy=source_taxonomy,
                 coverage_intent=coverage_intent,
                 subtlety=per_spec_manifest.get("subtlety", "high"),
-                outcome_class=outcome_class,
-                rules_fired=rules_fired_str,
-                target_rule_fired=target_fired,
-                section_6_7_candidate=None,
                 shacl_retries=shacl_retries,
                 tokens=tokens,
                 cost_usd=variant.get("estimatedCostUsd", 0.0),
                 base_cou_key=baseline_key,
-                total_eval_ms=timings["total_eval_ms"],
-                jena_load_ms=timings["jena_load_ms"],
-                jena_inference_ms=timings["jena_inference_ms"],
-                output_serialize_ms=timings["output_serialize_ms"],
-                eval_host_id=eval_host_id,
+                package_path=package_path,
+                package_exists=package_exists,
             ))
+
+    # ----- Phase 2: parallel Jena -----
+    # Each worker calls _run_rules_on_package, which spawns its own JVM
+    # subprocess. Thread-safety is free — no shared state between workers.
+    # Default parallel=1 preserves sequential behavior; M5-scale batches
+    # benefit from parallel=5+ (see m5_findings.md F7).
+    parallel = max(1, int(parallel or 1))
+    if parallel == 1 or len(work_items) == 0:
+        for w in work_items:
+            _run_rules_on_work(w, pack=pack)
+    else:
+        from concurrent.futures import ThreadPoolExecutor
+        with ThreadPoolExecutor(max_workers=parallel) as pool:
+            # Submit; we don't need as_completed because each worker
+            # mutates the work item in place (it's the same object the
+            # main thread will iterate sequentially in Phase 3).
+            list(pool.map(lambda w: _run_rules_on_work(w, pack=pack), work_items))
+
+    # ----- Phase 3: sequential classification + accumulation -----
+    # Iterates work_items in original order, so outcomes.csv row order
+    # is identical to the pre-F7 implementation.
+    for w in work_items:
+        firings = w.firings
+        timings = w.timings
+
+        # D2: collect per-rule timing rows. Jena native per-rule timing
+        # is not exposed; record rule_fired only (rule_eval_ms 0).
+        for pat in firings:
+            rule_timing_rows.append({
+                "rule_id": pat,
+                "package_path": str(w.package_path) if w.package_path else "",
+                "rule_eval_ms": 0,
+                "rule_fired": "True",
+            })
+
+        outcome_class, target_fired = _classify(
+            coverage_intent=w.coverage_intent,
+            target_weakener=w.target_weakener,
+            firings=firings,
+            package_exists=w.package_exists,
+        )
+
+        rules_fired_str = ",".join(sorted(firings.keys()))
+
+        rows.append(_OutcomeRow(
+            spec_id=w.spec_id,
+            variant_num=w.variant_num,
+            target_weakener=w.target_weakener,
+            source_taxonomy=w.source_taxonomy,
+            coverage_intent=w.coverage_intent,
+            subtlety=w.subtlety,
+            outcome_class=outcome_class,
+            rules_fired=rules_fired_str,
+            target_rule_fired=target_fired,
+            section_6_7_candidate=None,
+            shacl_retries=w.shacl_retries,
+            tokens=w.tokens,
+            cost_usd=w.cost_usd,
+            base_cou_key=w.base_cou_key,
+            total_eval_ms=timings["total_eval_ms"],
+            jena_load_ms=timings["jena_load_ms"],
+            jena_inference_ms=timings["jena_inference_ms"],
+            output_serialize_ms=timings["output_serialize_ms"],
+            eval_host_id=eval_host_id,
+        ))
     # Stash rule_timing_rows on the function for run_analyze to pick up.
     # (Cleaner than rewiring the return tuple; classifier callers within
     # the codebase only consume rows.)
@@ -460,6 +569,12 @@ def _write_summary_csv(rows: list[_OutcomeRow], out_path: Path) -> None:
     nc_firings: Counter[str] = Counter()
     gp_firings: Counter[str] = Counter()
     total_firings: Counter[str] = Counter()
+    # M5-B accumulators:
+    #   targeted_firings[R] = # rows where R fired AND the row's spec targeted R
+    #     (confirm_existing target=R, or interaction target=R)
+    #   The denominator for precision_when_fires is total_firings[R].
+    targeted_firings: Counter[str] = Counter()
+    nc_total_evaluable = 0  # # NC rows excluding GEN-INVALID, used for nc_fpr
 
     # D1 (v1.8): per-(pattern, base_cou_key) accumulators for per-COU recall.
     per_cou_count: dict[tuple[str, str], int] = defaultdict(int)
@@ -506,12 +621,22 @@ def _write_summary_csv(rows: list[_OutcomeRow], out_path: Path) -> None:
                     per_cou_hits[(r.target_weakener, cou_key)] += 1
 
         if r.coverage_intent == "negative_control":
+            if r.outcome_class != "GEN-INVALID":
+                nc_total_evaluable += 1
             for pat in fired:
                 nc_firings[pat] += 1
 
         if r.coverage_intent == "gap_probe":
             for pat in fired:
                 gp_firings[pat] += 1
+
+        # M5-B: a firing is "targeted" if the row's spec asked for that
+        # rule. confirm_existing and interaction specs declare a target
+        # weakener; gap_probe and negative_control never do (target=null
+        # for gap_probe; sentinel for NC).
+        if r.coverage_intent in ("confirm_existing", "interaction") and r.target_weakener:
+            if r.target_weakener in fired:
+                targeted_firings[r.target_weakener] += 1
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
     with open(out_path, "w", newline="") as f:
@@ -569,6 +694,25 @@ def _write_summary_csv(rows: list[_OutcomeRow], out_path: Path) -> None:
                 disparity_str = ""
                 cou_dependent = ""
 
+            # M5-B: per-rule precision computations.
+            # nc_fpr semantics: "" when no NC data exists at all (unusual);
+            # otherwise "0.000" through "1.000". "0.000" means rule never
+            # fires on clean controls; "1.000" means it fires on every
+            # clean control — direct §13.3 audit signal.
+            if nc_total_evaluable > 0:
+                nc_fpr_str = f"{(nc_firings[pat] / nc_total_evaluable):.3f}"
+            else:
+                nc_fpr_str = ""
+            # precision_when_fires semantics: "" when this rule never fired
+            # at all (so no precision to compute); otherwise the targeted-
+            # firings ratio. 1.000 = rule only fires when targeted (specific);
+            # 0.000 = rule never fires when targeted (always firing on
+            # unrelated specs, signaling broken rule).
+            if total_firings[pat] > 0:
+                precision_str = f"{(targeted_firings[pat] / total_firings[pat]):.3f}"
+            else:
+                precision_str = ""
+
             w.writerow({
                 "pattern_id": pat,
                 "confirm_existing_count": n,
@@ -583,6 +727,8 @@ def _write_summary_csv(rows: list[_OutcomeRow], out_path: Path) -> None:
                 "recall_min_per_cou": recall_min,
                 "recall_cou_disparity": disparity_str,
                 "cou_dependent_flag": cou_dependent,
+                "nc_fpr": nc_fpr_str,
+                "precision_when_fires": precision_str,
             })
 
 
@@ -666,10 +812,11 @@ def run_analyze(args) -> int:
     in_dir: Path = args.in_dir
     out_dir: Path = args.out
     pack = args.check_pack
+    parallel = max(1, int(getattr(args, "parallel", 1) or 1))
 
-    info(f"analyzing batch at {in_dir}")
+    info(f"analyzing batch at {in_dir}" + (f" (parallel={parallel})" if parallel > 1 else ""))
     try:
-        rows = _scan_outcomes(in_dir, pack=pack)
+        rows = _scan_outcomes(in_dir, pack=pack, parallel=parallel)
     except FileNotFoundError as e:
         error(str(e))
         return 2

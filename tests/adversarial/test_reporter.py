@@ -96,6 +96,44 @@ def test_view3_metrics_match_input(tmp_path):
     assert "50.0%" in html or "50%" in html
 
 
+def test_view4_per_rule_precision_renders_with_fpr_drivers_first(tmp_path):
+    """M5-B: View 4 ranks rules by NC FPR descending so the worst FPR
+    contributors surface at the top of the table."""
+    rows = [
+        # W-FPR-HIGH: fires on every NC, never targeted → high NC FPR
+        _row(coverage_intent="negative_control", target_weakener=None,
+             rules_fired="W-FPR-HIGH", outcome_class="COV-CLEAN-WRONG"),
+        _row(coverage_intent="negative_control", target_weakener=None,
+             rules_fired="W-FPR-HIGH", outcome_class="COV-CLEAN-WRONG"),
+        # W-CLEAN: never fires on NC, targeted+fires on confirm
+        _row(coverage_intent="negative_control", target_weakener=None,
+             rules_fired="", outcome_class="COV-CLEAN-CORRECT"),
+        _row(coverage_intent="confirm_existing", target_weakener="W-CLEAN",
+             rules_fired="W-CLEAN", target_rule_fired=True,
+             outcome_class="COV-HIT"),
+    ]
+    out = tmp_path / "index.html"
+    write_html_report(rows, out)
+    html = out.read_text()
+    # View 4 section + rules present
+    assert "View 4 — Per-rule precision" in html
+    assert "W-FPR-HIGH" in html
+    assert "W-CLEAN" in html
+    # Scope the ordering check to inside View 4's section, since
+    # W-CLEAN also appears in View 1 as a confirm_existing target.
+    # Use the H2 anchor (not the nav link) so we skip past View 1.
+    view4_start = html.find("<h2 id='view4'>")
+    view4_section = html[view4_start:]
+    fpr_high_pos = view4_section.find("W-FPR-HIGH")
+    clean_pos = view4_section.find("W-CLEAN")
+    assert fpr_high_pos != -1 and clean_pos != -1
+    # W-FPR-HIGH should appear BEFORE W-CLEAN in View 4 (sorted by FPR desc)
+    assert fpr_high_pos < clean_pos
+    # FPR cell coloring: W-FPR-HIGH should get cell-miss (FPR >= 50%)
+    fpr_high_row = view4_section[fpr_high_pos:view4_section.find("</tr>", fpr_high_pos)]
+    assert "cell-miss" in fpr_high_row  # high-FPR red coloring
+
+
 def test_view1_renders_not_measurable_for_all_gen_invalid_cell(tmp_path):
     """View 1 catalog × subtlety pivot: a (pattern, subtlety) cell where
     every confirm_existing row is GEN-INVALID renders as 'not measurable'

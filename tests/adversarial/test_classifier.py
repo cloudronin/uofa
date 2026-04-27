@@ -255,8 +255,9 @@ def test_core_pattern_ids_count_is_23():
     assert "COMPOUND-02" not in _CORE_PATTERN_IDS
 
 
-def test_summary_fields_match_cleanup_spec_plus_d1():
-    """First 7 fields per M4 cleanup spec; last 6 per Phase 2 §10.4 D1 (v1.8)."""
+def test_summary_fields_match_cleanup_spec_plus_d1_plus_m5b():
+    """First 7 fields per M4 cleanup spec; next 6 per Phase 2 §10.4 D1
+    (v1.8); last 2 per M5-B per-rule precision (v0.5.7+)."""
     assert SUMMARY_FIELDS == (
         "pattern_id",
         "confirm_existing_count",
@@ -271,6 +272,8 @@ def test_summary_fields_match_cleanup_spec_plus_d1():
         "recall_min_per_cou",
         "recall_cou_disparity",
         "cou_dependent_flag",
+        "nc_fpr",
+        "precision_when_fires",
     )
 
 
@@ -329,6 +332,68 @@ def test_write_summary_csv_aggregates_confirm_existing(tmp_path):
     assert war01["confirm_existing_count"] == "3"
     assert war01["confirm_existing_hits"] == "2"
     assert war01["recall"] == "0.667"
+
+
+def test_m5b_per_rule_precision_columns(tmp_path):
+    """M5-B: summary.csv carries nc_fpr + precision_when_fires per rule.
+
+    Fixture: 3 confirm_existing W-AR-01 rows (target fires on all),
+    plus 1 confirm_existing W-AR-02 row where W-AR-01 ALSO fires
+    (bystander), plus 2 negative_control rows where W-AR-01 fires
+    on one. So for W-AR-01:
+      - total_firings = 5 (3 own + 1 bystander + 1 NC)
+      - targeted_firings = 3 (own confirm_existing rows)
+      - precision_when_fires = 3/5 = 0.600
+      - nc_fpr = 1/2 = 0.500
+    """
+    rows = [
+        # W-AR-01 is fired AND target on these three confirm_existing rows
+        _row_obj(coverage_intent="confirm_existing", target_weakener="W-AR-01",
+                 rules_fired="W-AR-01", target_rule_fired=True,
+                 outcome_class="COV-HIT"),
+        _row_obj(coverage_intent="confirm_existing", target_weakener="W-AR-01",
+                 rules_fired="W-AR-01", target_rule_fired=True,
+                 outcome_class="COV-HIT"),
+        _row_obj(coverage_intent="confirm_existing", target_weakener="W-AR-01",
+                 rules_fired="W-AR-01", target_rule_fired=True,
+                 outcome_class="COV-HIT"),
+        # W-AR-01 fires as bystander when W-AR-02 is the target
+        _row_obj(coverage_intent="confirm_existing", target_weakener="W-AR-02",
+                 rules_fired="W-AR-01,W-AR-02", target_rule_fired=True,
+                 outcome_class="COV-HIT-PLUS"),
+        # NC rows: 1 fires W-AR-01, 1 is clean
+        _row_obj(coverage_intent="negative_control", target_weakener=None,
+                 rules_fired="W-AR-01", target_rule_fired=False,
+                 outcome_class="COV-CLEAN-WRONG"),
+        _row_obj(coverage_intent="negative_control", target_weakener=None,
+                 rules_fired="", target_rule_fired=False,
+                 outcome_class="COV-CLEAN-CORRECT"),
+    ]
+    out = tmp_path / "summary.csv"
+    _write_summary_csv(rows, out)
+    by_pat = {r["pattern_id"]: r for r in csv.DictReader(open(out))}
+    war01 = by_pat["W-AR-01"]
+    assert war01["total_firings_across_battery"] == "5"
+    assert war01["nc_fpr"] == "0.500"
+    assert war01["precision_when_fires"] == "0.600"
+
+
+def test_m5b_per_rule_precision_empty_when_rule_never_fires(tmp_path):
+    """A rule that never fired anywhere has nc_fpr based on NC denominator
+    (0.000 if there ARE NC rows; "" if there are NONE) and
+    precision_when_fires="" (no firings → no precision)."""
+    rows = [
+        _row_obj(coverage_intent="negative_control", target_weakener=None,
+                 rules_fired="", outcome_class="COV-CLEAN-CORRECT"),
+    ]
+    out = tmp_path / "summary.csv"
+    _write_summary_csv(rows, out)
+    by_pat = {r["pattern_id"]: r for r in csv.DictReader(open(out))}
+    war01 = by_pat["W-AR-01"]
+    # NC rows exist (1) but rule never fired → nc_fpr = 0/1 = 0.000
+    assert war01["nc_fpr"] == "0.000"
+    # Rule never fired anywhere → precision_when_fires is empty
+    assert war01["precision_when_fires"] == ""
 
 
 def test_write_summary_csv_recall_marks_not_measurable_when_only_gen_invalid(tmp_path):
@@ -729,6 +794,84 @@ def test_d2_rule_timing_fallback_note_writes_companion(tmp_path):
     assert "rule_timing.csv intentionally omitted" in body
     # Full fallback note text included
     assert RULE_TIMING_FALLBACK_NOTE in body
+
+
+def test_f7_scan_outcomes_parallel_preserves_row_order(tmp_path, monkeypatch):
+    """F7: parallel=1 vs parallel=5 produce identical outcomes.csv ordering.
+
+    Per-package Jena calls run in a ThreadPoolExecutor when parallel>1,
+    but classification + accumulation always happen sequentially in
+    original (perSpecResults × variants) order. Verify identical row
+    sequences by mocking _run_rules_on_package and comparing rows.
+    """
+    import json
+    from uofa_cli.adversarial.classifier import _scan_outcomes
+
+    # Build a fixture batch with 3 specs, 5 variants each, where each
+    # spec lives in its own subdir with a manifest pointing at fake
+    # package paths (we don't need real jsonld for this test — we mock
+    # _run_rules_on_package to return synthetic firings).
+    in_dir = tmp_path / "batch"
+    in_dir.mkdir()
+    perSpecResults = []
+    for s_idx in range(3):
+        cat = "confirm_existing"
+        spec_id = f"adv-test-{s_idx:03d}"
+        spec_dir = in_dir / cat / spec_id
+        spec_dir.mkdir(parents=True)
+        variants = []
+        for v in range(1, 6):
+            pkg = spec_dir / f"{spec_id}-v{v:02d}.jsonld"
+            pkg.write_text("{}")  # placeholder; not parsed because we mock
+            variants.append({
+                "variantNum": v,
+                "packagePath": pkg.name,
+                "tokens": 100,
+                "shaclRetries": 0,
+                "shaclPassed": True,
+                "estimatedCostUsd": 0.01,
+            })
+        spec_manifest = {"variants": variants, "subtlety": "high"}
+        (spec_dir / "manifest.json").write_text(json.dumps(spec_manifest))
+        perSpecResults.append({
+            "spec_id": spec_id,
+            "spec_path": str(in_dir / "fake_spec.yaml"),
+            "out_dir": str(spec_dir),
+            "coverage_intent": "confirm_existing",
+            "target_weakener": "W-AR-01",
+            "source_taxonomy": None,
+        })
+    (in_dir / "batch_manifest.json").write_text(json.dumps({
+        "perSpecResults": perSpecResults
+    }))
+
+    # Mock _run_rules_on_package to return deterministic firings keyed
+    # by package path — so the test exercises the parallel-merge logic
+    # without needing a live Jena.
+    def fake_run_rules(package_path, pack):
+        # Return firings derived from filename so each row is unique.
+        name = package_path.name
+        return ({"W-AR-01": 1}, {
+            "total_eval_ms": 10, "jena_load_ms": 0,
+            "jena_inference_ms": 8, "output_serialize_ms": 2,
+        })
+    monkeypatch.setattr(
+        "uofa_cli.adversarial.classifier._run_rules_on_package", fake_run_rules
+    )
+
+    # Sequential (parallel=1)
+    rows_seq = _scan_outcomes(in_dir, pack="vv40", parallel=1)
+    # Parallel=5 — same input, same output
+    rows_par = _scan_outcomes(in_dir, pack="vv40", parallel=5)
+
+    assert len(rows_seq) == 15  # 3 specs × 5 variants
+    assert len(rows_par) == len(rows_seq)
+    # Row identity (spec_id, variant_num) preserved in same order
+    seq_ids = [(r.spec_id, r.variant_num) for r in rows_seq]
+    par_ids = [(r.spec_id, r.variant_num) for r in rows_par]
+    assert seq_ids == par_ids, "parallel mode must preserve row ordering"
+    # Outcome classifications also identical
+    assert [r.outcome_class for r in rows_seq] == [r.outcome_class for r in rows_par]
 
 
 def test_d2_run_analyze_fallback_omits_rule_timing_csv(tmp_path):

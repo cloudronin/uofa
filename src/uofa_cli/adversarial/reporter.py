@@ -392,8 +392,99 @@ def _perf_appendix(rows) -> str:
     return "\n".join(out)
 
 
+def _view4_per_rule_precision(rows) -> str:
+    """View 4 — per-rule precision (M5-B from m5_findings.md).
+
+    Two metrics per rule:
+      nc_fpr — fraction of negative_control packages where this rule
+        fired. Direct FPR-driver signal: rules with high nc_fpr are
+        the primary contributors to the catalog's package-level
+        precision = 0% finding from M5.
+      precision_when_fires — across ALL rows where this rule fired,
+        fraction where the spec actually targeted this rule. Low values
+        mean the rule fires on the wrong things; high values mean it's
+        a specific detector. Decomposes the "0 COV-HIT, 100% HIT-PLUS"
+        finding by attributing inter-rule correlation to specific rules.
+
+    Sorted by nc_fpr descending so the worst FPR offenders surface first.
+    """
+    from collections import Counter
+
+    targeted_firings: Counter[str] = Counter()
+    total_firings: Counter[str] = Counter()
+    nc_firings: Counter[str] = Counter()
+    nc_total = 0
+
+    for r in rows:
+        fired_set = {p.strip() for p in (r.rules_fired or "").split(",") if p.strip()}
+        for pat in fired_set:
+            total_firings[pat] += 1
+        if r.coverage_intent == "negative_control":
+            if r.outcome_class != "GEN-INVALID":
+                nc_total += 1
+            for pat in fired_set:
+                nc_firings[pat] += 1
+        if r.coverage_intent in ("confirm_existing", "interaction") and r.target_weakener:
+            if r.target_weakener in fired_set:
+                targeted_firings[r.target_weakener] += 1
+
+    rules_seen = set(total_firings) | set(nc_firings)
+    if not rules_seen:
+        return "<p><em>No rules fired in this batch; View 4 unavailable.</em></p>"
+
+    def _fpr(rule: str) -> float:
+        return nc_firings[rule] / nc_total if nc_total else 0.0
+
+    sorted_rules = sorted(rules_seen, key=lambda r: (-_fpr(r), r))
+
+    out: list[str] = [
+        "<p>Decomposes the catalog's package-level precision (= 0% on "
+        f"M5) into per-rule contributors. NC denominator: <strong>{nc_total}</strong> "
+        "evaluable negative_control rows. Sorted by NC FPR descending.</p>",
+        "<table>",
+        "<thead><tr>"
+        "<th>Rule</th>"
+        "<th title='Fraction of negative_control packages where this rule fired (1 = always fires on clean controls; 0 = never)'>NC FPR</th>"
+        "<th>NC firings</th>"
+        "<th title='Total packages (any intent) where this rule fired'>Total firings</th>"
+        "<th title='Packages where the spec actually targeted this rule'>Targeted firings</th>"
+        "<th title='Targeted / Total — fraction of firings that were on intended specs'>Precision when fires</th>"
+        "</tr></thead><tbody>",
+    ]
+    for rule in sorted_rules:
+        fpr_val = _fpr(rule)
+        nc_n = nc_firings[rule]
+        tot = total_firings[rule]
+        tgt = targeted_firings[rule]
+        prec = tgt / tot if tot else 0.0
+        # Color-code FPR cells: red >= 50%, yellow >= 10%, neutral otherwise
+        if fpr_val >= 0.5:
+            fpr_css = "cell-miss"
+        elif fpr_val >= 0.1:
+            fpr_css = "cell-wrong"
+        else:
+            fpr_css = "cell-empty"
+        # Color-code precision: green >= 80%, yellow >= 50%, red <
+        if prec >= 0.8:
+            prec_css = "cell-hit"
+        elif prec >= 0.5:
+            prec_css = "cell-hit-plus"
+        else:
+            prec_css = "cell-wrong"
+        out.append(
+            f"<tr><td><code>{escape(rule)}</code></td>"
+            f"<td class='{fpr_css}'>{fpr_val:.1%}</td>"
+            f"<td>{nc_n}</td>"
+            f"<td>{tot}</td>"
+            f"<td>{tgt}</td>"
+            f"<td class='{prec_css}'>{prec:.1%}</td></tr>"
+        )
+    out.append("</tbody></table>")
+    return "\n".join(out)
+
+
 def write_html_report(rows, out_path: Path) -> None:
-    """Render the three-view report as ``out_path``.
+    """Render the four-view report as ``out_path``.
 
     Accepts a list of objects with the OutcomeRow attribute set
     (spec_id, variant_num, target_weakener, source_taxonomy,
@@ -410,6 +501,7 @@ def write_html_report(rows, out_path: Path) -> None:
         "<a href='#view1'>View 1 — Catalog self-coverage</a>",
         "<a href='#view2'>View 2 — Literature coverage</a>",
         "<a href='#view3'>View 3 — Precision/recall</a>",
+        "<a href='#view4'>View 4 — Per-rule precision (M5-B)</a>",
         "</nav>",
         "<p class='legend'>",
         "<span class='cell-hit'>HIT</span>",
@@ -426,6 +518,8 @@ def write_html_report(rows, out_path: Path) -> None:
         _view2_literature_coverage(rows),
         f"<h2 id='view3'>View 3 — Precision / recall summary</h2>",
         _view3_precision_recall(rows),
+        f"<h2 id='view4'>View 4 — Per-rule precision (M5-B)</h2>",
+        _view4_per_rule_precision(rows),
         f"<h2 id='perf'>Performance characterization (v1.8 D2)</h2>",
         _perf_appendix(rows),
         f"<p style='font-size:0.8rem;color:#999;'>n = {len(rows)} package rows.</p>",

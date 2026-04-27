@@ -150,6 +150,15 @@ def add_arguments(parser):
     an.add_argument(
         "--check-pack", default="vv40", help="pack to use for `uofa check` (default: vv40)"
     )
+    an.add_argument(
+        "--parallel", type=int, default=1,
+        help=(
+            "concurrent Jena workers for the per-package rule run (default: 1). "
+            "Each `uofa rules` call spawns its own JVM subprocess so parallelism "
+            "is thread-safe. M5-scale batches (4-5K packages) benefit from "
+            "parallel=5+. See docs/m5_findings.md F7."
+        ),
+    )
 
     # ----- prep-review (Phase 2 D3 v1.8) -----
     pr = sub.add_parser(
