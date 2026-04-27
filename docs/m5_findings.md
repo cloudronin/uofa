@@ -100,6 +100,28 @@ The runner appends the SHACL violation message to the retry prompt. For F1-class
 - **Workaround used during M5:** bump `--max-cost` to effectively-unlimited (`500`) for the resume; the actual incremental spend is much smaller than the cap, so this is safe.
 - **Blocks:** M6.2 only. Doesn't affect M5 data integrity, just the cap-halt UX during resume.
 
+### F7 — `analyze` is fully sequential; parallelize for ~5× speedup
+
+- **Severity:** Low (UX improvement, no data-quality impact)
+- **Symptom:** Analyzing the M5 batch (4,601 packages) takes ~5 hours wall-clock. Live observation during Apr 27 analyze: at any given moment exactly 1 `uofa-weakener-engine` JVM is running. Each `uofa rules` call cold-starts a fresh JVM (~2-3s) before parsing + rule evaluation; all per-package calls are sequential.
+- **Root cause:** `src/uofa_cli/adversarial/classifier.py::_scan_outcomes` is a plain nested `for spec: for variant: _run_rules_on_package(path)` loop. No `ThreadPoolExecutor`, no `multiprocessing` — one package at a time.
+- **Fix candidate:** mirror the runner's `--parallel` design. Wrap the per-package Jena calls in a `ThreadPoolExecutor` pool. Each `uofa rules` invocation spawns its own JVM subprocess, so there is **no shared state** to worry about — thread-safety is essentially free at the analyzer level.
+  ```python
+  # Sketch — classifier.py
+  with ThreadPoolExecutor(max_workers=parallel) as pool:
+      futures = {pool.submit(_run_rules_on_package, p, pack=pack): (spec, variant)
+                 for (spec, variant, p) in package_iter}
+      for fut in as_completed(futures):
+          firings, timings = fut.result()
+          # ... existing classification + accumulation
+  ```
+- **Estimated impact:** at parallel=5 → ~1 h wall-clock for M5 instead of ~5 h. For Phase 3-scale datasets the speedup compounds. Comparable to the runner's parallel=5 boost we just verified.
+- **Caveats:**
+  - The analyze CLI would need a `--parallel` flag (defaulting to 1 for parity with current behavior).
+  - D2 timing instrumentation already captures `total_eval_ms` per package, so the perf appendix would just see correlated wall-clocks across the threads — no metric distortion.
+  - System memory: 5 × ~500 MB JVM = ~2.5 GB peak, well within typical Mac/Linux dev box budgets.
+- **Blocks:** M6.2 only. Does NOT affect any M5 data integrity. Pure throughput improvement.
+
 ### F5 — pyshacl/rdflib stream-consume bug (already fixed)
 
 - **Severity:** Was high — would have caused random false-negative SHACL failures throughout M5.
