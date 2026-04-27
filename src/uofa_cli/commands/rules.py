@@ -34,8 +34,11 @@ def add_arguments(parser):
                         help="write reasoned output to a file (default: stdout)")
 
 
-def _ensure_java():
-    if not shutil.which("java"):
+def _ensure_java() -> str:
+    """Return the path to a usable java binary (bundled JRE preferred)."""
+    try:
+        return paths.java_executable()
+    except FileNotFoundError:
         raise FileNotFoundError(
             "Java not found. Install Java 17+: https://adoptium.net/\n"
             "  Or skip the rule engine: uofa check FILE --skip-rules"
@@ -127,7 +130,7 @@ def run(args) -> int:
     if not args.file.exists():
         raise FileNotFoundError(f"File not found: {args.file}")
 
-    _ensure_java()
+    java = _ensure_java()
     jar = _ensure_jar(args.build)
 
     if args.rules:
@@ -141,7 +144,7 @@ def run(args) -> int:
     step_header("C3: Jena rule engine — weakener detection")
     sys.stdout.flush()
 
-    cmd = ["java", "-jar", str(jar), str(args.file), "--rules", str(rules), "--context", str(ctx)]
+    cmd = [java, "-jar", str(jar), str(args.file), "--rules", str(rules), "--context", str(ctx)]
     if args.format and args.format != "summary":
         cmd += ["--format", args.format]
     if args.output:

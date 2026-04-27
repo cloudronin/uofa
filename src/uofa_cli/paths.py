@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import os
+import shutil
 from pathlib import Path
 
 _MARKER = Path("spec") / "schemas" / "uofa_shacl.ttl"
@@ -174,6 +176,42 @@ def jar_path(root: Path = None) -> Path:
         return bundled
     root = root or find_repo_root()
     return root / "weakener-engine" / "target" / _BUNDLED_JAR_NAME
+
+
+def bundled_jre_executable() -> Path | None:
+    """Return the bundled JRE's java binary, or None if not present.
+
+    Populated at wheel-build time by hatch_build.py when
+    UOFA_BUNDLE_PLATFORM=<tag> is set. Editable installs from a source
+    checkout will not have it; callers fall back to the system PATH.
+    """
+    base = _package_dir() / "_runtime" / "jre"
+    if not base.exists():
+        return None
+    binary = base / "bin" / ("java.exe" if os.name == "nt" else "java")
+    return binary if binary.exists() else None
+
+
+def java_executable() -> str:
+    """Return the path to a usable java binary.
+
+    Resolution order:
+      1. Bundled JRE inside the wheel (preferred for pip installs).
+      2. System ``java`` on PATH (fallback for source-tree dev work).
+
+    Raises FileNotFoundError if neither is available. Returns a string so
+    callers can drop it directly into a subprocess argv.
+    """
+    bundled = bundled_jre_executable()
+    if bundled is not None:
+        return str(bundled)
+    on_path = shutil.which("java")
+    if on_path:
+        return on_path
+    raise FileNotFoundError(
+        "Java not found. Install Java 17+ (https://adoptium.net/) "
+        "or use a UofA wheel that bundles a JRE."
+    )
 
 
 def engine_dir(root: Path = None) -> Path:

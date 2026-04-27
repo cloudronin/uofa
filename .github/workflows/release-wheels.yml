@@ -1,8 +1,9 @@
 name: Release Wheels
 
-# PR 1 scope: build a single py3-none-any wheel that bundles the rule-engine
-# JAR (no JRE yet — system Java still required at runtime). PR 2 will add a
-# per-platform matrix once JRE bundling lands.
+# PR 1 + PR 2 scope. Builds two wheel variants from the same source:
+#   * py3-none-any        — bundles the JAR; user still needs system Java 17+
+#   * manylinux_2_28_x86_64 — bundles JAR AND OpenJDK 17 LTS JRE; no Java needed
+# PR 3 will fan out the second variant to macOS / Linux arm / Windows.
 
 on:
   push:
@@ -11,9 +12,11 @@ on:
     paths:
       - 'pyproject.toml'
       - 'hatch_build.py'
+      - 'jre_manifest.toml'
       - 'src/uofa_cli/paths.py'
       - 'src/uofa_cli/commands/rules.py'
       - 'weakener-engine/**'
+      - 'scripts/refresh_jre_manifest.py'
       - '.github/workflows/release-wheels.yml'
   workflow_dispatch:
 
@@ -42,6 +45,18 @@ jobs:
   build-wheel:
     needs: build-jar
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - variant: pure
+            artifact: uofa-cli-wheel-pure
+            env_jar: '1'
+            env_platform: ''
+          - variant: linux-x86_64
+            artifact: uofa-cli-wheel-manylinux-x86_64
+            env_jar: ''
+            env_platform: 'manylinux_2_28_x86_64'
     steps:
       - uses: actions/checkout@v4
 
@@ -58,19 +73,33 @@ jobs:
           name: weakener-engine-jar
           path: weakener-engine/target/
 
-      - name: Build wheel with bundled JAR
+      - name: Build wheel (${{ matrix.variant }})
         env:
-          UOFA_BUNDLE_JAR: '1'
+          UOFA_BUNDLE_JAR: ${{ matrix.env_jar }}
+          UOFA_BUNDLE_PLATFORM: ${{ matrix.env_platform }}
         run: python -m build --wheel
+
+      - name: Assert wheel size under 200 MB
+        run: |
+          for w in dist/*.whl; do
+            size=$(stat -c%s "$w")
+            mb=$((size / 1024 / 1024))
+            echo "$w: ${mb} MB"
+            if [ "$size" -gt $((200 * 1024 * 1024)) ]; then
+              echo "FAIL: wheel exceeds 200 MB ceiling"
+              exit 1
+            fi
+          done
 
       - name: Upload wheel artifact
         uses: actions/upload-artifact@v4
         with:
-          name: uofa-cli-wheel
+          name: ${{ matrix.artifact }}
           path: dist/*.whl
           if-no-files-found: error
 
-  smoke-wheel:
+  smoke-pure-wheel:
+    # py3-none-any wheel: bundled JAR, requires system Java at runtime.
     needs: build-wheel
     runs-on: ubuntu-latest
     steps:
@@ -80,34 +109,71 @@ jobs:
         with:
           python-version: '3.11'
 
-      # PR 1 still requires system Java at runtime (no JRE bundling yet).
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
 
-      - name: Download wheel artifact
+      - name: Download pure wheel
         uses: actions/download-artifact@v4
         with:
-          name: uofa-cli-wheel
+          name: uofa-cli-wheel-pure
           path: dist/
 
-      - name: Install wheel into a fresh venv
+      - name: Install pure wheel into a fresh venv
         run: |
-          python -m venv /tmp/uofa-venv
-          /tmp/uofa-venv/bin/pip install --upgrade pip
-          /tmp/uofa-venv/bin/pip install dist/*.whl
+          python -m venv /tmp/uofa-pure-venv
+          /tmp/uofa-pure-venv/bin/pip install --upgrade pip
+          /tmp/uofa-pure-venv/bin/pip install dist/*.whl
 
-      - name: Confirm bundled JAR is present in the installed wheel
+      - name: Confirm bundled JAR present, no bundled JRE
         run: |
-          /tmp/uofa-venv/bin/python -c "
+          /tmp/uofa-pure-venv/bin/python <<'PY'
           from uofa_cli import paths
           jar = paths.bundled_jar()
-          assert jar is not None, 'Bundled JAR missing from installed wheel'
-          assert jar.exists(), f'bundled_jar() reports {jar} but it does not exist'
-          print(f'OK: bundled JAR at {jar}')
-          "
+          assert jar is not None, "bundled JAR missing from py3-none-any wheel"
+          assert paths.bundled_jre_executable() is None, (
+              "py3-none-any wheel should not include a JRE"
+          )
+          print(f"OK: JAR={jar}")
+          PY
 
-      - name: Run uofa check against Morrison example (no Maven invoked)
+      - name: Run uofa check against Morrison example
         run: |
-          /tmp/uofa-venv/bin/uofa check packs/vv40/examples/morrison/cou1/uofa-morrison-cou1.jsonld
+          /tmp/uofa-pure-venv/bin/uofa check packs/vv40/examples/morrison/cou1/uofa-morrison-cou1.jsonld
+
+  smoke-bundled-jre:
+    # manylinux_2_28_x86_64 wheel: bundled JAR AND JRE; no system Java needed.
+    needs: build-wheel
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download manylinux wheel
+        uses: actions/download-artifact@v4
+        with:
+          name: uofa-cli-wheel-manylinux-x86_64
+          path: dist/
+
+      - name: Smoke test in python:3.11-slim Docker (no Java preinstalled)
+        run: |
+          docker run --rm \
+            -v "$PWD:/work" -w /work \
+            python:3.11-slim bash -c '
+              set -euo pipefail
+              echo "--- confirm no system Java ---"
+              if command -v java; then echo "FAIL: java unexpectedly on PATH"; exit 1; fi
+              echo "--- install wheel ---"
+              pip install --quiet dist/*manylinux*.whl
+              echo "--- confirm bundled JRE wired up ---"
+              python - <<PY
+              from uofa_cli import paths
+              jre = paths.bundled_jre_executable()
+              assert jre is not None, "bundled JRE missing from manylinux wheel"
+              assert jre.exists() and jre.is_file(), f"{jre} is not a file"
+              print(f"OK: JRE={jre}")
+              print(f"OK: java_executable()={paths.java_executable()}")
+              PY
+              echo "--- run uofa check (no system Java available) ---"
+              uofa check packs/vv40/examples/morrison/cou1/uofa-morrison-cou1.jsonld
+            '

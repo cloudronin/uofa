@@ -77,15 +77,22 @@ uofa = "uofa_cli.cli:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/uofa_cli"]
-# .jar is .gitignored; mark as artifact so the bundled rule-engine JAR
-# (populated by hatch_build.py when UOFA_BUNDLE_JAR=1) ships in the wheel.
-artifacts = ["src/uofa_cli/_engine/*.jar"]
+# Both directories are .gitignored; mark as artifacts so the bundled
+# rule-engine JAR (UOFA_BUNDLE_JAR=1) and per-platform JRE
+# (UOFA_BUNDLE_PLATFORM=<tag>) populated by hatch_build.py ship in the wheel.
+artifacts = [
+    "src/uofa_cli/_engine/*.jar",
+    "src/uofa_cli/_runtime/**",
+]
 
 [tool.hatch.build.targets.sdist]
 # Keep platform-specific bundled artifacts out of the sdist; sdist consumers
-# rebuild the JAR via Maven.
+# rebuild the JAR via Maven and download the JRE via the wheel build hook.
 exclude = [
     "src/uofa_cli/_engine/*.jar",
+    "src/uofa_cli/_runtime/jre",
+    "src/uofa_cli/_runtime/PLATFORM",
+    "src/uofa_cli/_runtime/JRE_VERSION",
 ]
 
 [tool.hatch.build.hooks.custom]
