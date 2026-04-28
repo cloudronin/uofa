@@ -72,6 +72,7 @@ RULE_NAME_MAP: dict[str, str] = {
     "W-AL-02":     "w_al02",
     "COMPOUND-01": "compound_escalation",
     "COMPOUND-03": "compound_assurance_override",
+    "W-AR-01":     "w_ar01",
     "W-AR-02":     "w_ar02",
     "W-CON-01":    "w_con01",
     "W-CON-04":    "w_con04_no_sa",

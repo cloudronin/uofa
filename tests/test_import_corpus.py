@@ -437,15 +437,21 @@ class TestTC70Starter:
         # v0.5.9 W-AL-02 schema-aligned fix: TC70 starter no longer fires
         # W-AL-02 because it doesn't declare hasUncertaintyQuantification=true
         # at the UofA top level (the new predicate's required precondition).
-        # Net: 12 → 11.
-        assert parsed["total"] == 11, f"Expected 11 weakeners, got {parsed['total']}: {parsed['patterns']}"
+        # 12 → 11.
+        # v0.5.12 W-CON-01 predicate tightening: factorStatus guard added.
+        # TC70's W-CON-01-firing factor is `factorStatus='not-applicable'`
+        # (NASA 7009B factor on a non-NASA starter package), which the
+        # new guard correctly excludes — those factors legitimately have
+        # no levels by design. W-CON-01 drops from 1 to 0, and the
+        # COMPOUND-01 chain that paired it with the baseline Critical
+        # (W-AR-02) drops from 4 to 3. Net: 11 → 9.
+        assert parsed["total"] == 9, f"Expected 9 weakeners, got {parsed['total']}: {parsed['patterns']}"
         assert parsed["patterns"] == {
             "W-AR-02": 1,
             "W-EP-04": 1,
             "W-AR-05": 1,
-            "W-CON-01": 1,
             "W-CON-04": 1,
             "W-ON-02": 1,
-            "COMPOUND-01": 4,
+            "COMPOUND-01": 3,
             "COMPOUND-03": 1,
         }

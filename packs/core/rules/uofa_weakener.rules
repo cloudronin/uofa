@@ -185,9 +185,21 @@
 # ============================================================================
 
 # W-AR-01: Undermining Defeater (D1) — No Acceptance Criteria
+#
+# Phase 2.5 v0.5.12: added factorStatus guard for the same reason as
+# W-CON-01 — `scoped-out` and `not-applicable` factors that carry a
+# vestigial `requiredLevel` (typical when an LLM emits a full factor
+# scaffold and then marks a subset N/A but leaves the level field) do
+# not need acceptance criteria. The rule's intent is to flag factors
+# whose stated requirement lacks a basis; N/A factors don't have a
+# requirement that needs basing. Pre-v0.5.12 the rule fired on 2 NCs
+# whose N/A factors retained `requiredLevel`; post-fix → 0.
 [w_ar01:
     (?uofa rdf:type uofa:UnitOfAssurance)
     (?uofa uofa:hasCredibilityFactor ?factor)
+    (?factor uofa:factorStatus ?status)
+    notEqual(?status, 'scoped-out')
+    notEqual(?status, 'not-applicable')
     (?factor uofa:requiredLevel ?req)
     noValue(?factor, uofa:acceptanceCriteria)
     makeSkolem(?ann, ?uofa, 'W-AR-01', ?factor)
@@ -356,11 +368,26 @@
 # UofA decision outcome is Accepted, but one or more credibility factors have
 # neither requiredLevel nor achievedLevel declared. A decision cannot be
 # justified on factor levels that were never established.
+#
+# Phase 2.5 v0.5.12: added factorStatus guard. The rule's intent is to
+# flag factors that *should* have been assessed but weren't — i.e.,
+# `factorStatus='assessed'` (or unstated, which we treat as intended-
+# assessed by the existing fall-through). Factors with status
+# 'scoped-out' or 'not-applicable' legitimately have no levels by
+# design (they're explicitly excluded from the credibility chain), so
+# firing on them is a corpus-quality false positive. Empirical:
+# pre-v0.5.12 the rule fired on 31 NCs that all had ≥1 scoped-out or
+# N/A factor; post-fix → 0 NC firings expected. CE recall preserved
+# because the W-CON-01 confirm_existing template explicitly emits
+# `factorStatus='assessed'`.
 [w_con01:
     (?uofa rdf:type uofa:UnitOfAssurance)
     (?uofa uofa:hasDecisionRecord ?dr)
     (?dr uofa:outcome 'Accepted')
     (?uofa uofa:hasCredibilityFactor ?f)
+    (?f uofa:factorStatus ?status)
+    notEqual(?status, 'scoped-out')
+    notEqual(?status, 'not-applicable')
     noValue(?f, uofa:requiredLevel)
     noValue(?f, uofa:achievedLevel)
     makeSkolem(?ann, ?uofa, 'W-CON-01', ?f)

@@ -60,6 +60,15 @@ def _nc_render(spec, context, *, description, task, subtlety):
     # the W-ON-02 confirm_existing target template still triggers the
     # rule. See tools/phase2_5/regen_nc_envelope.py for the parallel
     # patch applied to the existing M5 NC corpus.
+    #
+    # v0.5.12: nudge the LLM toward including hasSensitivityAnalysis on
+    # Complete-profile packages via extra_schema_rules. The W-CON-04
+    # firings were on Complete NCs that omitted the SHACL-optional SA
+    # block; injecting it via the patch tool fixes the existing 31
+    # firings, and this generator hint primes future NC corpus regen.
+    # W-CON-01 and W-AR-01 are NOT addressed here — those were fixed by
+    # predicate tightening in the rules file (factorStatus guard
+    # excluding 'scoped-out' / 'not-applicable').
     from copy import deepcopy
     from uofa_cli.adversarial.skeleton import _augment_cou_with_envelope_stubs
     cou = context.get("context_of_use")
@@ -78,6 +87,11 @@ def _nc_render(spec, context, *, description, task, subtlety):
         decision=spec.decision,
         task=task,
         trigger_block=CLEAN_TRIGGER,
+        extra_schema_rules=(
+            "NC-v0.5.12: if `conformsToProfile` is `uofa:ProfileComplete`, "
+            "include `hasSensitivityAnalysis` as an inline SensitivityAnalysis "
+            "object (placeholder content acceptable)."
+        ),
     )
 
 

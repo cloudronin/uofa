@@ -119,6 +119,70 @@ def _augment_cou_with_envelope_stubs(cou: dict) -> dict:
     return cou
 
 
+# ---------------------------------------------------------------------------
+# SensitivityAnalysis stub helper (Phase 2.5 v0.5.12)
+#
+# Used by:
+#   * tools/phase2_5/regen_nc_consistency.py — patches NC corpus to
+#     suppress W-CON-04 (Complete profile missing SensitivityAnalysis)
+#     firings on Complete-profile NCs without an SA block
+#   * uofa_cli.adversarial.prompts.negative_controls._nc_render — augments
+#     NC-template prompts so future NC corpus regen has the fix baked in
+#
+# Note: W-CON-01 and W-AR-01 firings were addressed via PREDICATE
+# tightening in the same v0.5.12 release (added factorStatus guard
+# excluding 'scoped-out' and 'not-applicable' from those rules). The
+# corpus-regen approach didn't apply because the firings were on
+# legitimately-level-less factors, where injecting placeholder levels
+# would violate the factor's stated semantics.
+#
+# CE / gap_probe / interaction templates DO NOT use these helpers, so
+# the W-CON-04 confirm_existing target generation continues to omit
+# hasSensitivityAnalysis (and correctly trigger the rule).
+# ---------------------------------------------------------------------------
+
+def _make_sensitivity_analysis_stub(uofa_id: str) -> dict:
+    """Return a placeholder SensitivityAnalysis nested object.
+
+    Stub structure: well-formed inline object with id/type/name/description.
+    Sufficient to suppress the W-CON-04 noValue check on
+    ``uofa:hasSensitivityAnalysis`` for Complete-profile packages without
+    actual sensitivity-analysis content.
+    """
+    return {
+        "id": f"{uofa_id}/sensitivity-analysis-placeholder",
+        "type": "SensitivityAnalysis",
+        "name": "Placeholder sensitivity analysis (v0.5.12 NC regen)",
+        "description": (
+            "Placeholder sensitivity analysis inserted to satisfy the "
+            "noValue check on uofa:hasSensitivityAnalysis in the W-CON-04 "
+            "rule predicate. Not substantively meaningful."
+        ),
+    }
+
+
+def _augment_uofa_with_sensitivity_analysis_stub(uofa: dict) -> dict:
+    """Inject placeholder SensitivityAnalysis into a Complete-profile UofA
+    if absent.
+
+    Idempotent: leaves an existing ``hasSensitivityAnalysis`` untouched.
+    Only fires when ``conformsToProfile`` resolves to ProfileComplete
+    (accepts curie ``uofa:ProfileComplete`` AND the full IRI form).
+    """
+    if not isinstance(uofa, dict):
+        return uofa
+    profile = uofa.get("conformsToProfile")
+    is_complete = (
+        profile == "uofa:ProfileComplete"
+        or (isinstance(profile, str) and profile.endswith("ProfileComplete"))
+    )
+    if is_complete and "hasSensitivityAnalysis" not in uofa:
+        uofa["hasSensitivityAnalysis"] = _make_sensitivity_analysis_stub(
+            uofa.get("id", "")
+        )
+    return uofa
+
+
 def load_base_cou_skeleton(base_cou: Path, pack: str = "vv40") -> dict:
     """Return a skeleton dict usable by prompt.render().
 
