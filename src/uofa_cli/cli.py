@@ -10,7 +10,37 @@ from uofa_cli.output import set_color, error
 from uofa_cli.paths import find_repo_root, set_active_pack
 
 
+def _force_utf8_streams() -> None:
+    """Reconfigure stdout/stderr to UTF-8 with replacement.
+
+    The CLI emits Unicode characters (`══`, `✓`, `✗`, status emoji) in
+    its progress output. Windows consoles default to cp1252
+    ("charmap"), which can't encode those bytes and raises
+    ``UnicodeEncodeError``, crashing the CLI mid-run. Python 3.7+
+    exposes ``reconfigure`` on text streams; we set encoding=utf-8 +
+    errors='replace' so any truly-unencodable byte falls back to
+    ``?`` rather than crashing.
+
+    No-op on streams that don't support reconfigure (PIPEs without
+    text wrapping, redirected file handles in some environments).
+    """
+    for stream_name in ("stdout", "stderr"):
+        stream = getattr(sys, stream_name, None)
+        if stream is None:
+            continue
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is None:
+            continue
+        try:
+            reconfigure(encoding="utf-8", errors="replace")
+        except (OSError, ValueError):
+            # Stream is closed, redirected to a non-text sink, or the
+            # codec isn't available; degrade silently.
+            pass
+
+
 def main():
+    _force_utf8_streams()
     sys.exit(_run() or 0)
 
 
