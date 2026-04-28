@@ -173,19 +173,22 @@ jobs:
           path: dist/
       - name: Smoke test in python:3.11-slim Docker (no Java preinstalled)
         run: |
+          cat > /tmp/check_bundled_jre.py <<'PY'
+          from uofa_cli import paths
+          jre = paths.bundled_jre_executable()
+          assert jre is not None and jre.exists(), "bundled JRE missing"
+          assert "site-packages" in str(jre), "bundled JRE not from wheel install"
+          print(f"OK: java_executable={paths.java_executable()}")
+          PY
           docker run --rm \
-            -v "$PWD:/work" -w /work \
+            -v "$PWD:/work" \
+            -v /tmp/check_bundled_jre.py:/check_bundled_jre.py:ro \
+            -w /work \
             python:3.11-slim bash -c '
               set -euo pipefail
               if command -v java; then echo "FAIL: java unexpectedly on PATH"; exit 1; fi
               pip install --quiet dist/*manylinux_2_28_x86_64*.whl
-              python - <<PY
-              from uofa_cli import paths
-              jre = paths.bundled_jre_executable()
-              assert jre is not None and jre.exists(), "bundled JRE missing"
-              assert "site-packages" in str(jre), "bundled JRE not from wheel install"
-              print(f"OK: java_executable={paths.java_executable()}")
-              PY
+              python /check_bundled_jre.py
               uofa check packs/vv40/examples/morrison/cou1/uofa-morrison-cou1.jsonld
             '
 
@@ -200,19 +203,22 @@ jobs:
           path: dist/
       - name: Smoke test in python:3.11-slim Docker (no Java preinstalled)
         run: |
+          cat > /tmp/check_bundled_jre.py <<'PY'
+          from uofa_cli import paths
+          jre = paths.bundled_jre_executable()
+          assert jre is not None and jre.exists(), "bundled JRE missing"
+          assert "site-packages" in str(jre), "bundled JRE not from wheel install"
+          print(f"OK: java_executable={paths.java_executable()}")
+          PY
           docker run --rm \
-            -v "$PWD:/work" -w /work \
+            -v "$PWD:/work" \
+            -v /tmp/check_bundled_jre.py:/check_bundled_jre.py:ro \
+            -w /work \
             python:3.11-slim bash -c '
               set -euo pipefail
               if command -v java; then echo "FAIL: java unexpectedly on PATH"; exit 1; fi
               pip install --quiet dist/*manylinux_2_28_aarch64*.whl
-              python - <<PY
-              from uofa_cli import paths
-              jre = paths.bundled_jre_executable()
-              assert jre is not None and jre.exists(), "bundled JRE missing"
-              assert "site-packages" in str(jre), "bundled JRE not from wheel install"
-              print(f"OK: java_executable={paths.java_executable()}")
-              PY
+              python /check_bundled_jre.py
               uofa check packs/vv40/examples/morrison/cou1/uofa-morrison-cou1.jsonld
             '
 
