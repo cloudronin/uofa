@@ -156,8 +156,16 @@ def run(args) -> int:
         result = subprocess.run(cmd, capture_output=False)
         return result.returncode
 
-    # Capture and colorize output
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    # Capture and colorize output. Force UTF-8 decoding so the Java
+    # subprocess's box-drawing/severity glyphs (`══`, `⚠`, `⚡`, `✓`,
+    # `✗`) round-trip cleanly through the parent's stdout regardless
+    # of the caller's locale. Windows defaults to cp1252, which would
+    # mojibake those bytes into `?`. errors='replace' is the
+    # belt-and-suspenders fallback.
+    result = subprocess.run(
+        cmd, capture_output=True, text=True,
+        encoding="utf-8", errors="replace",
+    )
 
     for line in result.stdout.splitlines():
         print(_colorize_line(line))
