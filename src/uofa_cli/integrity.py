@@ -18,7 +18,17 @@ INTEGRITY_FIELDS = {"hash", "signature", "signatureAlg", "canonicalizationAlg"}
 
 
 def resolve_context(doc: dict, jsonld_path: Path, context_path: Path = None) -> dict:
-    """Resolve external @context reference to inline object."""
+    """Resolve external @context reference to inline object.
+
+    Forces UTF-8 decoding of the @context file: JSON-LD documents are
+    UTF-8 by spec, but Python's bare ``open(p, "r")`` uses the locale
+    default encoding. On Windows that's cp1252, which mis-decodes
+    multi-byte UTF-8 sequences (e.g., em-dash U+2014) into different
+    code points. The resulting parsed dict differs across platforms,
+    canonicalization produces different bytes, and the package's
+    hash + signature both fail on Windows. Pinning UTF-8 makes the
+    canonical-hash / signature computation platform-independent.
+    """
     ctx_ref = doc.get("@context")
     if isinstance(ctx_ref, dict):
         return doc
@@ -31,7 +41,7 @@ def resolve_context(doc: dict, jsonld_path: Path, context_path: Path = None) -> 
 
         for p in candidates:
             if p.exists():
-                with open(p, "r") as f:
+                with open(p, "r", encoding="utf-8") as f:
                     ctx_doc = json.load(f)
                 doc["@context"] = ctx_doc.get("@context", ctx_doc)
                 return doc
@@ -103,8 +113,12 @@ def load_and_hash(input_path: Path, context_path: Path = None) -> tuple[dict, st
     """Load a UofA JSON-LD file, resolve context, strip integrity fields, and hash.
 
     Returns (original_doc, canonical_str, sha256_hex).
+
+    Forces UTF-8 decoding of the input file: see ``resolve_context``
+    docstring for the Windows / cp1252 cross-platform-hash bug this
+    avoids.
     """
-    with open(input_path, "r") as f:
+    with open(input_path, "r", encoding="utf-8") as f:
         doc = json.load(f)
 
     resolved = resolve_context(doc.copy(), input_path, context_path)
@@ -119,8 +133,10 @@ def sign_file(input_path: Path, key_path: Path, context_path: Path = None,
     doc, canonical, sha256_hex = load_and_hash(input_path, context_path)
     sig_hex = sign_hash(sha256_hex, key_path)
 
-    # Re-read original (preserves original @context reference)
-    with open(input_path, "r") as f:
+    # Re-read original (preserves original @context reference). UTF-8
+    # for the same cross-platform hash-stability reason — and the
+    # paired write below uses the same encoding so round-trip is clean.
+    with open(input_path, "r", encoding="utf-8") as f:
         original = json.load(f)
 
     original["hash"] = f"sha256:{sha256_hex}"
@@ -129,7 +145,7 @@ def sign_file(input_path: Path, key_path: Path, context_path: Path = None,
     original["canonicalizationAlg"] = "RDFC-1.0"
 
     out = output_path or input_path
-    with open(out, "w") as f:
+    with open(out, "w", encoding="utf-8") as f:
         json.dump(original, f, indent=2, ensure_ascii=False)
 
     return sha256_hex, sig_hex

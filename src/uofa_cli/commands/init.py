@@ -47,7 +47,7 @@ def run(args) -> int:
     if not template.exists():
         raise FileNotFoundError(f"Template not found: {template}")
 
-    with open(template, "r") as f:
+    with open(template, "r", encoding="utf-8") as f:
         content = f.read()
 
     content = content.replace("example.org/my-project", f"example.org/{args.name}")
