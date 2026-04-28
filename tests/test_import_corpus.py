@@ -434,12 +434,15 @@ class TestTC70Starter:
         run_uofa("sign", str(output), "--key", str(KEY_FILE), "--context", CONTEXT_FILE)
 
         _, parsed = _run_rules(output, ["nasa-7009b"])
-        assert parsed["total"] == 12, f"Expected 12 weakeners, got {parsed['total']}: {parsed['patterns']}"
+        # v0.5.9 W-AL-02 schema-aligned fix: TC70 starter no longer fires
+        # W-AL-02 because it doesn't declare hasUncertaintyQuantification=true
+        # at the UofA top level (the new predicate's required precondition).
+        # Net: 12 → 11.
+        assert parsed["total"] == 11, f"Expected 11 weakeners, got {parsed['total']}: {parsed['patterns']}"
         assert parsed["patterns"] == {
             "W-AR-02": 1,
             "W-EP-04": 1,
             "W-AR-05": 1,
-            "W-AL-02": 1,
             "W-CON-01": 1,
             "W-CON-04": 1,
             "W-ON-02": 1,

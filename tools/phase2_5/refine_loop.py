@@ -69,6 +69,7 @@ from tools.phase2_5.metrics import (
 RULE_NAME_MAP: dict[str, str] = {
     "W-EP-01":     "w_ep01",
     "W-ON-02":     "w_on02",
+    "W-AL-02":     "w_al02",
     "COMPOUND-01": "compound_escalation",
     "COMPOUND-03": "compound_assurance_override",
     "W-AR-02":     "w_ar02",

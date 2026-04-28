@@ -60,7 +60,7 @@ def _base(pid: str, suffix: str = "") -> dict:
                 "achievedLevel": 3,
             }
         ],
-        "hasSensitivityAnalysis": "https://example.org/sa/sa1",
+        "hasSensitivityAnalysis": True,
         "criteriaSet": "https://example.org/criteria/set1",
         **SIG,
     }

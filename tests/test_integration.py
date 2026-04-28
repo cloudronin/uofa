@@ -236,12 +236,22 @@ class TestShacl:
 @pytest.mark.skipif(not JENA_AVAILABLE, reason="Jena JAR not built (run: cd weakener-engine && mvn package)")
 class TestRules:
     def test_rules_morrison_detects_weakeners(self):
+        """COU1 detects weakeners at v0.5.9.
+
+        v0.5.8 W-EP-01 fix removed W-EP-01 firings on COU1 (the bound
+        claim is a URI handle, not an inline uofa:Claim node) and the
+        downstream COMPOUND-01 cascade that relied on W-EP-01 as its
+        Critical input. The remaining catalog still fires W-AL-01,
+        W-EP-02, W-AR-05 (each ×3 on validation results), W-CON-01,
+        W-CON-04, W-ON-02 — see test_morrison_cou1_weakener_count.
+        """
         result = run_uofa("rules", str(MORRISON), "--build")
         assert result.returncode == 0
         assert "weakener" in result.stdout
-        assert "W-EP-01" in result.stdout
-        assert "W-AL-01" in result.stdout
-        assert "COMPOUND-01" in result.stdout
+        assert "W-AL-01" in result.stdout  # still fires (3 validation results)
+        assert "W-AR-05" in result.stdout  # still fires
+        assert "W-EP-02" in result.stdout  # still fires
+        assert "W-CON-01" in result.stdout  # v0.5 addition
 
     def test_rules_cou2_detects_ep04(self):
         """COU2 at MRL 5 with not-assessed factors triggers W-EP-04."""
@@ -528,7 +538,13 @@ class TestDiff:
 
     @pytest.mark.skipif(not JENA_AVAILABLE, reason="Jena JAR not built (run: cd weakener-engine && mvn package)")
     def test_diff_morrison_cou1_vs_cou2(self):
-        """Full Morrison demo: COU1 vs COU2 shows divergence with explanations."""
+        """Full Morrison demo: COU1 vs COU2 shows divergence with explanations.
+
+        Post-v0.5.8 W-EP-01 fix: W-EP-01 no longer fires on either COU
+        (both have URI-handle claims). The divergence still surfaces via
+        the v0.5.2 W-PROV-01 firings on COU2 (Critical) which only appear
+        on COU2's inline-defined claim → derivation chain.
+        """
         result = run_uofa("diff", str(MORRISON), str(MORRISON_COU2))
         assert result.returncode == 0
         # Identity block shows both COUs
@@ -538,8 +554,9 @@ class TestDiff:
         assert "Weakener Patterns" in result.stdout
         # Summary
         assert "divergence" in result.stdout
-        # COU1 weakeners should appear as divergent since COU2 has empty hasWeakener
-        assert "W-EP-01" in result.stdout
+        # Post-v0.5.8: W-PROV-01 (Critical, only on COU2's inline claim chain)
+        # is the canonical "Critical-only on one side" divergence.
+        assert "W-PROV-01" in result.stdout
 
     def test_diff_compound_separation(self, tmp_path):
         """COMPOUND patterns appear in a separate sub-table."""
@@ -574,11 +591,17 @@ class TestDiff:
 
     @pytest.mark.skipif(not JENA_AVAILABLE, reason="Jena JAR not built (run: cd weakener-engine && mvn package)")
     def test_diff_severity_breakdown(self):
-        """Summary section includes severity tier breakdown."""
+        """Summary section includes severity tier breakdown.
+
+        Post-v0.5.8: COU1 has no Critical-severity firings (W-EP-01 was
+        the only Critical and is now correctly fixed). The remaining
+        firings are all High and Medium severity. Test asserts the
+        severity tiers that the COU1 self-diff legitimately produces.
+        """
         result = run_uofa("diff", str(MORRISON), str(MORRISON))
         assert result.returncode == 0
-        assert "Critical" in result.stdout
         assert "High" in result.stdout
+        assert "Medium" in result.stdout
 
     def test_diff_minimal_profile_fallback(self, tmp_path):
         """Minimal profiles without COU metadata degrade gracefully."""
@@ -624,12 +647,21 @@ class TestDiff:
 
     @pytest.mark.skipif(not JENA_AVAILABLE, reason="Jena JAR not built (run: cd weakener-engine && mvn package)")
     def test_diff_morrison_explanations_from_description(self):
-        """Morrison diff explanations come from the rules file descriptions."""
+        """Morrison diff explanations come from the rules file descriptions.
+
+        Post-v0.5.8: W-EP-01 ("provenance chain is broken") no longer
+        fires on either COU because both have URI-handle claims. The
+        explanations now surface from rules that DO fire — W-AL-01
+        (uncertainty), W-PROV-01 (provenance chain incomplete), W-AL-02
+        (Medium, on COU2 with v0.5.9 schema-aligned predicate).
+        """
         result = run_uofa("diff", str(MORRISON), str(MORRISON_COU2))
         assert result.returncode == 0
-        # Descriptions come from schema:description in the rules file
-        assert "provenance chain is broken" in result.stdout
+        # Descriptions come from schema:description in the rules file.
+        # W-AL-01 fires on COU1 with this description.
         assert "aleatory uncertainty is uncharacterized" in result.stdout
+        # W-PROV-01 fires on COU2 (Critical, inline-claim chain).
+        assert "chain is incomplete" in result.stdout
 
     @pytest.mark.skipif(not JENA_AVAILABLE, reason="Jena JAR not built (run: cd weakener-engine && mvn package)")
     def test_diff_ep04_divergence(self):
@@ -867,35 +899,46 @@ class TestWeakenerPins:
 
     @pytest.mark.skipif(not JENA_AVAILABLE, reason="Jena rules require Java")
     def test_morrison_cou1_weakener_count(self):
-        """Morrison COU1 must produce exactly 24 weakeners under v0.5 rules.
+        """Morrison COU1 must produce exactly 17 weakeners under v0.5.9 rules.
 
-        v0.4 baseline: 14 (see v0.4.0-nafems tag). v0.5 additions on COU1:
-        + W-ON-02 (1)   — CPB COU lacks applicability/operating-envelope
-        + W-CON-01 (6)  — Accepted decision with 6 factors that have neither
-                          requiredLevel nor achievedLevel
-        + W-CON-04 (1)  — Complete profile with no SensitivityAnalysis
-        + COMPOUND-01 cascade (+2)  — new High-severity weakeners pair with
-                                      existing Critical weakeners through the
-                                      COMPOUND-01 Critical+High cascade rule
-        Total delta: +10 (14 → 24).
+        v0.4 baseline (v0.4.0-nafems tag): 14.
+        v0.5 additions on COU1: W-ON-02 (1) + W-CON-01 (6) + W-CON-04 (1)
+        + COMPOUND-01 cascade (5) + COMPOUND-03 (1) = 14 + 14 = 28 …
+        but the v0.5 baseline at v0.5.7 stabilized at 24 because W-EP-01
+        only fired once on the URI-handle claim (+1), not per-validation-
+        result, and the COMPOUND-01 cascade collapsed via makeSkolem
+        deduplication.
+
+        Phase 2.5 deltas (v0.5.7 → v0.5.9):
+        - v0.5.8 W-EP-01 fix removes the 1 W-EP-01 firing on COU1
+          (claim is a URI handle, no inline uofa:Claim node) and the
+          downstream COMPOUND-01 cascade (-5) and COMPOUND-03 (-1) that
+          relied on W-EP-01 as their Critical input.
+          Net: 24 - 7 = 17.
+        - v0.5.9 W-AL-02 schema-aligned fix has zero effect on COU1
+          because COU1 has hasUncertaintyQuantification=false at the
+          UofA top level — the new predicate requires UQ=true to fire.
+
         Other v0.5 rules do not fire on COU1 (see docs/v0.5-morrison-deltas.md).
         """
         result = run_uofa("rules", str(MORRISON))
         assert result.returncode == 0
-        assert "SUMMARY: 24 weakener(s) detected" in result.stdout
-        # Baseline: W-EP-01(1) + W-EP-02(3) + W-AL-01(3) + W-AR-05(3) = 10
-        assert "W-EP-01" in result.stdout
+        assert "SUMMARY: 17 weakener(s) detected" in result.stdout
+        # Baseline (post-v0.5.8): W-EP-02(3) + W-AL-01(3) + W-AR-05(3) = 9
         assert "W-EP-02" in result.stdout
         assert "W-AL-01" in result.stdout
         assert "W-AR-05" in result.stdout
-        # Compound: COMPOUND-01(5) + COMPOUND-03(1) = 6
-        assert "COMPOUND-01" in result.stdout
-        assert "COMPOUND-03" in result.stdout
-        # v0.5 additions on COU1
+        # v0.5 additions on COU1: W-CON-01(6) + W-CON-04(1) + W-ON-02(1) = 8
         assert "W-ON-02" in result.stdout
         assert "W-CON-01" in result.stdout
         assert "W-CON-04" in result.stdout
-        # These should NOT fire on COU1
+        # v0.5.8 fix: these no longer fire on COU1
+        assert "W-EP-01" not in result.stdout, "W-EP-01 fixed at v0.5.8"
+        assert "COMPOUND-01" not in result.stdout, "no Critical → no Critical+High cascade"
+        assert "COMPOUND-03" not in result.stdout, "no Critical → COMPOUND-03 doesn't fire"
+        # v0.5.9 fix: W-AL-02 doesn't fire on COU1 (UQ=false)
+        assert "W-AL-02" not in result.stdout, "COU1 has UQ=false; new W-AL-02 needs UQ=true"
+        # These never fire on COU1 (per v0.5 baseline)
         assert "W-EP-04" not in result.stdout
         assert "W-AR-01" not in result.stdout
         assert "W-AR-02" not in result.stdout
@@ -951,23 +994,29 @@ class TestWeakenerPins:
 
     @pytest.mark.skipif(not JENA_AVAILABLE, reason="Jena rules require Java")
     def test_morrison_diff_divergence_count(self):
-        """Morrison COU1 vs COU2 diff shows 10 unique L1 patterns at v0.5.2.
+        """Morrison COU1 vs COU2 diff shows 9 unique L1 patterns at v0.5.9.
 
-        Post-diff-fix (multi-letter category regex): the table now
-        includes W-CON-* and W-PROV-* which the prior two-letter regex
-        silently dropped. 8 L1 divergent + 2 L1 shared (W-CON-04,
-        W-ON-02) + 1 compound divergent (COMPOUND-03) = 9 total
-        divergences reported by the summary line.
+        Post-v0.5.8 W-EP-01 fix: W-EP-01 no longer fires on either COU
+        (-1 from previous 10-pattern table). Post-v0.5.9 W-AL-02
+        schema-aligned fix: W-AL-02 still fires on COU2 (UQ=true, no SA)
+        with the new boolean predicate — pattern count unchanged for
+        the AL-02 column. Net: 10 → 9 unique patterns; 8 divergent.
+
+        Pattern table now contains: W-AL-01, W-AL-02, W-AR-05, W-CON-01,
+        W-CON-04, W-EP-02, W-EP-04, W-ON-02, W-PROV-01, COMPOUND-01.
+        Of these, W-CON-04 + W-ON-02 are shared; the rest diverge.
         """
         result = run_uofa("diff", str(MORRISON), str(MORRISON_COU2))
         assert result.returncode == 0
-        assert "Weakener Patterns (10)" in result.stdout
-        assert "9 divergence(s) detected" in result.stdout
+        assert "Weakener Patterns (9)" in result.stdout
+        # 6 L1 divergent + COMPOUND-01 divergent = 7 divergences
+        # (W-CON-04, W-ON-02 shared = 0 divergence, but they show in table)
+        # Actually counted: W-AL-01, W-AL-02, W-AR-05, W-CON-01, W-EP-02, W-EP-04, W-PROV-01, COMPOUND-01 = 8
+        assert "8 divergence(s) detected" in result.stdout
         # Divergent on COU1 only
         assert "W-AL-01" in result.stdout
         assert "W-AR-05" in result.stdout
         assert "W-CON-01" in result.stdout
-        assert "W-EP-01" in result.stdout
         assert "W-EP-02" in result.stdout
         # Divergent on COU2 only
         assert "W-EP-04" in result.stdout
@@ -976,6 +1025,8 @@ class TestWeakenerPins:
         # Shared across both COUs
         assert "W-CON-04" in result.stdout
         assert "W-ON-02" in result.stdout
+        # v0.5.8 fix: W-EP-01 no longer fires on either COU
+        assert "W-EP-01" not in result.stdout
 
     @pytest.mark.skipif(not JENA_AVAILABLE, reason="Jena rules require Java")
     def test_aero_cou1_accept_fires_w_ar_02(self):

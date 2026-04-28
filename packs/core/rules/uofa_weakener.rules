@@ -119,18 +119,30 @@
 ]
 
 # W-AL-02: Sensitivity Gap — UQ present but no documented sensitivity analysis
+# Phase 2.5 v0.5.9 schema-aligned fix. Previous predicate matched
+# `?result uofa:hasUncertaintyQuantification ?uq` (a per-validation-result
+# attribute that didn't exist in the schema as a declared property)
+# and `noValue(?uofa, uofa:hasSensitivityAnalysis)` for an IRI-typed
+# property that no example package declared — making the rule fire on
+# essentially every M5 NC package via the same URI-handle / vacuous-
+# noValue pathology that was driving W-EP-01.
+#
+# New predicate: hasUncertaintyQuantification is the existing top-level
+# boolean on UofA (already in the SHACL shape), and hasSensitivityAnalysis
+# is now defined as a parallel top-level boolean. The rule fires when
+# the package explicitly claims UQ=true AND does not declare an
+# accompanying sensitivity analysis.
 [w_al02:
     (?uofa rdf:type uofa:UnitOfAssurance)
-    (?uofa uofa:hasValidationResult ?result)
-    (?result uofa:hasUncertaintyQuantification ?uq)
+    (?uofa uofa:hasUncertaintyQuantification 'true'^^xsd:boolean)
     noValue(?uofa, uofa:hasSensitivityAnalysis)
-    makeSkolem(?ann, ?uofa, 'W-AL-02', ?uofa)
+    makeSkolem(?ann, ?uofa, 'W-AL-02')
     ->
     (?ann rdf:type uofa:WeakenerAnnotation)
     (?ann uofa:patternId 'W-AL-02')
     (?ann uofa:severity 'Medium')
     (?ann uofa:affectedNode ?uofa)
-    (?ann schema:description 'Uncertainty quantification is reported but no sensitivity analysis is linked — the drivers of uncertainty are undocumented.')
+    (?ann schema:description 'Uncertainty quantification is reported but no sensitivity analysis is documented — the drivers of uncertainty are uncharacterized.')
     (?uofa uofa:hasWeakener ?ann)
 ]
 
