@@ -50,6 +50,21 @@ def _clean_subtlety(low, medium, high):
 
 
 def _nc_render(spec, context, *, description, task, subtlety):
+    # v0.5.10: inject placeholder hasApplicabilityConstraint +
+    # hasOperatingEnvelope into the COU so generated NC packages don't
+    # vacuously trigger W-ON-02 on `noValue` of those properties. NCs
+    # are intended to be clean — without these stubs, the LLM would
+    # inherit Morrison COU1's stripped-down COU shape and produce
+    # packages that fire W-ON-02 by structural omission. CE / gap_probe
+    # / interaction templates intentionally skip this augmentation so
+    # the W-ON-02 confirm_existing target template still triggers the
+    # rule. See tools/phase2_5/regen_nc_envelope.py for the parallel
+    # patch applied to the existing M5 NC corpus.
+    from copy import deepcopy
+    from uofa_cli.adversarial.skeleton import _augment_cou_with_envelope_stubs
+    cou = context.get("context_of_use")
+    if isinstance(cou, dict):
+        cou = _augment_cou_with_envelope_stubs(deepcopy(cou))
     return BASE_SYSTEM_PROMPT, build_user_prompt(
         weakener="(negative_control)",
         weakener_description=description,
@@ -57,7 +72,7 @@ def _nc_render(spec, context, *, description, task, subtlety):
         subtlety=spec.subtlety,
         subtlety_guidance=subtlety[spec.subtlety],
         base_cou_identity=context.get("identity"),
-        context_of_use=context.get("context_of_use"),
+        context_of_use=cou,
         factor_scaffold=context.get("factor_scaffold", []),
         context_url=context.get("context_url", ""),
         decision=spec.decision,

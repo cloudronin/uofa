@@ -49,6 +49,76 @@ class SkeletonLoadError(Exception):
     """Raised when the base COU cannot be loaded or parsed."""
 
 
+# ---------------------------------------------------------------------------
+# COU envelope-stub helpers (Phase 2.5 v0.5.10)
+#
+# Used by:
+#   * tools/phase2_5/regen_nc_envelope.py — patches the M5 NC corpus to
+#     suppress W-ON-02 vacuous-noValue firings on minimal NCs
+#   * uofa_cli.adversarial.prompts.negative_controls._nc_render — augments
+#     NC-template prompts so future NC corpus regen has the fix baked in
+#
+# CE / gap_probe / interaction templates DO NOT use these helpers, so the
+# W-ON-02 confirm_existing target generation continues to omit envelope
+# (and correctly trigger the rule).
+# ---------------------------------------------------------------------------
+
+def _make_applicability_stub(cou_id: str) -> dict:
+    """Return a placeholder ApplicabilityConstraint nested object.
+
+    Stub values per Phase 2.5 follow-up brief: structurally well-formed,
+    not substantively meaningful. Sufficient to produce a triple
+    `<cou> uofa:hasApplicabilityConstraint <stub-iri>` which suppresses
+    W-ON-02's `noValue` check.
+    """
+    return {
+        "id": f"{cou_id}/applicability-placeholder",
+        "type": "ApplicabilityConstraint",
+        "name": "Placeholder applicability constraint (v0.5.10 NC regen)",
+        "description": (
+            "Placeholder constraint inserted to satisfy the noValue check "
+            "on uofa:hasApplicabilityConstraint in the W-ON-02 rule "
+            "predicate. Not substantively meaningful."
+        ),
+    }
+
+
+def _make_envelope_stub(cou_id: str) -> dict:
+    """Return a placeholder OperatingEnvelope nested object.
+
+    Same intent as `_make_applicability_stub`: structurally well-formed
+    stub that satisfies the W-ON-02 `noValue` check on
+    uofa:hasOperatingEnvelope.
+    """
+    return {
+        "id": f"{cou_id}/envelope-placeholder",
+        "type": "OperatingEnvelope",
+        "name": "Placeholder operating envelope (v0.5.10 NC regen)",
+        "description": (
+            "Placeholder envelope inserted to satisfy the noValue check "
+            "on uofa:hasOperatingEnvelope in the W-ON-02 rule predicate. "
+            "Not substantively meaningful."
+        ),
+    }
+
+
+def _augment_cou_with_envelope_stubs(cou: dict) -> dict:
+    """Inject placeholder applicability + envelope into a COU dict if absent.
+
+    Idempotent: preserves whatever's already there. Mutates the input
+    dict in place AND returns it (caller can use either form).
+
+    Used by NC prompt templates and the v0.5.10 NC corpus patch tool to
+    eliminate W-ON-02 vacuous-noValue firings on minimal NC packages.
+    """
+    cou_id = cou.get("id", "") if isinstance(cou, dict) else ""
+    if "hasApplicabilityConstraint" not in cou:
+        cou["hasApplicabilityConstraint"] = _make_applicability_stub(cou_id)
+    if "hasOperatingEnvelope" not in cou:
+        cou["hasOperatingEnvelope"] = _make_envelope_stub(cou_id)
+    return cou
+
+
 def load_base_cou_skeleton(base_cou: Path, pack: str = "vv40") -> dict:
     """Return a skeleton dict usable by prompt.render().
 
