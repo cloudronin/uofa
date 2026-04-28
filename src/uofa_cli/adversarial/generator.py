@@ -283,6 +283,22 @@ class AdversarialGenerator:
             )
             pkg = self._merge_stamps(pkg, skeleton.get("top_level_stamps", {}))
 
+            # Phase 2.5 v0.5.11: for NC specs, inject placeholder
+            # hasOffsetRationale on Accepted decisions whose factors
+            # have achievedLevel < requiredLevel. Without this, the
+            # LLM faithfully reproduces base-COU narrative implications
+            # (e.g., Nagaraja's "single test condition") and produces
+            # factor shortfalls that fire W-AR-02. CE / gap-probe /
+            # interaction templates skip this — preserves W-AR-02
+            # confirm_existing target generation. Same helper is used
+            # by tools/phase2_5/regen_nc_offset_rationale.py for the
+            # post-hoc patch to the existing M5 corpus.
+            if spec.coverage_intent == "negative_control":
+                from tools.phase2_5.regen_nc_offset_rationale import (
+                    _augment_dr_with_offset_rationale,
+                )
+                pkg, _ = _augment_dr_with_offset_rationale(pkg)
+
             # Write to a temp path for SHACL validation.
             candidate_path = target_path if attempt == 1 else failed_dir / f"{variant_id}-attempt{attempt}.jsonld"
             candidate_path.parent.mkdir(parents=True, exist_ok=True)

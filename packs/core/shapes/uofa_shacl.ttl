@@ -478,3 +478,42 @@ uofa:EvidenceTimestamp_v05Shape a sh:NodeShape ;
         sh:maxCount 1 ;
         sh:message "evidenceTimestamp is when an evidence artifact was produced (for W-CON-03)." ;
     ] .
+
+# OffsetRationale node shape (Phase 2.5 v0.5.11). DecisionRecords MAY
+# carry one or more `hasOffsetRationale` children when an Accepted
+# decision is made despite a credibility-factor shortfall — the rationale
+# names the affected factor and records the offsetting evidence (e.g.,
+# "N=11 sample size offsets single-test-condition shortfall per ASTM
+# spinal-device convention"). The W-AR-02 rule reads this to suppress
+# its `noValue` check, allowing legitimate V&V 40 Accepted-with-offset
+# findings (per Nagaraja et al., 2024 §4) to pass without firing.
+uofa:OffsetRationaleShape a sh:NodeShape ;
+    sh:targetClass uofa:OffsetRationale ;
+    sh:property [
+        sh:path uofa:refersToFactor ;
+        sh:nodeKind sh:IRI ;
+        sh:minCount 1 ;
+        sh:message "OffsetRationale must refer to the CredibilityFactor it offsets." ;
+    ] ;
+    sh:property [
+        sh:path uofa:justification ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:message "OffsetRationale must include a justification text." ;
+    ] ;
+    sh:property [
+        sh:path uofa:offsettingEvidence ;
+        sh:nodeKind sh:IRI ;
+    ] .
+
+# DecisionRecord-level: hasOffsetRationale references one or more
+# OffsetRationale nodes. Optional — only present when the Accepted
+# decision is made despite a documented factor-level shortfall.
+uofa:DecisionRecordOffsetShape a sh:NodeShape ;
+    sh:targetSubjectsOf uofa:hasOffsetRationale ;
+    sh:property [
+        sh:path uofa:hasOffsetRationale ;
+        sh:nodeKind sh:IRI ;
+        sh:class uofa:OffsetRationale ;
+        sh:message "hasOffsetRationale must reference an OffsetRationale node (for W-AR-02 predicate)." ;
+    ] .

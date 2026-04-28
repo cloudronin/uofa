@@ -200,7 +200,33 @@
     (?uofa uofa:hasWeakener ?ann)
 ]
 
+# Phase 2.5 v0.5.11: derived-flag rule that flattens the nested
+# `OffsetRationale` structure for W-AR-02's `noValue` guard. For each
+# DecisionRecord that has at least one OffsetRationale referring to a
+# specific factor, materialize a `(?dr uofa:hasFactorOffset ?factor)`
+# triple. Materializing this in a separate rule keeps W-AR-02's body
+# clean and lets the FORWARD_RETE engine apply the offset suppression
+# uniformly. Requires (?dr uofa:hasOffsetRationale ?offset),
+# (?offset rdf:type uofa:OffsetRationale), (?offset uofa:refersToFactor
+# ?factor) — all three triples are materialized when a DR carries the
+# offset object.
+[w_ar02_derive_factor_offset:
+    (?dr rdf:type uofa:DecisionRecord)
+    (?dr uofa:hasOffsetRationale ?offset)
+    (?offset uofa:refersToFactor ?factor)
+    ->
+    (?dr uofa:hasFactorOffset ?factor)
+]
+
 # W-AR-02: Rebutting Defeater (D2) — Contradictory Result Ignored
+# Phase 2.5 v0.5.11: added `noValue(?dr, uofa:hasFactorOffset, ?factor)`
+# guard so the rule stays silent when the DecisionRecord has a
+# documented OffsetRationale referencing this specific factor (i.e.,
+# the V&V 40 framework permits Accepted-despite-shortfall when offset
+# evidence is recorded). Real-world example: Nagaraja COU1's Test
+# conditions factor (req=3, ach=1) is offset by N=11 sample size per
+# ASTM spinal-device convention — the paper documents this and the
+# corresponding OffsetRationale is now part of the example package.
 [w_ar02:
     (?uofa rdf:type uofa:UnitOfAssurance)
     (?uofa uofa:hasDecisionRecord ?dr)
@@ -209,13 +235,14 @@
     (?factor uofa:requiredLevel ?req)
     (?factor uofa:achievedLevel ?ach)
     lessThan(?ach, ?req)
+    noValue(?dr, uofa:hasFactorOffset, ?factor)
     makeSkolem(?ann, ?uofa, 'W-AR-02', ?factor)
     ->
     (?ann rdf:type uofa:WeakenerAnnotation)
     (?ann uofa:patternId 'W-AR-02')
     (?ann uofa:severity 'Critical')
     (?ann uofa:affectedNode ?factor)
-    (?ann schema:description 'Credibility factor achievedLevel is below requiredLevel, yet the decision outcome is Accepted — contradictory result ignored.')
+    (?ann schema:description 'Credibility factor achievedLevel is below requiredLevel, yet the decision outcome is Accepted with no documented offset rationale — contradictory result ignored.')
     (?uofa uofa:hasWeakener ?ann)
 ]
 
