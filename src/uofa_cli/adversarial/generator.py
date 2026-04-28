@@ -283,21 +283,58 @@ class AdversarialGenerator:
             )
             pkg = self._merge_stamps(pkg, skeleton.get("top_level_stamps", {}))
 
-            # Phase 2.5 v0.5.11: for NC specs, inject placeholder
-            # hasOffsetRationale on Accepted decisions whose factors
-            # have achievedLevel < requiredLevel. Without this, the
-            # LLM faithfully reproduces base-COU narrative implications
-            # (e.g., Nagaraja's "single test condition") and produces
-            # factor shortfalls that fire W-AR-02. CE / gap-probe /
-            # interaction templates skip this — preserves W-AR-02
-            # confirm_existing target generation. Same helper is used
-            # by tools/phase2_5/regen_nc_offset_rationale.py for the
-            # post-hoc patch to the existing M5 corpus.
+            # Phase 2.5 post-LLM mutation hooks for NC specs.
+            #
+            # Each hook fixes a specific corpus-quality gap that the LLM
+            # would otherwise produce (because the rule's noValue check
+            # would fire on a structurally-omitted field). Hooks run
+            # AFTER the LLM responds and BEFORE SHACL validation, so a
+            # fresh-generated NC ships clean without separate patch-tool
+            # post-processing.
+            #
+            # CE / gap-probe / interaction templates intentionally SKIP
+            # all of these — preserving the rule's correct firing on
+            # confirm_existing target packages.
+            #
+            # Phase 2 v2 will replace these hooks with prompt-template
+            # improvements (have the LLM emit substantively-meaningful
+            # content instead of placeholder stubs). See
+            # `out/phase2_5/2026-04-27/v0512_phase2v2_prompt_proposal.md`.
             if spec.coverage_intent == "negative_control":
-                from tools.phase2_5.regen_nc_offset_rationale import (
+                # All three helpers are imported from the same module
+                # in src/uofa_cli/, so the installed wheel ships them.
+                # (Phase 2.5 v0.5.12.1: prior to this release the
+                # offset-rationale helper lived under tools/phase2_5/
+                # which silently broke post-install — `uofa adversarial
+                # generate` would throw ModuleNotFoundError on every NC
+                # spec. The PYTHONPATH-set test suite hid the bug.)
+                from uofa_cli.adversarial.skeleton import (
+                    _augment_cou_with_envelope_stubs,
                     _augment_dr_with_offset_rationale,
+                    _augment_uofa_with_sensitivity_analysis_stub,
                 )
+
+                # v0.5.10 (re-wired in v0.5.12.1): envelope stubs on COU.
+                # Fixes W-ON-02 (noValue on hasApplicabilityConstraint /
+                # hasOperatingEnvelope). Was previously pre-LLM only —
+                # relied on the LLM faithfully copying the augmented COU.
+                # Post-LLM is the safety net.
+                cou = pkg.get("hasContextOfUse")
+                if isinstance(cou, dict):
+                    _augment_cou_with_envelope_stubs(cou)
+
+                # v0.5.11: offset rationale on Accepted decisions whose
+                # factors have achievedLevel < requiredLevel. Fixes
+                # W-AR-02 (vacuous-noValue on hasOffsetRationale).
                 pkg, _ = _augment_dr_with_offset_rationale(pkg)
+
+                # v0.5.12 (re-wired in v0.5.12.1): SensitivityAnalysis
+                # stub on Complete-profile UofAs. Fixes W-CON-04
+                # (noValue on hasSensitivityAnalysis). Was previously
+                # text-hint-only in extra_schema_rules — relied on the
+                # LLM following the schema-rule nudge. Post-LLM is the
+                # safety net.
+                _augment_uofa_with_sensitivity_analysis_stub(pkg)
 
             # Write to a temp path for SHACL validation.
             candidate_path = target_path if attempt == 1 else failed_dir / f"{variant_id}-attempt{attempt}.jsonld"

@@ -7,6 +7,7 @@ COU metadata.
 from __future__ import annotations
 
 import json
+import re
 from copy import deepcopy
 from pathlib import Path
 
@@ -117,6 +118,141 @@ def _augment_cou_with_envelope_stubs(cou: dict) -> dict:
     if "hasOperatingEnvelope" not in cou:
         cou["hasOperatingEnvelope"] = _make_envelope_stub(cou_id)
     return cou
+
+
+# ---------------------------------------------------------------------------
+# OffsetRationale stub helpers (Phase 2.5 v0.5.11)
+#
+# Used by:
+#   * uofa_cli.adversarial.generator._attempt_variant — runs as a post-LLM
+#     mutation hook on NC packages so fresh-generated NCs include offset
+#     rationale on Accepted-with-shortfall decisions
+#   * tools/phase2_5/regen_nc_offset_rationale.py — re-uses the same
+#     helpers for the post-hoc patch to the existing M5 corpus
+#
+# Phase 2.5 v0.5.12.1: moved from tools/phase2_5/ to src/uofa_cli/ so
+# the installed `uofa adversarial generate` CLI can import them. The
+# previous v0.5.11 location made the helpers unimportable from the
+# packaged wheel (only the source-tree `python -m tools.phase2_5...`
+# invocation worked), which silently broke the post-LLM hook in
+# production NC generation.
+#
+# CE / gap_probe / interaction templates DO NOT use these helpers, so
+# the W-AR-02 confirm_existing target generation continues to omit
+# offset rationale (and correctly trigger the rule).
+# ---------------------------------------------------------------------------
+
+def make_offset_rationale_stub(dr_id: str, factor_id: str, factor_type: str) -> dict:
+    """Return a placeholder OffsetRationale nested object (Phase 2.5 v0.5.11).
+
+    Structurally well-formed (refersToFactor IRI + justification text), not
+    substantively meaningful. Sufficient to suppress W-AR-02's noValue
+    check via the `hasFactorOffset` derived-flag rule.
+
+    The justification text is parametrized on factor_type so reviewers
+    can scan the patch tool's output and see which factor each stub
+    targets without dereferencing the IRI.
+    """
+    # Generate a deterministic-but-readable suffix from the factor_id
+    factor_short = re.sub(r"[^a-z0-9-]+", "-",
+                          factor_id.rsplit("/", 1)[-1].lower()).strip("-")
+    return {
+        "id": f"{dr_id}/offset/{factor_short}",
+        "type": "OffsetRationale",
+        "refersToFactor": factor_id,
+        "justification": (
+            f"Placeholder offset rationale (Phase 2.5 v0.5.11 corpus regen) "
+            f"for {factor_type!r} factor shortfall on this Accepted decision. "
+            f"The W-AR-02 rule's intent is to flag Accepted-despite-shortfall "
+            f"findings that are NOT documented; structurally well-formed but "
+            f"not substantively meaningful. Real-world V&V 40 cases (e.g., "
+            f"Nagaraja et al. 2024 §4) record the offsetting evidence here."
+        ),
+    }
+
+
+def _augment_dr_with_offset_rationale(doc: dict) -> tuple[dict, list[str]]:
+    """Inject OffsetRationale stubs into hasDecisionRecord for every
+    factor with achievedLevel < requiredLevel on an Accepted decision.
+
+    Idempotent: skips factors that already have a referencing
+    OffsetRationale on the DR.
+
+    Returns (modified_doc, list_of_factor_ids_offset_this_run).
+    """
+    dr = doc.get("hasDecisionRecord")
+    if not isinstance(dr, dict):
+        return doc, []
+    if dr.get("outcome") != "Accepted":
+        return doc, []
+
+    cf = doc.get("hasCredibilityFactor", [])
+    if not isinstance(cf, list):
+        cf = [cf] if cf else []
+
+    # Collect factor IDs that need offset; synthesize an id if missing.
+    shortfall_factors: list[tuple[str, str]] = []  # [(factor_id, factor_type)]
+    for f in cf:
+        if not isinstance(f, dict):
+            continue
+        req = f.get("requiredLevel")
+        ach = f.get("achievedLevel")
+        if req is None or ach is None:
+            continue
+        try:
+            if ach >= req:
+                continue
+        except TypeError:
+            continue
+        ft = f.get("factorType", "Unknown")
+        fid = f.get("id")
+        if not fid:
+            # Synthesize a deterministic IRI from the DR id + factor type
+            slug = re.sub(r"[^a-z0-9-]+", "-", str(ft).lower()).strip("-")
+            fid = f"{dr.get('id', '')}/factor/{slug}"
+            f["id"] = fid  # mutate in place so the offset reference resolves
+        shortfall_factors.append((fid, ft))
+
+    if not shortfall_factors:
+        return doc, []
+
+    # Existing offsets (idempotency check)
+    existing = dr.get("hasOffsetRationale")
+    if existing is None:
+        existing_list: list = []
+    elif isinstance(existing, list):
+        existing_list = list(existing)
+    else:
+        existing_list = [existing]
+    already_offset = set()
+    for offset in existing_list:
+        if isinstance(offset, dict):
+            ref = offset.get("refersToFactor")
+            if ref:
+                already_offset.add(ref)
+        elif isinstance(offset, str):
+            already_offset.add(offset)
+
+    new_offsets: list[dict] = []
+    factors_offset_this_run: list[str] = []
+    for fid, ft in shortfall_factors:
+        if fid in already_offset:
+            continue
+        stub = make_offset_rationale_stub(dr.get("id", ""), fid, ft)
+        new_offsets.append(stub)
+        factors_offset_this_run.append(fid)
+
+    if new_offsets:
+        # Attach as list (or extend existing list) so multiple offsets
+        # can coexist if a future package needs them.
+        all_offsets = existing_list + new_offsets
+        # Single-element lists collapse to dict to match v0.5 conventions
+        # for other 1-cardinality nested objects (hasDecisionRecord, etc.).
+        dr["hasOffsetRationale"] = (
+            all_offsets[0] if len(all_offsets) == 1 else all_offsets
+        )
+
+    return doc, factors_offset_this_run
 
 
 # ---------------------------------------------------------------------------
