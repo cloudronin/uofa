@@ -277,28 +277,31 @@ def _augment_dr_with_offset_rationale(doc: dict) -> tuple[dict, list[str]]:
 # hasSensitivityAnalysis (and correctly trigger the rule).
 # ---------------------------------------------------------------------------
 
-def _make_sensitivity_analysis_stub(uofa_id: str) -> dict:
-    """Return a placeholder SensitivityAnalysis nested object.
+def _make_sensitivity_analysis_stub(uofa_id: str) -> bool:
+    """Return ``True`` — the ``hasSensitivityAnalysis`` value (Phase 2.5
+    v0.5.15.1 schema correction).
 
-    Stub structure: well-formed inline object with id/type/name/description.
-    Sufficient to suppress the W-CON-04 noValue check on
-    ``uofa:hasSensitivityAnalysis`` for Complete-profile packages without
-    actual sensitivity-analysis content.
+    The v0.5 schema defines ``uofa:hasSensitivityAnalysis`` as
+    ``xsd:boolean`` (per the v0.5.9 W-AL-02 schema-aligned fix and the
+    JSON-LD context at ``spec/context/v0.5.jsonld``). v0.5.10/v0.5.12
+    helpers incorrectly emitted it as an inline ``SensitivityAnalysis``
+    object — a schema mismatch that produced SHACL violations on the
+    SensitivityAnalysisShape's ``sh:datatype xsd:boolean`` constraint.
+    The mismatch was masked by a separate pyshacl thread-safety bug in
+    the runner's parallel SHACL validation (Phase B.9 surfaced both).
+
+    For W-CON-04 suppression, the ``noValue(?uofa,
+    uofa:hasSensitivityAnalysis)`` clause is satisfied by *any* value
+    being set — boolean True is sufficient.
+
+    The ``uofa_id`` parameter is retained for backwards compatibility
+    with callers but unused.
     """
-    return {
-        "id": f"{uofa_id}/sensitivity-analysis-placeholder",
-        "type": "SensitivityAnalysis",
-        "name": "Placeholder sensitivity analysis (v0.5.12 NC regen)",
-        "description": (
-            "Placeholder sensitivity analysis inserted to satisfy the "
-            "noValue check on uofa:hasSensitivityAnalysis in the W-CON-04 "
-            "rule predicate. Not substantively meaningful."
-        ),
-    }
+    return True
 
 
 def _augment_uofa_with_sensitivity_analysis_stub(uofa: dict) -> dict:
-    """Inject placeholder SensitivityAnalysis into a Complete-profile UofA
+    """Set ``hasSensitivityAnalysis: true`` on a Complete-profile UofA
     if absent.
 
     Idempotent: leaves an existing ``hasSensitivityAnalysis`` untouched.

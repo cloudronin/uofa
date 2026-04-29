@@ -160,14 +160,12 @@ UOFA_PACKAGE_SCHEMA: dict = {
             },
         },
         "hasSensitivityAnalysis": {
-            "type": "object",
-            "additionalProperties": True,
-            "properties": {
-                "id": {"type": "string"},
-                "type": {"type": "string", "const": "SensitivityAnalysis"},
-                "name": {"type": "string"},
-                "description": {"type": "string"},
-            },
+            "type": "boolean",
+            "description": (
+                "Boolean flag indicating that a documented sensitivity "
+                "analysis is part of the assurance package (xsd:boolean "
+                "per v0.5 schema, mirrors hasUncertaintyQuantification)."
+            ),
         },
         "wasDerivedFrom": {"type": "string"},
         "wasAttributedTo": {"type": "string"},

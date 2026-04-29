@@ -154,16 +154,21 @@ SCHEMA RULES (non-negotiable — deviations fail SHACL):
 - `hash`: "sha256:" followed by exactly 64 lowercase hex chars.
 - `signature`: "ed25519:" followed by lowercase hex chars.
 
-Profile dispatch (Phase 2.5 v0.5.15):
+Profile dispatch (Phase 2.5 v0.5.15.1):
 - If `conformsToProfile` is `https://uofa.net/vocab#ProfileMinimal`: emit
   ONLY the minimal-required fields above. DO NOT emit Complete-profile-only
   fields like `hasSensitivityAnalysis` (that triggers SHACL violations on
   Minimal profiles).
 - If `conformsToProfile` is `https://uofa.net/vocab#ProfileComplete`: in
   addition to the minimal fields, also emit:
-    `hasSensitivityAnalysis` (inline SensitivityAnalysis object),
-    `hasContextOfUse.hasApplicabilityConstraint` (inline object),
-    `hasContextOfUse.hasOperatingEnvelope` (inline object).
+    `hasSensitivityAnalysis: true` (BOOLEAN, not an inline object — the
+        v0.5 schema declares this as xsd:boolean per W-AL-02. A boolean
+        true value indicates a sensitivity analysis is documented as
+        part of the package),
+    `hasContextOfUse.hasApplicabilityConstraint` (inline object with
+        id/type/name/description),
+    `hasContextOfUse.hasOperatingEnvelope` (inline object with
+        id/type/name/description).
   Mixing Minimal-only fields with Complete-profile declarations is the
   most common SHACL `sh:or` violation; Phase C holdout showed CE specs
   hit this 21% of the time.

@@ -48,16 +48,44 @@ _PROPERTY_SEVERITY = {
 }
 
 
+import threading
+
+# Phase 2.5 v0.5.15.1: pyshacl + rdflib are NOT thread-safe under
+# concurrent calls in the same process. The adversarial runner uses
+# ``ThreadPoolExecutor`` (runner.py:514) for parallel spec generation;
+# under high concurrency (parallel >= 5) every SHACL call returns
+# spurious ``conforms=False`` with empty violations, causing the runner
+# to incorrectly mark every variant as SHACL-failing. Phase B.9
+# validation surfaced this with v0.5.15 tool-use because faster LLM
+# responses tightened the SHACL-call window — pre-v0.5.15's slower
+# free-form generation had wider gaps between SHACL calls and
+# experienced the bug at much lower frequency.
+#
+# Fix: serialize SHACL calls via a module-level lock. The LLM call
+# remains parallel; only the SHACL validation step is serialized.
+# Performance impact is minimal (SHACL takes ~50-200ms per package
+# vs ~30-90s LLM call) but correctness is restored.
+#
+# RLock (reentrant) so run_shacl_multi can call run_shacl without
+# self-deadlock when only one shacl_path is provided.
+_SHACL_LOCK = threading.RLock()
+
+
 def run_shacl_multi(data_path: Path, shacl_paths: list) -> tuple[bool, list[dict]]:
-    """Run SHACL validation with multiple shape files and return (conforms, violations)."""
-    if len(shacl_paths) == 1:
-        return run_shacl(data_path, shacl_paths[0])
+    """Run SHACL validation with multiple shape files and return (conforms, violations).
 
-    combined = Graph()
-    for p in shacl_paths:
-        combined.parse(str(p), format="turtle")
+    Thread-safe: serializes pyshacl/rdflib calls via _SHACL_LOCK to avoid
+    cross-thread state corruption (Phase 2.5 v0.5.15.1 fix).
+    """
+    with _SHACL_LOCK:
+        if len(shacl_paths) == 1:
+            return run_shacl(data_path, shacl_paths[0])
 
-    return _run_shacl_graph(data_path, combined)
+        combined = Graph()
+        for p in shacl_paths:
+            combined.parse(str(p), format="turtle")
+
+        return _run_shacl_graph(data_path, combined)
 
 
 def _load_data_graph(data_path: Path) -> Graph:
@@ -81,7 +109,18 @@ def run_shacl(data_path: Path, shacl_path: Path) -> tuple[bool, list[dict]]:
     """Run SHACL validation and return (conforms, violations).
 
     Each violation is a dict with keys: path, message, fix, severity.
+
+    Note: when called from ``run_shacl_multi`` the lock is already held;
+    this internal acquire is reentrant-friendly because callers either
+    use the multi-path (lock held) or the single-path (no concurrent
+    callers from runner). The ``with`` here makes the function safe
+    to call directly from external code (CLI, tests).
     """
+    with _SHACL_LOCK:
+        return _run_shacl_locked(data_path, shacl_path)
+
+
+def _run_shacl_locked(data_path: Path, shacl_path: Path) -> tuple[bool, list[dict]]:
     data_g = _load_data_graph(data_path)
     conforms, results_graph, results_text = shacl_validate(
         data_graph=data_g,
