@@ -50,25 +50,20 @@ def _clean_subtlety(low, medium, high):
 
 
 def _nc_render(spec, context, *, description, task, subtlety):
-    # v0.5.10: inject placeholder hasApplicabilityConstraint +
-    # hasOperatingEnvelope into the COU so generated NC packages don't
-    # vacuously trigger W-ON-02 on `noValue` of those properties. NCs
-    # are intended to be clean — without these stubs, the LLM would
-    # inherit Morrison COU1's stripped-down COU shape and produce
-    # packages that fire W-ON-02 by structural omission. CE / gap_probe
-    # / interaction templates intentionally skip this augmentation so
-    # the W-ON-02 confirm_existing target template still triggers the
-    # rule. See tools/phase2_5/regen_nc_envelope.py for the parallel
-    # patch applied to the existing M5 NC corpus.
+    # Phase 2.5 v0.5.10/12.1: pre-LLM COU augmentation injects placeholder
+    # hasApplicabilityConstraint + hasOperatingEnvelope. The post-LLM
+    # mutation hook in generator.py (also added v0.5.12.1) is the safety
+    # net for the LLM dropping these fields. CE / gap_probe / interaction
+    # templates intentionally skip this so W-ON-02 confirm_existing
+    # targets still trigger the rule.
     #
-    # v0.5.12: nudge the LLM toward including hasSensitivityAnalysis on
-    # Complete-profile packages via extra_schema_rules. The W-CON-04
-    # firings were on Complete NCs that omitted the SHACL-optional SA
-    # block; injecting it via the patch tool fixes the existing 31
-    # firings, and this generator hint primes future NC corpus regen.
-    # W-CON-01 and W-AR-01 are NOT addressed here — those were fixed by
-    # predicate tightening in the rules file (factorStatus guard
-    # excluding 'scoped-out' / 'not-applicable').
+    # Phase 2.5 v0.5.13: prompt cleanup. The extra_schema_rules block is
+    # rewritten to be DIRECTIVE rather than conditional. Phase A revealed
+    # that the v0.5.12 conditional wording ("if Complete, include SA")
+    # was misread by the LLM as license to switch to Minimal to avoid
+    # emitting SA. The v0.5.13 wording requires substantive content from
+    # the LLM directly; the post-LLM hooks remain as safety net for
+    # non-compliant runs.
     from copy import deepcopy
     from uofa_cli.adversarial.skeleton import _augment_cou_with_envelope_stubs
     cou = context.get("context_of_use")
@@ -87,12 +82,50 @@ def _nc_render(spec, context, *, description, task, subtlety):
         decision=spec.decision,
         task=task,
         trigger_block=CLEAN_TRIGGER,
-        extra_schema_rules=(
-            "NC-v0.5.12: if `conformsToProfile` is `uofa:ProfileComplete`, "
-            "include `hasSensitivityAnalysis` as an inline SensitivityAnalysis "
-            "object (placeholder content acceptable)."
-        ),
+        extra_schema_rules=NC_SCHEMA_REQUIREMENTS,
     )
+
+
+# Phase 2.5 v0.5.13 NC schema requirements — directive form replacing the
+# v0.5.12 conditional wording. Each numbered requirement is a hard rule;
+# violations cause spurious weakener firings (well-documented in
+# v0_phase2v2_summary.md).
+NC_SCHEMA_REQUIREMENTS = (
+    "NC schema requirements (non-negotiable):\n"
+    "\n"
+    "1. CONFORMING PROFILE OVERRIDES base COU profile when the task says so.\n"
+    "   The base COU's identity block is preserved verbatim EXCEPT for\n"
+    "   `conformsToProfile`, which the per-archetype task instruction\n"
+    "   may override (e.g. NC-1/3/4 require `uofa:ProfileComplete`).\n"
+    "\n"
+    "2. If `conformsToProfile` is `uofa:ProfileComplete`:\n"
+    "   - Emit `hasSensitivityAnalysis` as an inline SensitivityAnalysis\n"
+    "     object on the UofA with id, type, name, description (1-2\n"
+    "     sentences of substantive content describing what was varied\n"
+    "     and the response — NOT a placeholder stub).\n"
+    "   - Emit `hasContextOfUse.hasOperatingEnvelope` as an inline\n"
+    "     OperatingEnvelope with concrete bounds (e.g. flow rate ranges,\n"
+    "     geometry tolerances). DO NOT emit a placeholder stub.\n"
+    "   - Emit `hasContextOfUse.hasApplicabilityConstraint` as an inline\n"
+    "     ApplicabilityConstraint object describing the in-scope domain.\n"
+    "\n"
+    "3. For every CredibilityFactor with `factorStatus: \"assessed\"`:\n"
+    "   - BOTH `requiredLevel` AND `achievedLevel` MUST be present (1-5).\n"
+    "   - `acceptanceCriteria` MUST be an inline AcceptanceCriteria\n"
+    "     object (not just an IRI string).\n"
+    "\n"
+    "4. For factors with `factorStatus` of `\"scoped-out\"` or\n"
+    "   `\"not-applicable\"`:\n"
+    "   - DO NOT emit `requiredLevel` or `achievedLevel` — those imply\n"
+    "     the factor was intended to be assessed.\n"
+    "   - `rationale` MUST explain why the factor is scoped-out / N/A.\n"
+    "\n"
+    "5. If `hasDecisionRecord.outcome == \"Accepted\"` AND any factor\n"
+    "   has `achievedLevel < requiredLevel`:\n"
+    "   - `hasDecisionRecord.hasOffsetRationale` MUST be an inline\n"
+    "     OffsetRationale referencing the shortfall factor and explaining\n"
+    "     why the acceptance is justified despite the gap.\n"
+)
 
 
 # ----- per-NC content keyed by spec_id leaf -----
@@ -101,10 +134,18 @@ NC_CONFIGS = {
     "nc-clean-full-morrison-cou1": {
         "description": "NC-1 fully-assessed Morrison COU1 archetype",
         "task": (
-            "generate a Complete-profile UofA covering all 13 V&V 40 factors "
-            "as 'assessed' with consistent levels (requiredLevel <= "
-            "achievedLevel for each), full provenance, UQ present, "
-            "acceptance criteria documented per factor, decision Accepted."
+            "generate a Complete-profile UofA. EMIT "
+            "`conformsToProfile: 'https://uofa.net/vocab#ProfileComplete'` "
+            "(override the base COU's profile if it differs — this NC "
+            "tests the Complete-profile pathway). Cover all 13 V&V 40 "
+            "factors as 'assessed' with consistent levels (requiredLevel "
+            "<= achievedLevel for each), full provenance, UQ present, "
+            "acceptance criteria documented per factor as inline "
+            "AcceptanceCriteria objects, decision Accepted. INCLUDE inline "
+            "`hasSensitivityAnalysis` (substantive content describing what "
+            "was varied and the response — NOT a placeholder), "
+            "`hasContextOfUse.hasApplicabilityConstraint`, and "
+            "`hasContextOfUse.hasOperatingEnvelope` with concrete bounds."
         ),
         "subtlety": _clean_subtlety(
             "Heavy narrative emphasis on each factor's assessment.",
@@ -128,9 +169,17 @@ NC_CONFIGS = {
     "nc-clean-full-morrison-cou2": {
         "description": "NC-3 fully-assessed Morrison COU2 archetype (MRL 5)",
         "task": (
-            "generate a Complete-profile UofA at modelRiskLevel 5 with all "
-            "13 factors assessed at high rigor, full UQ + sensitivity "
-            "analysis linked, decision Accepted with thorough rationale."
+            "generate a Complete-profile UofA at modelRiskLevel 5. EMIT "
+            "`conformsToProfile: 'https://uofa.net/vocab#ProfileComplete'` "
+            "(this NC tests the Complete-profile high-MRL pathway). "
+            "All 13 factors are assessed at high rigor with both "
+            "requiredLevel AND achievedLevel populated and inline "
+            "AcceptanceCriteria objects per factor. Full UQ + INLINE "
+            "`hasSensitivityAnalysis` SensitivityAnalysis object "
+            "(method, dominant factors, sample size — substantive "
+            "content). Decision Accepted with thorough rationale. "
+            "Include `hasContextOfUse.hasApplicabilityConstraint` and "
+            "`hasContextOfUse.hasOperatingEnvelope` with concrete bounds."
         ),
         "subtlety": _clean_subtlety(
             "Heavy structured field population; minimal narrative.",
@@ -141,9 +190,15 @@ NC_CONFIGS = {
     "nc-clean-full-nagaraja": {
         "description": "NC-4 fully-assessed Nagaraja COU1 archetype (orthopedic)",
         "task": (
-            "generate a Complete-profile orthopedic-domain UofA at MRL 3 "
-            "covering all 13 V&V 40 factors with appropriate rigor. Use "
-            "Nagaraja COU1 as the structural template."
+            "generate a Complete-profile orthopedic-domain UofA at MRL 3. "
+            "EMIT `conformsToProfile: 'https://uofa.net/vocab#ProfileComplete'` "
+            "(this NC tests Complete-profile orthopedic pathway). "
+            "Cover all 13 V&V 40 factors with appropriate rigor (both "
+            "requiredLevel AND achievedLevel populated; inline "
+            "AcceptanceCriteria per assessed factor). Use Nagaraja COU1 as "
+            "the structural template. INCLUDE inline `hasSensitivityAnalysis` "
+            "(substantive content), `hasContextOfUse.hasApplicabilityConstraint`, "
+            "and `hasContextOfUse.hasOperatingEnvelope` with concrete bounds."
         ),
         "subtlety": _clean_subtlety(
             "Standard fully-assessed Nagaraja form.",
@@ -155,9 +210,14 @@ NC_CONFIGS = {
         "description": "NC-5 factors marked scoped-out with rationale",
         "task": (
             "generate a UofA where a subset of factors are 'scoped-out' "
-            "with documented rationale. The scoped-out factors carry a "
-            "valid `factorStatus: \"scoped-out\"` AND a thorough "
-            "rationale field; the remaining factors are 'assessed'."
+            "with documented rationale. Scoped-out factors MUST: "
+            "(a) have `factorStatus: \"scoped-out\"`, "
+            "(b) carry a thorough `rationale` field explaining the scoping "
+            "decision, AND "
+            "(c) NOT emit `requiredLevel` or `achievedLevel` (those imply "
+            "intended-assessment, contradicting the scoped-out status). "
+            "The remaining factors are 'assessed' with both levels and "
+            "inline acceptanceCriteria."
         ),
         "subtlety": _clean_subtlety(
             "Two factors scoped-out, rationale paragraph each.",
@@ -169,8 +229,15 @@ NC_CONFIGS = {
         "description": "NC-6 factors marked not-applicable with rationale",
         "task": (
             "generate a UofA where a subset of factors are 'not-applicable' "
-            "(e.g., NASA-only factors on a V&V 40 case). All not-applicable "
-            "factors carry a documented rationale."
+            "(e.g., NASA-only factors on a V&V 40 case). Not-applicable "
+            "factors MUST: "
+            "(a) have `factorStatus: \"not-applicable\"`, "
+            "(b) carry a thorough `rationale` field explaining why the "
+            "factor doesn't apply, AND "
+            "(c) NOT emit `requiredLevel` or `achievedLevel` (those imply "
+            "intended-assessment, contradicting the N/A status). "
+            "The remaining factors are 'assessed' with both levels and "
+            "inline acceptanceCriteria."
         ),
         "subtlety": _clean_subtlety(
             "Multiple factors not-applicable with explicit reasoning.",
@@ -182,10 +249,16 @@ NC_CONFIGS = {
         "description": "NC-7 valid Not-accepted decision",
         "task": (
             "generate a UofA whose decision is 'Not accepted' with "
-            "documented rationale. This is a CLEAN negative example — the "
-            "rejection is justified by the structured evidence (factors "
-            "below required level, weaknesses acknowledged), so no rule "
-            "should fire spuriously."
+            "documented rationale. The rejection is justified by EITHER:\n"
+            "  (a) factors with `achievedLevel < requiredLevel` AND "
+            "      `factorStatus: \"assessed\"` — rejection is the response "
+            "      to the documented shortfall, no offset is being claimed; OR\n"
+            "  (b) factors with `factorStatus: \"scoped-out\"` AND a "
+            "      rationale explaining what was excluded — the rejection "
+            "      cites the scoping decision.\n"
+            "DO NOT use `factorStatus: \"not-assessed\"` at modelRiskLevel > 2. "
+            "That fires W-EP-04 (correctly: an unassessed factor at elevated "
+            "risk is a credibility gap, not a rejection rationale)."
         ),
         "subtlety": _clean_subtlety(
             "Multiple factors below required level; decision Not accepted with thorough rationale.",
@@ -196,11 +269,14 @@ NC_CONFIGS = {
     "nc-clean-partial-envelope": {
         "description": "NC-8 explicit operating envelope with bounded applicability",
         "task": (
-            "generate a UofA whose ContextOfUse declares both an "
-            "`hasApplicabilityConstraint` and an `hasOperatingEnvelope` "
-            "with concrete bounds. The model and validation cover the "
-            "declared envelope. This tests that bounded-applicability is "
-            "correctly recognized as clean (no W-ON-02 firing)."
+            "generate a UofA whose ContextOfUse declares both "
+            "`hasApplicabilityConstraint` and `hasOperatingEnvelope` as "
+            "INLINE objects (id, type, name, description) with concrete "
+            "bounds (e.g., flow rates 1-7 L/min, geometry tolerances). "
+            "The model and validation cover the declared envelope. This "
+            "tests that bounded-applicability is correctly recognized as "
+            "clean (no W-ON-02 firing). DO NOT emit narrative-only "
+            "envelope mentions; the rule checks for the structured property."
         ),
         "subtlety": _clean_subtlety(
             "Tight envelope; validation covers it densely.",
@@ -215,7 +291,9 @@ NC_CONFIGS = {
             "confidence scores or wide uncertainty bounds, but those are "
             "documented honestly with appropriate rationale (rather than "
             "covered up). The decision either accepts the limitation as "
-            "residual risk OR rejects accordingly."
+            "residual risk OR rejects accordingly. If `conformsToProfile` "
+            "is `uofa:ProfileComplete`, INCLUDE inline `hasSensitivityAnalysis` "
+            "documenting which uncertain inputs drive the wide bounds."
         ),
         "subtlety": _clean_subtlety(
             "Evidence confidence ~50%; decision Not accepted with clear rationale.",

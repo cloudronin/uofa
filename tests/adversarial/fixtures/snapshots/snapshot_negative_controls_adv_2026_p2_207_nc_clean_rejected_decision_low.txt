@@ -128,7 +128,10 @@ factorStandard unchanged):
   }
 ]
 
-Task: generate a UofA whose decision is 'Not accepted' with documented rationale. This is a CLEAN negative example — the rejection is justified by the structured evidence (factors below required level, weaknesses acknowledged), so no rule should fire spuriously.
+Task: generate a UofA whose decision is 'Not accepted' with documented rationale. The rejection is justified by EITHER:
+  (a) factors with `achievedLevel < requiredLevel` AND       `factorStatus: "assessed"` — rejection is the response       to the documented shortfall, no offset is being claimed; OR
+  (b) factors with `factorStatus: "scoped-out"` AND a       rationale explaining what was excluded — the rejection       cites the scoping decision.
+DO NOT use `factorStatus: "not-assessed"` at modelRiskLevel > 2. That fires W-EP-04 (correctly: an unassessed factor at elevated risk is a credibility gap, not a rejection rationale).
 
 Multiple factors below required level; decision Not accepted with thorough rationale.
 
@@ -150,7 +153,41 @@ SCHEMA RULES (non-negotiable — deviations fail SHACL):
 - `generatedAtTime`: ISO-8601 string, e.g. "2026-04-19T00:00:00Z".
 - `hash`: "sha256:" followed by exactly 64 lowercase hex chars.
 - `signature`: "ed25519:" followed by lowercase hex chars.
-NC-v0.5.12: if `conformsToProfile` is `uofa:ProfileComplete`, include `hasSensitivityAnalysis` as an inline SensitivityAnalysis object (placeholder content acceptable).
+NC schema requirements (non-negotiable):
+
+1. CONFORMING PROFILE OVERRIDES base COU profile when the task says so.
+   The base COU's identity block is preserved verbatim EXCEPT for
+   `conformsToProfile`, which the per-archetype task instruction
+   may override (e.g. NC-1/3/4 require `uofa:ProfileComplete`).
+
+2. If `conformsToProfile` is `uofa:ProfileComplete`:
+   - Emit `hasSensitivityAnalysis` as an inline SensitivityAnalysis
+     object on the UofA with id, type, name, description (1-2
+     sentences of substantive content describing what was varied
+     and the response — NOT a placeholder stub).
+   - Emit `hasContextOfUse.hasOperatingEnvelope` as an inline
+     OperatingEnvelope with concrete bounds (e.g. flow rate ranges,
+     geometry tolerances). DO NOT emit a placeholder stub.
+   - Emit `hasContextOfUse.hasApplicabilityConstraint` as an inline
+     ApplicabilityConstraint object describing the in-scope domain.
+
+3. For every CredibilityFactor with `factorStatus: "assessed"`:
+   - BOTH `requiredLevel` AND `achievedLevel` MUST be present (1-5).
+   - `acceptanceCriteria` MUST be an inline AcceptanceCriteria
+     object (not just an IRI string).
+
+4. For factors with `factorStatus` of `"scoped-out"` or
+   `"not-applicable"`:
+   - DO NOT emit `requiredLevel` or `achievedLevel` — those imply
+     the factor was intended to be assessed.
+   - `rationale` MUST explain why the factor is scoped-out / N/A.
+
+5. If `hasDecisionRecord.outcome == "Accepted"` AND any factor
+   has `achievedLevel < requiredLevel`:
+   - `hasDecisionRecord.hasOffsetRationale` MUST be an inline
+     OffsetRationale referencing the shortfall factor and explaining
+     why the acceptance is justified despite the gap.
+
 
 Required top-level fields (emit EXACTLY these values):
   "@context": "https://raw.githubusercontent.com/cloudronin/uofa/main/spec/context/v0.5.jsonld"
