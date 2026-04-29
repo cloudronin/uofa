@@ -369,17 +369,22 @@
 # neither requiredLevel nor achievedLevel declared. A decision cannot be
 # justified on factor levels that were never established.
 #
-# Phase 2.5 v0.5.12: added factorStatus guard. The rule's intent is to
-# flag factors that *should* have been assessed but weren't — i.e.,
-# `factorStatus='assessed'` (or unstated, which we treat as intended-
-# assessed by the existing fall-through). Factors with status
-# 'scoped-out' or 'not-applicable' legitimately have no levels by
-# design (they're explicitly excluded from the credibility chain), so
-# firing on them is a corpus-quality false positive. Empirical:
-# pre-v0.5.12 the rule fired on 31 NCs that all had ≥1 scoped-out or
-# N/A factor; post-fix → 0 NC firings expected. CE recall preserved
-# because the W-CON-01 confirm_existing template explicitly emits
-# `factorStatus='assessed'`.
+# Phase 2.5 v0.5.12: added factorStatus guard excluding 'scoped-out' /
+# 'not-applicable' (which legitimately have no levels by design).
+#
+# Phase 2.5 v0.5.14 (holdout finding): added 'not-assessed' to the
+# excluded set. The holdout-v0513-validation surfaced that NC-2
+# (Minimal Morrison COU1, MRL=2) packages with `factorStatus='not-
+# assessed'` factors fire W-CON-01 even though those factors are
+# legitimately unassessed at low MRL (per Morrison COU1's narrative:
+# "6 factors not assessed (acceptable at MRL 2)"). The 'not-assessed'
+# status is W-EP-04's domain (which fires only at modelRiskLevel > 2);
+# excluding it from W-CON-01 prevents the rule from double-firing on
+# the same legitimate corpus pattern. CE recall is preserved because
+# the W-CON-01 confirm_existing template explicitly emits
+# `factorStatus='assessed'` per consistency.py:36-40 — no CE target
+# uses 'not-assessed' as the trigger, so adding the exclusion guard
+# doesn't change the rule's CE-target firing behavior.
 [w_con01:
     (?uofa rdf:type uofa:UnitOfAssurance)
     (?uofa uofa:hasDecisionRecord ?dr)
@@ -388,6 +393,7 @@
     (?f uofa:factorStatus ?status)
     notEqual(?status, 'scoped-out')
     notEqual(?status, 'not-applicable')
+    notEqual(?status, 'not-assessed')
     noValue(?f, uofa:requiredLevel)
     noValue(?f, uofa:achievedLevel)
     makeSkolem(?ann, ?uofa, 'W-CON-01', ?f)
