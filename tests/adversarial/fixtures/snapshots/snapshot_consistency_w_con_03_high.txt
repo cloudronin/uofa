@@ -138,6 +138,20 @@ SCHEMA RULES (non-negotiable — deviations fail SHACL):
 - `generatedAtTime`: ISO-8601 string, e.g. "2026-04-19T00:00:00Z".
 - `hash`: "sha256:" followed by exactly 64 lowercase hex chars.
 - `signature`: "ed25519:" followed by lowercase hex chars.
+
+Profile dispatch (Phase 2.5 v0.5.15):
+- If `conformsToProfile` is `https://uofa.net/vocab#ProfileMinimal`: emit
+  ONLY the minimal-required fields above. DO NOT emit Complete-profile-only
+  fields like `hasSensitivityAnalysis` (that triggers SHACL violations on
+  Minimal profiles).
+- If `conformsToProfile` is `https://uofa.net/vocab#ProfileComplete`: in
+  addition to the minimal fields, also emit:
+    `hasSensitivityAnalysis` (inline SensitivityAnalysis object),
+    `hasContextOfUse.hasApplicabilityConstraint` (inline object),
+    `hasContextOfUse.hasOperatingEnvelope` (inline object).
+  Mixing Minimal-only fields with Complete-profile declarations is the
+  most common SHACL `sh:or` violation; Phase C holdout showed CE specs
+  hit this 21% of the time.
 - `signatureTimestamp`: top-level ISO-8601 dateTime on UnitOfAssurance.
 - `evidenceTimestamp`: ISO-8601 dateTime on Evidence/ValidationResult.
 

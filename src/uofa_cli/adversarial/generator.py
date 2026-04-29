@@ -233,13 +233,31 @@ class AdversarialGenerator:
         target_path = output_dir / f"{variant_id}.jsonld"
         failed_dir = output_dir / "failed"
 
+        prior_pkg: dict | None = None  # last-attempt parsed package, for retry context
         while attempt <= max_retries:
             attempt += 1
             retry_prompt = user_prompt
             if prior_violations:
+                # Phase 2.5 v0.5.15: enhanced retry feedback. Include a
+                # truncated snippet of the LLM's prior output so it can
+                # diff against its own work instead of regenerating from
+                # scratch. Pre-v0.5.15 only the violation list was echoed,
+                # which left the LLM guessing at which fields it had
+                # already emitted vs which were missing.
+                prior_pkg_snippet = ""
+                if isinstance(prior_pkg, dict):
+                    pkg_text = json.dumps(prior_pkg, indent=1, ensure_ascii=False)
+                    prior_pkg_snippet = (
+                        "\n\nYour previous output (truncated to 800 chars):\n"
+                        + pkg_text[:800]
+                        + ("..." if len(pkg_text) > 800 else "")
+                    )
                 retry_prompt = user_prompt + (
-                    "\n\nPrevious attempt failed SHACL with the following violations; "
-                    "fix these and regenerate:\n"
+                    "\n\nPrevious attempt failed SHACL validation. Fix the "
+                    "violations below and re-emit the package. Other fields "
+                    "can remain unchanged."
+                    + prior_pkg_snippet
+                    + "\n\nViolations to fix:\n"
                     + json.dumps(prior_violations, indent=2)
                 )
 
@@ -252,6 +270,7 @@ class AdversarialGenerator:
                         "temperature": spec.temperature,
                         "max_tokens": spec.max_tokens,
                         "seed": spec.seed,
+                        "context_url": skeleton.get("context_url", ""),
                     },
                 )
             except Exception as e:
@@ -363,6 +382,7 @@ class AdversarialGenerator:
                 )
 
             prior_violations = violations
+            prior_pkg = pkg  # v0.5.15: keep prior pkg for retry-feedback snippet
             last_error = f"SHACL violations: {len(violations)}"
 
         # All attempts exhausted.
@@ -561,13 +581,40 @@ def _call_ollama(system_prompt: str, user_prompt: str, params: dict) -> LLMCallR
 
 
 def _call_litellm(system_prompt: str, user_prompt: str, params: dict) -> LLMCallResult:
+    """Call the LLM via litellm. Phase 2.5 v0.5.15: switched from
+    free-form text generation to tool-calling (Anthropic ``tool_use`` /
+    OpenAI function-calling, mediated by litellm).
+
+    Tool-calling enforces JSON-Schema constraints at the SDK boundary
+    so:
+
+    * Malformed JSON failures (~5% on free-form) → 0%
+    * Schema-required field omissions → blocked before reaching us
+    * The LLM's submitted package arrives as a parsed dict via
+      ``response.choices[0].message.tool_calls[0].function.arguments``
+
+    Free-form fallback is retained for non-Anthropic models that don't
+    support tool_use (e.g., earlier OpenAI Davinci, some Llama variants).
+    The fallback also kicks in if the LLM refuses to call the tool
+    (returns a plain text response despite ``tool_choice`` being set).
+
+    Phase 2 v3 v0.5.15 finding: Anthropic's tool-input-schema validator
+    rejects property keys that don't match ``^[a-zA-Z0-9_.-]{1,64}$``,
+    excluding JSON-LD ``@context``. We omit ``@context`` from the tool
+    schema and inject it post-tool-call from
+    ``params['context_url']`` (or ``CONTEXT_URL`` fallback).
+    """
     import litellm
+
+    from uofa_cli.adversarial.tool_schema import UOFA_TOOL, UOFA_TOOL_CHOICE
+    from uofa_cli.excel_constants import CONTEXT_URL
 
     # Drop provider-unsupported params silently (e.g. Anthropic rejects `seed`).
     litellm.drop_params = True
 
     model = params["model"]
     is_anthropic = "claude" in model.lower() or "anthropic" in model.lower()
+    use_tool_calling = is_anthropic or "gpt" in model.lower()  # both support function calling
 
     # Start from the spec params; we'll mutate as drop_params / fallback apply.
     effective_params: dict = {"model": model}
@@ -579,6 +626,8 @@ def _call_litellm(system_prompt: str, user_prompt: str, params: dict) -> LLMCall
         effective_params["seed"] = params["seed"]
     if params.get("temperature") is not None:
         effective_params["temperature"] = params["temperature"]
+    if use_tool_calling:
+        effective_params["tool"] = UOFA_TOOL["function"]["name"]
 
     base_kwargs = {
         "model": model,
@@ -589,6 +638,10 @@ def _call_litellm(system_prompt: str, user_prompt: str, params: dict) -> LLMCall
         "max_tokens": params.get("max_tokens", 4000),
         "timeout": 1800,
     }
+    if use_tool_calling:
+        base_kwargs["tools"] = [UOFA_TOOL]
+        base_kwargs["tool_choice"] = UOFA_TOOL_CHOICE
+
     seed = params.get("seed")
     if seed is not None:
         base_kwargs["seed"] = seed  # litellm strips for Anthropic with drop_params=True.
@@ -608,7 +661,37 @@ def _call_litellm(system_prompt: str, user_prompt: str, params: dict) -> LLMCall
         else:
             raise
 
-    content = response.choices[0].message.content or ""
+    msg = response.choices[0].message
+    content = msg.content or ""
+    tool_used = False
+
+    # Tool-call extraction path (preferred when use_tool_calling).
+    if use_tool_calling:
+        tool_calls = getattr(msg, "tool_calls", None)
+        if tool_calls:
+            first = tool_calls[0]
+            if hasattr(first, "function"):
+                args_str = first.function.arguments
+            elif isinstance(first, dict):
+                args_str = first.get("function", {}).get("arguments", "{}")
+            else:
+                args_str = "{}"
+            try:
+                pkg = json.loads(args_str) if isinstance(args_str, str) else args_str
+            except json.JSONDecodeError:
+                pkg = None
+
+            if isinstance(pkg, dict):
+                # Inject @context (omitted from schema due to Anthropic
+                # property-key regex; see tool_schema.py docstring).
+                ctx_url = params.get("context_url") or CONTEXT_URL
+                pkg.setdefault("@context", ctx_url)
+                content = json.dumps(pkg, ensure_ascii=False)
+                tool_used = True
+
+    # Fallback to free-form text content if tool-calling didn't yield a
+    # parseable result (defensive: e.g., LLM refuses tool, network glitch).
+
     tokens = 0
     usage = getattr(response, "usage", None)
     if usage:
@@ -626,6 +709,7 @@ def _call_litellm(system_prompt: str, user_prompt: str, params: dict) -> LLMCall
             "deprecationFallbackFired": deprecation_fallback_fired,
             "modelReturned": model_returned,
             "litellmVersion": litellm_version,
+            "toolCallingUsed": tool_used,
         },
     )
 
