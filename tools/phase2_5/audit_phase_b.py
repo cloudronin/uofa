@@ -78,6 +78,9 @@ def main(argv=None) -> int:
         except Exception:
             continue
         cou = doc.get("hasContextOfUse") or {}
+        # Some NCs emit COU as an IRI string rather than inline object; treat as empty
+        if not isinstance(cou, dict):
+            cou = {}
         applicab = cou.get("hasApplicabilityConstraint")
         envelope = cou.get("hasOperatingEnvelope")
         sa = doc.get("hasSensitivityAnalysis")
