@@ -13,8 +13,8 @@ contributors and for finding things during active iteration.
 | `packs/` | Pack-specific assets (rules, shapes, examples, templates) for `core`, `vv40`, `nasa-7009b` | Active |
 | `spec/` | **v0.5 schema definitions** — JSON-LD context, JSON Schema, SHACL shapes. NOT to be confused with `specs/`. See [spec/specs naming](#specspecs-naming). | Stable |
 | `specs/` | **Adversarial spec YAMLs** for the `uofa adversarial run` corpus generator. NOT to be confused with `spec/`. | Active |
-| `tools/phase2_5/` | Phase 2.5 catalog refinement tooling (rule-tightening loop, corpus regen, audits) | Active |
-| `tools/scripts/` | Maintainer/dev utility scripts (manifest refresh, M7 export, scoring) | Stable |
+| `dev/tools/phase2_5/` | Phase 2.5 catalog refinement tooling (rule-tightening loop, corpus regen, audits) | Active |
+| `dev/tools/scripts/` | Maintainer/dev utility scripts (manifest refresh, M7 export, scoring) | Stable |
 | `dev/build/` | Generated artifacts (gitignored). Includes `dev/build/adversarial/` corpora and `dev/build/phase2_5/` refinement outputs. (Top-level `build/` is reserved for Python wheel build artifacts.) | Ephemeral |
 | `docs/` | Operational documentation | Mixed |
 | `keys/` | ed25519 signing keys (research keys; production keys should be elsewhere) | Stable |
@@ -128,7 +128,7 @@ This doc is part of a Tier 1 (docs-only) cleanup pass. Subsequent
 phases will:
 
 - **Tier 2**: Archive SMOKE* dirs, version-partition `out/phase2_5/`
-- **Tier 3**: Subdivide `tools/phase2_5/` into 4 logical subdirs
+- **Tier 3**: Subdivide `dev/tools/phase2_5/` into 4 logical subdirs
 
 See the planning file for details. Each phase ships in its own commit
 so any individual change can be reverted independently.

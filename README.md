@@ -284,10 +284,10 @@ uofa rules packs/nasa-7009b/examples/aerospace/uofa-aero-cou2-nasa7009b.jsonld -
 **Reproduce the accuracy numbers:**
 
 ```bash
-# Factor F1 + weakener gate scoring, logs to tools/scripts/extract_accuracy_log.jsonl
-python tools/scripts/score_extraction.py --pack nasa-7009b --case cou1 \
+# Factor F1 + weakener gate scoring, logs to dev/tools/scripts/extract_accuracy_log.jsonl
+python dev/tools/scripts/score_extraction.py --pack nasa-7009b --case cou1 \
   --model ollama/qwen3.5:4b --prompt-version v3-nasa-aero
-python tools/scripts/score_extraction.py --pack nasa-7009b --case cou2 \
+python dev/tools/scripts/score_extraction.py --pack nasa-7009b --case cou2 \
   --model ollama/qwen3.5:4b --prompt-version v3-nasa-aero
 ```
 
@@ -636,6 +636,6 @@ For contributors looking to add features or fix bugs:
 
 - [**Repo layout**](docs/repo-layout.md) — top-level orientation; quick reference for finding code, specs, schemas, outputs, and tooling. Disambiguates `spec/` (the v0.5 schema) vs `specs/` (adversarial spec YAMLs).
 - [**Onboarding Guide**](docs/onboarding.md) — combined quick-start + architecture + contributor guide. Covers CLI design, subcommand patterns, test structure, and step-by-step instructions for adding new commands, weakener rules, and schema changes.
-- [**Phase 2.5 tooling**](tools/phase2_5/README.md) — the metric-gated catalog refinement loop + per-rule corpus regen tools (referenced by recent versions v0.5.7 → v0.5.15.1).
+- [**Phase 2.5 tooling**](dev/tools/phase2_5/README.md) — the metric-gated catalog refinement loop + per-rule corpus regen tools (referenced by recent versions v0.5.7 → v0.5.15.1).
 
 **Website:** [crediblesimulation.com](https://crediblesimulation.com)

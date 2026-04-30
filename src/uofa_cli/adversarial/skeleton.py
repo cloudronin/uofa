@@ -133,7 +133,7 @@ def _augment_cou_with_envelope_stubs(cou: dict) -> dict:
 # Phase 2.5 v0.5.12.1: moved from tools/phase2_5/ to src/uofa_cli/ so
 # the installed `uofa adversarial generate` CLI can import them. The
 # previous v0.5.11 location made the helpers unimportable from the
-# packaged wheel (only the source-tree `python -m tools.phase2_5...`
+# packaged wheel (only the source-tree `python -m dev.tools.phase2_5...`
 # invocation worked), which silently broke the post-LLM hook in
 # production NC generation.
 #

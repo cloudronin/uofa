@@ -13,7 +13,7 @@ Modes:
         Bundle BOTH the JAR and a per-platform OpenJDK 17 LTS JRE from
         Eclipse Adoptium. Produces a py3-none-<platform> wheel that requires
         no system Java at runtime. The JRE URL + SHA256 + strip prefix come
-        from jre_manifest.toml; refresh via tools/scripts/refresh_jre_manifest.py.
+        from jre_manifest.toml; refresh via dev/tools/scripts/refresh_jre_manifest.py.
 
 Environment variables:
     UOFA_JAR_PATH=<path>    Override the default JAR source location

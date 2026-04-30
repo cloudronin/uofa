@@ -1,9 +1,9 @@
-"""Tests for the M7 export tooling under ``tools/scripts/``.
+"""Tests for the M7 export tooling under ``dev/tools/scripts/``.
 
 Phase 2 v1.8 §11 / §16:
-- ``tools/scripts/export_view_pdf.py``        — HTML → PDF (Figure 3.x)
-- ``tools/scripts/export_view3_markdown.py``  — outcomes.csv → Markdown table
-- ``tools/scripts/build_phase2_review_packet.py`` — master Phase 3 handoff doc
+- ``dev/tools/scripts/export_view_pdf.py``        — HTML → PDF (Figure 3.x)
+- ``dev/tools/scripts/export_view3_markdown.py``  — outcomes.csv → Markdown table
+- ``dev/tools/scripts/build_phase2_review_packet.py`` — master Phase 3 handoff doc
 
 Tests use hand-crafted fixtures (small outcomes.csv + batch_manifest.json)
 rather than running the full analyze pipeline so they stay fast and don't
@@ -21,11 +21,11 @@ from pathlib import Path
 import pytest
 
 REPO_ROOT = Path(__file__).parent.parent.parent
-SCRIPTS = REPO_ROOT / "tools" / "scripts"
+SCRIPTS = REPO_ROOT / "dev" / "tools" / "scripts"
 
 
 def _load_script(filename: str):
-    """Import a tools/scripts/*.py module by file path (not on sys.path)."""
+    """Import a dev/tools/scripts/*.py module by file path (not on sys.path)."""
     spec = importlib.util.spec_from_file_location(
         f"tools_scripts.{filename.replace('.py', '')}", SCRIPTS / filename
     )

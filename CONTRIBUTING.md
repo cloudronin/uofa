@@ -76,9 +76,9 @@ The pinned Adoptium URLs and SHA-256s live in `jre_manifest.toml`. Refresh
 quarterly:
 
 ```bash
-python tools/scripts/refresh_jre_manifest.py            # update existing platforms
-python tools/scripts/refresh_jre_manifest.py --all      # bootstrap full set
-python tools/scripts/refresh_jre_manifest.py --check    # CI freshness gate
+python dev/tools/scripts/refresh_jre_manifest.py            # update existing platforms
+python dev/tools/scripts/refresh_jre_manifest.py --all      # bootstrap full set
+python dev/tools/scripts/refresh_jre_manifest.py --check    # CI freshness gate
 ```
 
 When OpenJDK 17 CVEs land, run the refresh, run the wheel build CI, and

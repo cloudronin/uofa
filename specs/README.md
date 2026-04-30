@@ -25,5 +25,5 @@ documented in [`docs/repo-layout.md`](../docs/repo-layout.md#specspecs-naming).
 
 - Schema (the "data model" version): `spec/`
 - Adversarial generator pipeline: `src/uofa_cli/adversarial/`
-- Phase 2.5 catalog refinement (which uses these specs): `tools/phase2_5/README.md`
+- Phase 2.5 catalog refinement (which uses these specs): `dev/tools/phase2_5/README.md`
 - Top-level repo orientation: `docs/repo-layout.md`
