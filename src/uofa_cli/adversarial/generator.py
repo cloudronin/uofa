@@ -318,7 +318,7 @@ class AdversarialGenerator:
             # Phase 2 v2 will replace these hooks with prompt-template
             # improvements (have the LLM emit substantively-meaningful
             # content instead of placeholder stubs). See
-            # `out/phase2_5/2026-04-27/v0512_phase2v2_prompt_proposal.md`.
+            # `build/phase2_5/v0.5.12-w-con-fixes/v0512_phase2v2_prompt_proposal.md`.
             if spec.coverage_intent == "negative_control":
                 # All three helpers are imported from the same module
                 # in src/uofa_cli/, so the installed wheel ships them.

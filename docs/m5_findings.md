@@ -78,7 +78,7 @@ The runner appends the SHACL violation message to the retry prompt. For F1-class
 
 - **Severity:** Was high — caused systematic COV-MISS false negatives.
 - **Status:** Fixed in commit `5698cc1`. Documented here for the post-M5 review packet readers' context.
-- **Note for Phase 3 reviewers:** any references to `baseline_firings_count` in archived smoke-output CSVs (e.g., `out/.../SMOKE/`) predate the fix and should be ignored.
+- **Note for Phase 3 reviewers:** any references to `baseline_firings_count` in archived smoke-output CSVs (e.g., `build/adversarial/archive/SMOKE/`) predate the fix and should be ignored.
 
 ### F4 — `GEN-INVALID` denominator inflation (already fixed)
 
@@ -146,7 +146,7 @@ All recovered through the runner's per-variant retry loop. No spec-level impact.
 
 ## Post-M5 findings (Apr 27 analyze)
 
-> _Populated from `out/adversarial/phase2/2026-04-26/coverage/{outcomes,summary,matrix}.csv` and the rendered `index.html`._
+> _Populated from `build/adversarial/phase2/2026-04-26/coverage/{outcomes,summary,matrix}.csv` and the rendered `index.html`._
 
 ### Headline outcome distribution (n = 4,605 rows)
 
@@ -210,8 +210,8 @@ D3 prep-review CLI generates per-spec reviewer packets for this triage. Run when
 
 ```bash
 uofa adversarial prep-review \
-  --outcomes out/adversarial/phase2/2026-04-26/coverage/outcomes.csv \
-  --output   out/adversarial/phase2/2026-04-26/review_packets/ \
+  --outcomes build/adversarial/phase2/2026-04-26/coverage/outcomes.csv \
+  --output   build/adversarial/phase2/2026-04-26/review_packets/ \
   --max-cases 50
 ```
 

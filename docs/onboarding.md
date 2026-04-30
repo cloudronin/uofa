@@ -433,7 +433,7 @@ tests/
   fixtures/import/        # generated .xlsx test files (TC-01 through TC-62)
 ```
 
-For a top-level orientation across `specs/`, `out/`, `tools/`, `docs/`,
+For a top-level orientation across `specs/`, `build/`, `tools/`, `docs/`,
 see [`repo-layout.md`](repo-layout.md).
 
 ## Subcommand Module Contract
