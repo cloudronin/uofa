@@ -284,10 +284,10 @@ uofa rules packs/nasa-7009b/examples/aerospace/uofa-aero-cou2-nasa7009b.jsonld -
 **Reproduce the accuracy numbers:**
 
 ```bash
-# Factor F1 + weakener gate scoring, logs to scripts/extract_accuracy_log.jsonl
-python scripts/score_extraction.py --pack nasa-7009b --case cou1 \
+# Factor F1 + weakener gate scoring, logs to tools/scripts/extract_accuracy_log.jsonl
+python tools/scripts/score_extraction.py --pack nasa-7009b --case cou1 \
   --model ollama/qwen3.5:4b --prompt-version v3-nasa-aero
-python scripts/score_extraction.py --pack nasa-7009b --case cou2 \
+python tools/scripts/score_extraction.py --pack nasa-7009b --case cou2 \
   --model ollama/qwen3.5:4b --prompt-version v3-nasa-aero
 ```
 

@@ -200,18 +200,18 @@ for d in out/adversarial/phase2/2026-05-{16,18,19,20}*; do
 done
 
 # Figure 3.x PDF (View 2 — per §11.1)
-python scripts/export_view_pdf.py \
+python tools/scripts/export_view_pdf.py \
   --report out/adversarial/phase2/2026-05-16/coverage/index.html \
   --view 2 \
   --output out/adversarial/phase2/figure_3_x.pdf
 
 # View 3 markdown (drop-in for Ch3 abstract)
-python scripts/export_view3_markdown.py \
+python tools/scripts/export_view3_markdown.py \
   --summary out/adversarial/phase2/2026-05-16/coverage/summary.csv \
   --output out/adversarial/phase2/view3_precision_recall.md
 
 # Phase 2 → Phase 3 master review packet (per §16 Q6)
-python scripts/build_phase2_review_packet.py \
+python tools/scripts/build_phase2_review_packet.py \
   --batch-dir out/adversarial/phase2/2026-05-16/ \
   --output out/adversarial/phase2/phase2_review_packet.md
 

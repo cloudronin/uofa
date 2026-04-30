@@ -87,12 +87,12 @@ clean-bundled:
 	@echo "✓ Bundled wheel artifacts removed from source tree."
 
 # ── Pre-Tester QA Corpus v2 ─────────────────────────────────
-# Builds 18 deterministic test fixtures under corpus/{edge-cases,import-tests}.
+# Builds 18 deterministic test fixtures under tests/corpus/{edge-cases,import-tests}.
 # Requires the [corpus] optional deps: pip install -e '.[corpus]'
 
 corpus:
-	python corpus/build.py
+	python tests/corpus/build.py
 
 corpus-clean:
-	rm -rf corpus/edge-cases corpus/import-tests
+	rm -rf tests/corpus/edge-cases tests/corpus/import-tests
 	@echo "✓ Corpus cleaned."

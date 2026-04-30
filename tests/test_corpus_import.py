@@ -1,7 +1,7 @@
 """Pre-Tester QA Corpus v2 — SHACL boundary verification.
 
 Per UofA_Pre_Tester_QA_Corpus_v2.md §"SHACL boundary testing": the 8
-templates under corpus/import-tests/ must produce the exact pass/fail
+templates under tests/corpus/import-tests/ must produce the exact pass/fail
 outcomes documented in the spec's expected-results table. Error messages
 on the three deliberate-error files must name the offending field so
 testers know what to fix.
@@ -26,7 +26,7 @@ from pathlib import Path
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-IMPORT_DIR = REPO_ROOT / "corpus" / "import-tests"
+IMPORT_DIR = REPO_ROOT / "tests" / "corpus" / "import-tests"
 
 pytest.importorskip("openpyxl")
 

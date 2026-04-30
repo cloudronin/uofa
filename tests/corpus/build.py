@@ -1,13 +1,14 @@
 """Build the Pre-Tester QA Corpus v2 — 18 deterministic test fixtures.
 
 Usage:
-    python corpus/build.py                # build everything
-    python corpus/build.py --only edge    # build only edge-cases/
-    python corpus/build.py --only import  # build only import-tests/
+    python tests/corpus/build.py                # build everything
+    python tests/corpus/build.py --only edge    # build only edge-cases/
+    python tests/corpus/build.py --only import  # build only import-tests/
 
-Outputs are written under corpus/edge-cases/ and corpus/import-tests/. Both
-directories are .gitignore'd; regenerate by running this script or `make
-corpus`. Idempotent: re-running overwrites existing files.
+Outputs are written under tests/corpus/edge-cases/ and
+tests/corpus/import-tests/. Both directories are .gitignore'd; regenerate
+by running this script or `make corpus`. Idempotent: re-running overwrites
+existing files.
 
 Dependencies (install via `pip install -e '.[corpus]'`):
     reportlab         — scanned + huge-appendix PDF generation
@@ -27,7 +28,8 @@ IMPORT_DIR = CORPUS_DIR / "import-tests"
 
 # Let the build script import tests/fixtures/import/generator.py without
 # requiring a package-style layout or PYTHONPATH dance.
-_REPO_ROOT = CORPUS_DIR.parent
+# Repo root is two levels up from tests/corpus/build.py.
+_REPO_ROOT = CORPUS_DIR.parent.parent
 sys.path.insert(0, str(_REPO_ROOT / "tests" / "fixtures" / "import"))
 
 

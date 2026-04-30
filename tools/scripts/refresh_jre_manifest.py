@@ -9,9 +9,9 @@ so a maintainer can review before committing.
 The script does NOT auto-commit. It only rewrites the manifest file.
 
 Usage:
-    python scripts/refresh_jre_manifest.py
-    python scripts/refresh_jre_manifest.py --dry-run    # print, don't write
-    python scripts/refresh_jre_manifest.py --check       # exit non-zero if stale
+    python tools/scripts/refresh_jre_manifest.py
+    python tools/scripts/refresh_jre_manifest.py --dry-run    # print, don't write
+    python tools/scripts/refresh_jre_manifest.py --check       # exit non-zero if stale
 """
 
 from __future__ import annotations
@@ -82,7 +82,7 @@ def render_manifest(platform_data: dict[str, dict]) -> str:
         "# These URLs and checksums are consumed by hatch_build.py at wheel-build",
         "# time when UOFA_BUNDLE_PLATFORM=<key> is set. Refresh quarterly via:",
         "#",
-        "#   python scripts/refresh_jre_manifest.py",
+        "#   python tools/scripts/refresh_jre_manifest.py",
         "#",
         "# Source of truth: Eclipse Adoptium Temurin (https://adoptium.net/), the",
         "# OpenJDK distribution we redistribute under GPL-2.0 with Classpath",

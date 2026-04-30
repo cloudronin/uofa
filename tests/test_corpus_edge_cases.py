@@ -1,7 +1,7 @@
 """Pre-Tester QA Corpus v2 — edge-case reader robustness.
 
 Per UofA_Pre_Tester_QA_Corpus_v2.md §"Edge case handling": every file under
-corpus/edge-cases/ must be readable (or gracefully refused) without a
+tests/corpus/edge-cases/ must be readable (or gracefully refused) without a
 stack trace. User-facing errors must name the file and be actionable.
 
 Prerequisite: build the corpus first via `make corpus` (optional deps
@@ -19,7 +19,7 @@ from pathlib import Path
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-EDGE_DIR = REPO_ROOT / "corpus" / "edge-cases"
+EDGE_DIR = REPO_ROOT / "tests" / "corpus" / "edge-cases"
 
 # Optional deps guard — exercised reader paths depend on these.
 pytest.importorskip("openpyxl")
@@ -110,7 +110,7 @@ def test_extract_end_to_end_has_no_traceback(tmp_path):
     Skip when the corpus hasn't been built or pdfplumber is missing.
     """
     if not EDGE_DIR.exists() or not any(EDGE_DIR.iterdir()):
-        pytest.skip("corpus/edge-cases/ not built — run `make corpus`")
+        pytest.skip("tests/corpus/edge-cases/ not built — run `make corpus`")
     if not _HAS_PDFPLUMBER:
         pytest.skip("pdfplumber not installed; extract exercises PDF paths")
 

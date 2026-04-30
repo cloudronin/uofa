@@ -6,7 +6,7 @@ produced by ``uofa adversarial analyze`` and writes a PDF copy. WeasyPrint
 is the rendering engine; install via ``pip install -e '.[export]'``.
 
 Usage:
-    python scripts/export_view_pdf.py \\
+    python tools/scripts/export_view_pdf.py \\
         --report out/.../coverage/index.html \\
         --view 2 \\
         --output out/.../figure_3_x.pdf

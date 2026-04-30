@@ -8,17 +8,16 @@ contributors and for finding things during active iteration.
 | Path | Purpose | Stability |
 |---|---|---|
 | `src/uofa_cli/` | The `uofa` CLI Python package + adversarial generation pipeline | Active |
-| `tests/` | Pytest test suite + adversarial fixtures (~181 prompt snapshots) | Active |
+| `src/weakener-engine/` | Apache Jena rule engine subproject (Java; produces the JAR shipped in the wheel) | Stable |
+| `tests/` | Pytest test suite + adversarial fixtures (~181 prompt snapshots) + `tests/corpus/` (Pre-Tester QA Corpus v2 builders) | Active |
 | `packs/` | Pack-specific assets (rules, shapes, examples, templates) for `core`, `vv40`, `nasa-7009b` | Active |
 | `spec/` | **v0.5 schema definitions** — JSON-LD context, JSON Schema, SHACL shapes. NOT to be confused with `specs/`. See [spec/specs naming](#specspecs-naming). | Stable |
 | `specs/` | **Adversarial spec YAMLs** for the `uofa adversarial run` corpus generator. NOT to be confused with `spec/`. | Active |
 | `tools/phase2_5/` | Phase 2.5 catalog refinement tooling (rule-tightening loop, corpus regen, audits) | Active |
-| `out/` | Generated artifacts (gitignored). Includes `out/adversarial/` corpora and `out/phase2_5/` refinement outputs | Ephemeral |
+| `tools/scripts/` | Maintainer/dev utility scripts (manifest refresh, M7 export, scoring) | Stable |
+| `build/` | Generated artifacts (gitignored). Includes `build/adversarial/` corpora and `build/phase2_5/` refinement outputs. Also receives Python wheel build artifacts. | Ephemeral |
 | `docs/` | Operational documentation | Mixed |
-| `corpus/` | Test corpus fixtures (edge-cases, import-tests) | Stable |
 | `keys/` | ed25519 signing keys (research keys; production keys should be elsewhere) | Stable |
-| `scripts/` | Miscellaneous shell scripts | Stable |
-| `weakener-engine/` | Apache Jena rule engine subproject (Java; produces the JAR shipped in the wheel) | Stable |
 | `LICENSES/` | License attribution files | Stable |
 
 ## Top-level files
@@ -86,15 +85,16 @@ When in doubt:
 - "I want to validate a UofA package" → `spec/` (schema)
 - "I want to generate test packages" → `specs/` (adversarial inputs)
 
-## `out/` subdirectories
+## `build/` subdirectories
 
-The output workspace, all gitignored.
+The output workspace, all gitignored. (Renamed from `out/` in
+Phase D of the post-Phase-2.5 cleanup; same role.)
 
 | Path | Purpose |
 |---|---|
-| `out/adversarial/phase2/<date>-<version>/` | Generated corpus dirs (M5 baseline + per-version regen + holdouts) |
-| `out/adversarial/archive/` | Archived dev artifacts (SMOKE* dirs from pre-Phase-3) |
-| `out/phase2_5/2026-04-27/` | Phase 2.5 refinement workspace (see `out/phase2_5/README.md`) |
+| `build/adversarial/phase2/<date>-<version>/` | Generated corpus dirs (M5 baseline + per-version regen + holdouts) |
+| `build/adversarial/archive/` | Archived dev artifacts (SMOKE* dirs from pre-Phase-3) |
+| `build/phase2_5/shared/` | Phase 2.5 refinement workspace (cumulative). See `build/phase2_5/README.md`. A back-compat symlink `build/phase2_5/2026-04-27 → shared` is preserved for one release. |
 
 ## `docs/` subdirectories
 
@@ -113,13 +113,13 @@ The output workspace, all gitignored.
 | Question | Answer |
 |---|---|
 | "How do I run the demo?" | `pip install uofa && uofa demo` (see root `README.md`) |
-| "What changed in v0.5.X?" | See per-version summary in `out/phase2_5/2026-04-27/` (e.g. `v0510_summary.md`); also `CHANGELOG.md` |
+| "What changed in v0.5.X?" | See per-version summary under `build/phase2_5/v0.5.X-*/` (e.g. `v0510_summary.md`); also `CHANGELOG.md` |
 | "Where's the W-CON-01 rule?" | `packs/core/rules/uofa_weakener.rules` |
 | "Where's the SHACL shape for `hasSensitivityAnalysis`?" | `packs/core/shapes/uofa_shacl.ttl` |
 | "How do I generate a test corpus?" | `uofa adversarial run --batch specs/<battery> --out <dir>` |
 | "How do I add a new weakener rule?" | Edit `packs/core/rules/uofa_weakener.rules` + add a SHACL shape if structural |
-| "Where do generated NCs live?" | `out/adversarial/phase2/<date>-vX/negative_controls/` (gitignored) |
-| "What did Phase 2.5 fix?" | M5 NC clean rate 0% → 97.2%. See `out/phase2_5/README.md` for the version chain |
+| "Where do generated NCs live?" | `build/adversarial/phase2/<date>-vX/negative_controls/` (gitignored) |
+| "What did Phase 2.5 fix?" | M5 NC clean rate 0% → 97.2%. See `build/phase2_5/README.md` for the version chain |
 | "What's NAFEMS-ready as of 2026-04-29?" | v0.5.15.1: 180-NC holdout, 97.1% NC clean rate. See `holdout_v0515_summary.md` |
 
 ## Recent reorg (post-NAFEMS cleanup)
