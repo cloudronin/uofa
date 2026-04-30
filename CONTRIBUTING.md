@@ -2,6 +2,32 @@
 
 Thanks for helping make the **Unit of Assurance (UofA)** better!
 
+## License of contributions
+
+This project is licensed under the **Apache License 2.0**. By submitting
+a contribution (a pull request, patch, issue with a code suggestion, or
+any other change), you agree that your contribution is licensed under
+Apache 2.0 — the same license as the rest of the project.
+
+We use the **Developer Certificate of Origin (DCO)** in lieu of a CLA.
+The DCO is a lightweight per-commit attestation that you have the right
+to submit the work under the project license. To sign off, add the `-s`
+flag when committing:
+
+```bash
+git commit -s -m "Your commit message"
+```
+
+That appends a `Signed-off-by: Your Name <email>` line to your commit
+message. The full DCO text is at <https://developercertificate.org/>.
+There is **no separate CLA, no extra paperwork, and no copyright
+assignment** — every contribution stays under the contributor's name
+and the project license.
+
+If you forget the `-s` on a commit, you can amend the most recent commit
+with `git commit --amend -s`, or rebase a branch and add sign-offs with
+`git rebase --signoff <base>`.
+
 ## Branch discipline (release tags)
 
 - `v0.4.0-nafems` — **frozen reference for NAFEMS demo slides.** Morrison COU1 = 14 weakeners, COU2 = 6. Do not change this commit; demo screenshots are sourced from this tag regardless of what `main` looks like.

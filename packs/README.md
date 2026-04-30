@@ -85,7 +85,7 @@ Every pack must have a `pack.json` with at minimum `name`, `version`, and `shape
   "factors": 13,
   "weakener_patterns": 0,
   "author": "Vishnu Vettrivel",
-  "license": "CC0-1.0"
+  "license": "Apache-2.0"
 }
 ```
 
@@ -200,7 +200,7 @@ uofa:CardioValidationResultShape a sh:NodeShape ;
   "factors": 13,
   "weakener_patterns": 3,
   "author": "Your Name",
-  "license": "CC0-1.0"
+  "license": "Apache-2.0"
 }
 ```
 

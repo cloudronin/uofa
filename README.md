@@ -1,6 +1,7 @@
 # Unit of Assurance (UofA) — v0.5.2
 
 ![validate examples](https://github.com/cloudronin/uofa/actions/workflows/validate.yml/badge.svg)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
 The **Unit of Assurance** is the smallest independently verifiable bundle of credibility evidence for computational modeling and simulation (CM&S). It packages the **credibility decision** — who judged what, against what criteria, using what evidence, with what result — as a signed, provenance-linked, machine-verifiable engineering artifact.
 
@@ -622,9 +623,13 @@ Early findings — including the aerospace companion case study ([HPT Blade CHT,
 
 ## License
 
-CC0 1.0 — public domain, no restrictions.
+Apache License, Version 2.0 — see [LICENSE](LICENSE) for the full text and
+[NOTICE](NOTICE) for bundled-software attributions.
 
-The UofA ontology, JSON-LD context, SHACL shapes, and reference examples are open. The Jena rule implementations (compound inference rules, domain-specific composition rules) are proprietary.
+The full project (UofA ontology, JSON-LD context, SHACL shapes, reference
+examples, Jena rule implementations, and the CLI) is licensed under
+Apache 2.0. Bundled third-party components retain their own licenses
+as enumerated in `NOTICE` (e.g., OpenJDK GPLv2-CE, Ollama MIT).
 
 ---
 
