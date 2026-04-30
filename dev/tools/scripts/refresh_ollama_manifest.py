@@ -13,9 +13,9 @@ malformed) the script falls back to streaming each platform's archive
 through hashlib — slow but correct.
 
 Usage:
-    python scripts/refresh_ollama_manifest.py
-    python scripts/refresh_ollama_manifest.py --dry-run
-    python scripts/refresh_ollama_manifest.py --check
+    python dev/tools/scripts/refresh_ollama_manifest.py
+    python dev/tools/scripts/refresh_ollama_manifest.py --dry-run
+    python dev/tools/scripts/refresh_ollama_manifest.py --check
 """
 
 from __future__ import annotations
@@ -29,8 +29,8 @@ from datetime import date
 from pathlib import Path
 from typing import Any
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
-MANIFEST = REPO_ROOT / "ollama_manifest.toml"
+REPO_ROOT = Path(__file__).resolve().parent.parent.parent.parent
+MANIFEST = REPO_ROOT / "build-config" / "ollama_manifest.toml"
 
 # Wheel platform tag -> (asset name pattern, archive_format, binary_inside_archive)
 # We deliberately pick the *non-GPU-bundled* variant for each platform to
@@ -78,7 +78,7 @@ def render_manifest(version: str, entries: dict[str, dict[str, Any]]) -> str:
         "#",
         "# Consumed by uofa_cli.setup_install at `uofa setup` time. Refresh via:",
         "#",
-        "#   python scripts/refresh_ollama_manifest.py",
+        "#   python dev/tools/scripts/refresh_ollama_manifest.py",
         "#",
         "# Source: https://github.com/ollama/ollama/releases (Ollama is MIT-",
         "# licensed; see LICENSES/LICENSE-ollama.txt).",

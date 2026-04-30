@@ -23,8 +23,8 @@ import urllib.request
 from datetime import date
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
-MANIFEST = REPO_ROOT / "jre_manifest.toml"
+REPO_ROOT = Path(__file__).resolve().parent.parent.parent.parent
+MANIFEST = REPO_ROOT / "build-config" / "jre_manifest.toml"
 
 # Wheel platform tag -> (Adoptium API os, Adoptium API architecture).
 PLATFORM_MAP: dict[str, tuple[str, str]] = {

@@ -28,11 +28,22 @@ contributors and for finding things during active iteration.
 | `CHANGELOG.md` | Per-version highlights |
 | `CONTRIBUTING.md` | Contributor onboarding |
 | `pyproject.toml` | Python package metadata + build config (hatchling) |
-| `Makefile` | Common dev commands |
-| `hatch_build.py` | Custom build hooks (bundles JRE + JAR into the wheel) |
-| `jre_manifest.toml` | Per-platform JRE manifest |
-| `ollama_manifest.toml` | Bundled Ollama manifest (for `uofa setup`) |
+| `Makefile` | 4-line shim that delegates to `build-config/Makefile` so `cd repo && make <target>` keeps working |
 | `LICENSE`, `NOTICE`, `CITATION.cff` | Project metadata |
+
+## `build-config/` (Phase E)
+
+Build/packaging configs were extracted to `build-config/` to keep the
+repo root tidy. The root `Makefile` is a 4-line shim that delegates
+here, so the muscle-memory `make morrison`/`make corpus`/`make test`
+commands keep working.
+
+| File | Purpose |
+|---|---|
+| `build-config/Makefile` | Real Make targets (morrison, corpus, test, validate, …) |
+| `build-config/hatch_build.py` | Custom hatch build hooks (bundles JRE + JAR into the wheel) |
+| `build-config/jre_manifest.toml` | Per-platform JRE manifest (consumed by `hatch_build.py`) |
+| `build-config/ollama_manifest.toml` | Bundled Ollama manifest (consumed by `uofa setup`) |
 
 ## `spec/` vs `dev/specs/` naming
 
@@ -122,13 +133,15 @@ Phase D, then nested under `dev/` in Phase E; same role.)
 | "What did Phase 2.5 fix?" | M5 NC clean rate 0% → 97.2%. See `dev/build/phase2_5/README.md` for the version chain |
 | "What's NAFEMS-ready as of 2026-04-29?" | v0.5.15.1: 180-NC holdout, 97.1% NC clean rate. See `holdout_v0515_summary.md` |
 
-## Recent reorg (post-NAFEMS cleanup)
+## Reorg history (post-NAFEMS cleanup)
 
-This doc is part of a Tier 1 (docs-only) cleanup pass. Subsequent
-phases will:
+The repo went through a five-phase consolidation:
 
-- **Tier 2**: Archive SMOKE* dirs, version-partition `out/phase2_5/`
-- **Tier 3**: Subdivide `dev/tools/phase2_5/` into 4 logical subdirs
+- **Phase A** (Apr 28) — navigation READMEs (Tier 1, docs-only)
+- **Phase B** (Apr 28) — archive SMOKE dev artifacts; version-partition `dev/build/phase2_5/`
+- **Phase C** (Apr 29) — subdivide `dev/tools/phase2_5/` into `refinement_loop/`, `corpus_regen/`, `audit/`, `analysis/`; merge `architecture.md` + `getting-started.md` → `onboarding.md`
+- **Phase D** (Apr 29) — top-level dir consolidation: `corpus/` → `tests/corpus/`, `out/` → `build/`, `scripts/` → `tools/scripts/`, `weakener-engine/` → `src/weakener-engine/`
+- **Phase E** (Apr 29) — `build/` + `tools/` + `specs/` nested under `dev/`; build configs (Makefile, hatch_build.py, jre/ollama manifests) extracted to `build-config/`; relicensed CC0-1.0 → Apache 2.0
 
-See the planning file for details. Each phase ships in its own commit
-so any individual change can be reverted independently.
+Each phase shipped in its own commit so any single change can be
+reverted independently.

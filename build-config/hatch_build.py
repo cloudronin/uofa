@@ -131,7 +131,7 @@ class UofaBundleHook(BuildHookInterface):
     # ── JRE bundling ──────────────────────────────────────────────
 
     def _bundle_jre(self, platform_tag: str, build_data: dict) -> None:
-        manifest_path = Path(self.root) / "jre_manifest.toml"
+        manifest_path = Path(self.root) / "build-config" / "jre_manifest.toml"
         manifest = _load_toml(manifest_path)
         platforms = manifest.get("platforms", {})
         entry = platforms.get(platform_tag)
