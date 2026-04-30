@@ -7,9 +7,9 @@ is the rendering engine; install via ``pip install -e '.[export]'``.
 
 Usage:
     python tools/scripts/export_view_pdf.py \\
-        --report build/.../coverage/index.html \\
+        --report dev/build/.../coverage/index.html \\
         --view 2 \\
-        --output build/.../figure_3_x.pdf
+        --output dev/build/.../figure_3_x.pdf
 
 When ``--view`` is set to 1, 2, or 3, the script extracts only the
 matching ``<section>`` (and its sibling header) from the rendered HTML

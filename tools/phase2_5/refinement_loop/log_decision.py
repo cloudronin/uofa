@@ -67,21 +67,21 @@ def main(argv: list[str] | None = None) -> int:
     )
     p.add_argument(
         "--log-path", type=Path,
-        default=Path("build/phase2_5/shared/refinement_log.jsonl"),
+        default=Path("dev/build/phase2_5/shared/refinement_log.jsonl"),
     )
     p.add_argument(
         "--diff-dir", type=Path,
-        default=Path("build/phase2_5/shared/predicate_diffs"),
+        default=Path("dev/build/phase2_5/shared/predicate_diffs"),
     )
     p.add_argument(
         "--lock-dir", type=Path,
-        default=Path("build/phase2_5/shared/holdout_used"),
+        default=Path("dev/build/phase2_5/shared/holdout_used"),
     )
     args = p.parse_args(argv)
 
     if args.split_path is None:
         rule_slug = args.rule.lower().replace("-", "_")
-        args.split_path = Path(f"build/phase2_5/shared/splits/{rule_slug}_split.json")
+        args.split_path = Path(f"dev/build/phase2_5/shared/splits/{rule_slug}_split.json")
 
     rule_name = RULE_NAME_MAP[args.rule]
 

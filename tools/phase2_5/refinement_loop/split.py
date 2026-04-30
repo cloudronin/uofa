@@ -194,11 +194,11 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument(
         "--outcomes",
         type=Path,
-        default=Path("build/adversarial/phase2/2026-04-26/coverage/outcomes.csv"),
+        default=Path("dev/build/adversarial/phase2/2026-04-26/coverage/outcomes.csv"),
         help="path to M5 outcomes.csv (read-only)",
     )
     p.add_argument(
-        "--out", type=Path, default=Path("build/phase2_5/shared/splits"),
+        "--out", type=Path, default=Path("dev/build/phase2_5/shared/splits"),
         help="output directory for split JSONs",
     )
     g = p.add_mutually_exclusive_group(required=True)

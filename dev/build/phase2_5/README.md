@@ -1,11 +1,11 @@
-# `build/phase2_5/` — Phase 2.5 refinement output workspace
+# `dev/build/phase2_5/` — Phase 2.5 refinement output workspace
 
 > **Note**: This directory is gitignored except for this README. The
 > contents here are the empirical output of the Phase 2.5 catalog
 > refinement work. The deterministic regenerator is the codebase +
 > spec yamls; this dir is the artifact trail.
 
-## Layout (post-Phase-C+D reorg, 2026-04-29)
+## Layout (post-Phase-E reorg, 2026-04-29)
 
 The output is split into **per-version subdirs** for the human-facing
 summary documents, plus a **`shared/` directory** holding the cumulative
@@ -14,7 +14,7 @@ plots, per_iter_outcomes). A back-compat symlink `2026-04-27 → shared`
 keeps the original path resolvable for one release cycle.
 
 ```
-build/phase2_5/
+dev/build/phase2_5/
 ├── README.md (this file, force-tracked despite gitignore)
 │
 ├── v0.5.10-w-on-02/                        ← Phase 2.5 W-ON-02 fix
@@ -74,10 +74,11 @@ The seven tools whose defaults migrated:
 - `tools/phase2_5/refinement_loop/split.py`
 - `tools/phase2_5/analysis/verify_sentinels.py`
 
-Phase D additionally renamed the parent `out/` → `build/`. Combined
-with the Phase C reorg of `tools/phase2_5/` into purpose-keyed
-subpackages (refinement_loop/, corpus_regen/, audit/, analysis/),
-the repo no longer carries pre-cleanup naming oddities.
+Phase D additionally renamed the parent `out/` → `build/`, and Phase E
+nested it under `dev/build/`. Combined with the Phase C reorg of
+`tools/phase2_5/` into purpose-keyed subpackages (refinement_loop/,
+corpus_regen/, audit/, analysis/), the repo no longer carries
+pre-cleanup naming oddities.
 
 ## Summary docs by Phase 2.5 version
 

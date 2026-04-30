@@ -439,23 +439,23 @@ def main(argv: list[str] | None = None) -> int:
     )
     p.add_argument(
         "--outcomes", type=Path,
-        default=Path("build/adversarial/phase2/2026-04-26/coverage/outcomes.csv"),
+        default=Path("dev/build/adversarial/phase2/2026-04-26/coverage/outcomes.csv"),
     )
     p.add_argument(
         "--batch-dir", type=Path,
-        default=Path("build/adversarial/phase2/2026-04-26"),
+        default=Path("dev/build/adversarial/phase2/2026-04-26"),
     )
     p.add_argument(
         "--log-path", type=Path,
-        default=Path("build/phase2_5/shared/refinement_log.jsonl"),
+        default=Path("dev/build/phase2_5/shared/refinement_log.jsonl"),
     )
     p.add_argument(
         "--diff-dir", type=Path,
-        default=Path("build/phase2_5/shared/predicate_diffs"),
+        default=Path("dev/build/phase2_5/shared/predicate_diffs"),
     )
     p.add_argument(
         "--lock-dir", type=Path,
-        default=Path("build/phase2_5/shared/holdout_used"),
+        default=Path("dev/build/phase2_5/shared/holdout_used"),
     )
     p.add_argument("--max-iterations", type=int, default=5)
     p.add_argument("--parallel", type=int, default=5)
@@ -471,7 +471,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.split_path is None:
         rule_slug = args.rule.lower().replace("-", "_")
-        args.split_path = Path(f"build/phase2_5/shared/splits/{rule_slug}_split.json")
+        args.split_path = Path(f"dev/build/phase2_5/shared/splits/{rule_slug}_split.json")
 
     propose_fn = _resolve_dotted(args.propose_fn) if args.propose_fn else None
     metrics_fn = _resolve_dotted(args.metrics_fn) if args.metrics_fn else None

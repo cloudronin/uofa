@@ -11,7 +11,7 @@ at one rule × one iteration.
 Usage:
 
     python -m tools.phase2_5.lock_in --rule W-EP-01 --iteration 1 \
-        --new-outcomes build/phase2_5/.../w_ep_01_iter01/coverage/outcomes.csv \
+        --new-outcomes dev/build/phase2_5/.../w_ep_01_iter01/coverage/outcomes.csv \
         --rationale "added (?claim rdf:type uofa:Claim) guard"
 
 Decision policy mirrors refine_loop._decision_metrics_pass:
@@ -45,7 +45,7 @@ from tools.phase2_5.refinement_loop.metrics import AFFECTED_RULES, compute_metri
 from tools.phase2_5.refinement_loop.refine_loop import RULE_NAME_MAP
 
 
-M5_BASELINE_OUTCOMES = Path("build/adversarial/phase2/2026-04-26/coverage/outcomes.csv")
+M5_BASELINE_OUTCOMES = Path("dev/build/adversarial/phase2/2026-04-26/coverage/outcomes.csv")
 
 
 def baseline_metrics(
@@ -209,19 +209,19 @@ def main(argv: list[str] | None = None) -> int:
     )
     p.add_argument(
         "--log-path", type=Path,
-        default=Path("build/phase2_5/shared/refinement_log.jsonl"),
+        default=Path("dev/build/phase2_5/shared/refinement_log.jsonl"),
     )
     p.add_argument(
         "--diff-dir", type=Path,
-        default=Path("build/phase2_5/shared/predicate_diffs"),
+        default=Path("dev/build/phase2_5/shared/predicate_diffs"),
     )
     p.add_argument(
         "--lock-dir", type=Path,
-        default=Path("build/phase2_5/shared/holdout_used"),
+        default=Path("dev/build/phase2_5/shared/holdout_used"),
     )
     p.add_argument(
         "--milestones-dir", type=Path,
-        default=Path("build/phase2_5/shared/milestones"),
+        default=Path("dev/build/phase2_5/shared/milestones"),
     )
     p.add_argument("--commit-holdout", action="store_true",
                    help="if metric gates pass, ALSO compute holdout (spends lock)")
@@ -237,7 +237,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.split_path is None:
         rule_slug = args.rule.lower().replace("-", "_")
-        args.split_path = Path(f"build/phase2_5/shared/splits/{rule_slug}_split.json")
+        args.split_path = Path(f"dev/build/phase2_5/shared/splits/{rule_slug}_split.json")
 
     rule_name = RULE_NAME_MAP[args.rule]
 

@@ -16,7 +16,7 @@ For *rule_id*, prints:
 Exit code 0 iff sentinels are clean post-fix.
 
 CLI: ``python -m tools.phase2_5.verify_sentinels --rule W-EP-01 \\
-        --post-outcomes build/phase2_5/.../milestones/after_w_ep_01.csv``
+        --post-outcomes dev/build/phase2_5/.../milestones/after_w_ep_01.csv``
 """
 
 from __future__ import annotations
@@ -40,7 +40,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     p.add_argument(
         "--baseline-outcomes", type=Path,
-        default=Path("build/adversarial/phase2/2026-04-26/coverage/outcomes.csv"),
+        default=Path("dev/build/adversarial/phase2/2026-04-26/coverage/outcomes.csv"),
     )
     p.add_argument(
         "--post-outcomes", type=Path, required=True,
@@ -51,7 +51,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.split_path is None:
         rule_slug = args.rule.lower().replace("-", "_")
         args.split_path = Path(
-            f"build/phase2_5/shared/splits/{rule_slug}_split.json"
+            f"dev/build/phase2_5/shared/splits/{rule_slug}_split.json"
         )
 
     sentinels = json.loads(args.split_path.read_text())["loosening_sentinels"]

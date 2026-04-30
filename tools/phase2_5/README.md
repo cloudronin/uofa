@@ -38,7 +38,7 @@ taxonomy.
 | `regen_nc_offset_rationale.py` | v0.5.11 (W-AR-02) | Inject placeholder `hasOffsetRationale` on Accepted-with-shortfall DRs |
 | `regen_nc_consistency.py` | v0.5.12 (W-CON-04) | Inject `hasSensitivityAnalysis` (boolean per v0.5.15.1 fix) on Complete-profile NCs |
 
-Each builds a **hybrid batch dir** at `build/adversarial/phase2/<date>-v0.5.X/`
+Each builds a **hybrid batch dir** at `dev/build/adversarial/phase2/<date>-v0.5.X/`
 that symlinks the pristine source dirs (CE / GP / interaction) and
 materializes a real `negative_controls/` with patched + re-signed NCs.
 This pattern is reusable for future per-rule NC patches.
@@ -73,11 +73,11 @@ Run with: `pytest tools/phase2_5/tests/`
 
 ## Outputs
 
-All Phase 2.5 outputs land in `build/phase2_5/shared/` (cumulative
-artifacts) and `build/phase2_5/v0.5.X-*/` (per-version summary docs).
-A back-compat symlink `build/phase2_5/2026-04-27 → shared` keeps the
+All Phase 2.5 outputs land in `dev/build/phase2_5/shared/` (cumulative
+artifacts) and `dev/build/phase2_5/v0.5.X-*/` (per-version summary docs).
+A back-compat symlink `dev/build/phase2_5/2026-04-27 → shared` keeps the
 pre-Phase-C path working for one release cycle. See
-[`build/phase2_5/README.md`](../../build/phase2_5/README.md) for the
+[`dev/build/phase2_5/README.md`](../../dev/build/phase2_5/README.md) for the
 output-directory index.
 
 ## Cross-references
@@ -92,5 +92,5 @@ output-directory index.
   `refinement_loop/`, `corpus_regen/`, `audit/`, `analysis/` subpackages
   with deprecation shims at the old top-level paths.
 - **Phase C** also migrated the seven cumulative-path tool defaults
-  from `build/phase2_5/2026-04-27/` → `build/phase2_5/shared/`.
+  from `dev/build/phase2_5/2026-04-27/` → `dev/build/phase2_5/shared/`.
 - **Phase D** renamed the parent `out/` → `build/`.

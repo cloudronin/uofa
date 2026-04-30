@@ -256,15 +256,15 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--catalog", action="store_true", help="catalog milestone scatter only")
     p.add_argument(
         "--log-path", type=Path,
-        default=Path("build/phase2_5/shared/refinement_log.jsonl"),
+        default=Path("dev/build/phase2_5/shared/refinement_log.jsonl"),
     )
     p.add_argument(
         "--milestones-dir", type=Path,
-        default=Path("build/phase2_5/shared/milestones"),
+        default=Path("dev/build/phase2_5/shared/milestones"),
     )
     p.add_argument(
         "--plots-dir", type=Path,
-        default=Path("build/phase2_5/shared/plots"),
+        default=Path("dev/build/phase2_5/shared/plots"),
     )
     p.add_argument(
         "--baseline-json", type=Path, default=None,

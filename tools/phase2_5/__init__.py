@@ -4,9 +4,9 @@ Implements UofA_Phase2_5_Rule_Refinement_Spec_v0_1.md with four
 documented adaptations (auto-mode metric-gated accept, PR-curve
 plotting, W-AL-02 skipped, stretch goals enabled).
 
-Operates against the M5 dataset under `build/adversarial/phase2/2026-04-26/`
+Operates against the M5 dataset under `dev/build/adversarial/phase2/2026-04-26/`
 in read-only mode; all Phase 2.5 outputs land under
-`build/phase2_5/shared/`. The M5 outcomes.csv is never overwritten.
+`dev/build/phase2_5/shared/`. The M5 outcomes.csv is never overwritten.
 
 Subpackages (post-Phase-2.5 reorg, v0.5.15.1+):
 

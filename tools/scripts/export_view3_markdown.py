@@ -8,8 +8,8 @@ table, computed identically to the HTML reporter's
 
 Usage:
     python scripts/export_view3_markdown.py \\
-        --outcomes build/.../coverage/outcomes.csv \\
-        --output   build/.../view3_precision_recall.md
+        --outcomes dev/build/.../coverage/outcomes.csv \\
+        --output   dev/build/.../view3_precision_recall.md
 """
 
 from __future__ import annotations

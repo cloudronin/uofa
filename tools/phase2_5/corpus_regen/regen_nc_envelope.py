@@ -42,8 +42,8 @@ result (the helper short-circuits when both fields are present).
 CLI:
 
     python -m tools.phase2_5.regen_nc_envelope \\
-        --m5-batch build/adversarial/phase2/2026-04-26 \\
-        --out-batch build/adversarial/phase2/2026-04-28-v0510 \\
+        --m5-batch dev/build/adversarial/phase2/2026-04-26 \\
+        --out-batch dev/build/adversarial/phase2/2026-04-28-v0510 \\
         --key keys/research.key \\
         [--dry-run] [--report regen_report.csv]
 """
@@ -143,7 +143,7 @@ def _materialize_hybrid_batch(m5_batch: Path, out_batch: Path) -> None:
     # original paths (which resolve via the symlinked subdirs above).
     #
     # `out_dir` is stored in the manifest as a path relative to the repo
-    # root (e.g., "build/adversarial/phase2/2026-04-26/negative_controls/<spec>").
+    # root (e.g., "dev/build/adversarial/phase2/2026-04-26/negative_controls/<spec>").
     # We rewrite the m5_batch portion to out_batch — both relative-to-repo
     # and absolute forms.
     src_manifest = m5_batch / "batch_manifest.json"
@@ -343,12 +343,12 @@ def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument(
         "--m5-batch", type=Path,
-        default=Path("build/adversarial/phase2/2026-04-26"),
+        default=Path("dev/build/adversarial/phase2/2026-04-26"),
         help="M5 baseline batch dir (read-only).",
     )
     p.add_argument(
         "--out-batch", type=Path,
-        default=Path("build/adversarial/phase2/2026-04-28-v0510"),
+        default=Path("dev/build/adversarial/phase2/2026-04-28-v0510"),
         help="hybrid output batch dir (created if missing). NC subtree is real; other subdirs are symlinks to --m5-batch.",
     )
     p.add_argument(

@@ -32,11 +32,11 @@ uofa adversarial run \
 # 4. Mini live smoke ($1 budget — confirms infra is live before the big run)
 uofa adversarial run \
   --batch specs/confirm_existing/ \
-  --out build/adversarial/phase2/SMOKE/ \
+  --out dev/build/adversarial/phase2/SMOKE/ \
   --model claude-sonnet-4-6 \
   --max-cost 1.00 \
   --strict-circularity
-uofa adversarial analyze --in build/adversarial/phase2/SMOKE/ --out build/adversarial/phase2/SMOKE/coverage/
+uofa adversarial analyze --in dev/build/adversarial/phase2/SMOKE/ --out dev/build/adversarial/phase2/SMOKE/coverage/
 ```
 
 If the preview reports anywhere near **4,440 primary packages** and the
@@ -51,7 +51,7 @@ green for M5.
 
 ```bash
 DATE=2026-05-16
-mkdir -p build/adversarial/phase2/$DATE
+mkdir -p dev/build/adversarial/phase2/$DATE
 uofa adversarial run \
   --batch specs/confirm_existing/ \
   --batch specs/gap_probe/ \
@@ -59,12 +59,12 @@ uofa adversarial run \
   --batch specs/interaction/ \
   --subtlety-override low,medium,high \
   --base-cou-override packs/vv40/examples/morrison/cou1,packs/vv40/examples/morrison/cou2,packs/vv40/examples/nagaraja/cou1 \
-  --out build/adversarial/phase2/$DATE/ \
+  --out dev/build/adversarial/phase2/$DATE/ \
   --model claude-sonnet-4-6 \
   --max-cost 400.00 \
   --parallel 3 \
   --strict-circularity \
-  2>&1 | tee build/adversarial/phase2/$DATE/run.log
+  2>&1 | tee dev/build/adversarial/phase2/$DATE/run.log
 ```
 
 > **Why these flags**
@@ -92,19 +92,19 @@ uofa adversarial run \
 
 ```bash
 # Tail the run log for warnings + per-spec progress
-tail -f build/adversarial/phase2/$DATE/run.log
+tail -f dev/build/adversarial/phase2/$DATE/run.log
 
 # Live cost watch
 watch -n 30 "jq '.estimatedCostUsd, .totalPackages, .specsSucceeded, .halted' \
-  build/adversarial/phase2/$DATE/batch_manifest.json"
+  dev/build/adversarial/phase2/$DATE/batch_manifest.json"
 ```
 
 ### Post-batch analyze (Sun morning)
 
 ```bash
 uofa adversarial analyze \
-  --in build/adversarial/phase2/$DATE/ \
-  --out build/adversarial/phase2/$DATE/coverage/
+  --in dev/build/adversarial/phase2/$DATE/ \
+  --out dev/build/adversarial/phase2/$DATE/coverage/
 ```
 
 Outputs (per v1.8 §10):
@@ -143,10 +143,10 @@ block the others. Total ~$25 across all three.
 DATE=2026-05-18-crosspack
 uofa adversarial run \
   --batch specs/cross_pack/ \
-  --out build/adversarial/phase2/$DATE/ \
+  --out dev/build/adversarial/phase2/$DATE/ \
   --model claude-sonnet-4-6 \
   --strict-circularity
-uofa adversarial analyze --in build/adversarial/phase2/$DATE/ --out build/adversarial/phase2/$DATE/coverage/
+uofa adversarial analyze --in dev/build/adversarial/phase2/$DATE/ --out dev/build/adversarial/phase2/$DATE/coverage/
 ```
 
 Closes gate **#17**.
@@ -157,10 +157,10 @@ Closes gate **#17**.
 DATE=2026-05-19-paraphrasing
 uofa adversarial run \
   --batch specs/paraphrasing/ \
-  --out build/adversarial/phase2/$DATE/ \
+  --out dev/build/adversarial/phase2/$DATE/ \
   --model claude-sonnet-4-6 \
   --strict-circularity
-uofa adversarial analyze --in build/adversarial/phase2/$DATE/ --out build/adversarial/phase2/$DATE/coverage/
+uofa adversarial analyze --in dev/build/adversarial/phase2/$DATE/ --out dev/build/adversarial/phase2/$DATE/coverage/
 ```
 
 Soft gate **#29** (paraphrase robustness).
@@ -173,9 +173,9 @@ uofa adversarial run \
   --batch specs/quality_benchmark/ \
   --subtlety-override low,high \
   --models claude-sonnet-4-6,claude-opus-4-7,claude-haiku-4-5-20251001 \
-  --out build/adversarial/phase2/$DATE/ \
+  --out dev/build/adversarial/phase2/$DATE/ \
   --strict-circularity
-uofa adversarial analyze --in build/adversarial/phase2/$DATE/ --out build/adversarial/phase2/$DATE/coverage/
+uofa adversarial analyze --in dev/build/adversarial/phase2/$DATE/ --out dev/build/adversarial/phase2/$DATE/coverage/
 ```
 
 > Math: 8 specs × 2 subtlety × 3 models × 2 variants = **96 packages** ✓
@@ -195,30 +195,30 @@ Closes gate **#18**; soft gates **#30 / #31**.
 pip install -e '.[export]'
 
 # Re-run analyze across every batch (cheap; idempotent)
-for d in build/adversarial/phase2/2026-05-{16,18,19,20}*; do
+for d in dev/build/adversarial/phase2/2026-05-{16,18,19,20}*; do
   uofa adversarial analyze --in "$d" --out "$d/coverage/"
 done
 
 # Figure 3.x PDF (View 2 — per §11.1)
 python tools/scripts/export_view_pdf.py \
-  --report build/adversarial/phase2/2026-05-16/coverage/index.html \
+  --report dev/build/adversarial/phase2/2026-05-16/coverage/index.html \
   --view 2 \
-  --output build/adversarial/phase2/figure_3_x.pdf
+  --output dev/build/adversarial/phase2/figure_3_x.pdf
 
 # View 3 markdown (drop-in for Ch3 abstract)
 python tools/scripts/export_view3_markdown.py \
-  --summary build/adversarial/phase2/2026-05-16/coverage/summary.csv \
-  --output build/adversarial/phase2/view3_precision_recall.md
+  --summary dev/build/adversarial/phase2/2026-05-16/coverage/summary.csv \
+  --output dev/build/adversarial/phase2/view3_precision_recall.md
 
 # Phase 2 → Phase 3 master review packet (per §16 Q6)
 python tools/scripts/build_phase2_review_packet.py \
-  --batch-dir build/adversarial/phase2/2026-05-16/ \
-  --output build/adversarial/phase2/phase2_review_packet.md
+  --batch-dir dev/build/adversarial/phase2/2026-05-16/ \
+  --output dev/build/adversarial/phase2/phase2_review_packet.md
 
 # D3 per-spec reviewer packets (per §10.6)
 uofa adversarial prep-review \
-  --outcomes build/adversarial/phase2/2026-05-16/coverage/outcomes.csv \
-  --output build/adversarial/phase2/2026-05-16/review_packets/ \
+  --outcomes dev/build/adversarial/phase2/2026-05-16/coverage/outcomes.csv \
+  --output dev/build/adversarial/phase2/2026-05-16/review_packets/ \
   --max-cases 50
 ```
 
@@ -258,8 +258,8 @@ If the M5 batch corrupts the working tree or `build/` somehow:
 
 ```bash
 git restore .                    # source tree only
-rm -rf build/adversarial/phase2/$DATE/    # destroy this run's artifacts
+rm -rf dev/build/adversarial/phase2/$DATE/    # destroy this run's artifacts
 git checkout v0.5.4                     # last clean tag
 ```
 
-`build/` is git-ignored; nothing in `build/adversarial/phase2/` is committed.
+`build/` is git-ignored; nothing in `dev/build/adversarial/phase2/` is committed.

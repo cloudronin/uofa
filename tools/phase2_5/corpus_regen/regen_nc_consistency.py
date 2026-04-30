@@ -41,8 +41,8 @@ Idempotent: re-running on an already-patched directory is a no-op
 CLI:
 
     python -m tools.phase2_5.regen_nc_consistency \\
-        --in-batch build/adversarial/phase2/2026-04-28-v0511 \\
-        --out-batch build/adversarial/phase2/2026-04-29-v0512 \\
+        --in-batch dev/build/adversarial/phase2/2026-04-28-v0511 \\
+        --out-batch dev/build/adversarial/phase2/2026-04-29-v0512 \\
         --key keys/research.key \\
         [--dry-run] [--report regen_consistency_report.csv]
 """
@@ -309,12 +309,12 @@ def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument(
         "--in-batch", type=Path,
-        default=Path("build/adversarial/phase2/2026-04-28-v0511"),
+        default=Path("dev/build/adversarial/phase2/2026-04-28-v0511"),
         help="source batch dir (typically the v0.5.11 hybrid). Read-only.",
     )
     p.add_argument(
         "--out-batch", type=Path,
-        default=Path("build/adversarial/phase2/2026-04-29-v0512"),
+        default=Path("dev/build/adversarial/phase2/2026-04-29-v0512"),
         help="hybrid output batch dir (created if missing).",
     )
     p.add_argument(

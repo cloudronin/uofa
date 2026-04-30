@@ -179,11 +179,11 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--rule", required=True)
     p.add_argument(
         "--outcomes", type=Path,
-        default=Path("build/adversarial/phase2/2026-04-26/coverage/outcomes.csv"),
+        default=Path("dev/build/adversarial/phase2/2026-04-26/coverage/outcomes.csv"),
     )
     p.add_argument(
         "--batch-dir", type=Path,
-        default=Path("build/adversarial/phase2/2026-04-26"),
+        default=Path("dev/build/adversarial/phase2/2026-04-26"),
     )
     p.add_argument("--n-nc", type=int, default=5)
     p.add_argument("--n-bystander", type=int, default=5)
