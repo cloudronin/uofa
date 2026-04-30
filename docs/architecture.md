@@ -2,6 +2,11 @@
 
 This document covers the architecture, design patterns, and conventions used across the UofA CLI. It is intended for contributors who want to understand the codebase and add new features.
 
+> **Companion docs**: see also [`repo-layout.md`](repo-layout.md) for top-level
+> directory orientation, [`phase2_runbook.md`](phase2_runbook.md) for the
+> adversarial corpus generation pipeline, and [`m5_findings.md`](m5_findings.md)
+> for the Phase 2.5 catalog refinement context.
+
 ---
 
 ## High-Level Overview

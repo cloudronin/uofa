@@ -2,6 +2,10 @@
 
 This guide walks you through creating a Unit of Assurance (UofA) evidence package for your own project. By the end, you'll have a signed, validated, machine-verifiable record of your credibility decision.
 
+> **For contributors**: see [`repo-layout.md`](repo-layout.md) for top-level
+> repo orientation and [`architecture.md`](architecture.md) for the CLI
+> design + conventions.
+
 ## Prerequisites
 
 **Fastest option — GitHub Codespace (zero install):**
