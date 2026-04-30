@@ -7,7 +7,7 @@ import json
 import random
 from pathlib import Path
 
-from tools.phase2_5.split import (
+from tools.phase2_5.refinement_loop.split import (
     SPLIT_SEED,
     _bucket_variant,
     _draw_loosening_sentinels,

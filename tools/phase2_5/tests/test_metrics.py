@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from tools.phase2_5.metrics import (
+from tools.phase2_5.refinement_loop.metrics import (
     AFFECTED_RULES,
     HoldoutAlreadyComputed,
     Metrics,

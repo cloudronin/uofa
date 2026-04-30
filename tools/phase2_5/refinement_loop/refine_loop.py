@@ -45,7 +45,7 @@ import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from tools.phase2_5.log import (
+from tools.phase2_5.refinement_loop.log import (
     IterationRecord,
     RefinementLog,
     current_git_sha,
@@ -54,7 +54,7 @@ from tools.phase2_5.log import (
     predicate_sha,
     write_predicate_diff,
 )
-from tools.phase2_5.metrics import (
+from tools.phase2_5.refinement_loop.metrics import (
     AFFECTED_RULES,
     Metrics,
     compute_metrics,
@@ -218,11 +218,11 @@ def run_loop(
     for tests; defaults are the real production functions.
     """
     if propose_fn is None:
-        from tools.phase2_5.propose_revision import make_proposal as propose_fn
+        from tools.phase2_5.refinement_loop.propose_revision import make_proposal as propose_fn
     if metrics_fn is None:
         metrics_fn = compute_metrics
     if inspect_fn is None:
-        from tools.phase2_5.inspect_misfires import sample_misfires as inspect_fn
+        from tools.phase2_5.analysis.inspect_misfires import sample_misfires as inspect_fn
 
     rule_name = RULE_NAME_MAP[rule_id]
     log = RefinementLog(log_path)
@@ -447,15 +447,15 @@ def main(argv: list[str] | None = None) -> int:
     )
     p.add_argument(
         "--log-path", type=Path,
-        default=Path("out/phase2_5/2026-04-27/refinement_log.jsonl"),
+        default=Path("out/phase2_5/shared/refinement_log.jsonl"),
     )
     p.add_argument(
         "--diff-dir", type=Path,
-        default=Path("out/phase2_5/2026-04-27/predicate_diffs"),
+        default=Path("out/phase2_5/shared/predicate_diffs"),
     )
     p.add_argument(
         "--lock-dir", type=Path,
-        default=Path("out/phase2_5/2026-04-27/holdout_used"),
+        default=Path("out/phase2_5/shared/holdout_used"),
     )
     p.add_argument("--max-iterations", type=int, default=5)
     p.add_argument("--parallel", type=int, default=5)
@@ -471,7 +471,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.split_path is None:
         rule_slug = args.rule.lower().replace("-", "_")
-        args.split_path = Path(f"out/phase2_5/2026-04-27/splits/{rule_slug}_split.json")
+        args.split_path = Path(f"out/phase2_5/shared/splits/{rule_slug}_split.json")
 
     propose_fn = _resolve_dotted(args.propose_fn) if args.propose_fn else None
     metrics_fn = _resolve_dotted(args.metrics_fn) if args.metrics_fn else None

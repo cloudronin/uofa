@@ -22,7 +22,7 @@ Start from a template in `packs/core/templates/`, import from an Excel workbook 
   "@context": "https://raw.githubusercontent.com/cloudronin/uofa/main/spec/context/v0.5.jsonld"
   ```
 - Conform to either Minimal or Complete profile
-- Include a signed hash and signature (see [Getting Started Guide](docs/getting-started.md))
+- Include a signed hash and signature (see [Onboarding Guide](docs/onboarding.md))
 
 ## Validating Before Submitting
 

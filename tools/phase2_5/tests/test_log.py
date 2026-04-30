@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from tools.phase2_5.log import (
+from tools.phase2_5.refinement_loop.log import (
     IterationRecord,
     RefinementLog,
     extract_rule_body,

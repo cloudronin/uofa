@@ -48,7 +48,7 @@ aarch64), and Windows (x86_64). The `uofa[extract]` extra adds the LLM-
 backed prose-to-UofA pipeline; see `uofa setup --help` for one-time runtime
 installation.
 
-**New to UofA?** See the [Getting Started Guide](docs/getting-started.md) for a step-by-step walkthrough, or study the [Morrison demo](#live-demo-morrison-blood-pump-fda-vv-40-case-study) below.
+**New to UofA?** See the [Onboarding Guide](docs/onboarding.md) for a step-by-step walkthrough, or study the [Morrison demo](#live-demo-morrison-blood-pump-fda-vv-40-case-study) below.
 
 ---
 
@@ -463,7 +463,7 @@ uofa migrate path/to/old-file.jsonld
 uofa schema --emit python
 ```
 
-See the [Getting Started Guide](docs/getting-started.md) for a full walkthrough.
+See the [Onboarding Guide](docs/onboarding.md) for a full walkthrough.
 
 ---
 
@@ -635,7 +635,7 @@ Contributions are welcome, especially real-world UofA examples from practitioner
 For contributors looking to add features or fix bugs:
 
 - [**Repo layout**](docs/repo-layout.md) — top-level orientation; quick reference for finding code, specs, schemas, outputs, and tooling. Disambiguates `spec/` (the v0.5 schema) vs `specs/` (adversarial spec YAMLs).
-- [**Architecture & Contributor Guide**](docs/architecture.md) — CLI design, subcommand patterns, test structure, step-by-step instructions for adding new commands, weakener rules, and schema changes.
+- [**Onboarding Guide**](docs/onboarding.md) — combined quick-start + architecture + contributor guide. Covers CLI design, subcommand patterns, test structure, and step-by-step instructions for adding new commands, weakener rules, and schema changes.
 - [**Phase 2.5 tooling**](tools/phase2_5/README.md) — the metric-gated catalog refinement loop + per-rule corpus regen tools (referenced by recent versions v0.5.7 → v0.5.15.1).
 
 **Website:** [crediblesimulation.com](https://crediblesimulation.com)

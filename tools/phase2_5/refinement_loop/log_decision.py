@@ -31,7 +31,7 @@ import argparse
 import json
 from pathlib import Path
 
-from tools.phase2_5.log import (
+from tools.phase2_5.refinement_loop.log import (
     IterationRecord,
     RefinementLog,
     current_git_sha,
@@ -40,8 +40,8 @@ from tools.phase2_5.log import (
     predicate_sha,
     write_predicate_diff,
 )
-from tools.phase2_5.metrics import compute_metrics
-from tools.phase2_5.refine_loop import RULE_NAME_MAP
+from tools.phase2_5.refinement_loop.metrics import compute_metrics
+from tools.phase2_5.refinement_loop.refine_loop import RULE_NAME_MAP
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -67,21 +67,21 @@ def main(argv: list[str] | None = None) -> int:
     )
     p.add_argument(
         "--log-path", type=Path,
-        default=Path("out/phase2_5/2026-04-27/refinement_log.jsonl"),
+        default=Path("out/phase2_5/shared/refinement_log.jsonl"),
     )
     p.add_argument(
         "--diff-dir", type=Path,
-        default=Path("out/phase2_5/2026-04-27/predicate_diffs"),
+        default=Path("out/phase2_5/shared/predicate_diffs"),
     )
     p.add_argument(
         "--lock-dir", type=Path,
-        default=Path("out/phase2_5/2026-04-27/holdout_used"),
+        default=Path("out/phase2_5/shared/holdout_used"),
     )
     args = p.parse_args(argv)
 
     if args.split_path is None:
         rule_slug = args.rule.lower().replace("-", "_")
-        args.split_path = Path(f"out/phase2_5/2026-04-27/splits/{rule_slug}_split.json")
+        args.split_path = Path(f"out/phase2_5/shared/splits/{rule_slug}_split.json")
 
     rule_name = RULE_NAME_MAP[args.rule]
 

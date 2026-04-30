@@ -100,12 +100,13 @@ The output workspace, all gitignored.
 
 | Doc | Status | Purpose |
 |---|---|---|
+| `onboarding.md` | Current (Apr 28) | Combined quick-start + architecture + contributor guide (merged from `archive/architecture.md` + `archive/getting-started.md`) |
 | `m5_findings.md` | Recent (Apr 27) | M5 baseline analysis & defect typology |
 | `phase2_runbook.md` | Recent (Apr 25) | Phase 2 adversarial-corpus generation playbook |
 | `v0.5-morrison-deltas.md` | Recent (Apr 23) | Morrison COU deltas across v0.5 versions |
-| `architecture.md` | Older (Apr 21, pre-Phase-2.5) | Top-level system architecture (may be stale post-Phase-2.5) |
-| `getting-started.md` | Older (Apr 21) | Onboarding guide (may be stale) |
 | `repo-layout.md` | This doc | Top-level navigation |
+| `archive/architecture.md` | Apr 21 (superseded) | Original architecture guide — content folded into `onboarding.md` |
+| `archive/getting-started.md` | Apr 21 (superseded) | Original onboarding guide — content folded into `onboarding.md` |
 
 ## Where to find things
 

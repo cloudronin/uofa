@@ -13,8 +13,8 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
-from tools.phase2_5.metrics import Metrics
-from tools.phase2_5.refine_loop import _replace_rule_body, run_loop
+from tools.phase2_5.refinement_loop.metrics import Metrics
+from tools.phase2_5.refinement_loop.refine_loop import _replace_rule_body, run_loop
 
 
 # Minimal Jena rules file used by every test
