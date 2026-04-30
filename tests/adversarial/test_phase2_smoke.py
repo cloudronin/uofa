@@ -33,8 +33,8 @@ from pathlib import Path
 import pytest
 
 REPO_ROOT = Path(__file__).parent.parent.parent
-CONFIRM_DIR = REPO_ROOT / "specs" / "confirm_existing"
-GAP_DIR = REPO_ROOT / "specs" / "gap_probe"
+CONFIRM_DIR = REPO_ROOT / "dev" / "specs" / "confirm_existing"
+GAP_DIR = REPO_ROOT / "dev" / "specs" / "gap_probe"
 
 
 def _build_run_args(out_dir: Path, batch: list[Path]) -> argparse.Namespace:

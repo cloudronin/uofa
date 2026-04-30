@@ -125,7 +125,7 @@ def main(argv=None) -> int:
     p.add_argument("--n", type=int, default=5,
                    help="number of packages to generate (default: 5)")
     p.add_argument("--spec", type=Path,
-                   default=_REPO_ROOT / "specs/negative_controls/nc-clean-minimal-morrison-cou1.yaml",
+                   default=_REPO_ROOT / "dev/specs/negative_controls/nc-clean-minimal-morrison-cou1.yaml",
                    help="spec yaml to generate against")
     p.add_argument("--out", type=Path,
                    default=Path("/tmp/v0_phase2v3_pilot"),

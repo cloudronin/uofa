@@ -19,10 +19,10 @@ from uofa_cli.adversarial.runner import (
 
 
 REPO_ROOT = Path(__file__).parent.parent.parent
-CONFIRM_DIR = REPO_ROOT / "specs" / "confirm_existing"
-GAP_DIR = REPO_ROOT / "specs" / "gap_probe"
-CROSS_PACK_DIR = REPO_ROOT / "specs" / "cross_pack"
-QB_DIR = REPO_ROOT / "specs" / "quality_benchmark"
+CONFIRM_DIR = REPO_ROOT / "dev" / "specs" / "confirm_existing"
+GAP_DIR = REPO_ROOT / "dev" / "specs" / "gap_probe"
+CROSS_PACK_DIR = REPO_ROOT / "dev" / "specs" / "cross_pack"
+QB_DIR = REPO_ROOT / "dev" / "specs" / "quality_benchmark"
 
 
 def _build_args(out_dir: Path, batch: list[Path], **overrides) -> argparse.Namespace:
@@ -335,7 +335,7 @@ def test_run_batch_invalid_subtlety_override_returns_2(tmp_path):
 
 
 def test_cross_pack_battery_all_specs_load_and_run_under_mock(tmp_path):
-    """End-to-end mock-LLM run across the entire specs/cross_pack/ battery.
+    """End-to-end mock-LLM run across the entire dev/specs/cross_pack/ battery.
     Expects 10 specs × 3 variants = 30 packages per Phase 2 §3."""
     pytest.importorskip("yaml")
     if not CROSS_PACK_DIR.exists():

@@ -100,10 +100,10 @@ def test_mock_response_returns_json():
 REPO_ROOT = Path(__file__).parent.parent.parent
 PHASE2_SNAPSHOTS = FIXTURES / "snapshots"
 PHASE2_SPECS = sorted(
-    list((REPO_ROOT / "specs" / "confirm_existing").glob("*.yaml"))
-    + list((REPO_ROOT / "specs" / "gap_probe").glob("*.yaml"))
-    + list((REPO_ROOT / "specs" / "negative_controls").glob("*.yaml"))
-    + list((REPO_ROOT / "specs" / "interaction").glob("*.yaml"))
+    list((REPO_ROOT / "dev" / "specs" / "confirm_existing").glob("*.yaml"))
+    + list((REPO_ROOT / "dev" / "specs" / "gap_probe").glob("*.yaml"))
+    + list((REPO_ROOT / "dev" / "specs" / "negative_controls").glob("*.yaml"))
+    + list((REPO_ROOT / "dev" / "specs" / "interaction").glob("*.yaml"))
 )
 
 

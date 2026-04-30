@@ -433,7 +433,7 @@ tests/
   fixtures/import/        # generated .xlsx test files (TC-01 through TC-62)
 ```
 
-For a top-level orientation across `specs/`, `build/`, `tools/`, `docs/`,
+For a top-level orientation across `dev/specs/`, `build/`, `tools/`, `docs/`,
 see [`repo-layout.md`](repo-layout.md).
 
 ## Subcommand Module Contract
@@ -744,7 +744,7 @@ catalog: `dataVintage`, `modelRevisionDate`, `hasSensitivityAnalysis`,
 `consideredAlternative`, and `knownLimitation`.
 
 > **Naming note:** `spec/` (singular) holds the v0.5 vocabulary +
-> JSON Schema + SHACL symlink, while `specs/` (plural) holds adversarial
+> JSON Schema + SHACL symlink, while `dev/specs/` (plural) holds adversarial
 > spec YAML batteries. See [`repo-layout.md`](repo-layout.md) for the
 > rationale.
 

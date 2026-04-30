@@ -357,7 +357,7 @@ def run_prep_review(args) -> int:
     for case in capped:
         # Best-effort spec_path resolution: the runner wrote per-spec
         # manifests under <batch_dir>/<intent>/<spec_id>/manifest.json
-        # and the spec was loaded from a YAML in specs/<intent>/.
+        # and the spec was loaded from a YAML in dev/specs/<intent>/.
         spec_path = None
         try:
             root = paths.find_repo_root()

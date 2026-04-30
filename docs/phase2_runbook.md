@@ -19,10 +19,10 @@ test -n "$UOFA_EVAL_HOST_ID"     || echo "missing UOFA_EVAL_HOST_ID"
 
 # 3. Cost-preview the planned launch (no LLM calls — exits 0 instantly)
 uofa adversarial run \
-  --batch specs/confirm_existing/ \
-  --batch specs/gap_probe/ \
-  --batch specs/negative_controls/ \
-  --batch specs/interaction/ \
+  --batch dev/specs/confirm_existing/ \
+  --batch dev/specs/gap_probe/ \
+  --batch dev/specs/negative_controls/ \
+  --batch dev/specs/interaction/ \
   --subtlety-override low,medium,high \
   --base-cou-override packs/vv40/examples/morrison/cou1,packs/vv40/examples/morrison/cou2,packs/vv40/examples/nagaraja/cou1 \
   --out /tmp/preview \
@@ -31,7 +31,7 @@ uofa adversarial run \
 
 # 4. Mini live smoke ($1 budget — confirms infra is live before the big run)
 uofa adversarial run \
-  --batch specs/confirm_existing/ \
+  --batch dev/specs/confirm_existing/ \
   --out dev/build/adversarial/phase2/SMOKE/ \
   --model claude-sonnet-4-6 \
   --max-cost 1.00 \
@@ -53,10 +53,10 @@ green for M5.
 DATE=2026-05-16
 mkdir -p dev/build/adversarial/phase2/$DATE
 uofa adversarial run \
-  --batch specs/confirm_existing/ \
-  --batch specs/gap_probe/ \
-  --batch specs/negative_controls/ \
-  --batch specs/interaction/ \
+  --batch dev/specs/confirm_existing/ \
+  --batch dev/specs/gap_probe/ \
+  --batch dev/specs/negative_controls/ \
+  --batch dev/specs/interaction/ \
   --subtlety-override low,medium,high \
   --base-cou-override packs/vv40/examples/morrison/cou1,packs/vv40/examples/morrison/cou2,packs/vv40/examples/nagaraja/cou1 \
   --out dev/build/adversarial/phase2/$DATE/ \
@@ -142,7 +142,7 @@ block the others. Total ~$25 across all three.
 ```bash
 DATE=2026-05-18-crosspack
 uofa adversarial run \
-  --batch specs/cross_pack/ \
+  --batch dev/specs/cross_pack/ \
   --out dev/build/adversarial/phase2/$DATE/ \
   --model claude-sonnet-4-6 \
   --strict-circularity
@@ -156,7 +156,7 @@ Closes gate **#17**.
 ```bash
 DATE=2026-05-19-paraphrasing
 uofa adversarial run \
-  --batch specs/paraphrasing/ \
+  --batch dev/specs/paraphrasing/ \
   --out dev/build/adversarial/phase2/$DATE/ \
   --model claude-sonnet-4-6 \
   --strict-circularity
@@ -170,7 +170,7 @@ Soft gate **#29** (paraphrase robustness).
 ```bash
 DATE=2026-05-20-quality
 uofa adversarial run \
-  --batch specs/quality_benchmark/ \
+  --batch dev/specs/quality_benchmark/ \
   --subtlety-override low,high \
   --models claude-sonnet-4-6,claude-opus-4-7,claude-haiku-4-5-20251001 \
   --out dev/build/adversarial/phase2/$DATE/ \
@@ -250,7 +250,7 @@ Closes gates **#20, #21**.
 
 Within rounding tolerance of v1.8 §3's "~4,671" target (15-package gap
 absorbed in the §7-vs-§3 gap_probe reconciliation per
-`specs/gap_probe/README.md`).
+`dev/specs/gap_probe/README.md`).
 
 ## Appendix — emergency rollback
 

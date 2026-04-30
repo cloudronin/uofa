@@ -477,11 +477,11 @@ export ANTHROPIC_API_KEY=sk-ant-...              # generation defaults to claude
 
 # Generate 5 synthetic packages targeting W-AR-05 (comparator absence / mismatch)
 uofa adversarial generate \
-  --spec specs/confirm_existing/w_ar_05.yaml \
+  --spec dev/specs/confirm_existing/w_ar_05.yaml \
   --out build/adversarial/w_ar_05/
 
 # Dry-run: render the prompt without calling the LLM
-uofa adversarial generate --spec specs/confirm_existing/w_ar_05.yaml --out /tmp/dry --dry-run
+uofa adversarial generate --spec dev/specs/confirm_existing/w_ar_05.yaml --out /tmp/dry --dry-run
 
 # Run the full Phase 1 acceptance script
 bash tests/adversarial/test_acceptance.sh
@@ -634,7 +634,7 @@ Contributions are welcome, especially real-world UofA examples from practitioner
 
 For contributors looking to add features or fix bugs:
 
-- [**Repo layout**](docs/repo-layout.md) — top-level orientation; quick reference for finding code, specs, schemas, outputs, and tooling. Disambiguates `spec/` (the v0.5 schema) vs `specs/` (adversarial spec YAMLs).
+- [**Repo layout**](docs/repo-layout.md) — top-level orientation; quick reference for finding code, specs, schemas, outputs, and tooling. Disambiguates `spec/` (the v0.5 schema) vs `dev/specs/` (adversarial spec YAMLs).
 - [**Onboarding Guide**](docs/onboarding.md) — combined quick-start + architecture + contributor guide. Covers CLI design, subcommand patterns, test structure, and step-by-step instructions for adding new commands, weakener rules, and schema changes.
 - [**Phase 2.5 tooling**](dev/tools/phase2_5/README.md) — the metric-gated catalog refinement loop + per-rule corpus regen tools (referenced by recent versions v0.5.7 → v0.5.15.1).
 

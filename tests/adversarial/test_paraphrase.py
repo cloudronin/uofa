@@ -23,8 +23,8 @@ from uofa_cli.adversarial.spec_loader import (
 )
 
 REPO_ROOT = Path(__file__).parent.parent.parent
-PARAPHRASE_DIR = REPO_ROOT / "specs" / "paraphrasing"
-CONFIRM_DIR = REPO_ROOT / "specs" / "confirm_existing"
+PARAPHRASE_DIR = REPO_ROOT / "dev" / "specs" / "paraphrasing"
+CONFIRM_DIR = REPO_ROOT / "dev" / "specs" / "confirm_existing"
 
 
 # ───────────────────── apply_paraphrase substitutions ─────────────────────

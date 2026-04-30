@@ -84,7 +84,7 @@ output-directory index.
 
 - Phase 2.5 spec: `docs/m5_findings.md`, `docs/phase2_runbook.md`
 - Top-level repo orientation: `docs/repo-layout.md`
-- Schema definitions (vs adversarial specs): see `spec/README.md` + `specs/README.md`
+- Schema definitions (vs adversarial specs): see `spec/README.md` + `dev/specs/README.md`
 
 ## Reorg history (post-Phase-2.5 cleanup, complete as of 2026-04-29)
 
