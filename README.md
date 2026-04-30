@@ -632,6 +632,10 @@ The UofA ontology, JSON-LD context, SHACL shapes, and reference examples are ope
 
 Contributions are welcome, especially real-world UofA examples from practitioners working with CM&S credibility assessment. If you are preparing a CM&S-supported regulatory submission and want to explore UofA packaging for your evidence, please reach out.
 
-For contributors looking to add features or fix bugs, see the [Architecture & Contributor Guide](docs/architecture.md) — it covers the CLI design, subcommand patterns, test structure, and step-by-step instructions for adding new commands, weakener rules, and schema changes.
+For contributors looking to add features or fix bugs:
+
+- [**Repo layout**](docs/repo-layout.md) — top-level orientation; quick reference for finding code, specs, schemas, outputs, and tooling. Disambiguates `spec/` (the v0.5 schema) vs `specs/` (adversarial spec YAMLs).
+- [**Architecture & Contributor Guide**](docs/architecture.md) — CLI design, subcommand patterns, test structure, step-by-step instructions for adding new commands, weakener rules, and schema changes.
+- [**Phase 2.5 tooling**](tools/phase2_5/README.md) — the metric-gated catalog refinement loop + per-rule corpus regen tools (referenced by recent versions v0.5.7 → v0.5.15.1).
 
 **Website:** [crediblesimulation.com](https://crediblesimulation.com)
