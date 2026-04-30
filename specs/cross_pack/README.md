@@ -30,7 +30,7 @@ correctly. This battery validates that.
 
 ```bash
 uofa adversarial run --batch specs/cross_pack \
-    --out out/adversarial/cross-pack-<date>
+    --out build/adversarial/cross-pack-<date>
 ```
 
 ## Status

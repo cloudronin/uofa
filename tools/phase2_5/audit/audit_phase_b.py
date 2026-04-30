@@ -12,7 +12,7 @@ with the v0.5.13 prompt directives:
   on those factor statuses
 
 Usage:
-    python tools/phase2_5/audit_phase_b.py out/adversarial/phase2/2026-04-29-v0_phase2v2-test
+    python tools/phase2_5/audit_phase_b.py build/adversarial/phase2/2026-04-29-v0_phase2v2-test
 """
 
 from __future__ import annotations

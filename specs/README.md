@@ -15,7 +15,7 @@ YAML per spec, organized by coverage intent:
 
 Each spec is consumed by `uofa adversarial run --batch
 specs/<battery>` to produce a generated corpus under
-`out/adversarial/phase2/<date>-<version>/<battery>/<spec-id>/`.
+`build/adversarial/phase2/<date>-<version>/<battery>/<spec-id>/`.
 
 **Not to be confused with `spec/` (singular)**, which holds the v0.5
 UofA schema (JSON-LD context + JSON Schema). The naming collision is

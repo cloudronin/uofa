@@ -28,7 +28,7 @@ generation quality across models on a fixed set of weakener targets.
 ```bash
 uofa adversarial run \
     --batch specs/quality_benchmark \
-    --out out/adversarial/qb-<date> \
+    --out build/adversarial/qb-<date> \
     --models claude-sonnet-4-6,gpt-4o-2024-11,qwen2.5-7b \
     --max-cost 30
 ```

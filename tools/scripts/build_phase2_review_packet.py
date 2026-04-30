@@ -18,9 +18,9 @@ document for Phase 3 reviewers, summarizing the batch:
 
 Usage:
     python scripts/build_phase2_review_packet.py \\
-        --batch-dir out/adversarial/phase2/2026-05-16/ \\
-        --output    out/adversarial/phase2/phase2_review_packet.md \\
-        [--figure-pdf out/adversarial/phase2/figure_3_x.pdf] \\
+        --batch-dir build/adversarial/phase2/2026-05-16/ \\
+        --output    build/adversarial/phase2/phase2_review_packet.md \\
+        [--figure-pdf build/adversarial/phase2/figure_3_x.pdf] \\
         [--review-index-rel review_packets/INDEX.md]
 """
 

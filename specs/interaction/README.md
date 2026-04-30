@@ -26,7 +26,7 @@ COMPOUND-01.
 ## How to run
 
 ```bash
-uofa adversarial run --batch specs/interaction --out out/adversarial/<date>
+uofa adversarial run --batch specs/interaction --out build/adversarial/<date>
 ```
 
 ## Status

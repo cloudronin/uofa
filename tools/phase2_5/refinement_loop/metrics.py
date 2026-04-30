@@ -345,11 +345,11 @@ def main(argv: list[str] | None = None) -> int:
     )
     p.add_argument(
         "--outcomes", type=Path,
-        default=Path("out/adversarial/phase2/2026-04-26/coverage/outcomes.csv"),
+        default=Path("build/adversarial/phase2/2026-04-26/coverage/outcomes.csv"),
     )
     p.add_argument(
         "--batch-dir", type=Path,
-        default=Path("out/adversarial/phase2/2026-04-26"),
+        default=Path("build/adversarial/phase2/2026-04-26"),
     )
     p.add_argument(
         "--rules-file", type=Path, default=None,
@@ -357,7 +357,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     p.add_argument(
         "--lock-dir", type=Path,
-        default=Path("out/phase2_5/shared/holdout_used"),
+        default=Path("build/phase2_5/shared/holdout_used"),
     )
     p.add_argument(
         "--force-holdout", action="store_true",
@@ -368,7 +368,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.split_path is None:
         rule_slug = args.rule.lower().replace("-", "_")
-        args.split_path = Path(f"out/phase2_5/shared/splits/{rule_slug}_split.json")
+        args.split_path = Path(f"build/phase2_5/shared/splits/{rule_slug}_split.json")
 
     m = compute_metrics(
         rule_id=args.rule,

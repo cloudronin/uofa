@@ -21,7 +21,7 @@ Usage:
     python -m tools.phase2_5.log_decision \\
         --rule COMPOUND-01 --iteration 1 \\
         --decision rejected-baseline \\
-        --baseline-outcomes out/.../milestones/after_w_ep_01.csv \\
+        --baseline-outcomes build/.../milestones/after_w_ep_01.csv \\
         --rationale "post-W-EP-01 re-baseline: train recall=0.57, below floor"
 """
 
@@ -67,21 +67,21 @@ def main(argv: list[str] | None = None) -> int:
     )
     p.add_argument(
         "--log-path", type=Path,
-        default=Path("out/phase2_5/shared/refinement_log.jsonl"),
+        default=Path("build/phase2_5/shared/refinement_log.jsonl"),
     )
     p.add_argument(
         "--diff-dir", type=Path,
-        default=Path("out/phase2_5/shared/predicate_diffs"),
+        default=Path("build/phase2_5/shared/predicate_diffs"),
     )
     p.add_argument(
         "--lock-dir", type=Path,
-        default=Path("out/phase2_5/shared/holdout_used"),
+        default=Path("build/phase2_5/shared/holdout_used"),
     )
     args = p.parse_args(argv)
 
     if args.split_path is None:
         rule_slug = args.rule.lower().replace("-", "_")
-        args.split_path = Path(f"out/phase2_5/shared/splits/{rule_slug}_split.json")
+        args.split_path = Path(f"build/phase2_5/shared/splits/{rule_slug}_split.json")
 
     rule_name = RULE_NAME_MAP[args.rule]
 
