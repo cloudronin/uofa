@@ -420,7 +420,7 @@ spec/
   # Examples and templates live alongside their pack's shapes and rules.
   # Each pack is self-contained — no top-level examples/ directory.
 
-weakener-engine/          # Java Jena rule engine
+src/weakener-engine/      # Java Jena rule engine
   pom.xml                 # Maven config (Jena 5.3, picocli)
   src/main/java/.../
     WeakenerEngine.java   # CLI entry point — loads JSON-LD, runs rules, outputs report
@@ -509,7 +509,7 @@ shape that branches based on `conformsToProfile` to either
 ### `uofa rules <file>`
 
 Runs C3 quality gap detection via the Java Jena rule engine. Invokes
-`java -jar weakener-engine/target/uofa-weakener-engine-0.1.0.jar` as a
+`java -jar src/weakener-engine/target/uofa-weakener-engine-0.1.0.jar` as a
 subprocess. The engine loads JSON-LD into an RDF graph, applies
 forward-chaining rules in RETE mode, and reports detected
 `WeakenerAnnotation` triples.
@@ -693,13 +693,13 @@ knowledge, and `excel_mapper.py` can be tested without Excel files.
 
 ## The Java Rule Engine
 
-The weakener engine at `weakener-engine/` is a Java CLI built with
+The weakener engine at `src/weakener-engine/` is a Java CLI built with
 Apache Jena 5.3 and picocli. It is invoked as a subprocess from
 `rules.py`.
 
 **Invocation:**
 ```
-java -jar weakener-engine/target/uofa-weakener-engine-0.1.0.jar \
+java -jar src/weakener-engine/target/uofa-weakener-engine-0.1.0.jar \
     <input.jsonld> --rules <rules_file> --context <context.jsonld>
 ```
 
@@ -714,7 +714,7 @@ java -jar weakener-engine/target/uofa-weakener-engine-0.1.0.jar \
 - **Level 1 (core rules):** Match structural patterns in the evidence graph (e.g., missing provenance, missing UQ, credibility factor gaps)
 - **Level 2 (compound rules):** Fire on the output of Level 1 (e.g., Critical + High coexist → COMPOUND-01 risk escalation). This chained inference is what SPARQL cannot produce.
 
-**Building:** `cd weakener-engine && mvn package -q` (requires Java 17+
+**Building:** `cd src/weakener-engine && mvn package -q` (requires Java 17+
 and Maven 3.8+). The CLI's `--build` flag automates this.
 
 ## Spec Files and Schema Strategy
@@ -985,7 +985,7 @@ the devcontainer and executes:
 `.devcontainer/devcontainer.json` configures a Python 3.11 + Java 17 +
 Maven environment. On creation it runs:
 ```bash
-pip install -e '.[test]' && cd weakener-engine && mvn package -q
+pip install -e '.[test]' && cd src/weakener-engine && mvn package -q
 ```
 
 This means GitHub Codespaces users get a fully working environment
@@ -1000,7 +1000,7 @@ pytest tests/ -v
 
 # Full stack (includes Jena rule engine)
 pip install -e '.[test]'
-cd weakener-engine && mvn package -q && cd ..
+cd src/weakener-engine && mvn package -q && cd ..
 pytest tests/ -v
 ```
 

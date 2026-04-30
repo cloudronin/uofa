@@ -4,7 +4,7 @@
 
 MORRISON_COU1 = packs/vv40/examples/morrison/cou1/uofa-morrison-cou1.jsonld
 MORRISON_COU2 = packs/vv40/examples/morrison/cou2/uofa-morrison-cou2.jsonld
-ENG_DIR       = weakener-engine
+ENG_DIR       = src/weakener-engine
 
 FILE ?=
 KEY  ?= keys/research.key

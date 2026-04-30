@@ -100,7 +100,7 @@ That single command runs three checks:
 
 The bundled JAR + JRE inside the wheel mean no Maven, no separate Java
 install, and no `--build` flag is needed. Source-tree contributors can
-still build the JAR via `cd weakener-engine && mvn package` and run from
+still build the JAR via `cd src/weakener-engine && mvn package` and run from
 their own checkout — the bundled JRE only activates inside an installed
 wheel.
 

@@ -52,5 +52,5 @@ def test_jar_path_falls_back_to_source_tree(tmp_path, monkeypatch):
     monkeypatch.setattr(paths, "_package_dir", lambda: fake_pkg)
     fake_root = tmp_path / "fake-repo"
     fake_root.mkdir()
-    expected = fake_root / "weakener-engine" / "target" / "uofa-weakener-engine-0.1.0.jar"
+    expected = fake_root / "src" / "weakener-engine" / "target" / "uofa-weakener-engine-0.1.0.jar"
     assert paths.jar_path(root=fake_root) == expected

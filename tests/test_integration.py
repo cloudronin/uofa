@@ -21,7 +21,7 @@ MINIMAL_TEMPLATE = REPO_ROOT / "packs" / "core" / "templates" / "uofa-minimal-sk
 COMPLETE_TEMPLATE = REPO_ROOT / "packs" / "core" / "templates" / "uofa-complete-skeleton.jsonld"
 
 JAVA_AVAILABLE = shutil.which("java") is not None
-JENA_JAR = REPO_ROOT / "weakener-engine" / "target" / "uofa-weakener-engine-0.1.0.jar"
+JENA_JAR = REPO_ROOT / "src" / "weakener-engine" / "target" / "uofa-weakener-engine-0.1.0.jar"
 JENA_AVAILABLE = JAVA_AVAILABLE and JENA_JAR.exists()
 CONTEXT_FILE = str(REPO_ROOT / "spec" / "context" / "v0.5.jsonld")
 
@@ -233,7 +233,7 @@ class TestShacl:
 
 # ── Test: uofa rules ──────────────────────────────────────────
 
-@pytest.mark.skipif(not JENA_AVAILABLE, reason="Jena JAR not built (run: cd weakener-engine && mvn package)")
+@pytest.mark.skipif(not JENA_AVAILABLE, reason="Jena JAR not built (run: cd src/weakener-engine && mvn package)")
 class TestRules:
     def test_rules_morrison_detects_weakeners(self):
         """COU1 detects weakeners at v0.5.14.
@@ -287,7 +287,7 @@ class TestCheck:
         assert result.returncode == 0
         assert "skipped" in result.stdout
 
-    @pytest.mark.skipif(not JENA_AVAILABLE, reason="Jena JAR not built (run: cd weakener-engine && mvn package)")
+    @pytest.mark.skipif(not JENA_AVAILABLE, reason="Jena JAR not built (run: cd src/weakener-engine && mvn package)")
     def test_check_morrison_full_pipeline(self):
         result = run_uofa("check", str(MORRISON), "--build")
         assert result.returncode == 0
@@ -538,7 +538,7 @@ class TestDiff:
         assert "Accepted" in result.stdout
         assert "Medium" in result.stdout
 
-    @pytest.mark.skipif(not JENA_AVAILABLE, reason="Jena JAR not built (run: cd weakener-engine && mvn package)")
+    @pytest.mark.skipif(not JENA_AVAILABLE, reason="Jena JAR not built (run: cd src/weakener-engine && mvn package)")
     def test_diff_morrison_cou1_vs_cou2(self):
         """Full Morrison demo: COU1 vs COU2 shows divergence with explanations.
 
@@ -591,7 +591,7 @@ class TestDiff:
         assert "Compound Patterns" in result.stdout
         assert "COMPOUND-01" in result.stdout
 
-    @pytest.mark.skipif(not JENA_AVAILABLE, reason="Jena JAR not built (run: cd weakener-engine && mvn package)")
+    @pytest.mark.skipif(not JENA_AVAILABLE, reason="Jena JAR not built (run: cd src/weakener-engine && mvn package)")
     def test_diff_severity_breakdown(self):
         """Summary section includes severity tier breakdown.
 
@@ -647,7 +647,7 @@ class TestDiff:
         assert result.returncode == 0
         assert "Missing UQ on validation result." in result.stdout
 
-    @pytest.mark.skipif(not JENA_AVAILABLE, reason="Jena JAR not built (run: cd weakener-engine && mvn package)")
+    @pytest.mark.skipif(not JENA_AVAILABLE, reason="Jena JAR not built (run: cd src/weakener-engine && mvn package)")
     def test_diff_morrison_explanations_from_description(self):
         """Morrison diff explanations come from the rules file descriptions.
 
@@ -665,7 +665,7 @@ class TestDiff:
         # W-PROV-01 fires on COU2 (Critical, inline-claim chain).
         assert "chain is incomplete" in result.stdout
 
-    @pytest.mark.skipif(not JENA_AVAILABLE, reason="Jena JAR not built (run: cd weakener-engine && mvn package)")
+    @pytest.mark.skipif(not JENA_AVAILABLE, reason="Jena JAR not built (run: cd src/weakener-engine && mvn package)")
     def test_diff_ep04_divergence(self):
         """W-EP-04 fires on COU2 (MRL 5) but not COU1 (MRL 2), showing as divergent."""
         result = run_uofa("diff", str(MORRISON), str(MORRISON_COU2))

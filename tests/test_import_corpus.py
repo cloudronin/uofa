@@ -37,7 +37,7 @@ KEY_FILE = REPO_ROOT / "keys" / "research.key"
 TC70_XLSX = REPO_ROOT / "packs" / "nasa-7009b" / "examples" / "starters" / "uofa-aero-hpt-blade-thermal-gaps.xlsx"
 
 JAVA_AVAILABLE = shutil.which("java") is not None
-JENA_JAR = REPO_ROOT / "weakener-engine" / "target" / "uofa-weakener-engine-0.1.0.jar"
+JENA_JAR = REPO_ROOT / "src" / "weakener-engine" / "target" / "uofa-weakener-engine-0.1.0.jar"
 JENA_AVAILABLE = JAVA_AVAILABLE and JENA_JAR.exists()
 
 OPENPYXL_AVAILABLE = True
@@ -321,7 +321,7 @@ class TestImportWeakeners:
         if not JENA_AVAILABLE:
             pytest.fail(
                 f"Java + Jena JAR required for weakener tests. "
-                f"Install Java 17+ and run: cd weakener-engine && mvn package"
+                f"Install Java 17+ and run: cd src/weakener-engine && mvn package"
             )
 
         xlsx = fixture_dir / f"{name}.xlsx"
@@ -421,7 +421,7 @@ class TestTC70Starter:
         if not JENA_AVAILABLE:
             pytest.fail(
                 "Java + Jena JAR required. "
-                "Install Java 17+ and run: cd weakener-engine && mvn package"
+                "Install Java 17+ and run: cd src/weakener-engine && mvn package"
             )
 
         output = tmp_path / "tc70.jsonld"

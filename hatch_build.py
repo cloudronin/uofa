@@ -17,7 +17,7 @@ Modes:
 
 Environment variables:
     UOFA_JAR_PATH=<path>    Override the default JAR source location
-                            (defaults to weakener-engine/target/<jar>).
+                            (defaults to src/weakener-engine/target/<jar>).
     UOFA_KEEP_BUNDLE=1      Skip the post-build cleanup of staged artifacts
                             (useful when inspecting a wheel build by hand).
 
@@ -119,11 +119,11 @@ class UofaBundleHook(BuildHookInterface):
                 raise FileNotFoundError(f"UOFA_JAR_PATH={p} does not exist.")
             return p
 
-        default = Path(self.root) / "weakener-engine" / "target" / _JAR_NAME
+        default = Path(self.root) / "src" / "weakener-engine" / "target" / _JAR_NAME
         if not default.exists():
             raise FileNotFoundError(
                 f"Bundled-wheel build requested but JAR not found at {default}.\n"
-                "  Build it: cd weakener-engine && mvn package\n"
+                "  Build it: cd src/weakener-engine && mvn package\n"
                 "  Or set UOFA_JAR_PATH to an alternate location."
             )
         return default

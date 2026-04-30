@@ -171,7 +171,7 @@ def bundled_jar() -> Path | None:
 
     Populated at wheel-build time by hatch_build.py when UOFA_BUNDLE_JAR=1.
     Editable installs from a source checkout will not have it; callers fall
-    back to the Maven-built JAR under weakener-engine/target/.
+    back to the Maven-built JAR under src/weakener-engine/target/.
     """
     p = _package_dir() / "_engine" / _BUNDLED_JAR_NAME
     return p if p.exists() else None
@@ -182,7 +182,7 @@ def jar_path(root: Path = None) -> Path:
     if bundled is not None:
         return bundled
     root = root or find_repo_root()
-    return root / "weakener-engine" / "target" / _BUNDLED_JAR_NAME
+    return root / "src" / "weakener-engine" / "target" / _BUNDLED_JAR_NAME
 
 
 def bundled_jre_executable() -> Path | None:
@@ -223,7 +223,7 @@ def java_executable() -> str:
 
 def engine_dir(root: Path = None) -> Path:
     root = root or find_repo_root()
-    return root / "weakener-engine"
+    return root / "src" / "weakener-engine"
 
 
 def rules_file(input_path: Path = None, root: Path = None) -> Path:
