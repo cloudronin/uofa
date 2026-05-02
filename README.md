@@ -350,6 +350,42 @@ The compound rules are the key differentiator versus SPARQL. They reason about t
 
 ---
 
+## Plain-language explanations: `--explain` (v0.6.0)
+
+`uofa rules`, `check`, `diff`, and `shacl` accept an `--explain` flag that
+adds a plain-language interpretation block to the structured output. The
+deterministic analysis remains the source of truth; the explanation is a
+human-readable layer for regulatory affairs and validation engineers.
+
+```bash
+uofa rules my-package.jsonld --explain
+uofa rules my-package.jsonld --explain --explain-max-items 3
+uofa rules my-package.jsonld --explain --explain-format json
+```
+
+Default backend is bundled Ollama (qwen3.5:4b, local-only, free). For
+higher quality or larger context, configure a remote backend in
+`uofa.toml` or override per invocation:
+
+```bash
+uofa rules my-package.jsonld --explain \
+    --explain-backend anthropic \
+    --explain-model claude-sonnet-5-2026
+# requires ANTHROPIC_API_KEY in environment
+```
+
+Results are cached at `~/.uofa/cache/explain.db` — a second invocation
+on the same input completes in <100 ms. Standalone re-interpretation of
+cached output: `uofa explain --from-file cache.json`.
+
+Full documentation:
+
+- **[docs/explain.md](docs/explain.md)** — usage, output formats, caching, limitations
+- **[docs/llm-config.md](docs/llm-config.md)** — `[llm]` section, supported backends, precedence
+- **[docs/security.md](docs/security.md)** — API key handling, threat model
+
+---
+
 ## Profiles
 
 UofA uses a two-tier profile system. **Minimal** captures the bare evidence package. **Complete** adds the full credibility assessment.

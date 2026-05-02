@@ -179,6 +179,7 @@ def extract(
     pack_prompt_path: Path | None = None,
     token_budget: int = 24000,
     thinking: bool = False,
+    llm_config=None,  # LLMConfig | None — typed as str to avoid an import cycle
 ) -> ExtractionResult:
     """Run LLM extraction on the corpus.
 
@@ -189,6 +190,12 @@ def extract(
         thinking: If True, enable thinking/reasoning mode for models that
             support it (e.g. qwen3/qwen3.5). Default is False for faster
             structured extraction.
+        llm_config: Optional pre-resolved LLMConfig. When given, takes
+            precedence over the `model` string and lets callers pass full
+            backend configuration (api_key_env, base_url, etc.) without
+            squeezing it through the legacy provider/model convention.
+            Most callers should use this; the `model` string remains for
+            back-compat with tests and users on existing CLI flags.
     """
     if pack_prompt_path is None:
         from uofa_cli import paths
@@ -198,13 +205,15 @@ def extract(
 
     if corpus.total_tokens <= token_budget:
         prompt = build_prompt(corpus_text, pack_prompt_path, pack_name)
-        raw_response = _call_llm(prompt, model, pack_name, thinking=thinking)
+        raw_response = _call_llm(
+            prompt, model, pack_name, thinking=thinking, llm_config=llm_config,
+        )
         raw_json = _parse_response(raw_response)
     else:
         # Chunk by file and merge
         raw_json = _chunked_extraction(
             corpus, model, pack_name, pack_prompt_path, token_budget,
-            thinking=thinking,
+            thinking=thinking, llm_config=llm_config,
         )
 
     # Save raw response for debugging
@@ -233,6 +242,7 @@ def _chunked_extraction(
     pack_prompt_path: Path,
     token_budget: int,
     thinking: bool = False,
+    llm_config=None,
 ) -> dict:
     """Process files in batches when corpus exceeds budget."""
     from uofa_cli.document_reader import ExtractionCorpus as EC
@@ -252,7 +262,9 @@ def _chunked_extraction(
         )
         corpus_text = assemble_corpus_text(sub_corpus)
         prompt = build_prompt(corpus_text, pack_prompt_path, pack_name)
-        raw = _call_llm(prompt, model, pack_name, thinking=thinking)
+        raw = _call_llm(
+            prompt, model, pack_name, thinking=thinking, llm_config=llm_config,
+        )
         parsed = _parse_response(raw)
         all_results.append(parsed)
 
@@ -264,43 +276,80 @@ def _call_llm(
     model: str,
     pack_name: str = "vv40",
     thinking: bool = False,
+    llm_config=None,
 ) -> str:
-    """Call the LLM — routes to mock, ollama direct, or litellm.
+    """Call the LLM — routes to mock or to the unified backend abstraction.
+
+    Migrated in v0.6.0 from a hand-rolled `requests.post`/`litellm.completion`
+    split (spec v0.4 §4.10). Model resolution still accepts the legacy
+    convention so existing callers, tests, and `uofa.toml` configs continue
+    to work unchanged:
+
+    - "mock" → in-process canned JSON (preserves _mock_extract behavior).
+    - "ollama/MODEL" → Ollama via the new LiteLLMBackend (now uses
+      /api/chat with response_format=json — matches the previous
+      hand-rolled behavior).
+    - "PROVIDER/MODEL" (e.g. "anthropic/claude-..., "openai/gpt-...") →
+      remote backend; API key resolved from the convention env var.
+    - bare "MODEL" (no slash) → assumed Ollama (matches the setup_state
+      `model_tag` convention).
 
     Args:
         thinking: If True, enable thinking/reasoning mode. For qwen3/qwen3.5
-            models via Ollama this means setting ``think: true`` in the API
-            call. Default is False for faster structured extraction.
+            models via Ollama this maps to the `think` extra option that
+            litellm forwards to the daemon. Default is False for faster
+            structured extraction.
     """
-    if model == "mock":
+    if model == "mock" and llm_config is None:
         return _mock_extract(pack_name)
-    if model.startswith("ollama/"):
-        import requests as req
-        from uofa_cli import setup_state
-        cfg = setup_state.load_config()
-        port = cfg.ollama_port if cfg else 11434
-        model_name = model.replace("ollama/", "")
-        resp = req.post(
-            f"http://127.0.0.1:{port}/api/chat",
-            json={
-                "model": model_name,
-                "messages": [{"role": "user", "content": prompt}],
-                "stream": False,
-                "think": thinking,
-                "format": "json",
-            },
-            timeout=1800,
-        )
-        resp.raise_for_status()
-        return resp.json()["message"]["content"]
-    import litellm
-    messages = [{"role": "user", "content": prompt}]
-    response = litellm.completion(
-        model=model,
-        messages=messages,
-        timeout=1800,
+
+    from uofa_cli.llm import GenerationOptions, get_backend
+
+    config = llm_config if llm_config is not None else _legacy_model_to_config(model)
+    backend = get_backend(config)
+
+    options = GenerationOptions(
+        timeout_seconds=1800.0,
+        extra={"think": True} if thinking else {},
     )
-    return response.choices[0].message.content
+
+    # Prefer structured generation so backends enforce JSON shape (matches
+    # the previous Ollama `format:"json"` behavior; remote backends gain
+    # the same guarantee for free). Fall back to plain generate() for
+    # backends that don't advertise structured-output support.
+    if backend.supports_structured_output():
+        try:
+            result_dict = backend.generate_structured(prompt, schema={}, options=options)
+            return json.dumps(result_dict)
+        except NotImplementedError:
+            pass
+
+    return backend.generate(prompt, options)
+
+
+def _legacy_model_to_config(model: str):
+    """Translate a legacy `model` string into an LLMConfig.
+
+    Local helper — kept private until extract_cmd is migrated to use the
+    new resolver directly (Phase 3b).
+    """
+    from uofa_cli.llm.config import ALLOWED_BACKENDS, LLMConfig
+
+    _DEFAULT_KEY_ENV = {
+        "anthropic": "ANTHROPIC_API_KEY",
+        "openai": "OPENAI_API_KEY",
+    }
+
+    if "/" in model:
+        backend_name, model_name = model.split("/", 1)
+        if backend_name in ALLOWED_BACKENDS and backend_name != "mock":
+            return LLMConfig(
+                backend=backend_name,
+                model=model_name,
+                api_key_env=_DEFAULT_KEY_ENV.get(backend_name),
+            )
+    # Bare model name → Ollama. Matches setup_state.model_tag convention.
+    return LLMConfig(backend="ollama", model=model)
 
 
 # ── Response parsing ─────────────────────────────────────────

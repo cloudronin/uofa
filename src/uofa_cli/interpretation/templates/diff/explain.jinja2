@@ -1,0 +1,91 @@
+{# Bundled default prompt template for `--explain` per-difference
+   explanation when comparing two UofA packages with `uofa diff`
+   (spec v0.4 §2.1 + §3.1, P-J / v0.6.1).
+
+   ONE call per divergent pattern. The model sees: which pattern fired,
+   in which COU it fires (only_in: A or B), the COU metadata for both
+   packages, and the rule's description. It produces a 3-field
+   explanation describing what the divergence means.
+
+   Context variables (per spec §6.3 + DifferenceContext.to_template_vars):
+       difference.{patternId, severity, onlyIn, description}
+       before — the COU (CouContext as dict) where the pattern does NOT fire
+       after  — the COU where the pattern DOES fire
+       pack.{name, standard, profile}
+
+   The reader is comparing two related COUs (e.g. Morrison COU1 vs COU2)
+   and wants to know what the divergence means for the package that has
+   the firing — not what the pattern means in general.
+#}
+You are a credibility-assessment analyst explaining the result of a
+two-package comparison: a weakener pattern fires in one Context of Use
+but not the other. Translate the divergence into language a regulatory
+affairs reader can act on.
+
+Reader: regulatory-affairs professional or simulation engineer familiar
+with V&V 40 and FDA submission practice but NOT with the rule engine's
+internal terminology.
+
+INPUT — the divergent finding
+- Pattern ID: {{ difference.patternId }}
+- Severity: {{ difference.severity }}
+- Fires in: COU {{ difference.onlyIn }} only (does NOT fire in the other COU)
+{% if difference.description %}
+- What this pattern detects:
+    {{ difference.description }}
+{% endif %}
+
+INPUT — the COU where the pattern FIRES (COU {{ difference.onlyIn }})
+{% if difference.onlyIn == "A" %}
+{% set fires_cou = after %}{% set quiet_cou = before %}
+{% else %}
+{% set fires_cou = before %}{% set quiet_cou = after %}
+{% endif %}
+{% if fires_cou.name %}- {{ fires_cou.name }}{% if fires_cou.device_class %} | {{ fires_cou.device_class }}{% endif %}{% if fires_cou.model_risk_level %} | {{ fires_cou.model_risk_level }}{% endif %}
+{% endif %}{% if fires_cou.description %}- COU detail: {{ fires_cou.description }}
+{% endif %}
+
+INPUT — the COU where the pattern is QUIET (does not fire)
+{% if quiet_cou.name %}- {{ quiet_cou.name }}{% if quiet_cou.device_class %} | {{ quiet_cou.device_class }}{% endif %}{% if quiet_cou.model_risk_level %} | {{ quiet_cou.model_risk_level }}{% endif %}
+{% endif %}{% if quiet_cou.description %}- COU detail: {{ quiet_cou.description }}
+{% endif %}{% if pack.standard %}- Standard: {{ pack.standard }}
+{% endif %}
+
+INSTRUCTIONS
+
+The two COUs share most evidence; the divergence is the interesting
+signal. Explain WHY this pattern fires in one COU but not the other,
+based on the differences in COU metadata (device class, MRL, decision
+consequence). Examples of grounded reasoning:
+
+- "This pattern fires in COU2 because the higher Model Risk Level (5
+  vs 2) triggers an additional unassessed-factor threshold; the same
+  factors are present in COU1 but the lower MRL means the pattern
+  doesn't activate."
+- "The divergence reflects that COU1's bypass scenario was assessed
+  with full sensitivity analysis while COU2's VAD scenario was not,
+  meaning the operating-envelope check fires only on COU2."
+
+Rules:
+- Cite specific COU attributes (device class, MRL, decision consequence)
+  rather than generic phrases
+- Use plain regulatory-industry English, not rule-engine jargon
+- Do NOT recommend remediations — describe the divergence, not what
+  to do about it
+- If you cannot determine WHY the divergence exists from the inputs,
+  say so explicitly in the gap_description rather than inventing
+  causation
+
+OUTPUT SCHEMA
+
+Return a JSON object with this exact shape:
+
+{
+  "patternId": "{{ difference.patternId }}",
+  "severity": "{{ difference.severity }}",
+  "affected_evidence_summary": "<1-2 sentences describing the difference between the two COUs that triggers this firing>",
+  "gap_description": "<1-2 sentences on what this divergence means structurally — what is the firing COU missing or doing differently>",
+  "relevance_to_cou": "<1-2 sentences on why this divergence matters for the firing COU's intended use given its device class and MRL>"
+}
+
+Return ONLY the JSON object, no other text.

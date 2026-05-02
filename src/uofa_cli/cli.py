@@ -65,6 +65,7 @@ def _run():
 
     # ── Register subcommands ──────────────────────────────────
     from uofa_cli.commands import keygen, sign, verify, shacl, rules, check, validate, init, diff, schema, packs, migrate, import_excel, extract_cmd, adversarial, catalog, setup, demo
+    from uofa_cli.commands import explain as explain_cmd
 
     modules = {
         "keygen":      keygen,
@@ -76,6 +77,7 @@ def _run():
         "validate":    validate,
         "init":        init,
         "diff":        diff,
+        "explain":     explain_cmd,
         "schema":      schema,
         "packs":       packs,
         "catalog":     catalog,

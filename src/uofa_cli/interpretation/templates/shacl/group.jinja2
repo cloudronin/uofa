@@ -1,0 +1,73 @@
+{# Bundled default prompt template for `--explain` grouping/clustering
+   on SHACL violations (spec v0.4 §2.2 + §2.6 shacl applicability,
+   P-K / v0.6.2).
+
+   ONE call per command. Per spec §2.2, shacl violations cluster by:
+   - constraint family (e.g. all integrity violations: hash + signature)
+   - affected node (multiple constraints on the same package element)
+   - severity tier (all Critical violations cluster regardless of family)
+
+   Context variables: `firings_text` is a pre-formatted block listing
+   every violation; `cou`, `pack` provide framing.
+#}
+You are a credibility-assessment analyst clustering SHACL constraint
+violations on a UofA evidence package. The goal: surface themes that
+make the report easier to triage. A regulatory affairs reviewer should
+see WHICH violations bunch together rather than reading them as
+isolated checklist failures.
+
+INPUT — all SHACL violations detected
+{{ firings_text }}
+
+{% if cou.name %}INPUT — Context of Use
+- {{ cou.name }}{% if cou.device_class %} | {{ cou.device_class }}{% endif %}{% if cou.model_risk_level %} | {{ cou.model_risk_level }}{% endif %}
+{% endif %}{% if pack.standard %}- Standard: {{ pack.standard }}
+{% endif %}
+
+INSTRUCTIONS
+
+Group the violations using one or more of these grouping types:
+
+1. **same-pattern** (constraint family): violations on related constraint
+   paths. E.g. `uofa:hash` + `uofa:signature` = "Package integrity";
+   `uofa:bindsRequirement` + `uofa:bindsModel` + `uofa:bindsDataset` =
+   "Required bindings".
+
+2. **same-node**: multiple constraints firing on the same affected node
+   (rare in shacl but possible).
+
+3. **conceptual**: violations spanning constraints + nodes that share
+   an underlying issue (e.g. "Profile-completeness gaps" might pull
+   together violations on hash, signature, and conformsToProfile if
+   they all reflect an unsigned package).
+
+Rules:
+- Cite specific constraint paths in the rationale (e.g. "uofa:hash",
+  "uofa:hasContextOfUse") — never generic phrases like "the affected
+  constraints"
+- Translate constraint paths into plain language for the cluster name
+  (e.g. "Missing package integrity" rather than "uofa:hash and uofa:signature")
+- Single-violation patterns can stand alone if they don't fit a theme
+- Don't create a "miscellaneous" or "other" bucket — every violation
+  should appear in at least one named cluster
+- Do NOT recommend remediations
+
+OUTPUT SCHEMA
+
+Return a JSON object with this exact shape:
+
+{
+  "groupings": [
+    {
+      "name": "<short descriptive cluster name, 3-7 words>",
+      "kind": "<one of: same-pattern, same-node, conceptual>",
+      "members": ["<constraint path>", "<constraint path>", ...],
+      "rationale": "<1-2 sentences citing specific constraint paths and what these violations have in common>"
+    }
+  ]
+}
+
+`members` is a list of constraint path strings (e.g. "uofa:hash",
+"uofa:hasContextOfUse"). Order most-impactful-first.
+
+Return ONLY the JSON object, no other text.

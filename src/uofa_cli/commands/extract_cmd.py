@@ -26,7 +26,8 @@ def add_arguments(parser):
     parser.add_argument("source", nargs="*", type=Path,
                         help="file or folder path(s) containing evidence documents")
     parser.add_argument("--model", default=None,
-                        help="litellm model string (default: qwen3:4b or uofa.toml)")
+                        help="legacy litellm model string (e.g. 'ollama/qwen3.5:4b'). "
+                             "For new configs, prefer --extract-backend + --extract-model.")
     parser.add_argument("--output", "-o", type=Path,
                         help="output Excel path (default: {source}-extracted.xlsx)")
     parser.add_argument("--glob", default=None,
@@ -35,6 +36,15 @@ def add_arguments(parser):
                         help="enable thinking/reasoning mode (slower, may improve accuracy)")
     parser.add_argument("--prompt-version", default=None,
                         help="tag for scoring log tracking (e.g. 'v2-detailed')")
+    # New unified-LLM-config flags (spec v0.4 §3.6). Override the [llm]
+    # section in uofa.toml / ~/.uofa/config.toml for this invocation only.
+    parser.add_argument("--extract-backend", default=None,
+                        choices=["ollama", "anthropic", "openai", "openai-compatible", "bundled", "mock"],
+                        help="LLM backend for extract (overrides [llm] backend)")
+    parser.add_argument("--extract-model", default=None,
+                        help="model name on the chosen backend (overrides [llm] model)")
+    parser.add_argument("--extract-base-url", default=None,
+                        help="base URL for openai-compatible backends (e.g. Together AI, vLLM)")
 
 
 def run(args) -> int:
@@ -55,13 +65,49 @@ def run(args) -> int:
         paths.set_active_pack(packs)
     pack_name = packs[0]
 
-    # Resolve model: CLI > uofa.toml > setup config > default
-    model = args.model
-    if not model:
-        model = config.get("model")
-    if not model:
-        cfg = setup_state.load_config()
-        model = cfg.model_tag if cfg else "qwen3.5:4b"
+    # Resolve LLM target. Two paths:
+    # - New: any --extract-* flag triggers the unified [llm] config resolver.
+    # - Legacy: --model / [extract] model / setup_state.model_tag (unchanged).
+    #
+    # The legacy path stays bit-for-bit identical because users with existing
+    # uofa.toml configs and CI scripts must continue to work. The new path is
+    # only entered when the user explicitly opts in via the new flags.
+    llm_config = None
+    new_flags_used = any((args.extract_backend, args.extract_model, args.extract_base_url))
+
+    if new_flags_used:
+        from uofa_cli.llm import resolve_llm_config
+        from uofa_cli.llm.errors import ConfigError as LLMConfigError
+        cli_overrides: dict = {}
+        if args.extract_backend:
+            cli_overrides["backend"] = args.extract_backend
+        if args.extract_model:
+            cli_overrides["model"] = args.extract_model
+        if args.extract_base_url:
+            cli_overrides["base_url"] = args.extract_base_url
+        # Convention env-var defaults so users don't have to set api_key_env
+        # for the common backends.
+        if cli_overrides.get("backend") in ("anthropic", "openai"):
+            cli_overrides.setdefault(
+                "api_key_env",
+                {"anthropic": "ANTHROPIC_API_KEY", "openai": "OPENAI_API_KEY"}[cli_overrides["backend"]],
+            )
+        try:
+            llm_config = resolve_llm_config(cli_overrides=cli_overrides)
+        except LLMConfigError as exc:
+            error(f"LLM configuration error: {exc.diagnostic}")
+            if exc.suggestion:
+                info(f"  {exc.suggestion}")
+            return 1
+        model = f"{llm_config.backend}/{llm_config.model}"  # for display + setup-state guard
+    else:
+        # Legacy resolution (preserved verbatim for back-compat).
+        model = args.model
+        if not model:
+            model = config.get("model")
+        if not model:
+            cfg = setup_state.load_config()
+            model = cfg.model_tag if cfg else "qwen3.5:4b"
 
     # ── REQ-DIST-002 AC 3: extract requires `uofa setup` for live LLM use.
     # mock + non-Ollama litellm targets (e.g. cloud APIs) bypass the check.
@@ -129,6 +175,7 @@ def run(args) -> int:
         result = extract(
             corpus, model, pack_name, pack_prompt_path,
             thinking=getattr(args, "thinking", False),
+            llm_config=llm_config,
         )
     except Exception as exc:
         error(f"Extraction failed: {exc}")

@@ -1,0 +1,88 @@
+{# Bundled default prompt template for `--explain` grouping/clustering
+   (spec v0.4 §2.2, P-F).
+
+   ONE call per command, not per-firing. The model sees ALL firings in
+   the package and produces themed clusters per the three grouping types
+   from spec §2.2:
+
+   - same-pattern: multiple hits of the same patternId on different
+     affected nodes (e.g. W-EP-04 firing on six unassessed factors —
+     one cluster per pattern)
+   - same-node: different patternIds firing on the same affected node
+     (e.g. W-AL-01 + W-EP-04 both on the use-error factor)
+   - conceptual: different patterns on different nodes that share an
+     underlying issue (e.g. W-PROV-01 + W-EP-02 + W-AR-05 all describe
+     missing-provenance variants)
+
+   Context variables: `firings_text` is a pre-formatted block listing
+   every firing with its affected evidence (the function builds this
+   from the FiringContext list). `cou`, `pack`, `cou.description`
+   provide framing.
+#}
+You are a credibility-assessment analyst clustering automated quality
+findings on a simulation evidence package. The goal: surface themes that
+make the report easier to triage. A regulatory affairs reviewer should be
+able to scan your groupings and see WHICH issues bunch together rather
+than reading 14 isolated firings.
+
+INPUT — all firings detected in this package
+{{ firings_text }}
+
+INPUT — Context of Use
+{% if cou.name %}- {{ cou.name }}{% if cou.device_class %} | {{ cou.device_class }}{% endif %}{% if cou.model_risk_level %} | {{ cou.model_risk_level }}{% endif %}
+{% endif %}{% if cou.description %}- COU detail: {{ cou.description }}
+{% endif %}{% if pack.standard %}- Standard: {{ pack.standard }}
+{% endif %}
+
+INSTRUCTIONS
+
+Group the firings using one or more of these three grouping types
+(spec §2.2):
+
+1. **same-pattern**: a single patternId firing multiple times on
+   different affected nodes. The cluster name should describe the
+   pattern's effect (e.g. "Unassessed credibility factors" rather than
+   the patternId itself).
+
+2. **same-node**: different patterns firing on the same affected node.
+   The cluster name should identify the node (e.g. "Use-error factor:
+   unassessed AND missing UQ").
+
+3. **conceptual**: different patterns on different nodes that share
+   an underlying credibility issue. The cluster name should describe
+   the shared issue (e.g. "Provenance chain gaps across validation
+   results"). This is the highest-value grouping type because it
+   surfaces patterns the reader can't see in the flat list.
+
+Rules:
+- Use specific evidence labels in the rationale (factor names, validation
+  result names) — never generic phrases like "the affected items"
+- Prefer fewer, more meaningful clusters over many small ones
+- Single-firing patterns can stand alone in a cluster of one if they
+  don't fit any larger theme
+- Don't create a "miscellaneous" or "other" bucket — every firing should
+  appear in at least one named cluster
+- Use plain regulatory-industry English, not rule-engine jargon
+- Do NOT recommend remediations or suggest fixes — describe what the
+  clusters are, not what to do about them
+
+OUTPUT SCHEMA
+
+Return a JSON object with this exact shape:
+
+{
+  "groupings": [
+    {
+      "name": "<short descriptive cluster name, 3-7 words>",
+      "kind": "<one of: same-pattern, same-node, conceptual>",
+      "members": ["<patternId>", "<patternId>", ...],
+      "rationale": "<1-2 sentences: what these firings have in common, citing specific evidence labels>"
+    }
+  ]
+}
+
+`members` is a list of patternId strings (e.g. "W-EP-04"). Same
+patternId may appear in multiple groupings if it fits more than one
+theme. Order groupings most-impactful-first per the analyst's judgment.
+
+Return ONLY the JSON object, no other text.

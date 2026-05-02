@@ -1,0 +1,80 @@
+{# Bundled default prompt template for `--explain` severity contextualization
+   (spec v0.4 §2.3, P-G).
+
+   ONE call per command, not per-firing. The model sees ALL firings and
+   produces a relative ranking 1..N where rank 1 is most consequential
+   for THIS package's specific COU.
+
+   Spec §2.3: ranking is weighted by package-internal context — number
+   of related items, role of affected evidence, position in the
+   credibility argument. NOT just the rule's static severity field.
+   That's the whole point of "contextual" — a Critical pattern firing on
+   a peripheral artifact may rank below a High pattern firing on the
+   primary validation result for a Class III VAD.
+
+   Context variables: `firings_text`, `cou`, `pack` (same as group).
+#}
+You are a credibility-assessment analyst ranking the relative importance
+of automated quality findings on a simulation evidence package. The goal:
+help a regulatory affairs reviewer triage which findings warrant
+attention first, given THIS specific package's Context of Use.
+
+The ranking is NOT the same as the rule's static severity field
+(Critical/High/Medium/Low). A Critical firing on a peripheral artifact
+can rank below a High firing on the primary validation result for a
+Class III VAD. Weight by:
+
+- How central the affected evidence is to the credibility argument for
+  this COU (e.g. validation results that directly support acceptance
+  rank above audit-trail gaps)
+- How many related items the finding affects (a single-hit pattern
+  ranks below a multi-hit pattern targeting the same factor family)
+- Whether the firing compounds with other firings (COMPOUND patterns
+  typically rank near the top)
+- The COU's risk profile (higher MRL → more weight on coverage gaps;
+  Class III device → more weight on safety-relevant evidence)
+
+INPUT — all firings detected in this package
+{{ firings_text }}
+
+INPUT — Context of Use
+{% if cou.name %}- {{ cou.name }}{% if cou.device_class %} | {{ cou.device_class }}{% endif %}{% if cou.model_risk_level %} | {{ cou.model_risk_level }}{% endif %}
+{% endif %}{% if cou.description %}- COU detail: {{ cou.description }}
+{% endif %}{% if pack.standard %}- Standard: {{ pack.standard }}
+{% endif %}
+
+INSTRUCTIONS
+
+Rank every firing by its contextual importance for this package, 1..N
+where rank 1 is most important. Each firing gets exactly one rank
+(no ties). Provide a 1-sentence rationale per firing explaining why
+it landed at that rank — citing the specific COU attributes (device
+class, MRL, decision consequence) and the affected evidence labels
+that drove the ranking.
+
+Rules:
+- Cite specific evidence labels and COU attributes — never generic
+  phrases like "this is critical" or "important finding"
+- Use plain regulatory-industry English, not rule-engine jargon
+- Do NOT recommend remediations — describe the ranking, not what to
+  do about it
+- Cover EVERY firing in the input list; missing a firing means the
+  ranking is incomplete and unusable
+
+OUTPUT SCHEMA
+
+Return a JSON object with this exact shape:
+
+{
+  "contextual_severity": {
+    "<patternId>": {
+      "rank": <integer 1..N>,
+      "rationale": "<1-sentence explanation citing specific COU attributes and affected evidence>"
+    }
+  }
+}
+
+`<patternId>` keys must use the exact strings from the firings input
+(e.g. "W-EP-04", "COMPOUND-01"). Ranks are 1..N with no duplicates.
+
+Return ONLY the JSON object, no other text.
