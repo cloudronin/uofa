@@ -355,10 +355,13 @@ def render_html(env: InterpretationEnvelope) -> str:
                     ", ".join(f'<code>{html.escape(str(m))}</code>' for m in members)
                     if isinstance(members, list) else f'<code>{html.escape(str(members))}</code>'
                 )
-                parts.append(f'<article class="uofa-explain-grouping kind-{kind.replace(" ", "-")}">')
-                parts.append(f'<h4>{theme_safe}'
-                             f'{f" <span class=\"kind\">({kind})</span>" if kind else ""}'
-                             '</h4>')
+                # Hoist the kind-span out of the f-string: nested f-strings
+                # with escaped quotes are a Python 3.12+ feature, and we
+                # support 3.11 per pyproject.toml requires-python.
+                kind_class = kind.replace(" ", "-")
+                kind_span = f' <span class="kind">({kind})</span>' if kind else ""
+                parts.append(f'<article class="uofa-explain-grouping kind-{kind_class}">')
+                parts.append(f'<h4>{theme_safe}{kind_span}</h4>')
                 if members_html:
                     parts.append(f'<p class="members"><strong>Members:</strong> {members_html}</p>')
                 if rationale:
