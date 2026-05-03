@@ -12,6 +12,16 @@ on:
       - 'src/uofa_cli/**'
       - 'snapshots/**'
       - '.github/workflows/deploy-site.yml'
+  pull_request:
+    paths:
+      - 'site/**'
+      - 'README.md'
+      - 'docs/**'
+      - 'pyproject.toml'
+      - 'packs/**'
+      - 'src/uofa_cli/**'
+      - 'snapshots/**'
+      - '.github/workflows/deploy-site.yml'
   workflow_dispatch:
 
 permissions:
@@ -68,6 +78,9 @@ jobs:
           path: site/dist
 
   deploy:
+    # Deploy only from main. PRs and feature-branch dispatches build-and-validate
+    # without publishing to uofa.net.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: build
     runs-on: ubuntu-latest
     environment:
