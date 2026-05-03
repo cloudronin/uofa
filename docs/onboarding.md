@@ -1047,3 +1047,61 @@ pack has a `pack.json` manifest that the CLI reads to discover assets.
 The `--pack` global flag switches between packs, and multi-pack
 support allows combining constraints from several packs in a single
 validation run. See `packs/README.md` for the full pack contract.
+
+---
+
+## Zero-install option: GitHub Codespaces
+
+If you want to try the CLI without installing anything locally, open the repo in [GitHub Codespaces](https://codespaces.new/cloudronin/uofa?quickstart=1). The devcontainer pre-installs Python deps, the rule engine JAR, and a JRE; you land in a terminal where `uofa demo`, `uofa check`, etc. work immediately.
+
+[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/cloudronin/uofa?quickstart=1)
+
+---
+
+## CLI command reference
+
+The `uofa` CLI provides commands for every step of the workflow:
+
+```bash
+# Extract credibility data from evidence documents with an LLM (pre-fills a pack xlsx)
+uofa extract path/to/evidence/ --pack nasa-7009b --model ollama/qwen3.5:4b -o out.xlsx
+
+# Import from a practitioner-filled Excel workbook (fastest on-ramp)
+uofa import assessment.xlsx --sign --key keys/your.key --check
+
+# Full pipeline (C1 + C2 + C3) on your file
+uofa check path/to/your-uofa.jsonld
+
+# Individual steps
+uofa shacl  path/to/your-uofa.jsonld                      # C2: SHACL validation
+uofa verify path/to/your-uofa.jsonld                      # C1: Hash + signature check
+uofa rules  path/to/your-uofa.jsonld                      # C3: Jena weakener detection (text summary)
+uofa rules  FILE --format jsonld -o reasoned.jsonld       # C3: write reasoned JSON-LD with weakener annotations
+
+# Sign with your own key
+uofa sign path/to/your-uofa.jsonld --key keys/your.key
+
+# Scaffold a new project from a JSON-LD template
+uofa init my-new-project
+
+# Validate all examples in the repo
+uofa validate
+
+# Compare weakener profiles across two COUs
+uofa diff uofa-cou1.jsonld uofa-cou2.jsonld
+
+# List installed domain packs
+uofa packs
+
+# Use a specific domain pack
+uofa check path/to/your-uofa.jsonld --pack vv40
+
+# Use multiple packs (e.g., V&V 40 + NASA-STD-7009B)
+uofa check path/to/your-uofa.jsonld --pack vv40 --pack nasa-7009b
+
+# Migrate an old-format file to current schema
+uofa migrate path/to/old-file.jsonld
+
+# Generate import constants from SHACL (after schema changes)
+uofa schema --emit python
+```

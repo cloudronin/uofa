@@ -349,12 +349,29 @@ jobs:
           "@
           & $env:RUNNER_TEMP\uofa-venv\Scripts\uofa.exe check packs/vv40/examples/morrison/cou1/uofa-morrison-cou1.jsonld
 
+  # Full `make all` validation as a release gate. Mirrors what validate.yml
+  # runs on every PR/push, but pinned here so publish-pypi can `needs:` it
+  # — validate.yml is a separate workflow and its job IDs aren't visible
+  # to release-wheels.yml's dep graph. Tag-push only.
+  validate-on-tag:
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and run `make all` in devcontainer
+        uses: devcontainers/ci@v0.3
+        with:
+          push: never
+          runCmd: |
+            make all
+
   # Publish all wheels + sdist to PyPI via Trusted Publishing (OIDC).
-  # Gates on every smoke job so we never publish a wheel we didn't smoke-test.
-  # Tag-push only — PR runs of this workflow build but don't publish.
+  # Gates on every smoke job AND on validate-on-tag so we never publish
+  # a wheel that doesn't pass the full validate suite. Tag-push only.
   publish-pypi:
     needs:
       - build-sdist
+      - validate-on-tag
       - smoke-pure-wheel
       - smoke-linux-x86_64
       - smoke-linux-aarch64
