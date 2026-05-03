@@ -12,6 +12,11 @@ on:
       - 'src/uofa_cli/**'
       - 'snapshots/**'
       - '.github/workflows/deploy-site.yml'
+    paths-ignore:
+      # Dev-facing site README; not site content. Editing it shouldn't republish.
+      - 'site/README.md'
+      # Cross-browser checklist is a manual artifact, not site content.
+      - 'site/tests/**'
   pull_request:
     paths:
       - 'site/**'
@@ -22,6 +27,9 @@ on:
       - 'src/uofa_cli/**'
       - 'snapshots/**'
       - '.github/workflows/deploy-site.yml'
+    paths-ignore:
+      - 'site/README.md'
+      - 'site/tests/**'
   workflow_dispatch:
 
 permissions:
@@ -76,6 +84,9 @@ jobs:
 
       - name: Build site
         run: npm run build
+        env:
+          PUBLIC_BUILD_SHA: ${{ github.sha }}
+          PUBLIC_BUILD_DATE: ${{ github.event.head_commit.timestamp || github.event.pull_request.head.repo.pushed_at || '' }}
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3

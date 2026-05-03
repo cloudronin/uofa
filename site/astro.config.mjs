@@ -110,6 +110,12 @@ export default defineConfig({
       components: {
         // Override the default home page hero with our terminal hero
         // (Starlight's splash template is used via the homepage frontmatter)
+        //
+        // Footer override appends the site-wide SiteFooter (license,
+        // citation, contact, build SHA) below Starlight's prev/next nav
+        // on every docs page. The splash homepage doesn't use this slot,
+        // so it imports SiteFooter directly in index.mdx.
+        Footer: './src/components/StarlightFooterWithSite.astro',
       },
       lastUpdated: false,
       pagination: true,
