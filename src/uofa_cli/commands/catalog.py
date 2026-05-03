@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import json
 import re
+from datetime import datetime, timezone
 from pathlib import Path
 
+from uofa_cli import __version__
 from uofa_cli.output import header, info, color, severity_badge, error
 from uofa_cli import paths
 
@@ -28,7 +30,7 @@ _RULE_BLOCK = re.compile(
 
 def add_arguments(parser):
     parser.add_argument("--format", "-f", default="table",
-                        choices=["table", "json"],
+                        choices=["table", "json", "md"],
                         help="output format (default: table)")
 
 
@@ -41,6 +43,9 @@ def run(args) -> int:
     records = _collect_patterns()
     if args.format == "json":
         print(json.dumps(records, indent=2))
+        return 0
+    if args.format == "md":
+        print(_render_markdown(records))
         return 0
     return _render_table(records)
 
@@ -106,6 +111,43 @@ def _parse_rules_for_pack(pack_name: str) -> list[dict]:
             "description": m.group("description") or m.group("summary") or "",
         })
     return records
+
+
+def _render_markdown(records: list[dict]) -> str:
+    by_pack: dict[str, list[dict]] = {}
+    for r in records:
+        by_pack.setdefault(r["pack"], []).append(r)
+
+    generated = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    lines: list[str] = [
+        "---",
+        f"generated: {generated}",
+        f"catalog_version: v{__version__}",
+        f"total_patterns: {len(records)}",
+        f"packs: [{', '.join(by_pack.keys())}]",
+        "---",
+        "",
+        f"# Weakener catalog (v{__version__})",
+        "",
+        f"Generated from `uofa catalog --format md` at {generated}. ",
+        f"{len(records)} pattern{'s' if len(records) != 1 else ''} across "
+        f"{len(by_pack)} pack{'s' if len(by_pack) != 1 else ''}.",
+        "",
+    ]
+
+    for pack_name, entries in by_pack.items():
+        lines.extend([
+            f"## Pack: `{pack_name}` ({len(entries)} pattern{'s' if len(entries) != 1 else ''})",
+            "",
+            "| Pattern | Severity | Description |",
+            "|---|---|---|",
+        ])
+        for r in entries:
+            desc = (r["description"] or "").replace("|", "\\|").strip()
+            lines.append(f"| `{r['patternId']}` | {r['severity']} | {desc} |")
+        lines.append("")
+
+    return "\n".join(lines)
 
 
 def _render_table(records: list[dict]) -> int:

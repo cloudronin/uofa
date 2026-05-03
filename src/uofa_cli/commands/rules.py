@@ -434,8 +434,9 @@ def add_arguments(parser):
     parser.add_argument("--build", action="store_true", help="auto-build the Jena JAR if missing")
     parser.add_argument("--raw", action="store_true", help="show raw output without coloring")
     parser.add_argument("--format", "-f", default="summary",
-                        choices=["summary", "turtle", "ntriples", "jsonld"],
-                        help="output format (default: summary)")
+                        choices=["summary", "turtle", "ntriples", "jsonld", "json"],
+                        help="output format (default: summary). 'json' is the parsed-firings "
+                             "shape suitable for snapshot tests; 'jsonld' is the raw RDF.")
     parser.add_argument("--output", "-o", type=Path,
                         help="write reasoned output to a file (default: stdout)")
     # --explain* flag set (spec §3.2) — shared across the four target commands.
@@ -505,6 +506,33 @@ def run_structured(args) -> RulesResult:
 
 
 def run(args) -> int:
+    # `--format json`: clean parsed-firings shape for snapshot tests / external
+    # tooling. Runs the engine in jsonld mode internally, parses with the
+    # existing parse_firings_jsonld helper, and emits a stable JSON document.
+    # No coloring, no headers — pure data on stdout.
+    if getattr(args, "format", None) == "json":
+        original_format = args.format
+        args.format = "jsonld"
+        try:
+            result = run_structured(args)
+        finally:
+            args.format = original_format
+        firings = parse_firings_jsonld(result.raw_stdout)
+        severity_counts: dict[str, int] = {}
+        for f in firings:
+            severity_counts[f["severity"]] = severity_counts.get(f["severity"], 0) + f["hits"]
+        document = {
+            "file": str(args.file),
+            "summary": {
+                "total_firings": sum(f["hits"] for f in firings),
+                "patterns": len(firings),
+                "by_severity": severity_counts,
+            },
+            "firings": firings,
+        }
+        print(json.dumps(document, indent=2))
+        return result.returncode
+
     step_header("C3: Jena rule engine — weakener detection")
     sys.stdout.flush()
 

@@ -1,0 +1,82 @@
+---
+// DemoStrip — Morrison demo with weakener report terminal output.
+// Counts and severity breakdowns are sourced from snapshots/example-counts.json
+// at build time so they cannot drift from what `uofa rules` reports.
+import counts from '../../../snapshots/example-counts.json';
+
+const cou1 = counts['morrison-cou1'];
+const cou2 = counts['morrison-cou2'];
+
+const cou1Decision = `Accepted  ·  ${cou1.total} weakeners`;
+const cou2Decision = `Not accepted  ·  ${cou2.total} weakeners` +
+  (cou2.compound_hits > 0 ? ` (${cou2.compound_hits} compound)` : '');
+---
+
+<section class="uofa-section demo">
+  <div class="demo-inner">
+    <div class="uofa-demo-text">
+      <p class="uofa-eyebrow">Live demo</p>
+      <h2 class="uofa-section-title">Morrison blood pump,<br>re-expressed in 30 seconds.</h2>
+      <p>
+        <strong>Morrison et&nbsp;al. (2019)</strong> is the FDA-co-authored worked example
+        for ASME V&amp;V&nbsp;40. The prose paper deems the model credible for COU&nbsp;1
+        and inadequate for COU&nbsp;2. Re-expressed as UofA evidence packages, the same
+        decisions become signed, hashed, and machine-verifiable.
+      </p>
+      <p>
+        Same model. Same data. Different model risk. The rule engine surfaces the
+        risk-driven divergence automatically.
+      </p>
+      <dl class="uofa-demo-meta">
+        <div>
+          <dt>Standard</dt>
+          <dd>ASME V&amp;V 40-2018</dd>
+        </div>
+        <div>
+          <dt>Pack</dt>
+          <dd>vv40</dd>
+        </div>
+        <div>
+          <dt>COU 1 — MRL 2</dt>
+          <dd class="nowrap">{cou1Decision}</dd>
+        </div>
+        <div>
+          <dt>COU 2 — MRL 5</dt>
+          <dd class="nowrap">{cou2Decision}</dd>
+        </div>
+      </dl>
+    </div>
+
+    <div class="uofa-terminal">
+      <div class="uofa-terminal-bar">
+        <span class="uofa-term-dot r"></span>
+        <span class="uofa-term-dot y"></span>
+        <span class="uofa-term-dot g"></span>
+        <span class="uofa-terminal-title">uofa rules morrison/cou2</span>
+      </div>
+      <pre><span class="uofa-term-prompt">$</span> <span class="uofa-term-cmd">uofa rules packs/vv40/examples/morrison/cou2/uofa-morrison-cou2.jsonld</span>
+
+<span class="uofa-term-faint">══════════════════════════════════════════════════════</span>
+<span class="uofa-term-cmd">  UofA Weakener Detection Report</span>
+<span class="uofa-term-faint">  Input: uofa-morrison-cou2.jsonld</span>
+<span class="uofa-term-faint">══════════════════════════════════════════════════════</span>
+
+  <span class="uofa-term-dim">SUMMARY:</span> <span class="uofa-term-cmd">{cou2.total} weakener(s) detected</span>
+  <span class="uofa-term-faint">─────────────────────────────────────────</span>
+    <span class="uofa-term-crit">Critical:  {cou2.by_severity.Critical}</span>
+    <span class="uofa-term-high">High:      {cou2.by_severity.High}</span>
+    <span class="uofa-term-med">Medium:    {cou2.by_severity.Medium}</span>
+
+  <span class="uofa-term-crit">⚡ W-PROV-01</span>   <span class="uofa-term-faint">[Critical]   7 hits</span>
+  <span class="uofa-term-crit">⚡ COMPOUND-01</span> <span class="uofa-term-faint">[Critical]   2 hits  → cou2 ×2</span>
+  <span class="uofa-term-high">⚠ W-EP-04</span>     <span class="uofa-term-faint">[High]       6 hits</span>
+  <span class="uofa-term-high">⚠ W-ON-02</span>     <span class="uofa-term-faint">[High]       1 hit  → cou2-vad</span>
+  <span class="uofa-term-med">⚠ W-AL-02</span>     <span class="uofa-term-faint">[Medium]     1 hit  → cou2</span>
+  <span class="uofa-term-med">⚠ W-CON-04</span>    <span class="uofa-term-faint">[Medium]     1 hit  → cou2</span>
+
+  <span class="uofa-term-faint">─────────────────────────────────────────</span>
+  <span class="uofa-term-warn">⚡ {cou2.compound_hits} compound inferences</span> <span class="uofa-term-faint">— chained reasoning,</span>
+  <span class="uofa-term-faint">  not detectable by standalone SPARQL.</span></pre>
+    </div>
+  </div>
+</section>
