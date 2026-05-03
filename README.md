@@ -381,4 +381,4 @@ Contributions are welcome, especially real-world UofA examples from practitioner
 
 For contributors, see [CONTRIBUTING.md](CONTRIBUTING.md), [docs/repo-layout.md](docs/repo-layout.md), and [docs/onboarding.md](docs/onboarding.md).
 
-**Website:** [crediblesimulation.com](https://crediblesimulation.com)
+**Website:** [uofa.net](https://uofa.net)

@@ -150,4 +150,4 @@ ship a patch release.
 
 ## Questions?
 
-If you are preparing a CM&S-supported regulatory submission and want to explore UofA packaging for your evidence, please reach out at [crediblesimulation.com](https://crediblesimulation.com).
+If you are preparing a CM&S-supported regulatory submission and want to explore UofA packaging for your evidence, please reach out at [uofa.net](https://uofa.net) or via [GitHub Discussions](https://github.com/cloudronin/uofa/discussions).
