@@ -1,14 +1,9 @@
 ---
 title: Live demo — Morrison blood pump
-description: Reproduce the NAFEMS Americas 2026 live demo end-to-end. Bundled JSON-LD packages with weakener reports, in 5 minutes.
+description: Reproduce the NAFEMS Americas 2026 live demo. Run the UofA rule engine against the bundled Morrison evidence packages and see compound credibility risk surfaced automatically.
 ---
 
-import counts from '../../../../../snapshots/example-counts.json';
-
-export const cou1 = counts['morrison-cou1'];
-export const cou2 = counts['morrison-cou2'];
-
-This page reproduces the live demo presented at NAFEMS Americas 2026 on May 27, 2026. Same evidence packages, same pipeline, same rule engine, same numbers. The terminal output you see here is what the room saw on stage.
+This page reproduces the rule-engine portion of the live demo presented at NAFEMS Americas 2026 on May 27, 2026. Same evidence packages, same rule engine, same numbers as the slide-16 terminal output.
 
 ## What you will see
 
@@ -19,13 +14,11 @@ Morrison et al. (2019) is the FDA-co-authored worked example for ASME V&V 40 cre
 | COU 1 | Cardiopulmonary bypass support (short duration) | Class II | MRL 2 | Accepted |
 | COU 2 | Ventricular assist device support (long duration) | Class III | MRL 5 | Not accepted |
 
-The UofA pipeline takes the bundled Morrison evidence packages and produces two weakener reports. COU 1 fires <strong>{cou1.total} weakeners across {cou1.patterns} patterns</strong> with no compound risk. COU 2 fires <strong>{cou2.total} weakeners across {cou2.patterns} patterns</strong>, including {cou2.compound_hits} firings of `COMPOUND-01` (Critical and High coexistence).
+Both COUs are bundled as signed JSON-LD UofA packages. Running the rule engine against them produces the slide-16 terminal output. COU 1 fires 11 weakeners across 5 patterns with no compound risk. COU 2 fires 18 weakeners across 6 patterns including 2 firings of `COMPOUND-01` (Critical and High coexistence). The compound inference fires only on the higher-risk COU, even though the underlying model and dataset are shared.
 
-## Reproduce in 10 minutes
+## Reproduce in 3 minutes
 
-This walkthrough runs the full authoring pipeline end-to-end against the bundled Morrison source folder, then exercises the rule engine on the generated JSON-LD. If you just want to see the rule engine without running the LLM extract, skip to stage 5 — the pre-built JSON-LD is also bundled.
-
-Prerequisites: Python 3.10+, Java 17+. If Java is unavailable, use `--skip-rules` on `uofa check` and you will still get SHACL and integrity validation. For the `uofa extract` step, you need either a local Ollama install (default) or a hosted LLM provider configured via LiteLLM.
+Prerequisites: Python 3.10+, Java 17+. If Java is unavailable, use `--skip-rules` on `uofa check` and you will still get SHACL and integrity validation.
 
 ### 1. Clone and install
 
@@ -35,11 +28,65 @@ cd uofa
 pip install -e '.[excel]'
 ```
 
-The bundled examples and the rule engine ship with the repo; no extra setup.
+The bundled JSON-LD UofA packages and the rule engine ship with the repo. No extra setup.
 
-### 2. Extract structured evidence from prose (the LLM step)
+### 2. Run the rule engine — COU 1 (CPB use, MRL 2)
 
-The Morrison source folder is bundled with the repo:
+```bash
+uofa rules packs/vv40/examples/morrison/cou1/uofa-morrison-cou1.jsonld --build
+```
+
+Expected: **11 weakeners detected** across 5 patterns. Severity breakdown: 0 Critical / 10 High / 1 Medium.
+
+| Pattern | Severity | Hits |
+|---|---|---|
+| W-AR-05 | High | 3 |
+| W-EP-02 | High | 3 |
+| W-AL-01 | High | 3 |
+| W-ON-02 | High | 1 |
+| W-CON-04 | Medium | 1 |
+
+Zero compound inferences. The CFD-side UQ omission is methodologically defensible at MRL 2 (Morrison's rationale is that bench testing carries the safety determination), but the rule engine still flags it as a potential reuse blocker at higher MRLs.
+
+### 3. Run the rule engine — COU 2 (VAD use, MRL 5)
+
+```bash
+uofa rules packs/vv40/examples/morrison/cou2/uofa-morrison-cou2.jsonld
+```
+
+Expected: **18 weakeners detected** across 6 patterns. Severity breakdown: 9 Critical / 7 High / 2 Medium.
+
+| Pattern | Severity | Hits |
+|---|---|---|
+| W-PROV-01 | Critical | 7 |
+| ⚡ COMPOUND-01 | Critical | 2 |
+| W-EP-04 | High | 6 |
+| W-ON-02 | High | 1 |
+| W-AL-02 | Medium | 1 |
+| W-CON-04 | Medium | 1 |
+
+`COMPOUND-01` fires when Critical and High weakeners coexist on the same UofA. It cannot be expressed as a single SPARQL query because it reasons about the *output* of the Level-1 rules. This compound inference is the central differentiator over query-based credibility checking.
+
+### 4. Diff the two COUs
+
+```bash
+uofa diff packs/vv40/examples/morrison/cou1/uofa-morrison-cou1.jsonld \
+          packs/vv40/examples/morrison/cou2/uofa-morrison-cou2.jsonld
+```
+
+Same model, same data, different intended use produces a measurably different credibility evidence profile. The diff surfaces every divergent pattern automatically.
+
+That is the rule-engine reproduction. The next two sections describe how the bundled UofA packages were authored, and an optional pipeline round-trip if you want to exercise `uofa extract` and `uofa import` against a worked example.
+
+## How the bundled evidence was authored
+
+The two Morrison UofA packages bundled in `packs/vv40/examples/morrison/cou{1,2}/` were authored by hand from Morrison et al. (2019). A V&V 40 expert read the paper, mapped the prose evidence into the 13 V&V 40 credibility factors, and serialized that mapping as JSON-LD against the UofA schema.
+
+This is the honest path for a published worked example. The Morrison paper is prose with embedded figures and tables. It does not ship as a structured evidence folder. Going from prose to UofA requires either AI-assisted extraction followed by human review (the future-state on-ramp) or hand authoring (what was done here).
+
+## (Optional) Round-trip the extract pipeline
+
+If you want to see the `uofa extract` and `uofa import` pipeline mechanics, the repo also ships a synthetic evidence folder at `packs/vv40/examples/morrison/source/`. The folder contents are not from the Morrison paper. They were generated from the hand-authored UofA, structured as the kind of artifact you might find in a real engineering team's evidence directory.
 
 ```bash
 ls packs/vv40/examples/morrison/source/
@@ -57,127 +104,65 @@ ls packs/vv40/examples/morrison/source/
 # risk_assessment_memo.pdf
 ```
 
-Run the extract pipeline against the folder:
+:::caution[What this demonstrates and what it does not]
+Running `uofa extract` against this folder and comparing the result to the bundled UofA is a round-trip sanity check on the pipeline. It demonstrates that the extract → review → import sequence executes cleanly and produces a UofA equivalent to the hand-authored ground truth. It does not measure extraction performance against real-world prose. The synthetic folder is structured against the V&V 40 schema; real engineering documentation is messier. Phase 3 of the praxis runs extraction against prose-only PDFs to produce a real extraction-performance number.
+:::
+
+To exercise the round-trip:
 
 ```bash
 uofa extract packs/vv40/examples/morrison/source/ \
   --pack vv40 \
   --model ollama/qwen3.5:4b \
-  -o morrison-extracted.xlsx
-```
+  -o morrison-roundtrip.xlsx
 
-The default model is `ollama/qwen3.5:4b`, which runs locally and reports F1 = 1.00 against the Morrison ground truth. To use a hosted provider, substitute any LiteLLM-compatible model identifier (`gpt-4.1`, `claude-sonnet-4-7`, `gemini-2.5-pro`).
+# Open morrison-roundtrip.xlsx, verify factor levels and decision text
 
-The output is a single `.xlsx` with one sheet per V&V 40 factor. No JSON-LD or RDF knowledge required.
-
-### 3. Review the extracted xlsx (the human checkpoint)
-
-This step is where the engineer catches what the LLM missed. `uofa extract` is fast, but it is not authoritative.
-
-Open `morrison-extracted.xlsx` in Excel or LibreOffice. Walk through each sheet and confirm:
-
-- The credibility factor levels match what the source documents claim, not what the LLM inferred
-- Per-result acceptance criteria are present and correctly transcribed
-- The COU classification (COU1 = CPB, COU2 = VAD) is assigned correctly
-- The decision text in the Decision sheet matches the documented outcome
-
-For the bundled Morrison source the LLM extracts at F1 = 1.00, so the review is fast. For your own evidence, expect to spend more time here. This is the design intent: the LLM accelerates the boring transcription work, the human owns the credibility judgment.
-
-### 4. Import to signed JSON-LD
-
-Generate a signing key:
-
-```bash
 mkdir -p keys
 uofa keygen keys/morrison
-```
-
-Then import:
-
-```bash
-uofa import morrison-extracted.xlsx \
+uofa import morrison-roundtrip.xlsx \
   --pack vv40 \
   --sign --key keys/morrison.key \
   --check
 ```
 
-Expected: `Conforms` on SHACL, `signature valid` on integrity, ~30 seconds wall clock. The result is two signed JSON-LD packages, one per COU.
+The default model is `ollama/qwen3.5:4b`, which runs locally. To use a hosted provider, substitute any LiteLLM-compatible model identifier (`gpt-4.1`, `claude-sonnet-4-7`, `gemini-2.5-pro`).
 
-If you would rather skip the extract pipeline and use the pre-built JSON-LD shipped in the repo, the next two commands run against either the package you just produced or the canonical bundled version.
+## (Optional) Cross-domain reproduction with NASA-STD-7009B
 
-### 5. Run the rule engine — COU 1 (CPB use, MRL 2)
-
-```bash
-uofa rules packs/vv40/examples/morrison/cou1/uofa-morrison-cou1.jsonld --build
-```
-
-Expected: <strong>{cou1.total} weakeners detected</strong> across {cou1.patterns} patterns. Severity breakdown: {cou1.by_severity.Critical} Critical / {cou1.by_severity.High} High / {cou1.by_severity.Medium} Medium / {cou1.by_severity.Low} Low.
-
-| Pattern | Severity | Hits |
-|---|---|---|
-| W-AR-05 | High | 3 |
-| W-EP-02 | High | 3 |
-| W-AL-01 | High | 3 |
-| W-ON-02 | High | 1 |
-| W-CON-04 | Medium | 1 |
-
-Zero compound inferences. The CFD-side UQ omission is methodologically defensible at MRL 2 (Morrison's rationale is that bench testing carries the safety determination), but the rule engine still flags it as a potential reuse blocker at higher MRLs.
-
-### 6. Run the rule engine — COU 2 (VAD use, MRL 5)
-
-```bash
-uofa rules packs/vv40/examples/morrison/cou2/uofa-morrison-cou2.jsonld
-```
-
-Expected: <strong>{cou2.total} weakeners detected</strong> across {cou2.patterns} patterns. Severity breakdown: {cou2.by_severity.Critical} Critical / {cou2.by_severity.High} High / {cou2.by_severity.Medium} Medium / {cou2.by_severity.Low} Low.
-
-| Pattern | Severity | Hits |
-|---|---|---|
-| W-PROV-01 | Critical | 7 |
-| ⚡ COMPOUND-01 | Critical | {cou2.compound_hits} |
-| W-EP-04 | High | 6 |
-| W-ON-02 | High | 1 |
-| W-AL-02 | Medium | 1 |
-| W-CON-04 | Medium | 1 |
-
-`COMPOUND-01` fires when Critical and High weakeners coexist on the same UofA. It cannot be expressed as a single SPARQL query because it reasons about the *output* of the Level-1 rules. This compound inference is the central differentiator over query-based credibility checking.
-
-### 7. Diff the two COUs
-
-```bash
-uofa diff packs/vv40/examples/morrison/cou1/uofa-morrison-cou1.jsonld \
-          packs/vv40/examples/morrison/cou2/uofa-morrison-cou2.jsonld
-```
-
-Same model, same data, different intended use produces a measurably different credibility evidence profile. The diff surfaces every divergent pattern automatically.
-
-### 8. (Optional) Cross-domain reproduction with NASA-STD-7009B
-
-The same CLI runs against the HPT-blade thermal-analysis example with a different domain pack. The bundled HPT example (a turbomachinery conjugate-heat-transfer case study) ships at MRL levels where the rule engine reports a clean profile — substitute your own MRL-elevated case to exercise the rule engine on the aerospace pack.
+The same CLI runs against an HPT-blade thermal-analysis example with a different domain pack:
 
 ```bash
 uofa rules packs/nasa-7009b/examples/aerospace/uofa-aero-cou1-nasa7009b.jsonld --pack nasa-7009b
 uofa rules packs/nasa-7009b/examples/aerospace/uofa-aero-cou2-nasa7009b.jsonld --pack nasa-7009b
 ```
 
-The source evidence for the HPT example is bundled as zips alongside the JSON-LD (`aero-evidence-cou{1,2}.zip`) — unzip and point `uofa extract` at the directory to reproduce the authoring on-ramp shown above for Morrison.
+The bundled HPT UofA packages were also hand-authored, drawing on NASA-STD-7009B published guidance. The aerospace evidence zips at `packs/nasa-7009b/examples/aerospace/aero-evidence-cou{1,2}.zip` are synthetic in the same sense as the Morrison source folder; they exist for pipeline-mechanics demonstration, not for extraction-performance measurement.
 
-## Where the source data comes from
+## Source-data summary
 
-| Artifact | Path or source |
-|---|---|
-| Morrison source folder | `packs/vv40/examples/morrison/source/` |
-| Morrison COU 1 JSON-LD | `packs/vv40/examples/morrison/cou1/uofa-morrison-cou1.jsonld` |
-| Morrison COU 2 JSON-LD | `packs/vv40/examples/morrison/cou2/uofa-morrison-cou2.jsonld` |
-| Original paper | Morrison et al., *Cardiovascular Engineering and Technology* (2019), DOI: 10.1007/s13239-019-00420-7 |
-| HPT blade source | `packs/nasa-7009b/examples/aerospace/aero-evidence-cou{1,2}.zip` |
-| HPT blade JSON-LD | `packs/nasa-7009b/examples/aerospace/uofa-aero-cou{1,2}-nasa7009b.jsonld` |
+| Artifact | Path | Origin |
+|---|---|---|
+| Morrison COU 1 JSON-LD | `packs/vv40/examples/morrison/cou1/uofa-morrison-cou1.jsonld` | Hand-authored from Morrison et al. (2019) |
+| Morrison COU 2 JSON-LD | `packs/vv40/examples/morrison/cou2/uofa-morrison-cou2.jsonld` | Hand-authored from Morrison et al. (2019) |
+| Morrison source folder | `packs/vv40/examples/morrison/source/` | Synthetic; generated from the hand-authored UofA for pipeline-mechanics demonstration |
+| HPT blade JSON-LD | `packs/nasa-7009b/examples/aerospace/uofa-aero-cou{1,2}-nasa7009b.jsonld` | Hand-authored from NASA-STD-7009B published guidance |
+| HPT blade evidence zips | `packs/nasa-7009b/examples/aerospace/aero-evidence-cou{1,2}.zip` | Synthetic; same pattern as the Morrison source folder |
+| Original Morrison paper | DOI: 10.1007/s13239-019-00420-7 | Morrison et al. (2019), *Cardiovascular Engineering and Technology* |
 
 ## Run uofa on your own evidence
 
-The pipeline above is the same one you would run against your own credibility evidence. Drop your source PDFs into a folder, point `uofa extract` at it, review the xlsx, import. No data leaves your environment — the CLI is fully local, and the optional `uofa extract` step supports local LLMs (Ollama qwen3.5:4b is the default).
+The future-state on-ramp for a practitioner with their own simulation evidence:
 
-See [Get Started](/start/) for installation details and the [Excel on-ramp](/start/from-excel/) for a fuller walkthrough of the import-side workflow.
+1. Drop your source documents into a folder
+2. Run `uofa extract <folder>` to produce a structured workbook
+3. Review the workbook (this is where the human catches what the LLM missed)
+4. Run `uofa import <workbook> --sign --check` to produce a signed UofA
+5. Run `uofa rules <uofa.jsonld>` to surface credibility weakeners
+
+No data leaves your environment. The CLI is fully local. The optional `uofa extract` step supports local LLMs (Ollama qwen3.5:4b is the default).
+
+See [Get Started](/start/) for installation details, and the [Excel on-ramp](/start/from-excel/) for a fuller walkthrough of the import-side workflow if you would rather author the workbook yourself.
 
 ## Feedback
 
