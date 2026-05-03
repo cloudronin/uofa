@@ -71,7 +71,7 @@ console.log(`Sanity check against ${BASE}`);
 
 const s1Body = await checkSurface('S1 splash', '/', [
   ['Hero contains v0.7.x version badge', (b) => /v0\.7\.\d+/.test(b)],
-  ['Hero NAFEMS banner present', (b) => /Live this Wed at NAFEMS/i.test(b)],
+  ['Hero NAFEMS banner present', (b) => /Live Wed May 27 at NAFEMS/i.test(b)],
   ['Three Hero CTA buttons', (b) => (b.match(/uofa-btn/g) || []).length >= 3],
   ['Pillars C1/C2/C3 cards', (b) => /C1.*INTEGRITY/.test(b) && /C2.*COMPLETENESS/.test(b) && /C3.*QUALITY/.test(b)],
   ['DemoStrip Morrison header', (b) => /Morrison blood pump/.test(b)],
