@@ -121,13 +121,13 @@ def _render_markdown(records: list[dict]) -> str:
     generated = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     lines: list[str] = [
         "---",
+        f"title: 'Weakener catalog (v{__version__})'",
+        "description: 'Auto-generated weakener pattern catalog across active packs. Re-runs on every site build via `uofa catalog --format md`.'",
         f"generated: {generated}",
         f"catalog_version: v{__version__}",
         f"total_patterns: {len(records)}",
         f"packs: [{', '.join(by_pack.keys())}]",
         "---",
-        "",
-        f"# Weakener catalog (v{__version__})",
         "",
         f"Generated from `uofa catalog --format md` at {generated}. ",
         f"{len(records)} pattern{'s' if len(records) != 1 else ''} across "

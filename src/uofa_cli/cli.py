@@ -160,12 +160,12 @@ def _render_help_all(
     generated = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     lines: list[str] = [
         "---",
+        f"title: '`uofa` CLI reference (v{__version__})'",
+        "description: 'Auto-generated CLI reference covering every subcommand and flag. Re-runs on every site build via `uofa --help-all`.'",
         f"generated: {generated}",
         f"cli_version: v{__version__}",
         f"command_count: {len(modules)}",
         "---",
-        "",
-        f"# `uofa` CLI reference (v{__version__})",
         "",
         f"Generated from `uofa --help-all` at {generated}. ",
         f"{len(modules)} subcommand{'s' if len(modules) != 1 else ''} available.",
