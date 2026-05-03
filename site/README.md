@@ -101,4 +101,4 @@ For the custom `uofa.net` domain to work, the repository's GitHub Pages settings
 
 ## License
 
-Site content: CC0 1.0. Code: MIT.
+Apache-2.0 — same as the parent `cloudronin/uofa` repo. See [LICENSE](../LICENSE) at the repo root.

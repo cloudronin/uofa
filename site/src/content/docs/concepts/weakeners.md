@@ -5,14 +5,14 @@ description: The UofA defeater taxonomy. 23 patterns across 8 categories, includ
 
 A weakener is a structural credibility gap detected by the Jena rule engine. Each pattern has an ID, a severity, an affected node, and a description. Weakeners are not errors. They are evidence-package quality alerts.
 
-The current catalog ships **23 patterns**: 21 Level-1 patterns plus 2 active compound patterns. The catalog is open and extensible via domain packs. See the [auto-generated catalog reference](/reference/catalog/) for the full table sourced from the live code.
+The current core pack ships **23 patterns**: 21 Level-1 patterns plus 2 active compound patterns. Domain packs extend the catalog additively — the `nasa-7009b` pack contributes 6 NASA-STD-7009B-specific patterns (`W-NASA-01` … `W-NASA-06`), bringing the total to **29** when both packs are loaded. See the [auto-generated catalog reference](/reference/catalog/) for the full table sourced from the live code.
 
 ## The catalog
 
 | Category | Patterns | Examples |
 |---|---|---|
 | Epistemic | W-EP-01 to W-EP-04 | Orphan claim, broken provenance, evidence-source gap, unassessed factors at elevated risk |
-| Aleatoric | W-AL-01, W-AL-02 | Missing uncertainty quantification, missing sensitivity analysis |
+| Aleatory | W-AL-01, W-AL-02 | Missing uncertainty quantification, missing sensitivity analysis |
 | Ontological | W-ON-01, W-ON-02 | Applicability gap, operating-envelope gap |
 | Structural | W-SI-01, W-SI-02 | Internal consistency gaps |
 | Argumentation | W-AR-01 to W-AR-05 | Comparator absence, eliminative-argumentation gap, residual-risk gap |

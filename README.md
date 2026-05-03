@@ -114,7 +114,7 @@ wheel.
 | W-CON-04 | Medium | 1 | Complete profile with no sensitivity analysis linked |
 | W-ON-02 | High | 1 | Context of Use lacks both applicability constraint and operating envelope |
 
-The catalog includes 23 weakener patterns spanning epistemic, aleatoric, ontological, structural, consistency, provenance, and argumentation categories. Run `uofa catalog` to list the full set. Morrison COU1 fires 5 of those 23 — the more risky COU2 fires a different 6 patterns including 2 Critical compound rules. See the divergence below.
+The catalog includes 23 weakener patterns spanning epistemic, aleatory, ontological, structural, consistency, provenance, and argumentation categories. Run `uofa catalog` to list the full set. Morrison COU1 fires 5 of those 23 — the more risky COU2 fires a different 6 patterns including 2 Critical compound rules. See the divergence below.
 
 The compound rules fire on the output of the core rules — this is chained forward-chaining inference that standalone SPARQL queries cannot produce. Same model, same data, same rules: the rule engine reasons about the *interactions* between gaps, not just the gaps themselves.
 
@@ -228,7 +228,7 @@ Placeholder strings (e.g., `sha256:placeholder...`) **fail** SHACL validation by
 
 Quality gap detection uses [Apache Jena](https://jena.apache.org/) forward-chaining rules, not just SPARQL queries. The rule engine operates in two levels:
 
-**Level 1 — Core detection rules** (21 patterns) match structural patterns against the evidence graph. Categories include epistemic (W-EP-*), aleatoric (W-AL-*), ontological (W-ON-*), structural (W-SI-*), consistency (W-CON-*), provenance (W-PROV-*), and argumentation (W-AR-*). Run `uofa catalog` for the full list with descriptions.
+**Level 1 — Core detection rules** (21 patterns) match structural patterns against the evidence graph. Categories include epistemic (W-EP-*), aleatory (W-AL-*), ontological (W-ON-*), structural (W-SI-*), consistency (W-CON-*), provenance (W-PROV-*), and argumentation (W-AR-*). Run `uofa catalog` for the full list with descriptions.
 
 **Level 2 — Compound inference rules** (2 active) fire on the output of Level 1 rules:
 

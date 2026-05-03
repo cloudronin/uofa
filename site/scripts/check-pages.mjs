@@ -99,9 +99,12 @@ await checkSurface('S3 feedback', '/feedback/', [
 ]);
 
 await checkSurface('S4 catalog', '/reference/catalog/', [
-  ['23 patterns mentioned', (b) => /23 patterns/i.test(b)],
+  ['29 patterns across 2 packs', (b) => /29 patterns/i.test(b) && /2 packs?/i.test(b)],
+  ['core pack section header', (b) => /Pack:.{0,5}core.{0,30}23 pattern/i.test(b)],
+  ['nasa-7009b pack section header', (b) => /Pack:.{0,5}nasa-7009b.{0,30}6 pattern/i.test(b)],
   ['W-PROV-01 row present', (b) => /W-PROV-01/.test(b)],
   ['W-EP-04 row present', (b) => /W-EP-04/.test(b)],
+  ['W-NASA-01 row present (aerospace pack)', (b) => /W-NASA-01/.test(b)],
   ['COMPOUND-01 row present', (b) => /COMPOUND-01/.test(b)],
   ['Auto-generated marker in body', (b) => /Generated from .{0,20}uofa catalog/i.test(b)],
 ]);

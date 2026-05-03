@@ -21,12 +21,14 @@ The credibility decision is encoded as a JSON-LD document with PROV-DM provenanc
 
 What this gives you:
 
-- **Tamper evidence.** Any change to the document — content, provenance, decision — invalidates the signature.
-- **Tool independence.** The package travels as a single JSON-LD file across organizations, simulation tools, and submission systems.
-- **Portable provenance.** Source documents, models, datasets, and prior UofAs are referenced by IRI. The provenance chain crosses tool boundaries.
-- **Reproducibility.** Anyone with the public key can verify integrity. No vendor lock-in. No infrastructure dependency.
+- **Tamper evidence.** Any change to the document — content, provenance, decision — invalidates the signature. This holds today, against any v0.7.1 UofA.
+- **A package format designed for tool independence.** The single-JSON-LD form is intended to travel across organizations, simulation tools, and submission systems. Tool-side ingestion is the active integration target; see [Feedback](/feedback/) for current outreach to PLM, SPDM, and submission-system stakeholders.
+- **Portable provenance.** Source documents, models, datasets, and prior UofAs are referenced by IRI. The provenance graph is portable; whether downstream tools consume it depends on those tools.
+- **Reproducibility of integrity.** Anyone with the public key can verify the signature with `uofa verify`. Trust-anchoring (how a verifier obtains and trusts the public key) is addressed under "What C1 does not yet give you" below.
 
-The C1 contribution is what differentiates UofA from a Word document containing the same information. A signed Word document attests to the document. A signed UofA attests to the decision *and* its provenance chain *and* its evidence linkages — all checkable mechanically.
+**What C1 does not yet give you.** ed25519 verifies that a UofA was signed by a specific key. It does not address how the verifier comes to trust that key. Trust-anchoring (PKI, did:web, organizational issuer registries) is external to C1 by design. UofA establishes the data-structural prerequisite for verifiable integrity. The trust-anchoring layer is the responsibility of the deploying organization, in the same way that a signed PDF is verifiable only against a trusted certificate authority. Post-defense work includes a reference integration with at least one trust-anchor mechanism.
+
+C1 establishes the per-decision signed evidence object as the unit of credibility exchange. The decision, its provenance, and its evidence linkages are bound together in a single artifact and verifiable mechanically. Existing structured frameworks (CLARISSA, RACK, GSN/SACM, MoSSEC, SSP-LS-Traceability) provide structured argumentation, trace data, or lifecycle linkage; UofA's contribution is the per-decision signed package as the granular, portable, machine-verifiable evidence unit that flows through and across them.
 
 ## C2 — Computable completeness
 
@@ -45,22 +47,22 @@ What this gives you:
 
 - **Machine-checkable submissions.** Reviewers can run `uofa shacl FILE` and get a deterministic answer.
 - **Plain-English error messages.** SHACL violations are translated to actionable messages with sheet name and cell reference (for Excel imports) or field name (for direct JSON-LD).
-- **Risk-proportional rigor.** The two-profile system aligns with how NASA-STD-7009 and the in-development ASME VVUQ 90 define proportional assurance.
+- **Two-profile structural completeness.** Minimal (7 fields) supports lightweight live-pipeline capture; Complete (17 fields) supports formal regulatory submissions. These two levels measure structural completeness of the evidence package. They are orthogonal to credibility-level scales such as NASA-STD-7009B's Credibility Assessment Scale (CAS levels 0–4) and ASME V&V 40's risk-informed credibility framework, which measure how much credibility evidence is needed. The COU's `modelRiskLevel` carries the credibility-level signal independently.
 
-The "thin schema" objection is preempted by the standards themselves. UofA's graded profiles are not a limitation. They are aligned with how regulated standards define proportional rigor.
+The "thin schema" framing applies only to the structural-completeness layer. UofA does not attempt to redefine credibility-level scales; it provides a portable evidence-package shape into which any standards-defined credibility level fits.
 
 ## C3 — Quality gates
 
 <a id="c3"></a>
 
-The Apache Jena forward-chaining rule engine detects substantive credibility gaps that SHACL cannot express. The current catalog has 23 patterns: 21 Level-1 patterns plus 2 active compound patterns.
+The Apache Jena forward-chaining rule engine detects substantive credibility gaps that SHACL cannot express. The current core pack has 23 patterns: 21 Level-1 patterns plus 2 active compound patterns (`COMPOUND-01` and `COMPOUND-03`). Domain packs extend this catalog additively — the `nasa-7009b` pack contributes 6 NASA-STD-7009B-specific patterns (`W-NASA-01` … `W-NASA-06`), bringing the total to 29 when both packs are loaded. See the [Weakener catalog](/reference/catalog/) for the full enumeration.
 
 The compound patterns are the differentiator. A compound rule fires on the *output* of Level-1 rules. This is chained inference that standalone SPARQL queries cannot produce.
 
 | Category | Patterns | Detects |
 |---|---|---|
 | Epistemic (W-EP-*) | 4 | Orphan claims, broken provenance, evidence-source gaps |
-| Aleatoric (W-AL-*) | 2 | Missing UQ, missing sensitivity analysis |
+| Aleatory (W-AL-*) | 2 | Missing UQ, missing sensitivity analysis |
 | Ontological (W-ON-*) | 2 | Applicability, operating-envelope gaps |
 | Argumentation (W-AR-*) | 5 | Comparator absence, residual-risk gaps |
 | Structural (W-SI-*) | 2 | Internal consistency gaps |
@@ -72,8 +74,8 @@ See [Weakeners](/concepts/weakeners/) for the full taxonomy and the worked Morri
 
 What this gives you:
 
-- **Automated reviewer attention.** Reviewers focus on the gaps the rule engine surfaces, not on hunting for them in prose.
-- **Risk-driven divergence.** Same model, same data, different model risk produce measurably different weakener profiles. The rule engine surfaces this automatically with `uofa diff`.
-- **Compound inference.** Coexisting Critical and High weakeners on the same UofA trigger COMPOUND-01. A declared assurance level inconsistent with detected gaps triggers COMPOUND-03. These are the kinds of patterns no individual SPARQL query can express.
+- **A pattern catalog designed to direct reviewer attention.** The 29-pattern catalog (core + nasa-7009b) encodes credibility gaps that are otherwise hunted for in prose. Reviewer-side adoption is the next validation milestone — Phase 3 of the praxis runs the catalog against expert-adjudicated cases to calibrate severity assignments.
+- **Risk-driven divergence (validated today).** Same model, same data, different model risk produces measurably different weakener profiles. The Morrison COU 1 vs COU 2 diff is the worked demonstration; reproduce with `uofa diff`. See [/demo/](/demo/).
+- **Compound inference.** Coexisting Critical and High weakeners on the same UofA trigger `COMPOUND-01`. A declared assurance level inconsistent with detected gaps triggers `COMPOUND-03`. These are the kinds of patterns no individual SPARQL query can express.
 
 Zero weakeners does not mean the model passed. Zero weakeners means the *evidence package* is structurally complete and auditable, even when the evidence indicates the model fails. The core value proposition is evidence packaging quality, not evidence sufficiency.
