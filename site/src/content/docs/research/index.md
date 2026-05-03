@@ -28,7 +28,7 @@ A coverage methodology, validated against four published defeater taxonomies (Kh
 | JVVUQ paper(s) | September 2026 / January 2027 |
 | Book — *Credible Simulation: Machine-Verifiable Evidence for Regulated Industries* | 2027 |
 
-The book companion site is [crediblesimulation.com](https://crediblesimulation.com). This site (uofa.net) is the tool and methodology home.
+All project content — the tool, the methodology, and the book companion materials — lives at [uofa.net](https://uofa.net).
 
 ## Upcoming presentations
 
