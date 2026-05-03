@@ -86,7 +86,11 @@ jobs:
         run: npm run build
         env:
           PUBLIC_BUILD_SHA: ${{ github.sha }}
-          PUBLIC_BUILD_DATE: ${{ github.event.head_commit.timestamp || github.event.pull_request.head.repo.pushed_at || '' }}
+          # On push events the commit timestamp is in head_commit. On PR events
+          # head_commit isn't populated and this falls through empty, which the
+          # SiteFooter component handles by falling back to today's date — fine
+          # for preview builds since they never deploy to production.
+          PUBLIC_BUILD_DATE: ${{ github.event.head_commit.timestamp }}
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
