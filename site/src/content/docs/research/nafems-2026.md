@@ -18,17 +18,9 @@ The talk demonstrates UofA as the atomic evidence object inside simulation evide
 
 ## Live demo
 
-The live demo runs from the frozen `v0.7.1` tag and walks through the full authoring on-ramp:
+The live demo runs from the frozen `v0.7.1` tag against the bundled Morrison UofA packages (hand-authored from Morrison et al. 2019). Two `uofa rules` invocations and a `uofa diff` reproduce the slide-16 output: COU 1 = 11 weakeners across 5 patterns, COU 2 = 18 weakeners across 6 patterns including 2 `COMPOUND-01` firings. Optional round-trip of the `uofa extract` → `uofa import` pipeline against a synthetic evidence folder. Optional cross-domain reproduction with the NASA-STD-7009B HPT-blade example.
 
-1. The Morrison source folder (PDFs and validation reports) processed by `uofa extract` to produce a structured xlsx
-2. Human review of the xlsx — the checkpoint where the engineer catches what the LLM missed
-3. `uofa import --sign --check` — Excel to signed JSON-LD with completeness and integrity validation in ~30 seconds
-4. `uofa rules` against COU1 (MRL 2, Accepted) — 11 weakeners across 5 patterns, no compound firings
-5. `uofa rules` against COU2 (MRL 5, Not Accepted) — 18 weakeners across 6 patterns, dominated by `W-PROV-01` ×7 and `W-EP-04` ×6, including 2 firings of `COMPOUND-01`
-6. `uofa diff` between COU1 and COU2 — pattern-level divergences automatically surfaced
-7. Cross-domain reproduction — same pipeline, NASA-STD-7009B pack, HPT blade conjugate-heat-transfer case study
-
-A reproducible step-by-step walkthrough is at [/demo/](/demo/).
+Step-by-step at [/demo/](/demo/).
 
 ## Why this audience
 
