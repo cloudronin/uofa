@@ -393,6 +393,6 @@ def install(
 def _uofa_version() -> str:
     try:
         from importlib.metadata import version
-        return version("uofa-cli")
+        return version("uofa")
     except Exception:
         return "unknown"

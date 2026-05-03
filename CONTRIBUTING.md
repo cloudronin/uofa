@@ -94,11 +94,22 @@ If a check fires, fix the underlying issue rather than silencing the check. Each
 
 ## Building wheels (release maintainers)
 
-The `release-wheels.yml` workflow produces six wheels per release: a
+The `release-wheels.yml` workflow produces five wheels per release: a
 `py3-none-any` wheel that bundles only the rule-engine JAR (system Java
-17+ still required), plus per-platform wheels for macOS arm64 / x86_64,
+17+ still required), plus per-platform wheels for macOS arm64,
 Linux x86_64 / aarch64, and Windows x86_64 that bundle the JAR **and** an
 OpenJDK 17 JRE so end users need no Java install.
+
+> **Intel macOS users**: as of v0.7.0 we no longer build a `macosx_11_0_x86_64`
+> wheel. GitHub Actions' `macos-13` queue waits routinely ran 20–60+ minutes
+> and would block the PyPI publish job. Intel Mac users should install the
+> `py3-none-any` wheel and provide a system Java 17 (`brew install openjdk@17`).
+> If Intel-Mac usage signal grows, the wheel can come back.
+
+The same workflow also builds an sdist and publishes everything (5 wheels +
+sdist) to [PyPI](https://pypi.org/project/uofa/) automatically on every
+`v*` tag push, gated on every smoke job passing. Auth is via PyPI Trusted
+Publishing (OIDC) — no API tokens are stored in GitHub secrets.
 
 Local wheel builds use the same Hatchling custom hook in `hatch_build.py`:
 

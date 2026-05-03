@@ -60,7 +60,7 @@ def default_bundle_filename(platform: str | None = None, uofa_version: str | Non
 def _uofa_version() -> str:
     try:
         from importlib.metadata import version
-        return version("uofa-cli")
+        return version("uofa")
     except Exception:
         return "0.0.0"
 

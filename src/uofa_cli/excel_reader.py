@@ -91,7 +91,7 @@ def read_workbook(xlsx_path: Path, packs: list[str]) -> dict:
     except ImportError:
         raise ImportError([
             "openpyxl is required for Excel import. "
-            "Install with: pip install uofa-cli[excel]"
+            "Install with: pip install uofa[excel]"
         ])
 
     if not xlsx_path.exists():

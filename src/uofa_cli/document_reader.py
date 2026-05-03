@@ -178,7 +178,7 @@ def read_corpus(paths: list[Path], row_budget: int = 50) -> ExtractionCorpus:
         except ImportError as exc:
             corpus.warnings.append(
                 f"Cannot read {path.name}: missing dependency ({exc}). "
-                f"Install with: pip install uofa-cli[llm]"
+                f"Install with: pip install uofa[extract]"
             )
             continue
 

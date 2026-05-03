@@ -49,6 +49,27 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
+  # Source distribution. Doesn't bundle the JAR (per pyproject.toml's
+  # [tool.hatch.build.targets.sdist] exclude); sdist consumers rebuild the JAR
+  # via Maven on install. Runs in parallel with build-jar/build-wheel.
+  build-sdist:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install build tooling
+        run: python -m pip install --upgrade pip build
+      - name: Build sdist
+        run: python -m build --sdist
+      - name: Upload sdist artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: uofa-sdist
+          path: dist/*.tar.gz
+          if-no-files-found: error
+
   build-wheel:
     needs: build-jar
     runs-on: ubuntu-latest
@@ -68,10 +89,9 @@ jobs:
             artifact: uofa-cli-wheel-manylinux-aarch64
             env_jar: ''
             env_platform: 'manylinux_2_28_aarch64'
-          - variant: macos-x86_64
-            artifact: uofa-cli-wheel-macos-x86_64
-            env_jar: ''
-            env_platform: 'macosx_11_0_x86_64'
+          # macos-x86_64 (Intel) dropped in v0.7.0: GHA queue waits for the
+          # macos-13 runner routinely block PyPI publish. Intel Mac users
+          # install the py3-none-any wheel + system Java 17 instead.
           - variant: macos-arm64
             artifact: uofa-cli-wheel-macos-arm64
             env_jar: ''
@@ -228,9 +248,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - runner: macos-13
-            artifact: uofa-cli-wheel-macos-x86_64
-            wheel_glob: '*macosx_11_0_x86_64*.whl'
+          # macos-13 (Intel) dropped in v0.7.0 — see the matching note in
+          # build-wheel above.
           - runner: macos-14
             artifact: uofa-cli-wheel-macos-arm64
             wheel_glob: '*macosx_11_0_arm64*.whl'
@@ -329,3 +348,49 @@ jobs:
           print(f'OK: java_executable={paths.java_executable()}')
           "@
           & $env:RUNNER_TEMP\uofa-venv\Scripts\uofa.exe check packs/vv40/examples/morrison/cou1/uofa-morrison-cou1.jsonld
+
+  # Publish all wheels + sdist to PyPI via Trusted Publishing (OIDC).
+  # Gates on every smoke job so we never publish a wheel we didn't smoke-test.
+  # Tag-push only — PR runs of this workflow build but don't publish.
+  publish-pypi:
+    needs:
+      - build-sdist
+      - smoke-pure-wheel
+      - smoke-linux-x86_64
+      - smoke-linux-aarch64
+      - smoke-macos      # macos-14 (arm64) only after the macos-13 drop
+      - smoke-windows
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/uofa
+    permissions:
+      id-token: write   # required for OIDC token exchange with PyPI
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      # Pull every wheel + sdist artifact into one dist/ directory. The glob
+      # 'uofa*' matches both legacy `uofa-cli-wheel-*` artifact names and the
+      # new `uofa-sdist`. merge-multiple flattens them into a single dir.
+      - name: Download all wheel + sdist artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist/
+          pattern: 'uofa*'
+          merge-multiple: true
+
+      - name: List artifacts to publish
+        run: ls -la dist/
+
+      - name: Validate distribution metadata
+        run: |
+          python -m pip install --upgrade twine
+          twine check dist/*
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        # No `with:` block — Trusted Publishing config on the PyPI side
+        # supplies auth, and the action uploads dist/* by default.

@@ -59,9 +59,14 @@ class TestCLIBasics:
         assert "uofa_cli" in result.stdout or "validate" in result.stdout
 
     def test_version(self):
+        # Pre-v0.7.0 this was hardcoded "0.5.0" — silently passing
+        # while every release after v0.5.0 mis-reported its version. The
+        # CLI now reads its version from package metadata, so the test
+        # imports from the same source.
+        from uofa_cli import __version__
         result = run_uofa("--version")
         assert result.returncode == 0
-        assert "0.5.0" in result.stdout
+        assert __version__ in result.stdout
 
     def test_no_command_shows_help(self):
         result = run_uofa()
