@@ -18,12 +18,12 @@ on:
   pull_request:
     paths:
       - 'pyproject.toml'
-      - 'hatch_build.py'
-      - 'jre_manifest.toml'
+      - 'build-config/hatch_build.py'
+      - 'build-config/jre_manifest.toml'
       - 'src/uofa_cli/paths.py'
       - 'src/uofa_cli/commands/rules.py'
-      - 'weakener-engine/**'
-      - 'scripts/refresh_jre_manifest.py'
+      - 'src/weakener-engine/**'
+      - 'dev/tools/scripts/refresh_jre_manifest.py'
       - '.github/workflows/release-wheels.yml'
   workflow_dispatch:
 
@@ -39,13 +39,13 @@ jobs:
           java-version: '17'
 
       - name: Build fat JAR
-        run: cd weakener-engine && mvn package -q
+        run: cd src/weakener-engine && mvn package -q
 
       - name: Upload JAR artifact
         uses: actions/upload-artifact@v4
         with:
           name: weakener-engine-jar
-          path: weakener-engine/target/uofa-weakener-engine-*.jar
+          path: src/weakener-engine/target/uofa-weakener-engine-*.jar
           if-no-files-found: error
           retention-days: 1
 
@@ -94,7 +94,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: weakener-engine-jar
-          path: weakener-engine/target/
+          path: src/weakener-engine/target/
 
       - name: Build wheel (${{ matrix.variant }})
         env:
