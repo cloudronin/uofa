@@ -32,13 +32,23 @@ def add_arguments(parser):
     parser.add_argument("--format", "-f", default="table",
                         choices=["table", "json", "md"],
                         help="output format (default: table)")
+    parser.add_argument("--all-packs", action="store_true",
+                        help="enumerate patterns across every installed pack "
+                             "(overrides --pack). Use this for a complete "
+                             "catalog view; the default --pack=vv40 only "
+                             "surfaces core + vv40 patterns.")
 
 
 def run(args) -> int:
-    # Re-apply active pack from args: the subparser's --pack action clobbers
-    # the parent parser's value at parse time, so the global set in cli.py
-    # may not reflect what the user passed after the subcommand name.
-    if args.pack:
+    # --all-packs takes precedence over --pack: enumerate every installed
+    # pack so the catalog reflects total available patterns, not just those
+    # in the active subset.
+    if getattr(args, "all_packs", False):
+        paths.set_active_pack(paths.list_packs())
+    elif args.pack:
+        # Re-apply active pack from args: the subparser's --pack action clobbers
+        # the parent parser's value at parse time, so the global set in cli.py
+        # may not reflect what the user passed after the subcommand name.
         paths.set_active_pack(args.pack)
     records = _collect_patterns()
     if args.format == "json":

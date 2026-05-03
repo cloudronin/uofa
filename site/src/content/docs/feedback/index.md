@@ -52,4 +52,4 @@ If any of these resonate with patterns you have seen in real submissions, that i
 
 ---
 
-*This is an open-source academic project. The code is Apache-2.0, the schema is CC0. There is no sales contact and no funnel. The single best way to support the work is to run it on your own evidence and tell me what you find.*
+*This is an open-source academic project. The code and schema are both Apache-2.0. There is no sales contact and no funnel. The single best way to support the work is to run it on your own evidence and tell me what you find.*

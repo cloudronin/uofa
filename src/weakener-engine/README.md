@@ -33,7 +33,7 @@
     │                                                   │
     │  Phase 1: Core weakener detection rules (21)      │
     │    Epistemic (W-EP-*)    × 4                      │
-    │    Aleatoric (W-AL-*)    × 2                      │
+    │    Aleatory   (W-AL-*)   × 2                      │
     │    Ontological (W-ON-*)  × 2                      │
     │    Argument (W-AR-*)     × 5                      │
     │    Structural (W-SI-*)   × 2                      │
