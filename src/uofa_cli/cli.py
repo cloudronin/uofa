@@ -60,6 +60,8 @@ def _run():
         parents=[parent],
     )
     parser.add_argument("--version", action="version", version=f"uofa {__version__}")
+    parser.add_argument("--help-all", action="store_true",
+                        help="emit markdown documentation for every subcommand to stdout and exit")
 
     sub = parser.add_subparsers(dest="command", title="commands")
 
@@ -89,9 +91,11 @@ def _run():
         "demo":        demo,
     }
 
+    subparsers: dict[str, argparse.ArgumentParser] = {}
     for name, mod in modules.items():
         sp = sub.add_parser(name, help=mod.HELP, parents=[parent])
         mod.add_arguments(sp)
+        subparsers[name] = sp
 
     # Pre-parse --pack so values supplied BEFORE the subcommand are preserved.
     # With parents=[parent], subparsers inherit a --pack action whose default
@@ -103,6 +107,10 @@ def _run():
     _pre_args, _ = _pre_pack.parse_known_args()
 
     args = parser.parse_args()
+
+    if getattr(args, "help_all", False):
+        sys.stdout.write(_render_help_all(modules, subparsers))
+        return 0
 
     if not args.command:
         parser.print_help()
@@ -135,6 +143,93 @@ def _run():
         if args.verbose:
             raise
         return 1
+
+
+def _render_help_all(
+    modules: dict,
+    subparsers: dict[str, argparse.ArgumentParser],
+) -> str:
+    """Emit a markdown reference for every subcommand.
+
+    One section per command. Each section: heading, one-line summary,
+    ``Usage`` block (from argparse format_usage), then a table of
+    options when the parser has any beyond the inherited parent flags.
+    """
+    from datetime import datetime, timezone
+
+    generated = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    lines: list[str] = [
+        "---",
+        f"generated: {generated}",
+        f"cli_version: v{__version__}",
+        f"command_count: {len(modules)}",
+        "---",
+        "",
+        f"# `uofa` CLI reference (v{__version__})",
+        "",
+        f"Generated from `uofa --help-all` at {generated}. ",
+        f"{len(modules)} subcommand{'s' if len(modules) != 1 else ''} available.",
+        "",
+        "## Synopsis",
+        "",
+        "```text",
+        "uofa [--no-color] [--verbose] [--repo-root PATH] [--pack NAME] <command> [...]",
+        "```",
+        "",
+        "Global flags inherited by every subcommand: `--no-color`, `--verbose`, "
+        "`--repo-root`, `--pack`. See `uofa --help` for details.",
+        "",
+        "## Commands",
+        "",
+    ]
+
+    for name in modules:
+        mod = modules[name]
+        sp = subparsers[name]
+        usage = sp.format_usage().strip().replace("usage: ", "")
+        lines.extend([
+            f"### `uofa {name}`",
+            "",
+            f"_{getattr(mod, 'HELP', '').strip()}_",
+            "",
+            "```text",
+            usage,
+            "```",
+            "",
+        ])
+
+        rows = _option_rows(sp)
+        if rows:
+            lines.extend([
+                "| Flag | Description |",
+                "|---|---|",
+            ])
+            lines.extend(rows)
+            lines.append("")
+
+    return "\n".join(lines) + "\n"
+
+
+def _option_rows(sp: argparse.ArgumentParser) -> list[str]:
+    """Return one markdown table row per command-specific option.
+
+    Excludes inherited parent flags (--no-color, --verbose, --repo-root,
+    --pack, -h/--help) since those are documented once in the synopsis.
+    """
+    skip = {"--no-color", "--verbose", "--repo-root", "--pack", "-h", "--help"}
+    rows: list[str] = []
+    for action in sp._actions:
+        flags = action.option_strings
+        if not flags or any(f in skip for f in flags):
+            continue
+        flag_str = ", ".join(f"`{f}`" for f in flags)
+        if action.metavar:
+            flag_str += f" `{action.metavar}`"
+        elif action.choices:
+            flag_str += f" {{{', '.join(str(c) for c in action.choices)}}}"
+        help_text = (action.help or "").replace("|", "\\|").replace("\n", " ")
+        rows.append(f"| {flag_str} | {help_text} |")
+    return rows
 
 
 if __name__ == "__main__":
