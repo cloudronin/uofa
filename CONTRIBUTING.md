@@ -65,6 +65,32 @@ uofa validate
 
 CI runs `uofa validate` and `uofa check` on the Morrison example for every PR.
 
+## Pre-tag release checklist
+
+Before tagging a new release, run [release_check.py](dev/tools/scripts/release_check.py) to catch the kinds of drift that have slipped past local testing in past tags. The script is fast (no pytest by default) and exits non-zero on any failure so you can chain it before `git tag`:
+
+```bash
+# Fast checks only (~10 seconds)
+python dev/tools/scripts/release_check.py --tag v0.6.5
+
+# Same plus the full pytest suite (~10-15 minutes)
+python dev/tools/scripts/release_check.py --tag v0.6.5 --full
+```
+
+The five fast checks are:
+
+| Check | What it catches |
+|---|---|
+| Git state | Uncommitted changes, wrong branch, behind origin/main. |
+| Version coherence | `pyproject.toml` `version` matches the intended tag. |
+| Python syntax compat | `ast.parse`s `src/uofa_cli/**.py` under **every** installed Python ≥ the project minimum. *Catches: v0.6.2 backslash-in-fstring that parsed fine on 3.12 but broke pytest collection on the 3.11 CI runner.* |
+| CI workflow paths | Greps `cd <path>`, `path:`, and `paths:` entries from every `.github/workflows/*.yml` and verifies each target exists on disk. *Catches: v0.6.4 release-wheels.yml referencing pre-reorg paths (`weakener-engine`, root `hatch_build.py`) after the Phase E reorg moved them.* |
+| Test imports vs devcontainer install | Parses every top-level import in `tests/` and checks the devcontainer `postCreateCommand`'s `pip install -e .[extras]` line covers them all. *Catches: post-v0.6.4 devcontainer hot-fix where `[test,excel]` didn't include `[extract]`, so 46 tests degraded with "Jinja2 not installed" in CI.* |
+
+Pass `--full` to also run `pytest tests/ -q` as a sixth check. The `--tag` argument is optional — without it, the version-coherence check is skipped (useful for sanity-checking `main` between releases).
+
+If a check fires, fix the underlying issue rather than silencing the check. Each one corresponds to a real bug that shipped to a tag and required a follow-up patch.
+
 ## Building wheels (release maintainers)
 
 The `release-wheels.yml` workflow produces six wheels per release: a
