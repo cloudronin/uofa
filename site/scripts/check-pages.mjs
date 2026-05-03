@@ -73,6 +73,10 @@ const s1Body = await checkSurface('S1 splash', '/', [
   ['Hero contains v0.7.x version badge', (b) => /v0\.7\.\d+/.test(b)],
   ['Hero NAFEMS banner present', (b) => /Live Wed May 27 at NAFEMS/i.test(b)],
   ['Three Hero CTA buttons', (b) => (b.match(/uofa-btn/g) || []).length >= 3],
+  ['Hero terminal shows real uofa demo command (not blade-fatigue)', (b) =>
+    /uofa demo/.test(b) && !/blade-fatigue/.test(b)],
+  ['Hero terminal shows C1/C2/C3 pipeline output', (b) =>
+    /C1.{0,80}Integrity/i.test(b) && /C2.{0,80}SHACL/i.test(b) && /C3.{0,80}Quality gates/i.test(b)],
   ['Pillars C1/C2/C3 cards', (b) => /C1.*INTEGRITY/.test(b) && /C2.*COMPLETENESS/.test(b) && /C3.*QUALITY/.test(b)],
   ['DemoStrip Morrison header', (b) => /Morrison blood pump/.test(b)],
   ['Footer support email', (b) => /support@uofa\.net/.test(b)],
@@ -81,8 +85,8 @@ const s1Body = await checkSurface('S1 splash', '/', [
 ]);
 
 await checkSurface('S2 demo', '/demo/', [
-  ['Stage 5 Morrison COU1 path', (b) => /morrison-cou1\.jsonld/.test(b)],
-  ['Stage 6 Morrison COU2 path', (b) => /morrison-cou2\.jsonld/.test(b)],
+  ['Morrison COU1 jsonld path present', (b) => /morrison-cou1\.jsonld/.test(b)],
+  ['Morrison COU2 jsonld path present', (b) => /morrison-cou2\.jsonld/.test(b)],
   ['11 weakeners across 5 patterns', (b) => /11.*weakeners.*5.*patterns|5 patterns.*11/i.test(b)],
   ['18 weakeners on COU2', (b) => /18.*weakeners/.test(b)],
   ['COMPOUND-01 reference', (b) => /COMPOUND-01/.test(b)],
