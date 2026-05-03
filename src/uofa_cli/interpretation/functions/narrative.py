@@ -19,7 +19,7 @@ import logging
 from uofa_cli.interpretation.cache import ExplanationCache, compute_key
 from uofa_cli.interpretation.dispatcher import applies_to_commands
 from uofa_cli.interpretation.envelope import INTERPRETATION_VERSION
-from uofa_cli.interpretation.functions.group import _generate_and_parse, _render_firings_block
+from uofa_cli.interpretation.functions.group import _generate_and_parse, _noop_cm, _render_firings_block
 from uofa_cli.interpretation.templates import has_template, render
 from uofa_cli.llm.backend import GenerationOptions
 from uofa_cli.llm.errors import LLMError
@@ -86,6 +86,7 @@ def surviving_set_narrative(
         extra={"think": False},
     )
 
+    spinner_factory = getattr(options, "spinner_factory", None) or _noop_cm
     narratives: list[dict] = []
     for entry in surviving_sets:
         if not isinstance(entry, dict):
@@ -130,13 +131,14 @@ def surviving_set_narrative(
                 continue
 
         try:
-            if backend.supports_structured_output():
-                try:
-                    result = backend.generate_structured(prompt, _NARRATIVE_SCHEMA, gen_options)
-                except NotImplementedError:
+            with spinner_factory(f"Generating narrative for {cou_name or 'COU'}..."):
+                if backend.supports_structured_output():
+                    try:
+                        result = backend.generate_structured(prompt, _NARRATIVE_SCHEMA, gen_options)
+                    except NotImplementedError:
+                        result = _generate_and_parse(backend, prompt, gen_options)
+                else:
                     result = _generate_and_parse(backend, prompt, gen_options)
-            else:
-                result = _generate_and_parse(backend, prompt, gen_options)
         except (LLMError, json.JSONDecodeError, ValueError) as exc:
             log.warning("narrative failed for COU %s: %s", cou_name, getattr(exc, "diagnostic", exc))
             continue

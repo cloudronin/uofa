@@ -23,6 +23,13 @@ that shipped to a tag and required a follow-up patch:
     cross-references against pyproject.toml extras, and confirms the
     devcontainer install line covers everything tests touch.
 
+- v0.6.5 → v0.6.6: commands/demo.py still referenced the pre-Phase-E
+  JAR path (weakener-engine/target/...) instead of the post-reorg
+  src/weakener-engine/target/...; `uofa demo` failed C3. Static path
+  audits don't catch source-code path strings, so the catch-all is to
+  actually run the bundled command.
+  → check_uofa_demo() runs `uofa demo` and verifies exit code 0.
+
 Plus the standard pre-tag hygiene:
 - check_git_state(): clean working tree, on main, up to date with origin
 - check_version_match(): pyproject.toml version matches the intended tag
@@ -375,7 +382,41 @@ def check_test_imports_vs_install() -> bool:
     return True
 
 
-# ── Check 6 (optional): full pytest ────────────────────────
+# ── Check 6: uofa demo end-to-end smoke ────────────────────
+
+
+def check_uofa_demo() -> bool:
+    step("uofa demo end-to-end smoke (C1 + C2 + C3 against bundled fixture)")
+    try:
+        result = subprocess.run(
+            [sys.executable, "-m", "uofa_cli.cli", "demo"],
+            cwd=REPO, capture_output=True, text=True, timeout=120,
+        )
+    except subprocess.TimeoutExpired:
+        fail("uofa demo timed out after 120s — engine wedged?")
+        return False
+    if result.returncode != 0:
+        fail(f"uofa demo exited with code {result.returncode}")
+        # Surface the failure markers from the demo's own structured output
+        # so the operator sees which of C1/C2/C3 broke without re-running.
+        for line in result.stdout.splitlines()[-40:]:
+            if "✗" in line or "FAIL" in line:
+                print(f"{INDENT}    {line.strip()}")
+        if result.stderr.strip():
+            print(f"{INDENT}    stderr: {result.stderr.strip()[:300]}")
+        return False
+    # Sanity: confirm all three pipeline phases passed (defensive — exit 0
+    # without all checks would still surface as success without this).
+    out = result.stdout
+    for phase in ("C1 Integrity", "C2 SHACL", "C3 Rules"):
+        if f"✓ {phase}" not in out:
+            fail(f"uofa demo exited 0 but did not report ✓ {phase}")
+            return False
+    ok("uofa demo: C1 + C2 + C3 all reported ✓")
+    return True
+
+
+# ── Check 7 (optional): full pytest ────────────────────────
 
 
 def check_full_test_suite() -> bool:
@@ -416,6 +457,7 @@ def main() -> int:
         ("python syntax compat", check_python_syntax_compat()),
         ("workflow paths", check_workflow_paths()),
         ("test imports vs install", check_test_imports_vs_install()),
+        ("uofa demo smoke", check_uofa_demo()),
     ]
     if args.full:
         checks.append(("full pytest", check_full_test_suite()))

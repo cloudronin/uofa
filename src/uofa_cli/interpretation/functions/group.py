@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import logging
+from contextlib import contextmanager
 
 from uofa_cli.interpretation.cache import ExplanationCache, compute_key
 from uofa_cli.interpretation.context import FiringContext, ViolationContext
@@ -23,6 +24,11 @@ from uofa_cli.llm.backend import GenerationOptions
 from uofa_cli.llm.errors import LLMError
 
 log = logging.getLogger(__name__)
+
+
+@contextmanager
+def _noop_cm(label: str = ""):  # noqa: ARG001
+    yield
 
 
 _GROUPING_SCHEMA = {
@@ -121,14 +127,16 @@ def group_firings(
         extra={"think": False},
     )
 
+    spinner_factory = getattr(options, "spinner_factory", None) or _noop_cm
     try:
-        if backend.supports_structured_output():
-            try:
-                result = backend.generate_structured(prompt, _GROUPING_SCHEMA, gen_options)
-            except NotImplementedError:
+        with spinner_factory(f"Grouping {len(items)} firings..."):
+            if backend.supports_structured_output():
+                try:
+                    result = backend.generate_structured(prompt, _GROUPING_SCHEMA, gen_options)
+                except NotImplementedError:
+                    result = _generate_and_parse(backend, prompt, gen_options)
+            else:
                 result = _generate_and_parse(backend, prompt, gen_options)
-        else:
-            result = _generate_and_parse(backend, prompt, gen_options)
     except (LLMError, json.JSONDecodeError, ValueError) as exc:
         log.warning("group failed: %s", getattr(exc, "diagnostic", exc))
         return {}

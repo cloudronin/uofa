@@ -4,6 +4,10 @@ from __future__ import annotations
 
 import os
 import sys
+import threading
+import time
+from contextlib import contextmanager
+from typing import Iterator
 
 # ── Color support detection ──────────────────────────────────
 
@@ -133,3 +137,57 @@ def table_footer(widths: list[int]):
 def _strip_ansi(text: str) -> str:
     import re
     return re.sub(r'\033\[[0-9;]*m', '', text)
+
+
+# ── Spinner (for blocking operations like LLM calls) ────────
+
+
+_SPINNER_FRAMES = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
+_SPINNER_INTERVAL_S = 0.08
+
+
+@contextmanager
+def spinner(label: str = "") -> Iterator[None]:
+    """Animated braille spinner during a blocking operation.
+
+    Writes to stderr with carriage-return overwrites; cleans up the line
+    on exit (including on exception). No-op when stderr is not a TTY so
+    piped/redirected output stays clean.
+
+    Sequential use only — concurrent spinners would interleave \\r writes.
+    """
+    if not (hasattr(sys.stderr, "isatty") and sys.stderr.isatty()):
+        yield
+        return
+
+    stop = threading.Event()
+
+    def animate() -> None:
+        sys.stderr.write("\033[?25l")  # hide cursor
+        try:
+            i = 0
+            while not stop.is_set():
+                frame = _SPINNER_FRAMES[i % len(_SPINNER_FRAMES)]
+                sys.stderr.write(f"\r  {frame} {label}")
+                sys.stderr.flush()
+                i += 1
+                time.sleep(_SPINNER_INTERVAL_S)
+        finally:
+            # Clear the line and restore the cursor regardless of how we exit.
+            clear = "\r" + " " * (len(label) + 4) + "\r"
+            sys.stderr.write(clear + "\033[?25h")
+            sys.stderr.flush()
+
+    t = threading.Thread(target=animate, daemon=True)
+    t.start()
+    try:
+        yield
+    finally:
+        stop.set()
+        t.join(timeout=0.5)
+
+
+@contextmanager
+def noop_spinner(label: str = "") -> Iterator[None]:  # noqa: ARG001
+    """No-op stand-in for `spinner` — used as the pipeline's default."""
+    yield

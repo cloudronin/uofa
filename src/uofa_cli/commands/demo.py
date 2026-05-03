@@ -124,13 +124,13 @@ def _run_pipeline_in_tmp_layout(uofa_path: Path) -> int:
             if src.exists():
                 shutil.copytree(src, staged_repo / sub, symlinks=True)
         # In source-tree dev there is no wheel-bundled JAR, so the rules
-        # step falls through to repo_root/weakener-engine/target/...; mirror
+        # step falls through to repo_root/src/weakener-engine/target/...; mirror
         # that into the staged tree too. (In a real installed wheel the
         # bundled JAR resolves directly and this branch is a no-op.)
         if paths.bundled_jar() is None:
-            jar_src = repo_root / "weakener-engine" / "target" / "uofa-weakener-engine-0.1.0.jar"
+            jar_src = repo_root / "src" / "weakener-engine" / "target" / "uofa-weakener-engine-0.1.0.jar"
             if jar_src.exists():
-                jar_dst = staged_repo / "weakener-engine" / "target" / jar_src.name
+                jar_dst = staged_repo / "src" / "weakener-engine" / "target" / jar_src.name
                 jar_dst.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(jar_src, jar_dst)
 

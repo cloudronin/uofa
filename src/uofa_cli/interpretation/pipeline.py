@@ -17,8 +17,9 @@ can be built against a stable surface.
 
 from __future__ import annotations
 
+from contextlib import contextmanager
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Callable, ContextManager, Iterator
 
 from uofa_cli.interpretation.cache import ExplanationCache
 from uofa_cli.interpretation.context import (
@@ -34,6 +35,17 @@ from uofa_cli.interpretation.envelope import (
 )
 
 
+# Type alias: spinner_factory takes a status label, returns a context
+# manager that animates while its body runs. Default is a no-op so
+# library / programmatic callers don't get TTY animations they didn't ask for.
+SpinnerFactory = Callable[[str], ContextManager[None]]
+
+
+@contextmanager
+def _noop_spinner(label: str = "") -> Iterator[None]:  # noqa: ARG001
+    yield
+
+
 @dataclass(frozen=True)
 class InterpretationOptions:
     """Per-invocation knobs. Mirrors the spec §3.2 `--explain-*` flags.
@@ -42,6 +54,11 @@ class InterpretationOptions:
     `pipeline.run_pipeline` resolves one from the global config via
     `uofa_cli.llm.get_backend()`. `functions` is a list of canonical short
     names (`explain`, `group`, ...) or `["all"]` to run everything applicable.
+
+    `spinner_factory`, when provided, is invoked with a status label
+    around each LLM call. The default is a no-op — CLI callers pass
+    `uofa_cli.output.spinner` to get animated progress; tests / programmatic
+    callers leave it unset and get silent execution.
     """
 
     functions: list[str] = field(default_factory=lambda: ["all"])
@@ -50,6 +67,7 @@ class InterpretationOptions:
     backend: Any | None = None  # LLMBackend; typed as Any to avoid import cycle
     pack_name: str = "vv40"
     command_version: str = "0.6.0"
+    spinner_factory: SpinnerFactory = _noop_spinner
 
 
 # ── Per-command entry points ────────────────────────────────

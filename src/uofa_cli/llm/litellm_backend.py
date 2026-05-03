@@ -471,6 +471,12 @@ def _ollama_direct_chat(
         "model": model,
         "messages": [{"role": "user", "content": prompt}],
         "stream": False,
+        # Default 1h keep-alive so subsequent --explain runs within an
+        # interactive session don't pay another cold-start. Ollama's own
+        # default is 5 min, which expires quickly when a user is iterating
+        # across COUs / examples. Override via options.extra["ollama_keep_alive"]
+        # (e.g. "30m", "-1" for forever, "0" to unload immediately).
+        "keep_alive": options.extra.get("ollama_keep_alive", "1h"),
     }
     if options.temperature is not None:
         payload.setdefault("options", {})["temperature"] = options.temperature

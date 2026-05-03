@@ -24,6 +24,7 @@ from uofa_cli.interpretation.functions.group import (
     _first_cou,
     _first_pack,
     _generate_and_parse,
+    _noop_cm,
     _render_firings_block,
     _top_n,
 )
@@ -114,14 +115,16 @@ def cross_pattern_recognition(
         extra={"think": False},
     )
 
+    spinner_factory = getattr(options, "spinner_factory", None) or _noop_cm
     try:
-        if backend.supports_structured_output():
-            try:
-                result = backend.generate_structured(prompt, _CROSS_SCHEMA, gen_options)
-            except NotImplementedError:
+        with spinner_factory("Surfacing cross-cutting patterns..."):
+            if backend.supports_structured_output():
+                try:
+                    result = backend.generate_structured(prompt, _CROSS_SCHEMA, gen_options)
+                except NotImplementedError:
+                    result = _generate_and_parse(backend, prompt, gen_options)
+            else:
                 result = _generate_and_parse(backend, prompt, gen_options)
-        else:
-            result = _generate_and_parse(backend, prompt, gen_options)
     except (LLMError, json.JSONDecodeError, ValueError) as exc:
         log.warning("cross failed: %s", getattr(exc, "diagnostic", exc))
         return {}

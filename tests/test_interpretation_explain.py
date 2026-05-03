@@ -23,6 +23,8 @@ from uofa_cli.interpretation.context import (
     FiringContext,
     PackContext,
 )
+from contextlib import contextmanager
+
 from uofa_cli.interpretation.functions.explain import (
     _top_n_by_severity,
 )
@@ -333,6 +335,68 @@ class TestIdentifierHallucination:
 
 
 # ── No-template-found graceful path ────────────────────────
+
+
+class TestSpinnerFactory:
+    """v0.6.6: pipeline accepts a `spinner_factory` for CLI progress UX.
+
+    Default is a no-op (programmatic callers don't see TTY animations).
+    When supplied, it must be invoked once per LLM call with a label that
+    includes the firing's pattern_id and an [i/n] counter.
+    """
+
+    def test_spinner_factory_called_per_firing_with_counter(self):
+        labels: list[str] = []
+
+        @contextmanager
+        def recording_spinner(label: str):
+            labels.append(label)
+            yield
+
+        backend = MockBackend(
+            default_response=json.dumps(_explanation_response("X", "High")),
+        )
+        firings = [
+            {"patternId": "W-EP-04", "severity": "High", "hits": 1},
+            {"patternId": "W-AR-05", "severity": "Critical", "hits": 1},
+            {"patternId": "W-CON-01", "severity": "Medium", "hits": 1},
+        ]
+        interpret_rules_output(
+            structured_output={"firings": firings},
+            package_doc={},
+            firings=firings,
+            options=InterpretationOptions(
+                backend=backend,
+                pack_name="vv40",
+                functions=["explain"],
+                spinner_factory=recording_spinner,
+            ),
+        )
+        assert labels == [
+            "[1/3] Explaining W-EP-04...",
+            "[2/3] Explaining W-AR-05...",
+            "[3/3] Explaining W-CON-01...",
+        ]
+
+    def test_default_spinner_factory_is_silent(self, capsys):
+        """Default `_noop_spinner` — used when no factory is passed —
+        must not emit anything to stdout/stderr."""
+        backend = MockBackend(
+            default_response=json.dumps(_explanation_response("X", "High")),
+        )
+        firings = [{"patternId": "W-EP-04", "severity": "High", "hits": 1}]
+        interpret_rules_output(
+            structured_output={"firings": firings},
+            package_doc={},
+            firings=firings,
+            options=InterpretationOptions(
+                backend=backend, pack_name="vv40", functions=["explain"],
+            ),
+        )
+        captured = capsys.readouterr()
+        # Default factory is _noop_spinner — should write nothing.
+        assert captured.out == ""
+        assert captured.err == ""
 
 
 class TestNoTemplate:

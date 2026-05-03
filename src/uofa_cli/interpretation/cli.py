@@ -102,12 +102,17 @@ def args_to_options(args, *, pack_name: str = "vv40") -> InterpretationOptions:
     if args.explain_functions:
         functions = [name.strip() for name in args.explain_functions.split(",") if name.strip()]
 
+    # CLI invocations get the animated TTY spinner around each LLM call
+    # (no-op on non-TTY); programmatic callers building InterpretationOptions
+    # directly fall back to the dataclass default (also no-op).
+    from uofa_cli.output import spinner
     return InterpretationOptions(
         functions=functions,
         max_items=args.explain_max_items,
         no_cache=args.explain_no_cache,
         backend=backend,
         pack_name=pack_name,
+        spinner_factory=spinner,
     )
 
 

@@ -77,7 +77,7 @@ python dev/tools/scripts/release_check.py --tag v0.6.5
 python dev/tools/scripts/release_check.py --tag v0.6.5 --full
 ```
 
-The five fast checks are:
+The six fast checks are:
 
 | Check | What it catches |
 |---|---|
@@ -86,8 +86,9 @@ The five fast checks are:
 | Python syntax compat | `ast.parse`s `src/uofa_cli/**.py` under **every** installed Python ≥ the project minimum. *Catches: v0.6.2 backslash-in-fstring that parsed fine on 3.12 but broke pytest collection on the 3.11 CI runner.* |
 | CI workflow paths | Greps `cd <path>`, `path:`, and `paths:` entries from every `.github/workflows/*.yml` and verifies each target exists on disk. *Catches: v0.6.4 release-wheels.yml referencing pre-reorg paths (`weakener-engine`, root `hatch_build.py`) after the Phase E reorg moved them.* |
 | Test imports vs devcontainer install | Parses every top-level import in `tests/` and checks the devcontainer `postCreateCommand`'s `pip install -e .[extras]` line covers them all. *Catches: post-v0.6.4 devcontainer hot-fix where `[test,excel]` didn't include `[extract]`, so 46 tests degraded with "Jinja2 not installed" in CI.* |
+| uofa demo smoke | Runs `uofa demo` end-to-end and confirms C1 + C2 + C3 all report ✓. *Catches: the v0.6.5 `commands/demo.py` regression where the JAR-staging path still pointed at the pre-Phase-E `weakener-engine/target/` location. Static path audits don't catch source-code path strings, so the catch-all is to actually run the bundled command (~30s).* |
 
-Pass `--full` to also run `pytest tests/ -q` as a sixth check. The `--tag` argument is optional — without it, the version-coherence check is skipped (useful for sanity-checking `main` between releases).
+Pass `--full` to also run `pytest tests/ -q` as a seventh check. The `--tag` argument is optional — without it, the version-coherence check is skipped (useful for sanity-checking `main` between releases).
 
 If a check fires, fix the underlying issue rather than silencing the check. Each one corresponds to a real bug that shipped to a tag and required a follow-up patch.
 

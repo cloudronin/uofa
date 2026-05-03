@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import json
 import logging
+from contextlib import contextmanager
 
 from uofa_cli.interpretation.cache import ExplanationCache, compute_key
 from uofa_cli.interpretation.context import (
@@ -29,6 +30,12 @@ from uofa_cli.llm.backend import GenerationOptions
 from uofa_cli.llm.errors import LLMError
 
 log = logging.getLogger(__name__)
+
+
+@contextmanager
+def _noop_cm(label: str = ""):  # noqa: ARG001
+    """Fallback for callers that don't supply a spinner_factory in options."""
+    yield
 
 
 # Tight schema lets `generate_structured` enforce shape on backends that
@@ -115,13 +122,16 @@ def explain(
 
     gen_options = _default_gen_options(options)
     use_cache = cache is not None and not getattr(options, "no_cache", False)
+    spinner_factory = getattr(options, "spinner_factory", None) or _noop_cm
+    n = len(firing_contexts)
 
     explanations: list[dict] = []
-    for ctx in firing_contexts:
-        explanation = _explain_one(
-            ctx, pack_name, backend, gen_options,
-            cache=cache if use_cache else None,
-        )
+    for i, ctx in enumerate(firing_contexts, 1):
+        with spinner_factory(f"[{i}/{n}] Explaining {ctx.pattern_id}..."):
+            explanation = _explain_one(
+                ctx, pack_name, backend, gen_options,
+                cache=cache if use_cache else None,
+            )
         explanations.append(explanation)
     return {"explanations": explanations}
 
@@ -155,13 +165,16 @@ def _explain_diff_contexts(
 
     gen_options = _default_gen_options(options)
     use_cache = cache is not None and not getattr(options, "no_cache", False)
+    spinner_factory = getattr(options, "spinner_factory", None) or _noop_cm
+    n = len(diff_contexts)
 
     explanations: list[dict] = []
-    for ctx in diff_contexts:
-        explanations.append(_explain_one_difference(
-            ctx, pack_name, backend, gen_options,
-            cache=cache if use_cache else None,
-        ))
+    for i, ctx in enumerate(diff_contexts, 1):
+        with spinner_factory(f"[{i}/{n}] Explaining diff {ctx.pattern_id}..."):
+            explanations.append(_explain_one_difference(
+                ctx, pack_name, backend, gen_options,
+                cache=cache if use_cache else None,
+            ))
     return {"explanations": explanations}
 
 
@@ -192,13 +205,16 @@ def _explain_shacl_contexts(
 
     gen_options = _default_gen_options(options)
     use_cache = cache is not None and not getattr(options, "no_cache", False)
+    spinner_factory = getattr(options, "spinner_factory", None) or _noop_cm
+    n = len(violation_contexts)
 
     explanations: list[dict] = []
-    for ctx in violation_contexts:
-        explanations.append(_explain_one_violation(
-            ctx, pack_name, backend, gen_options,
-            cache=cache if use_cache else None,
-        ))
+    for i, ctx in enumerate(violation_contexts, 1):
+        with spinner_factory(f"[{i}/{n}] Explaining {ctx.constraint_path}..."):
+            explanations.append(_explain_one_violation(
+                ctx, pack_name, backend, gen_options,
+                cache=cache if use_cache else None,
+            ))
     return {"explanations": explanations}
 
 
