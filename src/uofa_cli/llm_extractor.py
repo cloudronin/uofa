@@ -208,6 +208,13 @@ def extract(
         raw_response = _call_llm(
             prompt, model, pack_name, thinking=thinking, llm_config=llm_config,
         )
+        # Save raw text BEFORE parsing so a JSON parse failure can be
+        # inspected (truncation, malformed escapes, etc.). The post-parse
+        # _save_debug_response() saves the structured form on success.
+        try:
+            Path("/tmp/uofa-extract-last-raw.txt").write_text(raw_response)
+        except OSError:
+            pass
         raw_json = _parse_response(raw_response)
     else:
         # Chunk by file and merge
@@ -310,7 +317,19 @@ def _call_llm(
 
     options = GenerationOptions(
         timeout_seconds=1800.0,
-        extra={"think": True} if thinking else {},
+        # Cap output tokens to catch runaway generation, but generous enough
+        # not to truncate normal output. The extract prompt mandates per-field
+        # {value, confidence, source_file, source_page} quadruples, producing
+        # ~10K tokens of JSON for 13-factor vv40 and ~14K for 19-factor NASA.
+        max_tokens=16384,
+        # qwen3.5 (and other Qwen3-family) models have thinking-mode ON by
+        # default — they generate reasoning tokens that don't appear in the
+        # final response but ARE computed (often 5-10x more than visible
+        # output). For structured extraction we don't want this — the prompt
+        # is explicit and the model should produce JSON directly. Setting
+        # think=False is the fast path. Caller can override by passing
+        # thinking=True (which sends think=True explicitly).
+        extra={"think": True} if thinking else {"think": False},
     )
 
     # Prefer structured generation so backends enforce JSON shape (matches

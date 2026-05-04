@@ -44,6 +44,7 @@ _READERS: dict[str, tuple[str, str]] = {
     ".log":  ("uofa_cli.readers.text_reader",  "read_text"),
     ".f06":  ("uofa_cli.readers.text_reader",  "read_text"),
     ".dat":  ("uofa_cli.readers.text_reader",  "read_text"),
+    ".md":   ("uofa_cli.readers.text_reader",  "read_text"),
 }
 
 _DEFERRED_SUFFIXES = {".doc", ".xls", ".pptx", ".ppt"}
@@ -53,7 +54,7 @@ _SKIP_FILENAMES = {"EVIDENCE_MANIFEST.txt", "evidence_manifest.txt"}
 # Sort priority: lower number = earlier in the sorted list
 _FORMAT_PRIORITY = {
     ".pdf": 0, ".docx": 1, ".xlsx": 2, ".csv": 3, ".tsv": 3,
-    ".txt": 4, ".log": 4, ".f06": 4, ".dat": 4,
+    ".txt": 4, ".log": 4, ".f06": 4, ".dat": 4, ".md": 4,
 }
 
 

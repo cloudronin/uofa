@@ -484,6 +484,11 @@ def _ollama_direct_chat(
         payload.setdefault("options", {})["num_predict"] = options.max_tokens
     if options.seed is not None:
         payload.setdefault("options", {})["seed"] = options.seed
+    # Cap context window — qwen3.5:4b's max is 262144 which Ollama allocates
+    # ~17 GB VRAM for, slowing inference 5-6x for typical 6-10K token prompts.
+    # 32768 matches _DEFAULT_CAPS["ollama"]["max_context_tokens"]. Override via
+    # options.extra["num_ctx"] if a larger window is genuinely needed.
+    payload.setdefault("options", {})["num_ctx"] = int(options.extra.get("num_ctx", 32768))
     if "think" in options.extra:
         payload["think"] = bool(options.extra["think"])
     if response_format:

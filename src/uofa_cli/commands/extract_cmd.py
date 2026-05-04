@@ -141,7 +141,7 @@ def run(args) -> int:
         error("No supported files found.")
         if args.glob:
             info(f"  Glob filter: {args.glob}")
-        info("  Supported: .pdf, .docx, .xlsx, .csv, .tsv, .txt, .log")
+        info("  Supported: .pdf, .docx, .xlsx, .csv, .tsv, .txt, .log, .md")
         return 1
 
     info(f"  Found {len(file_paths)} file(s):")
