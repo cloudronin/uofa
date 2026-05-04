@@ -1,6 +1,6 @@
 ---
-title: Feedback and free weakener report
-description: Run UofA on your own simulation evidence (no data leaves your environment), share what works and what does not, and shape the v0.6 catalog.
+title: Feedback
+description: Run UofA on your own simulation evidence (no data leaves your environment), share what works and what does not, and shape the next catalog.
 ---
 
 If you came here from the NAFEMS Americas 2026 talk, thank you. Three things to consider, in order of how much they help.
@@ -11,13 +11,22 @@ This is the most useful thing you can do. The CLI is fully local. No data leaves
 
 ```bash
 pip install 'uofa[excel]'
-uofa init my-assessment
-# fill in my-assessment/my-assessment-cou1.jsonld with your own COU
-uofa sign my-assessment/my-assessment-cou1.jsonld --key my-assessment/keys/my-assessment.key
-uofa check my-assessment/my-assessment-cou1.jsonld
+
+# Point uofa extract at a folder of your existing evidence
+# (PDFs, Word docs, validation reports, solver configs, acceptance criteria)
+uofa extract path/to/your/evidence-folder/ -o my-assessment.xlsx
+
+# Open my-assessment.xlsx and review what was extracted
+# (this is where you catch what the LLM missed)
+
+# Generate a signing key once
+uofa keygen keys/my-assessment
+
+# Import the reviewed workbook to a signed UofA package, validate, and run the rule engine
+uofa import my-assessment.xlsx --sign --key keys/my-assessment.key --check
 ```
 
-The `uofa check` output is a personalized weakener report. It tells you which credibility gaps the rule engine surfaces in your evidence package, with severity and affected node IDs. Critical and High firings are the ones to address before submission.
+The `uofa import --check` output is a personalized weakener report. It tells you which credibility gaps the rule engine surfaces in your evidence package, with severity and affected node IDs. Critical and High firings are the ones to address before submission. The full pipeline runs locally — no data leaves your environment.
 
 If your existing documentation is in Word and Excel rather than JSON-LD, the [Excel on-ramp](/start/from-excel/) takes you from a filled workbook to a signed JSON-LD package in one command. If your existing documentation is in source PDFs, the [live demo walkthrough](/demo/) shows how `uofa extract` ingests an evidence folder and produces the workbook for you.
 
@@ -42,7 +51,9 @@ Two questions I am actively trying to answer.
 > **What domain pack would unlock the most value for you?**
 > The current catalog ships `vv40` (FDA medical device, ASME V&V 40) and `nasa-7009b` (NASA aerospace). DO-178C, automotive ISO 26262, ISO 42001 AI Management Systems, and an SBKF aerospace shell-buckling pack are on the post-defense roadmap. Tell me which one first.
 
-A short note via email or a GitHub Discussion thread is enough. I read every one.
+Or fill out the [structured feedback form](https://docs.google.com/forms/d/e/1FAIpQLScrl-EuVA9B0Pg8w66MIjcpdekmKmHPMfAxC-6oki7UnurNUA/viewform), which captures these two questions plus a few about your domain, use case, and submission timeline. Takes about 3 minutes.
+
+Email, a GitHub Discussion thread, or the structured form are all read. I respond to every one.
 
 ## What you will see in the v0.6+ catalog
 

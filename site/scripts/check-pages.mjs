@@ -96,6 +96,9 @@ await checkSurface('S3 feedback', '/feedback/', [
   ['mailto support@uofa.net', (b) => /mailto:support@uofa\.net/.test(b)],
   ['GitHub Discussions link', (b) => /github\.com\/cloudronin\/uofa\/discussions/.test(b)],
   ['Three CTAs (run / tell / shape)', (b) => /Run UofA.*own evidence/i.test(b) && /gaps/i.test(b)],
+  ['Section 1 uses extract-first flow (uofa extract present)', (b) =>
+    /uofa extract path\/to\/your\/evidence-folder/.test(b) && !/uofa init my-assessment/.test(b)],
+  ['Google Form link present', (b) => /1FAIpQLScrl-EuVA9B0Pg8w66MIjcpdekmKmHPMfAxC-6oki7UnurNUA/.test(b)],
 ]);
 
 await checkSurface('S4 catalog', '/reference/catalog/', [
