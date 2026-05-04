@@ -404,6 +404,25 @@ class LiteLLMBackend:
 # ── Module-level helpers ─────────────────────────────────────
 
 
+# Buckets for adaptive Ollama num_ctx sizing. Keeps consecutive calls with
+# similar prompt sizes in the same bucket so ollama doesn't reload the
+# model every call. Sizes chosen for typical extract workloads:
+#   8K  — small explain or weakener-only call
+#   16K — short evidence (single memo, single small report)
+#   32K — typical extract (Morrison-scale, ~6-15K corpus tokens)
+#   49K — chunked extraction at the default 24K chunk + 16K output
+#   65K — large evidence with extra-large output
+_OLLAMA_CTX_BUCKETS = (8192, 16384, 32768, 49152, 65536)
+
+
+def _ollama_ctx_bucket(needed: int) -> int:
+    """Round `needed` up to the next ollama context bucket. Cap at 65536."""
+    for bucket in _OLLAMA_CTX_BUCKETS:
+        if needed <= bucket:
+            return bucket
+    return _OLLAMA_CTX_BUCKETS[-1]
+
+
 def _import_litellm():
     """Lazy import so the module loads in environments without [extract]."""
     try:
@@ -491,11 +510,18 @@ def _ollama_direct_chat(
         payload.setdefault("options", {})["num_predict"] = options.max_tokens
     if options.seed is not None:
         payload.setdefault("options", {})["seed"] = options.seed
-    # Cap context window — qwen3.5:4b's max is 262144 which Ollama allocates
-    # ~17 GB VRAM for, slowing inference 5-6x for typical 6-10K token prompts.
-    # 32768 matches _DEFAULT_CAPS["ollama"]["max_context_tokens"]. Override via
-    # options.extra["num_ctx"] if a larger window is genuinely needed.
-    payload.setdefault("options", {})["num_ctx"] = int(options.extra.get("num_ctx", 32768))
+    # Adaptive num_ctx: size the context window to fit the actual prompt +
+    # expected output, rather than using the model's max (262144 for qwen3.5
+    # = 17 GB VRAM, 5-6x slower per token). For real-world large evidence,
+    # the chunked-extraction path can hit 24K input + 16K output = 40K total
+    # context need; a fixed 32K cap silently truncates.
+    # Bucket to a few common sizes so consecutive same-bucket calls don't
+    # trigger model reloads in ollama. 65K hard cap bounds VRAM at ~8 GB.
+    prompt_tok_est = max(1, len(prompt) // 4)
+    output_budget = options.max_tokens or 4096
+    needed_ctx = prompt_tok_est + output_budget + 2048  # 2K safety margin
+    default_ctx = _ollama_ctx_bucket(needed_ctx)
+    payload.setdefault("options", {})["num_ctx"] = int(options.extra.get("num_ctx", default_ctx))
     if "think" in options.extra:
         payload["think"] = bool(options.extra["think"])
     if response_format:
