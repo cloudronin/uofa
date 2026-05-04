@@ -205,17 +205,11 @@ def extract(
 
     if corpus.total_tokens <= token_budget:
         prompt = build_prompt(corpus_text, pack_prompt_path, pack_name)
-        raw_response = _call_llm(
-            prompt, model, pack_name, thinking=thinking, llm_config=llm_config,
+        raw_json = _call_and_parse_with_retry(
+            prompt, model, pack_name,
+            thinking=thinking, llm_config=llm_config,
+            max_attempts=3,
         )
-        # Save raw text BEFORE parsing so a JSON parse failure can be
-        # inspected (truncation, malformed escapes, etc.). The post-parse
-        # _save_debug_response() saves the structured form on success.
-        try:
-            Path("/tmp/uofa-extract-last-raw.txt").write_text(raw_response)
-        except OSError:
-            pass
-        raw_json = _parse_response(raw_response)
     else:
         # Chunk by file and merge
         raw_json = _chunked_extraction(
@@ -276,6 +270,52 @@ def _chunked_extraction(
         all_results.append(parsed)
 
     return _merge_json_results(all_results)
+
+
+def _call_and_parse_with_retry(
+    prompt: str,
+    model: str,
+    pack_name: str,
+    *,
+    thinking: bool = False,
+    llm_config=None,
+    max_attempts: int = 3,
+) -> dict:
+    """Call the LLM and parse the response, retrying on parse failure.
+
+    Local qwen3.5:4b drops closing braces in long structured outputs roughly
+    25-33% of the time on the v3-nasa-aero extract prompt. Each retry is a
+    fresh model call with stochastic sampling (temp > 0), so structural
+    errors in one attempt are statistically independent of the next.
+    With 3 attempts and 30% per-call failure rate, expected success rate
+    is 1 - 0.3^3 = 97.3%.
+
+    Saves the raw response of every attempt to /tmp/uofa-extract-last-raw.txt
+    (overwritten each call) so the most recent attempt — successful or not —
+    is available for inspection.
+    """
+    last_err: Exception | None = None
+    for attempt in range(1, max_attempts + 1):
+        raw_response = _call_llm(
+            prompt, model, pack_name, thinking=thinking, llm_config=llm_config,
+        )
+        try:
+            Path("/tmp/uofa-extract-last-raw.txt").write_text(raw_response)
+        except OSError:
+            pass
+        try:
+            return _parse_response(raw_response)
+        except ValueError as exc:
+            last_err = exc
+            if attempt < max_attempts:
+                import sys
+                print(
+                    f"  [extract] attempt {attempt}/{max_attempts} produced "
+                    f"malformed JSON; retrying...",
+                    file=sys.stderr,
+                )
+    assert last_err is not None
+    raise last_err
 
 
 def _call_llm(
@@ -374,9 +414,106 @@ def _legacy_model_to_config(model: str):
 # ── Response parsing ─────────────────────────────────────────
 
 
+# v4-kv format: response is divided into `=== SECTION ===` blocks containing
+# `key: value` lines. Avoids the nested-JSON failure mode of local qwen3.5:4b
+# (drops closing braces in long structured outputs ~25-33% of the time).
+# Downstream code (`_to_field`, `_validate_factor`) already handles flat
+# string values, so kv values flow through to xlsx/JSON-LD without changes.
+_KV_BLOCK_RE = re.compile(r"^===\s*([A-Z_]+)\s*===\s*$", re.MULTILINE)
+_KV_LINE_RE = re.compile(r"^([a-zA-Z_][a-zA-Z0-9_]*):\s*(.*)$")
+
+
+def _parse_kv_block(content: str) -> dict:
+    """Parse `key: value` lines within one section, with continuation support.
+
+    Lines matching `^<ident>:` start a new key. Any line that doesn't match
+    is treated as a continuation of the previous value (separated by space).
+    Empty lines are skipped. Values are stripped; empty values become None.
+    """
+    out: dict[str, object] = {}
+    current_key: str | None = None
+    for line in content.splitlines():
+        if not line.strip():
+            continue
+        match = _KV_LINE_RE.match(line)
+        if match:
+            current_key = match.group(1)
+            value = match.group(2).strip()
+            out[current_key] = value if value else None
+        elif current_key is not None:
+            # Continuation — append to previous value
+            existing = out.get(current_key) or ""
+            out[current_key] = f"{existing} {line.strip()}".strip()
+    return out
+
+
+def _parse_kv_response(text: str) -> dict:
+    """Parse v4-kv format extract response into the shape `_json_to_result` expects.
+
+    Format:
+        === ASSESSMENT_SUMMARY ===
+        project_name: AquaDrive 550 Pump
+        ...
+
+        === ENTITY ===
+        entity_type: Model
+        name: ANSYS CFX RANS-SST
+        ...
+
+        === FACTOR ===
+        factor_type: Software quality assurance
+        required_level: 2
+        ...
+        (one FACTOR block per canonical factor)
+
+        === DECISION ===
+        outcome: Accepted
+        ...
+
+    Multiple ENTITY/VALIDATION_RESULT/FACTOR blocks accumulate into lists.
+    ASSESSMENT_SUMMARY/DECISION are singletons (last wins).
+    """
+    result: dict = {
+        "assessment_summary": {},
+        "model_and_data": [],
+        "validation_results": [],
+        "credibility_factors": [],
+        "decision": {},
+    }
+    parts = _KV_BLOCK_RE.split(text)
+    if len(parts) < 3:
+        raise ValueError("KV format markers not found (=== SECTION ===)")
+
+    i = 1
+    while i + 1 < len(parts):
+        section = parts[i].upper()
+        kv = _parse_kv_block(parts[i + 1])
+        if section == "ASSESSMENT_SUMMARY":
+            result["assessment_summary"] = kv
+        elif section == "ENTITY":
+            result["model_and_data"].append(kv)
+        elif section == "VALIDATION_RESULT":
+            result["validation_results"].append(kv)
+        elif section == "FACTOR":
+            result["credibility_factors"].append(kv)
+        elif section == "DECISION":
+            result["decision"] = kv
+        # Unknown sections are silently ignored
+        i += 2
+    return result
+
+
 def _parse_response(raw: str) -> dict:
-    """Parse LLM response to JSON, handling code fences and malformed output."""
+    """Parse LLM response. Tries kv-format first (v4+), falls back to JSON."""
     text = raw.strip()
+
+    # KV-format detection: `=== SECTION ===` marker line. Cheap regex check
+    # before committing to the kv parser.
+    if _KV_BLOCK_RE.search(text):
+        try:
+            return _parse_kv_response(text)
+        except ValueError:
+            pass  # fall through to JSON path
 
     # Try direct parse
     try:

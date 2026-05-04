@@ -47,80 +47,70 @@ For each factor, assess the evidence and assign an integer level (1-5) where:
 
 Required level should reflect the Model Risk Level (MRL). For MRL 2, typical required levels are 2-3. For MRL 5, required levels are 4-5. If the documents specify required levels explicitly, use those. Otherwise estimate from the MRL.
 
-## Confidence Scoring Guide
-
-- 0.90-1.00 = value is explicitly stated in the text
-- 0.70-0.89 = value is strongly implied by the evidence
-- 0.50-0.69 = value is inferred or partially supported
-- 0.30-0.49 = uncertain, weak evidence
-- 0.00-0.29 = guessing or no evidence
-
 ## Output Format
 
-Return ONLY a JSON object with the following structure. No markdown, no explanation, no preamble. Just the JSON.
+Return ONLY the structured key-value blocks below. No JSON, no markdown fences, no preamble or explanation. Each section starts with a `=== SECTION_NAME ===` line on its own line. Inside each block, use `key: value` lines. Empty/unknown values may be omitted entirely or left blank after the colon. Multi-line values are supported — any line that does NOT start with `<key>:` is treated as a continuation of the previous value.
 
-{
-  "assessment_summary": {
-    "project_name": {"value": "string", "confidence": 0.0-1.0, "source_file": "filename", "source_page": null},
-    "cou_name": {"value": "string", "confidence": 0.0-1.0, "source_file": "filename", "source_page": null},
-    "cou_description": {"value": "string or null", "confidence": 0.0-1.0, "source_file": "filename", "source_page": null},
-    "profile": {"value": "Complete", "confidence": 0.0-1.0, "source_file": null, "source_page": null},
-    "device_class": {"value": "Class I or Class II or Class III", "confidence": 0.0-1.0, "source_file": "filename", "source_page": null},
-    "model_risk_level": {"value": "MRL 1 through MRL 5", "confidence": 0.0-1.0, "source_file": "filename", "source_page": null},
-    "assurance_level": {"value": "Low or Medium or High", "confidence": 0.0-1.0, "source_file": "filename", "source_page": null},
-    "standards_reference": {"value": "ASME-VV40-2018", "confidence": 0.0-1.0, "source_file": "filename", "source_page": null},
-    "assessor_name": {"value": "string or null", "confidence": 0.0-1.0, "source_file": "filename", "source_page": null},
-    "has_uq": {"value": "Yes or No", "confidence": 0.0-1.0, "source_file": null, "source_page": null}
-  },
-  "model_and_data": [
-    {
-      "entity_type": {"value": "Requirement or Model or Dataset", "confidence": 0.0-1.0, "source_file": "filename"},
-      "name": {"value": "string", "confidence": 0.0-1.0, "source_file": "filename"},
-      "uri": {"value": "string or null", "confidence": 0.0-1.0, "source_file": "filename"},
-      "description": {"value": "string or null", "confidence": 0.0-1.0, "source_file": "filename"}
-    }
-  ],
-  "validation_results": [
-    {
-      "name": {"value": "string", "confidence": 0.0-1.0, "source_file": "filename"},
-      "evidence_type": {"value": "ValidationResult", "confidence": 0.0-1.0, "source_file": "filename"},
-      "description": {"value": "string", "confidence": 0.0-1.0, "source_file": "filename"},
-      "compares_to": {"value": "string or null", "confidence": 0.0-1.0, "source_file": "filename"},
-      "has_uq": {"value": "Yes or No", "confidence": 0.0-1.0, "source_file": "filename"},
-      "uq_method": {"value": "string or null", "confidence": 0.0-1.0, "source_file": "filename"},
-      "metric_value": {"value": "string or null", "confidence": 0.0-1.0, "source_file": "filename"},
-      "pass_fail": {"value": "Pass or Fail or Inconclusive", "confidence": 0.0-1.0, "source_file": "filename"}
-    }
-  ],
-  "credibility_factors": [
-    {
-      "factor_type": {"value": "exact factor name from list above", "confidence": 0.0-1.0, "source_file": "filename"},
-      "required_level": {"value": 1-5, "confidence": 0.0-1.0, "source_file": "filename"},
-      "achieved_level": {"value": 1-5, "confidence": 0.0-1.0, "source_file": "filename"},
-      "acceptance_criteria": {"value": "string or null", "confidence": 0.0-1.0, "source_file": "filename"},
-      "rationale": {"value": "brief evidence summary", "confidence": 0.0-1.0, "source_file": "filename"},
-      "status": {"value": "assessed or not-assessed", "confidence": 0.0-1.0, "source_file": "filename"}
-    }
-  ],
-  "decision": {
-    "outcome": {"value": "Accepted or Not accepted or Conditional", "confidence": 0.0-1.0, "source_file": "filename", "source_page": null},
-    "rationale": {"value": "string", "confidence": 0.0-1.0, "source_file": "filename", "source_page": null},
-    "decided_by": {"value": "string or null", "confidence": 0.0-1.0, "source_file": "filename", "source_page": null},
-    "decision_date": {"value": "YYYY-MM-DD or null", "confidence": 0.0-1.0, "source_file": "filename", "source_page": null}
-  }
-}
+Required sections, in this order:
+- One `=== ASSESSMENT_SUMMARY ===` block (the keys below)
+- One `=== ENTITY ===` block per requirement, model, or dataset (zero or more; aim for 2-5)
+- One `=== VALIDATION_RESULT ===` block per validation activity (zero or more; aim for 1-5)
+- Exactly 13 `=== FACTOR ===` blocks (one per canonical factor — must include all 13)
+- One `=== DECISION ===` block
+
+Format reference:
+
+=== ASSESSMENT_SUMMARY ===
+project_name: <short project name from the document>
+cou_name: <one-line context of use>
+cou_description: <longer description, optional>
+profile: Complete
+device_class: Class I or Class II or Class III or N/A
+model_risk_level: MRL 1 through MRL 5
+assurance_level: Low or Medium or High
+standards_reference: ASME-VV40-2018
+assessor_name: <person, optional>
+has_uq: Yes or No
+
+=== ENTITY ===
+entity_type: Requirement or Model or Dataset
+name: <name>
+uri: <identifier or URL, optional>
+description: <one-line description>
+
+=== VALIDATION_RESULT ===
+name: <activity name, e.g. "mesh convergence study">
+evidence_type: ValidationResult
+description: <what was tested>
+compares_to: <what it was compared against, optional>
+has_uq: Yes or No
+uq_method: <method name, optional>
+metric_value: <error %, GCI, etc., optional>
+pass_fail: Pass or Fail or Inconclusive
+
+=== FACTOR ===
+factor_type: <exact canonical name from the list above>
+required_level: <integer 1-5>
+achieved_level: <integer 1-5>
+acceptance_criteria: <criterion text, optional>
+rationale: <brief evidence summary, may span multiple lines>
+status: assessed or not-assessed
+
+=== DECISION ===
+outcome: Accepted or Not accepted or Conditional
+rationale: <brief justification>
+decided_by: <person, optional>
+decision_date: <YYYY-MM-DD, optional>
 
 ## Rules
 
-- Return ONLY valid JSON. No markdown fences, no explanation text before or after.
-- If you cannot find evidence for a field, set value to null and confidence to 0.0. Do NOT fabricate.
-- Factor levels MUST be integers 1-5. Do not use text like "High" or "Medium".
-- Factor type names MUST be exactly one of the 13 names listed above. Do not paraphrase.
-- Each field MUST include source_file citing which document the evidence came from.
-- A single credibility factor may draw evidence from multiple files. Cite the primary source.
-- For credibility factors: assess based on EXPLICIT evidence in the documents. Do not infer levels from absence of information — absence means the factor may be not-assessed.
-- Include ALL 13 factors in your response, even if some have status "not-assessed".
-- Look for dates in decision records, memos, and report headers.
+- Output ONLY the `=== SECTION ===` blocks above. No prose before, between, or after. No JSON. No markdown fences.
+- Factor levels MUST be integers 1-5. Do not write "High" or "Medium" or "N/A".
+- `factor_type` MUST be exactly one of the 13 names listed above (case-sensitive). Do not paraphrase.
+- Include ALL 13 factors. If a factor is not addressed in the source, set status: not-assessed and pick the lowest defensible required_level (typically 1).
+- For credibility factors: assess based on EXPLICIT evidence in the documents. Do not infer levels from absence of information — absence means status: not-assessed.
+- A single credibility factor may draw evidence from multiple files. Cite the primary source in the rationale text.
+- Dates appear in decision records, memos, and report headers — extract them where present.
 
 ## Evidence Corpus
 

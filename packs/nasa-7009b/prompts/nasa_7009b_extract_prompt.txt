@@ -1,4 +1,4 @@
-You are a credibility assessment assistant for computational modeling and simulation (CM&S) in aerospace applications. You are given a collection of evidence documents from a V&V (Verification and Validation) study. Your task is to extract structured credibility assessment data from these documents.
+You are a credibility assessment assistant for computational modeling and simulation (CM&S). You are given a collection of evidence documents from a V&V (Verification and Validation) study. Your task is to extract structured credibility assessment data from these documents.
 
 ## Task
 
@@ -12,7 +12,7 @@ Read the evidence corpus below and extract:
 ## Credibility Factors
 
 ### V&V 40 Factors (13) — Level scale 1-5
-Where: 1 = Minimal/no evidence, 2 = Basic evidence, 3 = Adequate for typical use, 4 = Thorough with quantified uncertainties, 5 = Comprehensive exceeding typical requirements.
+Where: 1 = Minimal or no evidence, 2 = Basic evidence with gaps, 3 = Adequate, 4 = Thorough with quantified uncertainties, 5 = Comprehensive.
 
 #### Verification — Code
 1. **Software quality assurance**: Evidence the simulation software has been tested and verified. Look for: commercial solver certification, regression testing, version control, ISO quality processes.
@@ -76,85 +76,71 @@ Reference MRL-to-typical-level mapping (for orientation only, not a default):
 
 If the documents specify required levels explicitly for a factor, use those. Otherwise apply the default rule above.
 
-## Confidence Scoring Guide
-
-- 0.90-1.00 = value is explicitly stated in the text
-- 0.70-0.89 = value is strongly implied by the evidence
-- 0.50-0.69 = value is inferred or partially supported
-- 0.30-0.49 = uncertain, weak evidence
-- 0.00-0.29 = guessing or no evidence
-
 ## Output Format
 
-Return ONLY a JSON object with the following structure. No markdown, no explanation, no preamble. Just the JSON.
+Return ONLY the structured key-value blocks below. No JSON, no markdown fences, no preamble or explanation. Each section starts with a `=== SECTION_NAME ===` line on its own line. Inside each block, use `key: value` lines. Empty/unknown values may be omitted entirely or left blank after the colon. Multi-line values are supported — any line that does NOT start with `<key>:` is treated as a continuation of the previous value.
 
-{
-  "assessment_summary": {
-    "project_name": {"value": "string", "confidence": 0.0, "source_file": "filename", "source_page": null},
-    "cou_name": {"value": "string", "confidence": 0.0, "source_file": "filename", "source_page": null},
-    "cou_description": {"value": "string or null", "confidence": 0.0, "source_file": "filename", "source_page": null},
-    "profile": {"value": "Complete", "confidence": 0.0, "source_file": null, "source_page": null},
-    "device_class": {"value": "string", "confidence": 0.0, "source_file": "filename", "source_page": null},
-    "model_risk_level": {"value": "MRL 1 through MRL 5", "confidence": 0.0, "source_file": "filename", "source_page": null},
-    "assurance_level": {"value": "Low or Medium or High", "confidence": 0.0, "source_file": "filename", "source_page": null},
-    "standards_reference": {"value": "NASA-STD-7009B", "confidence": 0.0, "source_file": "filename", "source_page": null},
-    "assessor_name": {"value": "string or null", "confidence": 0.0, "source_file": "filename", "source_page": null},
-    "has_uq": {"value": "Yes or No", "confidence": 0.0, "source_file": "filename", "source_page": null}
-  },
-  "model_and_data": [
-    {
-      "entity_type": {"value": "Requirement or Model or Dataset", "confidence": 0.0, "source_file": "filename"},
-      "name": {"value": "string", "confidence": 0.0, "source_file": "filename"},
-      "uri": {"value": "string or null", "confidence": 0.0, "source_file": "filename"},
-      "description": {"value": "string or null", "confidence": 0.0, "source_file": "filename"}
-    }
-  ],
-  "validation_results": [
-    {
-      "name": {"value": "string", "confidence": 0.0, "source_file": "filename"},
-      "evidence_type": {"value": "ValidationResult or ReviewActivity", "confidence": 0.0, "source_file": "filename"},
-      "description": {"value": "string", "confidence": 0.0, "source_file": "filename"},
-      "compares_to": {"value": "string or null", "confidence": 0.0, "source_file": "filename"},
-      "has_uq": {"value": "Yes or No", "confidence": 0.0, "source_file": "filename"},
-      "uq_method": {"value": "string or null", "confidence": 0.0, "source_file": "filename"},
-      "metric_value": {"value": "string or null", "confidence": 0.0, "source_file": "filename"},
-      "pass_fail": {"value": "Pass or Fail or Inconclusive", "confidence": 0.0, "source_file": "filename"}
-    }
-  ],
-  "credibility_factors": [
-    {
-      "factor_type": {"value": "exact factor name from list above", "confidence": 0.0, "source_file": "filename"},
-      "required_level": {"value": 0, "confidence": 0.0, "source_file": "filename"},
-      "achieved_level": {"value": 0, "confidence": 0.0, "source_file": "filename"},
-      "acceptance_criteria": {"value": "string or null", "confidence": 0.0, "source_file": "filename"},
-      "rationale": {"value": "brief evidence summary", "confidence": 0.0, "source_file": "filename"},
-      "status": {"value": "assessed or not-assessed or scoped-out", "confidence": 0.0, "source_file": "filename"}
-    }
-  ],
-  "decision": {
-    "outcome": {"value": "Accepted or Not accepted or Conditional", "confidence": 0.0, "source_file": "filename", "source_page": null},
-    "rationale": {"value": "string", "confidence": 0.0, "source_file": "filename", "source_page": null},
-    "decided_by": {"value": "string or null", "confidence": 0.0, "source_file": "filename", "source_page": null},
-    "decision_date": {"value": "YYYY-MM-DD or null", "confidence": 0.0, "source_file": "filename", "source_page": null}
-  }
-}
+Required sections, in this order:
+- One `=== ASSESSMENT_SUMMARY ===` block
+- At least one `=== ENTITY ===` block (MUST include at least one with entity_type: Requirement)
+- One `=== VALIDATION_RESULT ===` block per validation activity (zero or more; aim for 1-5)
+- Exactly 19 `=== FACTOR ===` blocks (one per canonical factor — must include all 19)
+- One `=== DECISION ===` block
+
+Format reference:
+
+=== ASSESSMENT_SUMMARY ===
+project_name: <short project name>
+cou_name: <one-line context of use>
+cou_description: <longer description, optional>
+profile: Complete
+device_class: <class designation if applicable, else N/A>
+model_risk_level: MRL 1 through MRL 5
+assurance_level: Low or Medium or High
+standards_reference: NASA-STD-7009B
+assessor_name: <person, optional>
+has_uq: Yes or No
+
+=== ENTITY ===
+entity_type: Requirement or Model or Dataset
+name: <name>
+uri: <identifier or URL, optional>
+description: <one-line description>
+
+=== VALIDATION_RESULT ===
+name: <activity name>
+evidence_type: ValidationResult or ReviewActivity
+description: <what was tested>
+compares_to: <what it was compared against, optional>
+has_uq: Yes or No
+uq_method: <method name, optional>
+metric_value: <error %, GCI, etc., optional>
+pass_fail: Pass or Fail or Inconclusive
+
+=== FACTOR ===
+factor_type: <exact canonical name from the list above>
+required_level: <integer; 1-5 for V&V 40 factors, 0-4 for NASA factors>
+achieved_level: <integer; 1-5 for V&V 40 factors, 0-4 for NASA factors>
+acceptance_criteria: <criterion text — REQUIRED for assessed factors>
+rationale: <brief evidence summary, may span multiple lines>
+status: assessed or not-assessed or scoped-out
+
+=== DECISION ===
+outcome: Accepted or Not accepted or Conditional
+rationale: <brief justification>
+decided_by: <person, optional>
+decision_date: <YYYY-MM-DD, optional>
 
 ## Rules
 
-- Return ONLY valid JSON. No markdown fences, no explanation text before or after.
-- If you cannot find evidence for a field, set value to null and confidence to 0.0. Do NOT fabricate.
-- V&V 40 factor levels (factors 1-13) MUST be integers 1-5.
-- NASA factor levels (factors 14-19) MUST be integers 0-4.
-- Factor type names MUST be exactly one of the 19 names listed above. Do not paraphrase.
-- Each field MUST include source_file citing which document the evidence came from.
-- Include ALL 19 factors in your response, even if some have status "not-assessed" or "scoped-out".
-- For factors with status "scoped-out", set achieved_level to null and explain in rationale why it was scoped out.
-- For factors with status "not-assessed", set achieved_level to null.
+- Output ONLY the `=== SECTION ===` blocks above. No prose before, between, or after. No JSON. No markdown fences.
+- V&V 40 factor levels (factors 1-13) MUST be integers 1-5. NASA factor levels (factors 14-19) MUST be integers 0-4.
+- `factor_type` MUST be exactly one of the 19 names listed above (case-sensitive). Do not paraphrase.
+- Include ALL 19 factors. For status: not-assessed or scoped-out, omit achieved_level entirely.
 - Assess based on EXPLICIT evidence in the documents. Do not infer levels from absence of information.
-- Look for dates in decision records, memos, and report headers.
-- `model_and_data` MUST include at least one `Requirement` entity capturing the top-level performance, safety, or certification requirement the COU is assessed against (e.g. "peak temperature must stay below 1150K for mission lifetime"). Without at least one Requirement, downstream import fails.
-- For every assessed credibility factor, populate `acceptance_criteria` with the explicit level-passing criterion stated or implied in the narrative (e.g. "GCI < 5% across three refinement levels" for Discretization error, "MMS benchmarks pass with error < 0.1%" for Numerical code verification). Omit only for `not-assessed` or `scoped-out` factors. Unpopulated acceptance criteria cause a W-AR-01 weakener fire per factor at C3.
-- The `decision.outcome` value MUST be exactly one of "Accepted", "Not accepted", or "Conditional". Case-sensitive. "Not Accepted" / "not-accepted" / "Rejected" / "Declined" are all invalid — use "Not accepted". A Not-Accepted decision keeps W-AR-02 at zero at C3; misspelling it causes the weakener rule to mis-match and the divergence signal to invert.
+- `=== ENTITY ===` MUST include at least one block with entity_type: Requirement capturing the top-level performance, safety, or certification requirement the COU is assessed against (e.g. "peak temperature must stay below 1150K for mission lifetime"). Without at least one Requirement, downstream import fails.
+- For every assessed credibility factor, populate `acceptance_criteria` with the explicit level-passing criterion stated or implied in the narrative (e.g. "GCI < 5% across three refinement levels" for Discretization error, "MMS benchmarks pass with error < 0.1%" for Numerical code verification). Omit only for not-assessed or scoped-out factors. Unpopulated acceptance criteria cause a W-AR-01 weakener fire per factor at C3.
+- The `outcome` value in DECISION MUST be exactly one of "Accepted", "Not accepted", or "Conditional". Case-sensitive. "Not Accepted" / "not-accepted" / "Rejected" / "Declined" are all invalid — use "Not accepted".
 
 ## Evidence Corpus
 
