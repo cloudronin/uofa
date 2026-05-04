@@ -229,9 +229,16 @@ def test_thinking_true_passes_through_to_backend_options():
     assert last_options.extra.get("think") is True
 
 
-def test_thinking_false_omits_think_extra():
-    """No `think` key when thinking=False (matches the previous behavior of
-    only setting `think: true` and letting the daemon default otherwise)."""
+def test_thinking_false_sets_think_extra_false():
+    """`think: False` is set explicitly when thinking=False.
+
+    Updated from the previous "omits think key" behavior: qwen3.5 (and
+    other Qwen3-family models) have thinking-mode ON by default at the
+    daemon level. Letting the daemon default through caused 5-10x silent
+    reasoning-token generation (22 min/bundle vs 7 min on local extract;
+    see commit 088d745). We now send think=False explicitly to override
+    the model default for structured extraction.
+    """
     backend = MockBackend(default_response='{"x": 1}')
     with patch("uofa_cli.llm.get_backend", return_value=backend):
         _call_llm(
@@ -241,4 +248,4 @@ def test_thinking_false_omits_think_extra():
             thinking=False,
         )
     last_options = backend.calls[-1][2]
-    assert "think" not in last_options.extra
+    assert last_options.extra.get("think") is False

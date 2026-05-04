@@ -29,7 +29,12 @@ def _stub_cfg(tmp_path: Path) -> setup_state.SetupConfig:
     )
 
 
-def test_verify_returns_no_config_message_when_no_setup():
+def test_verify_returns_no_config_message_when_no_setup(monkeypatch):
+    # Force load_config to return None even on a dev machine that has run
+    # `uofa setup` (which writes ~/.uofa/config.toml). Without this mock,
+    # the test would fall through to the real verify path and try to
+    # contact the local daemon.
+    monkeypatch.setattr(setup_verify.setup_state, "load_config", lambda: None)
     result = setup_verify.verify(cfg=None)
     assert result.ok is False
     assert "uofa setup" in result.diagnostic
