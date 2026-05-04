@@ -394,20 +394,72 @@ def _parse_response(raw: str) -> dict:
         except json.JSONDecodeError:
             pass
 
-    # Extract first { ... } block via brace matching
+    # Extract first { ... } block via brace matching (string-aware so braces
+    # inside string values don't throw off the depth count).
     start = text.find("{")
     if start >= 0:
         depth = 0
+        in_string = False
+        escape = False
         for i in range(start, len(text)):
-            if text[i] == "{":
+            c = text[i]
+            if escape:
+                escape = False
+                continue
+            if c == "\\":
+                escape = True
+                continue
+            if c == '"':
+                in_string = not in_string
+                continue
+            if in_string:
+                continue
+            if c == "{":
                 depth += 1
-            elif text[i] == "}":
+            elif c == "}":
                 depth -= 1
                 if depth == 0:
                     try:
                         return json.loads(text[start:i + 1])
                     except json.JSONDecodeError:
                         break
+
+    # Tolerant fallback: balance unclosed braces by appending up to N closes.
+    # Local qwen3.5:4b occasionally drops 1-2 closing braces in long outputs;
+    # appending them recovers the structure when the failure is mid-document
+    # rather than mid-string.
+    if start >= 0:
+        truncated = text[start:].rstrip().rstrip(",")
+        # Strip any trailing partial value (e.g. ': ', or unterminated string)
+        # by walking back to the last complete `},` or `}`.
+        for cut in range(len(truncated), max(0, len(truncated) - 200), -1):
+            tail = truncated[cut - 1] if cut > 0 else ""
+            if tail in ("}", ","):
+                truncated = truncated[:cut].rstrip(",").rstrip()
+                break
+        # Count current open vs close (string-aware)
+        depth = 0
+        in_string = False
+        escape = False
+        for c in truncated:
+            if escape:
+                escape = False; continue
+            if c == "\\":
+                escape = True; continue
+            if c == '"':
+                in_string = not in_string; continue
+            if in_string:
+                continue
+            if c == "{":
+                depth += 1
+            elif c == "}":
+                depth -= 1
+        if 0 < depth <= 5:
+            patched = truncated + ("}" * depth)
+            try:
+                return json.loads(patched)
+            except json.JSONDecodeError:
+                pass
 
     raise ValueError(f"Could not parse LLM response as JSON: {text[:200]}...")
 
