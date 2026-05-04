@@ -424,42 +424,70 @@ def _parse_response(raw: str) -> dict:
                     except json.JSONDecodeError:
                         break
 
-    # Tolerant fallback: balance unclosed braces by appending up to N closes.
-    # Local qwen3.5:4b occasionally drops 1-2 closing braces in long outputs;
-    # appending them recovers the structure when the failure is mid-document
-    # rather than mid-string.
+    # Tolerant fallback: progressive prefix truncation. Local qwen3.5:4b
+    # occasionally drops 1-2 closing braces in long structured outputs, with
+    # the malformation often deep mid-document. Strategy:
+    #   1. Find safe truncation points (string-aware positions of `},` or `}`)
+    #   2. From the LAST one backwards, try truncating + balancing braces
+    #   3. First successful parse wins (recovers everything UP TO the bad point)
     if start >= 0:
-        truncated = text[start:].rstrip().rstrip(",")
-        # Strip any trailing partial value (e.g. ': ', or unterminated string)
-        # by walking back to the last complete `},` or `}`.
-        for cut in range(len(truncated), max(0, len(truncated) - 200), -1):
-            tail = truncated[cut - 1] if cut > 0 else ""
-            if tail in ("}", ","):
-                truncated = truncated[:cut].rstrip(",").rstrip()
-                break
-        # Count current open vs close (string-aware)
+        body = text[start:]
+        # Build list of safe truncation points: positions just after a `}` or
+        # `},` (outside strings). These are likely end-of-object boundaries.
+        safe_points: list[int] = []
         depth = 0
         in_string = False
         escape = False
-        for c in truncated:
+        for i, c in enumerate(body):
             if escape:
-                escape = False; continue
+                escape = False
+                continue
             if c == "\\":
-                escape = True; continue
+                escape = True
+                continue
             if c == '"':
-                in_string = not in_string; continue
+                in_string = not in_string
+                continue
             if in_string:
                 continue
             if c == "{":
                 depth += 1
             elif c == "}":
                 depth -= 1
-        if 0 < depth <= 5:
-            patched = truncated + ("}" * depth)
+                if depth >= 0:
+                    safe_points.append(i + 1)  # position just past the `}`
+
+        # Try truncating at each safe point from latest to earliest, balancing
+        # open braces. Cap attempts at 30 to keep this O(N), not O(N²).
+        for sp in reversed(safe_points[-30:]):
+            candidate = body[:sp].rstrip().rstrip(",")
+            # Count open vs close in this prefix (string-aware)
+            d = 0
+            in_s = False
+            esc = False
+            for c in candidate:
+                if esc:
+                    esc = False
+                    continue
+                if c == "\\":
+                    esc = True
+                    continue
+                if c == '"':
+                    in_s = not in_s
+                    continue
+                if in_s:
+                    continue
+                if c == "{":
+                    d += 1
+                elif c == "}":
+                    d -= 1
+            if d < 0 or d > 10:
+                continue
+            patched = candidate + ("}" * d)
             try:
                 return json.loads(patched)
             except json.JSONDecodeError:
-                pass
+                continue
 
     raise ValueError(f"Could not parse LLM response as JSON: {text[:200]}...")
 

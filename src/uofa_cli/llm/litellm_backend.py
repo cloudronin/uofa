@@ -341,19 +341,17 @@ class LiteLLMBackend:
     def _generate_ollama_direct(self, prompt: str, options: GenerationOptions) -> str:
         """Direct /api/chat call for Ollama (bypasses litellm — see `generate`).
 
-        Uses Ollama's native `format: "json"` flag (GBNF-constrained decoding)
-        when not in thinking mode — guarantees structurally valid JSON output,
-        which the post-parse fixup can otherwise fail to recover from.
-        Disabled when think=True because constrained decoding + thinking
-        produces empty content (qwen3.5 quirk; see _DEFAULT_CAPS comment).
+        Note: we used to enable Ollama's native `format: "json"` here, but it
+        slowed inference 3x without reliably preventing structural errors
+        (qwen3.5:4b still drops braces mid-document under constrained
+        decoding). The tolerant parser in llm_extractor._parse_response
+        recovers the dominant failure modes more cheaply.
         """
-        thinking_on = bool(options.extra.get("think", False))
         return _ollama_direct_chat(
             base_url=self.base_url,
             model=self.model_name,
             prompt=prompt,
             options=options,
-            response_format=not thinking_on,
         )
 
     def _normalize_exception(self, exc: Exception) -> LLMError:
