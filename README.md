@@ -296,6 +296,35 @@ The Excel template has 5 sheets: **Assessment Summary**, **Model & Data**, **Val
 
 ---
 
+## Document Extract: From Evidence Folder to Excel
+
+Point `uofa extract` at a folder of evidence documents (PDF, DOCX, XLSX, CSV, TXT, MD) and a local Ollama+qwen3.5:4b call produces a pre-filled extract Excel that you can review and import:
+
+```bash
+pip install 'uofa[extract]'        # adds litellm + pdfplumber + python-docx
+uofa setup                         # detect existing Ollama, pull qwen3.5:4b (~3 GB)
+
+uofa extract path/to/evidence/ --pack vv40 -o extracted.xlsx
+uofa import extracted.xlsx --sign --key keys/research.key --check --pack vv40
+```
+
+The extract prompt is a `=== SECTION ===` key-value format (v4-kv) that produces structurally valid output without the brace-counting failures of nested JSON. Typical wall time: 3-10 min per evidence folder on Apple Silicon depending on document size, all local — no API spend.
+
+Validated end-to-end against:
+- The FDA Morrison case study (vv40, F1 = 1.000)
+- An aero HPT blade case (nasa-7009b, F1 = 0.973)
+- A 50-bundle synthetic eval corpus stratified across (standard × domain × quality × format) — all 19 factors detected at 100% rate, mean F1 = 0.964 dev / 0.954 test, zero bundle crashes. See [docs/extract_eval_v1.md](docs/extract_eval_v1.md) for the writeup.
+
+To use a remote backend instead (faster, costs money):
+
+```bash
+uofa extract path/to/evidence/ --pack vv40 \
+    --extract-backend anthropic --extract-model claude-sonnet-4-6 -o extracted.xlsx
+# requires ANTHROPIC_API_KEY in environment
+```
+
+---
+
 ## Domain Packs
 
 SHACL shapes, Jena rules, templates, and extraction prompts are organized into **domain packs** under `packs/`. The `core` pack ships with standards-agnostic credibility assessment rules (23 weakener patterns). The `vv40` pack provides the ASME V&V 40-2018 factor taxonomy (13 factors), and the `nasa-7009b` pack provides the NASA-STD-7009B factor taxonomy (19 factors, including 6 NASA-only lifecycle factors).
