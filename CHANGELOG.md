@@ -2,6 +2,43 @@
 
 All notable changes to this project are documented here.
 
+## [0.8.0] — 2026-05-04
+
+### Added — Extract eval v1 (synthetic corpus + held-out test)
+
+50-bundle synthetic eval corpus stratified across (standard × domain × quality × format) at [`tests/fixtures/extract_corpus/`](tests/fixtures/extract_corpus/), with sentinel-locked held-out test set and a 2-step Claude-driven generator at [`dev/tools/scripts/generate_extract_corpus.py`](dev/tools/scripts/generate_extract_corpus.py).
+
+Frozen v4-kv prompt achieves on dev/test:
+- Mean F1: 0.964 / 0.954
+- Per-factor F1: 1.000 across all 19 factors (V&V 40 + NASA-7009b)
+- Bundle-level crash rate: 0 / 50
+- Morrison regression: F1 = 1.000
+- Aero cou1 regression: F1 = 0.973
+
+Writeup at [`docs/extract_eval_v1.md`](docs/extract_eval_v1.md). Batch eval harness at [`dev/tools/scripts/score_extraction_batch.py`](dev/tools/scripts/score_extraction_batch.py) with confusion analysis, per-factor stats, and held-out-set guards (refuses to score `test/` unless `--allow-test` is passed AND prompt-version contains neither `iter` nor `dev`).
+
+### Changed — Extract prompts: nested JSON → key-value blocks
+
+`packs/vv40/prompts/vv40_extract_prompt.txt` and `packs/nasa-7009b/prompts/nasa_7009b_extract_prompt.txt` rewritten to emit `=== SECTION ===` blocks containing flat `key: value` lines instead of nested `{value, confidence, source_file, source_page}` JSON objects.
+
+Local qwen3.5:4b dropped 1-2 closing braces ~25-33% of the time on the previous JSON format, causing irrecoverable parse failures (10/30 dev bundles crashed in the last JSON baseline). The kv format eliminates the nested-structure failure class and runs ~2.5-3× faster (less verbose output).
+
+Downstream `_to_field` and `_validate_factor` already accepted flat strings, so xlsx and JSON-LD writers needed no changes. Backwards-compatible with the JSON format via fallback in `_parse_response`.
+
+### Fixed — `uofa extract` performance and reliability
+
+- **`.md` files now supported** as evidence input ([`document_reader.py`](src/uofa_cli/document_reader.py)). Uses the existing text reader. Markdown is a common engineering doc format; previously `extract` exited "No supported files found" on a folder of `.md`.
+- **Adaptive `num_ctx` for ollama** ([`litellm_backend.py`](src/uofa_cli/llm/litellm_backend.py)). Previously the daemon defaulted to the model's max (262K for qwen3.5 = 17 GB VRAM, 5-6× slower per token). Now sized to the actual prompt + output budget, bucketed to 8K/16K/32K/49K/65K to avoid model reloads on consecutive similar calls. Bounds VRAM at ~8 GB. Override via `options.extra["num_ctx"]`.
+- **`max_tokens` cap of 16384** for extract calls. Without this cap, ollama defaulted to unlimited generation; verbose models could ramble past a complete response.
+- **`think=False` default for ollama extract calls**. qwen3.5 (and other Qwen3-family) models have thinking-mode ON by default at the daemon level, generating 5-10× silent reasoning tokens. Letting that through caused ~22 min/bundle wall time on local extract; explicit `think=False` brought it to ~7 min/bundle for the same output.
+- **Tolerant JSON parser** in `_parse_response` for the JSON-format fallback path. Adds string-aware brace counting + progressive prefix truncation, recovering when output occasionally drops trailing braces.
+- **Retry on parse failure** (3 stochastic attempts) wraps the LLM call. Belt-and-suspenders with the kv format and tolerant parser.
+- **`_ROOT` path bug** in `dev/tools/scripts/score_extraction.py` introduced by the April 29 `tools/` → `dev/tools/` reorganization, which made the script resolve fixtures to `dev/tools/tests/fixtures/...` (doesn't exist).
+
+### Cost vs. spec
+
+Synthetic corpus generated for **$6.13** (Sonnet 4.6) vs. spec's $23 estimate. Iteration ran on local qwen3.5:4b — $0 inference cost.
+
 ## [0.5.0] — 2026-04-21
 
 ### Added — v0.5 JSON-LD context
