@@ -82,8 +82,15 @@ the right concepts in real-language documents.
   in the document(s). A diligent human reviewer should be able to assign
   a defensible level (1-4) to each factor.
 - `sparse`: roughly half the factors in {standard} have explicit evidence.
-  The rest are either not mentioned or only obliquely alluded to. Realistic
-  for early-stage projects where documentation is incomplete.
+  The rest you must OMIT ENTIRELY from the source documents — do not
+  mention them at all, not even in passing. Pick a realistic subset of
+  4-7 factors to leave out (more for NASA-7009B's 19 factors). Engineers
+  leave things out for reasons: out of scope for this phase, vendor data
+  not available, deferred to next milestone, no time before review,
+  competing priorities. The goal is for the GROUND-TRUTH extractor (you,
+  in Step B) to mark those omitted factors `not_applicable`. If you only
+  shorten descriptions but mention every factor, that's NOT sparse —
+  that's just a shorter complete bundle.
 - `ambiguous`: at least 3-4 factors have CONTRADICTORY or MISLEADING
   evidence (e.g., the document says one thing in §2 and another in §5;
   or the methodology described doesn't match the rigour level claimed).
@@ -203,9 +210,19 @@ Include ONE entry per canonical factor. expected_factors length must equal {n_fa
 
 ## Rules
 
-1. INCLUDE every canonical factor. Mark `expected_status: "not_applicable"`
-   for factors not addressed in the source documents (typical for sparse
-   bundles); mark `"assessed"` otherwise.
+1. INCLUDE every canonical factor as an entry in expected_factors.
+   Determine `expected_status` strictly from what is actually in the source:
+   - `assessed`: the source contains substantive discussion of this factor
+     (methodology described, results given, OR explicit claims about the
+     factor being addressed). A passing one-line mention is NOT enough.
+   - `not_applicable`: the source does not address this factor in any
+     substantive way. This includes: the factor is never mentioned, OR
+     the factor is mentioned only in a list/table-of-contents without
+     content, OR the source explicitly says "out of scope". For
+     `quality=sparse` bundles, EXPECT to mark 4-7 factors not_applicable
+     (the bundle was generated specifically to omit them). If you find
+     yourself marking 0 factors not_applicable on a sparse bundle, you
+     are being too charitable — re-read and identify the omitted factors.
 2. `expected_level` ∈ {{1, 2, 3, 4}} represents the credibility/rigour
    level a careful reviewer would assign. Calibrate strictly — most
    well-documented factors land at level 2, not level 4. Use these anchors:
