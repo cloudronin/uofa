@@ -25,8 +25,8 @@ from collections import Counter
 from datetime import datetime
 from pathlib import Path
 
-_ROOT = Path(__file__).resolve().parent.parent
-_LOG_PATH = _ROOT / "scripts" / "extract_accuracy_log.jsonl"
+_ROOT = Path(__file__).resolve().parent.parent.parent.parent
+_LOG_PATH = _ROOT / "dev" / "tools" / "scripts" / "extract_accuracy_log.jsonl"
 
 # (pack, case) -> (evidence_dir_name, ground_truth_filename, factor_names_symbol)
 # factor_names_symbol is resolved at runtime via excel_constants import to
@@ -53,6 +53,49 @@ def resolve_fixture(pack: str, case: str) -> tuple[Path, Path, list[str]]:
         _ROOT / "tests" / "fixtures" / "extract" / "ground_truth" / gt_name,
         factor_names,
     )
+
+
+# Pack -> factor_names symbol exported by uofa_cli.excel_constants. Used by
+# resolve_bundle() so callers don't have to re-implement the mapping.
+_PACK_FACTOR_SYMBOLS: dict[str, str] = {
+    "vv40":       "VV40_FACTOR_NAMES",
+    "nasa-7009b": "NASA_ALL_FACTOR_NAMES",
+}
+
+
+def resolve_bundle(bundle_dir: Path, pack: str | None = None) -> tuple[Path, Path, list[str], dict]:
+    """Resolve a single bundle in the new corpus layout.
+
+    Bundle layout:
+        bundle_<id>/
+          source/                  # 1-3 evidence documents (any format)
+          ground_truth.json        # canonical extract output
+          metadata.json            # {standard, domain, quality, format, ...}
+
+    Returns (source_dir, ground_truth_path, factor_names, metadata).
+
+    If `pack` is None, it is read from metadata['standard'] which must equal
+    one of the keys in _PACK_FACTOR_SYMBOLS.
+    """
+    bundle_dir = Path(bundle_dir).resolve()
+    source_dir = bundle_dir / "source"
+    gt_path = bundle_dir / "ground_truth.json"
+    md_path = bundle_dir / "metadata.json"
+    for p, label in ((source_dir, "source/"), (gt_path, "ground_truth.json"), (md_path, "metadata.json")):
+        if not p.exists():
+            raise SystemExit(f"Bundle {bundle_dir} missing {label}")
+    if not source_dir.is_dir():
+        raise SystemExit(f"Bundle {bundle_dir}/source must be a directory")
+    metadata = json.loads(md_path.read_text())
+    pack_key = pack or metadata.get("standard")
+    if pack_key not in _PACK_FACTOR_SYMBOLS:
+        raise SystemExit(
+            f"Bundle {bundle_dir}: unknown pack {pack_key!r}. "
+            f"Known: {list(_PACK_FACTOR_SYMBOLS.keys())}"
+        )
+    from uofa_cli import excel_constants  # noqa: WPS433 (deferred import)
+    factor_names = getattr(excel_constants, _PACK_FACTOR_SYMBOLS[pack_key])
+    return (source_dir, gt_path, factor_names, metadata)
 
 
 def _uofa_env() -> dict:
