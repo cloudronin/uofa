@@ -771,22 +771,47 @@ fuzziness. **(c) + (e) is the defensible path.**
 
 The current gate language: "≥ 50% per verdict class per judge".
 
-Proposed update language (spec v1.7 §15.1 #7):
+Proposed update language (spec v1.7 §15.1 #7), split so the gate
+definition stands on its own and a future reviewer can challenge the
+methodology claim without that challenge being load-bearing for the
+gate:
+
+**Gate clause (replaces the current #7):**
 
 > Per-class accuracy ≥ 50% per verdict class per judge, except
-> UNCERTAIN. The UNCERTAIN class is operationally judge-specific:
-> at least one production judge must achieve ≥ 50% on UNCERTAIN.
-> Cross-judge disagreement on UNCERTAIN-anchored cases (low pairwise
-> agreement vs. the anchor for that class) is itself a signal of
-> case-level ambiguity and routes through Stage 3b arbitration where
-> Judge E + author final-arbitration resolve.
+> UNCERTAIN. For the UNCERTAIN class the gate is satisfied when at
+> least one production judge achieves ≥ 50% on UNCERTAIN-anchored
+> calibration cases. Cases where the production trio splits route
+> through Stage 3b arbitration regardless of class.
 
-Rationale: per-vendor commitment-style asymmetry on cases that admit
-multiple defensible readings is structural across model families
-(GPT, Gemini, Llama, Mistral). Requiring uniform handling across all
-3 production judges is empirically unrealistic and would force prompt
-contortions that may degrade other classes. The ensemble's value is
-the disagreement queue + arbitration safety net.
+**Explanatory note (separate, non-load-bearing):**
+
+> Note: the UNCERTAIN-class gate relaxation reflects an empirical
+> observation in calibration v4 (2026-05-05) — vendor families
+> differ in commitment style on cases that admit multiple defensible
+> verdicts. Some judges (e.g. Judge A in our v4 ensemble) select
+> UNCERTAIN; others (B, C, E) select the most-likely defensible
+> reading. We interpret the resulting cross-judge disagreement on
+> UNCERTAIN-anchored cases as itself a signal of case-level
+> ambiguity, which Stage 3b arbitration is designed to resolve.
+> This interpretation is descriptive of observed v4 behavior and is
+> open to challenge by future reviewers; the gate above holds
+> regardless of whether this interpretation does.
+
+Why split: the original single-paragraph version conflated the
+gate definition with the methodology claim about what disagreement
+means. A future reviewer who finds the disagreement-as-signal claim
+unconvincing should still be able to use the gate; pulling the
+descriptive sentence out keeps the gate purely operational.
+
+Rationale (for adopting the relaxed gate at all): per-vendor
+commitment-style asymmetry on cases that admit multiple defensible
+readings was observed across all four real model families in our
+calibration ensemble (GPT, Gemini, Llama, Mistral). Requiring
+uniform handling across all 3 production judges is empirically
+unrealistic and would force prompt contortions that may degrade
+other classes. The ensemble's value is the disagreement queue +
+arbitration safety net.
 
 ### Stage 1 v4 verdict for Stage 2 go-ahead
 
@@ -819,8 +844,16 @@ uofa adversarial judge \
     --in dev/build/adversarial/phase2/2026-04-26/judge_ready_bundle.tgz \
     --judges openai,gemini,hf-llama \
     --out dev/build/adversarial/phase3/run-1/ \
+    --prompt-version v1.1.0 \
     --concurrency 5 \
     --concurrency-per-judge "gemini=20,openai=10,hf-llama=10" \
     --max-requests-per-judge "gemini=950" \
     --resume
 ```
+
+`--prompt-version v1.1.0` is now the CLI default but pinned
+explicitly here so the audit trail makes the version stamp
+unambiguous. The runner threads this into every Judgment record's
+`prompt_template_version` field and fails the run (exit 4) if any
+emitted record diverges, so production output is demonstrably tied
+to the same prompt that earned the Stage 1 hard gates.

@@ -218,6 +218,7 @@ def _build_providers(
     *,
     model_overrides: dict[str, str | None] | None = None,
     judge_role: str = "production",
+    prompt_template_version: str | None = None,
 ) -> list[AbstractJudgeProvider]:
     """Construct provider instances for each token in the config.
 
@@ -232,6 +233,11 @@ def _build_providers(
     `judge_role` is propagated to LiteLLMProvider for run-manifest accounting.
     Default 'production' for the `judge` subcommand; calibrate-anchor uses
     'calibration_anchor', arbitrate uses 'arbiter'.
+
+    `prompt_template_version`, when set, is stamped into every Judgment
+    record this provider emits — production runs pin this to "v1.1.0" so
+    gate values don't silently shift if the module-level default in
+    prompts.py changes during the §8.3 3-iteration path.
     """
     from uofa_cli.adversarial.judge.providers.litellm_provider import LiteLLMProvider
 
@@ -247,6 +253,7 @@ def _build_providers(
                 provider_token=token,
                 model=overrides.get(token),
                 judge_role=judge_role,
+                prompt_template_version=prompt_template_version,
             ))
         except KeyError as e:
             raise ValueError(f"unknown judge token: {token}") from e
@@ -526,7 +533,16 @@ def run_judge(args) -> int:
         "hf-llama": getattr(args, "model_hf_llama", None),
         "anthropic": getattr(args, "model_anthropic", None),
     }
-    providers = _build_providers(judges, model_overrides=model_overrides)
+    # Pin prompt template version into every Judgment this run emits.
+    # Calibration validity claims (Stage 1 hard gates) tie to v1.1.0;
+    # production output must demonstrably be the same. Default comes
+    # from the CLI flag (`--prompt-version`, default v1.1.0).
+    prompt_version: str = getattr(args, "prompt_version", "v1.1.0") or "v1.1.0"
+    providers = _build_providers(
+        judges,
+        model_overrides=model_overrides,
+        prompt_template_version=prompt_version,
+    )
 
     info(
         f"judging {in_bundle.name} with judges "
@@ -562,8 +578,63 @@ def run_judge(args) -> int:
         max_tpm_per_judge=max_tpm_per_judge,
     ))
 
+    # Post-run prompt-version drift check: every emitted Judgment must
+    # carry the pinned `prompt_version`. Production output has to be
+    # demonstrably tied to the calibration-validated prompt version.
+    drift = _check_prompt_version_drift(out_dir, judges.positions, prompt_version)
+    if drift:
+        for line in drift[:5]:
+            error(f"  {line}")
+        if len(drift) > 5:
+            error(f"  ... and {len(drift) - 5} more drifted records")
+        error(
+            f"prompt-version drift: {len(drift)} judgment(s) do not match "
+            f"--prompt-version={prompt_version!r}. Production output must "
+            f"match calibration prompt version."
+        )
+        return 4
+
     result_line("judgments", True, str(out_dir))
     return 0
+
+
+def _check_prompt_version_drift(
+    out_dir: Path,
+    positions: tuple[str, ...],
+    expected: str,
+) -> list[str]:
+    """Re-read per-judge JSONL after a run; flag any record whose
+    prompt_template_version diverges from `expected`.
+
+    Returns a list of "<pos>/<case_id>: got X expected Y" strings
+    (empty when clean). Mock providers stamp "v0.0.0-stub" by design;
+    those are exempt. Skipped silently when the JSONL doesn't exist
+    (e.g. judge halted before any case for that position completed).
+    """
+    drift: list[str] = []
+    for pos in positions:
+        path = out_dir / f"judgments_{pos}.jsonl"
+        if not path.exists():
+            continue
+        with path.open() as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    rec = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                got = rec.get("prompt_template_version")
+                # Mock stamp ("v0.0.0-stub") is exempt — mocks don't run prompts.
+                if got == "v0.0.0-stub":
+                    continue
+                if got != expected:
+                    drift.append(
+                        f"{pos}/{rec.get('case_id', '<unknown>')}: "
+                        f"got {got!r} expected {expected!r}"
+                    )
+    return drift
 
 
 def _run_dry_run_cost_estimate(

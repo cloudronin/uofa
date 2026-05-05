@@ -249,8 +249,10 @@ def add_arguments(parser):
         "--judges", required=True,
         help="comma-separated provider tokens (e.g. openai,gemini,hf-llama or mock_a,mock_b,mock_c)",
     )
-    jg.add_argument("--prompt-version", default="v0.1.0-tier-a",
-                    help="judge prompt template version (default v0.1.0-tier-a)")
+    jg.add_argument("--prompt-version", default="v1.1.0",
+                    help="judge prompt template version stamped into per-judgment "
+                         "provenance (default v1.1.0; matches `calibrate` default). "
+                         "Override for the §8.3 3-iteration path.")
     jg.add_argument("--parallel", type=int, default=1,
                     help="HF Endpoints in-flight requests (default 1 sequential; "
                          "only meaningful when hf-llama is in --judges)")
