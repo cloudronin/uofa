@@ -126,12 +126,38 @@ def estimate_call_cost(
     input_tokens: int,
     output_tokens: int,
 ) -> float:
-    """Estimate USD cost for one call via litellm.cost_per_token.
+    """Estimate USD cost for one call.
 
-    Returns a non-negative USD float. If litellm doesn't have cost data
-    for the model, returns 0.0 (the cost gate will run unrestricted —
-    surface this in the run manifest if an audit is needed).
+    Resolution order:
+      1. Capability-table override (`input_cost_per_1m_usd` /
+         `output_cost_per_1m_usd`) when present. Used for models
+         litellm hasn't shipped a price entry for — currently the
+         HF-Router-routed Llama 4 Maverick.
+      2. `litellm.cost_per_token` for the resolved litellm model id.
+      3. 0.0 fallback if neither path produces a number (the cost
+         gate will run unrestricted; surface this in the run manifest
+         if an audit is needed).
     """
+    from uofa_cli.adversarial.judge.providers.capabilities import (
+        get_capabilities,
+    )
+
+    # Path 1: capability override.
+    try:
+        caps = get_capabilities(provider_token)
+    except KeyError:
+        caps = None
+    if (
+        caps is not None
+        and caps.input_cost_per_1m_usd is not None
+        and caps.output_cost_per_1m_usd is not None
+    ):
+        return (
+            (input_tokens / 1_000_000) * caps.input_cost_per_1m_usd
+            + (output_tokens / 1_000_000) * caps.output_cost_per_1m_usd
+        )
+
+    # Path 2: litellm price table.
     model_str = litellm_model_string(provider_token, model)
     try:
         import litellm  # type: ignore

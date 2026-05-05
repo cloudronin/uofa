@@ -70,6 +70,15 @@ class ProviderCapabilities:
     # default env-driven auth.
     auth_env_var: str | None = None
 
+    # Optional explicit USD-per-1M-token rates. None means defer to
+    # `litellm.cost_per_token` for this provider's default model.
+    # Used when litellm hasn't shipped a price entry yet (e.g.
+    # HF-Router-routed Llama 4 Maverick) or when the published rate
+    # differs from litellm's default. Cite the source + date in the
+    # capability entry's comment for audit.
+    input_cost_per_1m_usd: float | None = None
+    output_cost_per_1m_usd: float | None = None
+
 
 # Standard JSONSchema 2020-12 keywords that some vendor strict-mode parsers
 # reject. Provider entries below pull subsets that apply to that vendor.
@@ -166,6 +175,14 @@ CAPABILITIES: dict[str, ProviderCapabilities] = {
         supports_batch_api=False,
         supports_prompt_caching=False,
         thinking_kwargs=(),
+        # Sambanova Cloud rate card for Llama-4-Maverick-17B-128E-Instruct,
+        # checked 2026-05-05: $0.10/M input, $0.30/M output. The HF Router
+        # passes through Sambanova's billing — we pay Sambanova's rate
+        # net of HF Router fees. Litellm 1.63 has no price for the
+        # routed `<model>:sambanova` id, so we override here.
+        # Verify periodically against https://cloud.sambanova.ai/pricing.
+        input_cost_per_1m_usd=0.10,
+        output_cost_per_1m_usd=0.30,
     ),
     "anthropic": ProviderCapabilities(
         family="Claude",
