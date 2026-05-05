@@ -219,6 +219,7 @@ def _build_providers(
     model_overrides: dict[str, str | None] | None = None,
     judge_role: str = "production",
     prompt_template_version: str | None = None,
+    thinking_enabled: bool = False,
 ) -> list[AbstractJudgeProvider]:
     """Construct provider instances for each token in the config.
 
@@ -238,6 +239,15 @@ def _build_providers(
     record this provider emits — production runs pin this to "v1.1.0" so
     gate values don't silently shift if the module-level default in
     prompts.py changes during the §8.3 3-iteration path.
+
+    `thinking_enabled` defaults to False to match Stage 1 calibration
+    (calibration.py passes `thinking_enabled=False` for the same litellm
+    1.63 reasoning-param compatibility gap — OpenAI gpt-5.4 rejects
+    `reasoning_effort` at the pre-flight validator). Keeping production
+    on the same configuration that earned the hard gates ensures
+    verdicts are reproducible against calibration; flip to True only
+    after litellm closes the gap and a fresh calibration confirms
+    thinking-on metrics still hit the gates.
     """
     from uofa_cli.adversarial.judge.providers.litellm_provider import LiteLLMProvider
 
@@ -254,6 +264,7 @@ def _build_providers(
                 model=overrides.get(token),
                 judge_role=judge_role,
                 prompt_template_version=prompt_template_version,
+                thinking_enabled=thinking_enabled,
             ))
         except KeyError as e:
             raise ValueError(f"unknown judge token: {token}") from e
