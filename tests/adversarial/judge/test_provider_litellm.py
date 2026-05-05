@@ -500,3 +500,28 @@ class TestSambanova400Detection:
         # Auth error, model-not-found, etc. should not retry-without-format.
         assert _is_sambanova_400(Exception("400 Bad Request: Invalid model")) is False
         assert _is_sambanova_400(Exception("Model did not output valid JSON")) is False  # no 400
+
+    def test_drops_nested_additional_properties_in_reasoning_steps(self) -> None:
+        # Pilot v3 surfaced a Llama hallucination inside reasoning_steps:
+        # 'verdictation_verdict'. Schema's nested additionalProperties: false
+        # rejects it; coerce should strip nested unknowns too.
+        provider = LiteLLMProvider(
+            provider_token="hf-llama", completion_fn=lambda **k: None,
+        )
+        out = provider._coerce_partial_response({
+            "case_id": "x", "verdict": "REAL-GAP", "confidence": 0.5,
+            "reasoning": "x" * 60,
+            "reasoning_steps": {
+                "source_taxonomy_identified": "x" * 12,
+                "target_rule_identified": "y",
+                "rule_firings_inspected": "z",
+                "instantiation_check": "w",
+                "verdict_commitment": "REAL-GAP",
+                "verdictation_verdict": "GA",  # hallucinated nested key
+                "extra_garbage": True,
+            },
+        })
+        assert "verdictation_verdict" not in out["reasoning_steps"]
+        assert "extra_garbage" not in out["reasoning_steps"]
+        # Real keys preserved.
+        assert out["reasoning_steps"]["verdict_commitment"] == "REAL-GAP"

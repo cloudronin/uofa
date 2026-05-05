@@ -486,20 +486,41 @@ class LiteLLMProvider(AbstractJudgeProvider):
                 if token is not None:
                     rs["verdict_commitment"] = token
 
-        # Drop unknown top-level keys. Schema sets `additionalProperties:
-        # false`, so any extra key (Llama hallucinations like
-        # 'section_6_7_6_7_candidate', 'verdictation_verdict',
-        # 'prompt_template_version_prompt_version') breaks validation.
-        # Strip them rather than reject the whole judgment.
-        allowed_keys = {
+        # Drop unknown keys at every level the schema sets
+        # `additionalProperties: false`. Llama 4 hallucinates names like
+        # 'section_6_7_6_7_candidate' (top-level) and
+        # 'verdictation_verdict' inside reasoning_steps; both shapes
+        # show up in the pilot.
+        allowed_top = {
             "case_id", "verdict", "confidence", "reasoning_steps",
             "reasoning", "section_6_7_candidate", "alternative_rule_analysis",
             "prompt_template_version", "judge_model", "judge_thinking_enabled",
             "judge_model_params", "generator_provenance", "evidence_gap",
         }
         for k in list(parsed.keys()):
-            if k not in allowed_keys:
+            if k not in allowed_top:
                 parsed.pop(k)
+
+        # Nested objects: schema's reasoning_steps + judge_model_params
+        # + generator_provenance + evidence_gap also forbid extras.
+        nested_allowed = {
+            "reasoning_steps": {
+                "source_taxonomy_identified", "target_rule_identified",
+                "rule_firings_inspected", "instantiation_check",
+                "verdict_commitment",
+            },
+            "judge_model_params": {"temperature", "seed"},
+            "generator_provenance": {"generator_model", "temperature", "seed"},
+            "evidence_gap": {
+                "missing_evidence_type", "would_support_defeater_evaluation",
+            },
+        }
+        for parent, allowed in nested_allowed.items():
+            obj = parsed.get(parent)
+            if isinstance(obj, dict):
+                for k in list(obj.keys()):
+                    if k not in allowed:
+                        obj.pop(k)
 
         return parsed
 
