@@ -307,6 +307,23 @@ def add_arguments(parser):
              "re-run with --resume the next UTC day to continue. Same-day "
              "resumes accumulate; new-UTC-day resumes reset to fresh quota.",
     )
+    jg.add_argument(
+        "--max-tpm-per-judge", default=None,
+        help="per-vendor TPM (tokens-per-minute) caps as comma-separated "
+             "token=N pairs, e.g. 'mistral=550000,gemini=950000'. Soft "
+             "throttle: TokenRateTracker uses a 1-minute sliding window "
+             "and sleeps until room is available (vs --max-requests-per-judge "
+             "which hard-halts). When unset, defaults are auto-derived "
+             "from each judge's `default_tpm_cap` in the capability table; "
+             "set --no-auto-tpm to disable.",
+    )
+    jg.add_argument(
+        "--no-auto-tpm", dest="auto_tpm", action="store_false",
+        default=True,
+        help="disable auto-derivation of TPM caps from the capability "
+             "table (the default behavior). Combine with empty "
+             "--max-tpm-per-judge to run completely uncapped.",
+    )
 
     # ----- triage (Phase 3 §10.1) -----
     tg = sub.add_parser(

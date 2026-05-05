@@ -79,6 +79,14 @@ class ProviderCapabilities:
     input_cost_per_1m_usd: float | None = None
     output_cost_per_1m_usd: float | None = None
 
+    # Default tokens-per-minute cap (sliding 1-minute window) for TPM-
+    # aware throttling. None means no per-judge TPM enforcement (the
+    # TokenRateTracker is a no-op for that judge). Used by the v1.6
+    # multi-day production run path so we don't hit vendor TPM walls
+    # mid-batch the way Gemini RPD walled us. Apply a 50K-buffer
+    # vs published rate-card numbers to absorb retry overhead.
+    default_tpm_cap: int | None = None
+
 
 # Standard JSONSchema 2020-12 keywords that some vendor strict-mode parsers
 # reject. Provider entries below pull subsets that apply to that vendor.
@@ -128,6 +136,8 @@ CAPABILITIES: dict[str, ProviderCapabilities] = {
         supports_prompt_caching=True,  # implicit prefix caching, no flag needed
         thinking_kwargs=(("reasoning_effort", "medium"),),
         supports_seed=True,  # OpenAI honors `seed` for deterministic outputs
+        # OpenAI gpt-5.4 Tier 5: 800K TPM published; 50K buffer → 750K.
+        default_tpm_cap=750_000,
     ),
     "gemini": ProviderCapabilities(
         family="Gemini",
@@ -162,6 +172,8 @@ CAPABILITIES: dict[str, ProviderCapabilities] = {
         supports_batch_api=False,
         supports_prompt_caching=True,  # via cached_content resource
         thinking_kwargs=(("thinking_config", {"thinking_budget": 8192}),),
+        # Gemini 2.5 Pro Tier 1 paid: ~1M TPM published; 50K buffer → 950K.
+        default_tpm_cap=950_000,
     ),
     "hf-llama": ProviderCapabilities(
         family="Llama",
@@ -217,16 +229,28 @@ CAPABILITIES: dict[str, ProviderCapabilities] = {
         # restore (("thinking", {"type":"enabled","budget_tokens":8192}),)
         # to enable extended thinking on the calibration runs.
         thinking_kwargs=(),
+        # Anthropic Tier 4: 800K TPM published; 50K buffer → 750K.
+        default_tpm_cap=750_000,
     ),
     "mistral": ProviderCapabilities(
         family="Mistral",
         litellm_model_prefix="mistral/",
-        # Mistral Large 3 (verified 2026-05-05): API id `mistral-large-2512`,
-        # alias `mistral-large-latest`. Pinning the dated id for run
-        # reproducibility. v1.6 spec called for Large 2 (`mistral-large-2411`);
-        # bumped to Large 3 per current generation per "no methodology
-        # change, just version freshness" decision (2026-05-05).
-        default_model="mistral-large-2512",
+        # OPERATIONAL TIER TRADEOFF — Mistral Large 2 over Large 3
+        # (decided 2026-05-05 after Stage 1 v3 burned through Large 3's
+        # tight TPM cap with concurrency=5). Rate-limit comparison:
+        #   mistral-large-2411 (Large 2): 600K TPM, 200B tokens/month, 0.43 RPS
+        #   mistral-large-2512 (Large 3): 50K TPM,    4B tokens/month, 1.00 RPS
+        # Large 2's 12× higher TPM and 50K× higher monthly cap is more
+        # important for our run pattern (Stage 3b arbitration on ~410
+        # disagreement-queue cases at concurrency 5) than Large 3's
+        # higher per-second cap. Lower RPS is offset by the
+        # TokenRateTracker which throttles by token rate not request
+        # rate. Earlier "version freshness" decision (May 4) reverted
+        # because operational viability beats recency for the production
+        # run. Spec v1.7 follow-up: §6.7 update naming Large 2.
+        default_model="mistral-large-2411",
+        # Mistral Large 2 TPM cap: 600K published, 50K buffer → 550K.
+        default_tpm_cap=550_000,
         # Mistral's response_format=json_schema works; verified via
         # verify_mistral_strict_schema.py 2026-05-04. Mistral rejects
         # the JSONSchema 2020-12 if/then/else conditional-required block;

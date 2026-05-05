@@ -463,6 +463,21 @@ def run_judge(args) -> int:
             error(str(e))
             return 2
 
+    # TPM caps parsed up-front; auto-derivation deferred until after
+    # parse_judges since it needs the resolved token list.
+    max_tpm_raw: str | None = getattr(args, "max_tpm_per_judge", None)
+    auto_tpm: bool = bool(getattr(args, "auto_tpm", True))
+    max_tpm_per_judge: dict[str, int] | None = None
+    if max_tpm_raw:
+        from uofa_cli.adversarial.judge.token_rate_tracker import (
+            parse_per_judge_tpm,
+        )
+        try:
+            max_tpm_per_judge = parse_per_judge_tpm(max_tpm_raw)
+        except ValueError as e:
+            error(str(e))
+            return 2
+
     try:
         judges = parse_judges(raw_judges)
     except ValueError as e:
@@ -474,6 +489,17 @@ def run_judge(args) -> int:
     except ValueError as e:
         error(str(e))
         return 2
+
+    # TPM auto-derivation: when --max-tpm-per-judge isn't set and
+    # --no-auto-tpm isn't passed, pull defaults from each judge's
+    # capability-table `default_tpm_cap`. None means uncapped.
+    if max_tpm_per_judge is None and auto_tpm:
+        from uofa_cli.adversarial.judge.token_rate_tracker import (
+            caps_from_capability_table,
+        )
+        derived = caps_from_capability_table(list(judges.tokens))
+        if derived:
+            max_tpm_per_judge = derived
 
     # Family check on real providers only; mock_* tokens are synthetic
     # and skipped (they have no FAMILY_MAP entry by design).
@@ -533,6 +559,7 @@ def run_judge(args) -> int:
         concurrency=concurrency,
         concurrency_per_judge=concurrency_per_judge,
         max_requests_per_judge=max_requests_per_judge,
+        max_tpm_per_judge=max_tpm_per_judge,
     ))
 
     result_line("judgments", True, str(out_dir))
@@ -648,6 +675,7 @@ async def _judge_bundle(
     concurrency: int = 1,
     concurrency_per_judge: dict[str, int] | None = None,
     max_requests_per_judge: dict[str, int] | None = None,
+    max_tpm_per_judge: dict[str, int] | None = None,
 ) -> None:
     """For each case in the bundle, run all providers and write per-judge JSONL.
 
@@ -679,6 +707,9 @@ async def _judge_bundle(
         load_done_case_ids,
         write_resume_manifest,
     )
+    from uofa_cli.adversarial.judge.token_rate_tracker import (
+        TokenRateTracker,
+    )
 
     tracker = BudgetTracker(max_cost_usd=max_cost) if max_cost is not None else None
     # Per-judge daily-cap tracker. Loads any prior manifest from out_dir
@@ -691,6 +722,13 @@ async def _judge_bundle(
         request_tracker = RequestTracker.from_manifest(
             request_manifest_path, per_judge_cap=max_requests_per_judge
         )
+    # TPM-aware soft throttle. Always-on when caps are configured; the
+    # tracker is a no-op for tokens not in the dict. Unlike RequestTracker
+    # this is an in-memory window — no manifest persistence (TPM windows
+    # roll forward within seconds, not days).
+    tpm_tracker: TokenRateTracker | None = None
+    if max_tpm_per_judge:
+        tpm_tracker = TokenRateTracker(per_judge_tpm=max_tpm_per_judge)
 
     _reset_mock_ledger()
     with open_bundle(in_bundle) as bundle:
@@ -759,10 +797,17 @@ async def _judge_bundle(
             # Per-judge daily-cap gate: skip the call if quota is hit.
             if request_tracker is not None and not request_tracker.authorize(token):
                 return pos, entry.case_id, None
+            # TPM throttle: estimate this call's tokens and sleep until
+            # the 1-minute window has room. No-op when no cap configured.
+            if tpm_tracker is not None:
+                projected = _estimate_call_tokens(provider, entry, token)
+                await tpm_tracker.sleep_until_authorized(token, projected)
             try:
                 j = await provider.judge(_build_case(entry))
                 if request_tracker is not None:
                     request_tracker.record(token)
+                if tpm_tracker is not None:
+                    tpm_tracker.record(token, _judgment_tokens(j))
                 if tracker is not None:
                     tracker.record(token, _extract_response_cost(j, token))
                     if not tracker.authorize(token, 0.0):
@@ -791,11 +836,16 @@ async def _judge_bundle(
                     if request_tracker is not None and not request_tracker.authorize(token):
                         halted_early = True
                         break
+                    if tpm_tracker is not None:
+                        projected = _estimate_call_tokens(provider, entry, token)
+                        await tpm_tracker.sleep_until_authorized(token, projected)
                     judgment = await provider.judge(case)
                     handles[pos].write(json.dumps(_judgment_to_dict(judgment)) + "\n")
                     verdicts_by_pos[pos].append(judgment.verdict)
                     if request_tracker is not None:
                         request_tracker.record(token)
+                    if tpm_tracker is not None:
+                        tpm_tracker.record(token, _judgment_tokens(judgment))
                     if tracker is not None:
                         tracker.record(token, _extract_response_cost(judgment, token))
                         if not tracker.authorize(token, 0.0):
@@ -889,6 +939,49 @@ def _judgment_to_dict(j: Judgment) -> dict[str, Any]:
     d = asdict(j)
     d.pop("raw_response", None)
     return d
+
+
+def _estimate_call_tokens(provider: AbstractJudgeProvider, entry, token: str) -> int:
+    """Estimate input + output tokens for a single judge call.
+
+    Used by TokenRateTracker before-call gate. Conservative: counts
+    the case_id + package + outcome metadata as input proxy and
+    assumes 800 output tokens (slightly above pilot v2's mean to
+    absorb retries). Real token counting via litellm.token_counter
+    needs the assembled prompt which is built later in the call
+    chain; this estimate is good enough for TPM windowing.
+    """
+    try:
+        from uofa_cli.adversarial.judge.cost_gate import count_tokens
+
+        # Use the assembled case content as input proxy. Static prefix
+        # tokens are double-counted across calls (each call sends
+        # the prefix + case content), so include it.
+        from uofa_cli.adversarial.judge.prompts import build_prompt_static_prefix
+        prefix = build_prompt_static_prefix()
+        case_text = json.dumps({
+            "case_id": entry.case_id,
+            "package": entry.package,
+            "outcome": dict(entry.outcome),
+        })
+        in_tokens = count_tokens(token, getattr(provider, "_model_id", None), prefix + case_text)
+        # Pilot v2 saw output token mean ~700 across vendors; pad to 1000
+        # so brief throttle sleeps don't undershoot.
+        return in_tokens + 1000
+    except Exception:
+        # Conservative fallback: assume an average pilot-v2 case.
+        return 12_000
+
+
+def _judgment_tokens(judgment: Judgment) -> int:
+    """Extract actual input+output tokens from a Judgment's raw response."""
+    raw = judgment.raw_response or {}
+    if not isinstance(raw, dict):
+        return 0
+    usage = raw.get("usage") or {}
+    in_tok = int(usage.get("prompt_tokens", 0) or 0)
+    out_tok = int(usage.get("completion_tokens", 0) or 0)
+    return in_tok + out_tok
 
 
 def _extract_response_cost(judgment: Judgment, provider_token: str) -> float:

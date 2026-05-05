@@ -87,8 +87,11 @@ class TestCapabilities:
         s = litellm_model_string("hf-llama")
         assert s.startswith("openai/")
         assert "Llama-4-Maverick" in s
-        # Mistral default is now Large 3 (verified 2026-05-05).
-        assert litellm_model_string("mistral") == "mistral/mistral-large-2512"
+        # Mistral default reverted to Large 2 (`mistral-large-2411`)
+        # 2026-05-05 for higher TPM (600K vs Large 3's 50K) + monthly
+        # token cap (200B vs 4B). Operational viability beats version
+        # freshness for the production run pattern.
+        assert litellm_model_string("mistral") == "mistral/mistral-large-2411"
         # Gemini default is 2.5 Pro (substituted from preview-tier 3.1
         # Pro Preview which capped at 100 RPD; methodology disclosure
         # in TIER_A_HANDOFF.md per spec v1.7 follow-up).
