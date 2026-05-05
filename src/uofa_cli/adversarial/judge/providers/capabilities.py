@@ -48,6 +48,13 @@ class ProviderCapabilities:
     # seed kwarg at the call site for providers that reject it.
     supports_seed: bool = False
 
+    # Some providers (Gemini / Vertex) reject JSONSchema 2020-12
+    # `"type": ["X", "null"]` arrays — they want OpenAPI-3-style
+    # `"type": "X", "nullable": true`. Set True to apply that conversion
+    # in `strip_schema_for_provider` before sending. The runtime parser
+    # still validates the response against the full schema.
+    convert_nullable_to_openapi: bool = False
+
 
 # Standard JSONSchema 2020-12 keywords that some vendor strict-mode parsers
 # reject. Provider entries below pull subsets that apply to that vendor.
@@ -73,6 +80,13 @@ _MISTRAL_BLOCKED = ("if", "then", "else")
 # the blocklist is narrower than Anthropic's.
 _OPENAI_BLOCKED = ("if", "then", "else")
 
+# Gemini's protobuf-derived schema parser rejects if/then/else (verified
+# 2026-05-04). Same restriction as Anthropic / OpenAI / Mistral. Together
+# this means the JSONSchema 2020-12 conditional-required block is
+# universally rejected; the runtime parser enforces OOS → evidence_gap
+# post-call across all four strict-mode providers.
+_GEMINI_BLOCKED = ("if", "then", "else")
+
 
 CAPABILITIES: dict[str, ProviderCapabilities] = {
     "openai": ProviderCapabilities(
@@ -94,9 +108,21 @@ CAPABILITIES: dict[str, ProviderCapabilities] = {
     "gemini": ProviderCapabilities(
         family="Gemini",
         litellm_model_prefix="gemini/",
-        default_model="gemini-3.1-pro",
+        # Gemini 3.1 Pro is shipping under preview as `gemini-3.1-pro-preview`
+        # (verified 2026-05-04 via the live Models API). Plain
+        # `gemini-3.1-pro` returns 404. Capability default uses the preview
+        # id; bump to the GA id when it's published.
+        default_model="gemini-3.1-pro-preview",
         supports_strict_schema=True,
-        schema_keyword_blocklist=(),  # Gemini's response_schema accepts our shape
+        # Verified 2026-05-04: Gemini's protobuf-derived schema parser
+        # rejects type-array nullable form ("type": ["string", "null"])
+        # with "Unknown name 'type' at properties[N].value". The
+        # `convert_nullable_to_openapi` flag below converts those to
+        # `"type": "string", "nullable": true` at send-time. Gemini
+        # also rejects if/then/else (same restriction as the other
+        # strict-mode providers).
+        schema_keyword_blocklist=_GEMINI_BLOCKED,
+        convert_nullable_to_openapi=True,
         # Litellm 1.30 only supports OpenAI in `create_batch`. Gemini batch
         # routing is wired in batch.py but gated OFF here until either
         # (a) litellm adds Gemini, or (b) we add a direct google.genai
@@ -194,20 +220,30 @@ def litellm_model_string(provider_token: str, model: str | None = None) -> str:
 
 
 def strip_schema_for_provider(schema: dict, provider_token: str) -> dict:
-    """Recursively drop keywords the vendor strict-mode parser rejects.
+    """Apply per-provider schema transforms before sending to the API.
 
-    The post-call validator must re-check against the original (unstripped)
-    schema so any constraints we removed still gate the verdict.
+    Two transforms run in order:
+      1. Drop blocklisted keywords (e.g. Anthropic / Mistral / OpenAI
+         strict mode rejecting `if/then/else`).
+      2. Convert JSONSchema 2020-12 type-array nullable
+         (`"type": ["string", "null"]`) to OpenAPI-3 form
+         (`"type": "string", "nullable": true`) when the provider
+         requires it (Gemini / Vertex).
 
-    Example: Anthropic strict-mode rejects `minimum`/`maximum`. We strip
-    those for the API call; the runtime parser then validates the response
-    against the full schema (including `minimum`/`maximum`) and rejects
-    invalid responses.
+    The runtime parser must re-check responses against the original
+    (unstripped) schema so any constraints we removed still gate the
+    verdict. Both transforms are loss-tolerant in that direction —
+    valid responses to the transformed schema remain valid against the
+    original.
     """
-    blocklist = set(get_capabilities(provider_token).schema_keyword_blocklist)
-    if not blocklist:
-        return schema
-    return _recursive_strip(schema, blocklist)
+    caps = get_capabilities(provider_token)
+    out = schema
+    blocklist = set(caps.schema_keyword_blocklist)
+    if blocklist:
+        out = _recursive_strip(out, blocklist)
+    if caps.convert_nullable_to_openapi:
+        out = _convert_nullable_arrays(out)
+    return out
 
 
 def _recursive_strip(node: object, blocklist: Iterable[str]) -> object:
@@ -220,4 +256,38 @@ def _recursive_strip(node: object, blocklist: Iterable[str]) -> object:
         }
     if isinstance(node, list):
         return [_recursive_strip(item, blockset) for item in node]
+    return node
+
+
+def _convert_nullable_arrays(node: object) -> object:
+    """Convert `"type": ["X", "null"]` arrays to `"type": "X", "nullable": true`.
+
+    Recursive over dicts/lists. Single-type strings pass through unchanged.
+
+    Multi-type unions (`["number", "string", "null"]`) collapse to the
+    first non-null type since Gemini's protobuf-derived schema parser
+    doesn't accept union types either. The runtime parser still
+    validates the response against the original schema, so any
+    divergence (e.g. a Gemini response returning a string where the
+    schema expected number) gets caught post-call. In practice the
+    judge output schema's multi-type fields (model temperature, seed)
+    are conventionally single-type per provider, so the loss of the
+    union semantic doesn't bite.
+    """
+    if isinstance(node, dict):
+        result = {}
+        for k, v in node.items():
+            if k == "type" and isinstance(v, list):
+                non_null = [t for t in v if t != "null"]
+                has_null = "null" in v
+                # Always collapse to a single type (Gemini-safe).
+                if non_null:
+                    result[k] = non_null[0]
+                if has_null:
+                    result["nullable"] = True
+            else:
+                result[k] = _convert_nullable_arrays(v)
+        return result
+    if isinstance(node, list):
+        return [_convert_nullable_arrays(x) for x in node]
     return node

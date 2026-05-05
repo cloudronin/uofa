@@ -333,3 +333,82 @@ class TestCalibrationLoop:
         assert result.case_count == 4
         assert result.correct_count == 2  # mock always returns REAL-GAP
         assert result.overall_accuracy == 0.5
+
+
+class TestNullableTypeArrayConversion:
+    """Wave L: Gemini convert_nullable_to_openapi flag."""
+
+    def test_simple_two_type_array_with_null_converts(self) -> None:
+        from uofa_cli.adversarial.judge.providers.capabilities import (
+            strip_schema_for_provider,
+        )
+        schema = {
+            "type": "object",
+            "properties": {
+                "x": {"type": ["string", "null"]},
+            },
+        }
+        out = strip_schema_for_provider(schema, "gemini")
+        assert out["properties"]["x"]["type"] == "string"
+        assert out["properties"]["x"]["nullable"] is True
+
+    def test_multi_type_array_collapses_to_first_non_null(self) -> None:
+        from uofa_cli.adversarial.judge.providers.capabilities import (
+            strip_schema_for_provider,
+        )
+        schema = {
+            "type": "object",
+            "properties": {
+                "x": {"type": ["number", "string", "null"]},
+            },
+        }
+        out = strip_schema_for_provider(schema, "gemini")
+        # Multi-type unions collapse to first non-null type — the runtime
+        # parser still validates against the original schema.
+        assert out["properties"]["x"]["type"] == "number"
+        assert out["properties"]["x"]["nullable"] is True
+
+    def test_nested_objects_recursive(self) -> None:
+        from uofa_cli.adversarial.judge.providers.capabilities import (
+            strip_schema_for_provider,
+        )
+        schema = {
+            "type": "object",
+            "properties": {
+                "inner": {
+                    "type": "object",
+                    "properties": {
+                        "y": {"type": ["integer", "null"]},
+                    },
+                },
+            },
+        }
+        out = strip_schema_for_provider(schema, "gemini")
+        inner_y = out["properties"]["inner"]["properties"]["y"]
+        assert inner_y["type"] == "integer"
+        assert inner_y["nullable"] is True
+
+    def test_openai_does_not_apply_conversion(self) -> None:
+        from uofa_cli.adversarial.judge.providers.capabilities import (
+            strip_schema_for_provider,
+        )
+        schema = {"type": "object", "properties": {"x": {"type": ["string", "null"]}}}
+        out = strip_schema_for_provider(schema, "openai")
+        # OpenAI accepts type-array nullable; no conversion.
+        assert out["properties"]["x"]["type"] == ["string", "null"]
+        assert "nullable" not in out["properties"]["x"]
+
+    def test_gemini_full_schema_strip_includes_if_then_else(self) -> None:
+        """Gemini also rejects if/then/else; verify those drop too."""
+        from uofa_cli.adversarial.judge.providers.capabilities import (
+            strip_schema_for_provider,
+        )
+        schema = {
+            "type": "object",
+            "properties": {"verdict": {"type": "string"}},
+            "if": {"properties": {"verdict": {"const": "OUT-OF-SCOPE"}}},
+            "then": {"required": ["evidence_gap"]},
+        }
+        out = strip_schema_for_provider(schema, "gemini")
+        assert "if" not in out
+        assert "then" not in out
