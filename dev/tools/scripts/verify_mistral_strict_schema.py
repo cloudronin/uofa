@@ -35,6 +35,17 @@ def _load_schema() -> dict:
     return json.loads(spec_path.read_text())
 
 
+def _strip_for_mistral(schema: dict) -> dict:
+    """Apply the capability-table blocklist before sending."""
+    here = Path(__file__).resolve()
+    src = here.parents[3] / "src"
+    sys.path.insert(0, str(src))
+    from uofa_cli.adversarial.judge.providers.capabilities import (
+        strip_schema_for_provider,
+    )
+    return strip_schema_for_provider(schema, "mistral")
+
+
 def _build_minimal_arbitration_case() -> dict:
     """A tiny one-case fixture so the smoke runs at minimum cost."""
     return {
@@ -62,7 +73,7 @@ def main() -> int:
 
     import litellm  # type: ignore
 
-    schema = _load_schema()
+    schema = _strip_for_mistral(_load_schema())
     case = _build_minimal_arbitration_case()
 
     response_format = {
@@ -76,7 +87,7 @@ def main() -> int:
 
     try:
         resp = litellm.completion(
-            model="mistral/mistral-large-2",
+            model="mistral/mistral-large-latest",
             messages=[
                 {
                     "role": "system",

@@ -55,6 +55,12 @@ _ANTHROPIC_BLOCKED = (
     "pattern",
 )
 
+# Mistral large-latest verified 2026-05-04 against
+# specs/judge_e_output_schema.json: accepts the schema once if/then/else
+# are stripped. The other JSONSchema keywords above (min/max, pattern,
+# etc.) pass through cleanly. Probe in dev/tools/scripts/verify_mistral_strict_schema.py.
+_MISTRAL_BLOCKED = ("if", "then", "else")
+
 
 CAPABILITIES: dict[str, ProviderCapabilities] = {
     "openai": ProviderCapabilities(
@@ -115,11 +121,17 @@ CAPABILITIES: dict[str, ProviderCapabilities] = {
     "mistral": ProviderCapabilities(
         family="Mistral",
         litellm_model_prefix="mistral/",
-        default_model="mistral-large-2",
-        # Mistral's response_format=json_schema works; specific blocklist
-        # populated when verify_mistral_strict_schema.py runs (Wave L).
+        # Mistral uses dated model ids; `mistral-large-latest` resolves to
+        # the current generation (mistral-large-2411 as of 2026-04). The
+        # spec calls this "Mistral Large 2"; the API id is the dated form.
+        default_model="mistral-large-latest",
+        # Mistral's response_format=json_schema works; verified via
+        # verify_mistral_strict_schema.py 2026-05-04. Mistral rejects
+        # the JSONSchema 2020-12 if/then/else conditional-required block;
+        # runtime parser enforces OUT-OF-SCOPE → evidence_gap post-call
+        # the same way it does for Anthropic.
         supports_strict_schema=True,
-        schema_keyword_blocklist=(),  # TBD via real-API smoke; placeholder empty
+        schema_keyword_blocklist=_MISTRAL_BLOCKED,
         supports_batch_api=False,  # No Mistral batch API per spec §6.7
         supports_prompt_caching=False,
         thinking_kwargs=(),  # mistral-large-2 has implicit reasoning; no flag
