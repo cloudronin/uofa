@@ -285,6 +285,19 @@ def add_arguments(parser):
         help="skip cases already present in existing judgments_*.jsonl files "
              "(Wave I); writes resume_manifest.json with the skip count",
     )
+    jg.add_argument(
+        "--concurrency", type=int, default=1,
+        help="per-judge max concurrent in-flight calls (default: 1, serial). "
+             "Pilot v2 (2026-05-05) showed Gemini at p50=31s is the bottleneck; "
+             "production runs benefit from --concurrency 15 to drop wall-clock "
+             "from ~9h → ~2-3h. Per-vendor overrides via --concurrency-per-judge.",
+    )
+    jg.add_argument(
+        "--concurrency-per-judge", default=None,
+        help="per-vendor concurrency overrides as comma-separated token=N pairs, "
+             "e.g. 'gemini=20,openai=10,hf-llama=10,anthropic=5'. Tokens not "
+             "listed inherit --concurrency.",
+    )
 
     # ----- triage (Phase 3 §10.1) -----
     tg = sub.add_parser(

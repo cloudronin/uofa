@@ -346,3 +346,107 @@ missing/mistyped required fields with `(coerced)`-tagged defaults
 before runtime schema validation. The audit trail captures which
 fields were coerced; second smoke run produces clean `REAL-GAP ✓`.
 This should NOT bite strict-schema providers (gated by `supports_strict_schema=False`).
+
+---
+
+## Pilot v2 results (2026-05-05): 100-case stratified sample → corpus projections
+
+`dev/tools/scripts/pilot_full_panel.py` runs N stratified-by-outcome-class
+packages through the full 5-judge panel. Pilot v2 ran on 100 cases at
+concurrency 5 across all 5 vendors after fixing two upstream issues:
+
+  1. HF Sambanova PAYG enabled on the wisecube account (was 402'ing 91/100).
+  2. LiteLLMProvider `_coerce_partial_response` extended to handle
+     additionalProperties hallucinations + enum typos (Llama 4 patterns).
+
+### Per-vendor metrics (100 cases)
+
+| Judge | OK/total | Cost | p50 latency | p95 latency | mean in/out tokens |
+|---|---:|---:|---:|---:|---:|
+| A (gpt-5.4) | 100/100 | $3.19 | 11.5s | 13.9s | 8,573 / 701 |
+| B (gemini-3.1-pro-preview) | 100/100 | $2.35 | 31.2s | 63.0s | 8,279 / 582 |
+| C (Llama 4 Maverick) | 92/100 | $0.086 | 2.8s | 5.0s | 7,661 / 545 |
+| D (claude-sonnet-4-6) | 100/100 | $5.24 | 27.5s | 32.1s | 10,731 / 1,349 |
+| E (mistral-large-2512, on disagreements) | 9/9 | $0.044 | 18.2s | 23.2s | 7,398 / 788 |
+
+Pilot wall-clock: 11.3 min, total spend $10.92.
+
+### Triage outcome (validates a key spec assumption)
+
+| Bucket | Count | Sub-types |
+|---|---:|---|
+| CONVERGENT | 83 | 3-of-3 or 2-of-3 majority at confidence ≥ 0.6 |
+| DISAGREEMENT | 9 | 4 uncertain_majority_2of3 + 3 all_three_disagree + 2 two_disagree_one_uncertain |
+| ERROR (unrecoverable Llama) | 8 | 4 schema-validation + 4 Sambanova 400 |
+
+**Disagreement rate: 9% — significantly lower than the spec's 25% assumption.**
+This validates that the v1.6 ensemble (claude/GPT/Gemini/Llama/Mistral) holds
+together better than the v1.5 baseline assumed. Mistral arbitrated **all 9
+disagreement cases at confidence ≥ 0.6** → zero escalated to author. Judge E
+verdicts on the 9: 6 EXISTING-RULE-MISBEHAVIOR + 3 REAL-GAP.
+
+### Production-cost projection (corrected)
+
+| Component | Per-case (pilot-derived) | Cases in production | Cost |
+|---|---:|---:|---:|
+| Stage 1 — A/B/C calibration | $0.0579 | 30 | $1.74 |
+| Stage 1 — D anchor | $0.0524 | 30 | $1.57 |
+| Stage 2 — Judge A | $0.0319 | 4,556 | **$145.53** |
+| Stage 2 — Judge B | $0.0235 | 4,556 | **$107.28** |
+| Stage 2 — Judge C (assumes 96%+ success post-coercion-fixes) | $0.00094 | 4,556 | **$4.30** |
+| Stage 3b — Mistral arbitration (9% rate, not 25%) | $0.0049 | ~410 | **$2.00** |
+| **Grand total** | | | **~$262** |
+
+(Pilot's printed projection of $497 was a script bug — it scaled D × 4,556
+instead of D × 30. The corrected number above is realistic and well under
+the spec's $580 budget.)
+
+### Wall-clock projection
+
+- Pilot: 100 cases in 679.7s at concurrency 5 across all judges.
+- Scaled to 4,556 cases at concurrency 5: ~9.7h.
+- D running only on 30 calibration cases (not 4,556) drops the per-case
+  bottleneck to Gemini's 31.2s p50 → ~7.9h.
+- **Bumping Gemini-specific concurrency to 15-20 should drop wall-clock
+  to ~2-3h** (Gemini is the bottleneck and showed zero rate-limiting at
+  concurrency 5).
+
+### Llama 4 failure modes + landed fixes
+
+Pilot v2 caught five distinct Llama 4 output patterns that broke schema
+validation. All five recovered by the expanded `_coerce_partial_response`:
+
+| Failure mode | Example | Fix |
+|---|---|---|
+| Verdict-with-prose | `"GENERATOR-ARTIFACT due to package being malformed"` | extract leading enum token + move spillover to `reasoning` |
+| Same in `verdict_commitment` | `"GENERATOR-ARTIFACT ..."` in `reasoning_steps.verdict_commitment` | identical extract logic on the nested field |
+| Misspelled enum | `EXISTING-RULE-MISBEHAVOR` (missing 'I') | Levenshtein ≤2 fuzzy match against valid enums |
+| Hallucinated property name | `section_6_7_6_7_candidate`, `verdictation_verdict`, `prompt_template_version_prompt_version` | drop unknown keys (schema's `additionalProperties: false` whitelist) |
+| Sambanova 400 "Model did not output valid JSON" | upstream 400 before response reaches us | retry once without `response_format=json_object`; tolerant_parse handles raw output |
+
+### Per-vendor concurrency landed
+
+`uofa adversarial judge` now accepts `--concurrency N` (per-judge cap) and
+`--concurrency-per-judge gemini=20,openai=10,...` (vendor-specific overrides).
+The legacy serial path (concurrency=1) is preserved as default for
+backward compatibility with the v1.5 calibration smoke. Concurrent path
+uses asyncio.gather with per-token semaphores; output JSONL ordering
+matches input bundle ordering.
+
+**Recommended production setting:**
+```
+uofa adversarial judge --in bundle.tgz --judges openai,gemini,hf-llama \
+    --out out/ \
+    --concurrency 5 \
+    --concurrency-per-judge "gemini=20,openai=10,hf-llama=10"
+```
+
+### Open items before production run
+
+1. ✅ Llama 4 PAYG enabled — verified 20/20 on the post-fix burst test.
+2. ✅ Coercion expanded — 5 of 8 pilot failures recovered.
+3. ✅ Sambanova-400 retry path landed.
+4. ✅ Per-vendor concurrency wired into the CLI.
+5. ⏸ **Pending**: re-run 100-case pilot to confirm Llama success rate
+   climbs from 92% → ~96-100% with all fixes in place.
+6. ⏸ **Pending**: user green-light to fire the full 4,556-case run.

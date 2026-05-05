@@ -437,6 +437,20 @@ def run_judge(args) -> int:
     dry_run: bool = getattr(args, "dry_run", False)
     max_cost: float | None = getattr(args, "max_cost", None)
     resume: bool = getattr(args, "resume", False)
+    concurrency: int = int(getattr(args, "concurrency", 1) or 1)
+    concurrency_per_judge_raw: str | None = getattr(args, "concurrency_per_judge", None)
+    concurrency_per_judge: dict[str, int] | None = None
+    if concurrency_per_judge_raw:
+        concurrency_per_judge = {}
+        for pair in concurrency_per_judge_raw.split(","):
+            if "=" not in pair:
+                continue
+            k, v = pair.split("=", 1)
+            try:
+                concurrency_per_judge[k.strip()] = int(v.strip())
+            except ValueError:
+                error(f"--concurrency-per-judge: bad value {pair!r}")
+                return 2
 
     try:
         judges = parse_judges(raw_judges)
@@ -505,6 +519,8 @@ def run_judge(args) -> int:
         calibration_only=calibration_only,
         max_cost=max_cost,
         resume=resume,
+        concurrency=concurrency,
+        concurrency_per_judge=concurrency_per_judge,
     ))
 
     result_line("judgments", True, str(out_dir))
@@ -617,6 +633,8 @@ async def _judge_bundle(
     calibration_only: bool,
     max_cost: float | None = None,
     resume: bool = False,
+    concurrency: int = 1,
+    concurrency_per_judge: dict[str, int] | None = None,
 ) -> None:
     """For each case in the bundle, run all providers and write per-judge JSONL.
 
@@ -629,6 +647,17 @@ async def _judge_bundle(
     for already-judged case_ids; cases done across ALL active judges
     are skipped. JSONL handles open in append mode so the previous
     progress survives.
+
+    `concurrency` is the per-judge max concurrent in-flight calls.
+    Defaults to 1 (serial-per-vendor; retains v1.5 behavior). Bump
+    higher to parallelize cases across vendors. Pilot v2 (2026-05-05)
+    showed Gemini's per-call latency is the bottleneck — recommend
+    setting `concurrency=15` (or `concurrency_per_judge={'gemini':20,'openai':10,'hf-llama':10,'anthropic':5}`)
+    for production runs to drop wall-clock from ~9h → ~2-3h.
+
+    `concurrency_per_judge` overrides `concurrency` per token when
+    set; useful when one vendor has tighter rate limits than the
+    others.
     """
     from uofa_cli.adversarial.judge.cost_gate import BudgetTracker
     from uofa_cli.adversarial.judge.resume import (
@@ -672,42 +701,88 @@ async def _judge_bundle(
     open_mode = "a" if resume else "w"
     handles = {pos: (out_dir / f"judgments_{pos}.jsonl").open(open_mode) for pos in positions}
     halted_early = False
-    try:
-        for entry in cases:
-            case = {
-                "case_id": entry.case_id,
-                "coverage_class": entry.outcome.get("coverage_class"),
-                "phase2_outcome_class_raw": entry.outcome.get("phase2_outcome_class_raw"),
-                "source_taxonomy": entry.outcome.get("source_taxonomy"),
-                "rules_fired": entry.outcome.get("rules_fired", []),
-                "expected_rule": entry.outcome.get("expected_rule"),
-                "section_6_7_mapping": entry.outcome.get("section_6_7_mapping"),
-                "package": entry.package,
-                "ground_truth_verdict": entry.outcome.get("coverage_class"),  # mock
-            }
-            for pos, token, provider in zip(positions, tokens, providers):
-                # Budget gate: if we have a tracker and the next call
-                # would push over budget, halt the entire run.
-                if tracker is not None and tracker.over_budget:
-                    halted_early = True
-                    break
-                judgment = await provider.judge(case)
-                handles[pos].write(json.dumps(_judgment_to_dict(judgment)) + "\n")
-                verdicts_by_pos[pos].append(judgment.verdict)
-                # Record real cost from the response if the provider
-                # exposes it on raw_response.usage; otherwise treat as 0.
+
+    # Build per-token semaphores. concurrency_per_judge overrides the
+    # global concurrency value when present.
+    per_token_caps = {token: concurrency for token in set(tokens)}
+    if concurrency_per_judge:
+        per_token_caps.update(concurrency_per_judge)
+    semaphores = {
+        token: asyncio.Semaphore(max(1, n))
+        for token, n in per_token_caps.items()
+    }
+
+    def _build_case(entry) -> dict:
+        return {
+            "case_id": entry.case_id,
+            "coverage_class": entry.outcome.get("coverage_class"),
+            "phase2_outcome_class_raw": entry.outcome.get("phase2_outcome_class_raw"),
+            "source_taxonomy": entry.outcome.get("source_taxonomy"),
+            "rules_fired": entry.outcome.get("rules_fired", []),
+            "expected_rule": entry.outcome.get("expected_rule"),
+            "section_6_7_mapping": entry.outcome.get("section_6_7_mapping"),
+            "package": entry.package,
+            "ground_truth_verdict": entry.outcome.get("coverage_class"),  # mock
+        }
+
+    async def _judge_one(entry, pos: str, token: str, provider) -> tuple[str, str, "Judgment | None"]:
+        """Bound by the per-token semaphore. Returns (pos, case_id, judgment)
+        or (pos, case_id, None) on error. Errors are NOT raised so one
+        bad case doesn't kill the gather."""
+        async with semaphores[token]:
+            if tracker is not None and tracker.over_budget:
+                return pos, entry.case_id, None
+            try:
+                j = await provider.judge(_build_case(entry))
                 if tracker is not None:
-                    actual_usd = _extract_response_cost(judgment, token)
-                    tracker.record(token, actual_usd)
-                    # Authorize the next call against the (now-updated)
-                    # running total. The check uses 0 as the placeholder
-                    # for "next call cost" — we don't pre-estimate, just
-                    # halt if we've already crossed the ceiling.
+                    tracker.record(token, _extract_response_cost(j, token))
                     if not tracker.authorize(token, 0.0):
+                        # Budget tripped; let the rest of the gather
+                        # complete with their own checks.
+                        pass
+                return pos, entry.case_id, j
+            except Exception as exc:
+                logger.warning("judge %s failed on %s: %s", token, entry.case_id, exc)
+                return pos, entry.case_id, None
+
+    try:
+        if concurrency <= 1 and not concurrency_per_judge:
+            # Legacy serial-per-case loop. Identical to v1.5 behavior so
+            # the calibration-only smoke + budget-tripping tests retain
+            # their existing assertions.
+            for entry in cases:
+                case = _build_case(entry)
+                for pos, token, provider in zip(positions, tokens, providers):
+                    if tracker is not None and tracker.over_budget:
                         halted_early = True
                         break
-            if halted_early:
-                break
+                    judgment = await provider.judge(case)
+                    handles[pos].write(json.dumps(_judgment_to_dict(judgment)) + "\n")
+                    verdicts_by_pos[pos].append(judgment.verdict)
+                    if tracker is not None:
+                        tracker.record(token, _extract_response_cost(judgment, token))
+                        if not tracker.authorize(token, 0.0):
+                            halted_early = True
+                            break
+                if halted_early:
+                    break
+        else:
+            # Concurrent path: gather all (case × judge) tasks, bound
+            # per-vendor by semaphores. Output ordering matches input
+            # bundle ordering (asyncio.gather preserves the task list
+            # order in its results).
+            tasks = []
+            for entry in cases:
+                for pos, token, provider in zip(positions, tokens, providers):
+                    tasks.append(_judge_one(entry, pos, token, provider))
+            results = await asyncio.gather(*tasks)
+            for pos, _case_id, judgment in results:
+                if judgment is None:
+                    continue
+                handles[pos].write(json.dumps(_judgment_to_dict(judgment)) + "\n")
+                verdicts_by_pos[pos].append(judgment.verdict)
+            if tracker is not None and tracker.over_budget:
+                halted_early = True
     finally:
         for h in handles.values():
             h.close()

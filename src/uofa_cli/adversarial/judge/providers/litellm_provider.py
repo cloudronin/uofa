@@ -228,9 +228,31 @@ class LiteLLMProvider(AbstractJudgeProvider):
         try:
             response = await self._invoke_completion(**kwargs)
         except Exception as e:
-            if _is_transient(e):
+            # Sambanova-routed Llama 4 occasionally returns 400
+            # "Model did not output valid JSON" when its server-side
+            # validator rejects the model's emission (markdown code
+            # fences, trailing prose, etc). Retrying once WITHOUT
+            # response_format gives the tolerant parser a chance —
+            # the static prompt already instructs JSON, and the parser
+            # handles code-fence stripping. Only attempt this for
+            # non-strict providers (skip for OpenAI / Gemini / Anthropic
+            # / Mistral, where response_format is load-bearing).
+            if (
+                not self._caps.supports_strict_schema
+                and _is_sambanova_400(e)
+                and "response_format" in kwargs
+            ):
+                kwargs.pop("response_format")
+                try:
+                    response = await self._invoke_completion(**kwargs)
+                except Exception as retry_err:
+                    if _is_transient(retry_err):
+                        raise TransientError(str(retry_err)) from retry_err
+                    raise
+            elif _is_transient(e):
                 raise TransientError(str(e)) from e
-            raise
+            else:
+                raise
 
         text = self._extract_text(response)
         if not text:
@@ -387,6 +409,98 @@ class LiteLLMProvider(AbstractJudgeProvider):
                 reasoning + " (coerced: reasoning padded to meet schema minLength)"
             )
 
+        # Llama 4 occasionally emits the rationale concatenated to the
+        # verdict enum: e.g. "GENERATOR-ARTIFACT due to the package
+        # being malformed or...". Schema enforces verdict ∈ enum on both
+        # `verdict` and `reasoning_steps.verdict_commitment`, so we
+        # extract the leading enum token if either field starts with
+        # one and continues with prose. Llama also occasionally typoes
+        # an enum value (e.g. 'EXISTING-RULE-MISBEHAVOR' missing 'I'),
+        # so we fuzzy-match at edit-distance ≤ 2 against the valid set.
+        # Spillover prose moves to `reasoning` if it's not already populated.
+        valid_verdicts = (
+            "CORRECT-DETECTION", "REAL-GAP", "GENERATOR-ARTIFACT",
+            "EXISTING-RULE-MISBEHAVIOR", "OUT-OF-SCOPE", "UNCERTAIN",
+        )
+
+        def _levenshtein(a: str, b: str) -> int:
+            """Tiny iterative Levenshtein for ≤ 30-char strings (the enums)."""
+            if a == b:
+                return 0
+            if not a:
+                return len(b)
+            if not b:
+                return len(a)
+            prev = list(range(len(b) + 1))
+            for i, ca in enumerate(a, start=1):
+                curr = [i] + [0] * len(b)
+                for j, cb in enumerate(b, start=1):
+                    curr[j] = min(
+                        prev[j] + 1,        # delete
+                        curr[j - 1] + 1,    # insert
+                        prev[j - 1] + (0 if ca == cb else 1),  # replace
+                    )
+                prev = curr
+            return prev[-1]
+
+        def _extract_enum(value: str) -> tuple[str | None, str]:
+            """Return (enum_token, spillover_prose) or (None, value).
+
+            Resolution order: exact > prefix > fuzzy-match (≤2 edits).
+            """
+            for v in valid_verdicts:
+                if value == v:
+                    return v, ""
+            for v in valid_verdicts:
+                if value.startswith(v):
+                    return v, value[len(v):].lstrip(" ,.:;-—")
+            # Fuzzy: only run on short strings (length within ±3 of any
+            # valid verdict) to avoid mis-coercing prose-y verdict fields.
+            best, best_dist = None, 99
+            for v in valid_verdicts:
+                if abs(len(value) - len(v)) > 3:
+                    continue
+                d = _levenshtein(value, v)
+                if d < best_dist:
+                    best, best_dist = v, d
+            if best is not None and best_dist <= 2:
+                return best, ""
+            return None, value
+
+        verdict = parsed.get("verdict")
+        if isinstance(verdict, str) and verdict not in valid_verdicts:
+            token, spillover = _extract_enum(verdict)
+            if token is not None:
+                parsed["verdict"] = token
+                if spillover and len(parsed.get("reasoning", "")) < 50:
+                    parsed["reasoning"] = (
+                        "(coerced from verdict field) " + spillover
+                    )
+
+        # Same coercion on reasoning_steps.verdict_commitment.
+        rs = parsed.get("reasoning_steps")
+        if isinstance(rs, dict):
+            vc = rs.get("verdict_commitment")
+            if isinstance(vc, str) and vc not in valid_verdicts:
+                token, _spillover = _extract_enum(vc)
+                if token is not None:
+                    rs["verdict_commitment"] = token
+
+        # Drop unknown top-level keys. Schema sets `additionalProperties:
+        # false`, so any extra key (Llama hallucinations like
+        # 'section_6_7_6_7_candidate', 'verdictation_verdict',
+        # 'prompt_template_version_prompt_version') breaks validation.
+        # Strip them rather than reject the whole judgment.
+        allowed_keys = {
+            "case_id", "verdict", "confidence", "reasoning_steps",
+            "reasoning", "section_6_7_candidate", "alternative_rule_analysis",
+            "prompt_template_version", "judge_model", "judge_thinking_enabled",
+            "judge_model_params", "generator_provenance", "evidence_gap",
+        }
+        for k in list(parsed.keys()):
+            if k not in allowed_keys:
+                parsed.pop(k)
+
         return parsed
 
     def _build_judgment(self, case: dict, parsed: dict, *, raw: dict) -> Judgment:
@@ -465,6 +579,21 @@ class LiteLLMProvider(AbstractJudgeProvider):
             case_count=len(calibration_set),
             correct_count=correct,
         )
+
+
+def _is_sambanova_400(exc: BaseException) -> bool:
+    """Detect the Sambanova 'Model did not output valid JSON' 400.
+
+    Litellm wraps Sambanova's HTTP 400 as a BadRequestError with the
+    upstream message in the exception text. We match on the marker
+    string to avoid retrying unrelated 400s (auth errors, model not
+    found, etc).
+    """
+    msg = str(exc)
+    return (
+        "400" in msg
+        and "Model did not output valid JSON" in msg
+    )
 
 
 def _response_to_dict(response: Any) -> dict:

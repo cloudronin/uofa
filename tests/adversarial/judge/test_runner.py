@@ -647,3 +647,73 @@ class TestRunCaseStudyRerunHappyPath:
         assert rc == 0
         assert (tmp_path / "cs" / "delta_table.md").exists()
         assert (tmp_path / "cs" / "delta_table.json").exists()
+
+
+class TestJudgeBundleConcurrency:
+    """Wave J pilot follow-up: per-vendor concurrency in _judge_bundle."""
+
+    def test_concurrent_path_writes_same_output_as_serial(self, tmp_path: Path) -> None:
+        """Concurrent and serial paths must produce identical JSONL."""
+        from uofa_cli.adversarial.judge.runner import _judge_bundle
+        from .fixtures.mock_bundle import write_mock_bundle
+
+        bundle = write_mock_bundle(tmp_path / "b.tgz")
+
+        async def _run(out_dir: Path, concurrency: int) -> None:
+            providers = [_MockProvider(t) for t in ("mock_a", "mock_b", "mock_c")]
+            await _judge_bundle(
+                in_bundle=bundle,
+                providers=providers,
+                positions=("A", "B", "C"),
+                tokens=("mock_a", "mock_b", "mock_c"),
+                out_dir=out_dir,
+                calibration_only=False,
+                concurrency=concurrency,
+            )
+
+        out_serial = tmp_path / "serial"
+        out_concurrent = tmp_path / "concurrent"
+        out_serial.mkdir(); out_concurrent.mkdir()
+        asyncio.run(_run(out_serial, concurrency=1))
+        asyncio.run(_run(out_concurrent, concurrency=5))
+
+        for pos in ("A", "B", "C"):
+            serial_lines = sorted(
+                (out_serial / f"judgments_{pos}.jsonl").read_text().splitlines()
+            )
+            concurrent_lines = sorted(
+                (out_concurrent / f"judgments_{pos}.jsonl").read_text().splitlines()
+            )
+            assert serial_lines == concurrent_lines, (
+                f"position {pos} mismatch under concurrency"
+            )
+
+    def test_per_judge_overrides_apply(self, tmp_path: Path) -> None:
+        """concurrency_per_judge overrides the global concurrency value."""
+        from uofa_cli.adversarial.judge.runner import _judge_bundle
+        from .fixtures.mock_bundle import write_mock_bundle
+
+        bundle = write_mock_bundle(tmp_path / "b.tgz")
+        out = tmp_path / "out"
+        out.mkdir()
+
+        async def _run() -> None:
+            providers = [_MockProvider(t) for t in ("mock_a", "mock_b", "mock_c")]
+            await _judge_bundle(
+                in_bundle=bundle,
+                providers=providers,
+                positions=("A", "B", "C"),
+                tokens=("mock_a", "mock_b", "mock_c"),
+                out_dir=out,
+                calibration_only=False,
+                concurrency=1,
+                concurrency_per_judge={"mock_b": 5, "mock_c": 3},
+            )
+
+        asyncio.run(_run())
+        # Just verify the output files exist + have content (semaphore
+        # values are internal to the gather; we test the wiring works).
+        for pos in ("A", "B", "C"):
+            path = out / f"judgments_{pos}.jsonl"
+            assert path.exists()
+            assert len(path.read_text().splitlines()) >= 1

@@ -417,3 +417,86 @@ class TestNullableTypeArrayConversion:
         out = strip_schema_for_provider(schema, "gemini")
         assert "if" not in out
         assert "then" not in out
+
+
+class TestCoercionExpanded:
+    """Pilot-derived Llama 4 failure modes that the expanded coercion handles."""
+
+    def test_drops_additional_properties_hallucinations(self) -> None:
+        # Llama emitted real-corpus keys like 'section_6_7_6_7_candidate'
+        # (substring duplicated). Schema's additionalProperties: false
+        # blocks them; coercion should strip rather than reject.
+        provider = LiteLLMProvider(
+            provider_token="hf-llama", completion_fn=lambda **k: None,
+        )
+        sample = {
+            "case_id": "x", "verdict": "REAL-GAP", "confidence": 0.5,
+            "reasoning": "x" * 60,
+            "section_6_7_6_7_candidate": "W-EV-01",
+            "verdictation_verdict": "GENERATOR-ARTIFACT",
+            "prompt_template_version_prompt_version": "v1.1",
+        }
+        out = provider._coerce_partial_response(dict(sample))
+        for bad in ("section_6_7_6_7_candidate", "verdictation_verdict",
+                    "prompt_template_version_prompt_version"):
+            assert bad not in out
+
+    def test_fuzzy_matches_misspelled_enum_at_distance_1(self) -> None:
+        # Pilot saw 'EXISTING-RULE-MISBEHAVOR' (missing 'I'). Distance 1.
+        provider = LiteLLMProvider(
+            provider_token="hf-llama", completion_fn=lambda **k: None,
+        )
+        out = provider._coerce_partial_response({
+            "case_id": "x", "verdict": "EXISTING-RULE-MISBEHAVOR",
+            "confidence": 0.5, "reasoning": "x" * 60,
+        })
+        assert out["verdict"] == "EXISTING-RULE-MISBEHAVIOR"
+
+    def test_fuzzy_does_not_match_arbitrary_strings(self) -> None:
+        # Distance > 2 → leave alone; not in our enum.
+        provider = LiteLLMProvider(
+            provider_token="hf-llama", completion_fn=lambda **k: None,
+        )
+        out = provider._coerce_partial_response({
+            "case_id": "x", "verdict": "WRONG-VERDICT-VALUE",
+            "confidence": 0.5, "reasoning": "x" * 60,
+        })
+        # Coercion left it alone; runtime jsonschema validation will reject.
+        assert out["verdict"] == "WRONG-VERDICT-VALUE"
+
+    def test_fuzzy_handles_verdict_commitment_too(self) -> None:
+        provider = LiteLLMProvider(
+            provider_token="hf-llama", completion_fn=lambda **k: None,
+        )
+        out = provider._coerce_partial_response({
+            "case_id": "x", "verdict": "REAL-GAP", "confidence": 0.5,
+            "reasoning": "x" * 60,
+            "reasoning_steps": {
+                "source_taxonomy_identified": "x" * 12,
+                "target_rule_identified": "y",
+                "rule_firings_inspected": "z",
+                "instantiation_check": "w",
+                "verdict_commitment": "REAL-GAPP",  # 1-edit typo
+            },
+        })
+        assert out["reasoning_steps"]["verdict_commitment"] == "REAL-GAP"
+
+
+class TestSambanova400Detection:
+    def test_detects_canonical_sambanova_400(self) -> None:
+        from uofa_cli.adversarial.judge.providers.litellm_provider import (
+            _is_sambanova_400,
+        )
+        e = Exception(
+            "litellm.BadRequestError: OpenAIException - Error code: 400 - "
+            "{'error': 'Model did not output valid JSON.', ...}"
+        )
+        assert _is_sambanova_400(e) is True
+
+    def test_does_not_match_unrelated_400(self) -> None:
+        from uofa_cli.adversarial.judge.providers.litellm_provider import (
+            _is_sambanova_400,
+        )
+        # Auth error, model-not-found, etc. should not retry-without-format.
+        assert _is_sambanova_400(Exception("400 Bad Request: Invalid model")) is False
+        assert _is_sambanova_400(Exception("Model did not output valid JSON")) is False  # no 400
