@@ -89,6 +89,10 @@ class TestCapabilities:
         assert "Llama-4-Maverick" in s
         # Mistral default is now Large 3 (verified 2026-05-05).
         assert litellm_model_string("mistral") == "mistral/mistral-large-2512"
+        # Gemini default is 2.5 Pro (substituted from preview-tier 3.1
+        # Pro Preview which capped at 100 RPD; methodology disclosure
+        # in TIER_A_HANDOFF.md per spec v1.7 follow-up).
+        assert litellm_model_string("gemini") == "gemini/gemini-2.5-pro"
 
     def test_strict_schema_capability_per_provider(self) -> None:
         # OpenAI/Gemini/Anthropic/Mistral: strict-mode supported.

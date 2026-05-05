@@ -298,6 +298,15 @@ def add_arguments(parser):
              "e.g. 'gemini=20,openai=10,hf-llama=10,anthropic=5'. Tokens not "
              "listed inherit --concurrency.",
     )
+    jg.add_argument(
+        "--max-requests-per-judge", default=None,
+        help="per-vendor daily-request caps as comma-separated token=N pairs, "
+             "e.g. 'gemini=950'. Vendor RPD limits force multi-day runs "
+             "(Gemini 2.5 Pro caps at 1000 RPD; 50-call buffer recommended). "
+             "On cap-hit the run halts gracefully + writes request_manifest.json; "
+             "re-run with --resume the next UTC day to continue. Same-day "
+             "resumes accumulate; new-UTC-day resumes reset to fresh quota.",
+    )
 
     # ----- triage (Phase 3 §10.1) -----
     tg = sub.add_parser(
@@ -315,6 +324,46 @@ def add_arguments(parser):
     tg.add_argument(
         "--confidence-floor", type=float, default=0.6,
         help="confidence below which an agreeing verdict routes to DIVERGENT (default 0.6, spec §10.1)",
+    )
+
+    # ----- calibrate (Phase 3 v1.6 §8.1–8.4, Stage 1) -----
+    cb = sub.add_parser(
+        "calibrate",
+        help="Stage 1 production-judge calibration vs Judge D anchor "
+             "(Phase 3 v1.6 §8.1–8.4, hard gates 5/6/7)",
+    )
+    cb.add_argument(
+        "--judges", required=True,
+        help="comma-separated provider tokens. Production trio is the "
+             "first 3 (A/B/C); optional 4th token is Judge E for sanity "
+             "check (e.g. 'openai,gemini,hf-llama,mistral')",
+    )
+    cb.add_argument(
+        "--out", type=Path, required=True,
+        help="output directory; results land in <out>/<prompt_version>/...",
+    )
+    cb.add_argument(
+        "--prompt-version", dest="prompt_version", default="v1.1.0",
+        help="pinned prompt template version (default v1.1.0). Spec §8.3 "
+             "permits up to 3 prompt-tuning iterations on hard-gate failure; "
+             "override here to re-run calibration on a v1.2.0 / v1.3.0 prompt",
+    )
+    cb.add_argument(
+        "--calibration-set", dest="calibration_set", type=Path, default=None,
+        help="path to calibration_set_v1.jsonl (default: specs/calibration/calibration_set_v1.jsonl)",
+    )
+    cb.add_argument(
+        "--overrides", type=Path, default=None,
+        help="optional author overrides JSONL (judge_d_author_overrides.jsonl)",
+    )
+    cb.add_argument(
+        "--concurrency", type=int, default=5,
+        help="per-judge max concurrent in-flight calls (default 5)",
+    )
+    cb.add_argument(
+        "--no-judge-e-sanity-check", action="store_true",
+        help="skip Judge E sanity check vs Judge D (informational only; "
+             "default ON when 4th judge is provided)",
     )
 
     # ----- arbitrate (Phase 3 v1.6 §6.7, §10.2) -----
@@ -461,6 +510,9 @@ def run(args) -> int:
     if cmd == "calibrate-anchor":
         from uofa_cli.adversarial.judge.runner import run_calibrate_anchor
         return run_calibrate_anchor(args)
+    if cmd == "calibrate":
+        from uofa_cli.adversarial.judge.runner import run_calibrate
+        return run_calibrate(args)
     if cmd == "arbitrate":
         from uofa_cli.adversarial.judge.runner import run_arbitrate
         return run_arbitrate(args)

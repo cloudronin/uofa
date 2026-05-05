@@ -450,3 +450,202 @@ uofa adversarial judge --in bundle.tgz --judges openai,gemini,hf-llama \
 5. ⏸ **Pending**: re-run 100-case pilot to confirm Llama success rate
    climbs from 92% → ~96-100% with all fixes in place.
 6. ⏸ **Pending**: user green-light to fire the full 4,556-case run.
+
+---
+
+## Stage 1 calibration + multi-day production schedule (2026-05-05 addendum)
+
+### Methodology disclosure: Gemini Judge B model substitution
+
+**Spec §6.1 names Gemini 3.1 Pro as Production Judge B. The production
+run ships with `gemini-2.5-pro` instead.**
+
+Rationale: `gemini-3.1-pro-preview` is on Google AI Studio's preview
+tier and caps at 100 RPD (verified empirically when the pilot v3 burned
+through the daily quota and started returning 429s). The 4,556-case
+Stage 2 run requires ≥1,000 RPD to complete in any reasonable
+multi-day window. `gemini-2.5-pro` is GA on the Tier 1 paid plan with
+1,000 RPD and accepts the same productive-OOS schema (verified via
+`verify_gemini_strict_schema.py` 2026-05-05). The pricing is also
+slightly cheaper, making the corpus projection drop slightly vs. the
+$262 estimate from pilot v2.
+
+**Risk**: 2.5 Pro is a different model checkpoint than 3.1 Pro and may
+produce different verdicts. The Stage 1 calibration run on the 30-case
+anchor is the empirical guard — if 2.5 Pro under-performs the spec's
+hard gates (≥80% accuracy, ≥0.70 κ, ≥50% per-class), Stage 2 does not
+proceed without prompt iteration per spec §8.3.
+
+**Spec v1.7 follow-up**: an explicit §6.1 update naming `gemini-2.5-pro`
+as Judge B is a pending author-side edit to `UofA_Adversarial_Gen_Phase3_Spec_v1_6.md`.
+The capability table comment block in `providers/capabilities.py` carries
+the substitution rationale + verification date so the codebase is
+self-documenting until the spec text catches up.
+
+### New CLI surface: `uofa adversarial calibrate`
+
+Stage 1 lands as a dedicated subcommand. Reads
+`specs/calibration/calibration_set_v1.jsonl` (the Judge D anchor),
+runs A/B/C/E in parallel against it, computes per-judge accuracy +
+pairwise Cohen's κ + per-class accuracy + Fleiss κ, and emits a
+markdown summary with hard-gate verdicts (spec §15.1 #5/6/7).
+
+```bash
+uofa adversarial calibrate \
+    --judges openai,gemini,hf-llama,mistral \
+    --concurrency 5 \
+    --out dev/build/adversarial/phase3/calibration/
+```
+
+Outputs (under `<out>/<prompt_version>/`):
+- `judge_{a,b,c,e}_calibration.jsonl` — raw per-judge Judgment records
+- `calibration_run_v1_results.json` — aggregated metrics + provenance
+- `calibration_run_v1_summary.md` — paste-ready markdown report
+
+**Prompt version is pinned to `v1.1.0`** by default — gate values don't
+drift if the module-level default changes (e.g. when v1.2.0 ships
+during the §8.3 3-iteration prompt-tuning path). Override with
+`--prompt-version v1.2.0`; results land in `<out>/v1.2.0/...` so prior
+iterations preserve their gate values for audit.
+
+The runner refuses to write the markdown summary if any Judgment
+record carries a divergent `prompt_template_version` — defensive guard
+against silent prompt-version drift.
+
+### New CLI surface: `--max-requests-per-judge`
+
+The `judge` subcommand gains per-vendor daily-cap enforcement for
+multi-day Stage 2 runs:
+
+```bash
+uofa adversarial judge \
+    --in dev/build/adversarial/phase2/2026-04-26/judge_ready_bundle.tgz \
+    --judges openai,gemini,hf-llama \
+    --out dev/build/adversarial/phase3/run-1/ \
+    --concurrency 5 \
+    --concurrency-per-judge "gemini=20,openai=10,hf-llama=10" \
+    --max-requests-per-judge "gemini=950" \
+    --resume
+```
+
+On cap-hit: graceful halt + `request_manifest.json` written. The
+manifest is date-stamped (UTC); resuming the same UTC day accumulates
+against the same daily cap, while resuming on a new UTC day resets the
+counts (vendor quota windows reset at UTC midnight per Google's docs).
+
+### Multi-day Stage 2 production schedule
+
+Gemini's 1,000 RPD on `gemini-2.5-pro` is the binding constraint. With
+a 50-call safety buffer the run uses `--max-requests-per-judge "gemini=950"`:
+
+| Day | Target | Cumulative |
+|---:|---:|---:|
+| 1 | 950 cases | 950 |
+| 2 | 950 cases | 1,900 |
+| 3 | 950 cases | 2,850 |
+| 4 | 950 cases | 3,800 |
+| 5 | 756 cases | 4,556 (full corpus) |
+
+Each day's run is the SAME command:
+```bash
+uofa adversarial judge \
+    --in <bundle> \
+    --judges openai,gemini,hf-llama \
+    --out <out_dir> \
+    --concurrency 5 \
+    --concurrency-per-judge "gemini=20,openai=10,hf-llama=10" \
+    --max-requests-per-judge "gemini=950" \
+    --resume
+```
+
+`--resume` skips already-judged case_ids (idempotent on the JSONL
+files); `RequestTracker.from_manifest()` reads the prior day's manifest
+and applies day-rollover semantics. No manual case-tracking needed.
+
+**Same-day-as-Stage-1 caveat**: if Stage 1 calibration runs on the
+same UTC day as Stage 2 Day 1, the 30 Gemini calibration calls (+
+retries + the Block 1 connectivity smoke) burn against the same 1,000
+RPD bucket. Two acceptable sequencings:
+- **Recommended**: Stage 1 today, Stage 2 Day 1 tomorrow. Default cap (950) safe.
+- **Same-day**: cap Day 1 at **900** (50 buffer for Stage 1 + 50 for retries). Day 2-5 revert to 950.
+
+### Stage 1 results (2026-05-05T17:18:59Z)
+
+Run with `gemini-2.5-pro` substitution + `prompt_template_version="v1.1.0"`
++ Mistral concurrency capped at 1 (free-tier RPS).
+
+**Hard gates 5 + 6: ALL PASS. Hard gate 7: FAILS on UNCERTAIN class.**
+
+| Gate | Target | Verdict |
+|---|---|---|
+| Judge A accuracy ≥ 80% | 90.0% (27/30) | ✅ |
+| Judge B accuracy ≥ 80% | 83.3% (25/30) | ✅ |
+| Judge C accuracy ≥ 80% | 83.3% (25/30) | ✅ |
+| Pairwise κ A/B ≥ 0.70 | 0.917 | ✅ |
+| Pairwise κ A/C ≥ 0.70 | 0.917 | ✅ |
+| Pairwise κ B/C ≥ 0.70 | 0.957 | ✅ |
+| Fleiss κ across A/B/C | 0.930 | informational |
+| Per-class ≥ 50% (all judges, all classes) | UNCERTAIN fails | ❌ |
+
+**Per-class accuracy (judge × verdict class):**
+
+| Class | n | A | B | C |
+|---|---:|---:|---:|---:|
+| CORRECT-DETECTION | 5 | 100% | 100% | 100% |
+| REAL-GAP | 5 | 100% | 100% | 100% |
+| GENERATOR-ARTIFACT | 5 | 100% | 100% | 100% |
+| EXISTING-RULE-MISBEHAVIOR | 5 | 100% | 100% | 100% |
+| OUT-OF-SCOPE | 5 | 100% | 100% | 100% |
+| **UNCERTAIN** | **5** | **40%** | **0%** | **0%** |
+
+**Judge E sanity check (informational, spec §8.4):** 83.3% match with
+Judge D ground truth (25 of 30 cases). Mistral's pairwise agreement
+with Judge D's anchor is the same accuracy band as the production
+trio — confirms Judge D's anchor is interpretable by an independent
+model.
+
+**Failure-mode hypothesis on the UNCERTAIN class:**
+All 4 judges consistently absorb UNCERTAIN cases into EXISTING-RULE-MISBEHAVIOR.
+Per-case verdict pattern (idx = calibration order, ERM = EXISTING-RULE-MISBEHAVIOR):
+
+| idx | A | B | C | E |
+|---:|---|---|---|---|
+| 25 | ERM | ERM | ERM | ERM |
+| 26 | ERM | ERM | ERM | ERM |
+| 27 | UNCERTAIN | GENERATOR-ARTIFACT | ERM | ERM |
+| 28 | UNCERTAIN | ERM | ERM | ERM |
+| 29 | ERM | ERM | ERM | ERM |
+
+The pattern is uniform across all four model families (GPT / Gemini /
+Llama / Mistral), which suggests this is a **taxonomy-definition issue**,
+not a model-specific calibration miss. Three options per spec §8.3:
+
+  (a) Tune the v1.1.0 prompt's UNCERTAIN class definition to widen
+      it (3 iterations permitted before further escalation).
+  (b) Re-examine Judge D's anchoring of cal-026..030 — the cases as
+      constructed may not cleanly exemplify UNCERTAIN.
+  (c) Accept the failure as a known taxonomy-edge and proceed to
+      Stage 2 with UNCERTAIN flagged. Production-corpus UNCERTAIN
+      cases that all 3 production judges classify as ERM will route
+      as CONVERGENT (3-of-3 ERM); the v1.6 disagreement queue +
+      arbitration safety net handles ambiguous cases through Stage 3b.
+
+**Held for author decision before kicking off Stage 2.**
+
+### Stage 2 production-run command (held pending Stage 1 gate-7 decision)
+
+Same multi-day schedule as documented above — 950 cases/day, 5 days,
+~$262 total. Daily command:
+
+```bash
+ANTHROPIC_API_KEY=... OPENAI_API_KEY=... GEMINI_API_KEY=... \
+HF_TOKEN=... MISTRAL_API_KEY=... \
+uofa adversarial judge \
+    --in dev/build/adversarial/phase2/2026-04-26/judge_ready_bundle.tgz \
+    --judges openai,gemini,hf-llama \
+    --out dev/build/adversarial/phase3/run-1/ \
+    --concurrency 5 \
+    --concurrency-per-judge "gemini=20,openai=10,hf-llama=10" \
+    --max-requests-per-judge "gemini=950" \
+    --resume
+```

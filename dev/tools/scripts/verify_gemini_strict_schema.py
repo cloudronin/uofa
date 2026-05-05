@@ -6,7 +6,9 @@ table's schema transforms (drop if/then/else + nullable-array →
 OpenAPI-3 form) produce a schema Gemini's protobuf-derived parser
 accepts.
 
-Cost: ~$0.02 (single call against gemini-3.1-pro-preview).
+Cost: ~$0.02 (single call against the Gemini default model from the
+capability table; currently `gemini-2.5-pro` per the substitution
+documented in TIER_A_HANDOFF.md).
 
 Exit codes:
   0  Gemini accepted the transformed schema and returned a valid response.
@@ -75,9 +77,16 @@ def main() -> int:
         },
     }
 
+    # Pull the default Gemini model from the capability table so this
+    # script tracks any future model bumps without manual edits.
+    from uofa_cli.adversarial.judge.providers.capabilities import (
+        litellm_model_string,
+    )
+    gemini_model = litellm_model_string("gemini")
+
     try:
         resp = litellm.completion(
-            model="gemini/gemini-3.1-pro-preview",
+            model=gemini_model,
             messages=[
                 {
                     "role": "system",

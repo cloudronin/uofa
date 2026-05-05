@@ -717,3 +717,66 @@ class TestJudgeBundleConcurrency:
             path = out / f"judgments_{pos}.jsonl"
             assert path.exists()
             assert len(path.read_text().splitlines()) >= 1
+
+
+class TestJudgeBundleRequestCap:
+    """Block 2 of the Stage 1 calibration plan: per-vendor daily cap halts
+    the run gracefully, writes request_manifest.json, lets --resume pick
+    up the next UTC day's quota."""
+
+    def test_serial_path_halts_at_cap_writes_manifest(self, tmp_path: Path) -> None:
+        from uofa_cli.adversarial.judge.runner import _judge_bundle
+        from .fixtures.mock_bundle import write_mock_bundle
+
+        bundle = write_mock_bundle(tmp_path / "b.tgz")
+        out = tmp_path / "out"
+        out.mkdir()
+
+        async def _run() -> None:
+            providers = [_MockProvider(t) for t in ("mock_a", "mock_b", "mock_c")]
+            await _judge_bundle(
+                in_bundle=bundle,
+                providers=providers,
+                positions=("A", "B", "C"),
+                tokens=("mock_a", "mock_b", "mock_c"),
+                out_dir=out,
+                calibration_only=False,
+                # Tight cap on mock_b → halts after 2 of 5 cases.
+                max_requests_per_judge={"mock_b": 2},
+            )
+
+        asyncio.run(_run())
+        manifest = out / "request_manifest.json"
+        assert manifest.exists()
+        data = json.loads(manifest.read_text())
+        assert data["per_judge_count"]["mock_b"] == 2
+        assert data["halted"] is True
+        assert "mock_b" in data["halt_reason"]
+
+    def test_concurrent_path_respects_cap(self, tmp_path: Path) -> None:
+        from uofa_cli.adversarial.judge.runner import _judge_bundle
+        from .fixtures.mock_bundle import write_mock_bundle
+
+        bundle = write_mock_bundle(tmp_path / "b.tgz")
+        out = tmp_path / "out"
+        out.mkdir()
+
+        async def _run() -> None:
+            providers = [_MockProvider(t) for t in ("mock_a", "mock_b", "mock_c")]
+            await _judge_bundle(
+                in_bundle=bundle,
+                providers=providers,
+                positions=("A", "B", "C"),
+                tokens=("mock_a", "mock_b", "mock_c"),
+                out_dir=out,
+                calibration_only=False,
+                concurrency=5,
+                max_requests_per_judge={"mock_b": 3},
+            )
+
+        asyncio.run(_run())
+        # Concurrent path should also respect the cap (within race-window
+        # tolerance: at least the recorded count must not exceed cap).
+        data = json.loads((out / "request_manifest.json").read_text())
+        assert data["per_judge_count"]["mock_b"] <= 3
+        assert data["halted"] is True

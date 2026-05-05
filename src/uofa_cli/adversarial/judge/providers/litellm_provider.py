@@ -78,6 +78,7 @@ class LiteLLMProvider(AbstractJudgeProvider):
         schema_name: str = "judge_output_schema.json",
         cache_static_prefix: bool = True,
         gemini_cache_id: str | None = None,
+        prompt_template_version: str | None = None,
     ) -> None:
         self._provider_token = provider_token
         self._caps: ProviderCapabilities = get_capabilities(provider_token)
@@ -92,6 +93,11 @@ class LiteLLMProvider(AbstractJudgeProvider):
         # `caching.get_or_create_gemini_cache` call.
         self._cache_static_prefix = cache_static_prefix
         self._gemini_cache_id = gemini_cache_id
+        # Stage 1 calibration pins this to "v1.1.0" so gate values
+        # don't drift if the module-level default changes (e.g. when
+        # prompt v1.2.0 ships during the §8.3 3-iteration path). None
+        # falls through to PROMPT_TEMPLATE_VERSION at call time.
+        self._prompt_template_version = prompt_template_version
         # `completion_fn` is the seam for tests. None → real litellm.acompletion.
         self._completion_fn = completion_fn
 
@@ -139,7 +145,12 @@ class LiteLLMProvider(AbstractJudgeProvider):
             per_case = build_arbitration_prompt_for_case(case, production_verdicts)
             schema_name = "judge_e_output_schema.json"
         else:
-            prefix = build_prompt_static_prefix()
+            if self._prompt_template_version is not None:
+                prefix = build_prompt_static_prefix(
+                    template_version=self._prompt_template_version
+                )
+            else:
+                prefix = build_prompt_static_prefix()
             per_case = build_prompt_for_case(case)
             schema_name = self._schema_name
         return await self._call(prefix, per_case, case, schema_name=schema_name)
@@ -539,8 +550,14 @@ class LiteLLMProvider(AbstractJudgeProvider):
             reasoning=parsed["reasoning"],
             section_6_7_candidate=parsed.get("section_6_7_candidate"),
             alternative_rule_analysis=parsed.get("alternative_rule_analysis"),
-            prompt_template_version=parsed.get(
-                "prompt_template_version", PROMPT_TEMPLATE_VERSION
+            # Authoritative prompt version: prefer our pinned version
+            # if set (calibration runs pin to v1.1.0 so gate values
+            # don't drift). Fall back to whatever the model emitted,
+            # then to module default. Models occasionally emit a wrong
+            # version stamp; the pin defends against that.
+            prompt_template_version=(
+                self._prompt_template_version
+                or parsed.get("prompt_template_version", PROMPT_TEMPLATE_VERSION)
             ),
             judge_model=self._model,  # authoritative; ignore any model fabrication
             judge_thinking_enabled=parsed.get(

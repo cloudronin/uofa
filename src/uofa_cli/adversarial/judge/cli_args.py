@@ -134,6 +134,57 @@ def parse_judges(raw: str) -> JudgesConfig:
     )
 
 
+def parse_calibrate_judges(raw: str) -> JudgesConfig:
+    """Parse `--judges` for the `calibrate` subcommand.
+
+    Accepts the production trio (A/B/C) plus an OPTIONAL Judge E
+    (mistral or mock_e) for the spec §8.4 sanity check. Rejects D
+    (anthropic) — Judge D is the calibration anchor, already produced;
+    calibration runs against the anchor's `ground_truth_verdict`.
+    """
+    if not raw or not raw.strip():
+        raise ValueError("--judges is required and must not be empty")
+    tokens = [t.strip() for t in raw.split(",") if t.strip()]
+    if not tokens:
+        raise ValueError("--judges parsed to no tokens; expected comma-separated list")
+
+    unknown = [t for t in tokens if t not in VALID_PROVIDER_TOKENS]
+    if unknown:
+        raise ValueError(
+            f"unknown judge tokens {unknown}; valid tokens are "
+            f"{sorted(VALID_PROVIDER_TOKENS)}"
+        )
+
+    positions = [PROVIDER_TO_POSITION[t] for t in tokens]
+    if len(set(positions)) != len(positions):
+        raise ValueError(
+            f"--judges has duplicate positions: tokens={tokens} → positions={positions}"
+        )
+    if set(positions) - {JUDGE_A, JUDGE_B, JUDGE_C, JUDGE_E}:
+        wrong_tokens = [
+            t for t in tokens
+            if PROVIDER_TO_POSITION[t] not in {JUDGE_A, JUDGE_B, JUDGE_C, JUDGE_E}
+        ]
+        raise ValueError(
+            f"calibrate accepts production trio (A/B/C) + optional sanity-check Judge E; "
+            f"saw {wrong_tokens} mapping to other position(s). Judge D anchor is already "
+            f"in calibration_set_v1.jsonl as ground_truth_verdict."
+        )
+    if set(positions) & PRODUCTION_POSITIONS != PRODUCTION_POSITIONS:
+        missing = PRODUCTION_POSITIONS - set(positions)
+        raise ValueError(
+            f"--judges must cover all three production positions A/B/C; missing={sorted(missing)}"
+        )
+
+    is_mock = all(t.startswith("mock_") for t in tokens)
+    sorted_pairs = sorted(zip(positions, tokens))
+    return JudgesConfig(
+        tokens=tuple(t for _, t in sorted_pairs),
+        positions=tuple(p for p, _ in sorted_pairs),
+        is_mock=is_mock,
+    )
+
+
 def validate_parallel_flag(judges: JudgesConfig, parallel: int | None) -> None:
     """`--parallel` only applies when hf-llama (Judge C) is in the ensemble.
 

@@ -451,6 +451,17 @@ def run_judge(args) -> int:
             except ValueError:
                 error(f"--concurrency-per-judge: bad value {pair!r}")
                 return 2
+    max_requests_raw: str | None = getattr(args, "max_requests_per_judge", None)
+    max_requests_per_judge: dict[str, int] | None = None
+    if max_requests_raw:
+        from uofa_cli.adversarial.judge.request_tracker import (
+            parse_per_judge_cap,
+        )
+        try:
+            max_requests_per_judge = parse_per_judge_cap(max_requests_raw)
+        except ValueError as e:
+            error(str(e))
+            return 2
 
     try:
         judges = parse_judges(raw_judges)
@@ -521,6 +532,7 @@ def run_judge(args) -> int:
         resume=resume,
         concurrency=concurrency,
         concurrency_per_judge=concurrency_per_judge,
+        max_requests_per_judge=max_requests_per_judge,
     ))
 
     result_line("judgments", True, str(out_dir))
@@ -635,6 +647,7 @@ async def _judge_bundle(
     resume: bool = False,
     concurrency: int = 1,
     concurrency_per_judge: dict[str, int] | None = None,
+    max_requests_per_judge: dict[str, int] | None = None,
 ) -> None:
     """For each case in the bundle, run all providers and write per-judge JSONL.
 
@@ -660,6 +673,7 @@ async def _judge_bundle(
     others.
     """
     from uofa_cli.adversarial.judge.cost_gate import BudgetTracker
+    from uofa_cli.adversarial.judge.request_tracker import RequestTracker
     from uofa_cli.adversarial.judge.resume import (
         compute_remaining_cases,
         load_done_case_ids,
@@ -667,6 +681,16 @@ async def _judge_bundle(
     )
 
     tracker = BudgetTracker(max_cost_usd=max_cost) if max_cost is not None else None
+    # Per-judge daily-cap tracker. Loads any prior manifest from out_dir
+    # so multi-day runs accumulate across resumes within a UTC day and
+    # auto-reset when the day rolls over.
+    request_tracker: RequestTracker | None = None
+    if max_requests_per_judge:
+        request_manifest_path = out_dir / "request_manifest.json"
+        out_dir.mkdir(parents=True, exist_ok=True)
+        request_tracker = RequestTracker.from_manifest(
+            request_manifest_path, per_judge_cap=max_requests_per_judge
+        )
 
     _reset_mock_ledger()
     with open_bundle(in_bundle) as bundle:
@@ -727,13 +751,18 @@ async def _judge_bundle(
 
     async def _judge_one(entry, pos: str, token: str, provider) -> tuple[str, str, "Judgment | None"]:
         """Bound by the per-token semaphore. Returns (pos, case_id, judgment)
-        or (pos, case_id, None) on error. Errors are NOT raised so one
-        bad case doesn't kill the gather."""
+        or (pos, case_id, None) on error / cap-hit. Errors are NOT raised
+        so one bad case doesn't kill the gather."""
         async with semaphores[token]:
             if tracker is not None and tracker.over_budget:
                 return pos, entry.case_id, None
+            # Per-judge daily-cap gate: skip the call if quota is hit.
+            if request_tracker is not None and not request_tracker.authorize(token):
+                return pos, entry.case_id, None
             try:
                 j = await provider.judge(_build_case(entry))
+                if request_tracker is not None:
+                    request_tracker.record(token)
                 if tracker is not None:
                     tracker.record(token, _extract_response_cost(j, token))
                     if not tracker.authorize(token, 0.0):
@@ -742,6 +771,9 @@ async def _judge_bundle(
                         pass
                 return pos, entry.case_id, j
             except Exception as exc:
+                # Record the call even on failure — the vendor counted it.
+                if request_tracker is not None:
+                    request_tracker.record(token)
                 logger.warning("judge %s failed on %s: %s", token, entry.case_id, exc)
                 return pos, entry.case_id, None
 
@@ -756,9 +788,14 @@ async def _judge_bundle(
                     if tracker is not None and tracker.over_budget:
                         halted_early = True
                         break
+                    if request_tracker is not None and not request_tracker.authorize(token):
+                        halted_early = True
+                        break
                     judgment = await provider.judge(case)
                     handles[pos].write(json.dumps(_judgment_to_dict(judgment)) + "\n")
                     verdicts_by_pos[pos].append(judgment.verdict)
+                    if request_tracker is not None:
+                        request_tracker.record(token)
                     if tracker is not None:
                         tracker.record(token, _extract_response_cost(judgment, token))
                         if not tracker.authorize(token, 0.0):
@@ -788,10 +825,18 @@ async def _judge_bundle(
             h.close()
         if tracker is not None:
             tracker.write_manifest(out_dir / "cost_manifest.json")
-            if halted_early:
+            if halted_early and tracker.over_budget:
                 warn(
                     f"halted: total spend ${tracker.running_total_usd:.4f} "
                     f"≥ --max-cost ${tracker.max_cost_usd:.4f}"
+                )
+        if request_tracker is not None:
+            request_tracker.write_manifest(out_dir / "request_manifest.json")
+            if request_tracker.over_cap:
+                warn(
+                    f"halted: {request_tracker.halt_reason}. "
+                    f"Re-run tomorrow with --resume to continue against "
+                    f"the next UTC day's quota."
                 )
         if resume:
             write_resume_manifest(
@@ -1213,6 +1258,82 @@ def run_finalize(args) -> int:
         )
     result_line("final_verdicts", True, str(out_path))
     return 0
+
+
+# ── run_calibrate (Phase 3 v1.6 §8.0–8.4, Stage 1 Block 3) ──
+
+
+def run_calibrate(args) -> int:
+    """Entry point for `uofa adversarial calibrate`.
+
+    Stage 1 production-judge calibration: runs Judges A/B/C (and
+    optionally E for sanity check) over the 30-case calibration set,
+    computes per-judge accuracy + pairwise κ + per-class accuracy,
+    and emits a markdown summary with hard-gate verdicts (spec §15.1
+    #5/6/7). Pins prompt_template_version to v1.1.0 by default;
+    override via --prompt-version for the §8.3 3-iteration path.
+    """
+    from uofa_cli.adversarial.judge.calibration import (
+        DEFAULT_CALIBRATION_PATH,
+        run_calibration,
+    )
+
+    raw_judges: str = args.judges
+    out_dir: Path = args.out
+    prompt_version: str = getattr(args, "prompt_version", "v1.1.0") or "v1.1.0"
+    concurrency: int = int(getattr(args, "concurrency", 5) or 5)
+    cal_path: Path = getattr(args, "calibration_set", DEFAULT_CALIBRATION_PATH) \
+        or DEFAULT_CALIBRATION_PATH
+    overrides_path: Path | None = getattr(args, "overrides", None)
+    judge_e_sanity = not bool(getattr(args, "no_judge_e_sanity_check", False))
+
+    from uofa_cli.adversarial.judge.cli_args import parse_calibrate_judges
+    try:
+        judges = parse_calibrate_judges(raw_judges)
+    except ValueError as e:
+        error(f"--judges: {e}")
+        return 2
+
+    judge_specs = list(zip(judges.positions, judges.tokens))
+
+    # Versioned out-dir per the addendum: results land in
+    # `<out_dir>/<prompt_version>/` so multiple iterations preserve their
+    # gate values for audit.
+    versioned_out = out_dir / prompt_version
+    versioned_out.mkdir(parents=True, exist_ok=True)
+
+    info(
+        f"Stage 1 calibration: {len(judge_specs)} judges, "
+        f"prompt {prompt_version}, concurrency {concurrency}"
+    )
+
+    try:
+        run = run_calibration(
+            judge_specs=judge_specs,
+            out_dir=versioned_out,
+            calibration_path=cal_path,
+            overrides_path=overrides_path,
+            prompt_version=prompt_version,
+            concurrency=concurrency,
+            judge_e_sanity_check=judge_e_sanity,
+        )
+    except (RuntimeError, FileNotFoundError, ValueError) as e:
+        error(f"calibration failed: {e}")
+        return 3
+
+    info(
+        f"hard gates: per-judge {run.gate_per_judge_accuracy}, "
+        f"pairwise κ {run.gate_pairwise_kappa}, all_pass={run.all_gates_pass}"
+    )
+    result_line(
+        "calibration_results", True,
+        str(versioned_out / "calibration_run_v1_results.json"),
+    )
+    result_line(
+        "calibration_summary", True,
+        str(versioned_out / "calibration_run_v1_summary.md"),
+    )
+    return 0 if run.all_gates_pass else 1
 
 
 # ── run_case_study_rerun (Phase 3 v1.6 §13.3, Wave K) ──

@@ -132,11 +132,18 @@ CAPABILITIES: dict[str, ProviderCapabilities] = {
     "gemini": ProviderCapabilities(
         family="Gemini",
         litellm_model_prefix="gemini/",
-        # Gemini 3.1 Pro is shipping under preview as `gemini-3.1-pro-preview`
-        # (verified 2026-05-04 via the live Models API). Plain
-        # `gemini-3.1-pro` returns 404. Capability default uses the preview
-        # id; bump to the GA id when it's published.
-        default_model="gemini-3.1-pro-preview",
+        # METHODOLOGY-LEVEL SUBSTITUTION: spec §6.1 names Gemini 3.1 Pro
+        # as Production Judge B. We ship `gemini-2.5-pro` instead because
+        # `gemini-3.1-pro-preview` caps at 100 RPD on the preview tier,
+        # which cannot service the 4,556-case Stage 2 production run.
+        # `gemini-2.5-pro` is GA at 1,000 RPD on the Tier 1 paid plan
+        # (verified 2026-05-05 via Google AI Studio rate-limit page).
+        # Risk: 2.5 Pro is a different checkpoint than 3.1 Pro and may
+        # produce different verdicts; Stage 1 calibration on 30 cases
+        # is the empirical guard. Spec v1.7 follow-up: explicit §6.1
+        # update naming Gemini 2.5 Pro is a pending author-side edit.
+        # Disclosure documented in TIER_A_HANDOFF.md.
+        default_model="gemini-2.5-pro",
         supports_strict_schema=True,
         # Verified 2026-05-04: Gemini's protobuf-derived schema parser
         # rejects type-array nullable form ("type": ["string", "null"])
