@@ -12,7 +12,7 @@ def add_arguments(parser):
     sub = parser.add_subparsers(
         dest="adversarial_command",
         title="adversarial commands",
-        metavar="{generate,run,analyze,prep-review}",
+        metavar="{generate,run,analyze,prep-review,bundle,judge,triage,adjudicate}",
     )
 
     # ----- generate (Phase 1 single-spec entry point) -----
@@ -159,6 +159,15 @@ def add_arguments(parser):
             "parallel=5+. See docs/m5_findings.md F7."
         ),
     )
+    an.add_argument(
+        "--emit-judge-bundle",
+        action="store_true",
+        help=(
+            "after writing outcomes.csv, package the batch into a Phase 3 "
+            "judge_ready_bundle.tgz at <out>/judge_ready_bundle.tgz "
+            "(spec v1.5 §2.1; off by default; default analyze behavior is unchanged)"
+        ),
+    )
 
     # ----- prep-review (Phase 2 D3 v1.8) -----
     pr = sub.add_parser(
@@ -182,6 +191,87 @@ def add_arguments(parser):
         help="cap the total number of packets emitted (default: 50)",
     )
 
+    # ----- bundle (Phase 3 §2.1; package an already-analyzed Phase 2 batch) -----
+    bd = sub.add_parser(
+        "bundle",
+        help="package an already-analyzed Phase 2 batch into a judge_ready_bundle.tgz (Phase 3 §2.1)",
+    )
+    bd.add_argument("--batch-dir", type=Path, required=True,
+                    help="Phase 2 batch dir (output of `uofa adversarial run`)")
+    bd.add_argument("--outcomes-csv", type=Path, default=None,
+                    help="path to outcomes.csv (default: <batch-dir>/coverage/outcomes.csv)")
+    bd.add_argument("--out", type=Path, required=True,
+                    help="output path for judge_ready_bundle.tgz")
+
+    # ----- judge (Phase 3 §9.1) -----
+    jg = sub.add_parser(
+        "judge",
+        help="run the LLM-as-judge ensemble against a judge_ready_bundle.tgz (Phase 3)",
+    )
+    jg.add_argument("--in", dest="in_bundle", type=Path, required=True,
+                    help="judge_ready_bundle.tgz path (spec §2.1)")
+    jg.add_argument("--out", type=Path, required=True,
+                    help="output directory for per-judge judgments (created if missing)")
+    jg.add_argument(
+        "--judges", required=True,
+        help="comma-separated provider tokens (e.g. openai,gemini,hf-llama or mock_a,mock_b,mock_c)",
+    )
+    jg.add_argument("--prompt-version", default="v0.1.0-tier-a",
+                    help="judge prompt template version (default v0.1.0-tier-a)")
+    jg.add_argument("--parallel", type=int, default=1,
+                    help="HF Endpoints in-flight requests (default 1 sequential; "
+                         "only meaningful when hf-llama is in --judges)")
+    jg.add_argument("--model-openai", default=None,
+                    help="override OpenAI model (default: per-provider built-in)")
+    jg.add_argument("--model-gemini", default=None,
+                    help="override Gemini model (default: per-provider built-in)")
+    jg.add_argument("--model-hf-llama", default=None,
+                    help="override HF Llama model (default: per-provider built-in)")
+    jg.add_argument("--model-anthropic", default=None,
+                    help="override Anthropic model (default: per-provider built-in)")
+    jg.add_argument(
+        "--calibration-only", action="store_true",
+        help="judge only the calibration set, not the full bundle (spec §14.3 smoke)",
+    )
+    jg.add_argument(
+        "--allow-same-family-judge", action="store_true",
+        help="override family circularity check (smoke-test only; spec §6.2)",
+    )
+
+    # ----- triage (Phase 3 §10.1) -----
+    tg = sub.add_parser(
+        "triage",
+        help="majority-of-3 inter-judge agreement triage (Phase 3 Stage 3)",
+    )
+    tg.add_argument("--judgments-a", type=Path, required=True,
+                    help="judgments_<A>.jsonl from judge A (typically GPT)")
+    tg.add_argument("--judgments-b", type=Path, required=True,
+                    help="judgments_<B>.jsonl from judge B (typically Gemini)")
+    tg.add_argument("--judgments-c", type=Path, required=True,
+                    help="judgments_<C>.jsonl from judge C (typically Llama)")
+    tg.add_argument("--out", type=Path, required=True,
+                    help="output directory (created if missing)")
+    tg.add_argument(
+        "--confidence-floor", type=float, default=0.6,
+        help="confidence below which an agreeing verdict routes to DIVERGENT (default 0.6, spec §10.1)",
+    )
+
+    # ----- adjudicate (Phase 3 §12.1) -----
+    aj = sub.add_parser(
+        "adjudicate",
+        help="compute Cohen's κ + Fleiss' κ + confusion matrices (Phase 3 Stage 4)",
+    )
+    aj.add_argument("--judgments-a", type=Path, required=True)
+    aj.add_argument("--judgments-b", type=Path, required=True)
+    aj.add_argument("--judgments-c", type=Path, required=True)
+    aj.add_argument("--out", type=Path, required=True,
+                    help="output directory (created if missing)")
+    aj.add_argument(
+        "--adjudications", type=Path, default=None,
+        help="optional author adjudications JSONL (spec §11); when present, "
+             "compute author-vs-each-judge confusion matrices",
+    )
+
 
 def run(args) -> int:
     cmd = getattr(args, "adversarial_command", None)
@@ -197,6 +287,18 @@ def run(args) -> int:
     if cmd == "prep-review":
         from uofa_cli.adversarial.prep_review import run_prep_review
         return run_prep_review(args)
+    if cmd == "bundle":
+        from uofa_cli.adversarial.judge.runner import run_bundle
+        return run_bundle(args)
+    if cmd == "judge":
+        from uofa_cli.adversarial.judge.runner import run_judge
+        return run_judge(args)
+    if cmd == "triage":
+        from uofa_cli.adversarial.judge.runner import run_triage
+        return run_triage(args)
+    if cmd == "adjudicate":
+        from uofa_cli.adversarial.judge.runner import run_adjudicate
+        return run_adjudicate(args)
 
     print("usage: uofa adversarial <subcommand>")
     print()
@@ -205,4 +307,8 @@ def run(args) -> int:
     print("  run          batch-orchestrate generation across spec directories (Phase 2)")
     print("  analyze      classify a batch's outcomes; emit CSV + HTML reports (Phase 2)")
     print("  prep-review  generate Phase 3 reviewer prep packets from outcomes.csv (Phase 2 D3)")
+    print("  bundle       package an already-analyzed batch into judge_ready_bundle.tgz (Phase 3 §2.1)")
+    print("  judge        run the LLM-as-judge ensemble (Phase 3 Stage 1/2)")
+    print("  triage       majority-of-3 inter-judge triage (Phase 3 Stage 3)")
+    print("  adjudicate   compute Cohen's κ + Fleiss' κ + confusion matrices (Phase 3 Stage 4)")
     return 0

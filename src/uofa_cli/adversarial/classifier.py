@@ -856,4 +856,21 @@ def run_analyze(args) -> int:
     result_line("rule_timing", False, "omitted — Jena native fallback "
                 f"(see {rule_timing_note_path.name})")
     result_line("report", True, str(html_path))
+
+    # Phase 3 §2.1 bundle producer (opt-in via --emit-judge-bundle).
+    # Without the flag, analyze behavior is byte-for-byte unchanged.
+    if getattr(args, "emit_judge_bundle", False):
+        from uofa_cli.adversarial.judge.bundle_writer import write_bundle, BundleWriteError
+        bundle_path = out_dir / "judge_ready_bundle.tgz"
+        try:
+            write_result = write_bundle(in_dir, outcomes_path, bundle_path)
+        except BundleWriteError as e:
+            error(f"--emit-judge-bundle failed: {e}")
+            return 3
+        info(f"  judge bundle: {write_result.package_count} packages, "
+             f"normalized class distribution {write_result.distribution}")
+        result_line("judge_bundle", True, str(bundle_path))
+        for w in write_result.warnings:
+            warn(w)
+
     return 0
