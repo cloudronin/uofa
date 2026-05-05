@@ -377,3 +377,114 @@ def clear_prompt_caches() -> None:
     """Clear the lru_caches; used by tests + when the calibration set changes."""
     _load_template_text.cache_clear()
     _load_canonical_few_shots.cache_clear()
+
+
+# ── Judge E arbitration prompt (Phase 3 v1.6 §7.8) ─────────────────────
+
+
+ARBITRATION_PROMPT_VERSION = "arbitration_v1.0.0"
+
+
+def build_arbitration_prompt_static_prefix(
+    *,
+    template_version: str = ARBITRATION_PROMPT_VERSION,
+) -> str:
+    """Return the static, cacheable portion of the Judge E arbitration prompt.
+
+    Loads `packs/core/judge_prompts/arbitration_v1.0.0.md` and substitutes
+    few-shot placeholders from the calibration set canonical entries.
+    """
+    text = _load_template_text(template_version)
+    if text is None:
+        logger.info(
+            "arbitration template %s not found; falling back to inline %s",
+            template_version, FALLBACK_VERSION,
+        )
+        return _FALLBACK_PREFIX + f"\nTemplate version: {FALLBACK_VERSION}\n"
+    return _substitute_few_shots(text) + f"\nTemplate version: {template_version}\n"
+
+
+def build_arbitration_prompt_for_case(
+    case: dict,
+    production_verdicts: list[dict],
+) -> str:
+    """Per-case section for Judge E arbitration.
+
+    `case` is the same shape as the production-judge per-case input.
+    `production_verdicts` is a list of three dicts (one per production
+    judge in canonical A/B/C order) with at least:
+      - judge_position: 'A' | 'B' | 'C'
+      - judge_model: str
+      - verdict: str (one of the 6 spec classes)
+      - confidence: float
+      - reasoning_steps: dict[str, str]
+      - reasoning: str
+
+    Per spec §7.8 anti-patterns, this prompt does NOT include Judge D's
+    calibration verdict for the specific case being arbitrated.
+    """
+    raw_case_id = case.get("case_id", "<missing>")
+    phase2_id = case.get("phase2_case_id")
+    prompt_case_id = phase2_id if phase2_id else _sanitize_case_id(raw_case_id)
+    coverage = case.get("coverage_class", "<missing>")
+    raw_class = case.get("phase2_outcome_class_raw", coverage)
+    source_taxonomy = case.get("source_taxonomy", "<missing>")
+    rules_fired = case.get("rules_fired", [])
+    expected = case.get("expected_rule") or "(none — gap_probe or negative_control)"
+    package_text = _format_package(case.get("package", {}))
+
+    judge_block = _format_production_judge_summary(production_verdicts)
+
+    return f"""
+
+--- Case to arbitrate ---
+
+case_id: {prompt_case_id}
+coverage_class (normalized): {coverage}
+phase2_outcome_class_raw: {raw_class}
+source_taxonomy: {source_taxonomy}
+expected_target_rule: {expected}
+rules_that_fired: {rules_fired}
+
+--- Production-judge verdicts (the three judges have failed majority-of-3 at confidence ≥ 0.6) ---
+
+{judge_block}
+
+--- Package (JSON-LD; package may be truncated for length) ---
+
+{package_text}
+
+--- Arbitrate ---
+
+Form your own verdict from the package + rule firings + source taxonomy.
+Then assess each production judge's reasoning quality
+(production_judge_evaluation: sound | weak | irrelevant per judge).
+Set arbitration_basis to package_content, production_judge_evaluation,
+or independent_disagreement per the prompt instructions.
+
+Echo the case_id verbatim in your output: {raw_case_id}
+
+Your output must conform to the JudgeEArbitrationOutput schema. If your
+verdict is OUT-OF-SCOPE, the evidence_gap field is required.
+"""
+
+
+def _format_production_judge_summary(verdicts: list[dict]) -> str:
+    """Side-by-side rendering of the three production-judge verdicts."""
+    if not verdicts:
+        return "(no production verdicts provided — invalid arbitration input)"
+    lines = []
+    for v in verdicts:
+        pos = v.get("judge_position", "?")
+        model = v.get("judge_model", "<unknown>")
+        verdict = v.get("verdict", "<missing>")
+        conf = v.get("confidence", "?")
+        rs = v.get("reasoning_steps", {})
+        reasoning = v.get("reasoning", "")
+        lines.append(f"### Judge {pos} ({model})\n")
+        lines.append(f"Verdict: {verdict}  ·  Confidence: {conf}\n")
+        lines.append("Reasoning steps:")
+        for k, val in rs.items():
+            lines.append(f"  - {k}: {val}")
+        lines.append(f"\nReasoning: {reasoning}\n")
+    return "\n".join(lines)

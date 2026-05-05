@@ -1,20 +1,25 @@
-"""Majority-of-3 inter-judge triage (spec v1.5 §10.1).
+"""Majority-of-3 inter-judge triage (spec v1.6 §10.1).
 
-Three-judge ensembles partition cases into three buckets based on the
-agreement pattern across (judge_A, judge_B, judge_C) verdicts plus
-their confidence scores:
+Three-judge ensembles partition cases into TWO buckets in v1.6 (down
+from three in v1.5; the UNCERTAIN bin is folded into DISAGREEMENT):
 
-  CONVERGENT  ≥ 2 agree on a verdict, with all agreeing judges at
-              confidence ≥ confidence_floor (default 0.6)
-  DIVERGENT   - all three disagree, OR
-              - two disagree + one UNCERTAIN, OR
-              - ≥ 2 agree but at least one agreeing judge below
-                confidence_floor
-  UNCERTAIN   ≥ 2 of 3 judges return UNCERTAIN as their verdict
+  CONVERGENT    ≥ 2 agree on a verdict, with all agreeing judges at
+                confidence ≥ confidence_floor (default 0.6)
+  DISAGREEMENT  - all three disagree, OR
+                - two disagree + one UNCERTAIN, OR
+                - ≥ 2 agree but at least one agreeing judge below
+                  confidence_floor, OR
+                - ≥ 2 of 3 return UNCERTAIN (v1.6 fold; was its own bin)
 
-The DIVERGENT + UNCERTAIN bins together form the candidate author
-adjudication queue (§11). Stratified-sample backstop (§11.4) operates on
-the queue if it exceeds 30 author hours.
+DISAGREEMENT cases route to Judge E arbitration (Stage 3b, spec §10.2).
+The `disagreement_subtype` field preserves the v1.5 sub-pattern for
+diagnostic value:
+
+  - convergent_2of3 / convergent_3of3
+  - all_three_disagree
+  - two_disagree_one_uncertain
+  - low_conf_concurrence_2of3 / low_conf_concurrence_3of3
+  - uncertain_majority_2of3 / uncertain_majority_3of3
 """
 
 from __future__ import annotations
@@ -32,9 +37,13 @@ DEFAULT_CONFIDENCE_FLOOR = 0.6
 
 
 class TriageBucket(str, Enum):
+    """v1.6: two-bucket partition. UNCERTAIN folds into DISAGREEMENT."""
     CONVERGENT = "CONVERGENT"
-    DIVERGENT = "DIVERGENT"
-    UNCERTAIN = "UNCERTAIN"
+    DISAGREEMENT = "DISAGREEMENT"
+    # Legacy v1.5 names retained as aliases for downstream code that
+    # hasn't migrated yet. New code should use CONVERGENT/DISAGREEMENT.
+    DIVERGENT = "DISAGREEMENT"
+    UNCERTAIN = "DISAGREEMENT"
 
 
 @dataclass(frozen=True)
@@ -84,13 +93,13 @@ def triage_case(
     case_id = judgment_a.case_id
     judgments = (judgment_a, judgment_b, judgment_c)
 
-    # ── UNCERTAIN majority (≥ 2 UNCERTAIN) ──
+    # ── UNCERTAIN majority (≥ 2 UNCERTAIN) — v1.6 folds into DISAGREEMENT ──
     uncertain_count = sum(1 for j in judgments if j.verdict == "UNCERTAIN")
     if uncertain_count >= 2:
         return TriageEntry(
             case_id=case_id,
             judgments=judgments,
-            bucket=TriageBucket.UNCERTAIN,
+            bucket=TriageBucket.DISAGREEMENT,
             majority_verdict="UNCERTAIN",
             disagreement_type=f"uncertain_majority_{uncertain_count}of3",
         )
@@ -111,29 +120,28 @@ def triage_case(
                 majority_verdict=majority_verdict,
                 disagreement_type=f"convergent_{majority_count}of3",
             )
-        # Low-confidence concurrence routes to DIVERGENT (§10.1 case 3).
+        # Low-confidence concurrence routes to DISAGREEMENT (v1.6 §10.1).
         return TriageEntry(
             case_id=case_id,
             judgments=judgments,
-            bucket=TriageBucket.DIVERGENT,
+            bucket=TriageBucket.DISAGREEMENT,
             majority_verdict=None,
             disagreement_type=f"low_conf_concurrence_{majority_count}of3",
         )
 
     # ── all three disagree ──
-    # Subtype: any UNCERTAIN dissents present?
     if uncertain_count == 1:
         return TriageEntry(
             case_id=case_id,
             judgments=judgments,
-            bucket=TriageBucket.DIVERGENT,
+            bucket=TriageBucket.DISAGREEMENT,
             majority_verdict=None,
             disagreement_type="two_disagree_one_uncertain",
         )
     return TriageEntry(
         case_id=case_id,
         judgments=judgments,
-        bucket=TriageBucket.DIVERGENT,
+        bucket=TriageBucket.DISAGREEMENT,
         majority_verdict=None,
         disagreement_type="all_three_disagree",
     )

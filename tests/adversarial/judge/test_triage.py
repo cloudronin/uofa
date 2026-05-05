@@ -61,13 +61,13 @@ class TestTriageCaseConvergent:
         assert "convergent_2of3" in e.disagreement_type
 
 
-class TestTriageCaseDivergent:
+class TestTriageCaseDisagreement:
     def test_all_three_disagree(self) -> None:
         a = _j("c1", "REAL-GAP", 0.85)
         b = _j("c1", "GENERATOR-ARTIFACT", 0.85)
         c = _j("c1", "OUT-OF-SCOPE", 0.85)
         e = triage_case(a, b, c)
-        assert e.bucket == TriageBucket.DIVERGENT
+        assert e.bucket == TriageBucket.DISAGREEMENT
         assert e.majority_verdict is None
         assert e.disagreement_type == "all_three_disagree"
 
@@ -76,27 +76,38 @@ class TestTriageCaseDivergent:
         b = _j("c1", "GENERATOR-ARTIFACT", 0.85)
         c = _j("c1", "UNCERTAIN", 0.85)
         e = triage_case(a, b, c)
-        assert e.bucket == TriageBucket.DIVERGENT
+        assert e.bucket == TriageBucket.DISAGREEMENT
         assert e.disagreement_type == "two_disagree_one_uncertain"
 
-    def test_low_confidence_concurrence_routes_to_divergent(self) -> None:
+    def test_low_confidence_concurrence_routes_to_disagreement(self) -> None:
         # Two agree on REAL-GAP but one is below confidence floor.
         a = _j("c1", "REAL-GAP", 0.9)
         b = _j("c1", "REAL-GAP", 0.4)  # below floor
         c = _j("c1", "GENERATOR-ARTIFACT", 0.85)
         e = triage_case(a, b, c)
-        assert e.bucket == TriageBucket.DIVERGENT
+        assert e.bucket == TriageBucket.DISAGREEMENT
         assert e.majority_verdict is None
         assert "low_conf_concurrence" in e.disagreement_type
 
+    def test_v15_alias_DIVERGENT_still_resolves(self) -> None:
+        # v1.5 callers may still reference TriageBucket.DIVERGENT; it's
+        # an alias of DISAGREEMENT and resolves to the same enum member.
+        assert TriageBucket.DIVERGENT is TriageBucket.DISAGREEMENT
 
-class TestTriageCaseUncertain:
+
+class TestTriageCaseUncertainFoldedToDisagreement:
+    """v1.6 §10.1: UNCERTAIN bin folds into DISAGREEMENT.
+
+    The disagreement_subtype tag preserves the v1.5 sub-pattern for
+    diagnostic value (uncertain_majority_2of3, uncertain_majority_3of3).
+    """
+
     def test_two_uncertain_majority(self) -> None:
         a = _j("c1", "REAL-GAP", 0.9)
         b = _j("c1", "UNCERTAIN", 0.85)
         c = _j("c1", "UNCERTAIN", 0.85)
         e = triage_case(a, b, c)
-        assert e.bucket == TriageBucket.UNCERTAIN
+        assert e.bucket == TriageBucket.DISAGREEMENT
         assert e.majority_verdict == "UNCERTAIN"
         assert "uncertain_majority_2of3" in e.disagreement_type
 
@@ -105,8 +116,11 @@ class TestTriageCaseUncertain:
         b = _j("c1", "UNCERTAIN", 0.85)
         c = _j("c1", "UNCERTAIN", 0.85)
         e = triage_case(a, b, c)
-        assert e.bucket == TriageBucket.UNCERTAIN
+        assert e.bucket == TriageBucket.DISAGREEMENT
         assert "uncertain_majority_3of3" in e.disagreement_type
+
+    def test_v15_alias_UNCERTAIN_still_resolves(self) -> None:
+        assert TriageBucket.UNCERTAIN is TriageBucket.DISAGREEMENT
 
 
 class TestTriageCaseEdges:
@@ -118,12 +132,12 @@ class TestTriageCaseEdges:
             triage_case(a, b, c)
 
     def test_custom_confidence_floor(self) -> None:
-        # Floor 0.5: a 0.4-confidence agreeing judge still triggers DIVERGENT.
+        # Floor 0.5: a 0.4-confidence agreeing judge still routes to DISAGREEMENT.
         a = _j("c1", "REAL-GAP", 0.9)
         b = _j("c1", "REAL-GAP", 0.4)
         c = _j("c1", "GENERATOR-ARTIFACT", 0.9)
         e = triage_case(a, b, c, confidence_floor=0.5)
-        assert e.bucket == TriageBucket.DIVERGENT
+        assert e.bucket == TriageBucket.DISAGREEMENT
         # Floor 0.3: 0.4 ≥ 0.3 → CONVERGENT
         e2 = triage_case(a, b, c, confidence_floor=0.3)
         assert e2.bucket == TriageBucket.CONVERGENT
@@ -134,18 +148,22 @@ class TestTriageCaseEdges:
 
 class TestTriageCorpus:
     def test_bucket_counts_aggregate(self) -> None:
+        # v1.6: UNCERTAIN bin folds into DISAGREEMENT, so two
+        # disagreement-type cases yield bucket_counts[DISAGREEMENT] == 2.
         trios = [
             (_j("c1", "REAL-GAP"), _j("c1", "REAL-GAP"), _j("c1", "REAL-GAP")),
-            (_j("c2", "REAL-GAP"), _j("c2", "GEN-INVALID"), _j("c2", "OUT-OF-SCOPE"))
-            if False else
             (_j("c2", "REAL-GAP"), _j("c2", "GENERATOR-ARTIFACT"), _j("c2", "OUT-OF-SCOPE")),
             (_j("c3", "UNCERTAIN"), _j("c3", "UNCERTAIN"), _j("c3", "REAL-GAP")),
         ]
         result = triage_corpus(trios)
         assert result.bucket_counts[TriageBucket.CONVERGENT] == 1
-        assert result.bucket_counts[TriageBucket.DIVERGENT] == 1
-        assert result.bucket_counts[TriageBucket.UNCERTAIN] == 1
+        assert result.bucket_counts[TriageBucket.DISAGREEMENT] == 2
         assert len(result.entries) == 3
+        # Sub-types preserve diagnostic value.
+        subtypes = {e.disagreement_type for e in result.entries}
+        assert "convergent_3of3" in subtypes
+        assert "all_three_disagree" in subtypes
+        assert "uncertain_majority_2of3" in subtypes
 
     def test_default_confidence_floor_value(self) -> None:
         assert DEFAULT_CONFIDENCE_FLOOR == 0.6

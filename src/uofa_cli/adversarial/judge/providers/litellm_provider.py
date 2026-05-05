@@ -22,7 +22,10 @@ from pathlib import Path
 from typing import Any, Awaitable, Callable
 
 from uofa_cli.adversarial.judge.prompts import (
+    ARBITRATION_PROMPT_VERSION,
     PROMPT_TEMPLATE_VERSION,
+    build_arbitration_prompt_for_case,
+    build_arbitration_prompt_static_prefix,
     build_prompt_for_case,
     build_prompt_static_prefix,
 )
@@ -117,12 +120,33 @@ class LiteLLMProvider(AbstractJudgeProvider):
 
     @with_retry()
     async def _judge_with_retry(self, case: dict) -> Judgment:
-        prefix = build_prompt_static_prefix()
-        per_case = build_prompt_for_case(case)
-        return await self._call(prefix, per_case, case)
+        # Arbiter role uses the Judge E arbitration prompt + per-case
+        # rendering that includes the three production-judge verdicts.
+        # Production / calibration_anchor roles use the standard prompt.
+        if self._judge_role == "arbiter":
+            prefix = build_arbitration_prompt_static_prefix()
+            production_verdicts = case.get("_production_verdicts") or case.get(
+                "production_verdicts", []
+            )
+            per_case = build_arbitration_prompt_for_case(case, production_verdicts)
+            schema_name = "judge_e_output_schema.json"
+        else:
+            prefix = build_prompt_static_prefix()
+            per_case = build_prompt_for_case(case)
+            schema_name = self._schema_name
+        return await self._call(prefix, per_case, case, schema_name=schema_name)
 
-    async def _call(self, prefix: str, per_case: str, case: dict) -> Judgment:
+    async def _call(
+        self,
+        prefix: str,
+        per_case: str,
+        case: dict,
+        *,
+        schema_name: str | None = None,
+    ) -> Judgment:
         """Single litellm.acompletion call → Judgment."""
+        if schema_name is None:
+            schema_name = self._schema_name
         messages = [
             {"role": "system", "content": prefix},
             {"role": "user", "content": per_case},
@@ -146,7 +170,7 @@ class LiteLLMProvider(AbstractJudgeProvider):
 
         # response_format: strict json-schema for vendors that support it,
         # json_object for others (with tolerant-parser fallback).
-        schema = _load_schema(self._schema_name)
+        schema = _load_schema(schema_name)
         if self._caps.supports_strict_schema:
             sent_schema = strip_schema_for_provider(schema, self._provider_token)
             kwargs["response_format"] = {

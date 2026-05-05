@@ -23,7 +23,13 @@ from typing import Any
 
 from uofa_cli.adversarial.judge.adjudication import (
     AgreementStats,
+    AuthorAdjudicationStats,
+    JudgeDAgreementStats,
+    JudgeEStats,
     compute_agreement,
+    compute_author_adjudication,
+    compute_judge_e_agreement,
+    compute_judge_e_vs_d_agreement,
     confusion_matrix,
     VERDICT_CLASSES,
 )
@@ -245,6 +251,137 @@ def _build_providers(
         except KeyError as e:
             raise ValueError(f"unknown judge token: {token}") from e
     return providers
+
+
+# ── run_arbitrate (Phase 3 v1.6 §6.7, §10.2) ───────────────────────────
+
+
+def run_arbitrate(args) -> int:
+    """Entry point for `uofa adversarial arbitrate`.
+
+    Reads triage Stage 3a output (DISAGREEMENT queue) + the three
+    production-judge JSONL files, runs Judge E (Mistral via litellm or
+    a mock provider) over each disagreement case, partitions by
+    confidence into ARBITRATED / ESCALATED bins per spec §10.2.
+    """
+    from uofa_cli.adversarial.judge.arbitration import (
+        arbitrate_disagreement_queue,
+        write_arbitration_jsonl,
+        write_escalation_queue_csv,
+        partition_arbitration_results,
+    )
+
+    judgments_a_path: Path = args.judgments_a
+    judgments_b_path: Path = args.judgments_b
+    judgments_c_path: Path = args.judgments_c
+    disagreement_csv: Path = args.disagreement_queue
+    out_dir: Path = args.out
+    judge_e_token: str = getattr(args, "judge_e", "mistral")
+    confidence_floor: float = float(getattr(args, "confidence_floor", 0.6))
+
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    # Load production judgments + index by case_id, per position.
+    production: dict[str, dict[str, Judgment]] = {
+        "A": {j.case_id: j for j in _load_judgments(judgments_a_path)},
+        "B": {j.case_id: j for j in _load_judgments(judgments_b_path)},
+        "C": {j.case_id: j for j in _load_judgments(judgments_c_path)},
+    }
+
+    disagreement_case_ids = _read_disagreement_queue(disagreement_csv)
+    info(f"  arbitration queue: {len(disagreement_case_ids)} cases")
+
+    # Build the Judge E provider (real via litellm, or mock via _MockProvider).
+    if judge_e_token.startswith("mock_"):
+        provider = _MockProvider(judge_e_token)
+    else:
+        # Real Mistral via litellm.
+        from uofa_cli.adversarial.judge.providers.litellm_provider import (
+            LiteLLMProvider,
+        )
+        try:
+            provider = LiteLLMProvider(
+                provider_token=judge_e_token,
+                judge_role="arbiter",
+            )
+        except KeyError as e:
+            error(f"unknown judge_e token: {judge_e_token}")
+            return 2
+
+    partition = asyncio.run(arbitrate_disagreement_queue(
+        disagreement_case_ids=disagreement_case_ids,
+        production_judgments=production,
+        judge_e=provider,
+        confidence_floor=confidence_floor,
+    ))
+
+    # Persist outputs.
+    all_entries = partition.arbitrated + partition.escalated
+    write_arbitration_jsonl(all_entries, out_dir / "judgments_E.jsonl")
+    write_arbitration_jsonl(partition.arbitrated, out_dir / "arbitrated.jsonl")
+    write_escalation_queue_csv(partition.escalated, out_dir / "escalation_queue.csv")
+
+    info(f"  ARBITRATED (≥{confidence_floor}): {len(partition.arbitrated)}")
+    info(f"  ESCALATED  (<{confidence_floor}): {len(partition.escalated)}")
+    result_line("judgments_E", True, str(out_dir / "judgments_E.jsonl"))
+    result_line("escalation_queue", True, str(out_dir / "escalation_queue.csv"))
+    return 0
+
+
+def _read_disagreement_queue(path: Path) -> list[str]:
+    """Read case_ids from the triage Stage 3a disagreement_queue.csv."""
+    import csv as _csv
+    if not path.exists():
+        raise FileNotFoundError(f"disagreement queue CSV not found: {path}")
+    out = []
+    with path.open(newline="") as f:
+        reader = _csv.DictReader(f)
+        for row in reader:
+            cid = row.get("case_id")
+            if cid:
+                out.append(cid)
+    return out
+
+
+# ── run_calibrate_anchor (Phase 3 v1.6 §8.0) ───────────────────────────
+
+
+def run_calibrate_anchor(args) -> int:
+    """Entry point for `uofa adversarial calibrate-anchor`.
+
+    Subactions: `ingest` (default) and `regenerate` (Wave B item 15).
+    """
+    from uofa_cli.adversarial.judge.anchor import ingest_anchor
+
+    action = getattr(args, "anchor_action", "ingest")
+    if action == "regenerate":
+        error("regenerate mode not yet implemented; use ingest mode (calibration set already committed)")
+        return 2
+
+    cal_path: Path = args.in_path
+    out_dir: Path | None = getattr(args, "out", None)
+    overrides_path: Path | None = getattr(args, "overrides", None)
+
+    if not cal_path.exists():
+        error(f"calibration set not found: {cal_path}")
+        return 2
+
+    try:
+        result = ingest_anchor(
+            cal_path, overrides_path=overrides_path, out_dir=out_dir
+        )
+    except (ValueError, FileNotFoundError) as e:
+        error(f"calibration ingest failed: {e}")
+        return 3
+
+    info(f"  records: {result.record_count}")
+    info(f"  canonical few-shots: {result.canonical_few_shot_count}")
+    info(f"  REAL-GAP §6.7 coverage: {result.section_6_7_coverage}")
+    if result.override_count:
+        info(f"  author overrides applied: {result.override_count}")
+    if out_dir:
+        result_line("judge_d_anchor", True, str(out_dir / "judge_d_anchor.jsonl"))
+    return 0
 
 
 # ── run_bundle ─────────────────────────────────────────────────────────
@@ -501,7 +638,19 @@ def run_triage(args) -> int:
 
 
 def run_adjudicate(args) -> int:
-    """Entry point for `uofa adversarial adjudicate`."""
+    """Entry point for `uofa adversarial adjudicate` (v1.6).
+
+    Reads judgments_A/B/C as before, plus optionally:
+      - judgments_E.jsonl (Judge E arbitration output) → EA/EB/EC
+        confusion matrices and Judge E vs production-judge κ on the
+        disagreement queue.
+      - author_adjudications.jsonl (author final verdicts on the
+        escalation queue) → author_E confusion matrix.
+      - spot_check_overrides.jsonl (author overrides on CONVERGENT
+        cases) → spot-check override rate (target ≤ 0.10 per §11.4).
+      - judgments_D.jsonl (Judge D calibration anchor) → Judge E vs
+        Judge D agreement on the calibration set (informational).
+    """
     out_dir: Path = args.out
     out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -520,16 +669,14 @@ def run_adjudicate(args) -> int:
 
     stats = compute_agreement(verdicts_a, verdicts_b, verdicts_c)
 
-    # agreement_stats.json (spec §12.2)
-    stats_path = out_dir / "agreement_stats.json"
-    stats_path.write_text(json.dumps({
+    summary: dict[str, Any] = {
         "case_count": stats.case_count,
         "cohen_kappa_AB": stats.cohen_kappa_AB,
         "cohen_kappa_AC": stats.cohen_kappa_AC,
         "cohen_kappa_BC": stats.cohen_kappa_BC,
         "fleiss_kappa": stats.fleiss_kappa,
         "raw_agreement_at_least_2of3": stats.raw_agreement_at_least_2of3,
-    }, indent=2))
+    }
 
     # Confusion matrices per pair (spec §12.2 layout).
     _write_confusion(out_dir / "confusion_matrix_AB.csv", verdicts_a, verdicts_b)
@@ -541,8 +688,165 @@ def run_adjudicate(args) -> int:
         f"AC κ={stats.cohen_kappa_AC:.3f}, BC κ={stats.cohen_kappa_BC:.3f}, "
         f"Fleiss κ={stats.fleiss_kappa:.3f}"
     )
+
+    # ── v1.6 Judge E branch ─────────────────────────────────────────────
+    judgments_e_path: Path | None = getattr(args, "judgments_e", None)
+    if judgments_e_path is not None and judgments_e_path.exists():
+        # Build per-case index across all four judges so we can join the
+        # disagreement queue subset.
+        idx_a = {j.case_id: j for j in judgments_a}
+        idx_b = {j.case_id: j for j in judgments_b}
+        idx_c = {j.case_id: j for j in judgments_c}
+        idx_e = {j.case_id: j for j in _load_judgments(judgments_e_path)}
+
+        # The disagreement queue is exactly the set of cases Judge E judged.
+        # Inner-joined with A/B/C (a missing production judgment is a bug
+        # in the upstream pipeline; surface it loudly).
+        common = sorted(set(idx_e) & set(idx_a) & set(idx_b) & set(idx_c))
+        if not common:
+            warn("judgments_E.jsonl present but no overlap with A/B/C; skipping")
+        else:
+            verdicts_e_q = [idx_e[k].verdict for k in common]
+            verdicts_a_q = [idx_a[k].verdict for k in common]
+            verdicts_b_q = [idx_b[k].verdict for k in common]
+            verdicts_c_q = [idx_c[k].verdict for k in common]
+
+            confidence_floor = float(getattr(args, "confidence_floor", 0.6))
+            arbitrated = sum(
+                1 for k in common if idx_e[k].confidence >= confidence_floor
+            )
+            escalated = len(common) - arbitrated
+
+            e_stats = compute_judge_e_agreement(
+                judgments_a=verdicts_a_q,
+                judgments_b=verdicts_b_q,
+                judgments_c=verdicts_c_q,
+                judgments_e=verdicts_e_q,
+                arbitrated_count=arbitrated,
+                escalated_count=escalated,
+            )
+
+            _write_confusion(
+                out_dir / "confusion_matrix_EA.csv", verdicts_e_q, verdicts_a_q
+            )
+            _write_confusion(
+                out_dir / "confusion_matrix_EB.csv", verdicts_e_q, verdicts_b_q
+            )
+            _write_confusion(
+                out_dir / "confusion_matrix_EC.csv", verdicts_e_q, verdicts_c_q
+            )
+
+            summary["judge_e"] = {
+                "case_count": e_stats.case_count,
+                "cohen_kappa_EA": e_stats.cohen_kappa_EA,
+                "cohen_kappa_EB": e_stats.cohen_kappa_EB,
+                "cohen_kappa_EC": e_stats.cohen_kappa_EC,
+                "arbitrated_count": e_stats.arbitrated_count,
+                "escalated_count": e_stats.escalated_count,
+                "confidence_floor": confidence_floor,
+            }
+            info(
+                f"  judge E: EA κ={e_stats.cohen_kappa_EA:.3f}, "
+                f"EB κ={e_stats.cohen_kappa_EB:.3f}, EC κ={e_stats.cohen_kappa_EC:.3f}, "
+                f"ARBITRATED={arbitrated} ESCALATED={escalated}"
+            )
+
+            # ── author_E confusion + spot-check override rate ──
+            author_path: Path | None = getattr(args, "author_adjudications", None)
+            spot_check_path: Path | None = getattr(args, "spot_check_overrides", None)
+            if author_path is not None and author_path.exists():
+                author_records = _load_simple_jsonl(author_path)
+                # Match by case_id; only escalated cases (where author actually
+                # rendered a verdict against Judge E) count for author_E.
+                author_idx = {r["case_id"]: r for r in author_records}
+                escalated_ids = [
+                    k for k in common if idx_e[k].confidence < confidence_floor
+                ]
+                joined = [k for k in escalated_ids if k in author_idx]
+                author_verdicts = [author_idx[k]["final_verdict"] for k in joined]
+                judge_e_on_escalated = [idx_e[k].verdict for k in joined]
+
+                spot_check_total = 0
+                spot_check_override = 0
+                if spot_check_path is not None and spot_check_path.exists():
+                    spot_check_records = _load_simple_jsonl(spot_check_path)
+                    spot_check_total = len(spot_check_records)
+                    spot_check_override = sum(
+                        1
+                        for r in spot_check_records
+                        if r.get("override_verdict")
+                        and r["override_verdict"] != r.get("original_verdict")
+                    )
+
+                author_stats = compute_author_adjudication(
+                    author_verdicts=author_verdicts,
+                    judge_e_verdicts=judge_e_on_escalated,
+                    spot_check_total=spot_check_total,
+                    spot_check_override_count=spot_check_override,
+                )
+
+                if author_verdicts:
+                    _write_confusion(
+                        out_dir / "confusion_matrix_author_E.csv",
+                        author_verdicts,
+                        judge_e_on_escalated,
+                    )
+
+                summary["author_adjudication"] = {
+                    "escalated_case_count": author_stats.escalated_case_count,
+                    "spot_check_total": author_stats.spot_check_total,
+                    "spot_check_override_count": author_stats.spot_check_override_count,
+                    "spot_check_override_rate": author_stats.spot_check_override_rate,
+                }
+                info(
+                    f"  author: escalated={author_stats.escalated_case_count}, "
+                    f"spot-check override rate="
+                    f"{author_stats.spot_check_override_rate:.3f}"
+                )
+
+        # ── Judge E vs Judge D agreement on calibration set ──
+        judgments_d_path: Path | None = getattr(args, "judgments_d", None)
+        if judgments_d_path is not None and judgments_d_path.exists():
+            idx_d = {j.case_id: j for j in _load_judgments(judgments_d_path)}
+            common_de = sorted(set(idx_d) & set(idx_e))
+            if common_de:
+                de_stats = compute_judge_e_vs_d_agreement(
+                    judge_e_verdicts=[idx_e[k].verdict for k in common_de],
+                    judge_d_verdicts=[idx_d[k].verdict for k in common_de],
+                )
+                summary["judge_e_vs_d_calibration"] = {
+                    "case_count": de_stats.case_count,
+                    "overall_match_rate": de_stats.overall_match_rate,
+                    "per_class_match_rate": de_stats.per_class_match_rate,
+                }
+                info(
+                    f"  E↔D calibration: overall match rate="
+                    f"{de_stats.overall_match_rate:.3f}"
+                )
+
+    stats_path = out_dir / "agreement_stats.json"
+    stats_path.write_text(json.dumps(summary, indent=2, default=_jsonable))
     result_line("agreement_stats", True, str(stats_path))
     return 0
+
+
+def _load_simple_jsonl(path: Path) -> list[dict]:
+    """Load a JSONL file as a list of dicts (no Judgment-class coercion)."""
+    out: list[dict] = []
+    if not path.exists():
+        return out
+    for line in path.read_text().splitlines():
+        if not line.strip():
+            continue
+        out.append(json.loads(line))
+    return out
+
+
+def _jsonable(o: Any) -> Any:
+    """JSON encoder hook for NaN floats (spec §12.2 substitutes null)."""
+    if isinstance(o, float) and o != o:  # NaN
+        return None
+    raise TypeError(f"non-serializable: {type(o).__name__}")
 
 
 def _load_judgments(path: Path) -> list[Judgment]:

@@ -209,7 +209,8 @@ class TestRunTriage:
         summary = json.loads((tmp_path / "triage_out" / "triage_summary.json").read_text())
         assert summary["case_count"] == 2
         assert summary["bucket_counts"]["CONVERGENT"] == 1
-        assert summary["bucket_counts"]["DIVERGENT"] == 1
+        # v1.6: UNCERTAIN bin folded into DISAGREEMENT (was DIVERGENT in v1.5).
+        assert summary["bucket_counts"]["DISAGREEMENT"] == 1
 
 
 # ── run_adjudicate ─────────────────────────────────────────────────────

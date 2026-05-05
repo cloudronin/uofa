@@ -215,3 +215,149 @@ class TestComputeAgreement:
         assert result.case_count == 0
         assert math.isnan(result.cohen_kappa_AB)
         assert math.isnan(result.fleiss_kappa)
+
+
+# ── v1.6 additions: Judge E + author + Judge D agreement ────────────────
+
+
+class TestComputeJudgeEAgreement:
+    """v1.6 §10.2 Judge E vs production-judge κ on the disagreement queue."""
+
+    def test_basic_three_judge_e_vs_production(self) -> None:
+        from uofa_cli.adversarial.judge.adjudication import compute_judge_e_agreement
+
+        # 5 disagreement cases. Judge E mostly aligns with A.
+        a = ["REAL-GAP", "REAL-GAP", "GENERATOR-ARTIFACT", "OUT-OF-SCOPE", "REAL-GAP"]
+        b = ["GENERATOR-ARTIFACT", "REAL-GAP", "OUT-OF-SCOPE", "OUT-OF-SCOPE", "GENERATOR-ARTIFACT"]
+        c = ["UNCERTAIN", "GENERATOR-ARTIFACT", "REAL-GAP", "GENERATOR-ARTIFACT", "REAL-GAP"]
+        e = ["REAL-GAP", "REAL-GAP", "GENERATOR-ARTIFACT", "OUT-OF-SCOPE", "GENERATOR-ARTIFACT"]
+        stats = compute_judge_e_agreement(
+            judgments_a=a, judgments_b=b, judgments_c=c, judgments_e=e,
+            arbitrated_count=3, escalated_count=2,
+        )
+        assert stats.case_count == 5
+        # E agrees with A on 4/5 → high κ
+        assert stats.cohen_kappa_EA > stats.cohen_kappa_EB
+        # Confusion matrices are 6×6
+        assert len(stats.confusion_matrix_EA) == len(VERDICT_CLASSES)
+        assert len(stats.confusion_matrix_EA[0]) == len(VERDICT_CLASSES)
+        assert stats.arbitrated_count == 3
+        assert stats.escalated_count == 2
+
+    def test_empty_returns_nan_and_zero_matrices(self) -> None:
+        from uofa_cli.adversarial.judge.adjudication import compute_judge_e_agreement
+
+        stats = compute_judge_e_agreement(
+            judgments_a=[], judgments_b=[], judgments_c=[], judgments_e=[]
+        )
+        assert stats.case_count == 0
+        assert math.isnan(stats.cohen_kappa_EA)
+        assert all(c == 0 for row in stats.confusion_matrix_EA for c in row)
+
+    def test_length_mismatch_raises(self) -> None:
+        from uofa_cli.adversarial.judge.adjudication import compute_judge_e_agreement
+
+        with pytest.raises(ValueError, match="differ in length"):
+            compute_judge_e_agreement(
+                judgments_a=["REAL-GAP"], judgments_b=["REAL-GAP"],
+                judgments_c=["REAL-GAP", "REAL-GAP"], judgments_e=["REAL-GAP"],
+            )
+
+
+class TestComputeAuthorAdjudication:
+    """v1.6 §11 author final-verdict + spot-check override metrics."""
+
+    def test_author_E_confusion_basic(self) -> None:
+        from uofa_cli.adversarial.judge.adjudication import (
+            compute_author_adjudication,
+        )
+
+        author = ["REAL-GAP", "OUT-OF-SCOPE", "GENERATOR-ARTIFACT"]
+        e = ["GENERATOR-ARTIFACT", "OUT-OF-SCOPE", "GENERATOR-ARTIFACT"]
+        stats = compute_author_adjudication(
+            author_verdicts=author, judge_e_verdicts=e,
+            spot_check_total=20, spot_check_override_count=1,
+        )
+        assert stats.escalated_case_count == 3
+        assert stats.spot_check_override_rate == pytest.approx(0.05)
+        # Author=REAL-GAP, E=GA → off-diagonal
+        rg_idx = VERDICT_CLASSES.index("REAL-GAP")
+        ga_idx = VERDICT_CLASSES.index("GENERATOR-ARTIFACT")
+        assert stats.confusion_matrix_author_E[rg_idx][ga_idx] == 1
+
+    def test_spot_check_no_overrides_yields_zero_rate(self) -> None:
+        from uofa_cli.adversarial.judge.adjudication import (
+            compute_author_adjudication,
+        )
+
+        stats = compute_author_adjudication(
+            author_verdicts=[], judge_e_verdicts=[],
+            spot_check_total=15, spot_check_override_count=0,
+        )
+        assert stats.spot_check_override_rate == 0.0
+        assert stats.escalated_case_count == 0
+
+    def test_spot_check_override_target_threshold(self) -> None:
+        # §11.4 target ≤ 0.10. 1/15 = 0.067 — under target.
+        from uofa_cli.adversarial.judge.adjudication import (
+            compute_author_adjudication,
+        )
+
+        stats = compute_author_adjudication(
+            author_verdicts=[], judge_e_verdicts=[],
+            spot_check_total=15, spot_check_override_count=1,
+        )
+        assert stats.spot_check_override_rate < 0.10
+
+    def test_length_mismatch_raises(self) -> None:
+        from uofa_cli.adversarial.judge.adjudication import (
+            compute_author_adjudication,
+        )
+
+        with pytest.raises(ValueError, match="differ in length"):
+            compute_author_adjudication(
+                author_verdicts=["REAL-GAP"], judge_e_verdicts=[],
+            )
+
+
+class TestComputeJudgeEvsDAgreement:
+    """v1.6 §8.0 Judge E vs Judge D agreement on calibration set (informational)."""
+
+    def test_per_class_match_rate(self) -> None:
+        from uofa_cli.adversarial.judge.adjudication import (
+            compute_judge_e_vs_d_agreement,
+        )
+
+        # Judge D ground truth: 3 REAL-GAP + 2 GENERATOR-ARTIFACT
+        d = ["REAL-GAP", "REAL-GAP", "REAL-GAP", "GENERATOR-ARTIFACT", "GENERATOR-ARTIFACT"]
+        # Judge E: 2/3 REAL-GAP correct, 2/2 GA correct
+        e = ["REAL-GAP", "REAL-GAP", "GENERATOR-ARTIFACT", "GENERATOR-ARTIFACT", "GENERATOR-ARTIFACT"]
+        stats = compute_judge_e_vs_d_agreement(
+            judge_e_verdicts=e, judge_d_verdicts=d
+        )
+        assert stats.case_count == 5
+        assert stats.overall_match_rate == pytest.approx(0.8)
+        assert stats.per_class_match_rate["REAL-GAP"] == pytest.approx(2 / 3)
+        assert stats.per_class_match_rate["GENERATOR-ARTIFACT"] == 1.0
+
+    def test_unknown_verdict_raises(self) -> None:
+        from uofa_cli.adversarial.judge.adjudication import (
+            compute_judge_e_vs_d_agreement,
+        )
+
+        with pytest.raises(ValueError, match="unknown verdict"):
+            compute_judge_e_vs_d_agreement(
+                judge_e_verdicts=["REAL-GAP"], judge_d_verdicts=["GIBBERISH"],
+            )
+
+    def test_empty_returns_nan(self) -> None:
+        from uofa_cli.adversarial.judge.adjudication import (
+            compute_judge_e_vs_d_agreement,
+        )
+
+        stats = compute_judge_e_vs_d_agreement(
+            judge_e_verdicts=[], judge_d_verdicts=[],
+        )
+        assert stats.case_count == 0
+        assert math.isnan(stats.overall_match_rate)
+        assert stats.per_class_match_rate == {}

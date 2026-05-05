@@ -203,6 +203,39 @@ def add_arguments(parser):
     bd.add_argument("--out", type=Path, required=True,
                     help="output path for judge_ready_bundle.tgz")
 
+    # ----- calibrate-anchor (Phase 3 v1.6 §8.0) -----
+    ca = sub.add_parser(
+        "calibrate-anchor",
+        help="ingest the Judge D calibration anchor and capture author overrides (Phase 3 v1.6 §8.0)",
+    )
+    ca_sub = ca.add_subparsers(dest="anchor_action", title="anchor actions",
+                               metavar="{ingest,regenerate}")
+    ca_ingest = ca_sub.add_parser(
+        "ingest",
+        help="validate the committed calibration set and capture author overrides",
+    )
+    ca_ingest.add_argument(
+        "--in", dest="in_path", type=Path,
+        default=Path("specs/calibration/calibration_set_v1.jsonl"),
+        help="calibration set JSONL (default: specs/calibration/calibration_set_v1.jsonl)",
+    )
+    ca_ingest.add_argument(
+        "--overrides", type=Path, default=None,
+        help="optional author overrides JSONL (judge_d_author_overrides.jsonl)",
+    )
+    ca_ingest.add_argument(
+        "--out", type=Path, default=None,
+        help="optional output dir; writes normalized judge_d_anchor.jsonl when set",
+    )
+    ca_regen = ca_sub.add_parser(
+        "regenerate",
+        help="regenerate the Judge D anchor by re-running Claude over packages (deferred)",
+    )
+    ca_regen.add_argument(
+        "--in", dest="in_path", type=Path,
+        default=Path("specs/calibration/calibration_set_v1.jsonl"),
+    )
+
     # ----- judge (Phase 3 §9.1) -----
     jg = sub.add_parser(
         "judge",
@@ -256,6 +289,29 @@ def add_arguments(parser):
         help="confidence below which an agreeing verdict routes to DIVERGENT (default 0.6, spec §10.1)",
     )
 
+    # ----- arbitrate (Phase 3 v1.6 §6.7, §10.2) -----
+    ar = sub.add_parser(
+        "arbitrate",
+        help="Judge E (Mistral) arbitration over the DISAGREEMENT queue (Phase 3 v1.6 Stage 3b)",
+    )
+    ar.add_argument("--judgments-a", type=Path, required=True)
+    ar.add_argument("--judgments-b", type=Path, required=True)
+    ar.add_argument("--judgments-c", type=Path, required=True)
+    ar.add_argument(
+        "--disagreement-queue", type=Path, required=True,
+        help="triage Stage 3a output CSV (DISAGREEMENT cases)",
+    )
+    ar.add_argument("--out", type=Path, required=True,
+                    help="output directory (created if missing)")
+    ar.add_argument(
+        "--judge-e", default="mistral",
+        help="Judge E provider token (default mistral; mock_e for smoke)",
+    )
+    ar.add_argument(
+        "--confidence-floor", type=float, default=0.6,
+        help="Judge E confidence threshold for ARBITRATED vs ESCALATED (default 0.6, spec §10.2)",
+    )
+
     # ----- adjudicate (Phase 3 §12.1) -----
     aj = sub.add_parser(
         "adjudicate",
@@ -270,6 +326,34 @@ def add_arguments(parser):
         "--adjudications", type=Path, default=None,
         help="optional author adjudications JSONL (spec §11); when present, "
              "compute author-vs-each-judge confusion matrices",
+    )
+    aj.add_argument(
+        "--judgments-e", type=Path, default=None,
+        help="optional Judge E arbitration JSONL (spec v1.6 §10.2); when "
+             "present, emit EA/EB/EC confusion matrices and Judge E vs "
+             "production-judge κ on the disagreement queue",
+    )
+    aj.add_argument(
+        "--judgments-d", type=Path, default=None,
+        help="optional Judge D calibration anchor JSONL (spec v1.6 §8.0); "
+             "when present alongside --judgments-e, compute Judge E vs "
+             "Judge D agreement on the calibration set (informational)",
+    )
+    aj.add_argument(
+        "--author-adjudications", type=Path, default=None,
+        help="optional author final-verdict JSONL on the escalation queue "
+             "(spec v1.6 §11.1); when present alongside --judgments-e, "
+             "emit author_E confusion matrix",
+    )
+    aj.add_argument(
+        "--spot-check-overrides", type=Path, default=None,
+        help="optional author spot-check overrides JSONL on CONVERGENT "
+             "cases (spec v1.6 §11.4); reports override rate (target ≤ 0.10)",
+    )
+    aj.add_argument(
+        "--confidence-floor", type=float, default=0.6,
+        help="Judge E confidence floor for ARBITRATED vs ESCALATED partition "
+             "in adjudication summary (default 0.6, spec §10.2)",
     )
 
 
@@ -290,6 +374,12 @@ def run(args) -> int:
     if cmd == "bundle":
         from uofa_cli.adversarial.judge.runner import run_bundle
         return run_bundle(args)
+    if cmd == "calibrate-anchor":
+        from uofa_cli.adversarial.judge.runner import run_calibrate_anchor
+        return run_calibrate_anchor(args)
+    if cmd == "arbitrate":
+        from uofa_cli.adversarial.judge.runner import run_arbitrate
+        return run_arbitrate(args)
     if cmd == "judge":
         from uofa_cli.adversarial.judge.runner import run_judge
         return run_judge(args)
