@@ -32,9 +32,10 @@ def _reset_caches():
 class TestV100PrefixLoading:
     def test_loads_v1_template_from_disk(self) -> None:
         prefix = build_prompt_static_prefix()
-        # File at packs/core/judge_prompts/v1.0.0.md exists in this repo.
-        assert "UofA Phase 3 Judge Prompt v1.0.0" in prefix
-        assert prefix.endswith("Template version: v1.0.0\n")
+        # File at packs/core/judge_prompts/v1.1.0.md exists in this repo.
+        # v1.0.0.md also still exists for reproducibility.
+        assert "UofA Phase 3 Judge Prompt v1.1.0" in prefix
+        assert prefix.endswith("Template version: v1.1.0\n")
 
     def test_full_catalog_referenced(self) -> None:
         prefix = build_prompt_static_prefix()
@@ -102,8 +103,13 @@ class TestFewShotSubstitution:
         with patch.object(prompts_mod, "_calibration_set_path", return_value=cal_path):
             prefix = build_prompt_static_prefix()
 
-        assert "cal-001-correct_detection-data-drift" in prefix
-        assert "cal-006-real_gap-data-drift" in prefix
+        # Phase 3 v1.6: case_id is anonymized in the few-shot rendering
+        # (validator W1 leak fix). Verdict tokens are stripped.
+        assert "cal-001-_-data-drift" in prefix
+        assert "cal-006-_-data-drift" in prefix
+        # Original case_ids must NOT appear (verdict tokens leak the answer).
+        assert "cal-001-correct_detection-data-drift" not in prefix
+        assert "cal-006-real_gap-data-drift" not in prefix
         assert "verdict CORRECT-DETECTION" in prefix
         assert "§6.7 candidate W-EV-01" in prefix
         # Other classes still get the no-shot notice.
@@ -217,7 +223,7 @@ class TestCacheInvalidation:
         # Load once, then patch the template path and verify it picks up
         # the new content after clear_prompt_caches().
         prefix1 = build_prompt_static_prefix()
-        assert "UofA Phase 3 Judge Prompt v1.0.0" in prefix1
+        assert "UofA Phase 3 Judge Prompt v1.1.0" in prefix1
 
         custom_template = tmp_path / "v1.0.0.md"
         custom_template.write_text("# CUSTOM TEMPLATE\nshort prefix only.")
@@ -225,19 +231,22 @@ class TestCacheInvalidation:
         with patch.object(prompts_mod, "_template_path", return_value=custom_template):
             # Without cache clear, lru_cache returns the old result.
             prefix_cached = build_prompt_static_prefix()
-            assert "UofA Phase 3 Judge Prompt v1.0.0" in prefix_cached
+            assert "UofA Phase 3 Judge Prompt v1.1.0" in prefix_cached
 
             clear_prompt_caches()
             prefix_fresh = build_prompt_static_prefix()
             assert "CUSTOM TEMPLATE" in prefix_fresh
+            assert "UofA Phase 3 Judge Prompt v1.1.0" not in prefix_fresh
 
 
 # ── default version constant ───────────────────────────────────────────
 
 
 class TestVersionConstant:
-    def test_default_is_v1_0_0(self) -> None:
-        assert PROMPT_TEMPLATE_VERSION == "v1.0.0"
+    def test_default_is_v1_1_0(self) -> None:
+        # Phase 3 v1.6 Delta 3c: default loader bumps to v1.1.0 with
+        # productive-OOS framing. v1.0.0 retained for reproducibility.
+        assert PROMPT_TEMPLATE_VERSION == "v1.1.0"
 
     def test_fallback_is_named(self) -> None:
         assert FALLBACK_VERSION == "v0.1.0-tier-a"

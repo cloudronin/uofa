@@ -25,6 +25,7 @@ from uofa_cli.adversarial.judge.providers.litellm_provider import (
 
 
 # A schema-compliant judgment payload reused across happy-path tests.
+# Note: per Phase 3 v1.6 Delta 1, evidence_gap is required (null for non-OOS).
 _VALID_PAYLOAD = {
     "case_id": "cal-001-real-gap-data-drift",
     "verdict": "REAL-GAP",
@@ -39,7 +40,7 @@ _VALID_PAYLOAD = {
     "reasoning": "The package instantiates Data Drift cleanly; no existing rule covers it.",
     "section_6_7_candidate": "W-EV-01",
     "alternative_rule_analysis": "W-CON-03 considered but rejected.",
-    "prompt_template_version": "v1.0.0",
+    "prompt_template_version": "v1.1.0",
     "judge_model": "fake-model-name",  # provider should override with self._model
     "judge_thinking_enabled": True,
     "judge_model_params": {"temperature": 0.0, "seed": 42},
@@ -48,6 +49,7 @@ _VALID_PAYLOAD = {
         "temperature": None,
         "seed": None,
     },
+    "evidence_gap": None,  # null for non-OOS verdicts (Delta 1 conditional-required)
 }
 
 

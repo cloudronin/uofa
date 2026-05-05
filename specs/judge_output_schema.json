@@ -15,7 +15,8 @@
     "judge_model",
     "judge_thinking_enabled",
     "judge_model_params",
-    "generator_provenance"
+    "generator_provenance",
+    "evidence_gap"
   ],
   "properties": {
     "case_id": {
@@ -135,6 +136,36 @@
           "type": ["integer", "string", "null"]
         }
       }
+    },
+    "evidence_gap": {
+      "type": ["object", "null"],
+      "description": "Productive-OOS framing (Phase 3 v1.6 Delta 1). When verdict is OUT-OF-SCOPE, this field reports what evidence is missing from the bundle and what defeater type the missing evidence would support evaluating. The field is the actionable output of the OOS verdict for audit engineers. Required when verdict==OUT-OF-SCOPE (enforced via top-level if/then below + runtime parser); null otherwise.",
+      "properties": {
+        "missing_evidence_type": {
+          "type": "string",
+          "minLength": 10,
+          "description": "What evidence type is absent from the bundle. Examples: 'structured rationale documents for model-form selection', 'quarterly drift monitoring logs', 'cross-jurisdiction reconciliation evidence'."
+        },
+        "would_support_defeater_evaluation": {
+          "type": "string",
+          "minLength": 10,
+          "description": "What in-scope defeater type or credibility claim the missing evidence would let UofA evaluate. Examples: 'W-AR-06 eliminative argumentation absent', 'AIMS A.6.1.2 role-and-responsibility behavioral compliance', 'inter-jurisdictional regulatory framework reconciliation'."
+        }
+      },
+      "required": ["missing_evidence_type", "would_support_defeater_evaluation"],
+      "additionalProperties": false
     }
+  },
+  "if": {
+    "properties": {
+      "verdict": {"const": "OUT-OF-SCOPE"}
+    },
+    "required": ["verdict"]
+  },
+  "then": {
+    "properties": {
+      "evidence_gap": {"type": "object"}
+    },
+    "required": ["evidence_gap"]
   }
 }
