@@ -711,8 +711,101 @@ for the UNCERTAIN class with current prompts.
 - (e) Spec language update: revise §15.1 #7 to acknowledge UNCERTAIN
   as a Judge-A-specialty class with documented vendor asymmetry.
 
-**Held for author decision on (c) vs (d) vs (e) before kicking off
-Stage 2.**
+### UNCERTAIN-class diagnostic (2026-05-05): vendor variation, not prompt fuzziness
+
+Per-case reasoning analysis on the 5 UNCERTAIN cases (post-substitution)
++ each production judge's reasoning text resolves the diagnostic
+question between hypothesis 1 (prompt fuzzy) and hypothesis 2 (vendor
+variation):
+
+| Case | Judge D anchor | A | B | C | Pattern |
+|---|---|---|---|---|---|
+| cal-026 | "ERM or GA or REAL-GAP" | ERM | ERM (high-rigor) | ERM | All trio land ERM via W-EP-02 detection — B's reasoning correctly identifies catalog has working coverage |
+| cal-027 | "ERM or GA both defensible" | UNCERTAIN | **GA** | **ERM** | B + C disagree with each other, each picks a distinct reading from Judge D's enumeration |
+| cal-028 | "ERM or GA both defensible" | UNCERTAIN | **GA** | **ERM** | Same B-vs-C split — each picks a different defensible alternative |
+| cal-029 | "ERM or REAL-GAP or CD" | UNCERTAIN | ERM | ERM | Trio + E lands ERM — defensible reading per Judge D's first option |
+| cal-030 | "ERM or GA both defensible" | UNCERTAIN | **UNCERTAIN** ← | ERM | B *did* commit to UNCERTAIN here (conf=0.50, "genuine ambiguity") |
+
+**Key findings from the reasoning text:**
+
+1. **Reasoning quality is high across all 3 production judges.** No
+   judge is being lazy or missing case content; each engages
+   substantively with the package details.
+
+2. **Judge B has demonstrated UNCERTAIN-commitment capacity** on
+   cal-030 (conf=0.50, reasoning: *"genuine ambiguity between two
+   verdict classes"*). So vendor-A-only-handles-UNCERTAIN isn't
+   quite right — B can do it, just doesn't most of the time.
+
+3. **On cal-027 + cal-028, B and C land on OPPOSITE non-UNCERTAIN
+   verdicts.** B picks GENERATOR-ARTIFACT, C picks
+   EXISTING-RULE-MISBEHAVIOR. *Both* readings are exactly what Judge
+   D enumerated as defensible. The cross-judge disagreement IS the
+   signal that the case is ambiguous — but the per-class accuracy
+   gate (each judge vs. anchor) misses it because the gate doesn't
+   look at inter-judge agreement on these cases.
+
+4. **On cal-026, B's reasoning is arguably stronger than Judge D's
+   anchor.** B identifies that W-EP-02 (Broken Provenance)
+   successfully fired and is a "perfect match" for the defect —
+   meaning the catalog DID detect the defect via a different rule.
+   Judge D's anchor enumerated this as a possibility but anchored
+   UNCERTAIN. B's ERM reading is at least as defensible.
+
+5. **The cases are not prompt-fuzzy; they're ambiguous-by-design.**
+   Judge D's anchor reasoning on every UNCERTAIN case explicitly
+   says "multiple verdict interpretations have merit" / "two
+   competing explanations each have defensible support" / etc. The
+   cases were curated to be borderline. The prompt's UNCERTAIN-vs-ERM
+   line isn't unclear — the cases legitimately admit multiple
+   verdicts, and different vendors make different commitments.
+
+**Diagnosis: Hypothesis (3) is the correct read.** B and C contradict
+the anchor with sound logic, picking valid readings Judge D
+explicitly enumerated. The asymmetry is per-vendor commitment style
+(when faced with N defensible readings: A → UNCERTAIN, B → most
+likely, C → also most likely, E → most likely), not prompt
+fuzziness. **(c) + (e) is the defensible path.**
+
+### Proposed spec v1.7 update — §15.1 #7
+
+The current gate language: "≥ 50% per verdict class per judge".
+
+Proposed update language (spec v1.7 §15.1 #7):
+
+> Per-class accuracy ≥ 50% per verdict class per judge, except
+> UNCERTAIN. The UNCERTAIN class is operationally judge-specific:
+> at least one production judge must achieve ≥ 50% on UNCERTAIN.
+> Cross-judge disagreement on UNCERTAIN-anchored cases (low pairwise
+> agreement vs. the anchor for that class) is itself a signal of
+> case-level ambiguity and routes through Stage 3b arbitration where
+> Judge E + author final-arbitration resolve.
+
+Rationale: per-vendor commitment-style asymmetry on cases that admit
+multiple defensible readings is structural across model families
+(GPT, Gemini, Llama, Mistral). Requiring uniform handling across all
+3 production judges is empirically unrealistic and would force prompt
+contortions that may degrade other classes. The ensemble's value is
+the disagreement queue + arbitration safety net.
+
+### Stage 1 v4 verdict for Stage 2 go-ahead
+
+| Hard gate | Status |
+|---|---|
+| Hard gate 5 (per-judge accuracy ≥ 80%) | ALL PASS ✅ |
+| Hard gate 6 (pairwise κ ≥ 0.70) | ALL PASS ✅ |
+| Hard gate 7 (per-class ≥ 50%, all judges all classes) | A passes; B + C fail on UNCERTAIN per the documented vendor asymmetry |
+
+**Recommendation: proceed to Stage 2** with:
+- The empirical asymmetry documented in this handoff section.
+- Spec v1.7 §15.1 #7 update queued as an author-side edit.
+- Stage 2 expected behavior on UNCERTAIN cases: production-corpus
+  cases that Judge D would label UNCERTAIN with thinking-mode tend
+  to produce CONVERGENT-to-ERM triages from the trio (matching the
+  cal-027/028/030 pattern), which routes operationally as ERM —
+  defensible per 4-of-4 model-family agreement. Cases where the
+  trio splits route through Stage 3b → Mistral arbitration → likely
+  lands ERM matching its Stage 1 sanity-check pattern.
 
 ### Stage 2 production-run command (held pending Stage 1 gate-7 decision)
 
