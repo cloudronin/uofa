@@ -492,3 +492,158 @@ class TestExtractResponseCost:
         j = _make_judgment("c1", "REAL-GAP")
         usd = _extract_response_cost(j, "openai")
         assert usd == 0.0
+
+
+class TestRunArbitrate:
+    """Cover the run_arbitrate dispatch path (Wave C / runner.py 267-328)."""
+
+    def test_arbitrate_with_mock_e_writes_outputs(self, tmp_path: Path) -> None:
+        from uofa_cli.adversarial.judge.runner import run_arbitrate
+
+        # Set up production judgments + a 2-case disagreement queue.
+        a = [_make_judgment("c1", "REAL-GAP", 0.85),
+             _make_judgment("c2", "GENERATOR-ARTIFACT", 0.85)]
+        b = [_make_judgment("c1", "GENERATOR-ARTIFACT", 0.85),
+             _make_judgment("c2", "REAL-GAP", 0.85)]
+        c = [_make_judgment("c1", "OUT-OF-SCOPE", 0.85),
+             _make_judgment("c2", "OUT-OF-SCOPE", 0.85)]
+        for name, jl in (("a", a), ("b", b), ("c", c)):
+            _write_judgments_jsonl(tmp_path / f"j_{name}.jsonl", jl)
+
+        # Disagreement queue CSV (subset of cases to arbitrate).
+        queue_path = tmp_path / "disagreement_queue.csv"
+        queue_path.write_text(
+            "case_id,bucket,majority_verdict,disagreement_type\n"
+            "c1,DISAGREEMENT,,all_three_disagree\n"
+            "c2,DISAGREEMENT,,all_three_disagree\n"
+        )
+
+        args = _args(
+            judgments_a=tmp_path / "j_a.jsonl",
+            judgments_b=tmp_path / "j_b.jsonl",
+            judgments_c=tmp_path / "j_c.jsonl",
+            disagreement_queue=queue_path,
+            out=tmp_path / "arb",
+            judge_e="mock_e",
+            confidence_floor=0.6,
+        )
+        rc = run_arbitrate(args)
+        assert rc == 0
+        out = tmp_path / "arb"
+        assert (out / "judgments_E.jsonl").exists()
+        assert (out / "arbitrated.jsonl").exists()
+        assert (out / "escalation_queue.csv").exists()
+
+    def test_arbitrate_unknown_judge_e_token_returns_2(self, tmp_path: Path) -> None:
+        from uofa_cli.adversarial.judge.runner import run_arbitrate
+
+        # Same fixture shape but with a bogus token.
+        a = [_make_judgment("c1", "REAL-GAP", 0.85)]
+        b = [_make_judgment("c1", "GENERATOR-ARTIFACT", 0.85)]
+        c = [_make_judgment("c1", "OUT-OF-SCOPE", 0.85)]
+        for name, jl in (("a", a), ("b", b), ("c", c)):
+            _write_judgments_jsonl(tmp_path / f"j_{name}.jsonl", jl)
+        queue_path = tmp_path / "queue.csv"
+        queue_path.write_text("case_id\nc1\n")
+
+        args = _args(
+            judgments_a=tmp_path / "j_a.jsonl",
+            judgments_b=tmp_path / "j_b.jsonl",
+            judgments_c=tmp_path / "j_c.jsonl",
+            disagreement_queue=queue_path,
+            out=tmp_path / "arb",
+            judge_e="not-a-real-token",
+            confidence_floor=0.6,
+        )
+        rc = run_arbitrate(args)
+        assert rc == 2
+
+
+class TestReadDisagreementQueue:
+    def test_reads_case_ids(self, tmp_path: Path) -> None:
+        from uofa_cli.adversarial.judge.runner import _read_disagreement_queue
+
+        path = tmp_path / "q.csv"
+        path.write_text("case_id,bucket\nc1,DISAGREEMENT\nc2,DISAGREEMENT\n\n")
+        ids = _read_disagreement_queue(path)
+        assert ids == ["c1", "c2"]
+
+    def test_missing_file_raises(self, tmp_path: Path) -> None:
+        from uofa_cli.adversarial.judge.runner import _read_disagreement_queue
+
+        with pytest.raises(FileNotFoundError):
+            _read_disagreement_queue(tmp_path / "nope.csv")
+
+
+class TestRunCalibrateAnchor:
+    """Cover run_calibrate_anchor (Wave B / runner.py 354-384)."""
+
+    def test_ingest_committed_calibration_set(self, tmp_path: Path) -> None:
+        from uofa_cli.adversarial.judge.runner import run_calibrate_anchor
+
+        # Use the actual committed calibration set; ingest is read-only.
+        from pathlib import Path as P
+        cal_path = P("specs/calibration/calibration_set_v1.jsonl")
+        if not cal_path.exists():
+            pytest.skip("calibration set not present in this checkout")
+
+        args = _args(
+            anchor_action="ingest",
+            in_path=cal_path,
+            overrides=None,
+            out=tmp_path / "anchor",
+        )
+        rc = run_calibrate_anchor(args)
+        assert rc == 0
+        # Normalized anchor JSONL written to out_dir.
+        assert (tmp_path / "anchor" / "judge_d_anchor.jsonl").exists()
+
+    def test_ingest_missing_file_returns_2(self, tmp_path: Path) -> None:
+        from uofa_cli.adversarial.judge.runner import run_calibrate_anchor
+
+        args = _args(
+            anchor_action="ingest",
+            in_path=tmp_path / "nonexistent.jsonl",
+            overrides=None,
+            out=None,
+        )
+        rc = run_calibrate_anchor(args)
+        assert rc == 2
+
+    def test_regenerate_returns_2_not_implemented(self, tmp_path: Path) -> None:
+        from uofa_cli.adversarial.judge.runner import run_calibrate_anchor
+
+        args = _args(anchor_action="regenerate", in_path=tmp_path / "x", out=None)
+        rc = run_calibrate_anchor(args)
+        assert rc == 2
+
+
+class TestRunCaseStudyRerunHappyPath:
+    """Patch-around case-study so we cover the happy path of run_case_study_rerun
+    (runner.py ~300-333) without shelling out to `uofa rules`."""
+
+    def test_writes_delta_table(self, tmp_path: Path, monkeypatch) -> None:
+        from uofa_cli.adversarial.judge import case_study as cs_mod
+        from uofa_cli.adversarial.judge.runner import run_case_study_rerun
+
+        # Stub the rule engine via the module-level `run_case_study` callable
+        # by monkeypatching CatalogRun production at the engine level.
+        def stub(catalog: str, cou: str):
+            return cs_mod.CatalogRun(
+                catalog=catalog, cou=cou,
+                annotation_count=2 if catalog == "v0.5" else 1,
+                per_pattern_firings={"W-EP-01": 1},
+            )
+
+        # Monkeypatch the default rule engine to the stub.
+        monkeypatch.setattr(cs_mod, "_default_rule_engine", stub)
+
+        args = _args(
+            catalog=["v0.4.1", "v0.5"],
+            cou=["morrison-cou1"],
+            out=tmp_path / "cs",
+        )
+        rc = run_case_study_rerun(args)
+        assert rc == 0
+        assert (tmp_path / "cs" / "delta_table.md").exists()
+        assert (tmp_path / "cs" / "delta_table.json").exists()

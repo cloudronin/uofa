@@ -42,6 +42,12 @@ class ProviderCapabilities:
     # that explicit per-provider overrides keep the call-site clean.
     thinking_kwargs: tuple[tuple[str, object], ...] = ()
 
+    # `seed` is honored by OpenAI for deterministic-output runs; other
+    # vendors either ignore it or reject it through litellm's pre-flight
+    # validator (Anthropic does the latter). Set False to suppress the
+    # seed kwarg at the call site for providers that reject it.
+    supports_seed: bool = False
+
 
 # Standard JSONSchema 2020-12 keywords that some vendor strict-mode parsers
 # reject. Provider entries below pull subsets that apply to that vendor.
@@ -61,6 +67,12 @@ _ANTHROPIC_BLOCKED = (
 # etc.) pass through cleanly. Probe in dev/tools/scripts/verify_mistral_strict_schema.py.
 _MISTRAL_BLOCKED = ("if", "then", "else")
 
+# OpenAI strict-mode also rejects if/then/else per their documented
+# subset of JSONSchema 2020-12 (verified 2026-05-04 via the litellm-
+# refactor smoke). Min/max, pattern, format pass through cleanly so
+# the blocklist is narrower than Anthropic's.
+_OPENAI_BLOCKED = ("if", "then", "else")
+
 
 CAPABILITIES: dict[str, ProviderCapabilities] = {
     "openai": ProviderCapabilities(
@@ -68,10 +80,16 @@ CAPABILITIES: dict[str, ProviderCapabilities] = {
         litellm_model_prefix="openai/",
         default_model="gpt-5.4",
         supports_strict_schema=True,
-        schema_keyword_blocklist=(),  # OpenAI strict mode accepts the full draft-2020-12 subset we use
+        # Verified 2026-05-04: OpenAI strict mode rejects if/then/else
+        # ("'if' is not permitted in context"). Other JSONSchema 2020-12
+        # keywords we use (min/max, pattern, format) pass through.
+        # Runtime parser enforces the OOS → evidence_gap conditional
+        # post-call same as for Anthropic / Mistral.
+        schema_keyword_blocklist=_OPENAI_BLOCKED,
         supports_batch_api=True,
         supports_prompt_caching=True,  # implicit prefix caching, no flag needed
         thinking_kwargs=(("reasoning_effort", "medium"),),
+        supports_seed=True,  # OpenAI honors `seed` for deterministic outputs
     ),
     "gemini": ProviderCapabilities(
         family="Gemini",
@@ -114,9 +132,16 @@ CAPABILITIES: dict[str, ProviderCapabilities] = {
         # mock the call paths to verify the dispatch wiring is correct.
         supports_batch_api=False,
         supports_prompt_caching=True,  # via cache_control: {type:'ephemeral'}
-        thinking_kwargs=(
-            ("thinking", {"type": "enabled", "budget_tokens": 8192}),
-        ),
+        # Verified 2026-05-04 against the Anthropic SDK directly:
+        # claude-sonnet-4-6 accepts thinking={type:'enabled', budget_tokens:N}
+        # and returns interleaved thinking + text content blocks. However,
+        # litellm 1.63.7 (current pin) doesn't recognize thinking on this
+        # model id and rejects the param at pre-flight. Setting
+        # thinking_kwargs=() so the production path doesn't error; bump
+        # the litellm pin to ≥1.81 (where the model id is registered) and
+        # restore (("thinking", {"type":"enabled","budget_tokens":8192}),)
+        # to enable extended thinking on the calibration runs.
+        thinking_kwargs=(),
     ),
     "mistral": ProviderCapabilities(
         family="Mistral",

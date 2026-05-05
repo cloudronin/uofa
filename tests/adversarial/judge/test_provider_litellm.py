@@ -234,6 +234,11 @@ class TestJudgeCallPath:
             )
 
     def test_thinking_kwargs_propagated_when_enabled(self) -> None:
+        # Use OpenAI's reasoning_effort here. Anthropic's thinking_kwargs
+        # is currently empty in the capability table — litellm 1.63
+        # doesn't recognize thinking on claude-sonnet-4-6 yet, gap
+        # documented in capabilities.py. Restore Anthropic case here
+        # once the litellm pin bumps.
         seen_kwargs: dict = {}
 
         async def fake_acompletion(**kwargs):
@@ -245,12 +250,12 @@ class TestJudgeCallPath:
             )
 
         provider = LiteLLMProvider(
-            provider_token="anthropic", completion_fn=fake_acompletion, thinking_enabled=True
+            provider_token="openai", completion_fn=fake_acompletion, thinking_enabled=True
         )
         asyncio.run(provider.judge({"case_id": "cal-001"}))
-        # Anthropic thinking param.
-        assert "thinking" in seen_kwargs
-        assert seen_kwargs["thinking"]["type"] == "enabled"
+        # OpenAI reasoning param flows.
+        assert "reasoning_effort" in seen_kwargs
+        assert seen_kwargs["reasoning_effort"] == "medium"
 
     def test_thinking_kwargs_omitted_when_disabled(self) -> None:
         seen_kwargs: dict = {}

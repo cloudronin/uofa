@@ -30,10 +30,11 @@ from uofa_cli.adversarial.judge.providers.litellm_provider import (  # noqa: E40
 )
 
 
-# 5-case mini-fixture covering REAL-GAP, GENERATOR-ARTIFACT, OUT-OF-SCOPE.
+# 5-case mini-fixture. case_id follows the cal-NNN pattern enforced by
+# specs/judge_output_schema.json so the strict-mode validator accepts.
 FIXTURE = [
     {
-        "case_id": f"verify-{i}",
+        "case_id": f"cal-9{i:02d}-litellm-refactor-smoke",
         "package": {"id": f"pkg-{i}", "name": f"Smoke fixture {i}"},
         "rules_fired": [],
         "phase2_outcome_class_raw": "COV-CLEAN",
@@ -51,8 +52,23 @@ def main() -> int:
         print("ERROR: ANTHROPIC_API_KEY and OPENAI_API_KEY required", file=sys.stderr)
         return 2
 
-    anthropic = LiteLLMProvider(provider_token="anthropic", judge_role="production")
-    openai = LiteLLMProvider(provider_token="openai", judge_role="production")
+    # Pin to litellm-1.63-known models for the smoke. The capability table
+    # default (gpt-5.4) is too new for the current litellm pin to accept
+    # reasoning_effort against. Smoke uses gpt-4o-mini + claude-sonnet-4-6
+    # with thinking_enabled=False so we exercise the litellm-refactor
+    # call path (schema strict, capability table, response parsing)
+    # without hitting model-recognition gaps.
+    anthropic = LiteLLMProvider(
+        provider_token="anthropic",
+        judge_role="production",
+        thinking_enabled=False,  # litellm < 1.81 doesn't recognize 4-6 thinking
+    )
+    openai = LiteLLMProvider(
+        provider_token="openai",
+        model="gpt-4o-mini",
+        judge_role="production",
+        thinking_enabled=False,  # gpt-4o-mini doesn't have reasoning_effort
+    )
 
     a_verdicts = asyncio.run(_judge_all(anthropic, FIXTURE))
     o_verdicts = asyncio.run(_judge_all(openai, FIXTURE))

@@ -189,9 +189,11 @@ class LiteLLMProvider(AbstractJudgeProvider):
             for k, v in self._caps.thinking_kwargs:
                 kwargs[k] = v
 
-        # OpenAI honors `seed`; other vendors generally accept-and-ignore via
-        # litellm. Setting it broadly is safe; litellm filters per-vendor.
-        kwargs["seed"] = 42
+        # `seed` is OpenAI-specific. Anthropic litellm 1.63 rejects it at
+        # the pre-flight validator (litellm.UnsupportedParamsError); other
+        # vendors silently accept-and-ignore. Gate via capability table.
+        if self._caps.supports_seed:
+            kwargs["seed"] = 42
 
         # response_format: strict json-schema for vendors that support it,
         # json_object for others (with tolerant-parser fallback).
