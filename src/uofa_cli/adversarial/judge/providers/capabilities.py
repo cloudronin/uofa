@@ -73,7 +73,12 @@ CAPABILITIES: dict[str, ProviderCapabilities] = {
         default_model="gemini-3.1-pro",
         supports_strict_schema=True,
         schema_keyword_blocklist=(),  # Gemini's response_schema accepts our shape
-        supports_batch_api=True,
+        # Litellm 1.30 only supports OpenAI in `create_batch`. Gemini batch
+        # routing is wired in batch.py but gated OFF here until either
+        # (a) litellm adds Gemini, or (b) we add a direct google.genai
+        # BatchPredictionJob path. Until then, `submit_batch` raises
+        # BatchNotSupported; callers fall back to synchronous + --parallel.
+        supports_batch_api=False,
         supports_prompt_caching=True,  # via cached_content resource
         thinking_kwargs=(("thinking_config", {"thinking_budget": 8192}),),
     ),
@@ -95,7 +100,13 @@ CAPABILITIES: dict[str, ProviderCapabilities] = {
         # the blocked keywords and re-validate post-call against the full schema.
         supports_strict_schema=True,
         schema_keyword_blocklist=_ANTHROPIC_BLOCKED,
-        supports_batch_api=True,  # message-batches; litellm exposes
+        # Anthropic message-batches ARE supported by Anthropic's API, but
+        # litellm 1.30's `create_batch` is OpenAI-only. The batch.py
+        # Anthropic path uses `litellm.list_batch_results` which is
+        # likewise vendor-specific. Until either gets first-class
+        # support, route to synchronous + --parallel by default. Tests
+        # mock the call paths to verify the dispatch wiring is correct.
+        supports_batch_api=False,
         supports_prompt_caching=True,  # via cache_control: {type:'ephemeral'}
         thinking_kwargs=(
             ("thinking", {"type": "enabled", "budget_tokens": 8192}),

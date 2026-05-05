@@ -270,6 +270,21 @@ def add_arguments(parser):
         "--allow-same-family-judge", action="store_true",
         help="override family circularity check (smoke-test only; spec §6.2)",
     )
+    jg.add_argument(
+        "--dry-run", action="store_true",
+        help="estimate per-judge token + USD cost, print a table, exit 0 "
+             "without calling any provider (Wave F)",
+    )
+    jg.add_argument(
+        "--max-cost", type=float, default=None,
+        help="halt the run when accumulated estimated cost reaches this USD "
+             "ceiling; writes cost_manifest.json on halt (Wave F)",
+    )
+    jg.add_argument(
+        "--resume", action="store_true",
+        help="skip cases already present in existing judgments_*.jsonl files "
+             "(Wave I); writes resume_manifest.json with the skip count",
+    )
 
     # ----- triage (Phase 3 §10.1) -----
     tg = sub.add_parser(
@@ -356,6 +371,26 @@ def add_arguments(parser):
              "in adjudication summary (default 0.6, spec §10.2)",
     )
 
+    # ----- finalize (Phase 3 v1.6 §10.3, Delta 5) -----
+    fn = sub.add_parser(
+        "finalize",
+        help="assemble final_verdicts.jsonl across CONVERGENT / ARBITRATED / "
+             "AUTHOR_FINAL / AUTHOR_OVERRIDE layers (Phase 3 v1.6 §10.3)",
+    )
+    fn.add_argument("--judgments-a", type=Path, required=True)
+    fn.add_argument("--judgments-b", type=Path, required=True)
+    fn.add_argument("--judgments-c", type=Path, required=True)
+    fn.add_argument("--judgments-e", type=Path, default=None,
+                    help="Judge E arbitration JSONL (judgments_E.jsonl)")
+    fn.add_argument("--author-adjudications", type=Path, default=None,
+                    help="author final-verdict JSONL on the escalation queue")
+    fn.add_argument("--spot-check-overrides", type=Path, default=None,
+                    help="author spot-check override JSONL on CONVERGENT cases")
+    fn.add_argument("--confidence-floor", type=float, default=0.6,
+                    help="Judge E confidence floor for ARBITRATED selection")
+    fn.add_argument("--out", type=Path, required=True,
+                    help="output directory (created if missing)")
+
 
 def run(args) -> int:
     cmd = getattr(args, "adversarial_command", None)
@@ -389,6 +424,9 @@ def run(args) -> int:
     if cmd == "adjudicate":
         from uofa_cli.adversarial.judge.runner import run_adjudicate
         return run_adjudicate(args)
+    if cmd == "finalize":
+        from uofa_cli.adversarial.judge.runner import run_finalize
+        return run_finalize(args)
 
     print("usage: uofa adversarial <subcommand>")
     print()

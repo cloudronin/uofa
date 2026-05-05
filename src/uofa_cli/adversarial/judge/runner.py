@@ -434,6 +434,9 @@ def run_judge(args) -> int:
     parallel: int = getattr(args, "parallel", 8)
     calibration_only: bool = getattr(args, "calibration_only", False)
     allow_same_family: bool = getattr(args, "allow_same_family_judge", False)
+    dry_run: bool = getattr(args, "dry_run", False)
+    max_cost: float | None = getattr(args, "max_cost", None)
+    resume: bool = getattr(args, "resume", False)
 
     try:
         judges = parse_judges(raw_judges)
@@ -477,8 +480,19 @@ def run_judge(args) -> int:
     info(
         f"judging {in_bundle.name} with judges "
         f"{list(zip(judges.positions, judges.tokens))} (parallel={parallel}, "
-        f"calibration_only={calibration_only})"
+        f"calibration_only={calibration_only}, dry_run={dry_run})"
     )
+
+    # ── --dry-run: cost-only path, no LLM calls ──
+    if dry_run:
+        return _run_dry_run_cost_estimate(
+            in_bundle=in_bundle,
+            tokens=judges.tokens,
+            model_overrides=model_overrides,
+            calibration_only=calibration_only,
+            out_dir=out_dir,
+            max_cost=max_cost,
+        )
 
     # Run async per-judge judgments. Tier A: serial calls per case (the
     # parallelism story is for HF Endpoints batches, deferred to Stage 2).
@@ -489,9 +503,107 @@ def run_judge(args) -> int:
         tokens=judges.tokens,
         out_dir=out_dir,
         calibration_only=calibration_only,
+        max_cost=max_cost,
+        resume=resume,
     ))
 
     result_line("judgments", True, str(out_dir))
+    return 0
+
+
+def _run_dry_run_cost_estimate(
+    *,
+    in_bundle: Path,
+    tokens: tuple[str, ...],
+    model_overrides: dict[str, str | None],
+    calibration_only: bool,
+    out_dir: Path,
+    max_cost: float | None,
+) -> int:
+    """Walk the bundle, estimate per-judge cost, print + write a table.
+
+    Exits 0 always (dry-run is informational). Writes
+    `cost_estimate.json` to `out_dir` so downstream tooling can consume it.
+    """
+    from uofa_cli.adversarial.judge.cost_gate import (
+        estimate_bundle_cost,
+        render_estimate_table,
+    )
+    from uofa_cli.adversarial.judge.prompts import (
+        build_prompt_for_case,
+        build_prompt_static_prefix,
+    )
+
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    with open_bundle(in_bundle) as bundle:
+        cases = list(bundle.iter_entries())
+    if calibration_only:
+        cases = cases[:5]
+
+    static_prefix = build_prompt_static_prefix()
+    per_case_blocks: list[str] = []
+    for entry in cases:
+        case = {
+            "case_id": entry.case_id,
+            "coverage_class": entry.outcome.get("coverage_class"),
+            "phase2_outcome_class_raw": entry.outcome.get("phase2_outcome_class_raw"),
+            "source_taxonomy": entry.outcome.get("source_taxonomy"),
+            "rules_fired": entry.outcome.get("rules_fired", []),
+            "expected_rule": entry.outcome.get("expected_rule"),
+            "section_6_7_mapping": entry.outcome.get("section_6_7_mapping"),
+            "package": entry.package,
+        }
+        per_case_blocks.append(build_prompt_for_case(case))
+
+    estimates = []
+    for token in tokens:
+        if token.startswith("mock_"):
+            continue
+        try:
+            est = estimate_bundle_cost(
+                provider_token=token,
+                model=model_overrides.get(token),
+                static_prefix=static_prefix,
+                per_case_blocks=per_case_blocks,
+            )
+            estimates.append(est)
+        except KeyError:
+            warn(f"unknown provider token in --judges: {token}")
+
+    table = render_estimate_table(estimates)
+    info(f"dry-run cost estimate ({len(per_case_blocks)} cases per judge):")
+    for line in table.split("\n"):
+        info(line)
+
+    total_usd = sum(e.estimated_usd for e in estimates)
+    if max_cost is not None and total_usd > max_cost:
+        warn(
+            f"estimated total ${total_usd:.4f} exceeds --max-cost "
+            f"${max_cost:.4f}"
+        )
+
+    out_path = out_dir / "cost_estimate.json"
+    out_path.write_text(json.dumps({
+        "case_count_per_judge": len(per_case_blocks),
+        "max_cost_usd": max_cost,
+        "estimated_total_usd": total_usd,
+        "exceeds_max_cost": (
+            max_cost is not None and total_usd > max_cost
+        ),
+        "per_judge": [
+            {
+                "provider_token": e.provider_token,
+                "model": e.model,
+                "case_count": e.case_count,
+                "total_input_tokens": e.total_input_tokens,
+                "total_output_tokens": e.total_output_tokens,
+                "estimated_usd": e.estimated_usd,
+            }
+            for e in estimates
+        ],
+    }, indent=2))
+    result_line("cost_estimate", True, str(out_path))
     return 0
 
 
@@ -503,8 +615,30 @@ async def _judge_bundle(
     tokens: tuple[str, ...],
     out_dir: Path,
     calibration_only: bool,
+    max_cost: float | None = None,
+    resume: bool = False,
 ) -> None:
-    """For each case in the bundle, run all providers and write per-judge JSONL."""
+    """For each case in the bundle, run all providers and write per-judge JSONL.
+
+    When `max_cost` is set, a `BudgetTracker` accumulates real spend and
+    halts the run gracefully if the next call would push over budget.
+    Partial outputs are flushed; `cost_manifest.json` records the halt
+    state for downstream tooling.
+
+    When `resume=True`, existing judgments_<pos>.jsonl files are scanned
+    for already-judged case_ids; cases done across ALL active judges
+    are skipped. JSONL handles open in append mode so the previous
+    progress survives.
+    """
+    from uofa_cli.adversarial.judge.cost_gate import BudgetTracker
+    from uofa_cli.adversarial.judge.resume import (
+        compute_remaining_cases,
+        load_done_case_ids,
+        write_resume_manifest,
+    )
+
+    tracker = BudgetTracker(max_cost_usd=max_cost) if max_cost is not None else None
+
     _reset_mock_ledger()
     with open_bundle(in_bundle) as bundle:
         cases = list(bundle.iter_entries())
@@ -514,12 +648,30 @@ async def _judge_bundle(
         # as a stand-in. Real Stage 1 reads specs/calibration/calibration_set_v1.jsonl.
         cases = cases[:5]
 
+    total_count = len(cases)
+    # Resume gate: drop already-done cases.
+    if resume:
+        done_per_judge: dict[str, set[str]] = {
+            pos: load_done_case_ids(out_dir / f"judgments_{pos}.jsonl")
+            for pos in positions
+        }
+        case_ids = [c.case_id for c in cases]
+        remaining_ids = set(compute_remaining_cases(case_ids, done_per_judge))
+        cases = [c for c in cases if c.case_id in remaining_ids]
+        info(
+            f"resume: {len(cases)}/{total_count} cases remaining "
+            f"(skipped {total_count - len(cases)})"
+        )
+
     # Collect verdicts in memory so the calibration summary doesn't have
     # to re-read partially-written JSONL files (the handles below are
     # buffered; reading them mid-loop returns nothing).
     verdicts_by_pos: dict[str, list[str]] = {pos: [] for pos in positions}
 
-    handles = {pos: (out_dir / f"judgments_{pos}.jsonl").open("w") for pos in positions}
+    # Resume mode opens in append; fresh runs truncate.
+    open_mode = "a" if resume else "w"
+    handles = {pos: (out_dir / f"judgments_{pos}.jsonl").open(open_mode) for pos in positions}
+    halted_early = False
     try:
         for entry in cases:
             case = {
@@ -533,13 +685,47 @@ async def _judge_bundle(
                 "package": entry.package,
                 "ground_truth_verdict": entry.outcome.get("coverage_class"),  # mock
             }
-            for pos, provider in zip(positions, providers):
+            for pos, token, provider in zip(positions, tokens, providers):
+                # Budget gate: if we have a tracker and the next call
+                # would push over budget, halt the entire run.
+                if tracker is not None and tracker.over_budget:
+                    halted_early = True
+                    break
                 judgment = await provider.judge(case)
                 handles[pos].write(json.dumps(_judgment_to_dict(judgment)) + "\n")
                 verdicts_by_pos[pos].append(judgment.verdict)
+                # Record real cost from the response if the provider
+                # exposes it on raw_response.usage; otherwise treat as 0.
+                if tracker is not None:
+                    actual_usd = _extract_response_cost(judgment, token)
+                    tracker.record(token, actual_usd)
+                    # Authorize the next call against the (now-updated)
+                    # running total. The check uses 0 as the placeholder
+                    # for "next call cost" — we don't pre-estimate, just
+                    # halt if we've already crossed the ceiling.
+                    if not tracker.authorize(token, 0.0):
+                        halted_early = True
+                        break
+            if halted_early:
+                break
     finally:
         for h in handles.values():
             h.close()
+        if tracker is not None:
+            tracker.write_manifest(out_dir / "cost_manifest.json")
+            if halted_early:
+                warn(
+                    f"halted: total spend ${tracker.running_total_usd:.4f} "
+                    f"≥ --max-cost ${tracker.max_cost_usd:.4f}"
+                )
+        if resume:
+            write_resume_manifest(
+                out_dir=out_dir,
+                bundle_path=in_bundle,
+                total_case_count=total_count,
+                skipped_case_count=total_count - len(cases),
+                judged_case_count=len(cases),
+            )
 
     # Calibration-only: write per-judge calibration_results plus a summary
     # with pairwise kappas computed from the in-memory verdict lists.
@@ -583,6 +769,38 @@ def _judgment_to_dict(j: Judgment) -> dict[str, Any]:
     d = asdict(j)
     d.pop("raw_response", None)
     return d
+
+
+def _extract_response_cost(judgment: Judgment, provider_token: str) -> float:
+    """Pull actual USD cost off the provider response when available.
+
+    Litellm normalizes usage onto `response.usage.{prompt,completion}_tokens`
+    and emits `response._hidden_params.response_cost` for some providers.
+    Fall back to estimation by token count + model price.
+    """
+    raw = judgment.raw_response or {}
+    # Litellm hidden params path.
+    hidden = raw.get("_hidden_params") if isinstance(raw, dict) else None
+    if hidden and "response_cost" in hidden:
+        try:
+            return float(hidden["response_cost"])
+        except (ValueError, TypeError):
+            pass
+
+    # Fallback: estimate from usage tokens + capability table model.
+    usage = raw.get("usage") if isinstance(raw, dict) else None
+    if not usage:
+        return 0.0
+    from uofa_cli.adversarial.judge.cost_gate import estimate_call_cost
+    in_tok = int(usage.get("prompt_tokens", 0) or 0)
+    out_tok = int(usage.get("completion_tokens", 0) or 0)
+    try:
+        return estimate_call_cost(
+            provider_token, judgment.judge_model,
+            input_tokens=in_tok, output_tokens=out_tok,
+        )
+    except Exception:
+        return 0.0
 
 
 # ── run_triage ─────────────────────────────────────────────────────────
@@ -830,6 +1048,98 @@ def run_adjudicate(args) -> int:
     return 0
 
 
+# ── run_finalize (Phase 3 v1.6 §10.3, Delta 5) ─────────────────────────
+
+
+def run_finalize(args) -> int:
+    """Entry point for `uofa adversarial finalize`.
+
+    Assembles `final_verdicts.jsonl` across the four-layer source
+    priority: AUTHOR_OVERRIDE > AUTHOR_FINAL > ARBITRATED > CONVERGENT
+    (per spec v1.6 §10.3). For OOS verdicts the evidence_gap carries
+    through with explicit source attribution per Delta 5.
+    """
+    from uofa_cli.adversarial.judge.final_verdict import (
+        assemble_final_verdicts,
+        load_arbitration_records,
+        load_author_records,
+        load_spot_check_overrides,
+        write_final_verdicts,
+    )
+    from uofa_cli.adversarial.judge.triage import triage_corpus
+
+    out_dir: Path = args.out
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    judgments_a = _load_judgments(args.judgments_a)
+    judgments_b = _load_judgments(args.judgments_b)
+    judgments_c = _load_judgments(args.judgments_c)
+    trios = align_trios(judgments_a, judgments_b, judgments_c)
+    if not trios:
+        error("no aligned trios; cannot assemble final verdicts")
+        return 1
+
+    confidence_floor = float(getattr(args, "confidence_floor", 0.6))
+    triage_result = triage_corpus(trios, confidence_floor=confidence_floor)
+
+    arbitration_path: Path | None = getattr(args, "judgments_e", None)
+    author_path: Path | None = getattr(args, "author_adjudications", None)
+    spot_check_path: Path | None = getattr(args, "spot_check_overrides", None)
+
+    arbitration_records = (
+        load_arbitration_records(arbitration_path)
+        if arbitration_path else {}
+    )
+    author_records = (
+        load_author_records(author_path) if author_path else {}
+    )
+    spot_check_overrides = (
+        load_spot_check_overrides(spot_check_path) if spot_check_path else {}
+    )
+
+    final = assemble_final_verdicts(
+        triage_entries=triage_result.entries,
+        arbitration_records=arbitration_records,
+        author_records=author_records,
+        spot_check_overrides=spot_check_overrides,
+        confidence_floor=confidence_floor,
+    )
+
+    out_path = out_dir / "final_verdicts.jsonl"
+    write_final_verdicts(final, out_path)
+
+    # Summary metrics by provenance + OOS evidence-gap counts.
+    by_prov: dict[str, int] = {}
+    oos_with_gap = 0
+    oos_without_gap = 0
+    for fv in final:
+        by_prov[fv.provenance] = by_prov.get(fv.provenance, 0) + 1
+        if fv.final_verdict == "OUT-OF-SCOPE":
+            if fv.evidence_gap is not None:
+                oos_with_gap += 1
+            else:
+                oos_without_gap += 1
+
+    summary = {
+        "case_count": len(final),
+        "by_provenance": by_prov,
+        "out_of_scope_with_evidence_gap": oos_with_gap,
+        "out_of_scope_without_evidence_gap": oos_without_gap,
+    }
+    (out_dir / "final_verdicts_summary.json").write_text(
+        json.dumps(summary, indent=2)
+    )
+
+    info(f"  finalize: {by_prov}, OOS with evidence_gap={oos_with_gap}")
+    if oos_without_gap > 0:
+        warn(
+            f"{oos_without_gap} OUT-OF-SCOPE verdicts missing evidence_gap "
+            f"(productive-OOS Delta 5 violation)"
+        )
+    result_line("final_verdicts", True, str(out_path))
+    return 0
+
+
 def _load_simple_jsonl(path: Path) -> list[dict]:
     """Load a JSONL file as a list of dicts (no Judgment-class coercion)."""
     out: list[dict] = []
@@ -871,6 +1181,7 @@ def _load_judgments(path: Path) -> list[Judgment]:
             judge_thinking_enabled=data["judge_thinking_enabled"],
             judge_model_params=data["judge_model_params"],
             generator_provenance=data["generator_provenance"],
+            evidence_gap=data.get("evidence_gap"),
         ))
     return judgments
 

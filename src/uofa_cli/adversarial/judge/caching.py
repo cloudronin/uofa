@@ -66,3 +66,112 @@ def is_cacheable_prefix_size(prompt_prefix: str, *, min_tokens: int = 1024) -> b
     """
     approx_tokens = max(0, len(prompt_prefix) // 4)
     return approx_tokens >= min_tokens
+
+
+# ── Wave H: vendor cache wire-up ────────────────────────────────────────
+
+
+def apply_cache_control_to_messages(
+    messages: list[dict],
+    provider_token: str,
+    *,
+    cache_static_prefix: bool = True,
+) -> list[dict]:
+    """Mutate `messages` to register vendor-specific prompt-cache hints.
+
+    - **OpenAI**: implicit prefix caching — no flag needed; prefix bytes
+      cache automatically. Returns messages unchanged.
+    - **Anthropic**: tag the static prefix block(s) with
+      `cache_control: {type: 'ephemeral'}` (5-min TTL). Litellm honors
+      this when present.
+    - **Gemini**: cached_content is created out-of-band via
+      `litellm.create_cached_content` and referenced on the call as
+      `cached_content=<resource_id>`. We don't mutate messages here;
+      the provider builds the call kwargs.
+
+    The mutation is in-place to avoid copying very large prompts. The
+    function returns the same list for caller convenience.
+    """
+    from uofa_cli.adversarial.judge.providers.capabilities import (
+        get_capabilities,
+    )
+    if not cache_static_prefix:
+        return messages
+    try:
+        caps = get_capabilities(provider_token)
+    except KeyError:
+        return messages
+    if not caps.supports_prompt_caching:
+        return messages
+
+    if provider_token == "anthropic":
+        # Tag the FIRST system / user message that holds the static
+        # prefix. Convention in our litellm provider: messages[0] is the
+        # system prompt with the static prefix; messages[1] is the user
+        # turn with per-case content.
+        if messages and isinstance(messages[0], dict):
+            content = messages[0].get("content")
+            if isinstance(content, str):
+                # Promote string content to the structured-block form
+                # Anthropic requires for cache_control.
+                messages[0]["content"] = [
+                    {
+                        "type": "text",
+                        "text": content,
+                        "cache_control": {"type": "ephemeral"},
+                    }
+                ]
+            elif isinstance(content, list) and content:
+                # Already structured — tag the first block.
+                first = content[0]
+                if isinstance(first, dict):
+                    first.setdefault("cache_control", {"type": "ephemeral"})
+    # OpenAI / Gemini: messages unchanged. (Gemini caching uses
+    # cached_content kwargs, set on the call site, not on messages.)
+    return messages
+
+
+def build_gemini_cache_kwargs(
+    cache_resource_id: str | None,
+) -> dict:
+    """Return the kwargs to merge into a litellm call for Gemini caching.
+
+    `cache_resource_id` is the resource name returned by
+    `litellm.create_cached_content` for the static prefix. None disables
+    caching for the call.
+    """
+    if cache_resource_id is None:
+        return {}
+    return {"cached_content": cache_resource_id}
+
+
+def get_or_create_gemini_cache(
+    *,
+    model: str,
+    static_prefix: str,
+    display_name: str,
+    ttl_seconds: int = 3600,
+) -> str | None:
+    """Get-or-create a Gemini cached_content resource for the static prefix.
+
+    Litellm exposes `litellm.create_cached_content` (Vertex AI uses the
+    same endpoint as Google Generative AI's `caches.create`). On
+    failure (insufficient context size, vendor outage, etc.), returns
+    None so the caller proceeds without the cache discount.
+
+    The display_name is used as the lookup key for an existing resource;
+    we don't enumerate caches because Gemini doesn't expose a stable
+    list-by-display-name API (as of 2026-04). On every run we attempt
+    create; on quota/duplicate errors we fall back to None.
+    """
+    try:
+        import litellm  # type: ignore
+        res = litellm.create_cached_content(
+            model=model,
+            contents=[{"role": "user", "parts": [{"text": static_prefix}]}],
+            display_name=display_name,
+            ttl=f"{ttl_seconds}s",
+        )
+        return getattr(res, "name", None) or res.get("name")
+    except Exception:
+        return None

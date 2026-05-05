@@ -28,6 +28,11 @@ class Judgment:
     Mirrors `specs/judge_output_schema.json`. Construction goes through
     `Judgment.from_response()` which validates against that schema, so
     callers can trust the fields are well-formed.
+
+    `evidence_gap` is required by the schema when `verdict == 'OUT-OF-SCOPE'`
+    (productive-OOS framing per spec v1.6 §7.1, Delta 1). Shape:
+        {"missing_evidence_type": str, "would_support_defeater_evaluation": str}
+    None for non-OOS verdicts.
     """
 
     case_id: str
@@ -42,6 +47,7 @@ class Judgment:
     judge_thinking_enabled: bool
     judge_model_params: dict[str, Any]
     generator_provenance: dict[str, Any]
+    evidence_gap: dict[str, str] | None = None
     # Provider-side metadata not part of the output schema. Kept here for
     # run-manifest accounting (latency, cache hits, retries).
     raw_response: dict | None = field(default=None, compare=False)

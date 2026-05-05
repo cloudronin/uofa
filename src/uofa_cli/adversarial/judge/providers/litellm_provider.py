@@ -76,6 +76,8 @@ class LiteLLMProvider(AbstractJudgeProvider):
         completion_fn: CompletionFn | None = None,
         thinking_enabled: bool = True,
         schema_name: str = "judge_output_schema.json",
+        cache_static_prefix: bool = True,
+        gemini_cache_id: str | None = None,
     ) -> None:
         self._provider_token = provider_token
         self._caps: ProviderCapabilities = get_capabilities(provider_token)
@@ -84,6 +86,12 @@ class LiteLLMProvider(AbstractJudgeProvider):
         self._judge_role = judge_role
         self._thinking_enabled = thinking_enabled
         self._schema_name = schema_name
+        # Wave H: cache wiring. cache_static_prefix gates Anthropic
+        # ephemeral cache_control (default on for capable providers);
+        # gemini_cache_id is set externally after a one-shot
+        # `caching.get_or_create_gemini_cache` call.
+        self._cache_static_prefix = cache_static_prefix
+        self._gemini_cache_id = gemini_cache_id
         # `completion_fn` is the seam for tests. None → real litellm.acompletion.
         self._completion_fn = completion_fn
 
@@ -152,11 +160,28 @@ class LiteLLMProvider(AbstractJudgeProvider):
             {"role": "user", "content": per_case},
         ]
 
+        # Wave H: vendor-specific cache hints. For Anthropic this tags
+        # the static-prefix block with cache_control: ephemeral. For
+        # OpenAI / Gemini messages are unchanged (their caching is at
+        # the call kwargs / file resource level).
+        from uofa_cli.adversarial.judge.caching import (
+            apply_cache_control_to_messages,
+        )
+        apply_cache_control_to_messages(
+            messages,
+            self._provider_token,
+            cache_static_prefix=self._cache_static_prefix,
+        )
+
         kwargs: dict[str, Any] = {
             "model": self._litellm_model,
             "messages": messages,
             "temperature": 0.0,
         }
+        # Gemini: opt-in cached_content kwarg if the provider has a
+        # resource id pre-resolved (set externally via configure_cache).
+        if self._provider_token == "gemini" and self._gemini_cache_id:
+            kwargs["cached_content"] = self._gemini_cache_id
         # Add thinking-mode params if the capability table specifies them
         # and the caller requested thinking. Each (k, v) pair in
         # thinking_kwargs becomes a top-level kwarg to litellm.acompletion.
@@ -288,6 +313,7 @@ class LiteLLMProvider(AbstractJudgeProvider):
                 "generator_provenance",
                 {"generator_model": "unknown", "temperature": None, "seed": None},
             ),
+            evidence_gap=parsed.get("evidence_gap"),
             raw_response=raw,
         )
 
