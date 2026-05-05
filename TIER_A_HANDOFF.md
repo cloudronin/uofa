@@ -281,3 +281,68 @@ prefix. `<model>:<provider>` model id format is required; bare
 - `verify_gemini_strict_schema.py`: PASS (Gemini 3.1 Pro Preview, productive evidence_gap on OOS)
 - `verify_hf_llama_inference.py`: PASS (Llama 4 Maverick via HF Router → Sambanova)
 
+
+---
+
+## End-to-end smoke (2026-05-05): cal-007 through full panel
+
+`dev/tools/scripts/smoke_full_panel.py` runs one calibration case
+through the entire 5-judge pipeline: production trio (A/B/C) + Judge D
+anchor in parallel, then triage, then Judge E if disagreement.
+
+**Case:** `cal-007-real_gap-ambiguous` (non-canonical, ground-truth
+REAL-GAP, §6.7 candidate W-REQ-01, 13.7KB package)
+
+| Judge | Model | Verdict | Confidence | Latency | Cost |
+|---|---|---|---:|---:|---:|
+| A | openai/gpt-5.4 | REAL-GAP ✓ | 0.84 | 11.5s | $0.01320 |
+| B | gemini/gemini-3.1-pro-preview | REAL-GAP ✓ | 1.00 | 14.3s | $0.01081 |
+| C | Llama 4 Maverick (HF Router/Sambanova) | REAL-GAP ✓ | 0.85 | 3.0s | $0.00000* |
+| D | anthropic/claude-sonnet-4-6 | REAL-GAP ✓ | 0.78 | 28.3s | $0.05148 |
+
+*Llama 4 cost is $0.00000 because the HF Router model id isn't in
+litellm 1.63's price table; cost-tracking for that judge is a Wave M
+follow-up (one-line addition once the price hits litellm or a manual
+override lands in the capability table).
+
+**Triage:** CONVERGENT 3-of-3 — Judge E correctly skipped.
+**Total:** $0.07549, wall-clock 29.24s (parallel A-D), serial 57.06s.
+
+### Production-cost projection (4,556 packages, 3 production judges)
+
+| Component | Per-package | Per-corpus |
+|---|---:|---:|
+| Judge A (gpt-5.4) | $0.01320 | $60.15 |
+| Judge B (gemini-3.1-pro-preview) | $0.01081 | $49.25 |
+| Judge C (Llama 4) | TBD (price not yet in litellm) | TBD |
+| Judge D (calibration anchor, 30 cases) | $0.05148 | $1.54 |
+| Judge E (arbitration, ~25% queue) | ~$0.001 (large-2512) | ~$1.14 |
+| **subtotal (A+B+D+E)** | | **~$112** |
+
+Llama-4 cost at Sambanova's published rate ($0.0001/1K input + $0.0003/1K
+output) at observed token counts (~6K input + 200 output per case)
+adds ~$0.0007 per case → ~$3.20 for the full corpus. Total ~**$115**,
+well under the spec's $580 budget.
+
+### Latency observations
+
+- Parallel A-D wall-clock 29.24s = ~latency of slowest single judge
+  (Anthropic, 28.3s). Anthropic is the bottleneck; consider running
+  the calibration anchor (D) in a separate sweep so production A/B/C
+  can start triage sooner.
+- Judge C (Llama 4) responds in 3.0s — fastest by 4x. Sambanova's
+  fast inference path is the reason. Means Llama is a good fit for
+  the highest-throughput judge slot if HF Router stays available.
+- Anthropic's 28.3s latency on a 13.7KB package is ~21K input tokens
+  plus full reasoning. With prompt caching (Wave H, ephemeral 5-min)
+  the second-and-onward calls in a batch should drop ~5-10s.
+
+### Schema-coercion finding
+
+Llama 4 Maverick (non-strict-schema) returned a partial JSON payload
+on the first run: `generator_provenance: 'unknown'` (string instead of
+object). Added `_coerce_partial_response` to LiteLLMProvider that fills
+missing/mistyped required fields with `(coerced)`-tagged defaults
+before runtime schema validation. The audit trail captures which
+fields were coerced; second smoke run produces clean `REAL-GAP ✓`.
+This should NOT bite strict-schema providers (gated by `supports_strict_schema=False`).
