@@ -56,7 +56,7 @@ class TestParseJudgesFailureModes:
 
     def test_missing_position_raises(self) -> None:
         # Only A and B; missing C.
-        with pytest.raises(ValueError, match="cover all three positions"):
+        with pytest.raises(ValueError, match="cover all three production positions"):
             parse_judges("openai,gemini")
 
     def test_duplicate_position_raises(self) -> None:
@@ -64,14 +64,28 @@ class TestParseJudgesFailureModes:
         with pytest.raises(ValueError, match="duplicate positions|cannot mix"):
             parse_judges("openai,mock_a,gemini")
 
+    def test_anthropic_rejected_in_judge_subcommand(self) -> None:
+        # Per v1.6 §6.0, anthropic is Judge D (calibrate-anchor) — not a
+        # production judge. The `judge` subcommand should reject it with a
+        # clear error directing to the right subcommand.
+        with pytest.raises(ValueError, match="calibrate-anchor"):
+            parse_judges("anthropic,gemini,hf-llama")
+
+    def test_mistral_rejected_in_judge_subcommand(self) -> None:
+        # Per v1.6 §6.7, mistral is Judge E (arbitrate) — not a production
+        # judge.
+        with pytest.raises(ValueError, match="arbitrate"):
+            parse_judges("openai,gemini,mistral")
+
     def test_mix_real_and_mock_allowed_for_smoke(self) -> None:
         # Smoke runs intentionally mix one real provider with mocks (e.g.
-        # `anthropic,mock_b,mock_c`) to validate the real provider path
+        # `openai,mock_b,mock_c`) to validate the real provider path
         # end-to-end without spending budget on all three. is_mock=False
-        # because not all tokens are mocks.
-        cfg = parse_judges("anthropic,mock_b,mock_c")
+        # because not all tokens are mocks. Note: anthropic + mistral are
+        # not valid for the production-judge subcommand per v1.6 §6.0/§6.7.
+        cfg = parse_judges("openai,mock_b,mock_c")
         assert cfg.is_mock is False
-        assert cfg.tokens == ("anthropic", "mock_b", "mock_c")
+        assert cfg.tokens == ("openai", "mock_b", "mock_c")
 
 
 # ── PROVIDER_TO_POSITION map ───────────────────────────────────────────

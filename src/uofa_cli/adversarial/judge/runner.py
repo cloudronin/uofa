@@ -63,7 +63,20 @@ logger = logging.getLogger(__name__)
 _MOCK_VERDICTS_A = ["REAL-GAP", "GENERATOR-ARTIFACT", "REAL-GAP", "OUT-OF-SCOPE", "CORRECT-DETECTION"]
 _MOCK_VERDICTS_B = ["REAL-GAP", "REAL-GAP",           "REAL-GAP", "OUT-OF-SCOPE", "EXISTING-RULE-MISBEHAVIOR"]
 _MOCK_VERDICTS_C = ["REAL-GAP", "GENERATOR-ARTIFACT", "GENERATOR-ARTIFACT", "OUT-OF-SCOPE", "EXISTING-RULE-MISBEHAVIOR"]
-_MOCK_VERDICT_MAP = {"mock_a": _MOCK_VERDICTS_A, "mock_b": _MOCK_VERDICTS_B, "mock_c": _MOCK_VERDICTS_C}
+# Judge D (calibration anchor): produces a clean verdict per case for
+# calibrate-anchor smoke. Mostly aligned with A so accuracy reads are sane.
+_MOCK_VERDICTS_D = ["REAL-GAP", "GENERATOR-ARTIFACT", "REAL-GAP", "OUT-OF-SCOPE", "CORRECT-DETECTION"]
+# Judge E (arbiter): produces verdicts for arbitration smoke. Confidence
+# levels are emitted per-case so Stage 3b ARBITRATED/ESCALATED partition
+# is exercised; see _build_mock_judgment confidence parameter for control.
+_MOCK_VERDICTS_E = ["REAL-GAP", "GENERATOR-ARTIFACT", "REAL-GAP", "UNCERTAIN", "EXISTING-RULE-MISBEHAVIOR"]
+_MOCK_VERDICT_MAP = {
+    "mock_a": _MOCK_VERDICTS_A,
+    "mock_b": _MOCK_VERDICTS_B,
+    "mock_c": _MOCK_VERDICTS_C,
+    "mock_d": _MOCK_VERDICTS_D,
+    "mock_e": _MOCK_VERDICTS_E,
+}
 
 # Encounter-order ledger keyed by case_id. All mock providers use this to
 # pick the same verdict array index per case, which is what preserves the
@@ -96,7 +109,15 @@ class _MockProvider(AbstractJudgeProvider):
         if token not in _MOCK_VERDICT_MAP:
             raise ValueError(f"unknown mock token: {token}")
         self._token = token
-        self._family = {"mock_a": "Mock-A", "mock_b": "Mock-B", "mock_c": "Mock-C"}[token]
+        self._family = {
+            "mock_a": "Mock-A", "mock_b": "Mock-B", "mock_c": "Mock-C",
+            "mock_d": "Mock-D", "mock_e": "Mock-E",
+        }[token]
+        self._judge_role = {
+            "mock_a": "production", "mock_b": "production", "mock_c": "production",
+            "mock_d": "calibration_anchor",
+            "mock_e": "arbiter",
+        }[token]
         self._verdicts = _MOCK_VERDICT_MAP[token]
 
     @property
@@ -106,6 +127,10 @@ class _MockProvider(AbstractJudgeProvider):
     @property
     def model(self) -> str:
         return self._token
+
+    @property
+    def judge_role(self) -> str:
+        return self._judge_role
 
     @property
     def supports_strict_schema(self) -> bool:
@@ -186,44 +211,39 @@ def _build_providers(
     judges: JudgesConfig,
     *,
     model_overrides: dict[str, str | None] | None = None,
+    judge_role: str = "production",
 ) -> list[AbstractJudgeProvider]:
     """Construct provider instances for each token in the config.
 
-    `model_overrides` keys are provider tokens (`openai`, `gemini`,
-    `hf-llama`, `anthropic`); values are model id strings or None (use
-    built-in default).
+    All real providers go through `LiteLLMProvider` (Phase 3 v1.6 litellm-first
+    refactor); per-vendor variations live in `capabilities.py`. Mock tokens
+    use the canned-verdict `_MockProvider`.
+
+    `model_overrides` keys are provider tokens (`openai`, `gemini`, `hf-llama`,
+    `anthropic`, `mistral`); values are model id strings or None (use
+    capability-table default).
+
+    `judge_role` is propagated to LiteLLMProvider for run-manifest accounting.
+    Default 'production' for the `judge` subcommand; calibrate-anchor uses
+    'calibration_anchor', arbitrate uses 'arbiter'.
     """
+    from uofa_cli.adversarial.judge.providers.litellm_provider import LiteLLMProvider
+
     overrides = model_overrides or {}
     providers: list[AbstractJudgeProvider] = []
     for token in judges.tokens:
         if token.startswith("mock_"):
             providers.append(_MockProvider(token))
-        elif token == "openai":
-            from uofa_cli.adversarial.judge.providers.openai_compat import (
-                OpenAICompatProvider,
-            )
-            providers.append(OpenAICompatProvider(
-                target="openai", model=overrides.get("openai")
+            continue
+        # Real provider via litellm. Capability table maps token → defaults.
+        try:
+            providers.append(LiteLLMProvider(
+                provider_token=token,
+                model=overrides.get(token),
+                judge_role=judge_role,
             ))
-        elif token == "gemini":
-            from uofa_cli.adversarial.judge.providers.gemini import GeminiProvider
-            providers.append(GeminiProvider(model=overrides.get("gemini") or "gemini-3.1-pro"))
-        elif token == "hf-llama":
-            from uofa_cli.adversarial.judge.providers.openai_compat import (
-                OpenAICompatProvider,
-            )
-            providers.append(OpenAICompatProvider(
-                target="hf-llama", model=overrides.get("hf-llama")
-            ))
-        elif token == "anthropic":
-            from uofa_cli.adversarial.judge.providers.openai_compat import (
-                OpenAICompatProvider,
-            )
-            providers.append(OpenAICompatProvider(
-                target="anthropic", model=overrides.get("anthropic")
-            ))
-        else:
-            raise ValueError(f"unknown judge token: {token}")
+        except KeyError as e:
+            raise ValueError(f"unknown judge token: {token}") from e
     return providers
 
 

@@ -116,78 +116,54 @@ def reassemble_batch(
 def _submit_openai_batch(
     provider: AbstractJudgeProvider, cases: list[dict]
 ) -> BatchHandle:
-    client = _client_of(provider)
-    if not hasattr(client, "batches") or not hasattr(client.batches, "create"):
-        raise NotImplementedError(
-            "OpenAI client does not expose .batches.create; "
-            "Tier A skeleton — full implementation lands at Stage 2"
-        )
-    # Real implementation uploads a JSONL file with one request per case
-    # (see https://platform.openai.com/docs/guides/batch). Tests inject a
-    # mock that returns a stub batch object with .id.
-    response = client.batches.create(
-        input_file_id="<placeholder — real impl uploads cases as JSONL>",
-        endpoint="/v1/chat/completions",
-        completion_window="24h",
+    """Phase 3 v1.6 placeholder. Wave G fills in the real litellm.create_batch call."""
+    raise NotImplementedError(
+        "OpenAI batch submit via litellm.create_batch lands in Wave G "
+        "(Phase 3 production-readiness); Phase 1 ships the dispatch layer only."
     )
-    batch_id = getattr(response, "id", None) or response["id"]
-    return BatchHandle(vendor="openai", batch_id=batch_id, case_count=len(cases))
 
 
 def _poll_openai_batch(
     provider: AbstractJudgeProvider, handle: BatchHandle
 ) -> BatchStatus:
-    client = _client_of(provider)
-    if not hasattr(client, "batches"):
-        raise NotImplementedError("OpenAI client does not expose .batches")
-    batch = client.batches.retrieve(handle.batch_id)
-    status_str = getattr(batch, "status", None) or batch.get("status", "pending")
-    return _coerce_status(status_str)
+    """Phase 3 v1.6 placeholder. Wave G fills in litellm.retrieve_batch."""
+    raise NotImplementedError(
+        "OpenAI batch poll via litellm.retrieve_batch lands in Wave G."
+    )
 
 
 def _reassemble_openai(
     provider: AbstractJudgeProvider, handle: BatchHandle
 ) -> BatchResult:
-    """Stage 2 will fetch the output file and parse one Judgment per line."""
+    """Wave G will fetch the output file and parse one Judgment per line via litellm."""
     raise NotImplementedError(
-        "OpenAI batch reassembly is a Stage 2 deliverable; Tier A ships the dispatch layer"
+        "OpenAI batch reassembly is a Wave G deliverable; Phase 1 ships the dispatch layer"
     )
 
 
 def _submit_gemini_batch(
     provider: AbstractJudgeProvider, cases: list[dict]
 ) -> BatchHandle:
-    client = _client_of(provider)
-    # Gemini batch is exposed via the `genai.batches` namespace in v0.8+.
-    if not hasattr(client, "batches"):
-        raise NotImplementedError(
-            "Gemini client does not expose .batches; "
-            "Tier A skeleton — full implementation lands at Stage 2"
-        )
-    response = client.batches.create(
-        model=provider.model,
-        cases="<placeholder — real impl serializes cases per Gemini batch schema>",
+    """Phase 3 v1.6 placeholder. Wave G fills in via litellm.batches."""
+    raise NotImplementedError(
+        "Gemini batch submit via litellm.batches lands in Wave G."
     )
-    batch_id = getattr(response, "name", None) or response["name"]
-    return BatchHandle(vendor="gemini", batch_id=batch_id, case_count=len(cases))
 
 
 def _poll_gemini_batch(
     provider: AbstractJudgeProvider, handle: BatchHandle
 ) -> BatchStatus:
-    client = _client_of(provider)
-    if not hasattr(client, "batches"):
-        raise NotImplementedError("Gemini client does not expose .batches")
-    batch = client.batches.get(handle.batch_id)
-    state_str = getattr(batch, "state", None) or batch.get("state", "pending")
-    return _coerce_status(state_str)
+    """Phase 3 v1.6 placeholder. Wave G fills in litellm.batches.get."""
+    raise NotImplementedError(
+        "Gemini batch poll via litellm.batches lands in Wave G."
+    )
 
 
 def _reassemble_gemini(
     provider: AbstractJudgeProvider, handle: BatchHandle
 ) -> BatchResult:
     raise NotImplementedError(
-        "Gemini batch reassembly is a Stage 2 deliverable"
+        "Gemini batch reassembly is a Wave G deliverable"
     )
 
 

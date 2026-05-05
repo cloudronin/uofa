@@ -1,15 +1,20 @@
-"""CLI argument validation for `uofa adversarial judge` subcommand (spec §6.1, §9.1).
+"""CLI argument validation for `uofa adversarial judge` subcommand (spec §6.1, §6.7, §9.1).
 
-Provider-token-to-position mapping (canonical A/B/C ordering):
+Provider-token-to-position mapping (canonical 5-family ensemble per v1.6):
 
-    {openai: A, gemini: B, hf-llama: C}
+    Production ensemble (judge subcommand):
+      openai → A, gemini → B, hf-llama → C
+    Calibration anchor (calibrate-anchor subcommand):
+      anthropic → D
+    Disagreement arbiter (arbitrate subcommand):
+      mistral → E
 
-Stats outputs always reference positions (cohen_kappa_AB, etc.); the user
-specifies which providers to use via `--judges openai,gemini,hf-llama`
+Stats outputs always reference positions (cohen_kappa_AB, confusion_matrix_EA, etc.);
+the user specifies which providers to use via `--judges openai,gemini,hf-llama`
 without ever typing A/B/C.
 
-The `mock_a/b/c` tokens are accepted for the smoke test path (spec §14.3)
-and bypass the family check.
+Mock tokens (`mock_a/b/c/d/e`) bypass the family check and are accepted for
+the smoke-test path (spec §14.3).
 """
 
 from __future__ import annotations
@@ -17,21 +22,35 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 
+# Position constants for the 5-family v1.6 ensemble (spec §6.0, §6.1, §6.7).
+JUDGE_A = "A"
+JUDGE_B = "B"
+JUDGE_C = "C"
+JUDGE_D = "D"  # Calibration anchor (Claude)
+JUDGE_E = "E"  # Disagreement arbiter (Mistral)
+
 # Canonical provider → position map.
 PROVIDER_TO_POSITION: dict[str, str] = {
-    "openai": "A",
-    "gemini": "B",
-    "hf-llama": "C",
+    # Production judges.
+    "openai": JUDGE_A,
+    "gemini": JUDGE_B,
+    "hf-llama": JUDGE_C,
+    # Calibration anchor (Judge D, spec §6.0).
+    "anthropic": JUDGE_D,
+    # Disagreement arbiter (Judge E, spec §6.7).
+    "mistral": JUDGE_E,
     # Mock-provider tokens for smoke testing.
-    "mock_a": "A",
-    "mock_b": "B",
-    "mock_c": "C",
-    # Anthropic (same family as Phase 2 generator) — smoke-test only;
-    # requires --allow-same-family-judge. Maps to position A.
-    "anthropic": "A",
+    "mock_a": JUDGE_A,
+    "mock_b": JUDGE_B,
+    "mock_c": JUDGE_C,
+    "mock_d": JUDGE_D,
+    "mock_e": JUDGE_E,
 }
 
 VALID_PROVIDER_TOKENS = frozenset(PROVIDER_TO_POSITION)
+
+# Production-ensemble positions (the `judge` subcommand requires all three).
+PRODUCTION_POSITIONS: frozenset[str] = frozenset({JUDGE_A, JUDGE_B, JUDGE_C})
 
 
 @dataclass(frozen=True)
@@ -46,13 +65,15 @@ class JudgesConfig:
 def parse_judges(raw: str) -> JudgesConfig:
     """Parse `--judges <comma,list>` into a JudgesConfig.
 
-    Validation:
+    Validation (production ensemble — `judge` subcommand):
       - Every token must be in VALID_PROVIDER_TOKENS.
-      - All three positions (A, B, C) must be covered.
+      - All three production positions (A, B, C) must be covered.
       - No duplicate positions.
-      - Cannot mix mock + real providers.
+      - Production-only tokens (D=anthropic, E=mistral, mock_d, mock_e) are
+        rejected here; they belong to `calibrate-anchor` and `arbitrate`
+        subcommands respectively.
 
-    Returns the config with tokens sorted by canonical position so
+    Returns the config with tokens sorted by canonical A/B/C position so
     downstream code can rely on tokens[0] = position A, etc.
     """
     if not raw or not raw.strip():
@@ -75,10 +96,24 @@ def parse_judges(raw: str) -> JudgesConfig:
         raise ValueError(
             f"--judges has duplicate positions: tokens={tokens} → positions={positions}"
         )
-    if set(positions) != {"A", "B", "C"}:
-        missing = {"A", "B", "C"} - set(positions)
+    non_production = set(positions) - PRODUCTION_POSITIONS
+    if non_production:
+        # Tokens for D (anthropic) and E (mistral) belong to the
+        # calibrate-anchor / arbitrate subcommands respectively. The
+        # `judge` subcommand should reject them so the user gets a clear
+        # error rather than silently re-purposing a Judge D / Judge E
+        # provider as a production judge.
+        wrong_tokens = [t for t in tokens if PROVIDER_TO_POSITION[t] in non_production]
         raise ValueError(
-            f"--judges must cover all three positions A/B/C; missing={sorted(missing)}"
+            f"--judges accepts only production-ensemble tokens (A/B/C); "
+            f"saw {wrong_tokens} mapping to position(s) {sorted(non_production)}. "
+            f"Judge D (anthropic) is for `uofa adversarial calibrate-anchor`; "
+            f"Judge E (mistral) is for `uofa adversarial arbitrate`."
+        )
+    if set(positions) != PRODUCTION_POSITIONS:
+        missing = PRODUCTION_POSITIONS - set(positions)
+        raise ValueError(
+            f"--judges must cover all three production positions A/B/C; missing={sorted(missing)}"
         )
 
     is_mock = all(t.startswith("mock_") for t in tokens)

@@ -80,12 +80,22 @@ class AbstractJudgeProvider(ABC):
     @property
     @abstractmethod
     def family(self) -> str:
-        """Resolved family label (e.g. 'GPT', 'Gemini', 'Llama')."""
+        """Resolved family label (e.g. 'GPT', 'Gemini', 'Llama', 'Claude', 'Mistral')."""
 
     @property
     @abstractmethod
     def model(self) -> str:
         """Provider-visible model id (e.g. 'gpt-5.4', 'gemini-3.1-pro')."""
+
+    @property
+    def judge_role(self) -> str:
+        """Role this judge plays in the v1.6 ensemble.
+
+        Values: 'production' (Judges A/B/C), 'calibration_anchor' (Judge D),
+        'arbiter' (Judge E). Default 'production' for back-compat with the
+        v1.5 abstract base; v1.6 LiteLLMProvider overrides this per-instance.
+        """
+        return "production"
 
     @property
     @abstractmethod
