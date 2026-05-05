@@ -391,6 +391,42 @@ def add_arguments(parser):
     fn.add_argument("--out", type=Path, required=True,
                     help="output directory (created if missing)")
 
+    # ----- formalize (Phase 3 v1.6 §13.1, Wave J — forward-chaining only) -----
+    fz = sub.add_parser(
+        "formalize",
+        help="generate Jena rule + test scaffolds from REAL-GAP final verdicts "
+             "(Phase 3 v1.6 §13.1; forward-chaining C3 weakeners only — "
+             "OOS substrate test is separate engineering)",
+    )
+    fz.add_argument("--final-verdicts", type=Path, required=True,
+                    help="path to final_verdicts.jsonl from `finalize`")
+    fz.add_argument("--judgments-a", type=Path, default=None,
+                    help="judgments_A.jsonl for §6.7 candidate lookup")
+    fz.add_argument("--judgments-b", type=Path, default=None)
+    fz.add_argument("--judgments-c", type=Path, default=None)
+    fz.add_argument("--severity-overrides", type=Path, default=None,
+                    help="optional JSON dict {'W-EV-01': 'Critical', ...} "
+                         "overriding the §6.7 default severity table")
+    fz.add_argument("--out", type=Path, required=True,
+                    help="output directory; rules/, tests/, formalization_summary.json")
+
+    # ----- case-study-rerun (Phase 3 v1.6 §13.3, Wave K) -----
+    cs = sub.add_parser(
+        "case-study-rerun",
+        help="run two catalog versions across the published case-study COUs "
+             "(Morrison + Nagaraja); emit delta_table.md + .json (Phase 3 v1.6 §13.3)",
+    )
+    cs.add_argument(
+        "--catalog", action="append", required=True,
+        help="catalog version (specify twice: --catalog v0.4.1 --catalog v0.5)",
+    )
+    cs.add_argument(
+        "--cou", action="append", required=True,
+        help="case-study COU id (e.g. morrison-cou1, nagaraja-cou1); repeat for each",
+    )
+    cs.add_argument("--out", type=Path, required=True,
+                    help="output directory (created if missing)")
+
 
 def run(args) -> int:
     cmd = getattr(args, "adversarial_command", None)
@@ -427,6 +463,12 @@ def run(args) -> int:
     if cmd == "finalize":
         from uofa_cli.adversarial.judge.runner import run_finalize
         return run_finalize(args)
+    if cmd == "formalize":
+        from uofa_cli.adversarial.judge.runner import run_formalize
+        return run_formalize(args)
+    if cmd == "case-study-rerun":
+        from uofa_cli.adversarial.judge.runner import run_case_study_rerun
+        return run_case_study_rerun(args)
 
     print("usage: uofa adversarial <subcommand>")
     print()

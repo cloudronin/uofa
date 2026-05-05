@@ -174,3 +174,71 @@ Infrastructure built here makes all of the above runnable; you drive them when A
 - [x] `analyze` without `--emit-judge-bundle` is byte-for-byte unchanged (gated by `getattr(args, 'emit_judge_bundle', False)`)
 - [x] `TIER_A_HANDOFF.md` documents what's built, what's pending, spec ambiguities
 - [ ] PR opened to `main`; merge once green
+
+---
+
+## v1.6 update (2026-05-04 phase3-tier-a-prep continuation)
+
+This branch now carries the full v1.6 + productive-OOS deltas in addition to the v1.5 Tier A baseline above. New module list (additions only):
+
+| File | Purpose | Coverage (judge pkg) |
+|---|---|---|
+| `providers/litellm_provider.py` | Single litellm-backed provider; replaces `openai_compat.py` + `gemini.py` (deleted in Phase 1) | 76% |
+| `providers/capabilities.py` | Per-provider capability table (strict_schema, batch_api, caching, blocklists, thinking kwargs) | 100% |
+| `anchor.py` | Judge D calibration-anchor ingest + author-override capture | 93% |
+| `arbitration.py` | Judge E arbitration over the disagreement queue + Stage 3b ARBITRATED/ESCALATED partition | 90% |
+| `final_verdict.py` | 4-layer source priority (AUTHOR_OVERRIDE > AUTHOR_FINAL > ARBITRATED > CONVERGENT) + productive-OOS evidence_gap carry-through | 91% |
+| `cost_gate.py` | Budget tracker, `--dry-run` cost estimate, `--max-cost` enforcement | 100% |
+| `resume.py` | `--resume` idempotency over per-judge JSONL outputs | 100% |
+| `formalize.py` | Wave J — REAL-GAP → Jena rule scaffold (forward-chaining only per Delta 6) | 96% |
+| `case_study.py` | Wave K — catalog × COU rule re-run + delta_table.md | 92% |
+
+Overall coverage on `src/uofa_cli/adversarial/judge/`: **79%** (was 89% in v1.5). The drop reflects the runner.py CLI surface expanding faster than the runner-level integration tests; module-level coverage on the new pieces (`cost_gate.py`, `resume.py`, `formalize.py`, `case_study.py`) is ≥92%.
+
+### v1.6 schema + prompt artifacts
+- `specs/judge_output_schema.json` — adds `evidence_gap` field; `if/then` block requires it when `verdict == 'OUT-OF-SCOPE'` (Delta 1).
+- `specs/judge_e_output_schema.json` — Judge E arbitration schema with `arbitration_basis` + `production_judge_evaluation` + same OOS conditional-required (Delta 2).
+- `packs/core/judge_prompts/v1.1.0.md` — production prompt with productive-OOS framing + cal-021 OOS exemplar (Delta 3); v1.0.0.md retained for reproducibility.
+- `packs/core/judge_prompts/arbitration_v1.0.0.md` — Judge E prompt with OOS arbitration instruction (Delta 4).
+
+### v1.6 calibration set
+- `specs/calibration/calibration_set_v1.jsonl` — 30-case Judge D anchor (5 per class, 6 canonical few-shots).
+- `specs/calibration/packages/cal-02[1-5]-out_of_scope-stub.jsonld` — author-constructed OOS packages with `adversarialProvenance.evidenceGapDescription`.
+- `dev/tools/scripts/validate_calibration_set.py` v2 — Checks 11 (REAL-GAP requires section_6_7_mapping), 12 (§6.7 coverage ≥4 of 6), W1/W2 soft warnings.
+
+### CLI surface added in v1.6
+- `uofa adversarial calibrate-anchor ingest` — validate Judge D anchor + capture author overrides.
+- `uofa adversarial arbitrate` — Judge E arbitration over the disagreement queue.
+- `uofa adversarial finalize` — assemble `final_verdicts.jsonl` with productive-OOS evidence_gap + provenance source attribution.
+- `uofa adversarial formalize` — Wave J Jena rule scaffolds (forward-chaining only).
+- `uofa adversarial case-study-rerun` — Wave K v0.4.1 vs v0.5 delta table.
+- `uofa adversarial judge --dry-run --max-cost --resume` — Wave F + I production-readiness flags.
+- `uofa adversarial adjudicate --judgments-e --judgments-d --author-adjudications --spot-check-overrides` — Wave D extended agreement metrics.
+
+### Real-API verification scripts (Wave L — pending API keys)
+- `dev/tools/scripts/verify_litellm_refactor.py` — confirms litellm path matches v1.5 SDK results.
+- `dev/tools/scripts/verify_anthropic_native_thinking.py` — verifies extended thinking + strict-schema (with `if/then` strip) end-to-end.
+- `dev/tools/scripts/verify_mistral_strict_schema.py` — populates `capabilities.py` Mistral blocklist if needed (deferred until `MISTRAL_API_KEY`).
+
+### Productive-OOS Delta 5 details (final_verdicts.jsonl source attribution)
+- `evidence_gap_source ∈ {judge_a, judge_b, judge_c, judge_e, author}`.
+- CONVERGENT OOS: highest-confidence judge's gap is primary; canonical A→B→C tie-break; alternatives preserved in `alternative_evidence_gaps`.
+- ARBITRATED OOS sourced from Judge E.
+- AUTHOR_FINAL / AUTHOR_OVERRIDE OOS sourced from author record.
+
+### Capability-table notes
+- `supports_batch_api` is OFF for `gemini` and `anthropic` (litellm 1.30 only supports OpenAI in `create_batch`). Internal helpers `_submit_anthropic_batch` etc. are wired and tested via mocks — flipping the flag back ON when litellm matures is a one-line change. Mistral has no batch API per spec §6.7.
+- Anthropic `schema_keyword_blocklist` includes `if/then/else` (Delta 1 conditional-required is enforced post-call by the runtime parser).
+
+### What's still pending (Wave L + Tier B)
+- Real-API smokes against Anthropic / OpenAI / Mistral (need `MISTRAL_API_KEY`).
+- End-to-end production run on the 4,556-package corpus (cost ≈ $420 + Mistral arbitration).
+- Spec text update at §15 hard gate #2 (v1.0.0 → v1.1.0) — sandbox-blocked while editing user's Dropbox spec doc; one-line author-side change.
+- Backward-chaining OOS Jena rule generation: separate engineering, May 11–24 substrate validation test (`UofA_OOS_Substrate_Validation_Test_v0_1.md`).
+
+### Test count (judge package)
+- v1.5: 170 tests
+- v1.6 commit `c9918a6` (Phase 2): 269 tests
+- v1.6 commit `54ac672` (Phase 3): 307 tests
+- v1.6 commit current (Phase 4 + 5): 322 tests, all green
+

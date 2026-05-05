@@ -1140,6 +1140,89 @@ def run_finalize(args) -> int:
     return 0
 
 
+# ── run_case_study_rerun (Phase 3 v1.6 §13.3, Wave K) ──
+
+
+def run_case_study_rerun(args) -> int:
+    """Entry point for `uofa adversarial case-study-rerun`.
+
+    Runs the rule engine against `--catalog` × `--cou` matrix and emits
+    `delta_table.md` + `delta_table.json` per spec §13.3.
+    """
+    from uofa_cli.adversarial.judge.case_study import (
+        compute_delta_rows,
+        run_case_study,
+        write_delta_artifacts,
+    )
+
+    catalogs: list[str] = args.catalog
+    cous: list[str] = args.cou
+    out_dir: Path = args.out
+    if len(catalogs) != 2:
+        error("--catalog must take exactly two version strings (A B)")
+        return 2
+
+    info(f"running case-study: catalogs {catalogs} × COUs {cous}")
+    runs = run_case_study(catalogs=catalogs, cous=cous)
+    rows = compute_delta_rows(runs, catalog_a=catalogs[0], catalog_b=catalogs[1])
+    paths = write_delta_artifacts(
+        rows, out_dir, catalog_a=catalogs[0], catalog_b=catalogs[1]
+    )
+    info(f"  delta_table: {paths['markdown']}")
+    result_line("delta_table", True, str(paths["markdown"]))
+    return 0
+
+
+# ── run_formalize (Phase 3 v1.6 §13.1, Wave J — forward-chaining only) ──
+
+
+def run_formalize(args) -> int:
+    """Entry point for `uofa adversarial formalize`.
+
+    Reads `final_verdicts.jsonl` + (optionally) per-judge `judgments_*.jsonl`
+    to attach §6.7 candidates, then emits Jena rule + test scaffolds for
+    each REAL-GAP case. Forward-chaining only — backward-chaining OOS
+    rules are out of Tier A scope (substrate validation test, May 11–24).
+    """
+    from uofa_cli.adversarial.judge.formalize import run_formalize_from_files
+
+    final_verdicts_path: Path = args.final_verdicts
+    out_dir: Path = args.out
+    judgments_paths = {
+        "A": getattr(args, "judgments_a", None),
+        "B": getattr(args, "judgments_b", None),
+        "C": getattr(args, "judgments_c", None),
+    }
+    judgments_paths = {k: v for k, v in judgments_paths.items() if v is not None}
+
+    if not final_verdicts_path.exists():
+        error(f"final_verdicts.jsonl not found: {final_verdicts_path}")
+        return 2
+
+    severity_overrides_path: Path | None = getattr(args, "severity_overrides", None)
+    severity_overrides: dict[str, str] = {}
+    if severity_overrides_path is not None and severity_overrides_path.exists():
+        # JSON file: {"W-EV-01": "Critical", ...}
+        severity_overrides = json.loads(severity_overrides_path.read_text())
+
+    out_dir.mkdir(parents=True, exist_ok=True)
+    result = run_formalize_from_files(
+        final_verdicts_path=final_verdicts_path,
+        judgments_paths=judgments_paths,
+        out_dir=out_dir,
+        severity_overrides=severity_overrides,
+    )
+    info(f"formalize: {len(result.candidates)} rule scaffolds generated")
+    if result.skipped_case_count:
+        info(f"  skipped: {result.skipped_case_count} ({result.skipped_reasons})")
+    result_line(
+        "formalization_summary",
+        True,
+        str(out_dir / "formalization_summary.json"),
+    )
+    return 0
+
+
 def _load_simple_jsonl(path: Path) -> list[dict]:
     """Load a JSONL file as a list of dicts (no Judgment-class coercion)."""
     out: list[dict] = []

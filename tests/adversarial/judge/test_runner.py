@@ -317,3 +317,178 @@ class TestLoadJudgments:
     def test_missing_file_raises(self, tmp_path: Path) -> None:
         with pytest.raises(FileNotFoundError):
             _load_judgments(tmp_path / "nope.jsonl")
+
+
+# ── run_finalize / run_formalize / run_case_study_rerun (Waves E/J/K) ─
+
+
+class TestRunFinalize:
+    def test_writes_final_verdicts_jsonl(self, tmp_path: Path) -> None:
+        from uofa_cli.adversarial.judge.runner import run_finalize
+
+        # 3 cases: 1 CONVERGENT REAL-GAP + 2 disagreements that go to UNRESOLVED.
+        a = [
+            _make_judgment("c1", "REAL-GAP", 0.9),
+            _make_judgment("c2", "REAL-GAP", 0.9),
+            _make_judgment("c3", "REAL-GAP", 0.9),
+        ]
+        b = [
+            _make_judgment("c1", "REAL-GAP", 0.85),
+            _make_judgment("c2", "GENERATOR-ARTIFACT", 0.85),
+            _make_judgment("c3", "OUT-OF-SCOPE", 0.85),
+        ]
+        c = [
+            _make_judgment("c1", "REAL-GAP", 0.8),
+            _make_judgment("c2", "OUT-OF-SCOPE", 0.85),
+            _make_judgment("c3", "GENERATOR-ARTIFACT", 0.85),
+        ]
+        for name, jl in (("a", a), ("b", b), ("c", c)):
+            _write_judgments_jsonl(tmp_path / f"j_{name}.jsonl", jl)
+
+        args = _args(
+            judgments_a=tmp_path / "j_a.jsonl",
+            judgments_b=tmp_path / "j_b.jsonl",
+            judgments_c=tmp_path / "j_c.jsonl",
+            judgments_e=None,
+            author_adjudications=None,
+            spot_check_overrides=None,
+            confidence_floor=0.6,
+            out=tmp_path / "fin",
+        )
+        rc = run_finalize(args)
+        assert rc == 0
+        path = tmp_path / "fin" / "final_verdicts.jsonl"
+        records = [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
+        assert len(records) == 3
+        provs = {r["provenance"] for r in records}
+        # c1 → CONVERGENT, c2/c3 → UNRESOLVED (no arbiter or author input).
+        assert "CONVERGENT" in provs
+        assert "UNRESOLVED" in provs
+
+    def test_summary_counts_oos_with_evidence_gap(self, tmp_path: Path) -> None:
+        from uofa_cli.adversarial.judge.runner import run_finalize
+
+        gap = {
+            "missing_evidence_type": "x" * 20,
+            "would_support_defeater_evaluation": "y" * 20,
+        }
+        # 3 OOS-agreeing cases with evidence_gap on at least one judge.
+        a = [_make_judgment(f"c{i}", "OUT-OF-SCOPE", 0.85) for i in range(3)]
+        for j in a:
+            object.__setattr__(j, "evidence_gap", gap)
+        b = [_make_judgment(f"c{i}", "OUT-OF-SCOPE", 0.85) for i in range(3)]
+        c = [_make_judgment(f"c{i}", "REAL-GAP", 0.7) for i in range(3)]
+        for name, jl in (("a", a), ("b", b), ("c", c)):
+            _write_judgments_jsonl(tmp_path / f"j_{name}.jsonl", jl)
+
+        args = _args(
+            judgments_a=tmp_path / "j_a.jsonl",
+            judgments_b=tmp_path / "j_b.jsonl",
+            judgments_c=tmp_path / "j_c.jsonl",
+            judgments_e=None,
+            author_adjudications=None,
+            spot_check_overrides=None,
+            confidence_floor=0.6,
+            out=tmp_path / "fin",
+        )
+        run_finalize(args)
+        summary = json.loads((tmp_path / "fin" / "final_verdicts_summary.json").read_text())
+        assert summary["case_count"] == 3
+        assert summary["out_of_scope_with_evidence_gap"] == 3
+        assert summary["out_of_scope_without_evidence_gap"] == 0
+
+
+class TestRunFormalize:
+    def test_emits_rule_scaffolds(self, tmp_path: Path) -> None:
+        from uofa_cli.adversarial.judge.runner import run_formalize
+
+        # Write a final_verdicts.jsonl with a REAL-GAP entry.
+        fv_path = tmp_path / "final.jsonl"
+        fv_path.write_text(json.dumps({
+            "case_id": "c1", "final_verdict": "REAL-GAP",
+            "provenance": "CONVERGENT",
+            "provenance_judges": ["A", "B"],
+            "final_verdict_confidence": 0.85,
+        }) + "\n")
+        # Provide §6.7 candidate via judgments_A.jsonl.
+        ja_path = tmp_path / "judgments_A.jsonl"
+        ja_path.write_text(json.dumps({
+            "case_id": "c1", "verdict": "REAL-GAP",
+            "section_6_7_candidate": "W-EV-01",
+        }) + "\n")
+
+        args = _args(
+            final_verdicts=fv_path,
+            judgments_a=ja_path,
+            judgments_b=None,
+            judgments_c=None,
+            severity_overrides=None,
+            out=tmp_path / "fz",
+        )
+        rc = run_formalize(args)
+        assert rc == 0
+        assert (tmp_path / "fz" / "rules" / "w_ev01.rule").exists()
+
+
+class TestRunCaseStudyRerun:
+    def test_requires_two_catalogs(self, tmp_path: Path) -> None:
+        from uofa_cli.adversarial.judge.runner import run_case_study_rerun
+
+        args = _args(
+            catalog=["v0.5"],
+            cou=["morrison-cou1"],
+            out=tmp_path / "cs",
+        )
+        rc = run_case_study_rerun(args)
+        assert rc == 2
+
+
+class TestRunJudgeDryRunAndResume:
+    """Cover Wave F (--dry-run) + Wave I (--resume) flags."""
+
+    def test_dry_run_writes_cost_estimate_no_calls(self, tmp_path: Path) -> None:
+        from uofa_cli.adversarial.judge.runner import run_judge
+        from tests.adversarial.judge.fixtures.mock_bundle import write_mock_bundle
+
+        bundle_path = write_mock_bundle(tmp_path / "bundle.tgz")
+
+        args = _args(
+            in_bundle=bundle_path,
+            out=tmp_path / "out",
+            judges="mock_a,mock_b,mock_c",
+            parallel=1,
+            calibration_only=False,
+            allow_same_family_judge=False,
+            dry_run=True,
+            max_cost=None,
+            resume=False,
+        )
+        rc = run_judge(args)
+        assert rc == 0
+        # Mock-only dry run produces an empty per-judge table (no real cost
+        # to estimate); the file still exists for downstream tooling.
+        cost_path = tmp_path / "out" / "cost_estimate.json"
+        assert cost_path.exists()
+        data = json.loads(cost_path.read_text())
+        assert data["estimated_total_usd"] == 0.0  # all mocks
+
+
+class TestExtractResponseCost:
+    def test_returns_litellm_hidden_cost_when_present(self) -> None:
+        from uofa_cli.adversarial.judge.runner import _extract_response_cost
+
+        j = _make_judgment("c1", "REAL-GAP")
+        # Set raw_response via __setattr__ since Judgment is frozen.
+        object.__setattr__(j, "raw_response", {
+            "_hidden_params": {"response_cost": 0.0125},
+            "usage": {"prompt_tokens": 100, "completion_tokens": 50},
+        })
+        usd = _extract_response_cost(j, "openai")
+        assert usd == 0.0125
+
+    def test_returns_zero_when_no_usage(self) -> None:
+        from uofa_cli.adversarial.judge.runner import _extract_response_cost
+
+        j = _make_judgment("c1", "REAL-GAP")
+        usd = _extract_response_cost(j, "openai")
+        assert usd == 0.0
