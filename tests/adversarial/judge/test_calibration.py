@@ -9,6 +9,12 @@ from types import SimpleNamespace
 
 import pytest
 
+# Calibration tests transitively call adjudication.cohen_kappa /
+# fleiss_kappa, which need sklearn + statsmodels. Skip cleanly when
+# the judge extras aren't installed.
+pytest.importorskip("sklearn", reason="install [judge] extras")
+pytest.importorskip("statsmodels", reason="install [judge] extras")
+
 from uofa_cli.adversarial.judge.calibration import (
     DEFAULT_PROMPT_VERSION,
     GATE_PAIRWISE_KAPPA,

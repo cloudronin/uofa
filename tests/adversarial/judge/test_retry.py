@@ -7,6 +7,12 @@ import time
 
 import pytest
 
+# Async test cases use @pytest.mark.asyncio which requires pytest-asyncio.
+# Listed in the [judge] optional extras (pyproject.toml). Skip cleanly
+# when extras aren't installed so a base-only `pytest tests/` doesn't
+# error out on the unknown marker.
+pytest.importorskip("pytest_asyncio", reason="install [judge] extras")
+
 from uofa_cli.adversarial.judge.retry import (
     DEFAULT_MAX_RETRIES,
     TransientError,

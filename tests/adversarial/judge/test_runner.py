@@ -25,6 +25,19 @@ from uofa_cli.adversarial.judge.cli_args import parse_judges
 from uofa_cli.adversarial.judge.providers.base import Judgment
 
 
+# Some tests transitively call adjudication.compute_agreement (Cohen's
+# κ via sklearn). When the [judge] extras aren't installed, those
+# specific tests skip cleanly; the rest of the file runs as normal.
+try:
+    import sklearn  # noqa: F401
+    _HAS_SKLEARN = True
+except ImportError:
+    _HAS_SKLEARN = False
+_skip_no_sklearn = pytest.mark.skipif(
+    not _HAS_SKLEARN, reason="install [judge] extras (sklearn)"
+)
+
+
 def _args(**kwargs) -> argparse.Namespace:
     """Build an argparse.Namespace from kwargs for run_* entry points."""
     ns = argparse.Namespace()
@@ -98,6 +111,7 @@ class TestRunJudge:
         from .fixtures.mock_bundle import write_mock_bundle
         return write_mock_bundle(tmp_path / "b.tgz")
 
+    @_skip_no_sklearn
     def test_smoke_calibration_only(self, tmp_path: Path) -> None:
         bundle = self._bundle_path(tmp_path)
         out = tmp_path / "judge_out"
@@ -117,6 +131,7 @@ class TestRunJudge:
         # Per-judge calibration files written.
         assert (out / "calibration_results_mock_a.json").exists()
 
+    @_skip_no_sklearn
     def test_summary_kappas_in_target_range(self, tmp_path: Path) -> None:
         bundle = self._bundle_path(tmp_path)
         out = tmp_path / "judge_out"
@@ -217,6 +232,7 @@ class TestRunTriage:
 
 
 class TestRunAdjudicate:
+    @_skip_no_sklearn
     def test_writes_agreement_stats_and_confusion_matrices(self, tmp_path: Path) -> None:
         a = [_make_judgment(f"c{i}", "REAL-GAP" if i < 3 else "GENERATOR-ARTIFACT") for i in range(5)]
         b = [_make_judgment(f"c{i}", "REAL-GAP" if i < 4 else "GENERATOR-ARTIFACT") for i in range(5)]
@@ -287,6 +303,7 @@ class TestRunBundle:
 
 
 class TestWriteConfusion:
+    @_skip_no_sklearn
     def test_writes_6x6_csv_with_headers(self, tmp_path: Path) -> None:
         path = tmp_path / "cm.csv"
         _write_confusion(path, ["REAL-GAP", "REAL-GAP"], ["REAL-GAP", "GENERATOR-ARTIFACT"])

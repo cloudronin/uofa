@@ -11,6 +11,14 @@ import math
 
 import pytest
 
+# Skip the whole file when judge extras aren't installed. sklearn +
+# statsmodels are listed under the [judge] optional-dependency group
+# (pyproject.toml). The devcontainer install pulls them; this guard
+# keeps the suite green when the user runs `pytest tests/` without
+# `pip install -e '.[judge]'` first.
+pytest.importorskip("sklearn", reason="install [judge] extras")
+pytest.importorskip("statsmodels", reason="install [judge] extras")
+
 from uofa_cli.adversarial.judge.adjudication import (
     VERDICT_CLASSES,
     AgreementStats,
