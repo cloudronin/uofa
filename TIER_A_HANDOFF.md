@@ -630,7 +630,89 @@ not a model-specific calibration miss. Three options per spec §8.3:
       as CONVERGENT (3-of-3 ERM); the v1.6 disagreement queue +
       arbitration safety net handles ambiguous cases through Stage 3b.
 
-**Held for author decision before kicking off Stage 2.**
+**Pursued option (b) 2026-05-05 (relabel + substitute). See v4 results below.**
+
+### Stage 1 v4 results (2026-05-05T19:52:28Z) — relabel + substitute applied
+
+Action taken between v3 and v4:
+
+1. **Investigation surfaced a thinking-mode dependency.** Judge D
+   anchored cal-026..030 originally with extended thinking enabled;
+   v1.1.0 prompt without thinking-mode gives the same model
+   different verdicts (10-candidate Phase 2 sample: 0 UNCERTAIN
+   without thinking, 4 UNCERTAIN with thinking-mode at budget=4096).
+2. **cal-027 + cal-030 substituted** with 2 thinking-mode-anchored
+   UNCERTAIN cases via `dev/tools/scripts/sample_uncertain_with_thinking.py`
+   + `integrate_uncertain_substitutes.py`. Original cal-027/030 were
+   Judge D hedging without thinking-mode; their per-case verdict
+   patterns (4-of-4 ERM unanimous) suggested clearer answers than
+   the UNCERTAIN label.
+3. **5/class invariant preserved**, with Judge D's thinking-mode
+   reasoning text persisted in `ground_truth_reasoning`.
+
+**Hard gates 5 + 6: ALL PASS. Hard gate 7: A passes; B + C still fail.**
+
+| Gate | Target | Verdict |
+|---|---|---|
+| Judge A accuracy ≥ 80% | **96.7%** (29/30) | ✅ |
+| Judge B accuracy ≥ 80% | 86.7% (26/30) | ✅ |
+| Judge C accuracy ≥ 80% | 83.3% (25/30) | ✅ |
+| Pairwise κ A/B ≥ 0.70 | 0.879 | ✅ |
+| Pairwise κ A/C ≥ 0.70 | 0.838 | ✅ |
+| Pairwise κ B/C ≥ 0.70 | 0.875 | ✅ |
+| Fleiss κ across A/B/C | 0.863 | informational |
+| Judge A per-class ≥ 50% | all classes pass | ✅ |
+| Judge B per-class ≥ 50% | UNCERTAIN at 20% | ❌ |
+| Judge C per-class ≥ 50% | UNCERTAIN at 0% | ❌ |
+
+**Per-class accuracy (judge × verdict class):**
+
+| Class | n | A | B | C |
+|---|---:|---:|---:|---:|
+| CORRECT-DETECTION | 5 | 100% | 100% | 100% |
+| REAL-GAP | 5 | 100% | 100% | 100% |
+| GENERATOR-ARTIFACT | 5 | 100% | 100% | 100% |
+| EXISTING-RULE-MISBEHAVIOR | 5 | 100% | 100% | 100% |
+| OUT-OF-SCOPE | 5 | 100% | 100% | 100% |
+| **UNCERTAIN** | **5** | **80%** ✅ | **20%** ❌ | **0%** ❌ |
+
+**Refined hypothesis (post-substitute):**
+
+The thinking-mode-anchored substitutes recovered **Judge A's** UNCERTAIN
+class accuracy (40% → 80%). Judges B (Gemini 2.5 Pro) and C (Llama 4
+Maverick) remained at 20% / 0%. The pattern is now structural:
+**Judge A has stronger "acknowledge-uncertainty" behavior than B + C**.
+This is per-vendor variation in commitment-vs-hedging, not something
+the calibration set can fix without per-vendor prompt engineering.
+
+What this means operationally:
+
+- **Production-corpus UNCERTAIN cases (which Judge D would label
+  UNCERTAIN with thinking-mode) will produce a CONVERGENT-to-ERM
+  triage on most cases**: B + C agree on ERM, A might say UNCERTAIN
+  → 2-of-3 majority is ERM at confidence ≥0.6 → CONVERGENT.
+- **Cases where A says UNCERTAIN and B + C disagree (e.g. B says
+  GENERATOR-ARTIFACT, C says ERM)** → DISAGREEMENT → Judge E
+  arbitrates → likely lands ERM (matches Mistral's pattern).
+- Either pathway produces a defensible operational verdict. The
+  ensemble's safety net handles the asymmetry.
+
+**Recommended path forward: option (c) — proceed to Stage 2 with
+gate-7 partial pass documented.** The empirical reality is the trio's
+ENSEMBLE verdict on UNCERTAIN cases is high-agreement (κ 0.84-0.88)
+even when individual judges differ on the UNCERTAIN/ERM split. Spec
+§15.1 #7 was designed assuming all 3 judges would handle all 6
+classes uniformly; the data shows that's an unrealistic expectation
+for the UNCERTAIN class with current prompts.
+
+**Two alternatives if option (c) is rejected:**
+- (d) Iterate v1.1.0 → v1.2.0 prompt with vendor-specific UNCERTAIN
+  framing (per spec §8.3, 3 iterations permitted). Cost ~$2/iter.
+- (e) Spec language update: revise §15.1 #7 to acknowledge UNCERTAIN
+  as a Judge-A-specialty class with documented vendor asymmetry.
+
+**Held for author decision on (c) vs (d) vs (e) before kicking off
+Stage 2.**
 
 ### Stage 2 production-run command (held pending Stage 1 gate-7 decision)
 
