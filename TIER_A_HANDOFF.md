@@ -242,3 +242,42 @@ Overall coverage on `src/uofa_cli/adversarial/judge/`: **79%** (was 89% in v1.5)
 - v1.6 commit `54ac672` (Phase 3): 307 tests
 - v1.6 commit current (Phase 4 + 5): 322 tests, all green
 
+
+---
+
+## v1.6 model-version refresh (2026-05-05)
+
+Production trio + arbiter bumped to current generation. No methodology
+change; spec-defined ensemble shape is preserved.
+
+| Role | Family | Model id | Spec name | Status |
+|---|---|---|---|---|
+| Judge A (production) | GPT | `openai/gpt-5.4` | GPT-5.4 | wired (litellm 1.63 doesn't recognize gpt-5.4 reasoning_effort yet — production path uses non-thinking until pin bumps) |
+| Judge B (production) | Gemini | `gemini/gemini-3.1-pro-preview` | Gemini 3.1 Pro | verified end-to-end |
+| Judge C (production) | Llama | `openai/meta-llama/Llama-4-Maverick-17B-128E-Instruct:sambanova` via HF Router | Llama 4 Maverick | verified end-to-end (`verify_hf_llama_inference.py` PASS) |
+| Judge D (calibration anchor) | Claude | `anthropic/claude-sonnet-4-6` | Claude Sonnet 4.6 | verified end-to-end |
+| Judge E (arbiter) | Mistral | `mistral/mistral-large-2512` | Mistral Large 3 | verified end-to-end |
+
+Previous Llama 3.3 70B + Mistral Large 2 entries are obsolete; capability
+table now defaults to the above. Family check (`providers/__init__.py`)
+gained explicit token-level entries for `gemini` and `hf-llama` — they
+were previously falling through to the unresolvable error path and
+silently breaking the cross-family check at runtime.
+
+### HF Router routing detail
+Llama 4 Maverick is not on HF's serverless Inference API. The model
+ships behind external providers (sambanova, novita) via the HF Router
+at `https://router.huggingface.co/v1`. We route through litellm's
+openai-compat path with capability-table-driven `litellm_api_base` and
+`auth_env_var` (`HF_TOKEN`). Family is held as `Llama` via the
+capability table's explicit `family` field, independent of the litellm
+prefix. `<model>:<provider>` model id format is required; bare
+`<model>` returns "not supported by any provider you have enabled".
+
+### Verify scripts (Wave L) — current state
+- `verify_anthropic_native_thinking.py`: PASS (Part A litellm strict, Part B native thinking)
+- `verify_litellm_refactor.py`: PASS (OpenAI gpt-4o-mini + Anthropic claude-sonnet-4-6, smoke κ uninformative due to thin fixture)
+- `verify_mistral_strict_schema.py`: PASS (Mistral Large 3 / `mistral-large-2512`)
+- `verify_gemini_strict_schema.py`: PASS (Gemini 3.1 Pro Preview, productive evidence_gap on OOS)
+- `verify_hf_llama_inference.py`: PASS (Llama 4 Maverick via HF Router → Sambanova)
+

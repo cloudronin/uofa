@@ -81,9 +81,14 @@ class TestCapabilities:
         assert litellm_model_string("openai", "gpt-4o-mini") == "openai/gpt-4o-mini"
         assert litellm_model_string("anthropic") == "anthropic/claude-sonnet-4-6"
         assert litellm_model_string("mistral", "mistral-medium-3") == "mistral/mistral-medium-3"
-        # HF prefix is multi-segment.
+        # HF Llama 4 routes through HF Router on an OpenAI-compatible
+        # surface (capability litellm_model_prefix is "openai/" with
+        # a non-default api_base). Verify the prefix wiring.
         s = litellm_model_string("hf-llama")
-        assert s.startswith("huggingface/")
+        assert s.startswith("openai/")
+        assert "Llama-4-Maverick" in s
+        # Mistral default is now Large 3 (verified 2026-05-05).
+        assert litellm_model_string("mistral") == "mistral/mistral-large-2512"
 
     def test_strict_schema_capability_per_provider(self) -> None:
         # OpenAI/Gemini/Anthropic/Mistral: strict-mode supported.

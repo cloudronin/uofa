@@ -37,10 +37,14 @@ class UnknownFamilyError(Exception):
 # specificity order. Each glob is tried in insertion order.
 FAMILY_MAP: "OrderedDict[str, str]" = OrderedDict(
     [
-        # Literal provider tokens (vendor names).
+        # Literal provider tokens (vendor names + the CLI judge tokens
+        # used by `parse_judges`). These resolve before glob fallbacks
+        # so the family check reads the token directly.
         ("anthropic", "Claude"),
+        ("gemini", "Gemini"),
         ("google", "Gemini"),
         ("openai", "GPT"),
+        ("hf-llama", "Llama"),
         ("meta", "Llama"),
         ("mistral", "Mistral"),
         # litellm-style model-string prefixes (`provider/model_id`).

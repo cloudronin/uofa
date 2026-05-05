@@ -55,6 +55,21 @@ class ProviderCapabilities:
     # still validates the response against the full schema.
     convert_nullable_to_openapi: bool = False
 
+    # Optional litellm-call api_base override. Used when the provider is
+    # served through a non-standard endpoint that exposes an
+    # OpenAI-compatible surface — e.g. HF Router
+    # (`https://router.huggingface.co/v1`) for HF-hosted models behind
+    # Sambanova / Novita / Together. None means use the litellm vendor
+    # default endpoint.
+    litellm_api_base: str | None = None
+
+    # Environment variable to read for the litellm api_key parameter.
+    # litellm's default lookup ({PROVIDER}_API_KEY) is correct for most
+    # vendors; HF needs HF_TOKEN or HUGGINGFACE_API_KEY which doesn't
+    # match the default openai-compat path. None means use litellm's
+    # default env-driven auth.
+    auth_env_var: str | None = None
+
 
 # Standard JSONSchema 2020-12 keywords that some vendor strict-mode parsers
 # reject. Provider entries below pull subsets that apply to that vendor.
@@ -134,9 +149,19 @@ CAPABILITIES: dict[str, ProviderCapabilities] = {
     ),
     "hf-llama": ProviderCapabilities(
         family="Llama",
-        litellm_model_prefix="huggingface/",
-        default_model="meta-llama/Llama-3.3-70B-Instruct",
-        supports_strict_schema=False,  # TGI: JSON-mode only; tolerant parser fallback
+        # Llama 4 Maverick (verified 2026-05-05) ships through the HF
+        # Inference Router behind external providers (sambanova /
+        # novita). The Router exposes an OpenAI-compatible
+        # /v1/chat/completions surface; we route via litellm's openai/
+        # path with `api_base` and `api_key` overrides rather than the
+        # legacy `huggingface/` provider class (which talks to the
+        # serverless Inference API and has no Llama 4 entry as of the
+        # current pin).
+        litellm_model_prefix="openai/",
+        default_model="meta-llama/Llama-4-Maverick-17B-128E-Instruct:sambanova",
+        litellm_api_base="https://router.huggingface.co/v1",
+        auth_env_var="HF_TOKEN",
+        supports_strict_schema=False,  # JSON-mode only; tolerant parser fallback
         schema_keyword_blocklist=(),  # not applicable; schema not sent to vendor
         supports_batch_api=False,
         supports_prompt_caching=False,
@@ -172,10 +197,12 @@ CAPABILITIES: dict[str, ProviderCapabilities] = {
     "mistral": ProviderCapabilities(
         family="Mistral",
         litellm_model_prefix="mistral/",
-        # Mistral uses dated model ids; `mistral-large-latest` resolves to
-        # the current generation (mistral-large-2411 as of 2026-04). The
-        # spec calls this "Mistral Large 2"; the API id is the dated form.
-        default_model="mistral-large-latest",
+        # Mistral Large 3 (verified 2026-05-05): API id `mistral-large-2512`,
+        # alias `mistral-large-latest`. Pinning the dated id for run
+        # reproducibility. v1.6 spec called for Large 2 (`mistral-large-2411`);
+        # bumped to Large 3 per current generation per "no methodology
+        # change, just version freshness" decision (2026-05-05).
+        default_model="mistral-large-2512",
         # Mistral's response_format=json_schema works; verified via
         # verify_mistral_strict_schema.py 2026-05-04. Mistral rejects
         # the JSONSchema 2020-12 if/then/else conditional-required block;

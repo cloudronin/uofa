@@ -178,6 +178,20 @@ class LiteLLMProvider(AbstractJudgeProvider):
             "messages": messages,
             "temperature": 0.0,
         }
+        # Capability-driven api_base override (e.g. HF Router serving
+        # Llama 4 via Sambanova on an OpenAI-compatible /v1 surface).
+        if self._caps.litellm_api_base:
+            kwargs["api_base"] = self._caps.litellm_api_base
+        # Capability-driven api_key env override. litellm's default
+        # env-driven auth uses {VENDOR}_API_KEY which doesn't fit when
+        # we route a model through a non-vendor surface (HF Router).
+        if self._caps.auth_env_var:
+            import os
+            api_key = os.environ.get(self._caps.auth_env_var) or os.environ.get(
+                "HUGGINGFACE_API_KEY"
+            )
+            if api_key:
+                kwargs["api_key"] = api_key
         # Gemini: opt-in cached_content kwarg if the provider has a
         # resource id pre-resolved (set externally via configure_cache).
         if self._provider_token == "gemini" and self._gemini_cache_id:
