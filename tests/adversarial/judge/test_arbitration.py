@@ -15,7 +15,7 @@ from uofa_cli.adversarial.judge.arbitration import (
     write_arbitration_jsonl,
     write_escalation_queue_csv,
 )
-from tests.adversarial.judge.fixtures.mock_arbitration import (
+from .fixtures.mock_arbitration import (
     build_mock_arbitration_results,
 )
 

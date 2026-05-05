@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from tests.adversarial.judge.fixtures.mock_bundle import write_mock_bundle
+from .fixtures.mock_bundle import write_mock_bundle
 
 FIXTURES = Path(__file__).parent / "fixtures"
 

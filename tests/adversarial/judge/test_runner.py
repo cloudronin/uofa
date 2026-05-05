@@ -95,7 +95,7 @@ class TestBuildProviders:
 
 class TestRunJudge:
     def _bundle_path(self, tmp_path: Path) -> Path:
-        from tests.adversarial.judge.fixtures.mock_bundle import write_mock_bundle
+        from .fixtures.mock_bundle import write_mock_bundle
         return write_mock_bundle(tmp_path / "b.tgz")
 
     def test_smoke_calibration_only(self, tmp_path: Path) -> None:
@@ -448,7 +448,7 @@ class TestRunJudgeDryRunAndResume:
 
     def test_dry_run_writes_cost_estimate_no_calls(self, tmp_path: Path) -> None:
         from uofa_cli.adversarial.judge.runner import run_judge
-        from tests.adversarial.judge.fixtures.mock_bundle import write_mock_bundle
+        from .fixtures.mock_bundle import write_mock_bundle
 
         bundle_path = write_mock_bundle(tmp_path / "bundle.tgz")
 

@@ -16,7 +16,7 @@ from uofa_cli.adversarial.judge.bundle import (
     UnsafeBundleError,
     open_bundle,
 )
-from tests.adversarial.judge.fixtures.mock_bundle import (
+from .fixtures.mock_bundle import (
     MOCK_CASES,
     MOCK_PACKAGE_COUNT,
     write_mock_bundle,

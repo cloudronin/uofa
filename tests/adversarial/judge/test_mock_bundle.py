@@ -10,7 +10,7 @@ import json
 import tarfile
 from pathlib import Path
 
-from tests.adversarial.judge.fixtures.mock_bundle import (
+from .fixtures.mock_bundle import (
     MOCK_CASES,
     MOCK_PACKAGE_COUNT,
     write_mock_bundle,
