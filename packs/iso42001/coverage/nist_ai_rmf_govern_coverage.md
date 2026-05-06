@@ -46,7 +46,7 @@ NIST AI RMF 1.0 GOVERN function organizes around 6 categories with ~22 subcatego
 | G5.2.b | Impact assessment lacks affected-party validation | N | Y | Y | OOS rule 4: W-AIMS-OOS-IMPACT-SCOPE-ADEQUACY. |
 | **GOVERN 6 — Third-party risk management** |
 | G6.1.a | Third-party AI suppliers not assured | P | N | P | SHACL light A.10.2 SupplierAIAssurance shape. |
-| G6.1.b | Supplier AI assurance evidence not validated | N | N | N | Out of pack v0.4 scope (supplier-evidence-quality is a post-defense extension). |
+| G6.1.b | Supplier AI assurance evidence not validated | N | Y | Y | OOS rule 9: W-AIMS-OOS-SUPPLIER-EVIDENCE-ADEQUACY (added v0.4.2; mirrors W-AIMS-OOS-INTERNAL-AUDIT-INDEPENDENCE structure). |
 | G6.2.a | Contingency plans for third-party AI failures absent | N | N | N | Out of pack v0.4 scope. |
 | **Cross-cutting (incident/nonconformity)** |
 | Gx.1.a | AI incidents logged without root cause analysis | Y | N | Y | C3 W-AIMS-INCIDENT-UNCLOSED. |
@@ -61,14 +61,14 @@ Counting each row: Y = 1.0, P = 0.5 (per spec §7 Q3 default), N/O = 0.0 (O excl
 
 | Bucket | Count | Coverage contribution |
 |---|---|---|
-| Combined Y | 21 | 21.0 |
+| Combined Y | 22 | 22.0 |
 | Combined P | 6 | 3.0 |
-| Combined N | 4 | 0.0 |
+| Combined N | 3 | 0.0 |
 | Combined O | 4 | (excluded) |
 
-**Combined coverage:** (21 + 3.0) / (33 − 4 out-of-scope) = 24.0 / 29 = **82.8%**
+**Combined coverage:** (22 + 3.0) / (33 − 4 out-of-scope) = 25.0 / 29 = **86.2%**
 
-**Acceptance criterion ≥ 70%:** PASSED (Phase H downgrade of Gx.2.a from Y to P).
+**Acceptance criterion ≥ 70%:** PASSED. Combined coverage climbed from 82.8% (v0.4 + Phase H) to 86.2% with the v0.4.2 addition of W-AIMS-OOS-SUPPLIER-EVIDENCE-ADEQUACY moving G6.1.b from N to Y.
 
 ### Detection-path split
 
