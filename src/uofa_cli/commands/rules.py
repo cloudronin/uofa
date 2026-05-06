@@ -29,10 +29,13 @@ _PATTERN_RE = re.compile(r'(⚠\s*W-[A-Z]+-\d{2})')
 _SUMMARY_LINE_RE = re.compile(r'^(\s*)(Critical|High|Medium|Low):\s+(\d+)$')
 
 # Firings parser shared with diff.py (lifted here as the canonical owner).
-# Matches engine summary lines like "⚠ W-EP-04 [High] — 6 hit(s)" and
-# "⚡ COMPOUND-01 [Critical] — 1 hit(s)".
+# Matches engine summary lines like "⚠ W-EP-04 [High] — 6 hit(s)",
+# "⚡ COMPOUND-01 [Critical] — 1 hit(s)", and the iso42001 pack's
+# descriptive pattern names like "⚠ W-AIMS-AUDIT-STALE [High] — 1 hit(s)"
+# or "⚠ W-AIMS-MODEL-EVAL-STALE [High] — 1 hit(s)" (any number of
+# UPPERCASE-letter segments after the W-XX prefix).
 _FIRING_RE = re.compile(
-    r'[⚠⚡]\s+((?:W-[A-Z]{2,}-\d{2}|COMPOUND-\d{2}))\s+'
+    r'[⚠⚡]\s+((?:W-[A-Z]{2,}-\d{2}|W-[A-Z]{2,}(?:-[A-Z0-9]+)+|COMPOUND-\d{2}))\s+'
     r'\[(Critical|High|Medium|Low)\]\s+—\s+(\d+)\s+hit'
 )
 
@@ -176,11 +179,12 @@ def parse_firings(stdout_text: str) -> list[dict]:
 
 
 # Pattern descriptions live in .rules files as `# W-XX-NN: <description>`
-# header comments preceding each rule block. Parsing them gives the
-# interpretation pipeline the human-readable name without forcing the
-# engine to round-trip them through JSON-LD.
+# header comments preceding each rule block (or descriptive form like
+# `# W-AIMS-AUDIT-STALE: <description>` for the iso42001 pack). Parsing
+# them gives the interpretation pipeline the human-readable name without
+# forcing the engine to round-trip them through JSON-LD.
 _PATTERN_DESC_RE = re.compile(
-    r"^#\s*((?:W-[A-Z]{2,}-\d{2}|COMPOUND-\d{2}))\s*:\s*(.+?)\s*$",
+    r"^#\s*((?:W-[A-Z]{2,}-\d{2}|W-[A-Z]{2,}(?:-[A-Z0-9]+)+|COMPOUND-\d{2}))\s*:\s*(.+?)\s*$",
     re.MULTILINE,
 )
 
