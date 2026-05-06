@@ -6,25 +6,38 @@
 **Plan:** /Users/vishnu/.claude/plans/users-vishnu-library-cloudstorage-dropb-binary-bee.md
 
 > **Read this first.** Four things to know before reviewing:
-> 1. **3 commits landed**, **1 batched commit blocked by 1Password SSH signing failure** — see "Commits & 1Password issue" section below for resume steps.
-> 2. **Both arms of dual-output methodology verified end-to-end:**
+> 1. **All 11 commits landed cleanly** (8 phase commits + 3 follow-up fix commits per the user's review-time fix list). Spec edit landed in `Dropbox/Praxis/Product Requirements/UofA_iso42001_Pack_Spec_v0_4.md` (outside git).
+> 2. **Both arms of dual-output methodology verified end-to-end (programmatically):**
 >    - **OOS arm:** 8/8 over-firing pass (cal-aims-NNN packages); COU1 (2 firings) vs COU2 (8 firings) differential.
->    - **C3 arm:** COU1 (0 W-AIMS firings) vs COU2 (7 W-AIMS firings) differential confirmed at engine level.
-> 3. **One small substrate parser bug worth your attention:** `parse_firings()` regex in `src/uofa_cli/commands/rules.py:34-37` only matches `W-XX-NN` style patternIds, not my descriptive `W-AIMS-AUDIT-STALE` style names per spec §2.3.2. The engine fires correctly and prints to stdout; only the programmatic Python wrapper hides W-AIMS firings from `result.firings`. One-line regex fix; deferred per "no substrate change" plan principle. Detailed below.
-> 4. **Substrate change reverted mid-build:** my initial Phase E used `spec/context/v0.5.jsonld` to declare the `uofa-aims:` prefix, which broke morrison's hash check (the local v0.5.jsonld is inlined into signed packages' canonicalization). I reverted v0.5.jsonld and refactored the 10 AIMS-flavored JSON-LD files (8 cal-aims + 2 COUs) to use full IRIs (`https://uofa.net/vocab/aims#...`) instead of prefixes. Verbose but breaks zero existing packages. **Net result: zero substrate changes from this build.**
+>    - **C3 arm:** COU1 (0 W-AIMS firings) vs COU2 (7 W-AIMS firings) differential — now correctly surfaced via `result.firings` after the regex fix.
+> 3. **All spec §5 acceptance criteria met or partial-met:**
+>    - #1 SHACL: ✅ (cal-aims 8/8 pass; COU1 pass; COU2's 2 violations are intentional W-AIMS-ROLE-UNASSIGNED demonstrations per spec exception)
+>    - #2 C3 differential: ✅ (COU1 0 vs COU2 7 W-AIMS firings)
+>    - #3 OOS over-firing: ✅ (8/8 fire only their target rule)
+>    - #4 Dual-output 4-dimension: ✅ (both arms verified)
+>    - #5 Coverage ≥70%: ✅ (82.8% combined after Phase H Gx.2.a downgrade)
+>    - #6 Pack manifest oos.enabled true: ✅
+>    - #7 README dual-output: ✅
+>    - #8 Ch3/Ch4/Ch5 integration: out of repo scope
+> 4. **Substrate change reverted mid-build:** my initial Phase E used `spec/context/v0.5.jsonld` to declare the `uofa-aims:` prefix, which broke morrison's hash check. Reverted v0.5.jsonld; AIMS JSON-LD files use full IRIs instead. Net substrate change from build: only the `_FIRING_RE` regex update in `src/uofa_cli/commands/rules.py` (additive, backward-compatible).
 
 ## What landed (by phase)
 
 | Phase | Status | Commit | Files |
 |---|---|---|---|
-| A. Vocabulary + SHACL profile | ✅ | `f25fde2` | `pack.json`, `shapes/iso42001_shapes.ttl` (581 triples), `README.md`, `packs/README.md` |
+| A. Vocabulary + SHACL profile | ✅ | `f25fde2` | `pack.json`, `shapes/iso42001_shapes.ttl`, `README.md`, `packs/README.md` |
 | B. C3 weakener catalog (15 rules) | ✅ | `10c83f6` | `rules/iso42001_weakener.rules` |
 | C. OOS rule catalog (8 rules) | ✅ | `cde8fe5` | `rules/oos/oos_v0.1.rules` |
-| D. NIST AI RMF GOVERN coverage matrix | ✅ | **blocked** | `coverage/nist_ai_rmf_govern_coverage.md` (33 failure modes, 84.5% combined coverage) |
-| E. 8 cal-aims-* calibration packages | ✅ | **blocked** | `specs/calibration/packages/cal-aims-001..008` |
-| F. Hybrid case study COU1+COU2 | ✅ | **blocked** | `examples/hybrid/cou{1,2}/uofa-iso42001-cou{1,2}.jsonld` |
-| G. Test suite (58 tests) | ✅ 58/58 pass | **blocked** | `tests/test_iso42001_pack.py` |
-| H. Coverage validation harness | ⚠️ deferred | n/a | depends on C3 pattern fix (open issue #1) |
+| D. NIST AI RMF GOVERN coverage matrix | ✅ | `828e795` | `coverage/nist_ai_rmf_govern_coverage.md` |
+| E. 8 cal-aims-* calibration packages | ✅ | `eb7fb18` | `specs/calibration/packages/cal-aims-001..008` |
+| F. Hybrid case study COU1+COU2 | ✅ | `cd8bec9` | `examples/hybrid/cou{1,2}/uofa-iso42001-cou{1,2}.jsonld` |
+| G. Test suite (58 tests; later expanded to 77) | ✅ | `9110786` | `tests/test_iso42001_pack.py` |
+| Initial SESSION_SUMMARY | ✅ | `3b5999d` | `packs/iso42001/SESSION_SUMMARY.md` |
+| **Fix 1**: `_FIRING_RE` regex for descriptive patternIds | ✅ | `a515249` | `src/uofa_cli/commands/rules.py` |
+| **Fix 3**: SHACL profile fields (ProfileMinimal + hasValidationResult + hasContextOfUse) | ✅ | `9b60ead` | 10 AIMS JSON-LD files |
+| **Fix 5**: Phase H coverage validation harness (19 new tests) | ✅ | `ad0aedc` | `tests/test_iso42001_pack.py`, coverage matrix |
+| **Fix 4**: Spec §2.3.4 sizing target 13 → 15 | ✅ | (out-of-git) | `Dropbox/Praxis/Product Requirements/UofA_iso42001_Pack_Spec_v0_4.md` |
+| H. Coverage validation harness | ✅ implemented in Fix 5 | (above) | (above) |
 
 ## Commits & 1Password issue
 
