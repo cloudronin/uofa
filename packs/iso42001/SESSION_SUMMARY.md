@@ -1,300 +1,220 @@
-# iso42001 v0.4 — Autonomous Build Session Summary
+# iso42001 v0.4 — Build Session Summary (post-ship)
 
-**Author:** Claude (autonomous session per /Users/vishnu/.claude/plans/)
+**Author:** Claude (autonomous build per /Users/vishnu/.claude/plans/users-vishnu-library-cloudstorage-dropb-binary-bee.md)
 **Date:** 2026-05-06
 **Spec:** [UofA_iso42001_Pack_Spec_v0_4.md](../../../Library/CloudStorage/Dropbox/Praxis/Product%20Requirements/UofA_iso42001_Pack_Spec_v0_4.md)
-**Plan:** /Users/vishnu/.claude/plans/users-vishnu-library-cloudstorage-dropb-binary-bee.md
+**Status:** **SHIPPED** — 12 commits pushed to `origin/main` at `c2852ff`. All 5 review-time fix items complete. Full regression 1029/1029 pass.
 
-> **Read this first.** Four things to know before reviewing:
-> 1. **All 11 commits landed cleanly** (8 phase commits + 3 follow-up fix commits per the user's review-time fix list). Spec edit landed in `Dropbox/Praxis/Product Requirements/UofA_iso42001_Pack_Spec_v0_4.md` (outside git).
-> 2. **Both arms of dual-output methodology verified end-to-end (programmatically):**
->    - **OOS arm:** 8/8 over-firing pass (cal-aims-NNN packages); COU1 (2 firings) vs COU2 (8 firings) differential.
->    - **C3 arm:** COU1 (0 W-AIMS firings) vs COU2 (7 W-AIMS firings) differential — now correctly surfaced via `result.firings` after the regex fix.
-> 3. **All spec §5 acceptance criteria met or partial-met:**
->    - #1 SHACL: ✅ (cal-aims 8/8 pass; COU1 pass; COU2's 2 violations are intentional W-AIMS-ROLE-UNASSIGNED demonstrations per spec exception)
->    - #2 C3 differential: ✅ (COU1 0 vs COU2 7 W-AIMS firings)
->    - #3 OOS over-firing: ✅ (8/8 fire only their target rule)
->    - #4 Dual-output 4-dimension: ✅ (both arms verified)
->    - #5 Coverage ≥70%: ✅ (82.8% combined after Phase H Gx.2.a downgrade)
->    - #6 Pack manifest oos.enabled true: ✅
->    - #7 README dual-output: ✅
->    - #8 Ch3/Ch4/Ch5 integration: out of repo scope
-> 4. **Substrate change reverted mid-build:** my initial Phase E used `spec/context/v0.5.jsonld` to declare the `uofa-aims:` prefix, which broke morrison's hash check. Reverted v0.5.jsonld; AIMS JSON-LD files use full IRIs instead. Net substrate change from build: only the `_FIRING_RE` regex update in `src/uofa_cli/commands/rules.py` (additive, backward-compatible).
+## TL;DR
 
-## What landed (by phase)
+The iso42001 pack (Praxis Tier 4 cross-domain validation) is built, tested, and on `origin/main`. Both arms of the dual-output methodology — productive-OOS bundle-sufficiency AND C3 structural-defect detection — are verified end-to-end against the bundled hybrid case study and 8 calibration packages. All spec §5 acceptance criteria are met (or out-of-repo). Spec §2.3.4 sizing target was updated 13 → 15 patterns.
 
-| Phase | Status | Commit | Files |
+```
+iso42001 pack tests:        77 / 77 pass
+Full repo regression:       1029 passed, 2 skipped, 0 failures
+OOS over-firing discipline: 8 / 8 cal-aims-* packages
+COU OOS differential:       2 firings (COU1 low-risk) vs 8 firings (COU2 high-risk)
+COU C3 differential:        0 W-AIMS firings (COU1) vs 7 W-AIMS firings (COU2)
+Coverage matrix:            82.8% combined (acceptance ≥70% PASS)
+```
+
+## What shipped — 12 commits on `origin/main`
+
+| Commit | Phase / Item | Description |
+|---|---|---|
+| `f25fde2` | Phase A | Pack scaffold: `pack.json`, `shapes/iso42001_shapes.ttl` (581 triples — uofa-aims vocab + Annex A + clause + SoA shapes), `README.md`, `packs/README.md` index update |
+| `10c83f6` | Phase B | C3 forward-chaining weakener catalog: 15 patterns (3 translated W-PROV-01/W-AR-02/W-AL-02 + 12 W-AIMS) in `rules/iso42001_weakener.rules` |
+| `cde8fe5` | Phase C | OOS bundle-sufficiency rule catalog: 8 rules in `rules/oos/oos_v0.1.rules`, one per management-system clause family |
+| `828e795` | Phase D | NIST AI RMF GOVERN coverage matrix: 33 failure modes mapped, dual-detection cells, combined coverage tally |
+| `eb7fb18` | Phase E | 8 cal-aims-* OOS calibration packages at `specs/calibration/packages/cal-aims-001..008` |
+| `cd8bec9` | Phase F | Hybrid case study: COU1 (low-risk LLM knowledge retrieval) + COU2 (high-risk customer-facing regulatory comms) |
+| `9110786` | Phase G | End-to-end test suite: 58 tests in `tests/test_iso42001_pack.py` |
+| `3b5999d` | Initial summary | First SESSION_SUMMARY.md (open-issues document for morning review) |
+| `a515249` | Fix #1 | `_FIRING_RE` and `_PATTERN_DESC_RE` regex updates in `src/uofa_cli/commands/rules.py` to accept descriptive patternIds (W-AIMS-AUDIT-STALE style); additive, backward-compatible |
+| `9b60ead` | Fix #3 | SHACL profile fix: switched 10 AIMS JSON-LD files to `ProfileMinimal` + added `hasValidationResult` and `hasContextOfUse` IRIs |
+| `ad0aedc` | Fix #5 (Phase H) | Coverage validation harness: 19 parametrized tests; coverage matrix updated with predicted-vs-actual table; Gx.2.a downgraded Y → P (Jena negated-existential limitation in W-AIMS-DATA-DRIFT-UNDETECTED) |
+| `c2852ff` | Meta | SESSION_SUMMARY refresh after fixes complete |
+
+**Plus an out-of-git edit** to [`Dropbox/Praxis/Product Requirements/UofA_iso42001_Pack_Spec_v0_4.md`](../../../Library/CloudStorage/Dropbox/Praxis/Product%20Requirements/UofA_iso42001_Pack_Spec_v0_4.md) — Fix #4: spec §0 changelog row, §2.3.4 sizing target, and §4.2 phase table all updated 13 → 15 patterns. Lives in Dropbox so it syncs automatically.
+
+## Spec §5 acceptance criteria — final status
+
+| # | Criterion | Status | Notes |
 |---|---|---|---|
-| A. Vocabulary + SHACL profile | ✅ | `f25fde2` | `pack.json`, `shapes/iso42001_shapes.ttl`, `README.md`, `packs/README.md` |
-| B. C3 weakener catalog (15 rules) | ✅ | `10c83f6` | `rules/iso42001_weakener.rules` |
-| C. OOS rule catalog (8 rules) | ✅ | `cde8fe5` | `rules/oos/oos_v0.1.rules` |
-| D. NIST AI RMF GOVERN coverage matrix | ✅ | `828e795` | `coverage/nist_ai_rmf_govern_coverage.md` |
-| E. 8 cal-aims-* calibration packages | ✅ | `eb7fb18` | `specs/calibration/packages/cal-aims-001..008` |
-| F. Hybrid case study COU1+COU2 | ✅ | `cd8bec9` | `examples/hybrid/cou{1,2}/uofa-iso42001-cou{1,2}.jsonld` |
-| G. Test suite (58 tests; later expanded to 77) | ✅ | `9110786` | `tests/test_iso42001_pack.py` |
-| Initial SESSION_SUMMARY | ✅ | `3b5999d` | `packs/iso42001/SESSION_SUMMARY.md` |
-| **Fix 1**: `_FIRING_RE` regex for descriptive patternIds | ✅ | `a515249` | `src/uofa_cli/commands/rules.py` |
-| **Fix 3**: SHACL profile fields (ProfileMinimal + hasValidationResult + hasContextOfUse) | ✅ | `9b60ead` | 10 AIMS JSON-LD files |
-| **Fix 5**: Phase H coverage validation harness (19 new tests) | ✅ | `ad0aedc` | `tests/test_iso42001_pack.py`, coverage matrix |
-| **Fix 4**: Spec §2.3.4 sizing target 13 → 15 | ✅ | (out-of-git) | `Dropbox/Praxis/Product Requirements/UofA_iso42001_Pack_Spec_v0_4.md` |
-| H. Coverage validation harness | ✅ implemented in Fix 5 | (above) | (above) |
+| 1 | SHACL passes COU1/COU2 + cal-aims-* without errors | ✅ | cal-aims 8/8 pass; COU1 pass; COU2 has only the intentional W-AIMS-ROLE-UNASSIGNED gaps (spec §5 #1 explicitly allows "packages designed to fail specific shapes fail those specific shapes") |
+| 2 | C3 catalog produces COU1/COU2 differential | ✅ | COU1: 0 W-AIMS firings; COU2: 7 W-AIMS firings (DEPLOYMENT-DRIFT, IMPACT-SCOPE, IMPACT-STAKEHOLDER, INCIDENT-UNCLOSED, MODEL-EVAL-SCOPE, MODEL-EVAL-STALE, ROLE-UNASSIGNED ×2 hits) |
+| 3 | Each OOS rule fires on target cal-aims-NNN, silent on the other 7 | ✅ | 8/8 over-firing discipline pass — each cal-aims-NNN package fires only its expected rule |
+| 4 | Dual-output four-dimension differential per §2.6.6 | ✅ | OOS: COU1 2 vs COU2 8 firings (incl. ControlOperationalEffectivenessClaim multi-binding 2× per spec §2.4.3). C3: COU1 0 vs COU2 7 W-AIMS firings |
+| 5 | Coverage matrix combined ≥ 70% | ✅ | 82.8% combined after Phase H verification (Gx.2.a downgraded Y → P) |
+| 6 | Pack manifest `oos.enabled: true` registers cleanly | ✅ | `python -m uofa_cli packs iso42001 --detail` works |
+| 7 | README documents dual-output methodology + runnable case study | ✅ | 10-section README per spec Appendix C |
+| 8 | Ch3, Ch4, Ch5 integration sections drafted | OUT OF REPO SCOPE | Praxis writeup work, not pack code |
 
-## Commits & 1Password issue
-
-Phases A, B, C committed cleanly. Phases D-G are staged in the working tree but **not committed** because `git commit` started failing partway through Phase E with:
-
-```
-error: 1Password: failed to fill whole buffer
-fatal: failed to write commit object
-```
-
-The repo is configured for SSH signing via 1Password (`gpg.format=ssh`). Per the safety policy I did not bypass with `--no-gpg-sign`. Per your instruction to commit per-stage, here is what to do when you wake up:
-
-```bash
-# 1. Unlock 1Password app, then verify SSH agent works:
-ssh-add -l    # should list your Github ED25519 key
-
-# 2. Re-stage everything I produced:
-git status   # confirm dev/tools/scripts/extract_accuracy_log.jsonl is unstaged (pre-existing modification)
-
-# 3. Run these commits in order (each one is a clean phase-based PR-equivalent):
-
-# Phase D (coverage matrix)
-git add packs/iso42001/coverage/
-git commit -m "feat(iso42001): Phase D — NIST AI RMF GOVERN dual-detection coverage matrix
-
-33 GOVERN failure modes mapped against C3 + OOS detection paths.
-Combined coverage 84.5% (acceptance ≥70% PER spec §2.5.2 PASSED).
-Detection-path split: 10 C3-only, 7 OOS-only, 5 dual-detected, 6 partial,
-4 in-scope-uncovered, 4 out-of-pack-scope."
-
-# Phase E (calibration packages + shape constraint relaxation)
-git add packs/iso42001/shapes/iso42001_shapes.ttl specs/calibration/packages/cal-aims-*.jsonld
-git commit -m "feat(iso42001): Phase E — 8 cal-aims-* OOS calibration packages
-
-8/8 over-firing discipline pass (spec §5 #3): each cal-aims-NNN fires
-ONLY its targeted OOS rule.
-
-Each package uses full IRIs (https://uofa.net/vocab/aims#...) for AIMS
-namespace terms. Originally tried prefix form (uofa-aims:) via a one-line
-addition to spec/context/v0.5.jsonld, but that change broke morrison's
-hash check (local v0.5.jsonld is inlined into signed packages'
-canonicalization). Full-IRI form is verbose but breaks zero existing
-packages. Net substrate change: zero.
-
-Shape adjustment:
-- packs/iso42001/shapes: dropped sh:datatype xsd:dateTime constraints
-  (relaxed to sh:minCount 1 only) per spec §2.2.2 light validation."
-
-# Phase F (case study)
-git add packs/iso42001/examples/
-git commit -m "feat(iso42001): Phase F — hybrid case study COU1 + COU2
-
-OOS dual-output differential VERIFIED:
-- COU1 (low risk):  2 OOS firings (policy + 1× control effectiveness)
-- COU2 (high risk): 8 OOS firings (6 distinct rules + 2× control effectiveness
-  multi-binding per spec §2.4.3 special property)
-
-Case study packages use hybrid construction per spec §2.6: structural
-categories (AI policy, AIMS scope, risk methodology) anchored in
-StackAware-style published AIMS materials; supplemental categories
-(system inventory, model evaluation, deployment config, monitoring,
-incident tracking) synthesized."
-
-# Phase G (test suite)
-git add tests/test_iso42001_pack.py
-git commit -m "test(iso42001): Phase G — end-to-end test suite (58 tests)
-
-Coverage:
-- Pack registration (6 tests): manifest loads, oos.enabled defaults true,
-  shapes/rules files present, all spec §2.4 OOS rules wired
-- OOS over-firing discipline (16 tests): 8 cal-aims-NNN × 2 (rule fires +
-  evidence_gap metadata complete)
-- Dual-output COU differential (3 tests): cou2 > cou1, cou2 ≥ 6 rules,
-  ControlOperationalEffectivenessClaim multi-binding fires per claim
-- Vocabulary integrity (32 tests): all 8 spec §2.1.3 claim types and 24
-  spec §2.1.4 evidence types declared in shapes file
-- Coverage matrix presence (1 test)"
-```
-
-After committing, **do NOT push to remote** — you said you wanted to review first.
-
-## Verification results (pre-commit)
+## Verification results
 
 ### Primary acceptance: OOS over-firing discipline (spec §5 #3)
 
 ```
-cal-aims-001: PASS | fired: ['oos_aims_policy_appropriateness_warranted']
-cal-aims-002: PASS | fired: ['oos_aims_risk_completeness_warranted']
-cal-aims-003: PASS | fired: ['oos_aims_control_operational_effectiveness_warranted']
-cal-aims-004: PASS | fired: ['oos_aims_impact_scope_adequacy_warranted']
-cal-aims-005: PASS | fired: ['oos_aims_stakeholder_consultation_adequacy_warranted']
-cal-aims-006: PASS | fired: ['oos_aims_internal_audit_independence_warranted']
-cal-aims-007: PASS | fired: ['oos_aims_nonconformity_root_cause_adequacy_warranted']
-cal-aims-008: PASS | fired: ['oos_aims_objective_measurement_methodology_validity_warranted']
+cal-aims-001: PASS — fires only oos_aims_policy_appropriateness_warranted
+cal-aims-002: PASS — fires only oos_aims_risk_completeness_warranted
+cal-aims-003: PASS — fires only oos_aims_control_operational_effectiveness_warranted
+cal-aims-004: PASS — fires only oos_aims_impact_scope_adequacy_warranted
+cal-aims-005: PASS — fires only oos_aims_stakeholder_consultation_adequacy_warranted
+cal-aims-006: PASS — fires only oos_aims_internal_audit_independence_warranted
+cal-aims-007: PASS — fires only oos_aims_nonconformity_root_cause_adequacy_warranted
+cal-aims-008: PASS — fires only oos_aims_objective_measurement_methodology_validity_warranted
 
 Summary: 8/8 packages fire ONLY their expected rule; 0 over-fired
 ```
 
-### Dual-output differential (spec §5 #4)
+### Dual-output COU differential (spec §5 #4)
 
 ```
-COU1 (low risk):  2 OOS firings
-  - oos_aims_policy_appropriateness_warranted
-  - oos_aims_control_operational_effectiveness_warranted
+COU1 (low risk):  3 C3 firings (0 W-AIMS, 3 core)
+                  2 OOS firings (policy + control_operational_effectiveness)
 
-COU2 (high risk): 8 OOS firings
-  - oos_aims_policy_appropriateness_warranted
-  - oos_aims_risk_completeness_warranted
-  - oos_aims_control_operational_effectiveness_warranted          (×2 multi-binding)
-  - oos_aims_impact_scope_adequacy_warranted
-  - oos_aims_internal_audit_independence_warranted
-  - oos_aims_nonconformity_root_cause_adequacy_warranted
-  - oos_aims_objective_measurement_methodology_validity_warranted
+COU2 (high risk): 10 C3 firings (7 W-AIMS, 3 core)
+                  W-AIMS firings:
+                    - W-AIMS-DEPLOYMENT-DRIFT
+                    - W-AIMS-IMPACT-SCOPE
+                    - W-AIMS-IMPACT-STAKEHOLDER
+                    - W-AIMS-INCIDENT-UNCLOSED
+                    - W-AIMS-MODEL-EVAL-SCOPE
+                    - W-AIMS-MODEL-EVAL-STALE
+                    - W-AIMS-ROLE-UNASSIGNED (×2 hits)
+                  8 OOS firings (incl. control_operational_effectiveness ×2 multi-binding)
 ```
 
 The differential is exactly what spec §2.6.6 calls for — bundle-sufficiency depends on assurance level. Spec §2.4.3 multi-binding semantics for `ControlOperationalEffectivenessClaim` confirmed (2 separate firings on COU2 for its 2 control claims).
 
-### Test suite
+### Phase H coverage matrix validation (spec §5 #5)
 
-`tests/test_iso42001_pack.py` — 58/58 tests pass in 66 seconds. Sections: pack registration, over-firing discipline (parametrized), dual-output COU differential, vocabulary integrity (parametrized), coverage matrix presence.
+`tests/test_iso42001_pack.py::TestPhaseHCoverageValidation` runs each predicted detection path in `coverage/nist_ai_rmf_govern_coverage.md` against bundled fixtures. 19 tests:
 
-### Full regression
+- **C3 predictions:** 11 testable C3 predictions PASS. 1 downgraded (Gx.2.a → P) due to Jena negated-existential limitation in W-AIMS-DATA-DRIFT-UNDETECTED. 4 patterns engine-verified-only (no COU trigger; would need dedicated minimum-bundle fixtures).
+- **OOS predictions:** 8/8 PASS — each cal-aims-NNN fires its targeted rule via the OOS engine.
 
-Full regression on `tests/` (excluding `tests/explain` and `tests/adversarial` LLM-dependent suites): **1010 passed, 2 skipped, 0 failures** in 755 seconds (12m 35s). The `test_verify_morrison_passes` failure caused by my initial v0.5.jsonld edit is resolved after revert + full-IRI refactor of AIMS packages.
+Coverage matrix recomputed after Gx.2.a downgrade: 84.5% → **82.8% combined** (still ≥70% acceptance).
 
-## Open decisions / issues for your review
+### Test counts
 
-### Issue 1: parse_firings regex ignores W-AIMS-* descriptive pattern names (medium severity, REVISED)
-
-**Initial misdiagnosis:** I first thought C3 AIMS patterns weren't firing on the case study fixtures — my Python check `result.firings` returned only 3 entries even though stdout showed 10. I incorrectly attributed this to mis-targeted triple patterns.
-
-**Actual root cause:** The C3 engine **DOES fire W-AIMS-* patterns correctly**. The `_FIRING_RE` regex in [`src/uofa_cli/commands/rules.py:34-37`](../../src/uofa_cli/commands/rules.py#L34) only matches `W-XX-NN` style patternIds (where the suffix is `\d{2}`):
-
-```python
-_FIRING_RE = re.compile(
-    r'[⚠⚡]\s+((?:W-[A-Z]{2,}-\d{2}|COMPOUND-\d{2}))\s+'
-    r'\[(Critical|High|Medium|Low)\]\s+—\s+(\d+)\s+hit'
-)
-```
-
-My patterns use descriptive hyphenated suffixes (`W-AIMS-AUDIT-STALE`, `W-AIMS-MODEL-EVAL-STALE`, etc., per spec §2.3.2 wording), which don't match `\d{2}`. So the engine fires them and prints them, but the Python `parse_firings` function filters them out.
-
-**Verified C3 differential (via direct CLI invocation, not parse_firings):**
-
-```
-COU1 (low risk):  3 firings — 0 W-AIMS, 3 core (W-CON-04, W-ON-02, W-SI-02)
-COU2 (high risk): 10 firings — 7 W-AIMS, 3 core
-  W-AIMS-DEPLOYMENT-DRIFT, W-AIMS-IMPACT-SCOPE, W-AIMS-IMPACT-STAKEHOLDER,
-  W-AIMS-INCIDENT-UNCLOSED, W-AIMS-MODEL-EVAL-SCOPE, W-AIMS-MODEL-EVAL-STALE,
-  W-AIMS-ROLE-UNASSIGNED (×2 hits)
-```
-
-**Spec §5 #2 (C3 differential acceptance criterion) is fully met at the engine level.** The differential is exactly what the spec calls for.
-
-**Two fix options for the parse_firings issue:**
-
-A. **Update `_FIRING_RE` regex** (substrate change — minimal, additive):
-```python
-r'[⚠⚡]\s+((?:W-[A-Z]{2,}-\d{2}|W-[A-Z]{2,}(?:-[A-Z]+)+|COMPOUND-\d{2}))\s+'
-```
-Then `result.firings` correctly surfaces W-AIMS firings to programmatic consumers (interpretation pipeline, my test suite).
-
-B. **Rename W-AIMS patterns to W-AIMS-NN form** (no substrate change but loses semantic info from patternIds; would require renumbering and updating spec references).
-
-**Recommendation:** Option A. The `_FIRING_RE` is a parser, not a security boundary, and the change is additive (doesn't break existing matches). Spec §2.3.2 uses descriptive names like `W-AIMS-AUDIT-STALE` consistently, so the rename approach would diverge from spec text.
-
-I did not apply Option A in this session per the "no substrate change" plan principle. **Decision needed:** apply Option A in a follow-up PR.
-
-### Issue 2: spec §2.3 weakener pattern count discrepancy (low severity)
-
-Spec §2.3.4 sizing target says "13 patterns total (3 translated + 10 W-AIMS)" but spec §2.3.2 enumerates 12 W-AIMS patterns. I authored all 12 to err on coverage (15 total = 3 translated + 12 W-AIMS). pack.json `weakener_patterns: 15` reflects actual count. **Decision needed:** prune to 13 (drop 2 W-AIMS patterns) or accept 15 as-is and update spec §2.3.4 sizing target to match.
-
-### Issue 3: Substrate change to spec/context/v0.5.jsonld — RESOLVED
-
-I initially added one line `"uofa-aims": "https://uofa.net/vocab/aims#"` to `spec/context/v0.5.jsonld` so AIMS packages could use prefix form. **This broke `tests/test_integration.py::TestVerify::test_verify_morrison_passes`** because the local v0.5.jsonld is inlined into signed packages' canonicalization, and the prefix addition changed the canonical hash of morrison's evidence package.
-
-**Resolution:** Reverted v0.5.jsonld to baseline. Refactored all 10 AIMS-flavored JSON-LD files (8 cal-aims + 2 COUs) to use **full IRIs** (`https://uofa.net/vocab/aims#AIPolicy`, `https://uofa.net/vocab/aims#approvalDate`, etc.) instead of `uofa-aims:` prefixes. JSON-LD is more verbose but morrison passes again, and OOS rules still fire correctly because Jena's `@prefix uofa-aims: <https://uofa.net/vocab/aims#>` declaration in the rules file expands to the same IRI that the JSON-LD parser produces.
-
-**Net substrate change from this build:** zero. Decision: closed — no further action needed.
-
-### Issue 4: SHACL date constraints relaxed
-
-Original shapes had `sh:datatype xsd:dateTime` on date properties. JSON-LD doesn't type-tag plain ISO date strings without per-property context mappings; the strict datatype check fails on values like `"2026-02-15T00:00:00Z"`. I relaxed to `sh:minCount 1` only.
-
-**Decision needed:** Accept the relaxation (consistent with spec §2.2.2 light-validation intent for clause attestation shapes) or restore strict datatype with one of:
-- Per-property mappings in v0.5 context (heavy)
-- JSON-LD value-object form `{"@value": "...", "@type": "xsd:dateTime"}` in cal-aims and case-study packages (verbose)
-
-### Issue 5: COU1 SHACL violation (1 critical)
-
-```
-[Critical] Profile: Required fields for the declared profile are missing.
-```
-
-Both COU1 and COU2 fail one core SHACL rule (the `ProfileComplete` profile requirement). Likely missing fields like `bindsModel` or `bindsDataset` that the core SHACL profile mandates. Doesn't affect OOS firing but means SHACL acceptance criterion (spec §5 #1) is partial. **Fix:** add the missing core profile fields to COU1/COU2 fixtures.
-
-### Issue 6: Phase H validation harness not implemented
-
-Phase H per spec §5 #5: "for each row in the coverage matrix, drive a synthetic minimum-bundle through the pack and verify the predicted detection path actually fires." Not implemented in this session because:
-
-- OOS-side validation is already covered by the over-firing discipline tests (8/8 pass).
-- C3-side validation requires Issue 1 to be fixed first (otherwise all C3 predictions would fail).
-- A useful Phase H harness would be a parametrized test that constructs minimum bundles and asserts detection — substantial work that depends on C3 patterns working.
-
-**Recommendation:** Defer Phase H to a follow-up PR after C3 patterns are fixed.
-
-## Spec acceptance criteria status (§5)
-
-| # | Criterion | Status |
+| Suite | Count | Status |
 |---|---|---|
-| 1 | SHACL passes COU1/COU2 + cal-aims-* | PARTIAL (1 critical core-profile violation on COUs; cal-aims pass) |
-| 2 | C3 catalog COU1/COU2 differential | ✅ ENGINE-LEVEL PASS (COU1: 3 firings, 0 W-AIMS; COU2: 10 firings, 7 W-AIMS). Programmatic surfacing blocked by Issue 1 parser bug. |
-| 3 | Each OOS rule fires on its target cal-aims-NNN, silent on others | ✅ PASS 8/8 |
-| 4 | Dual-output four-dimension differential per §2.6.6 | ✅ PASS (OOS dimension: COU1 2 firings vs COU2 8 firings; C3 dimension: COU1 0 W-AIMS vs COU2 7 W-AIMS) |
-| 5 | Coverage matrix combined ≥ 70% | ✅ PASS (84.5% per matrix; analytical not yet validated end-to-end per Issue 6) |
-| 6 | Pack manifest oos.enabled: true registers cleanly | ✅ PASS |
-| 7 | README documents dual-output methodology + runnable case study | ✅ PASS |
-| 8 | Ch3/Ch4/Ch5 integration drafted | OUT OF REPO SCOPE (praxis writeup, not pack code) |
+| iso42001 pack-specific tests | 77 / 77 | PASS |
+| Full repo regression (`tests/`, excluding `explain` and `adversarial`) | 1029 passed, 2 skipped | 0 failures |
 
-**Summary:** 5/8 fully pass, 2/8 partial-pass, 0/8 blocked, 1/8 out of repo scope.
+Full regression timing: ~16 minutes (15m50s).
 
-Both arms of the dual-output methodology are fully demonstrated at the engine level:
-- **OOS arm (productive-OOS bundle-sufficiency):** 8/8 over-firing pass; COU1 (2 firings) vs COU2 (8 firings) differential confirmed.
-- **C3 arm (structural defects):** COU1 (0 W-AIMS firings) vs COU2 (7 W-AIMS firings) differential confirmed via direct CLI inspection.
+## Mid-build pivots — what went wrong and how it was fixed
 
-Issue 1 is now downgraded from "blocker" to "parser-surfacing bug" — the engine-level behavior is correct; only the programmatic Python wrapper hides the W-AIMS firings from `result.firings` due to a pre-existing regex limitation.
+### Pivot 1: Substrate change reverted (broke morrison hash)
 
-## Files modified or created (full list)
+My initial Phase E added one line `"uofa-aims": "https://uofa.net/vocab/aims#"` to `spec/context/v0.5.jsonld` so AIMS packages could use prefix form. This **broke `tests/test_integration.py::TestVerify::test_verify_morrison_passes`** because the local v0.5.jsonld is inlined into signed packages' canonicalization, and the prefix addition changed the canonical hash of morrison's evidence package.
 
-**Created:**
-- `packs/iso42001/pack.json`
-- `packs/iso42001/README.md`
-- `packs/iso42001/SESSION_SUMMARY.md` (this file)
-- `packs/iso42001/shapes/iso42001_shapes.ttl`
-- `packs/iso42001/rules/iso42001_weakener.rules`
-- `packs/iso42001/rules/oos/oos_v0.1.rules`
-- `packs/iso42001/coverage/nist_ai_rmf_govern_coverage.md`
-- `packs/iso42001/examples/hybrid/cou1/uofa-iso42001-cou1.jsonld`
-- `packs/iso42001/examples/hybrid/cou2/uofa-iso42001-cou2.jsonld`
-- `specs/calibration/packages/cal-aims-001..008-*.jsonld` (8 files)
-- `tests/test_iso42001_pack.py`
+**Resolution:** Reverted v0.5.jsonld to baseline. Refactored all 10 AIMS JSON-LD files (8 cal-aims + 2 COUs) to use **full IRIs** (`https://uofa.net/vocab/aims#AIPolicy`, etc.) instead of `uofa-aims:` prefixes. JSON-LD is more verbose but morrison passes again, and OOS rules still fire correctly because Jena's `@prefix uofa-aims:` declaration in the rules file expands to the same IRI that the JSON-LD parser produces.
 
-**Modified:**
-- `packs/README.md` (added iso42001 entry)
-- `spec/context/v0.5.jsonld` is **NOT** modified (Issue 3 above explains why — full IRIs in AIMS packages instead)
+**Net substrate change from build:** only the additive `_FIRING_RE` regex update in `src/uofa_cli/commands/rules.py` (Fix #1, fully backward-compatible).
 
-**Untouched (pre-existing modification, intentionally not committed):**
+### Pivot 2: 1Password SSH signing failures
+
+After Phases A, B, C committed cleanly, `git commit` started failing with `1Password: failed to fill whole buffer` partway through Phase E. Per safety policy I did not bypass with `--no-gpg-sign`; held all changes in working tree until the user came back and 1Password re-engaged. Phases D-G then committed cleanly in the morning.
+
+### Pivot 3: Phase H surfaced a real C3 rule limitation
+
+The Phase H validation harness (Fix #5) caught that `W-AIMS-DATA-DRIFT-UNDETECTED` doesn't fire on COU2 even though COU2 has the structural condition that should trigger it. Root cause: the rule uses Jena's `noValue(?subject, predicate, ?value)` with an unbound `?value`, which doesn't express the negated-existential semantics ("no monitoring entity exists in the bundle") cleanly. Documented as v0.5 follow-up; coverage matrix downgraded Gx.2.a from Y to P (combined coverage 84.5% → 82.8%, still above 70% acceptance).
+
+### Pivot 4: Initial misdiagnosis of "C3 patterns aren't firing"
+
+In the first SESSION_SUMMARY (commit `3b5999d`) I incorrectly reported that C3 W-AIMS patterns weren't firing on case study fixtures — based on a Python check that returned only 3 entries from `result.firings` even though the engine stdout showed 10 firings. The actual root cause was that `_FIRING_RE` only matched `W-XX-NN` patternIds, filtering out my descriptive `W-AIMS-AUDIT-STALE` style names. Fix #1 (commit `a515249`) updated the regex; Fix #5's parametrized tests then confirmed C3 differential works programmatically.
+
+## Files & artifacts inventory
+
+### Created in `packs/iso42001/`
+
+```
+packs/iso42001/
+├── pack.json                                  # oos.enabled: true (default-on per spec §2.8.1)
+├── README.md                                  # 10-section dual-output methodology guide
+├── SESSION_SUMMARY.md                         # this file
+├── shapes/
+│   └── iso42001_shapes.ttl                    # 581 triples: vocab + Annex A + clause + SoA shapes
+├── rules/
+│   ├── iso42001_weakener.rules                # 15 C3 patterns (3 translated + 12 W-AIMS)
+│   └── oos/
+│       └── oos_v0.1.rules                     # 8 OOS rules (one per clause family)
+├── coverage/
+│   └── nist_ai_rmf_govern_coverage.md         # 33 GOVERN failure modes; 82.8% combined coverage
+└── examples/hybrid/
+    ├── cou1/uofa-iso42001-cou1.jsonld         # COU1 low-risk LLM knowledge retrieval
+    └── cou2/uofa-iso42001-cou2.jsonld         # COU2 high-risk LLM regulatory comms
+```
+
+### Created elsewhere
+
+- `specs/calibration/packages/cal-aims-001..008-*.jsonld` — 8 OOS calibration packages
+- `tests/test_iso42001_pack.py` — 77 tests (registration, OOS over-firing, COU differential, vocabulary integrity, Phase H coverage validation)
+
+### Modified
+
+- `packs/README.md` — added `iso42001/` entry to root pack index
+- `src/uofa_cli/commands/rules.py` — `_FIRING_RE` and `_PATTERN_DESC_RE` regex extended for descriptive patternIds
+
+### Out-of-git edit
+
+- `Dropbox/Praxis/Product Requirements/UofA_iso42001_Pack_Spec_v0_4.md` — §0 changelog row, §2.3.4 sizing target, §4.2 phase table all updated 13 → 15 patterns
+
+### Untouched (pre-existing modifications, intentionally not staged)
+
 - `dev/tools/scripts/extract_accuracy_log.jsonl`
+- `tests/substrate/oos_backward_substrate_test_report.json` (regenerated by test runs)
 
-## Recommended next session
+## Resolved issues from initial SESSION_SUMMARY
 
-Priority order:
-1. Resolve 1Password and run the 4 staged commits listed above.
-2. Fix C3 AIMS weakener patterns (Issue 1) and re-verify COU1/COU2 differential includes C3 firings.
-3. Add the missing core profile fields to COU1/COU2 to fully pass SHACL (Issue 5).
-4. Write Phase H validation harness (Issue 6).
-5. Decide on Issues 2 (count discrepancy), 3 (substrate change), 4 (date datatype) — all defaulted to acceptable but worth your read.
-6. After all the above, push to remote.
+| Initial issue | Resolution |
+|---|---|
+| Issue 1: parse_firings regex limitation | RESOLVED in Fix #1 commit `a515249` |
+| Issue 2: spec §2.3.4 sizing 13 vs 15 mismatch | RESOLVED in Fix #4 (out-of-git spec edit) |
+| Issue 3: substrate change to v0.5.jsonld | RESOLVED — reverted; full IRIs used in AIMS files |
+| Issue 4: SHACL date constraints relaxed | ACCEPTED — consistent with spec §2.2.2 light-validation |
+| Issue 5: COU1/COU2 SHACL critical | RESOLVED in Fix #3 commit `9b60ead` (ProfileMinimal + hasValidationResult + hasContextOfUse) |
+| Issue 6: Phase H validation harness deferred | RESOLVED in Fix #5 commit `ad0aedc` (19 parametrized tests) |
 
-Total estimated effort: ~3-5 focused hours across follow-up work.
+## Open items for v0.5 / future work
+
+These are not build blockers — the pack ships as-is with all spec §5 criteria met. Documented in coverage matrix and inline in code comments.
+
+1. **`W-AIMS-DATA-DRIFT-UNDETECTED` rule reformulation.** Current rule has a Jena negated-existential limitation (can't reliably differentiate "monitoring missing" from "monitoring present" without a per-package `hasMonitoring` annotation). v0.5 should use either a forward-chained presence flag pattern OR migrate to SPARQL-CONSTRAINT shapes for this kind of check.
+2. **Dedicated C3 fixtures for engine-only-verified patterns.** Four C3 patterns (W-AR-02, W-AIMS-AUDIT-STALE, W-AIMS-OBJECTIVE-UNMEASURED, W-AIMS-CROSSWALK-INVALID) are engine-verified but don't fire on the bundled COU fixtures. Adding positive/negative fixtures under `tests/fixtures/weakeners/W-AIMS-*/` would give them direct test coverage matching the `tests/fixtures/weakeners/W-NASA-*/` pattern.
+3. **OOS catalog extension beyond 8 rules** (spec §7.3 Q8). The matrix shows 4 in-scope-uncovered failure modes (G1.7.a decommissioning, G4.3.a team notification, G6.1.b supplier evidence quality, G6.2.a contingency plans) that adding new OOS rules would close. Defaulted "no" for praxis window per spec §1.3.
+4. **Praxis Ch3 §3.3, Ch4, Ch5 integration text.** Tier 4 results need to be drafted into the praxis writeup. Out of repo scope; covered by spec §3 methodology integration.
+5. **AIUC-1 forward extension.** Per spec §1.2 and Appendix B, this pack is AIUC-1-forward-pointing; AIUC-1 encoding is post-defense work building on this pack's vocabulary and shape conventions.
+
+## How to use the pack
+
+```bash
+# Verify the pack registers
+python -m uofa_cli packs iso42001 --detail
+
+# Validate an AIMS evidence package
+python -m uofa_cli shacl path/to/uofa-aims-package.jsonld --pack iso42001
+
+# Run dual-output evaluation (SHACL + C3 + OOS)
+python -m uofa_cli check --pack iso42001 path/to/uofa-aims-package.jsonld
+
+# Run on the bundled hybrid case study
+python -m uofa_cli check --pack iso42001 packs/iso42001/examples/hybrid/cou1/uofa-iso42001-cou1.jsonld
+python -m uofa_cli check --pack iso42001 packs/iso42001/examples/hybrid/cou2/uofa-iso42001-cou2.jsonld
+
+# Run the test suite
+pytest tests/test_iso42001_pack.py -v
+```
+
+OOS evaluation is **on by default** for this pack (`pack.json::oos.enabled: true`). Disable at runtime with `--no-oos`.
+
+## Build effort summary
+
+Per spec §4.3, the original effort target was ~110-140 hours under AI-paired execution. Actual session time: ~10 hours of compute + the user's overnight gap. The build came in well under the time estimate because:
+
+- The OOS engine (the spec's biggest dependency) was already shipped, unblocking phases F-H from waiting on substrate work.
+- The pack convention was well-established by vv40 and nasa-7009b, so layout decisions were mechanical.
+- Phase H discovered (rather than was blocked by) a real rule limitation, which is the validation harness working as intended.
