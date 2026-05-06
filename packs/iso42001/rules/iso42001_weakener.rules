@@ -1,0 +1,356 @@
+# ============================================================================
+# UofA iso42001 pack — C3 forward-chaining weakener catalog v0.4
+# ============================================================================
+# PRD: UofA_iso42001_Pack_Spec_v0_4.md §2.3
+# Engine: Apache Jena GenericRuleReasoner (FORWARD_RETE mode)
+# Pack:   iso42001 v0.4.0
+#
+# These rules detect structural defects within structurally complete bundles.
+# They run after SHACL validation and before OOS bundle-sufficiency evaluation.
+# Rules target the uofa-aims: namespace declared in shapes/iso42001_shapes.ttl.
+#
+# Per spec §2.3.3: W-AIMS-IMPACT-SCOPE, W-AIMS-INCIDENT-UNCLOSED, and
+# W-AIMS-OBJECTIVE-UNMEASURED are deliberately limited to structural detection
+# here. Their judgment-required counterparts live in the OOS rule catalog at
+# rules/oos/oos_v0.1.rules (§2.4.4, §2.4.7, §2.4.8 respectively).
+#
+# Naming convention (mirrors W-NASA-NN):
+#   - Rule anchor (lowercase, underscore):  w_aims_<descriptor>
+#   - patternId string (uppercase, hyphen): 'W-AIMS-<DESCRIPTOR>'
+# ============================================================================
+
+@prefix uofa:      <https://uofa.net/vocab#>.
+@prefix uofa-aims: <https://uofa.net/vocab/aims#>.
+@prefix prov:      <http://www.w3.org/ns/prov#>.
+@prefix rdf:       <http://www.w3.org/1999/02/22-rdf-syntax-ns#>.
+@prefix rdfs:      <http://www.w3.org/2000/01/rdf-schema#>.
+@prefix xsd:       <http://www.w3.org/2001/XMLSchema#>.
+@prefix schema:    <https://schema.org/>.
+
+# ============================================================================
+# §1. Patterns translated from core catalog (per spec §2.3.1)
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# W-PROV-01: missing provenance — adapted to AIMS data resources
+# Fires when a DataResourceProvenance record exists but lacks a sourceReference
+# (the upstream document/system identifier).
+# ----------------------------------------------------------------------------
+[w_aims_prov_01:
+    (?uofa rdf:type uofa:UnitOfAssurance)
+    (?uofa uofa-aims:dataResource ?dr)
+    (?dr rdf:type uofa-aims:DataResourceProvenance)
+    noValue(?dr, uofa:sourceReference)
+    makeSkolem(?ann, ?uofa, 'W-PROV-01', ?dr)
+    ->
+    (?ann rdf:type uofa:WeakenerAnnotation)
+    (?ann uofa:patternId 'W-PROV-01')
+    (?ann uofa:severity 'High')
+    (?ann uofa:affectedNode ?dr)
+    (?ann schema:description 'Data resource provenance record lacks sourceReference — upstream document or system identifier missing.')
+    (?uofa uofa:hasWeakener ?ann)
+]
+
+# ----------------------------------------------------------------------------
+# W-AR-02: acceptance criteria not justified — adapted to risk acceptance
+# Fires when a RiskEntry has treatmentDecision "Accept" with an acceptance
+# rationale that lacks a justification body.
+# ----------------------------------------------------------------------------
+[w_aims_ar_02:
+    (?uofa rdf:type uofa:UnitOfAssurance)
+    (?uofa uofa:hasEvidence ?re)
+    (?re rdf:type uofa-aims:RiskEntry)
+    (?re uofa-aims:treatmentDecision 'Accept')
+    (?re uofa-aims:hasAcceptanceRationale ?rat)
+    noValue(?rat, uofa:justification)
+    makeSkolem(?ann, ?uofa, 'W-AR-02', ?re)
+    ->
+    (?ann rdf:type uofa:WeakenerAnnotation)
+    (?ann uofa:patternId 'W-AR-02')
+    (?ann uofa:severity 'High')
+    (?ann uofa:affectedNode ?re)
+    (?ann schema:description 'Accept-decision risk has acceptance rationale but no justification body — risk acceptance is not documented.')
+    (?uofa uofa:hasWeakener ?ann)
+]
+
+# ----------------------------------------------------------------------------
+# W-AL-02: claim-evidence alignment — adapted to crosswalk validation
+# Fires when an AIMS claim asserts a framework mapping but no risk register
+# entry references that framework.
+# ----------------------------------------------------------------------------
+[w_aims_al_02:
+    (?uofa rdf:type uofa:UnitOfAssurance)
+    (?uofa uofa:bindsClaim ?claim)
+    (?claim rdf:type uofa-aims:AIMSClaim)
+    (?claim uofa-aims:mappedToFramework ?fw)
+    noValue(?uofa, uofa-aims:mappedToFramework, ?fw)
+    makeSkolem(?ann, ?uofa, 'W-AL-02', ?claim)
+    ->
+    (?ann rdf:type uofa:WeakenerAnnotation)
+    (?ann uofa:patternId 'W-AL-02')
+    (?ann uofa:severity 'Medium')
+    (?ann uofa:affectedNode ?claim)
+    (?ann schema:description 'Claim asserts framework mapping that no other bundle artifact references — claim-evidence alignment broken.')
+    (?uofa uofa:hasWeakener ?ann)
+]
+
+# ============================================================================
+# §2. Patterns adapted for AIMS evidence (per spec §2.3.2)
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# W-AIMS-AUDIT-STALE: audit older than required cadence relative to
+# system change frequency. Structural form: AuditResultsRecord present but
+# bundle has explicit `auditOverdue "true"^^xsd:boolean` flag (Jena lacks
+# native date arithmetic; the bundle author or a pre-processor asserts the
+# flag based on auditDate vs. cadence comparison).
+# ----------------------------------------------------------------------------
+[w_aims_audit_stale:
+    (?uofa rdf:type uofa:UnitOfAssurance)
+    (?uofa uofa:hasEvidence ?audit)
+    (?audit rdf:type uofa-aims:AuditResultsRecord)
+    (?audit uofa-aims:auditCadence ?cadence)
+    (?audit uofa:isFoundationalEvidence "true"^^xsd:boolean)
+    noValue(?audit, uofa-aims:nextReviewDate)
+    makeSkolem(?ann, ?uofa, 'W-AIMS-AUDIT-STALE', ?audit)
+    ->
+    (?ann rdf:type uofa:WeakenerAnnotation)
+    (?ann uofa:patternId 'W-AIMS-AUDIT-STALE')
+    (?ann uofa:severity 'High')
+    (?ann uofa:affectedNode ?audit)
+    (?ann schema:description 'Audit results record declares cadence but lacks nextReviewDate — staleness relative to system change frequency cannot be verified.')
+    (?uofa uofa:hasWeakener ?ann)
+]
+
+# ----------------------------------------------------------------------------
+# W-AIMS-IMPACT-SCOPE: impact assessment scope narrower than deployed AI
+# system scope (structural subset check). Judgment-required scope adequacy
+# lives in OOS §2.4.4.
+# ----------------------------------------------------------------------------
+[w_aims_impact_scope:
+    (?uofa rdf:type uofa:UnitOfAssurance)
+    (?uofa uofa:hasEvidence ?ia)
+    (?ia rdf:type uofa-aims:ImpactAssessmentRecord)
+    (?ia uofa-aims:assessmentScope ?ascope)
+    (?uofa uofa-aims:assessedDeploymentScope ?dscope)
+    notEqual(?ascope, ?dscope)
+    makeSkolem(?ann, ?uofa, 'W-AIMS-IMPACT-SCOPE', ?ia)
+    ->
+    (?ann rdf:type uofa:WeakenerAnnotation)
+    (?ann uofa:patternId 'W-AIMS-IMPACT-SCOPE')
+    (?ann uofa:severity 'High')
+    (?ann uofa:affectedNode ?ia)
+    (?ann schema:description 'Impact assessment scope does not match assessed deployment scope — structural subset mismatch.')
+    (?uofa uofa:hasWeakener ?ann)
+]
+
+# ----------------------------------------------------------------------------
+# W-AIMS-IMPACT-STAKEHOLDER: impact assessment missing affected stakeholder
+# enumeration.
+# ----------------------------------------------------------------------------
+[w_aims_impact_stakeholder:
+    (?uofa rdf:type uofa:UnitOfAssurance)
+    (?uofa uofa:hasEvidence ?ia)
+    (?ia rdf:type uofa-aims:ImpactAssessmentRecord)
+    noValue(?ia, uofa-aims:affectedStakeholder)
+    makeSkolem(?ann, ?uofa, 'W-AIMS-IMPACT-STAKEHOLDER', ?ia)
+    ->
+    (?ann rdf:type uofa:WeakenerAnnotation)
+    (?ann uofa:patternId 'W-AIMS-IMPACT-STAKEHOLDER')
+    (?ann uofa:severity 'Medium')
+    (?ann uofa:affectedNode ?ia)
+    (?ann schema:description 'Impact assessment record lacks affectedStakeholder enumeration — affected parties not documented.')
+    (?uofa uofa:hasWeakener ?ann)
+]
+
+# ----------------------------------------------------------------------------
+# W-AIMS-DATA-DRIFT-UNDETECTED: ongoing data quality monitoring absent or
+# methodology mismatched to data type.
+# ----------------------------------------------------------------------------
+[w_aims_data_drift_undetected:
+    (?uofa rdf:type uofa:UnitOfAssurance)
+    (?uofa uofa-aims:dataResource ?dr)
+    (?dr rdf:type uofa-aims:DataResourceProvenance)
+    noValue(?uofa, uofa:hasEvidence, ?monitor)
+    noValue(?monitor, rdf:type, uofa-aims:OngoingDataQualityMonitoring)
+    makeSkolem(?ann, ?uofa, 'W-AIMS-DATA-DRIFT-UNDETECTED', ?dr)
+    ->
+    (?ann rdf:type uofa:WeakenerAnnotation)
+    (?ann uofa:patternId 'W-AIMS-DATA-DRIFT-UNDETECTED')
+    (?ann uofa:severity 'High')
+    (?ann uofa:affectedNode ?dr)
+    (?ann schema:description 'Data resource declared but no OngoingDataQualityMonitoring evidence present — data drift would go undetected.')
+    (?uofa uofa:hasWeakener ?ann)
+]
+
+# ----------------------------------------------------------------------------
+# W-AIMS-DATA-LINEAGE-BROKEN: data resource provenance discontinuity across
+# processing stages. Fires when a DataResourceProvenance record claims a
+# provenance stage but no DataResourceProvenance instance follows in
+# hasNextStage chain (and the stage is not the terminal "consumption" stage).
+# ----------------------------------------------------------------------------
+[w_aims_data_lineage_broken:
+    (?uofa rdf:type uofa:UnitOfAssurance)
+    (?uofa uofa-aims:dataResource ?dr)
+    (?dr rdf:type uofa-aims:DataResourceProvenance)
+    (?dr uofa-aims:provenanceStage ?stage)
+    notEqual(?stage, 'consumption')
+    noValue(?dr, uofa-aims:hasNextStage)
+    makeSkolem(?ann, ?uofa, 'W-AIMS-DATA-LINEAGE-BROKEN', ?dr)
+    ->
+    (?ann rdf:type uofa:WeakenerAnnotation)
+    (?ann uofa:patternId 'W-AIMS-DATA-LINEAGE-BROKEN')
+    (?ann uofa:severity 'High')
+    (?ann uofa:affectedNode ?dr)
+    (?ann schema:description 'Data resource provenance stage has no hasNextStage successor — lineage discontinuity across processing stages.')
+    (?uofa uofa:hasWeakener ?ann)
+]
+
+# ----------------------------------------------------------------------------
+# W-AIMS-MODEL-EVAL-STALE: model evaluation results predate current deployed
+# model version.
+# ----------------------------------------------------------------------------
+[w_aims_model_eval_stale:
+    (?uofa rdf:type uofa:UnitOfAssurance)
+    (?uofa uofa:hasEvidence ?eval)
+    (?eval rdf:type uofa-aims:ModelEvaluationReport)
+    (?eval uofa-aims:evaluatedModelVersion ?evalver)
+    (?uofa uofa:currentModelVersion ?curver)
+    notEqual(?evalver, ?curver)
+    makeSkolem(?ann, ?uofa, 'W-AIMS-MODEL-EVAL-STALE', ?eval)
+    ->
+    (?ann rdf:type uofa:WeakenerAnnotation)
+    (?ann uofa:patternId 'W-AIMS-MODEL-EVAL-STALE')
+    (?ann uofa:severity 'High')
+    (?ann uofa:affectedNode ?eval)
+    (?ann schema:description 'Model evaluation report version does not match currently deployed model version — evaluation is stale.')
+    (?uofa uofa:hasWeakener ?ann)
+]
+
+# ----------------------------------------------------------------------------
+# W-AIMS-MODEL-EVAL-SCOPE: model evaluation test set not representative of
+# deployment population (structural representativeness check via documented
+# coverage). Deeper evaluation-appropriateness questions belong in OOS.
+# ----------------------------------------------------------------------------
+[w_aims_model_eval_scope:
+    (?uofa rdf:type uofa:UnitOfAssurance)
+    (?uofa uofa:hasEvidence ?eval)
+    (?eval rdf:type uofa-aims:ModelEvaluationReport)
+    (?eval uofa-aims:testSetCoverage ?cov)
+    (?eval uofa-aims:deploymentPopulation ?pop)
+    notEqual(?cov, ?pop)
+    makeSkolem(?ann, ?uofa, 'W-AIMS-MODEL-EVAL-SCOPE', ?eval)
+    ->
+    (?ann rdf:type uofa:WeakenerAnnotation)
+    (?ann uofa:patternId 'W-AIMS-MODEL-EVAL-SCOPE')
+    (?ann uofa:severity 'High')
+    (?ann uofa:affectedNode ?eval)
+    (?ann schema:description 'Model evaluation testSetCoverage does not match documented deploymentPopulation — test set scope mismatch.')
+    (?uofa uofa:hasWeakener ?ann)
+]
+
+# ----------------------------------------------------------------------------
+# W-AIMS-DEPLOYMENT-DRIFT: deployment configuration diverges from validated
+# configuration.
+# ----------------------------------------------------------------------------
+[w_aims_deployment_drift:
+    (?uofa rdf:type uofa:UnitOfAssurance)
+    (?uofa uofa:hasEvidence ?dc)
+    (?dc rdf:type uofa-aims:DeploymentConfiguration)
+    (?dc uofa-aims:validatedConfiguration ?valc)
+    (?dc uofa-aims:deployedConfiguration ?depc)
+    notEqual(?valc, ?depc)
+    makeSkolem(?ann, ?uofa, 'W-AIMS-DEPLOYMENT-DRIFT', ?dc)
+    ->
+    (?ann rdf:type uofa:WeakenerAnnotation)
+    (?ann uofa:patternId 'W-AIMS-DEPLOYMENT-DRIFT')
+    (?ann uofa:severity 'High')
+    (?ann uofa:affectedNode ?dc)
+    (?ann schema:description 'Deployment configuration differs from validated configuration — deployment drift.')
+    (?uofa uofa:hasWeakener ?ann)
+]
+
+# ----------------------------------------------------------------------------
+# W-AIMS-INCIDENT-UNCLOSED: AI incident logged but root cause analysis not
+# completed or remediation not tracked to closure (presence-of-RCA check;
+# adequacy of RCA is the OOS rule §2.4.7).
+# ----------------------------------------------------------------------------
+[w_aims_incident_unclosed:
+    (?uofa rdf:type uofa:UnitOfAssurance)
+    (?uofa uofa:hasEvidence ?nc)
+    (?nc rdf:type uofa-aims:NonconformityRecord)
+    noValue(?nc, uofa-aims:hasRootCauseAnalysis)
+    makeSkolem(?ann, ?uofa, 'W-AIMS-INCIDENT-UNCLOSED', ?nc)
+    ->
+    (?ann rdf:type uofa:WeakenerAnnotation)
+    (?ann uofa:patternId 'W-AIMS-INCIDENT-UNCLOSED')
+    (?ann uofa:severity 'High')
+    (?ann uofa:affectedNode ?nc)
+    (?ann schema:description 'Nonconformity record present but no root cause analysis linked — incident not closed.')
+    (?uofa uofa:hasWeakener ?ann)
+]
+
+# ----------------------------------------------------------------------------
+# W-AIMS-OBJECTIVE-UNMEASURED: AIMS objective declared but measurement
+# methodology absent (presence check; methodology validity is OOS §2.4.8).
+# ----------------------------------------------------------------------------
+[w_aims_objective_unmeasured:
+    (?uofa rdf:type uofa:UnitOfAssurance)
+    (?uofa uofa:hasEvidence ?obj)
+    (?obj rdf:type uofa-aims:AIMSObjectiveStatement)
+    noValue(?obj, uofa-aims:targetMeasure)
+    makeSkolem(?ann, ?uofa, 'W-AIMS-OBJECTIVE-UNMEASURED', ?obj)
+    ->
+    (?ann rdf:type uofa:WeakenerAnnotation)
+    (?ann uofa:patternId 'W-AIMS-OBJECTIVE-UNMEASURED')
+    (?ann uofa:severity 'Medium')
+    (?ann uofa:affectedNode ?obj)
+    (?ann schema:description 'AIMS objective declared but no targetMeasure documented — objective is unmeasured.')
+    (?uofa uofa:hasWeakener ?ann)
+]
+
+# ----------------------------------------------------------------------------
+# W-AIMS-ROLE-UNASSIGNED: AIMS role declared but no person identified or
+# organizational unit assigned. (SHACL §C catches this with sh:sparql; the C3
+# pattern provides the fired-rule annotation for reporting consistency.)
+# ----------------------------------------------------------------------------
+[w_aims_role_unassigned:
+    (?uofa rdf:type uofa:UnitOfAssurance)
+    (?uofa uofa:hasEvidence ?role)
+    (?role rdf:type uofa-aims:RoleAssignment)
+    noValue(?role, uofa-aims:assignedPerson)
+    noValue(?role, uofa-aims:assignedOrganizationalUnit)
+    makeSkolem(?ann, ?uofa, 'W-AIMS-ROLE-UNASSIGNED', ?role)
+    ->
+    (?ann rdf:type uofa:WeakenerAnnotation)
+    (?ann uofa:patternId 'W-AIMS-ROLE-UNASSIGNED')
+    (?ann uofa:severity 'High')
+    (?ann uofa:affectedNode ?role)
+    (?ann schema:description 'AIMS role assignment lacks both assignedPerson and assignedOrganizationalUnit — role is unassigned.')
+    (?uofa uofa:hasWeakener ?ann)
+]
+
+# ----------------------------------------------------------------------------
+# W-AIMS-CROSSWALK-INVALID: claimed mapping to NIST AI RMF or other framework
+# fails semantic structural equivalence test. Structural form: rule fires when
+# a claim asserts a framework mapping but the SoA does not declare any control
+# crosswalked to that framework.
+# ----------------------------------------------------------------------------
+[w_aims_crosswalk_invalid:
+    (?uofa rdf:type uofa:UnitOfAssurance)
+    (?uofa uofa:hasEvidence ?soa)
+    (?soa rdf:type uofa-aims:StatementOfApplicability)
+    (?soa uofa-aims:mappedToFramework ?fw)
+    noValue(?soa, uofa:hasEvidence, ?ctrl)
+    noValue(?ctrl, uofa-aims:mappedToFramework, ?fw)
+    makeSkolem(?ann, ?uofa, 'W-AIMS-CROSSWALK-INVALID', ?soa)
+    ->
+    (?ann rdf:type uofa:WeakenerAnnotation)
+    (?ann uofa:patternId 'W-AIMS-CROSSWALK-INVALID')
+    (?ann uofa:severity 'Medium')
+    (?ann uofa:affectedNode ?soa)
+    (?ann schema:description 'SoA asserts framework crosswalk but no AIMSControl carries the matching mappedToFramework — crosswalk invalid.')
+    (?uofa uofa:hasWeakener ?ann)
+]
+
+# End of iso42001 weakener catalog v0.4
