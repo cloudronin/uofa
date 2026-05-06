@@ -44,13 +44,21 @@ from uofa_cli.adversarial.judge.runner import _build_providers  # noqa: E402
 
 # Synthetic case — case_id matches the cal-NNN pattern enforced by
 # specs/judge_output_schema.json so strict-mode validators accept.
+# Input strings must clear the schema's minLength=10 floor on
+# response fields like source_taxonomy_identified; some models
+# (Gemini, hf-llama Llama 4) lazily echo input strings verbatim
+# rather than reasoning about them, so the input itself has to
+# satisfy the downstream length constraint or post-call validation
+# will reject the response. OpenAI happens to produce longer
+# rephrased text, which is why the brittle "smoke" value passed
+# for it but not the others — that was non-determinism luck.
 SMOKE_CASE = {
     "case_id": "cal-901-default-config-smoke",
     "package": {"id": "pkg-smoke", "name": "Default-config smoke fixture"},
     "rules_fired": [],
-    "phase2_outcome_class_raw": "COV-CLEAN",
-    "coverage_class": "COV-CLEAN",
-    "source_taxonomy": "smoke",
+    "phase2_outcome_class_raw": "COV-CLEAN-NEGATIVE-CONTROL",
+    "coverage_class": "COV-CLEAN-NEGATIVE-CONTROL",
+    "source_taxonomy": "uofa-vv40-default-config-smoke",
     "expected_rule": None,
 }
 
