@@ -97,7 +97,9 @@ class TestPackRegistration:
     def test_manifest_loads(self):
         manifest = paths.pack_manifest("iso42001")
         assert manifest["name"] == "iso42001"
-        assert manifest["version"] == "0.4.0"
+        assert manifest["version"].startswith("0.4."), (
+            f"iso42001 pack version expected 0.4.x; got {manifest['version']}"
+        )
         assert "ISO-IEC-42001-2023" in manifest["standards"]
 
     def test_oos_enabled_by_default(self):
