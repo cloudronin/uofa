@@ -178,6 +178,8 @@ packs/iso42001/
 | Issue 4: SHACL date constraints relaxed | ACCEPTED — consistent with spec §2.2.2 light-validation |
 | Issue 5: COU1/COU2 SHACL critical | RESOLVED in Fix #3 commit `9b60ead` (ProfileMinimal + hasValidationResult + hasContextOfUse) |
 | Issue 6: Phase H validation harness deferred | RESOLVED in Fix #5 commit `ad0aedc` (19 parametrized tests) |
+| Open Item #2: W-AIMS C3 fixtures | PARTIALLY RESOLVED in v0.4.1 (W-AR-02 + W-AIMS-OBJECTIVE-UNMEASURED fixtures) — remainder folds into v0.5 brittleness oracle suite |
+| Open Item #3: G6.1.b OOS catalog extension | RESOLVED in v0.4.2 — W-AIMS-OOS-SUPPLIER-EVIDENCE-ADEQUACY added; coverage matrix combined 82.8% → 86.2% |
 
 ## Open items for v0.5 / future work
 
@@ -185,7 +187,7 @@ These are not build blockers — the pack ships as-is with all spec §5 criteria
 
 1. **`W-AIMS-DATA-DRIFT-UNDETECTED` rule reformulation.** Current rule has a Jena negated-existential limitation (can't reliably differentiate "monitoring missing" from "monitoring present" without a per-package `hasMonitoring` annotation). v0.5 should use either a forward-chained presence flag pattern OR migrate to SPARQL-CONSTRAINT shapes for this kind of check.
 2. **Dedicated C3 fixtures for engine-only-verified patterns.** ✅ PARTIALLY RESOLVED in v0.4.1 — direct-test fixtures (positive + negative + boundary) added for `W-AR-02` and `W-AIMS-OBJECTIVE-UNMEASURED` under `tests/fixtures/weakeners/W-AR-02/` and `tests/fixtures/weakeners/W-AIMS-OBJECTIVE-UNMEASURED/` with new `tests/test_iso42001_weakener_fixtures.py` (6 tests, all pass). The other two patterns (`W-AIMS-AUDIT-STALE`, `W-AIMS-CROSSWALK-INVALID`) get fixtures as part of the v0.5 brittleness oracle suite per `UofA_Derivation_PrePass_Spec_v0_1.md` §5.1, since they migrate to derived-flag form.
-3. **OOS catalog extension beyond 8 rules** (spec §7.3 Q8). The matrix shows 4 in-scope-uncovered failure modes (G1.7.a decommissioning, G4.3.a team notification, G6.1.b supplier evidence quality, G6.2.a contingency plans) that adding new OOS rules would close. Defaulted "no" for praxis window per spec §1.3.
+3. **OOS catalog extension beyond 8 rules** (spec §7.3 Q8). ✅ PARTIALLY RESOLVED in v0.4.2 — added W-AIMS-OOS-SUPPLIER-EVIDENCE-ADEQUACY (rule 9) for G6.1.b supplier evidence quality. Matrix combined coverage climbed 82.8% → 86.2%. The other three failure modes (G1.7.a decommissioning, G4.3.a team notification, G6.2.a contingency plans) remain deferred to post-defense per spec §1.3 default — none have the same clean structural-vs-judgment fit that supplier evidence has with the existing internal-audit-independence rule pattern.
 4. **Praxis Ch3 §3.3, Ch4, Ch5 integration text.** Tier 4 results need to be drafted into the praxis writeup. Out of repo scope; covered by spec §3 methodology integration.
 5. **AIUC-1 forward extension.** Per spec §1.2 and Appendix B, this pack is AIUC-1-forward-pointing; AIUC-1 encoding is post-defense work building on this pack's vocabulary and shape conventions.
 
