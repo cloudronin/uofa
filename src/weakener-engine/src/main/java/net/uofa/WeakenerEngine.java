@@ -1,4 +1,4 @@
-package com.crediblesimulation;
+package net.uofa;
 
 import org.apache.jena.rdf.model.*;
 import org.apache.jena.reasoner.rulesys.GenericRuleReasoner;
@@ -77,7 +77,7 @@ public class WeakenerEngine implements Callable<Integer> {
 
         // ── 1. Load the data graph ────────────────────────────────────
         System.err.println("Loading: " + inputFile);
-        Model data = loadJsonLdWithContext(inputFile, contextFile);
+        Model data = JsonLdLoader.load(inputFile, contextFile);
         long rawTriples = data.size();
         System.err.println("  Data graph: " + rawTriples + " triples");
 
@@ -170,68 +170,6 @@ public class WeakenerEngine implements Callable<Integer> {
 
         if (outputFile != null) out.close();
         return 0;
-    }
-
-    // ── JSON-LD loading with external context resolution ──────────────
-
-    private Model loadJsonLdWithContext(Path jsonldPath, Path ctxPath) throws Exception {
-        // Read the JSON-LD file
-        String content = Files.readString(jsonldPath);
-
-        // If context file is provided, inject it inline
-        if (ctxPath != null && Files.exists(ctxPath)) {
-            String ctxContent = Files.readString(ctxPath);
-            // Extract the @context object from the context file
-            // Simple approach: replace the string reference with the file contents
-            // The context file has {"@context": {...}} structure
-            int ctxStart = ctxContent.indexOf("{", ctxContent.indexOf("@context"));
-            int depth = 0;
-            int ctxEnd = ctxStart;
-            for (int i = ctxStart; i < ctxContent.length(); i++) {
-                if (ctxContent.charAt(i) == '{') depth++;
-                if (ctxContent.charAt(i) == '}') depth--;
-                if (depth == 0) { ctxEnd = i + 1; break; }
-            }
-            String ctxObject = ctxContent.substring(ctxStart, ctxEnd);
-
-            // Replace the @context string reference with the inline object
-            content = content.replaceFirst(
-                "\"@context\"\\s*:\\s*\"[^\"]+\"",
-                "\"@context\": " + ctxObject
-            );
-        } else {
-            // Try resolving context relative to the input file
-            // Parse the @context value from the JSON
-            int idx = content.indexOf("\"@context\"");
-            if (idx >= 0) {
-                int valStart = content.indexOf("\"", idx + 10);
-                // Check if it's a string (external ref) or object (inline)
-                char firstNonSpace = ' ';
-                for (int i = idx + 10; i < content.length(); i++) {
-                    char c = content.charAt(i);
-                    if (c == ':') continue;
-                    if (!Character.isWhitespace(c)) { firstNonSpace = c; break; }
-                }
-                if (firstNonSpace == '"') {
-                    // It's a string reference — try to find the file
-                    int strStart = content.indexOf("\"", idx + 11) + 1;
-                    int strEnd = content.indexOf("\"", strStart);
-                    String ref = content.substring(strStart, strEnd);
-                    Path resolved = jsonldPath.getParent().resolve(ref);
-                    if (Files.exists(resolved)) {
-                        System.err.println("  Resolved @context: " + ref + " → " + resolved);
-                        return loadJsonLdWithContext(jsonldPath, resolved);
-                    }
-                }
-            }
-        }
-
-        // Parse the (potentially modified) JSON-LD
-        Model model = ModelFactory.createDefaultModel();
-        try (InputStream is = new ByteArrayInputStream(content.getBytes())) {
-            RDFDataMgr.read(model, is, Lang.JSONLD);
-        }
-        return model;
     }
 
     // ── Output formatters ─────────────────────────────────────────────

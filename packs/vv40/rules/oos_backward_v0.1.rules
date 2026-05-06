@@ -1,0 +1,31 @@
+# ============================================================================
+# UofA OOS Backward Rule v0.1 — Substrate Validation Test Scope
+# ============================================================================
+# Engine: Apache Jena GenericRuleReasoner (HYBRID mode required)
+# Schema: UofA v0.5 + uofa/vocab/v0.5/oos_substrate_test.ttl
+# PRD:    UofA_OOS_Substrate_Validation_Test_v0_1.md §3.2
+#
+# Direction: backward — Jena syntax `[name: head <- body]` makes the reasoner
+# attempt to prove the head by satisfying the body sub-goals on demand when
+# queried. PRD §3.2 displays the rule with `->` for readability; this file
+# uses `<-` so the rule actually executes as backward in HYBRID mode.
+#
+# Sub-goal failure mode: if a backward proof cannot find an `?evidence` of
+# type `StructuredComparisonStudy` linked from `?claim`, the proof fails and
+# the goal query returns an empty StmtIterator. The substrate test attempts
+# native trace extraction (likely returns nothing per Jena 5.3.0 limitations)
+# and then runs an LHS-decomposition diagnostic that walks the body clauses
+# and identifies the structurally missing one.
+# ============================================================================
+
+@prefix uofa: <https://uofa.net/vocab#>.
+@prefix rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#>.
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#>.
+
+[oos_modelform_adequacy_warranted:
+    (?claim uofa:bundleSufficient "true"^^xsd:boolean)
+    <-
+    (?claim rdf:type uofa:ModelFormAdequacyClaim)
+    (?claim uofa:hasSupportingEvidence ?evidence)
+    (?evidence rdf:type uofa:StructuredComparisonStudy)
+]

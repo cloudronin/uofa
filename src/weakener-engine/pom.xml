@@ -5,7 +5,7 @@
                              http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>com.crediblesimulation</groupId>
+    <groupId>net.uofa</groupId>
     <artifactId>uofa-weakener-engine</artifactId>
     <version>0.1.0</version>
     <packaging>jar</packaging>
@@ -47,6 +47,14 @@
             <version>4.7.6</version>
         </dependency>
 
+        <!-- JSON output for OOSSubstrateTest report (substrate-test JAR only;
+             not used by the production WeakenerEngine path) -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>2.18.2</version>
+        </dependency>
+
         <!-- Logging -->
         <dependency>
             <groupId>org.slf4j</groupId>
@@ -65,19 +73,22 @@
 
     <build>
         <plugins>
-            <!-- Build fat JAR for CLI distribution -->
+            <!-- Single fat JAR with arg-based dispatch (Engine.java). -->
+            <!-- Subcommands: weakener (default), oos, substrate-test. -->
+            <!-- See net.uofa.Engine for dispatch logic. -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
                 <version>3.6.0</version>
                 <executions>
                     <execution>
+                        <id>engine-shade</id>
                         <phase>package</phase>
                         <goals><goal>shade</goal></goals>
                         <configuration>
                             <transformers>
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-                                    <mainClass>com.crediblesimulation.WeakenerEngine</mainClass>
+                                    <mainClass>net.uofa.Engine</mainClass>
                                 </transformer>
                                 <!-- Jena requires service loader merging -->
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>

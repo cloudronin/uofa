@@ -17,6 +17,8 @@ from uofa_cli.integrity import verify_file
 from uofa_cli import paths
 from uofa_cli.commands.shacl import ShaclResult
 from uofa_cli.commands.rules import RulesResult
+from uofa_cli.oos import config as oos_config
+from uofa_cli.oos import runner as oos_runner
 
 HELP = "full pipeline: SHACL + integrity + rules (C1+C2+C3)"
 
@@ -57,6 +59,16 @@ class CheckResult:
     rules: RulesResult | None
     rules_error: str | None
     all_ok: bool
+    # OOS phase added in productionization v0.1 (T7). None when OOS is
+    # disabled for the active pack — snapshot.py omits the field entirely
+    # to preserve byte-identical compatibility with pre-OOS baselines per
+    # spec §1.4 / §5.5. Set to an OOSResult when enabled (whether or not
+    # the engine produced any firings).
+    oos: oos_runner.OOSResult | None = None
+    # Captured OOSConfigError message when --oos was requested but the
+    # active pack doesn't declare rule files (or other resolver errors).
+    # The CLI handler prints this and exits non-zero before any OOS work.
+    oos_error: str | None = None
 
     @property
     def exit_code(self) -> int:
@@ -70,6 +82,17 @@ def add_arguments(parser):
     parser.add_argument("--rules", "-r", type=Path, help="path to .rules file")
     parser.add_argument("--skip-rules", action="store_true", help="skip the Jena rule engine (no Java required)")
     parser.add_argument("--build", action="store_true", help="auto-build the Jena JAR if missing")
+    # Productive-OOS gating per spec §1.8. Default behaviour comes from the
+    # active pack's `oos.enabled` config (or false if the section is absent).
+    oos_group = parser.add_mutually_exclusive_group()
+    oos_group.add_argument(
+        "--oos", dest="enable_oos", action="store_true",
+        help="force OOS rules on for this run, overriding pack config",
+    )
+    oos_group.add_argument(
+        "--no-oos", dest="disable_oos", action="store_true",
+        help="force OOS rules off for this run, overriding pack config",
+    )
     from uofa_cli.interpretation.cli import add_explain_arguments
     add_explain_arguments(parser)
 
@@ -137,6 +160,30 @@ def run_structured(args) -> CheckResult:
         except RuntimeError as exc:
             rules_error = str(exc).split("\n")[0]
 
+    # ── OOS phase (productionization v0.1, T7) ────────────────
+    # Gated by pack-level config (oos.enabled in pack.json) plus the
+    # CLI flags --oos / --no-oos per spec §1.7 / §1.8. When disabled,
+    # `oos_result` stays None and snapshot.py omits the field entirely
+    # to preserve byte-identical compatibility with pre-OOS baselines.
+    oos_result: oos_runner.OOSResult | None = None
+    oos_error: str | None = None
+    if not args.skip_rules:
+        active_packs = paths.get_active_pack() or ["vv40"]
+        pack_for_oos = active_packs[0]
+        try:
+            oos_cfg = oos_config.resolve(
+                pack_for_oos,
+                enable_flag=getattr(args, "enable_oos", False),
+                disable_flag=getattr(args, "disable_oos", False),
+            )
+            oos_result = oos_runner.run_structured(
+                args.file, oos_cfg, context_path=args.context,
+            )
+        except oos_config.OOSConfigError as exc:
+            oos_error = str(exc).split("\n")[0]
+        except (FileNotFoundError, RuntimeError) as exc:
+            oos_error = str(exc).split("\n")[0]
+
     # ── Aggregate ─────────────────────────────────────────────
     all_ok = shacl_result.conforms and integrity_result.ok
     if rules_result is not None:
@@ -147,6 +194,17 @@ def run_structured(args) -> CheckResult:
     # rules_result is None and rules_error is None → --skip-rules path,
     # which doesn't impact all_ok (matches existing behavior).
 
+    # OOS errors surface but only impact all_ok when OOS was explicitly
+    # requested via --oos. A pack-config-driven OOS that fails is logged
+    # but doesn't fail the pipeline (defensive — bad pack config shouldn't
+    # break C1+C2+C3 reporting).
+    if oos_error is not None and getattr(args, "enable_oos", False):
+        all_ok = False
+    # An OOSResult with non-zero returncode means the engine itself failed;
+    # treat as not-ok regardless of how OOS was activated.
+    if oos_result is not None and oos_result.returncode != 0:
+        all_ok = False
+
     return CheckResult(
         file=args.file,
         shacl=shacl_result,
@@ -154,6 +212,8 @@ def run_structured(args) -> CheckResult:
         rules=rules_result,
         rules_error=rules_error,
         all_ok=all_ok,
+        oos=oos_result,
+        oos_error=oos_error,
     )
 
 

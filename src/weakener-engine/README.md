@@ -204,8 +204,9 @@ uofa-weakener-rules/
 ├── pom.xml                              # Maven build (Jena 5.3 + picocli)
 ├── src/
 │   └── main/
-│       ├── java/com/crediblesimulation/
-│       │   └── WeakenerEngine.java      # CLI entry point
+│       ├── java/net/uofa/
+│       │   ├── WeakenerEngine.java      # CLI entry point
+│       │   └── OOSSubstrateTest.java    # OOS substrate validation entry point
 │       └── resources/
 │           └── uofa_weakener.rules      # ← THE IP ARTIFACT
 └── README.md

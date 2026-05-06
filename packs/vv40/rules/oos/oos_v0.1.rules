@@ -1,0 +1,132 @@
+# ============================================================================
+# UofA Productive-OOS Rules v0.1 — bundle-sufficiency catalog
+# ============================================================================
+# PRD: UofA_OOS_Productionization_Spec_v0_3.md §4
+# Engine: net.uofa.oos.OOSEngine (path-two LHS-decomposition over Jena rule body)
+# Schema: SCHEMA_NOTES.md (uofa/oos/SCHEMA_NOTES.md)
+#
+# Direction: Jena backward syntax `[name: head <- body]`. The engine does NOT
+# use Jena's reasoner to prove the head; instead it walks the body clauses in
+# declared order with binding propagation, looking for the first clause that
+# fails. The head is ceremonial — it carries the methodological framing
+# (this rule checks if the bundle is sufficient to warrant the claim) but the
+# OOSEngine does its own walk.
+#
+# Each rule has 6 body clauses:
+#   1-4: discriminator clauses — establish which OOS category applies. If any
+#        of these fails for a given UofA, the rule SILENTLY DOES NOT FIRE
+#        (the rule is not relevant to this package).
+#   5-6: sufficiency clauses — check whether the bundle has structurally
+#        present supporting evidence. If either fails, the rule FIRES OOS
+#        with the failing clause as the missing sub-goal.
+#
+# The boundary between discriminator and sufficiency is declared in each
+# rule's `# sufficiency_starts_at:` comment. Engine reads it during rule
+# parsing (per OOSEngine §2.1 algorithm).
+#
+# Comment block keys consumed by OOSEngine:
+#   bundle_check_rule_name — informational; same as the rule's [name:] anchor
+#   calibration_target     — informational; cal-XXX reference
+#   defeater_type          — NL phrase → evidence_gap.would_support_defeater_evaluation
+#   missing_evidence       — NL phrase → evidence_gap.missing_evidence_type
+#   sufficiency_starts_at  — integer; 1-based index of the first sufficiency clause
+# ============================================================================
+
+@prefix uofa: <https://uofa.net/vocab#>.
+@prefix rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#>.
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#>.
+
+# ----------------------------------------------------------------------------
+# Rule 1 — cal-021 — subjective model-form adequacy
+# ----------------------------------------------------------------------------
+# bundle_check_rule_name: oos_modelform_adequacy_warranted
+# calibration_target: cal-021
+# defeater_type: subjective model-form adequacy — UofA cannot evaluate model-form choice without structured comparison evidence
+# missing_evidence: structured model-form comparison studies, sensitivity analyses across alternative model forms, or literature precedent matrix for the model-form selection
+# sufficiency_starts_at: 5
+[oos_modelform_adequacy_warranted:
+    (?uofa uofa:bundleSufficient "true"^^xsd:boolean)
+    <-
+    (?uofa rdf:type uofa:UnitOfAssurance)
+    (?uofa uofa:adversarialProvenance ?prov)
+    (?prov uofa:sourceTaxonomy "oos/subjective-model-form-adequacy")
+    (?uofa uofa:bindsClaim ?claim)
+    (?claim uofa:hasSupportingEvidence ?evidence)
+    (?evidence rdf:type uofa:StructuredComparisonStudy)
+]
+
+# ----------------------------------------------------------------------------
+# Rule 2 — cal-022 — tacit knowledge transfer (validation tolerance rationale)
+# ----------------------------------------------------------------------------
+# bundle_check_rule_name: oos_tacit_knowledge_warranted
+# calibration_target: cal-022
+# defeater_type: tacit knowledge transfer — UofA cannot evaluate tolerance specification without structured rationale documents
+# missing_evidence: structured calibration studies, clinical-significance threshold analyses, or predicate device precedent justifying the tolerance specification
+# sufficiency_starts_at: 5
+[oos_tacit_knowledge_warranted:
+    (?uofa uofa:bundleSufficient "true"^^xsd:boolean)
+    <-
+    (?uofa rdf:type uofa:UnitOfAssurance)
+    (?uofa uofa:adversarialProvenance ?prov)
+    (?prov uofa:sourceTaxonomy "oos/tacit-knowledge-transfer")
+    (?uofa uofa:bindsClaim ?claim)
+    (?claim uofa:hasSupportingEvidence ?evidence)
+    (?evidence rdf:type uofa:DocumentedSOP)
+]
+
+# ----------------------------------------------------------------------------
+# Rule 3 — cal-023 — behavioral compliance (governance execution evidence)
+# ----------------------------------------------------------------------------
+# bundle_check_rule_name: oos_behavioral_compliance_warranted
+# calibration_target: cal-023
+# defeater_type: behavioral compliance — UofA cannot evaluate governance-policy execution without operational audit evidence
+# missing_evidence: quarterly drift monitoring logs, annual revalidation reports, incident response records, or other behavioral audit evidence demonstrating documented governance is being followed
+# sufficiency_starts_at: 5
+[oos_behavioral_compliance_warranted:
+    (?uofa uofa:bundleSufficient "true"^^xsd:boolean)
+    <-
+    (?uofa rdf:type uofa:UnitOfAssurance)
+    (?uofa uofa:adversarialProvenance ?prov)
+    (?prov uofa:sourceTaxonomy "oos/behavioral-compliance")
+    (?uofa uofa:bindsClaim ?claim)
+    (?claim uofa:hasSupportingEvidence ?evidence)
+    (?evidence rdf:type uofa:BehavioralAuditRecord)
+]
+
+# ----------------------------------------------------------------------------
+# Rule 4 — cal-024 — regulatory jurisdiction conflict (multi-framework reconciliation)
+# ----------------------------------------------------------------------------
+# bundle_check_rule_name: oos_jurisdictional_alignment_warranted
+# calibration_target: cal-024
+# defeater_type: regulatory jurisdiction conflict — UofA cannot evaluate cross-framework reconciliation without structured per-jurisdiction evidence
+# missing_evidence: per-jurisdiction credibility evidence packages, jurisdiction-specific validation tolerance and acceptance frameworks, or cross-jurisdictional reconciliation analysis
+# sufficiency_starts_at: 5
+[oos_jurisdictional_alignment_warranted:
+    (?uofa uofa:bundleSufficient "true"^^xsd:boolean)
+    <-
+    (?uofa rdf:type uofa:UnitOfAssurance)
+    (?uofa uofa:adversarialProvenance ?prov)
+    (?prov uofa:sourceTaxonomy "oos/regulatory-jurisdiction-conflict")
+    (?uofa uofa:bindsClaim ?claim)
+    (?claim uofa:hasSupportingEvidence ?evidence)
+    (?evidence rdf:type uofa:JurisdictionalAlignmentDocument)
+]
+
+# ----------------------------------------------------------------------------
+# Rule 5 — cal-025 — clinical judgment arbitration (clinical interpretation framework)
+# ----------------------------------------------------------------------------
+# bundle_check_rule_name: oos_clinical_arbitration_warranted
+# calibration_target: cal-025
+# defeater_type: clinical judgment arbitration — UofA cannot evaluate clinical-interpretation appropriateness without structured clinical-judgment framework evidence
+# missing_evidence: clinical interpretation framework translating model output into clinical risk, physician judgment criteria for acceptance, or patient-population context evidence
+# sufficiency_starts_at: 5
+[oos_clinical_arbitration_warranted:
+    (?uofa uofa:bundleSufficient "true"^^xsd:boolean)
+    <-
+    (?uofa rdf:type uofa:UnitOfAssurance)
+    (?uofa uofa:adversarialProvenance ?prov)
+    (?prov uofa:sourceTaxonomy "oos/clinical-judgment-arbitration")
+    (?uofa uofa:bindsClaim ?claim)
+    (?claim uofa:hasSupportingEvidence ?evidence)
+    (?evidence rdf:type uofa:ArbitrationRecord)
+]
