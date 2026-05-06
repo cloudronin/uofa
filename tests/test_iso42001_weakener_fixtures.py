@@ -54,18 +54,32 @@ def _activate_iso42001_pack():
 
 
 def _firings(fixture_path: Path) -> set[str]:
-    """Run the rules engine on a fixture and return the set of patternIds fired."""
+    """Run the FULL check pipeline (with default-on derivations for iso42001)
+    and return the set of patternIds that fired in C3.
+
+    v0.5 update: switched from rules.run_structured (which doesn't run
+    derivations) to check.run_structured (which runs the C2.5 pre-pass
+    before C3). Required for the v0.4.1 fixtures whose targeted W-AIMS
+    patterns now consume derived flags materialized by the pre-pass."""
+    from uofa_cli.commands.check import run_structured as check_run_structured
     args = argparse.Namespace(
         file=fixture_path,
-        rules=None,
+        pubkey=None,
         context=None,
+        rules=None,
+        skip_rules=False,
         build=False,
-        raw=False,
-        format="summary",
-        output=None,
+        enable_oos=False,
+        disable_oos=True,
+        enable_derivations=False,
+        disable_derivations=False,
+        no_color=True,
+        verbose=False,
+        repo_root=None,
+        pack=["iso42001"],
     )
-    result = rules_mod.run_structured(args)
-    return {r.get("patternId") for r in result.firings if r.get("patternId")}
+    result = check_run_structured(args)
+    return {r.get("patternId") for r in (result.rules.firings or []) if r.get("patternId")}
 
 
 PATTERNS = [
@@ -103,29 +117,36 @@ class TestW_AIMS_FixtureCoverage:
 @needs_jar
 class TestW_AIMS_BoundaryDesignDecisions:
     """Boundary fixtures encode explicit design decisions about edge cases.
-    Each test documents the decision via its assertion + docstring."""
 
-    def test_W_AR_02_empty_string_justification_does_not_fire(self):
-        """DESIGN DECISION: When uofa:justification is bound to the empty
-        string, the rule does NOT fire. Jena's noValue semantics check
-        predicate-presence (any object), not value-emptiness. v0.5 pre-pass
-        migration could refine to treat empty-string as missing if reviewers
-        prefer that semantics."""
+    v0.5 update: the empty-string semantics changed with the v0.5 derivation
+    pre-pass migration (per pre-pass spec §3.3.7). The boundary tests now
+    assert v0.5 post-migration behavior — empty-string is treated as missing
+    and the rule FIRES, not the v0.4 noValue-semantics behavior of treating
+    empty-string as present-and-rule-silent."""
+
+    def test_W_AR_02_empty_string_justification_now_fires_v0_5(self):
+        """v0.5 DESIGN DECISION (changed from v0.4): empty-string
+        justification is treated as missing via the
+        _justificationNonEmpty derived flag. The consumer rule's
+        noValue check on the derived flag returns true when the flag
+        is absent (which happens when justification is empty-string)
+        → rule FIRES correctly."""
         fp = FIXTURES / "W-AR-02" / "boundary.jsonld"
         fired = _firings(fp)
-        assert "W-AR-02" not in fired, (
-            "W-AR-02 boundary expectation: empty-string justification is "
-            "present-but-empty under Jena noValue semantics; rule does not fire."
+        assert "W-AR-02" in fired, (
+            "W-AR-02 v0.5 expectation: empty-string justification is "
+            "treated as missing via _justificationNonEmpty derivation; "
+            "rule fires correctly."
         )
 
-    def test_W_AIMS_OBJECTIVE_UNMEASURED_empty_string_target_measure_does_not_fire(self):
-        """DESIGN DECISION: When uofa-aims:targetMeasure is bound to the
-        empty string, the rule does NOT fire. Same Jena noValue semantics
-        as W-AR-02 boundary."""
+    def test_W_AIMS_OBJECTIVE_UNMEASURED_empty_string_target_measure_now_fires_v0_5(self):
+        """v0.5 DESIGN DECISION (changed from v0.4): empty-string
+        targetMeasure is treated as missing via the
+        _targetMeasureNonEmpty derived flag."""
         fp = FIXTURES / "W-AIMS-OBJECTIVE-UNMEASURED" / "boundary.jsonld"
         fired = _firings(fp)
-        assert "W-AIMS-OBJECTIVE-UNMEASURED" not in fired, (
-            "W-AIMS-OBJECTIVE-UNMEASURED boundary expectation: empty-string "
-            "targetMeasure is present-but-empty under Jena noValue semantics; "
-            "rule does not fire."
+        assert "W-AIMS-OBJECTIVE-UNMEASURED" in fired, (
+            "W-AIMS-OBJECTIVE-UNMEASURED v0.5 expectation: empty-string "
+            "targetMeasure is treated as missing via _targetMeasureNonEmpty "
+            "derivation; rule fires correctly."
         )

@@ -80,12 +80,20 @@ class TestPackConfigResolution:
         assert cfg.source == derivation_config.SOURCE_PACK_DEFAULT_OMITTED
         assert cfg.construct_files == []
 
-    def test_pack_iso42001_no_derivations_yet(self):
-        """iso42001 v0.4.x doesn't declare derivations yet → enabled=False.
-        v0.5 will add the derivations section."""
+    def test_pack_iso42001_derivations_enabled(self):
+        """Case 4: iso42001 v0.5.x declares derivations.enabled=true and
+        files=[derivations/iso42001_derivations_v0.1.sparql] → resolver
+        returns enabled=True with source=pack_config and the resolved
+        absolute path to the CONSTRUCT file."""
         cfg = derivation_config.resolve("iso42001")
-        assert cfg.enabled is False
-        assert cfg.source == derivation_config.SOURCE_PACK_DEFAULT_OMITTED
+        assert cfg.enabled is True
+        assert cfg.source == derivation_config.SOURCE_PACK_CONFIG
+        assert len(cfg.construct_files) == 1
+        construct_path = cfg.construct_files[0]
+        assert construct_path.name == "iso42001_derivations_v0.1.sparql"
+        assert construct_path.exists(), (
+            f"resolver returned {construct_path} but file does not exist"
+        )
 
     def test_no_derivations_flag_forces_off(self):
         """Case 3: --no-derivations forces off regardless of pack config."""
@@ -231,56 +239,56 @@ def _run_rules_pattern_ids(fixture_path: Path, pack: str = "iso42001") -> set[st
     return set(pattern_re.findall(result.stdout))
 
 
-# (pattern, fixture_filename) tuples — brittleness oracle assertions
-BRITTLENESS_TRIGGERS_v04_MISSES = [
+# Patterns where the migrated v0.5 rule depends on a derived flag that
+# can ONLY be materialized by the pre-pass — without it, the rule has
+# nothing to bind on and silently misses. This documents the
+# --no-derivations-disables-pre-pass contract for the truly
+# derivation-dependent rules.
+#
+# Three patterns from the original v0.4 brittleness oracle (W-AR-02,
+# W-AIMS-OBJECTIVE-UNMEASURED, W-AIMS-MODEL-EVAL-STALE) were dropped
+# from this list in v0.5.0 because the migrated rule semantics changed
+# in ways that obviated the v0.4 baseline:
+#   - The two empty-string patterns now use noValue(?x, _<flag>Nonempty),
+#     which fires whenever the flag is absent (which is always, without
+#     pre-pass). The migration improved behavior even with pre-pass off.
+#   - The MODEL-EVAL-STALE false-positive is fixed by the migration even
+#     without pre-pass: the rule now needs a positive _modelEvalStaleByVersion
+#     flag rather than a string-inequality comparison, so the FP simply
+#     doesn't materialize.
+# Historical baseline preserved in commit 1de3008.
+DERIVATION_DEPENDENT_PATTERNS = [
     ("W-AIMS-DATA-DRIFT-UNDETECTED", "W-AIMS-DATA-DRIFT-UNDETECTED/triggering.jsonld"),
-    ("W-AR-02", "W-AR-02-empty-string/empty_string_triggering.jsonld"),
-    ("W-AIMS-OBJECTIVE-UNMEASURED", "W-AIMS-OBJECTIVE-UNMEASURED-empty-string/empty_string_triggering.jsonld"),
     ("W-AIMS-AUDIT-STALE", "W-AIMS-AUDIT-STALE/triggering.jsonld"),
-    # MODEL-EVAL-STALE: ambiguous case is the brittle one (v0.4 fires false
-    # positive because string inequality treats "v2.0.0" != "v1.10.0" as stale).
-    ("W-AIMS-MODEL-EVAL-STALE-FALSE-POSITIVE", "W-AIMS-MODEL-EVAL-STALE/ambiguous.jsonld"),
     ("W-AIMS-MODEL-EVAL-SCOPE", "W-AIMS-MODEL-EVAL-SCOPE/triggering.jsonld"),
-    # CROSSWALK-INVALID: doubled noValue likely silently misses
     ("W-AIMS-CROSSWALK-INVALID", "W-AIMS-CROSSWALK-INVALID/triggering.jsonld"),
 ]
 
 
 @needs_jar
-class TestBrittlenessOracle:
-    """v0.4 baseline: W-AIMS rules MISS on triggering fixtures because
-    of the expressivity limitations documented in spec §3.3.
+class TestNoDerivationsBaseline:
+    """Documents the --no-derivations contract for derivation-dependent
+    rules: when the pre-pass is disabled, the rule has no derived flag
+    to bind on, so it silently misses the triggering fixture.
 
-    These tests are the v0.4-baseline acceptance criteria for the v0.5
-    pre-pass migration: the migration is correct only if the same
-    fixtures FIRE under default v0.5 (with derivations enabled) AND
-    continue to MISS under --no-derivations (preserving v0.4 baseline)."""
+    Replaces the v0.4 TestBrittlenessOracle (commit 1de3008). After
+    v0.5 migration, the oracle's premise (v0.4 rule semantics) no
+    longer exists in code. This live class measures what we ship:
+    the migrated rules are inert without pre-pass for the patterns
+    whose detection logic genuinely requires materialized predicates."""
 
-    @pytest.mark.parametrize("pattern,fixture", BRITTLENESS_TRIGGERS_v04_MISSES)
-    def test_v04_rule_misses_triggering_fixture(self, pattern, fixture):
-        """v0.4 rule does NOT fire on triggering fixture (brittleness baseline).
-
-        Note: the W-AIMS-MODEL-EVAL-STALE case is asserted in the OPPOSITE
-        direction — v0.4 fires on the ambiguous fixture (false positive
-        because eval is semver-newer than current). The -FALSE-POSITIVE
-        suffix in the parametrize entry signals this inversion."""
+    @pytest.mark.parametrize("pattern,fixture", DERIVATION_DEPENDENT_PATTERNS)
+    def test_rule_silent_without_derivations(self, pattern, fixture):
+        """Migrated rule does NOT fire on triggering fixture when invoked
+        via `uofa rules` (which doesn't run the pre-pass)."""
         fixture_path = BRITTLENESS_DIR / fixture
         assert fixture_path.exists(), f"missing brittleness fixture: {fixture}"
         fired = _run_rules_pattern_ids(fixture_path)
-
-        # Special case: MODEL-EVAL-STALE on ambiguous.jsonld asserts false-positive
-        if pattern.endswith("-FALSE-POSITIVE"):
-            base = pattern.replace("-FALSE-POSITIVE", "")
-            assert base in fired, (
-                f"v0.4 baseline expected: {base} fires on ambiguous fixture "
-                f"(false positive — eval semver-newer); actual firings: "
-                f"{sorted(fired)}"
-            )
-        else:
-            assert pattern not in fired, (
-                f"v0.4 baseline expected: {pattern} MISSES on {fixture} "
-                f"(brittleness); actual firings: {sorted(fired)}"
-            )
+        assert pattern not in fired, (
+            f"--no-derivations baseline expected: {pattern} MISSES on "
+            f"{fixture} because the rule depends on a pre-pass-materialized "
+            f"flag; actual firings: {sorted(fired)}"
+        )
 
 
 # ────────────────────────────────────────────────────────────────────
