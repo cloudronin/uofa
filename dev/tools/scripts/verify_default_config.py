@@ -39,6 +39,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "src"))
 
 from uofa_cli.adversarial.judge.cli_args import parse_judges  # noqa: E402
+from uofa_cli.adversarial.judge.providers.capabilities import (  # noqa: E402
+    get_capabilities,
+)
 from uofa_cli.adversarial.judge.runner import _build_providers  # noqa: E402
 
 
@@ -63,12 +66,27 @@ SMOKE_CASE = {
 }
 
 
-# (token, env-var) pairs for production trio.
-PROD_TRIO = [
-    ("openai", "OPENAI_API_KEY"),
-    ("gemini", "GEMINI_API_KEY"),
-    ("hf-llama", "HF_TOKEN"),
-]
+# Production trio tokens — env var names pulled from the capability
+# table at runtime so the smoke tracks vendor migrations (e.g. the
+# 2026-05-06 hf-llama HF Router → direct Sambanova switch flipped
+# auth_env_var from HF_TOKEN to SAMBANOVA_API_KEY).
+PROD_TRIO_TOKENS = ["openai", "gemini", "hf-llama"]
+
+
+def _env_var_for(token: str) -> str:
+    """Look up the auth env var the capability table expects for `token`.
+
+    Falls back to `{TOKEN}_API_KEY` (uppercased, hyphen→underscore) when
+    a capability doesn't pin one explicitly — same convention litellm
+    uses for vendor-default auth.
+    """
+    caps = get_capabilities(token)
+    if caps.auth_env_var:
+        return caps.auth_env_var
+    return token.upper().replace("-", "_") + "_API_KEY"
+
+
+PROD_TRIO = [(t, _env_var_for(t)) for t in PROD_TRIO_TOKENS]
 
 
 async def _judge_one(provider, case):

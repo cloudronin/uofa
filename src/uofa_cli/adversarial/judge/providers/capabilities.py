@@ -177,29 +177,29 @@ CAPABILITIES: dict[str, ProviderCapabilities] = {
     ),
     "hf-llama": ProviderCapabilities(
         family="Llama",
-        # Llama 4 Maverick (verified 2026-05-05) ships through the HF
-        # Inference Router behind external providers (sambanova /
-        # novita). The Router exposes an OpenAI-compatible
-        # /v1/chat/completions surface; we route via litellm's openai/
-        # path with `api_base` and `api_key` overrides rather than the
-        # legacy `huggingface/` provider class (which talks to the
-        # serverless Inference API and has no Llama 4 entry as of the
-        # current pin).
+        # Llama 4 Maverick — direct Sambanova Cloud routing (2026-05-06).
+        # Originally shipped via HF Inference Router with `:sambanova`
+        # suffix (`router.huggingface.co/v1` + HF_TOKEN auth, HF brokered
+        # the linked Sambanova credential). HF Router auth started
+        # rejecting under sustained load with "Incorrect API key" errors
+        # against the user's linked Sambanova credential — surfaced
+        # mid-run on Stage 2 Day 1 first-attempt 2026-05-06 (smoke
+        # passed but production load failed). Switched to direct
+        # Sambanova Cloud API to skip the broker. Token name retained
+        # as `hf-llama` for backwards compat with run manifests + tests
+        # even though we no longer touch HF Router.
         litellm_model_prefix="openai/",
-        default_model="meta-llama/Llama-4-Maverick-17B-128E-Instruct:sambanova",
-        litellm_api_base="https://router.huggingface.co/v1",
-        auth_env_var="HF_TOKEN",
+        default_model="Llama-4-Maverick-17B-128E-Instruct",
+        litellm_api_base="https://api.sambanova.ai/v1",
+        auth_env_var="SAMBANOVA_API_KEY",
         supports_strict_schema=False,  # JSON-mode only; tolerant parser fallback
         schema_keyword_blocklist=(),  # not applicable; schema not sent to vendor
         supports_batch_api=False,
         supports_prompt_caching=False,
         thinking_kwargs=(),
         # Sambanova Cloud rate card for Llama-4-Maverick-17B-128E-Instruct,
-        # checked 2026-05-05: $0.10/M input, $0.30/M output. The HF Router
-        # passes through Sambanova's billing — we pay Sambanova's rate
-        # net of HF Router fees. Litellm 1.63 has no price for the
-        # routed `<model>:sambanova` id, so we override here.
-        # Verify periodically against https://cloud.sambanova.ai/pricing.
+        # checked 2026-05-05: $0.10/M input, $0.30/M output. Verify
+        # periodically against https://cloud.sambanova.ai/pricing.
         input_cost_per_1m_usd=0.10,
         output_cost_per_1m_usd=0.30,
     ),
