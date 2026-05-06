@@ -33,6 +33,7 @@ from uofa_cli.derivations import runner as derivation_runner
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+BRITTLENESS_DIR = REPO_ROOT / "tests/fixtures/brittleness"
 JAR = REPO_ROOT / "src/weakener-engine/target/uofa-weakener-engine-0.1.0.jar"
 JAVA_AVAILABLE = shutil.which("java") is not None
 
@@ -195,3 +196,88 @@ class TestPipelineIntegration:
             assert result.derivations_error is None
         finally:
             paths.set_active_pack(["vv40"])
+
+
+# ────────────────────────────────────────────────────────────────────
+# Phase 5.3 — TestBrittlenessOracle
+# ────────────────────────────────────────────────────────────────────
+# Asserts that v0.4 W-AIMS rules MISS on triggering fixtures from the
+# brittleness oracle suite. Each test runs the rules engine with
+# --no-derivations (forcing v0.4 behavior) and verifies the targeted
+# pattern is NOT in the firings list. This documents the brittleness
+# baseline that v0.5 derivation pre-pass migrations fix.
+#
+# Phase 5.6 adds the inverse: TestPostMigrationDetection asserts the
+# patterns DO fire on the same fixtures with derivations enabled.
+
+import subprocess
+
+
+def _run_rules_pattern_ids(fixture_path: Path, pack: str = "iso42001") -> set[str]:
+    """Run the rules engine via CLI subprocess and return the set of
+    patternIds that fired. Uses --no-derivations to force v0.4 behavior
+    when the test wants to assert the brittleness baseline."""
+    import sys
+    cmd = [
+        sys.executable, "-m", "uofa_cli", "rules",
+        "--pack", pack,
+        str(fixture_path),
+    ]
+    result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+    if result.returncode != 0:
+        return set()
+    import re
+    pattern_re = re.compile(r"⚠ (\S+) \[")
+    return set(pattern_re.findall(result.stdout))
+
+
+# (pattern, fixture_filename) tuples — brittleness oracle assertions
+BRITTLENESS_TRIGGERS_v04_MISSES = [
+    ("W-AIMS-DATA-DRIFT-UNDETECTED", "W-AIMS-DATA-DRIFT-UNDETECTED/triggering.jsonld"),
+    ("W-AR-02", "W-AR-02-empty-string/empty_string_triggering.jsonld"),
+    ("W-AIMS-OBJECTIVE-UNMEASURED", "W-AIMS-OBJECTIVE-UNMEASURED-empty-string/empty_string_triggering.jsonld"),
+    ("W-AIMS-AUDIT-STALE", "W-AIMS-AUDIT-STALE/triggering.jsonld"),
+    # MODEL-EVAL-STALE: ambiguous case is the brittle one (v0.4 fires false
+    # positive because string inequality treats "v2.0.0" != "v1.10.0" as stale).
+    ("W-AIMS-MODEL-EVAL-STALE-FALSE-POSITIVE", "W-AIMS-MODEL-EVAL-STALE/ambiguous.jsonld"),
+    ("W-AIMS-MODEL-EVAL-SCOPE", "W-AIMS-MODEL-EVAL-SCOPE/triggering.jsonld"),
+    # CROSSWALK-INVALID: doubled noValue likely silently misses
+    ("W-AIMS-CROSSWALK-INVALID", "W-AIMS-CROSSWALK-INVALID/triggering.jsonld"),
+]
+
+
+@needs_jar
+class TestBrittlenessOracle:
+    """v0.4 baseline: W-AIMS rules MISS on triggering fixtures because
+    of the expressivity limitations documented in spec §3.3.
+
+    These tests are the v0.4-baseline acceptance criteria for the v0.5
+    pre-pass migration: the migration is correct only if the same
+    fixtures FIRE under default v0.5 (with derivations enabled) AND
+    continue to MISS under --no-derivations (preserving v0.4 baseline)."""
+
+    @pytest.mark.parametrize("pattern,fixture", BRITTLENESS_TRIGGERS_v04_MISSES)
+    def test_v04_rule_misses_triggering_fixture(self, pattern, fixture):
+        """v0.4 rule does NOT fire on triggering fixture (brittleness baseline).
+
+        Note: the W-AIMS-MODEL-EVAL-STALE case is asserted in the OPPOSITE
+        direction — v0.4 fires on the ambiguous fixture (false positive
+        because eval is semver-newer than current). The -FALSE-POSITIVE
+        suffix in the parametrize entry signals this inversion."""
+        fixture_path = BRITTLENESS_DIR / fixture
+        assert fixture_path.exists(), f"missing brittleness fixture: {fixture}"
+        fired = _run_rules_pattern_ids(fixture_path)
+
+        # Special case: MODEL-EVAL-STALE on ambiguous.jsonld asserts false-positive
+        if pattern.endswith("-FALSE-POSITIVE"):
+            base = pattern.replace("-FALSE-POSITIVE", "")
+            assert base in fired, (
+                f"v0.4 baseline expected: {base} fires on ambiguous fixture "
+                f"(false positive — eval semver-newer); actual firings: "
+                f"{sorted(fired)}"
+            )
+        else:
+            assert pattern not in fired, (
+                f"v0.4 baseline expected: {pattern} MISSES on {fixture} "
+                f"(brittleness); actual firings: {sorted(fired)}"
+            )
