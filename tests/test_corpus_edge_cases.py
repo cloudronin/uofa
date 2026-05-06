@@ -115,19 +115,40 @@ def test_extract_end_to_end_has_no_traceback(tmp_path):
         pytest.skip("pdfplumber not installed; extract exercises PDF paths")
 
     # `uofa extract <dir>` runs three phases: discover → read → LLM.
-    # No LLM backend is configured in CI, so extract will fail at the
-    # LLM step. That's fine — the spec's acceptance is "zero stack
-    # traces", which targets the reader phase preceding the LLM call.
-    # Both the reader phase and the LLM failure path must produce
-    # clean error messages, not Python tracebacks.
-    result = subprocess.run(
-        [sys.executable, "-m", "uofa_cli", "extract",
-         str(EDGE_DIR), "--pack", "vv40"],
-        capture_output=True, text=True, cwd=str(REPO_ROOT),
+    # In CI no LLM backend is configured, so extract fails fast at the
+    # LLM step. On dev machines with a configured backend, the LLM call
+    # may take substantially longer (or block indefinitely on a slow
+    # provider) — neither outcome is what this test cares about. The
+    # spec's acceptance is "zero stack traces" in the reader phase
+    # preceding the LLM call. We bound the subprocess at 30s and, on
+    # timeout, still check the partial captured output for tracebacks
+    # — the reader phase completes well within 30s on the edge-cases
+    # corpus, so any traceback would already have surfaced.
+    cmd = [sys.executable, "-m", "uofa_cli", "extract",
+           str(EDGE_DIR), "--pack", "vv40"]
+    try:
+        completed = subprocess.run(
+            cmd, capture_output=True, text=True,
+            cwd=str(REPO_ROOT), timeout=30,
+        )
+        result_stdout, result_stderr = completed.stdout, completed.stderr
+    except subprocess.TimeoutExpired as exc:
+        # Real LLM call exceeded budget — capture partial output. With
+        # capture_output=True + text=True, exc.stdout/stderr are str when
+        # set; bytes if anything bypassed the text decoder; None on no
+        # output buffered yet. Normalize all three.
+        def _decode(x):
+            if x is None:
+                return ""
+            if isinstance(x, (bytes, bytearray)):
+                return x.decode("utf-8", errors="replace")
+            return x
+        result_stdout = _decode(exc.stdout)
+        result_stderr = _decode(exc.stderr)
+
+    assert "Traceback" not in result_stderr, (
+        f"uofa extract produced a Python traceback:\n{result_stderr}"
     )
-    assert "Traceback" not in result.stderr, (
-        f"uofa extract produced a Python traceback:\n{result.stderr}"
-    )
-    assert "Traceback" not in result.stdout, (
-        f"uofa extract produced a Python traceback on stdout:\n{result.stdout}"
+    assert "Traceback" not in result_stdout, (
+        f"uofa extract produced a Python traceback on stdout:\n{result_stdout}"
     )
