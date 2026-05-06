@@ -98,8 +98,11 @@ class TestPackRegistration:
     def test_manifest_loads(self):
         manifest = paths.pack_manifest("iso42001")
         assert manifest["name"] == "iso42001"
-        assert manifest["version"].startswith("0.4."), (
-            f"iso42001 pack version expected 0.4.x; got {manifest['version']}"
+        # Version expected to be 0.4.x or 0.5.x — relaxed to accept both
+        # patch and minor bumps without per-release test maintenance.
+        v = manifest["version"]
+        assert v.startswith("0.4.") or v.startswith("0.5."), (
+            f"iso42001 pack version expected 0.4.x or 0.5.x; got {v}"
         )
         assert "ISO-IEC-42001-2023" in manifest["standards"]
 

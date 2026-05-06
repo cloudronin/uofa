@@ -27,6 +27,8 @@ python -m uofa_cli check --pack iso42001 packs/iso42001/examples/hybrid/cou2/uof
 
 OOS evaluation is **on by default** for this pack (`pack.json::oos.enabled: true`). To disable at runtime, pass `--no-oos`.
 
+**Derivation pre-pass (v0.5):** the pack also runs SPARQL CONSTRUCT queries between SHACL and C3 to materialize derived analytic predicates that downstream rules consume. Per `UofA_Derivation_PrePass_Spec_v0_1.md`. Eight CONSTRUCTs at `packs/iso42001/derivations/iso42001_derivations_v0.1.sparql` fix brittleness in 8 W-AIMS rules that pure Jena rule expressivity couldn't handle (negated existentials, date arithmetic, semver comparison, set difference, multi-valued cross-entity checks). Pre-pass is on by default for this pack (`pack.json::derivations.enabled: true`); disable at runtime with `--no-derivations`.
+
 ## What is in the pack
 
 - **Vocabulary** (`shapes/iso42001_shapes.ttl` §A) — `uofa-aims:` namespace with ~50 classes covering management-system clauses 4-10, Annex A controls A.2-A.10, eight AIMS claim types, and supporting evidence types for the OOS rule catalog.

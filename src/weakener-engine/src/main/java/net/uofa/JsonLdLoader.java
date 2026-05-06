@@ -43,6 +43,19 @@ public final class JsonLdLoader {
      * @throws Exception on file-IO or parse errors
      */
     public static Model load(Path jsonldPath, Path ctxPath) throws Exception {
+        // v0.5 derivation pre-pass extension: when the input file has a
+        // .nt extension, treat it as N-Triples (a merged enriched graph
+        // produced by DerivationEngine). The N-Triples format is
+        // unambiguous and requires no @context inlining — load directly.
+        String name = jsonldPath.getFileName().toString().toLowerCase();
+        if (name.endsWith(".nt")) {
+            Model nt = ModelFactory.createDefaultModel();
+            try (InputStream is = Files.newInputStream(jsonldPath)) {
+                RDFDataMgr.read(nt, is, Lang.NTRIPLES);
+            }
+            return nt;
+        }
+
         String content = Files.readString(jsonldPath);
 
         if (ctxPath != null && Files.exists(ctxPath)) {

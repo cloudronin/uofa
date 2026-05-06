@@ -19,6 +19,8 @@ from uofa_cli.commands.shacl import ShaclResult
 from uofa_cli.commands.rules import RulesResult
 from uofa_cli.oos import config as oos_config
 from uofa_cli.oos import runner as oos_runner
+from uofa_cli.derivations import config as derivation_config
+from uofa_cli.derivations import runner as derivation_runner
 
 HELP = "full pipeline: SHACL + integrity + rules (C1+C2+C3)"
 
@@ -69,6 +71,12 @@ class CheckResult:
     # active pack doesn't declare rule files (or other resolver errors).
     # The CLI handler prints this and exits non-zero before any OOS work.
     oos_error: str | None = None
+    # Derivation pre-pass (v0.5). None when no active pack declares
+    # derivations — snapshot.py omits the field entirely (preserves
+    # byte-identical compat for vv40, nasa-7009b, and other non-adopting
+    # packs). Set to a DerivationResult when enabled.
+    derivations: derivation_runner.DerivationResult | None = None
+    derivations_error: str | None = None
 
     @property
     def exit_code(self) -> int:
@@ -92,6 +100,19 @@ def add_arguments(parser):
     oos_group.add_argument(
         "--no-oos", dest="disable_oos", action="store_true",
         help="force OOS rules off for this run, overriding pack config",
+    )
+    # Derivation pre-pass gating per UofA_Derivation_PrePass_Spec_v0_1.md §2.2.
+    # Default behaviour comes from the active pack's `derivations.enabled`
+    # config (or false if the section is absent — preserves byte-identical
+    # behavior for packs that don't declare derivations).
+    derive_group = parser.add_mutually_exclusive_group()
+    derive_group.add_argument(
+        "--derivations", dest="enable_derivations", action="store_true",
+        help="force derivation pre-pass on for this run, overriding pack config",
+    )
+    derive_group.add_argument(
+        "--no-derivations", dest="disable_derivations", action="store_true",
+        help="force derivation pre-pass off for this run, overriding pack config",
     )
     from uofa_cli.interpretation.cli import add_explain_arguments
     add_explain_arguments(parser)
@@ -137,6 +158,37 @@ def run_structured(args) -> CheckResult:
             sig_ok=False,
         )
 
+    # ── C2.5: Derivation pre-pass (v0.5) ──────────────────────
+    # Per UofA_Derivation_PrePass_Spec_v0_1.md §2.1. Runs SPARQL CONSTRUCT
+    # queries against the loaded JSON-LD package, materializing derived
+    # analytic predicates that downstream C3 + OOS engines can discriminate
+    # on. When no active pack declares derivations, this is a no-op and
+    # downstream stages see the original args.file path (preserving
+    # byte-identical backward compat for vv40, nasa-7009b, and any other
+    # pack that doesn't declare derivations).
+    derivation_result: derivation_runner.DerivationResult | None = None
+    derivation_error: str | None = None
+    effective_package = args.file  # default: no derivation, use original
+    if not args.skip_rules:
+        active_packs = paths.get_active_pack() or ["vv40"]
+        pack_for_derive = active_packs[0]
+        try:
+            derive_cfg = derivation_config.resolve(
+                pack_for_derive,
+                enable_flag=getattr(args, "enable_derivations", False),
+                disable_flag=getattr(args, "disable_derivations", False),
+            )
+            derivation_result = derivation_runner.run(
+                args.file, derive_cfg, context_path=args.context,
+            )
+            if (derivation_result is not None
+                and derivation_result.enriched_package_path is not None):
+                effective_package = derivation_result.enriched_package_path
+        except derivation_config.DerivationConfigError as exc:
+            derivation_error = str(exc).split("\n")[0]
+        except (FileNotFoundError, RuntimeError) as exc:
+            derivation_error = str(exc).split("\n")[0]
+
     # ── C3: Rules ─────────────────────────────────────────────
     rules_result: RulesResult | None = None
     rules_error: str | None = None
@@ -144,7 +196,7 @@ def run_structured(args) -> CheckResult:
     if not args.skip_rules:
         from uofa_cli.commands import rules as rules_mod
         rules_args = argparse.Namespace(
-            file=args.file,
+            file=effective_package,  # may be enriched .nt when pre-pass ran
             rules=args.rules,
             context=args.context,
             build=args.build,
@@ -177,12 +229,18 @@ def run_structured(args) -> CheckResult:
                 disable_flag=getattr(args, "disable_oos", False),
             )
             oos_result = oos_runner.run_structured(
-                args.file, oos_cfg, context_path=args.context,
+                effective_package, oos_cfg, context_path=args.context,
             )
         except oos_config.OOSConfigError as exc:
             oos_error = str(exc).split("\n")[0]
         except (FileNotFoundError, RuntimeError) as exc:
             oos_error = str(exc).split("\n")[0]
+
+    # Cleanup: delete the temp enriched file produced by the derivation
+    # pre-pass. C3 and OOS have finished reading it by this point.
+    if (derivation_result is not None
+        and derivation_result.enriched_package_path is not None):
+        derivation_result.enriched_package_path.unlink(missing_ok=True)
 
     # ── Aggregate ─────────────────────────────────────────────
     all_ok = shacl_result.conforms and integrity_result.ok
@@ -214,6 +272,8 @@ def run_structured(args) -> CheckResult:
         all_ok=all_ok,
         oos=oos_result,
         oos_error=oos_error,
+        derivations=derivation_result,
+        derivations_error=derivation_error,
     )
 
 

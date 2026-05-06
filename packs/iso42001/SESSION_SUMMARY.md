@@ -178,8 +178,11 @@ packs/iso42001/
 | Issue 4: SHACL date constraints relaxed | ACCEPTED — consistent with spec §2.2.2 light-validation |
 | Issue 5: COU1/COU2 SHACL critical | RESOLVED in Fix #3 commit `9b60ead` (ProfileMinimal + hasValidationResult + hasContextOfUse) |
 | Issue 6: Phase H validation harness deferred | RESOLVED in Fix #5 commit `ad0aedc` (19 parametrized tests) |
-| Open Item #2: W-AIMS C3 fixtures | PARTIALLY RESOLVED in v0.4.1 (W-AR-02 + W-AIMS-OBJECTIVE-UNMEASURED fixtures) — remainder folds into v0.5 brittleness oracle suite |
+| Open Item #2: W-AIMS C3 fixtures | PARTIALLY RESOLVED in v0.4.1 (W-AR-02 + W-AIMS-OBJECTIVE-UNMEASURED fixtures); FULLY RESOLVED in v0.5.0 brittleness oracle suite (covers all 8 brittle patterns) |
 | Open Item #3: G6.1.b OOS catalog extension | RESOLVED in v0.4.2 — W-AIMS-OOS-SUPPLIER-EVIDENCE-ADEQUACY added; coverage matrix combined 82.8% → 86.2% |
+| **Open Item #1: W-AIMS-DATA-DRIFT-UNDETECTED rule reformulation** | **RESOLVED in v0.5.0** — derivation pre-pass + `_noMonitoringEvidence` SPARQL CONSTRUCT correctly fires on triggering fixtures. Phase H Gx.2.a downgrade (Y→P) reverted (P→Y). Coverage 86.2% → 87.9%. |
+| Empty-string brittleness (per pre-pass spec §3.3.7) | RESOLVED in v0.5.0 — `_justificationNonEmpty` and `_targetMeasureNonEmpty` derivations correctly handle the v0.4.1 boundary cases. W-AR-02 and W-AIMS-OBJECTIVE-UNMEASURED rules migrated. |
+| 6 other W-AIMS brittleness patterns (audit-stale date math, semver, set difference, transitive walk, negated cross-entity) | RESOLVED in v0.5.0 — 8 SPARQL CONSTRUCTs in `packs/iso42001/derivations/iso42001_derivations_v0.1.sparql`; 8 consumer rules migrated to consume derived flags. |
 
 ## Open items for v0.5 / future work
 

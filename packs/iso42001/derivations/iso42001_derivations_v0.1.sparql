@@ -1,0 +1,196 @@
+# ============================================================================
+# UofA iso42001 pack — Derivation pre-pass v0.1
+# ============================================================================
+# PRD: UofA_Derivation_PrePass_Spec_v0_1.md §3.3
+# Engine: Apache Jena ARQ via DerivationEngine.java
+# Pack: iso42001 v0.5.0
+#
+# 8 SPARQL CONSTRUCT clauses materializing derived analytic predicates
+# in the uofa-aims: namespace. Each derived predicate is consumed by a
+# corresponding W-AIMS rule in rules/iso42001_weakener.rules whose v0.5
+# migration relies on the pre-pass for its detection logic.
+#
+# Naming convention: <pack-namespace>:_<name>
+# Each derived predicate starts with `_` to signal "materialized, not authored".
+#
+# Provenance:
+#   _noMonitoringEvidence            — Phase H discovery (W-AIMS-DATA-DRIFT-UNDETECTED)
+#   _justificationNonEmpty           — v0.4.1 fixture authoring (W-AR-02 §3.3.7)
+#   _targetMeasureNonEmpty           — v0.4.1 fixture authoring (W-AIMS-OBJECTIVE-UNMEASURED §3.3.7)
+#   _auditOverdue                    — date arithmetic (§3.3.1)
+#   _modelEvalStaleByVersion         — semver compare (§3.3.2)
+#   _evalCoverageGap                 — set difference (§3.3.3)
+#   _lineageGap                      — transitive walk (§3.3.5)
+#   _crosswalkUnsupported            — negated cross-entity existential (§3.3.6)
+# ============================================================================
+
+PREFIX uofa: <https://uofa.net/vocab#>
+PREFIX uofa-aims: <https://uofa.net/vocab/aims#>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+
+
+# ----------------------------------------------------------------------------
+# 1. _noMonitoringEvidence — for W-AIMS-DATA-DRIFT-UNDETECTED
+# ----------------------------------------------------------------------------
+# True when the UofA has a DataResourceProvenance entity but no
+# OngoingDataQualityMonitoring entity linked from the same UofA.
+# SPARQL FILTER NOT EXISTS expresses the negated existential cleanly.
+# Consumer: w_aims_data_drift_undetected (rules/iso42001_weakener.rules)
+CONSTRUCT { ?uofa uofa-aims:_noMonitoringEvidence "true"^^xsd:boolean }
+WHERE {
+    ?uofa a uofa:UnitOfAssurance .
+    ?uofa uofa:hasEvidence ?dr .
+    ?dr a uofa-aims:DataResourceProvenance .
+    FILTER NOT EXISTS {
+        ?uofa uofa:hasEvidence ?m .
+        ?m a uofa-aims:OngoingDataQualityMonitoring .
+    }
+}
+
+
+# ----------------------------------------------------------------------------
+# 2. _justificationNonEmpty — for W-AR-02 (per spec §3.3.7)
+# ----------------------------------------------------------------------------
+# True when a RiskAcceptanceRationale carries uofa:justification with a
+# non-empty string value. Consumer rule fires when this flag is ABSENT
+# (catching both "no justification triple" AND "empty-string justification").
+# Consumer: w_aims_ar_02
+CONSTRUCT { ?rat uofa-aims:_justificationNonEmpty "true"^^xsd:boolean }
+WHERE {
+    ?rat a uofa-aims:RiskAcceptanceRationale ;
+         uofa:justification ?j .
+    FILTER (STR(?j) != "")
+}
+
+
+# ----------------------------------------------------------------------------
+# 3. _targetMeasureNonEmpty — for W-AIMS-OBJECTIVE-UNMEASURED (per spec §3.3.7)
+# ----------------------------------------------------------------------------
+# True when an AIMSObjectiveStatement has uofa-aims:targetMeasure bound to
+# a non-empty string value.
+# Consumer: w_aims_objective_unmeasured
+CONSTRUCT { ?obj uofa-aims:_targetMeasureNonEmpty "true"^^xsd:boolean }
+WHERE {
+    ?obj a uofa-aims:AIMSObjectiveStatement ;
+         uofa-aims:targetMeasure ?t .
+    FILTER (STR(?t) != "")
+}
+
+
+# ----------------------------------------------------------------------------
+# 4. _auditOverdue — for W-AIMS-AUDIT-STALE (per spec §3.3.1)
+# ----------------------------------------------------------------------------
+# True when the elapsed time since auditDate exceeds the duration implied
+# by auditCadence. Cadence-to-duration mapping via BIND-IF chain. Date
+# arithmetic via xsd:duration subtraction — impossible in pure Jena rules.
+# Consumer: w_aims_audit_stale
+CONSTRUCT { ?audit uofa-aims:_auditOverdue "true"^^xsd:boolean }
+WHERE {
+    ?audit a uofa-aims:AuditResultsRecord ;
+           uofa-aims:auditDate ?auditDateStr ;
+           uofa-aims:auditCadence ?cadence .
+    BIND (xsd:dateTime(?auditDateStr) AS ?auditDate)
+    BIND (
+        IF (?cadence = "annual",     "P365D",
+        IF (?cadence = "quarterly",  "P90D",
+        IF (?cadence = "monthly",    "P30D",
+                                     "P9999D"))) AS ?cadenceDuration
+    )
+    BIND (NOW() - ?auditDate AS ?elapsed)
+    FILTER (?elapsed > xsd:duration(?cadenceDuration))
+}
+
+
+# ----------------------------------------------------------------------------
+# 5. _modelEvalStaleByVersion — for W-AIMS-MODEL-EVAL-STALE (per spec §3.3.2)
+# ----------------------------------------------------------------------------
+# True when evaluatedModelVersion is semver-strictly-older than
+# currentModelVersion. Parses semver components via REPLACE regex;
+# compares major/minor/patch numerically (not string-lexically — fixes
+# the "v1.10.0 vs v1.9.0" string-compare bug).
+# Consumer: w_aims_model_eval_stale
+CONSTRUCT { ?eval uofa-aims:_modelEvalStaleByVersion "true"^^xsd:boolean }
+WHERE {
+    ?uofa a uofa:UnitOfAssurance ;
+          uofa:currentModelVersion ?cur ;
+          uofa:hasEvidence ?eval .
+    ?eval a uofa-aims:ModelEvaluationReport ;
+          uofa-aims:evaluatedModelVersion ?evalVer .
+    BIND (xsd:integer(REPLACE(?evalVer, "^v?(\\d+)\\.(\\d+)\\.(\\d+)$", "$1")) AS ?evalMajor)
+    BIND (xsd:integer(REPLACE(?cur,     "^v?(\\d+)\\.(\\d+)\\.(\\d+)$", "$1")) AS ?curMajor)
+    BIND (xsd:integer(REPLACE(?evalVer, "^v?(\\d+)\\.(\\d+)\\.(\\d+)$", "$2")) AS ?evalMinor)
+    BIND (xsd:integer(REPLACE(?cur,     "^v?(\\d+)\\.(\\d+)\\.(\\d+)$", "$2")) AS ?curMinor)
+    BIND (xsd:integer(REPLACE(?evalVer, "^v?(\\d+)\\.(\\d+)\\.(\\d+)$", "$3")) AS ?evalPatch)
+    BIND (xsd:integer(REPLACE(?cur,     "^v?(\\d+)\\.(\\d+)\\.(\\d+)$", "$3")) AS ?curPatch)
+    FILTER (
+        ?evalMajor < ?curMajor ||
+        (?evalMajor = ?curMajor && ?evalMinor < ?curMinor) ||
+        (?evalMajor = ?curMajor && ?evalMinor = ?curMinor && ?evalPatch < ?curPatch)
+    )
+}
+
+
+# ----------------------------------------------------------------------------
+# 6. _evalCoverageGap — for W-AIMS-MODEL-EVAL-SCOPE (per spec §3.3.3)
+# ----------------------------------------------------------------------------
+# True when the UofA's deploymentPopulationCategory set has any element
+# not covered by the ModelEvaluationReport's testSetCoverageCategory set.
+# Set-difference via FILTER NOT EXISTS over the multi-valued category
+# arrays. Impossible in pure Jena rules.
+# Consumer: w_aims_model_eval_scope
+CONSTRUCT { ?uofa uofa-aims:_evalCoverageGap "true"^^xsd:boolean }
+WHERE {
+    ?uofa a uofa:UnitOfAssurance ;
+          uofa-aims:deploymentPopulationCategory ?depCat ;
+          uofa:hasEvidence ?eval .
+    ?eval a uofa-aims:ModelEvaluationReport .
+    FILTER NOT EXISTS {
+        ?eval uofa-aims:testSetCoverageCategory ?depCat .
+    }
+}
+
+
+# ----------------------------------------------------------------------------
+# 7. _lineageGap — for W-AIMS-DATA-LINEAGE-BROKEN (per spec §3.3.5)
+# ----------------------------------------------------------------------------
+# True when a non-terminal DataResourceProvenance stage lacks
+# hasNextStage successor. Same semantic as v0.4 but expressed via SPARQL
+# FILTER NOT EXISTS — cleaner expression and ready for multi-hop
+# transitive walks in v0.6+.
+# Consumer: w_aims_data_lineage_broken
+CONSTRUCT { ?dr uofa-aims:_lineageGap "true"^^xsd:boolean }
+WHERE {
+    ?uofa a uofa:UnitOfAssurance ;
+          uofa:hasEvidence ?dr .
+    ?dr a uofa-aims:DataResourceProvenance ;
+        uofa-aims:provenanceStage ?stage .
+    FILTER (?stage != "consumption")
+    FILTER NOT EXISTS { ?dr uofa-aims:hasNextStage ?next }
+}
+
+
+# ----------------------------------------------------------------------------
+# 8. _crosswalkUnsupported — for W-AIMS-CROSSWALK-INVALID (per spec §3.3.6)
+# ----------------------------------------------------------------------------
+# True per (UofA, framework) pair where the SoA declares a framework
+# mapping but no AIMSControl in the same UofA carries it. Multi-valued
+# derived predicate — emits one triple per orphaned framework.
+# Consumer: w_aims_crosswalk_invalid (fires per orphaned framework via
+# multi-binding semantics).
+CONSTRUCT { ?uofa uofa-aims:_crosswalkUnsupported ?fw }
+WHERE {
+    ?uofa a uofa:UnitOfAssurance ;
+          uofa:hasEvidence ?soa .
+    ?soa a uofa-aims:StatementOfApplicability ;
+         uofa-aims:mappedToFramework ?fw .
+    FILTER NOT EXISTS {
+        ?uofa uofa:hasEvidence ?ctrl .
+        ?ctrl a uofa-aims:AIMSControl ;
+              uofa-aims:mappedToFramework ?fw .
+    }
+}
+
+
+# End of iso42001 derivations v0.1 (8 CONSTRUCTs)

@@ -1,5 +1,6 @@
 package net.uofa;
 
+import net.uofa.derive.DerivationEngine;
 import net.uofa.oos.OOSEngine;
 
 import java.util.Arrays;
@@ -17,6 +18,7 @@ import java.util.Arrays;
  * Subcommands:
  *   weakener        → {@link WeakenerEngine} (also the default when no subcommand matches)
  *   oos             → {@link net.uofa.oos.OOSEngine}
+ *   derive          → {@link net.uofa.derive.DerivationEngine} (added v0.5)
  *   substrate-test  → {@link OOSSubstrateTest}
  *
  * Help/version forwarded to the dispatched subcommand. The dispatcher itself
@@ -32,6 +34,9 @@ public final class Engine {
             switch (args[0]) {
                 case "oos":
                     OOSEngine.main(stripFirst(args));
+                    return;
+                case "derive":
+                    DerivationEngine.main(stripFirst(args));
                     return;
                 case "substrate-test":
                     OOSSubstrateTest.main(stripFirst(args));
