@@ -1,0 +1,890 @@
+# ============================================================================
+# UofA iso42001 pack shapes v0.4
+# ============================================================================
+# PRD: UofA_iso42001_Pack_Spec_v0_4.md (§2.1 vocabulary, §2.2 SHACL profile)
+# Standards: ISO/IEC 42001:2023 (AIMS), NIST AI RMF 1.0 (GOVERN coverage)
+#
+# This file is the Phase A substrate for the AIMS pack and contains four
+# sections:
+#   §A — uofa-aims: vocabulary (RDFS class hierarchy + property declarations)
+#   §B — Annex A artifact shapes (deep validation, ~38 shapes one per control)
+#   §C — Management-system clause attestation shapes (light, 7 clause families)
+#   §D — Statement of Applicability (SoA) shape (workbook-shape validation)
+#
+# Substrate decision: vocabulary lives in this same file (no separate vocab.ttl
+# and no manifest extension needed). Embedded RDFS declarations are picked up
+# by the existing pyshacl loader because shapes and vocabulary share the data
+# graph during validation.
+# ============================================================================
+
+@prefix sh:       <http://www.w3.org/ns/shacl#> .
+@prefix uofa:     <https://uofa.net/vocab#> .
+@prefix uofa-aims: <https://uofa.net/vocab/aims#> .
+@prefix rdf:      <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs:     <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd:      <http://www.w3.org/2001/XMLSchema#> .
+@prefix dct:      <http://purl.org/dc/terms/> .
+
+# ============================================================================
+# §A. Vocabulary (uofa-aims:)
+# ============================================================================
+# Per spec §2.1, the AIMS pack introduces a single new namespace
+# (https://uofa.net/vocab/aims#) covering management-system clause concepts,
+# Annex A control vocabulary, AIMS claim types, and supporting evidence types.
+# The classes here use rdfs:subClassOf where a hierarchy applies, and are kept
+# flat where ISO 42001 does not impose one.
+# ============================================================================
+
+# --- §A.1 Management-system clause classes (clauses 4-10) ---------------------
+
+uofa-aims:AIPolicy a rdfs:Class ;
+    rdfs:subClassOf uofa:ProcessAttestation ;
+    rdfs:label "AI Policy" ;
+    rdfs:comment "ISO 42001 clause 5.2 AI policy artifact." .
+
+uofa-aims:AIMSScope a rdfs:Class ;
+    rdfs:label "AIMS Scope Statement" ;
+    rdfs:comment "ISO 42001 clause 4.3 scope of the AI management system." .
+
+uofa-aims:AIMSObjective a rdfs:Class ;
+    rdfs:label "AIMS Objective" ;
+    rdfs:comment "ISO 42001 clause 6.2 AIMS objective declaration." .
+
+uofa-aims:AIMSObjectiveStatement a rdfs:Class ;
+    rdfs:subClassOf uofa-aims:AIMSObjective ;
+    rdfs:label "AIMS Objective Statement" ;
+    rdfs:comment "Documented form of an AIMS objective with target measure." .
+
+uofa-aims:RoleAssignment a rdfs:Class ;
+    rdfs:label "AIMS Role Assignment" ;
+    rdfs:comment "ISO 42001 clause 5.3 organizational roles, responsibilities, authorities." .
+
+uofa-aims:RiskRegister a rdfs:Class ;
+    rdfs:label "AI Risk Register" ;
+    rdfs:comment "ISO 42001 clause 6.1.2 register of identified AI risks and opportunities." .
+
+uofa-aims:RiskEntry a rdfs:Class ;
+    rdfs:label "AI Risk Register Entry" ;
+    rdfs:comment "Single row of the risk register: a named risk with likelihood, severity, treatment decision." .
+
+uofa-aims:OpportunityRegister a rdfs:Class ;
+    rdfs:label "AI Opportunity Register" ;
+    rdfs:comment "ISO 42001 clause 6.1.2 register of identified opportunities aiding AIMS objectives." .
+
+uofa-aims:RiskTreatmentPlan a rdfs:Class ;
+    rdfs:label "Risk Treatment Plan" ;
+    rdfs:comment "ISO 42001 clause 6.1.3 plan describing how a Mitigate-decision risk will be treated." .
+
+uofa-aims:RiskAcceptanceRationale a rdfs:Class ;
+    rdfs:label "Risk Acceptance Rationale" ;
+    rdfs:comment "Documented justification for an Accept-decision risk per ISO 42001 clause 6.1.3." .
+
+uofa-aims:StatementOfApplicability a rdfs:Class ;
+    rdfs:label "Statement of Applicability" ;
+    rdfs:comment "ISO 42001 clause 6.1.3 SoA mapping risks to Annex A controls with DE/OE judgments." .
+
+uofa-aims:InternalAuditPlan a rdfs:Class ;
+    rdfs:label "Internal Audit Plan" ;
+    rdfs:comment "ISO 42001 clause 9.2 plan covering audit cadence, scope, methodology." .
+
+uofa-aims:AuditResultsRecord a rdfs:Class ;
+    rdfs:label "Internal Audit Results Record" ;
+    rdfs:comment "ISO 42001 clause 9.2 documented results of an internal AIMS audit." .
+
+uofa-aims:ManagementReviewRecord a rdfs:Class ;
+    rdfs:label "Management Review Record" ;
+    rdfs:comment "ISO 42001 clause 9.3 documented management review of the AIMS." .
+
+uofa-aims:NonconformityRecord a rdfs:Class ;
+    rdfs:label "Nonconformity Record" ;
+    rdfs:comment "ISO 42001 clause 10.2 documented nonconformity with corrective action linkage." .
+
+uofa-aims:CorrectiveActionRecord a rdfs:Class ;
+    rdfs:label "Corrective Action Record" ;
+    rdfs:comment "ISO 42001 clause 10.2 documented corrective action taken in response to a nonconformity." .
+
+uofa-aims:ContinualImprovementRecord a rdfs:Class ;
+    rdfs:label "Continual Improvement Record" ;
+    rdfs:comment "ISO 42001 clause 10.1 documented evidence of continual AIMS improvement." .
+
+uofa-aims:AIIncident a rdfs:Class ;
+    rdfs:label "AI Incident" ;
+    rdfs:comment "Logged AI system incident; linked to NonconformityRecord when nonconformity-classed." .
+
+# --- §A.2 Annex A control vocabulary (A.2 through A.10) ----------------------
+
+uofa-aims:AIMSControl a rdfs:Class ;
+    rdfs:label "AIMS Annex A Control" ;
+    rdfs:comment "Parent class for any ISO 42001 Annex A control declared in the SoA." .
+
+uofa-aims:ControlImplementationRecord a rdfs:Class ;
+    rdfs:label "Control Implementation Record" ;
+    rdfs:comment "Evidence that a declared AIMS control has been implemented." .
+
+uofa-aims:ControlEffectivenessAssessment a rdfs:Class ;
+    rdfs:label "Control Effectiveness Assessment" ;
+    rdfs:comment "Self-assessment or formal assessment of operational effectiveness of a control." .
+
+uofa-aims:IndependentVerificationRecord a rdfs:Class ;
+    rdfs:label "Independent Verification Record" ;
+    rdfs:comment "Independent (third-party or internal-non-implementer) verification of control operational effectiveness." .
+
+uofa-aims:ImpactAssessmentRecord a rdfs:Class ;
+    rdfs:label "AI System Impact Assessment Record" ;
+    rdfs:comment "ISO 42001 Annex A.5.2 documented AI system impact assessment." .
+
+uofa-aims:ImpactAssessmentMethodology a rdfs:Class ;
+    rdfs:label "AI Impact Assessment Methodology" ;
+    rdfs:comment "Documented methodology for performing AI system impact assessments." .
+
+uofa-aims:SystemRequirementsSpec a rdfs:Class ;
+    rdfs:label "AI System Requirements Specification" ;
+    rdfs:comment "ISO 42001 Annex A.6.2 system requirements documentation." .
+
+uofa-aims:SystemDesignDocumentation a rdfs:Class ;
+    rdfs:label "AI System Design Documentation" ;
+    rdfs:comment "ISO 42001 Annex A.6.2 design documentation including architecture and data flows." .
+
+uofa-aims:VerificationValidationReport a rdfs:Class ;
+    rdfs:label "AI System Verification & Validation Report" ;
+    rdfs:comment "ISO 42001 Annex A.6.2 V&V report including model evaluation outcomes." .
+
+uofa-aims:DeploymentCriteria a rdfs:Class ;
+    rdfs:label "AI Deployment Criteria" ;
+    rdfs:comment "ISO 42001 Annex A.6.2 documented criteria for deployment readiness." .
+
+uofa-aims:DeploymentConfiguration a rdfs:Class ;
+    rdfs:label "AI Deployment Configuration" ;
+    rdfs:comment "Documented configuration of an AI system as deployed." .
+
+uofa-aims:OperationalMonitoringRecord a rdfs:Class ;
+    rdfs:label "Operational Monitoring Record" ;
+    rdfs:comment "ISO 42001 Annex A.6.2 ongoing monitoring of deployed AI system." .
+
+uofa-aims:DataResourceProvenance a rdfs:Class ;
+    rdfs:label "Data Resource Provenance" ;
+    rdfs:comment "ISO 42001 Annex A.7.4 data resource provenance documentation." .
+
+uofa-aims:DataQualityAssessment a rdfs:Class ;
+    rdfs:label "Data Quality Assessment" ;
+    rdfs:comment "ISO 42001 Annex A.7.5 documented data quality assessment." .
+
+uofa-aims:DataPreparationRecord a rdfs:Class ;
+    rdfs:label "Data Preparation Record" ;
+    rdfs:comment "ISO 42001 Annex A.7.6 documented data preparation activities." .
+
+uofa-aims:OngoingDataQualityMonitoring a rdfs:Class ;
+    rdfs:label "Ongoing Data Quality Monitoring" ;
+    rdfs:comment "Continuous monitoring of data quality post-deployment." .
+
+uofa-aims:ModelTrainingRecord a rdfs:Class ;
+    rdfs:label "Model Training Record" ;
+    rdfs:comment "Documented record of model training activities." .
+
+uofa-aims:ModelEvaluationReport a rdfs:Class ;
+    rdfs:label "Model Evaluation Report" ;
+    rdfs:comment "Documented model evaluation including test set, metrics, results." .
+
+uofa-aims:SystemDocumentation a rdfs:Class ;
+    rdfs:label "AI System Documentation" ;
+    rdfs:comment "ISO 42001 Annex A.8 system documentation for interested parties." .
+
+uofa-aims:IncidentReportingMechanism a rdfs:Class ;
+    rdfs:label "Incident Reporting Mechanism" ;
+    rdfs:comment "ISO 42001 Annex A.8.4 mechanism for reporting AI system concerns." .
+
+uofa-aims:IntendedUseDocumentation a rdfs:Class ;
+    rdfs:label "Intended Use Documentation" ;
+    rdfs:comment "ISO 42001 Annex A.9.2 documented intended use of the AI system." .
+
+uofa-aims:UsagePolicy a rdfs:Class ;
+    rdfs:label "AI Usage Policy" ;
+    rdfs:comment "ISO 42001 Annex A.9.3 policy governing responsible use of the AI system." .
+
+uofa-aims:SupplierAIAssurance a rdfs:Class ;
+    rdfs:label "Supplier AI Assurance Record" ;
+    rdfs:comment "ISO 42001 Annex A.10.2 documented assurance evidence from third-party AI suppliers." .
+
+uofa-aims:CustomerCommitmentRecord a rdfs:Class ;
+    rdfs:label "Customer AI Commitment Record" ;
+    rdfs:comment "ISO 42001 Annex A.10.3 documented commitments to customers regarding AI system properties." .
+
+# --- §A.3 AIMS Claim Types (per spec §2.1.3) ---------------------------------
+
+uofa-aims:AIMSClaim a rdfs:Class ;
+    rdfs:subClassOf uofa:AssuranceClaim ;
+    rdfs:label "AIMS Claim" ;
+    rdfs:comment "Parent class for AIMS-specific assurance claims under bundle-sufficiency evaluation." .
+
+uofa-aims:AIPolicyAppropriatenessClaim a rdfs:Class ;
+    rdfs:subClassOf uofa-aims:AIMSClaim ;
+    rdfs:label "AI Policy Appropriateness Claim" ;
+    rdfs:comment "Claim that the AI policy is appropriate to organizational purpose (clause 5.2.a)." .
+
+uofa-aims:RiskIdentificationCompletenessClaim a rdfs:Class ;
+    rdfs:subClassOf uofa-aims:AIMSClaim ;
+    rdfs:label "Risk Identification Completeness Claim" ;
+    rdfs:comment "Claim that AI risk identification is complete relative to AI objectives (clause 6.1.2.c)." .
+
+uofa-aims:ControlOperationalEffectivenessClaim a rdfs:Class ;
+    rdfs:subClassOf uofa-aims:AIMSClaim ;
+    rdfs:label "Control Operational Effectiveness Claim" ;
+    rdfs:comment "Per-control claim that the control operates effectively in production (Annex A; parameterized over each SoA control)." .
+
+uofa-aims:ImpactAssessmentScopeAdequacyClaim a rdfs:Class ;
+    rdfs:subClassOf uofa-aims:AIMSClaim ;
+    rdfs:label "Impact Assessment Scope Adequacy Claim" ;
+    rdfs:comment "Claim that the impact assessment scope is adequate (Annex A.5.2)." .
+
+uofa-aims:StakeholderConsultationAdequacyClaim a rdfs:Class ;
+    rdfs:subClassOf uofa-aims:AIMSClaim ;
+    rdfs:label "Stakeholder Consultation Adequacy Claim" ;
+    rdfs:comment "Claim that stakeholder consultation is adequate (clause 4.2)." .
+
+uofa-aims:InternalAuditIndependenceClaim a rdfs:Class ;
+    rdfs:subClassOf uofa-aims:AIMSClaim ;
+    rdfs:label "Internal Audit Independence Claim" ;
+    rdfs:comment "Claim that internal AIMS audit was conducted with objectivity and impartiality (clause 9.2.b)." .
+
+uofa-aims:NonconformityRootCauseAdequacyClaim a rdfs:Class ;
+    rdfs:subClassOf uofa-aims:AIMSClaim ;
+    rdfs:label "Nonconformity Root Cause Adequacy Claim" ;
+    rdfs:comment "Claim that root cause analysis adequately identifies causes (clause 10.2.b.2)." .
+
+uofa-aims:AIMSObjectiveMeasurementMethodologyValidityClaim a rdfs:Class ;
+    rdfs:subClassOf uofa-aims:AIMSClaim ;
+    rdfs:label "AIMS Objective Measurement Methodology Validity Claim" ;
+    rdfs:comment "Claim that AIMS objective measurement methodology is valid (clause 6.2.b)." .
+
+# --- §A.4 Supporting evidence types (per spec §2.1.4) ------------------------
+
+uofa-aims:OrganizationalPurposeStatement a rdfs:Class ;
+    rdfs:label "Organizational Purpose Statement" ;
+    rdfs:comment "Documented organizational purpose used to assess AI policy appropriateness." .
+
+uofa-aims:PolicyToPurposeReviewRecord a rdfs:Class ;
+    rdfs:label "Policy-to-Purpose Review Record" ;
+    rdfs:comment "Documented review linking AI policy back to organizational purpose." .
+
+uofa-aims:RiskIdentificationMethodology a rdfs:Class ;
+    rdfs:label "Risk Identification Methodology" ;
+    rdfs:comment "Documented methodology used to identify AI risks." .
+
+uofa-aims:RiskFrameworkComparisonRecord a rdfs:Class ;
+    rdfs:label "Risk Framework Comparison Record" ;
+    rdfs:comment "Documented comparison of identified risks against an external framework (NIST AI RMF, ISO/IEC 23894, MITRE ATLAS)." .
+
+uofa-aims:ImpactAssessmentScopeJustification a rdfs:Class ;
+    rdfs:label "Impact Assessment Scope Justification" ;
+    rdfs:comment "Documented justification for the chosen impact assessment scope." .
+
+uofa-aims:StakeholderValidationRecord a rdfs:Class ;
+    rdfs:label "Stakeholder Validation Record" ;
+    rdfs:comment "Documented stakeholder validation of an artifact (e.g., impact assessment scope)." .
+
+uofa-aims:StakeholderMappingDocument a rdfs:Class ;
+    rdfs:label "Stakeholder Mapping Document" ;
+    rdfs:comment "Documented identification of interested parties and their AIMS interfaces (clause 4.2)." .
+
+uofa-aims:ConsultationLog a rdfs:Class ;
+    rdfs:label "Stakeholder Consultation Log" ;
+    rdfs:comment "Documented log of consultations with identified stakeholders." .
+
+uofa-aims:ConsultationOutcomeIntegrationRecord a rdfs:Class ;
+    rdfs:label "Consultation Outcome Integration Record" ;
+    rdfs:comment "Documented record of how consultation outcomes shaped AIMS decisions." .
+
+uofa-aims:AuditorIndependenceAttestation a rdfs:Class ;
+    rdfs:label "Auditor Independence Attestation" ;
+    rdfs:comment "Documented attestation of auditor independence from the audited function." .
+
+uofa-aims:AuditScopeNonOverlapAttestation a rdfs:Class ;
+    rdfs:label "Audit Scope Non-Overlap Attestation" ;
+    rdfs:comment "Documented attestation that the auditor does not have implementation responsibility for the audited scope." .
+
+uofa-aims:RootCauseAnalysisRecord a rdfs:Class ;
+    rdfs:label "Root Cause Analysis Record" ;
+    rdfs:comment "Documented root cause analysis for a nonconformity." .
+
+uofa-aims:RootCauseExpertReviewRecord a rdfs:Class ;
+    rdfs:label "Root Cause Expert Review Record" ;
+    rdfs:comment "Documented expert review of a root cause analysis itself." .
+
+uofa-aims:MeasurementMethodologyDocument a rdfs:Class ;
+    rdfs:label "Measurement Methodology Document" ;
+    rdfs:comment "Documented methodology for measuring an AIMS objective." .
+
+uofa-aims:MethodologyValidationRecord a rdfs:Class ;
+    rdfs:label "Methodology Validation Record" ;
+    rdfs:comment "Documented validation of a measurement methodology against alternative approaches or external review." .
+
+# --- §A.5 Property declarations ----------------------------------------------
+
+# Claim-to-control linkage (used by ControlOperationalEffectivenessClaim)
+uofa-aims:claimsControl a rdf:Property ;
+    rdfs:label "claims control" ;
+    rdfs:comment "Links a ControlOperationalEffectivenessClaim to the AIMSControl it claims effectiveness for." ;
+    rdfs:domain uofa-aims:ControlOperationalEffectivenessClaim ;
+    rdfs:range uofa-aims:AIMSControl .
+
+# Control identification
+uofa-aims:controlIdentifier a rdf:Property ;
+    rdfs:label "control identifier" ;
+    rdfs:comment "Annex A control identifier (e.g., 'A.5.2', 'A.6.2.4', or organization-internal AI-XX)." .
+
+uofa-aims:controlName a rdf:Property ;
+    rdfs:label "control name" .
+
+uofa-aims:controlObjective a rdf:Property ;
+    rdfs:label "control objective" .
+
+# DE/OE workbook fields (per spec §2.2.3)
+uofa-aims:designEffectiveness a rdf:Property ;
+    rdfs:label "design effectiveness" ;
+    rdfs:comment "Workbook-shape DE field: 1-3 scale or 'Not yet assessed'." .
+
+uofa-aims:operationalEffectiveness a rdf:Property ;
+    rdfs:label "operational effectiveness" ;
+    rdfs:comment "Workbook-shape OE field: 1-3 scale or 'Not yet assessed'." .
+
+# Risk treatment
+uofa-aims:treatmentDecision a rdf:Property ;
+    rdfs:label "treatment decision" ;
+    rdfs:comment "Risk treatment decision: Mitigate, Accept, Avoid, Transfer." .
+
+uofa-aims:hasRiskTreatmentPlan a rdf:Property ;
+    rdfs:label "has risk treatment plan" ;
+    rdfs:domain uofa-aims:RiskEntry ;
+    rdfs:range uofa-aims:RiskTreatmentPlan .
+
+uofa-aims:hasAcceptanceRationale a rdf:Property ;
+    rdfs:label "has acceptance rationale" ;
+    rdfs:domain uofa-aims:RiskEntry ;
+    rdfs:range uofa-aims:RiskAcceptanceRationale .
+
+uofa-aims:mappedToControl a rdf:Property ;
+    rdfs:label "mapped to control" ;
+    rdfs:domain uofa-aims:RiskEntry ;
+    rdfs:range uofa-aims:AIMSControl .
+
+# Policy properties
+uofa-aims:policyText a rdf:Property ;
+    rdfs:label "policy text" .
+
+uofa-aims:approvalSignatory a rdf:Property ;
+    rdfs:label "approval signatory" .
+
+uofa-aims:approvalDate a rdf:Property ;
+    rdfs:label "approval date" ;
+    rdfs:range xsd:dateTime .
+
+uofa-aims:reviewCadence a rdf:Property ;
+    rdfs:label "review cadence" ;
+    rdfs:comment "Documented review cadence (e.g., 'annual', 'quarterly')." .
+
+uofa-aims:nextReviewDate a rdf:Property ;
+    rdfs:label "next review date" ;
+    rdfs:range xsd:dateTime .
+
+# AIMS objective properties
+uofa-aims:objectiveStatement a rdf:Property ;
+    rdfs:label "objective statement" .
+
+uofa-aims:targetMeasure a rdf:Property ;
+    rdfs:label "target measure" .
+
+uofa-aims:measurementCadence a rdf:Property ;
+    rdfs:label "measurement cadence" .
+
+# Risk register properties
+uofa-aims:riskCategory a rdf:Property ;
+    rdfs:label "risk category" .
+
+uofa-aims:riskLikelihood a rdf:Property ;
+    rdfs:label "risk likelihood" .
+
+uofa-aims:riskSeverity a rdf:Property ;
+    rdfs:label "risk severity" .
+
+uofa-aims:riskOwner a rdf:Property ;
+    rdfs:label "risk owner" .
+
+# Impact assessment properties
+uofa-aims:assessor a rdf:Property ;
+    rdfs:label "assessor" .
+
+uofa-aims:assessmentScope a rdf:Property ;
+    rdfs:label "assessment scope" .
+
+uofa-aims:assessmentDate a rdf:Property ;
+    rdfs:label "assessment date" ;
+    rdfs:range xsd:dateTime .
+
+uofa-aims:identifiedRisk a rdf:Property ;
+    rdfs:label "identified risk" .
+
+uofa-aims:mitigationStrategy a rdf:Property ;
+    rdfs:label "mitigation strategy" .
+
+uofa-aims:assessedDeploymentScope a rdf:Property ;
+    rdfs:label "assessed deployment scope" ;
+    rdfs:comment "Documented deployment scope considered during impact assessment (used by W-AIMS-IMPACT-SCOPE structural check)." .
+
+uofa-aims:affectedStakeholder a rdf:Property ;
+    rdfs:label "affected stakeholder" .
+
+# Audit properties
+uofa-aims:auditedFunction a rdf:Property ;
+    rdfs:label "audited function" .
+
+uofa-aims:auditDate a rdf:Property ;
+    rdfs:label "audit date" ;
+    rdfs:range xsd:dateTime .
+
+uofa-aims:auditFindings a rdf:Property ;
+    rdfs:label "audit findings" .
+
+uofa-aims:auditCadence a rdf:Property ;
+    rdfs:label "audit cadence" .
+
+# Nonconformity / corrective action properties
+uofa-aims:nonconformityDescription a rdf:Property ;
+    rdfs:label "nonconformity description" .
+
+uofa-aims:hasCorrectiveAction a rdf:Property ;
+    rdfs:label "has corrective action" ;
+    rdfs:domain uofa-aims:NonconformityRecord ;
+    rdfs:range uofa-aims:CorrectiveActionRecord .
+
+uofa-aims:hasRootCauseAnalysis a rdf:Property ;
+    rdfs:label "has root cause analysis" ;
+    rdfs:domain uofa-aims:NonconformityRecord ;
+    rdfs:range uofa-aims:RootCauseAnalysisRecord .
+
+uofa-aims:closureDate a rdf:Property ;
+    rdfs:label "closure date" ;
+    rdfs:range xsd:dateTime .
+
+# Cross-framework mapping
+uofa-aims:mappedToFramework a rdf:Property ;
+    rdfs:label "mapped to framework" ;
+    rdfs:comment "Cross-walk mapping to an external framework (NIST AI RMF, ISO 23894, MITRE ATLAS)." .
+
+# Data lifecycle properties (used by W-AIMS-DATA-* C3 patterns)
+uofa-aims:dataResource a rdf:Property ;
+    rdfs:label "data resource" .
+
+uofa-aims:provenanceStage a rdf:Property ;
+    rdfs:label "provenance stage" .
+
+uofa-aims:hasNextStage a rdf:Property ;
+    rdfs:label "has next provenance stage" ;
+    rdfs:domain uofa-aims:DataResourceProvenance ;
+    rdfs:range uofa-aims:DataResourceProvenance .
+
+uofa-aims:dataType a rdf:Property ;
+    rdfs:label "data type" .
+
+uofa-aims:monitoringMethodology a rdf:Property ;
+    rdfs:label "monitoring methodology" .
+
+# Model evaluation properties
+uofa-aims:evaluatedModelVersion a rdf:Property ;
+    rdfs:label "evaluated model version" .
+
+uofa-aims:testSetCoverage a rdf:Property ;
+    rdfs:label "test set coverage" .
+
+uofa-aims:deploymentPopulation a rdf:Property ;
+    rdfs:label "deployment population" .
+
+# Deployment properties
+uofa-aims:validatedConfiguration a rdf:Property ;
+    rdfs:label "validated configuration" .
+
+uofa-aims:deployedConfiguration a rdf:Property ;
+    rdfs:label "deployed configuration" .
+
+# AIMS role assignment properties
+uofa-aims:roleName a rdf:Property ;
+    rdfs:label "role name" .
+
+uofa-aims:assignedPerson a rdf:Property ;
+    rdfs:label "assigned person" ;
+    rdfs:range uofa:Person .
+
+uofa-aims:assignedOrganizationalUnit a rdf:Property ;
+    rdfs:label "assigned organizational unit" .
+
+# Stakeholder consultation properties
+uofa-aims:consultationDate a rdf:Property ;
+    rdfs:label "consultation date" ;
+    rdfs:range xsd:dateTime .
+
+uofa-aims:consultedStakeholder a rdf:Property ;
+    rdfs:label "consulted stakeholder" .
+
+uofa-aims:consultationMethod a rdf:Property ;
+    rdfs:label "consultation method" .
+
+uofa-aims:consultationOutcome a rdf:Property ;
+    rdfs:label "consultation outcome" .
+
+# Independent verification properties
+uofa-aims:verifierIdentity a rdf:Property ;
+    rdfs:label "verifier identity" .
+
+uofa-aims:verifierIndependenceBasis a rdf:Property ;
+    rdfs:label "verifier independence basis" .
+
+# ============================================================================
+# §B. Annex A artifact shapes (deep validation)
+# ============================================================================
+# Each Annex A control with strong artifact requirements gets a sh:NodeShape
+# enforcing the structural completeness described in §2.2.1. The shapes target
+# uofa-aims: classes only — they never fire on uofa: types from other packs.
+# ============================================================================
+
+# --- §B.1 A.5.2 Impact Assessment Record shape (per spec §2.2.1 example) ----
+
+uofa-aims:ImpactAssessmentRecordShape a sh:NodeShape ;
+    sh:targetClass uofa-aims:ImpactAssessmentRecord ;
+    rdfs:comment "Annex A.5.2 — impact assessment must identify assessor, scope, risks with likelihood/severity, mitigation linkage, review date." ;
+    sh:property [
+        sh:path uofa-aims:assessor ;
+        sh:minCount 1 ;
+        sh:message "ImpactAssessmentRecord requires an identified assessor." ;
+    ] ;
+    sh:property [
+        sh:path uofa-aims:assessmentScope ;
+        sh:minCount 1 ;
+        sh:message "ImpactAssessmentRecord requires an assessment scope statement." ;
+    ] ;
+    sh:property [
+        sh:path uofa-aims:assessmentDate ;
+        sh:minCount 1 ;
+        sh:datatype xsd:dateTime ;
+        sh:message "ImpactAssessmentRecord requires an assessment date (xsd:dateTime)." ;
+    ] ;
+    sh:property [
+        sh:path uofa-aims:identifiedRisk ;
+        sh:minCount 1 ;
+        sh:message "ImpactAssessmentRecord requires at least one identified risk." ;
+    ] ;
+    sh:property [
+        sh:path uofa-aims:mitigationStrategy ;
+        sh:minCount 1 ;
+        sh:message "ImpactAssessmentRecord requires a mitigation strategy linkage." ;
+    ] ;
+    sh:property [
+        sh:path uofa-aims:nextReviewDate ;
+        sh:minCount 1 ;
+        sh:datatype xsd:dateTime ;
+        sh:message "ImpactAssessmentRecord requires a next review date." ;
+    ] .
+
+# --- §B.2 A.7.* Data lifecycle artifact shapes -------------------------------
+
+uofa-aims:DataResourceProvenanceShape a sh:NodeShape ;
+    sh:targetClass uofa-aims:DataResourceProvenance ;
+    rdfs:comment "Annex A.7.4 — data resource provenance requires source reference and provenance stage." ;
+    sh:property [
+        sh:path uofa-aims:dataResource ;
+        sh:minCount 1 ;
+        sh:message "DataResourceProvenance requires identified data resource." ;
+    ] ;
+    sh:property [
+        sh:path uofa-aims:provenanceStage ;
+        sh:minCount 1 ;
+        sh:message "DataResourceProvenance requires a provenance stage label." ;
+    ] .
+
+uofa-aims:DataQualityAssessmentShape a sh:NodeShape ;
+    sh:targetClass uofa-aims:DataQualityAssessment ;
+    rdfs:comment "Annex A.7.5 — data quality assessment requires assessor, scope, date." ;
+    sh:property [
+        sh:path uofa-aims:assessor ;
+        sh:minCount 1 ;
+        sh:message "DataQualityAssessment requires an assessor." ;
+    ] ;
+    sh:property [
+        sh:path uofa-aims:assessmentDate ;
+        sh:minCount 1 ;
+        sh:datatype xsd:dateTime ;
+        sh:message "DataQualityAssessment requires an assessment date." ;
+    ] .
+
+uofa-aims:OngoingDataQualityMonitoringShape a sh:NodeShape ;
+    sh:targetClass uofa-aims:OngoingDataQualityMonitoring ;
+    sh:property [
+        sh:path uofa-aims:monitoringMethodology ;
+        sh:minCount 1 ;
+        sh:message "OngoingDataQualityMonitoring requires a documented monitoring methodology." ;
+    ] ;
+    sh:property [
+        sh:path uofa-aims:dataType ;
+        sh:minCount 1 ;
+        sh:message "OngoingDataQualityMonitoring requires a documented data type." ;
+    ] .
+
+# --- §B.3 A.6.* AI system lifecycle shapes ----------------------------------
+
+uofa-aims:VerificationValidationReportShape a sh:NodeShape ;
+    sh:targetClass uofa-aims:VerificationValidationReport ;
+    rdfs:comment "Annex A.6.2.5 — V&V report must reference the model version evaluated." ;
+    sh:property [
+        sh:path uofa-aims:evaluatedModelVersion ;
+        sh:minCount 1 ;
+        sh:message "VerificationValidationReport requires evaluatedModelVersion." ;
+    ] ;
+    sh:property [
+        sh:path uofa-aims:assessmentDate ;
+        sh:minCount 1 ;
+        sh:datatype xsd:dateTime ;
+        sh:message "VerificationValidationReport requires assessmentDate." ;
+    ] .
+
+uofa-aims:ModelEvaluationReportShape a sh:NodeShape ;
+    sh:targetClass uofa-aims:ModelEvaluationReport ;
+    sh:property [
+        sh:path uofa-aims:evaluatedModelVersion ;
+        sh:minCount 1 ;
+        sh:message "ModelEvaluationReport requires evaluatedModelVersion." ;
+    ] ;
+    sh:property [
+        sh:path uofa-aims:testSetCoverage ;
+        sh:minCount 1 ;
+        sh:message "ModelEvaluationReport requires documented testSetCoverage." ;
+    ] .
+
+uofa-aims:DeploymentConfigurationShape a sh:NodeShape ;
+    sh:targetClass uofa-aims:DeploymentConfiguration ;
+    sh:property [
+        sh:path uofa-aims:deployedConfiguration ;
+        sh:minCount 1 ;
+        sh:message "DeploymentConfiguration requires a documented deployed configuration." ;
+    ] .
+
+uofa-aims:OperationalMonitoringRecordShape a sh:NodeShape ;
+    sh:targetClass uofa-aims:OperationalMonitoringRecord ;
+    sh:property [
+        sh:path uofa-aims:monitoringMethodology ;
+        sh:minCount 1 ;
+        sh:message "OperationalMonitoringRecord requires monitoringMethodology." ;
+    ] .
+
+# --- §B.4 A.10.* Third-party / customer relationship shapes ------------------
+
+uofa-aims:SupplierAIAssuranceShape a sh:NodeShape ;
+    sh:targetClass uofa-aims:SupplierAIAssurance ;
+    sh:property [
+        sh:path dct:identifier ;
+        sh:minCount 1 ;
+        sh:message "SupplierAIAssurance requires a supplier identifier." ;
+    ] .
+
+# --- §B.5 Annex A control declaration shape ----------------------------------
+
+uofa-aims:AIMSControlShape a sh:NodeShape ;
+    sh:targetClass uofa-aims:AIMSControl ;
+    rdfs:comment "Every declared Annex A control must carry a controlIdentifier." ;
+    sh:property [
+        sh:path uofa-aims:controlIdentifier ;
+        sh:minCount 1 ;
+        sh:message "AIMSControl requires controlIdentifier (e.g., 'A.5.2' or organization-internal AI-XX)." ;
+    ] .
+
+# --- §B.6 Nonconformity / corrective action coupling shape -------------------
+
+uofa-aims:NonconformityRecordShape a sh:NodeShape ;
+    sh:targetClass uofa-aims:NonconformityRecord ;
+    rdfs:comment "ISO 42001 clause 10.2 — NonconformityRecord requires description and at least one of (corrective action, root cause analysis) referenced." ;
+    sh:property [
+        sh:path uofa-aims:nonconformityDescription ;
+        sh:minCount 1 ;
+        sh:message "NonconformityRecord requires nonconformityDescription." ;
+    ] .
+
+# ============================================================================
+# §C. Management-system clause attestation shapes (light)
+# ============================================================================
+# Per spec §2.2.2 these shapes enforce vocabulary presence + signatory/date
+# pattern only. Quality questions about clause 4-10 evidence are surfaced via
+# the OOS rules in §2.4 of the spec, not through SHACL.
+# ============================================================================
+
+uofa-aims:AIPolicyShape a sh:NodeShape ;
+    sh:targetClass uofa-aims:AIPolicy ;
+    rdfs:comment "Clause 5.2 — AI policy attestation pattern: text reference, signatory, approval date, review cadence." ;
+    sh:property [
+        sh:path uofa-aims:policyText ;
+        sh:minCount 1 ;
+        sh:message "AIPolicy requires policyText (or reference to policy text)." ;
+    ] ;
+    sh:property [
+        sh:path uofa-aims:approvalSignatory ;
+        sh:minCount 1 ;
+        sh:message "AIPolicy requires approvalSignatory." ;
+    ] ;
+    sh:property [
+        sh:path uofa-aims:approvalDate ;
+        sh:minCount 1 ;
+        sh:datatype xsd:dateTime ;
+        sh:message "AIPolicy requires approvalDate (xsd:dateTime)." ;
+    ] ;
+    sh:property [
+        sh:path uofa-aims:reviewCadence ;
+        sh:minCount 1 ;
+        sh:message "AIPolicy requires reviewCadence." ;
+    ] .
+
+uofa-aims:AIMSScopeShape a sh:NodeShape ;
+    sh:targetClass uofa-aims:AIMSScope ;
+    rdfs:comment "Clause 4.3 — scope statement must be present and signed off." ;
+    sh:property [
+        sh:path uofa-aims:approvalSignatory ;
+        sh:minCount 1 ;
+        sh:message "AIMSScope requires approvalSignatory." ;
+    ] .
+
+uofa-aims:AIMSObjectiveStatementShape a sh:NodeShape ;
+    sh:targetClass uofa-aims:AIMSObjectiveStatement ;
+    rdfs:comment "Clause 6.2 — objective statements must include the objective text." ;
+    sh:property [
+        sh:path uofa-aims:objectiveStatement ;
+        sh:minCount 1 ;
+        sh:message "AIMSObjectiveStatement requires objectiveStatement text." ;
+    ] .
+
+uofa-aims:RoleAssignmentShape a sh:NodeShape ;
+    sh:targetClass uofa-aims:RoleAssignment ;
+    rdfs:comment "Clause 5.3 — every declared AIMS role must have a role name and an assigned person OR organizational unit." ;
+    sh:property [
+        sh:path uofa-aims:roleName ;
+        sh:minCount 1 ;
+        sh:message "RoleAssignment requires roleName." ;
+    ] ;
+    sh:sparql [
+        sh:message "RoleAssignment requires either assignedPerson or assignedOrganizationalUnit." ;
+        sh:select """
+            PREFIX uofa-aims: <https://uofa.net/vocab/aims#>
+            SELECT $this WHERE {
+                $this a uofa-aims:RoleAssignment .
+                FILTER NOT EXISTS { $this uofa-aims:assignedPerson ?p }
+                FILTER NOT EXISTS { $this uofa-aims:assignedOrganizationalUnit ?ou }
+            }
+        """ ;
+    ] .
+
+uofa-aims:AuditResultsRecordShape a sh:NodeShape ;
+    sh:targetClass uofa-aims:AuditResultsRecord ;
+    rdfs:comment "Clause 9.2 — audit results must record audited function, date, findings." ;
+    sh:property [
+        sh:path uofa-aims:auditedFunction ;
+        sh:minCount 1 ;
+        sh:message "AuditResultsRecord requires auditedFunction." ;
+    ] ;
+    sh:property [
+        sh:path uofa-aims:auditDate ;
+        sh:minCount 1 ;
+        sh:datatype xsd:dateTime ;
+        sh:message "AuditResultsRecord requires auditDate (xsd:dateTime)." ;
+    ] ;
+    sh:property [
+        sh:path uofa-aims:auditFindings ;
+        sh:minCount 1 ;
+        sh:message "AuditResultsRecord requires auditFindings." ;
+    ] .
+
+uofa-aims:ManagementReviewRecordShape a sh:NodeShape ;
+    sh:targetClass uofa-aims:ManagementReviewRecord ;
+    rdfs:comment "Clause 9.3 — management review must be dated and have an attestation." ;
+    sh:property [
+        sh:path uofa-aims:approvalSignatory ;
+        sh:minCount 1 ;
+        sh:message "ManagementReviewRecord requires approvalSignatory (chair attestation)." ;
+    ] ;
+    sh:property [
+        sh:path uofa-aims:approvalDate ;
+        sh:minCount 1 ;
+        sh:datatype xsd:dateTime ;
+        sh:message "ManagementReviewRecord requires approvalDate." ;
+    ] .
+
+uofa-aims:ContinualImprovementRecordShape a sh:NodeShape ;
+    sh:targetClass uofa-aims:ContinualImprovementRecord ;
+    rdfs:comment "Clause 10.1 — continual improvement records must reference an AIMS element they improved." ;
+    sh:property [
+        sh:path uofa:documentReference ;
+        sh:minCount 1 ;
+        sh:message "ContinualImprovementRecord requires documentReference linking the improved AIMS element." ;
+    ] .
+
+# ============================================================================
+# §D. Statement of Applicability (SoA) shape — workbook-shape validation
+# ============================================================================
+# Per spec §2.2.3 the SoA shape enforces: every claimed risk maps to ≥1
+# control; every control has DE/OE fields (even if "Not yet assessed"); every
+# Mitigate-decision risk has a treatment plan reference; every Accept-decision
+# risk has an acceptance rationale reference.
+# ============================================================================
+
+uofa-aims:StatementOfApplicabilityShape a sh:NodeShape ;
+    sh:targetClass uofa-aims:StatementOfApplicability ;
+    rdfs:comment "Clause 6.1.3 — workbook-shape SoA structural integrity." ;
+    sh:property [
+        sh:path uofa-aims:approvalSignatory ;
+        sh:minCount 1 ;
+        sh:message "StatementOfApplicability requires approvalSignatory." ;
+    ] .
+
+uofa-aims:SoAControlDEOEShape a sh:NodeShape ;
+    sh:targetClass uofa-aims:AIMSControl ;
+    rdfs:comment "Every declared AIMSControl must have designEffectiveness and operationalEffectiveness fields per workbook-shape SoA convention. The OE value 'Not yet assessed' is acceptable; absence is not." ;
+    sh:property [
+        sh:path uofa-aims:designEffectiveness ;
+        sh:minCount 1 ;
+        sh:message "AIMSControl requires designEffectiveness field (1-3 scale or 'Not yet assessed')." ;
+    ] ;
+    sh:property [
+        sh:path uofa-aims:operationalEffectiveness ;
+        sh:minCount 1 ;
+        sh:message "AIMSControl requires operationalEffectiveness field (1-3 scale or 'Not yet assessed')." ;
+    ] .
+
+uofa-aims:SoARiskMappingShape a sh:NodeShape ;
+    sh:targetClass uofa-aims:RiskEntry ;
+    rdfs:comment "Every RiskEntry in the register must map to at least one control via mappedToControl." ;
+    sh:property [
+        sh:path uofa-aims:mappedToControl ;
+        sh:minCount 1 ;
+        sh:message "RiskEntry requires at least one mappedToControl reference." ;
+    ] .
+
+uofa-aims:SoARiskTreatmentShape a sh:NodeShape ;
+    sh:targetClass uofa-aims:RiskEntry ;
+    rdfs:comment "Mitigate-decision risks require a treatment plan reference; Accept-decision risks require an acceptance rationale reference." ;
+    sh:sparql [
+        sh:message "Mitigate-decision RiskEntry requires hasRiskTreatmentPlan." ;
+        sh:select """
+            PREFIX uofa-aims: <https://uofa.net/vocab/aims#>
+            SELECT $this WHERE {
+                $this a uofa-aims:RiskEntry ;
+                      uofa-aims:treatmentDecision "Mitigate" .
+                FILTER NOT EXISTS { $this uofa-aims:hasRiskTreatmentPlan ?p }
+            }
+        """ ;
+    ] ;
+    sh:sparql [
+        sh:message "Accept-decision RiskEntry requires hasAcceptanceRationale." ;
+        sh:select """
+            PREFIX uofa-aims: <https://uofa.net/vocab/aims#>
+            SELECT $this WHERE {
+                $this a uofa-aims:RiskEntry ;
+                      uofa-aims:treatmentDecision "Accept" .
+                FILTER NOT EXISTS { $this uofa-aims:hasAcceptanceRationale ?r }
+            }
+        """ ;
+    ] .
+
+# End of iso42001 shapes v0.4

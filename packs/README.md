@@ -66,7 +66,22 @@ packs/
       starters/                          # HPT blade thermal + aero fatigue starter JSON-LDs
     prompts/
       nasa_7009b_extract_prompt.txt      # 19-factor LLM extraction prompt
+
+  iso42001/                     # ISO/IEC 42001:2023 AIMS (13 C3 weakener patterns + 8 OOS rules)
+    pack.json                            # oos.enabled: true (default-on, per spec §2.8.1)
+    README.md                            # Dual-output methodology + hybrid case study guide
+    shapes/iso42001_shapes.ttl           # uofa-aims: vocabulary + Annex A + clause + SoA shapes
+    rules/iso42001_weakener.rules        # 13 C3 weakener patterns adapted for AIMS
+    rules/oos/oos_v0.1.rules             # 8 OOS bundle-sufficiency rules
+    coverage/
+      nist_ai_rmf_govern_coverage.md     # Dual-detection coverage matrix (≥70% combined target)
+    examples/
+      hybrid/                            # COU1 (low-risk) + COU2 (high-risk) hybrid case study
+        cou1/uofa-iso42001-cou1.jsonld
+        cou2/uofa-iso42001-cou2.jsonld
 ```
+
+**Calibration packages** for the OOS rules live at `specs/calibration/packages/cal-aims-001..008-*.jsonld` (mirroring V&V 40's cal-021..025 convention). Each cal-aims-NNN is hybrid-construction and targets exactly one OOS rule's missing-evidence pattern.
 
 ## Pack Manifest (`pack.json`)
 
