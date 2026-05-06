@@ -1,0 +1,171 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "JudgeVerdictOutput",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "case_id",
+    "verdict",
+    "confidence",
+    "reasoning_steps",
+    "reasoning",
+    "section_6_7_candidate",
+    "alternative_rule_analysis",
+    "prompt_template_version",
+    "judge_model",
+    "judge_thinking_enabled",
+    "judge_model_params",
+    "generator_provenance",
+    "evidence_gap"
+  ],
+  "properties": {
+    "case_id": {
+      "type": "string",
+      "pattern": "^(adv-2026-p2-[0-9]+-.+-v[0-9]+|cal-[0-9]+-.+)$",
+      "description": "Phase 2 package case id (adv-2026-p2-NNN-...-vNN) or calibration case id (cal-NNN-...)"
+    },
+    "verdict": {
+      "type": "string",
+      "enum": [
+        "CORRECT-DETECTION",
+        "REAL-GAP",
+        "GENERATOR-ARTIFACT",
+        "EXISTING-RULE-MISBEHAVIOR",
+        "OUT-OF-SCOPE",
+        "UNCERTAIN"
+      ],
+      "description": "One of six verdict classes from spec §1. Note: input cases with normalized class GEN-INVALID (Phase 2 SHACL-failed packages) typically route to GENERATOR-ARTIFACT but may be UNCERTAIN; the judge decides."
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "reasoning_steps": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_taxonomy_identified",
+        "target_rule_identified",
+        "rule_firings_inspected",
+        "instantiation_check",
+        "verdict_commitment"
+      ],
+      "properties": {
+        "source_taxonomy_identified": {
+          "type": "string",
+          "minLength": 10
+        },
+        "target_rule_identified": {
+          "type": "string",
+          "minLength": 5
+        },
+        "rule_firings_inspected": {
+          "type": "string",
+          "minLength": 10
+        },
+        "instantiation_check": {
+          "type": "string",
+          "minLength": 20
+        },
+        "verdict_commitment": {
+          "type": "string",
+          "enum": [
+            "CORRECT-DETECTION",
+            "REAL-GAP",
+            "GENERATOR-ARTIFACT",
+            "EXISTING-RULE-MISBEHAVIOR",
+            "OUT-OF-SCOPE",
+            "UNCERTAIN"
+          ]
+        }
+      },
+      "description": "Structured chain-of-thought scaffold from spec §7.5. Required field; the judge must populate before committing to verdict. Single largest lever for kappa improvement."
+    },
+    "reasoning": {
+      "type": "string",
+      "minLength": 50,
+      "description": "Free-form rationale for the verdict, supplementing reasoning_steps."
+    },
+    "section_6_7_candidate": {
+      "type": ["string", "null"],
+      "description": "If REAL-GAP, the §6.7 Tier 1 candidate id (W-EV-01..W-AR-07) or null if not a Tier 1 candidate. Null for non-REAL-GAP verdicts."
+    },
+    "alternative_rule_analysis": {
+      "type": ["string", "null"],
+      "description": "Optional discussion of alternative existing rules considered, or null."
+    },
+    "prompt_template_version": {
+      "type": "string",
+      "description": "Version tag of the judge prompt template used (e.g. 'v1.0.0')."
+    },
+    "judge_model": {
+      "type": "string",
+      "description": "Model identifier as seen by the provider (e.g. 'gpt-5.4', 'gemini-3.1-pro', 'meta-llama/Llama-3.3-70B-Instruct')."
+    },
+    "judge_thinking_enabled": {
+      "type": "boolean"
+    },
+    "judge_model_params": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["temperature", "seed"],
+      "properties": {
+        "temperature": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 2.0
+        },
+        "seed": {
+          "type": ["integer", "null"]
+        }
+      }
+    },
+    "generator_provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["generator_model", "temperature", "seed"],
+      "properties": {
+        "generator_model": {
+          "type": "string"
+        },
+        "temperature": {
+          "type": ["number", "string", "null"]
+        },
+        "seed": {
+          "type": ["integer", "string", "null"]
+        }
+      }
+    },
+    "evidence_gap": {
+      "type": ["object", "null"],
+      "description": "Productive-OOS framing (Phase 3 v1.6 Delta 1). When verdict is OUT-OF-SCOPE, this field reports what evidence is missing from the bundle and what defeater type the missing evidence would support evaluating. The field is the actionable output of the OOS verdict for audit engineers. Required when verdict==OUT-OF-SCOPE (enforced via top-level if/then below + runtime parser); null otherwise.",
+      "properties": {
+        "missing_evidence_type": {
+          "type": "string",
+          "minLength": 10,
+          "description": "What evidence type is absent from the bundle. Examples: 'structured rationale documents for model-form selection', 'quarterly drift monitoring logs', 'cross-jurisdiction reconciliation evidence'."
+        },
+        "would_support_defeater_evaluation": {
+          "type": "string",
+          "minLength": 10,
+          "description": "What in-scope defeater type or credibility claim the missing evidence would let UofA evaluate. Examples: 'W-AR-06 eliminative argumentation absent', 'AIMS A.6.1.2 role-and-responsibility behavioral compliance', 'inter-jurisdictional regulatory framework reconciliation'."
+        }
+      },
+      "required": ["missing_evidence_type", "would_support_defeater_evaluation"],
+      "additionalProperties": false
+    }
+  },
+  "if": {
+    "properties": {
+      "verdict": {"const": "OUT-OF-SCOPE"}
+    },
+    "required": ["verdict"]
+  },
+  "then": {
+    "properties": {
+      "evidence_gap": {"type": "object"}
+    },
+    "required": ["evidence_gap"]
+  }
+}

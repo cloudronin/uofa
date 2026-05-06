@@ -12,7 +12,7 @@ def add_arguments(parser):
     sub = parser.add_subparsers(
         dest="adversarial_command",
         title="adversarial commands",
-        metavar="{generate,run,analyze,prep-review}",
+        metavar="{generate,run,analyze,prep-review,bundle,judge,triage,adjudicate}",
     )
 
     # ----- generate (Phase 1 single-spec entry point) -----
@@ -159,6 +159,15 @@ def add_arguments(parser):
             "parallel=5+. See docs/m5_findings.md F7."
         ),
     )
+    an.add_argument(
+        "--emit-judge-bundle",
+        action="store_true",
+        help=(
+            "after writing outcomes.csv, package the batch into a Phase 3 "
+            "judge_ready_bundle.tgz at <out>/judge_ready_bundle.tgz "
+            "(spec v1.5 §2.1; off by default; default analyze behavior is unchanged)"
+        ),
+    )
 
     # ----- prep-review (Phase 2 D3 v1.8) -----
     pr = sub.add_parser(
@@ -182,6 +191,323 @@ def add_arguments(parser):
         help="cap the total number of packets emitted (default: 50)",
     )
 
+    # ----- bundle (Phase 3 §2.1; package an already-analyzed Phase 2 batch) -----
+    bd = sub.add_parser(
+        "bundle",
+        help="package an already-analyzed Phase 2 batch into a judge_ready_bundle.tgz (Phase 3 §2.1)",
+    )
+    bd.add_argument("--batch-dir", type=Path, required=True,
+                    help="Phase 2 batch dir (output of `uofa adversarial run`)")
+    bd.add_argument("--outcomes-csv", type=Path, default=None,
+                    help="path to outcomes.csv (default: <batch-dir>/coverage/outcomes.csv)")
+    bd.add_argument("--out", type=Path, required=True,
+                    help="output path for judge_ready_bundle.tgz")
+
+    # ----- calibrate-anchor (Phase 3 v1.6 §8.0) -----
+    ca = sub.add_parser(
+        "calibrate-anchor",
+        help="ingest the Judge D calibration anchor and capture author overrides (Phase 3 v1.6 §8.0)",
+    )
+    ca_sub = ca.add_subparsers(dest="anchor_action", title="anchor actions",
+                               metavar="{ingest,regenerate}")
+    ca_ingest = ca_sub.add_parser(
+        "ingest",
+        help="validate the committed calibration set and capture author overrides",
+    )
+    ca_ingest.add_argument(
+        "--in", dest="in_path", type=Path,
+        default=Path("specs/calibration/calibration_set_v1.jsonl"),
+        help="calibration set JSONL (default: specs/calibration/calibration_set_v1.jsonl)",
+    )
+    ca_ingest.add_argument(
+        "--overrides", type=Path, default=None,
+        help="optional author overrides JSONL (judge_d_author_overrides.jsonl)",
+    )
+    ca_ingest.add_argument(
+        "--out", type=Path, default=None,
+        help="optional output dir; writes normalized judge_d_anchor.jsonl when set",
+    )
+    ca_regen = ca_sub.add_parser(
+        "regenerate",
+        help="regenerate the Judge D anchor by re-running Claude over packages (deferred)",
+    )
+    ca_regen.add_argument(
+        "--in", dest="in_path", type=Path,
+        default=Path("specs/calibration/calibration_set_v1.jsonl"),
+    )
+
+    # ----- judge (Phase 3 §9.1) -----
+    jg = sub.add_parser(
+        "judge",
+        help="run the LLM-as-judge ensemble against a judge_ready_bundle.tgz (Phase 3)",
+    )
+    jg.add_argument("--in", dest="in_bundle", type=Path, required=True,
+                    help="judge_ready_bundle.tgz path (spec §2.1)")
+    jg.add_argument("--out", type=Path, required=True,
+                    help="output directory for per-judge judgments (created if missing)")
+    jg.add_argument(
+        "--judges", required=True,
+        help="comma-separated provider tokens (e.g. openai,gemini,hf-llama or mock_a,mock_b,mock_c)",
+    )
+    jg.add_argument("--prompt-version", default="v1.1.0",
+                    help="judge prompt template version stamped into per-judgment "
+                         "provenance (default v1.1.0; matches `calibrate` default). "
+                         "Override for the §8.3 3-iteration path.")
+    jg.add_argument("--parallel", type=int, default=1,
+                    help="HF Endpoints in-flight requests (default 1 sequential; "
+                         "only meaningful when hf-llama is in --judges)")
+    jg.add_argument("--model-openai", default=None,
+                    help="override OpenAI model (default: per-provider built-in)")
+    jg.add_argument("--model-gemini", default=None,
+                    help="override Gemini model (default: per-provider built-in)")
+    jg.add_argument("--model-hf-llama", default=None,
+                    help="override HF Llama model (default: per-provider built-in)")
+    jg.add_argument("--model-anthropic", default=None,
+                    help="override Anthropic model (default: per-provider built-in)")
+    jg.add_argument(
+        "--calibration-only", action="store_true",
+        help="judge only the calibration set, not the full bundle (spec §14.3 smoke)",
+    )
+    jg.add_argument(
+        "--allow-same-family-judge", action="store_true",
+        help="override family circularity check (smoke-test only; spec §6.2)",
+    )
+    jg.add_argument(
+        "--dry-run", action="store_true",
+        help="estimate per-judge token + USD cost, print a table, exit 0 "
+             "without calling any provider (Wave F)",
+    )
+    jg.add_argument(
+        "--max-cost", type=float, default=None,
+        help="halt the run when accumulated estimated cost reaches this USD "
+             "ceiling; writes cost_manifest.json on halt (Wave F)",
+    )
+    jg.add_argument(
+        "--resume", action="store_true",
+        help="skip cases already present in existing judgments_*.jsonl files "
+             "(Wave I); writes resume_manifest.json with the skip count",
+    )
+    jg.add_argument(
+        "--concurrency", type=int, default=1,
+        help="per-judge max concurrent in-flight calls (default: 1, serial). "
+             "Pilot v2 (2026-05-05) showed Gemini at p50=31s is the bottleneck; "
+             "production runs benefit from --concurrency 15 to drop wall-clock "
+             "from ~9h → ~2-3h. Per-vendor overrides via --concurrency-per-judge.",
+    )
+    jg.add_argument(
+        "--concurrency-per-judge", default=None,
+        help="per-vendor concurrency overrides as comma-separated token=N pairs, "
+             "e.g. 'gemini=20,openai=10,hf-llama=10,anthropic=5'. Tokens not "
+             "listed inherit --concurrency.",
+    )
+    jg.add_argument(
+        "--max-requests-per-judge", default=None,
+        help="per-vendor daily-request caps as comma-separated token=N pairs, "
+             "e.g. 'gemini=950'. Vendor RPD limits force multi-day runs "
+             "(Gemini 2.5 Pro caps at 1000 RPD; 50-call buffer recommended). "
+             "On cap-hit the run halts gracefully + writes request_manifest.json; "
+             "re-run with --resume the next UTC day to continue. Same-day "
+             "resumes accumulate; new-UTC-day resumes reset to fresh quota.",
+    )
+    jg.add_argument(
+        "--max-tpm-per-judge", default=None,
+        help="per-vendor TPM (tokens-per-minute) caps as comma-separated "
+             "token=N pairs, e.g. 'mistral=550000,gemini=950000'. Soft "
+             "throttle: TokenRateTracker uses a 1-minute sliding window "
+             "and sleeps until room is available (vs --max-requests-per-judge "
+             "which hard-halts). When unset, defaults are auto-derived "
+             "from each judge's `default_tpm_cap` in the capability table; "
+             "set --no-auto-tpm to disable.",
+    )
+    jg.add_argument(
+        "--no-auto-tpm", dest="auto_tpm", action="store_false",
+        default=True,
+        help="disable auto-derivation of TPM caps from the capability "
+             "table (the default behavior). Combine with empty "
+             "--max-tpm-per-judge to run completely uncapped.",
+    )
+
+    # ----- triage (Phase 3 §10.1) -----
+    tg = sub.add_parser(
+        "triage",
+        help="majority-of-3 inter-judge agreement triage (Phase 3 Stage 3)",
+    )
+    tg.add_argument("--judgments-a", type=Path, required=True,
+                    help="judgments_<A>.jsonl from judge A (typically GPT)")
+    tg.add_argument("--judgments-b", type=Path, required=True,
+                    help="judgments_<B>.jsonl from judge B (typically Gemini)")
+    tg.add_argument("--judgments-c", type=Path, required=True,
+                    help="judgments_<C>.jsonl from judge C (typically Llama)")
+    tg.add_argument("--out", type=Path, required=True,
+                    help="output directory (created if missing)")
+    tg.add_argument(
+        "--confidence-floor", type=float, default=0.6,
+        help="confidence below which an agreeing verdict routes to DIVERGENT (default 0.6, spec §10.1)",
+    )
+
+    # ----- calibrate (Phase 3 v1.6 §8.1–8.4, Stage 1) -----
+    cb = sub.add_parser(
+        "calibrate",
+        help="Stage 1 production-judge calibration vs Judge D anchor "
+             "(Phase 3 v1.6 §8.1–8.4, hard gates 5/6/7)",
+    )
+    cb.add_argument(
+        "--judges", required=True,
+        help="comma-separated provider tokens. Production trio is the "
+             "first 3 (A/B/C); optional 4th token is Judge E for sanity "
+             "check (e.g. 'openai,gemini,hf-llama,mistral')",
+    )
+    cb.add_argument(
+        "--out", type=Path, required=True,
+        help="output directory; results land in <out>/<prompt_version>/...",
+    )
+    cb.add_argument(
+        "--prompt-version", dest="prompt_version", default="v1.1.0",
+        help="pinned prompt template version (default v1.1.0). Spec §8.3 "
+             "permits up to 3 prompt-tuning iterations on hard-gate failure; "
+             "override here to re-run calibration on a v1.2.0 / v1.3.0 prompt",
+    )
+    cb.add_argument(
+        "--calibration-set", dest="calibration_set", type=Path, default=None,
+        help="path to calibration_set_v1.jsonl (default: specs/calibration/calibration_set_v1.jsonl)",
+    )
+    cb.add_argument(
+        "--overrides", type=Path, default=None,
+        help="optional author overrides JSONL (judge_d_author_overrides.jsonl)",
+    )
+    cb.add_argument(
+        "--concurrency", type=int, default=5,
+        help="per-judge max concurrent in-flight calls (default 5)",
+    )
+    cb.add_argument(
+        "--no-judge-e-sanity-check", action="store_true",
+        help="skip Judge E sanity check vs Judge D (informational only; "
+             "default ON when 4th judge is provided)",
+    )
+
+    # ----- arbitrate (Phase 3 v1.6 §6.7, §10.2) -----
+    ar = sub.add_parser(
+        "arbitrate",
+        help="Judge E (Mistral) arbitration over the DISAGREEMENT queue (Phase 3 v1.6 Stage 3b)",
+    )
+    ar.add_argument("--judgments-a", type=Path, required=True)
+    ar.add_argument("--judgments-b", type=Path, required=True)
+    ar.add_argument("--judgments-c", type=Path, required=True)
+    ar.add_argument(
+        "--disagreement-queue", type=Path, required=True,
+        help="triage Stage 3a output CSV (DISAGREEMENT cases)",
+    )
+    ar.add_argument("--out", type=Path, required=True,
+                    help="output directory (created if missing)")
+    ar.add_argument(
+        "--judge-e", default="mistral",
+        help="Judge E provider token (default mistral; mock_e for smoke)",
+    )
+    ar.add_argument(
+        "--confidence-floor", type=float, default=0.6,
+        help="Judge E confidence threshold for ARBITRATED vs ESCALATED (default 0.6, spec §10.2)",
+    )
+
+    # ----- adjudicate (Phase 3 §12.1) -----
+    aj = sub.add_parser(
+        "adjudicate",
+        help="compute Cohen's κ + Fleiss' κ + confusion matrices (Phase 3 Stage 4)",
+    )
+    aj.add_argument("--judgments-a", type=Path, required=True)
+    aj.add_argument("--judgments-b", type=Path, required=True)
+    aj.add_argument("--judgments-c", type=Path, required=True)
+    aj.add_argument("--out", type=Path, required=True,
+                    help="output directory (created if missing)")
+    aj.add_argument(
+        "--adjudications", type=Path, default=None,
+        help="optional author adjudications JSONL (spec §11); when present, "
+             "compute author-vs-each-judge confusion matrices",
+    )
+    aj.add_argument(
+        "--judgments-e", type=Path, default=None,
+        help="optional Judge E arbitration JSONL (spec v1.6 §10.2); when "
+             "present, emit EA/EB/EC confusion matrices and Judge E vs "
+             "production-judge κ on the disagreement queue",
+    )
+    aj.add_argument(
+        "--judgments-d", type=Path, default=None,
+        help="optional Judge D calibration anchor JSONL (spec v1.6 §8.0); "
+             "when present alongside --judgments-e, compute Judge E vs "
+             "Judge D agreement on the calibration set (informational)",
+    )
+    aj.add_argument(
+        "--author-adjudications", type=Path, default=None,
+        help="optional author final-verdict JSONL on the escalation queue "
+             "(spec v1.6 §11.1); when present alongside --judgments-e, "
+             "emit author_E confusion matrix",
+    )
+    aj.add_argument(
+        "--spot-check-overrides", type=Path, default=None,
+        help="optional author spot-check overrides JSONL on CONVERGENT "
+             "cases (spec v1.6 §11.4); reports override rate (target ≤ 0.10)",
+    )
+    aj.add_argument(
+        "--confidence-floor", type=float, default=0.6,
+        help="Judge E confidence floor for ARBITRATED vs ESCALATED partition "
+             "in adjudication summary (default 0.6, spec §10.2)",
+    )
+
+    # ----- finalize (Phase 3 v1.6 §10.3, Delta 5) -----
+    fn = sub.add_parser(
+        "finalize",
+        help="assemble final_verdicts.jsonl across CONVERGENT / ARBITRATED / "
+             "AUTHOR_FINAL / AUTHOR_OVERRIDE layers (Phase 3 v1.6 §10.3)",
+    )
+    fn.add_argument("--judgments-a", type=Path, required=True)
+    fn.add_argument("--judgments-b", type=Path, required=True)
+    fn.add_argument("--judgments-c", type=Path, required=True)
+    fn.add_argument("--judgments-e", type=Path, default=None,
+                    help="Judge E arbitration JSONL (judgments_E.jsonl)")
+    fn.add_argument("--author-adjudications", type=Path, default=None,
+                    help="author final-verdict JSONL on the escalation queue")
+    fn.add_argument("--spot-check-overrides", type=Path, default=None,
+                    help="author spot-check override JSONL on CONVERGENT cases")
+    fn.add_argument("--confidence-floor", type=float, default=0.6,
+                    help="Judge E confidence floor for ARBITRATED selection")
+    fn.add_argument("--out", type=Path, required=True,
+                    help="output directory (created if missing)")
+
+    # ----- formalize (Phase 3 v1.6 §13.1, Wave J — forward-chaining only) -----
+    fz = sub.add_parser(
+        "formalize",
+        help="generate Jena rule + test scaffolds from REAL-GAP final verdicts "
+             "(Phase 3 v1.6 §13.1; forward-chaining C3 weakeners only — "
+             "OOS substrate test is separate engineering)",
+    )
+    fz.add_argument("--final-verdicts", type=Path, required=True,
+                    help="path to final_verdicts.jsonl from `finalize`")
+    fz.add_argument("--judgments-a", type=Path, default=None,
+                    help="judgments_A.jsonl for §6.7 candidate lookup")
+    fz.add_argument("--judgments-b", type=Path, default=None)
+    fz.add_argument("--judgments-c", type=Path, default=None)
+    fz.add_argument("--severity-overrides", type=Path, default=None,
+                    help="optional JSON dict {'W-EV-01': 'Critical', ...} "
+                         "overriding the §6.7 default severity table")
+    fz.add_argument("--out", type=Path, required=True,
+                    help="output directory; rules/, tests/, formalization_summary.json")
+
+    # ----- case-study-rerun (Phase 3 v1.6 §13.3, Wave K) -----
+    cs = sub.add_parser(
+        "case-study-rerun",
+        help="run two catalog versions across the published case-study COUs "
+             "(Morrison + Nagaraja); emit delta_table.md + .json (Phase 3 v1.6 §13.3)",
+    )
+    cs.add_argument(
+        "--catalog", action="append", required=True,
+        help="catalog version (specify twice: --catalog v0.4.1 --catalog v0.5)",
+    )
+    cs.add_argument(
+        "--cou", action="append", required=True,
+        help="case-study COU id (e.g. morrison-cou1, nagaraja-cou1); repeat for each",
+    )
+    cs.add_argument("--out", type=Path, required=True,
+                    help="output directory (created if missing)")
+
 
 def run(args) -> int:
     cmd = getattr(args, "adversarial_command", None)
@@ -197,6 +523,36 @@ def run(args) -> int:
     if cmd == "prep-review":
         from uofa_cli.adversarial.prep_review import run_prep_review
         return run_prep_review(args)
+    if cmd == "bundle":
+        from uofa_cli.adversarial.judge.runner import run_bundle
+        return run_bundle(args)
+    if cmd == "calibrate-anchor":
+        from uofa_cli.adversarial.judge.runner import run_calibrate_anchor
+        return run_calibrate_anchor(args)
+    if cmd == "calibrate":
+        from uofa_cli.adversarial.judge.runner import run_calibrate
+        return run_calibrate(args)
+    if cmd == "arbitrate":
+        from uofa_cli.adversarial.judge.runner import run_arbitrate
+        return run_arbitrate(args)
+    if cmd == "judge":
+        from uofa_cli.adversarial.judge.runner import run_judge
+        return run_judge(args)
+    if cmd == "triage":
+        from uofa_cli.adversarial.judge.runner import run_triage
+        return run_triage(args)
+    if cmd == "adjudicate":
+        from uofa_cli.adversarial.judge.runner import run_adjudicate
+        return run_adjudicate(args)
+    if cmd == "finalize":
+        from uofa_cli.adversarial.judge.runner import run_finalize
+        return run_finalize(args)
+    if cmd == "formalize":
+        from uofa_cli.adversarial.judge.runner import run_formalize
+        return run_formalize(args)
+    if cmd == "case-study-rerun":
+        from uofa_cli.adversarial.judge.runner import run_case_study_rerun
+        return run_case_study_rerun(args)
 
     print("usage: uofa adversarial <subcommand>")
     print()
@@ -205,4 +561,8 @@ def run(args) -> int:
     print("  run          batch-orchestrate generation across spec directories (Phase 2)")
     print("  analyze      classify a batch's outcomes; emit CSV + HTML reports (Phase 2)")
     print("  prep-review  generate Phase 3 reviewer prep packets from outcomes.csv (Phase 2 D3)")
+    print("  bundle       package an already-analyzed batch into judge_ready_bundle.tgz (Phase 3 §2.1)")
+    print("  judge        run the LLM-as-judge ensemble (Phase 3 Stage 1/2)")
+    print("  triage       majority-of-3 inter-judge triage (Phase 3 Stage 3)")
+    print("  adjudicate   compute Cohen's κ + Fleiss' κ + confusion matrices (Phase 3 Stage 4)")
     return 0

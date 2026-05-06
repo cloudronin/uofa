@@ -1,0 +1,161 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "JudgeEArbitrationOutput",
+  "description": "Judge E (Mistral Large 2) arbitration output schema (Phase 3 v1.6 §7.8). Extends JudgeVerdictOutput with arbitration_basis + production_judge_evaluation + judge_role:'arbiter'. evidence_gap conditional-required for OUT-OF-SCOPE arbitrations (Delta 2 propagates Delta 1).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "case_id",
+    "verdict",
+    "confidence",
+    "reasoning_steps",
+    "reasoning",
+    "section_6_7_candidate",
+    "alternative_rule_analysis",
+    "prompt_template_version",
+    "judge_model",
+    "judge_thinking_enabled",
+    "judge_model_params",
+    "generator_provenance",
+    "evidence_gap",
+    "arbitration_basis",
+    "production_judge_evaluation",
+    "judge_role"
+  ],
+  "properties": {
+    "case_id": {
+      "type": "string",
+      "pattern": "^(adv-2026-p2-[0-9]+-.+-v[0-9]+|cal-[0-9]+-.+)$"
+    },
+    "verdict": {
+      "type": "string",
+      "enum": [
+        "CORRECT-DETECTION",
+        "REAL-GAP",
+        "GENERATOR-ARTIFACT",
+        "EXISTING-RULE-MISBEHAVIOR",
+        "OUT-OF-SCOPE",
+        "UNCERTAIN"
+      ]
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0,
+      "description": "Judge E confidence in the arbitrated verdict. Cases with confidence ≥ 0.6 close at the Judge E layer (ARBITRATED bin); < 0.6 escalate to author final-arbitration (ESCALATED bin) per spec §10.2."
+    },
+    "reasoning_steps": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_taxonomy_identified",
+        "target_rule_identified",
+        "rule_firings_inspected",
+        "instantiation_check",
+        "verdict_commitment"
+      ],
+      "properties": {
+        "source_taxonomy_identified": {"type": "string", "minLength": 10},
+        "target_rule_identified": {"type": "string", "minLength": 5},
+        "rule_firings_inspected": {"type": "string", "minLength": 10},
+        "instantiation_check": {"type": "string", "minLength": 20},
+        "verdict_commitment": {
+          "type": "string",
+          "enum": [
+            "CORRECT-DETECTION",
+            "REAL-GAP",
+            "GENERATOR-ARTIFACT",
+            "EXISTING-RULE-MISBEHAVIOR",
+            "OUT-OF-SCOPE",
+            "UNCERTAIN"
+          ]
+        }
+      }
+    },
+    "reasoning": {
+      "type": "string",
+      "minLength": 50,
+      "description": "Free-form arbitration rationale that explicitly addresses which production-judge reasoning is most sound and why."
+    },
+    "section_6_7_candidate": {"type": ["string", "null"]},
+    "alternative_rule_analysis": {"type": ["string", "null"]},
+    "prompt_template_version": {"type": "string"},
+    "judge_model": {"type": "string"},
+    "judge_thinking_enabled": {"type": "boolean"},
+    "judge_model_params": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["temperature", "seed"],
+      "properties": {
+        "temperature": {"type": "number", "minimum": 0.0, "maximum": 2.0},
+        "seed": {"type": ["integer", "null"]}
+      }
+    },
+    "generator_provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["generator_model", "temperature", "seed"],
+      "properties": {
+        "generator_model": {"type": "string"},
+        "temperature": {"type": ["number", "string", "null"]},
+        "seed": {"type": ["integer", "string", "null"]}
+      }
+    },
+    "evidence_gap": {
+      "type": ["object", "null"],
+      "description": "Productive-OOS field per Delta 1 + Delta 2. Required when verdict==OUT-OF-SCOPE (enforced via top-level if/then + runtime parser); null otherwise. Same schema as JudgeVerdictOutput.evidence_gap.",
+      "properties": {
+        "missing_evidence_type": {"type": "string", "minLength": 10},
+        "would_support_defeater_evaluation": {"type": "string", "minLength": 10}
+      },
+      "required": ["missing_evidence_type", "would_support_defeater_evaluation"],
+      "additionalProperties": false
+    },
+    "arbitration_basis": {
+      "type": "string",
+      "enum": ["package_content", "production_judge_evaluation", "independent_disagreement"],
+      "description": "Where Judge E grounded the arbitration. 'package_content': verdict comes from inspecting the package itself, ignoring production-judge reasoning. 'production_judge_evaluation': verdict comes from picking the most sound production-judge reasoning. 'independent_disagreement': Judge E disagrees with all three production judges and produces a verdict on its own grounds."
+    },
+    "production_judge_evaluation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "judge_a_reasoning_assessment",
+        "judge_b_reasoning_assessment",
+        "judge_c_reasoning_assessment"
+      ],
+      "properties": {
+        "judge_a_reasoning_assessment": {
+          "type": "string",
+          "enum": ["sound", "weak", "irrelevant"]
+        },
+        "judge_b_reasoning_assessment": {
+          "type": "string",
+          "enum": ["sound", "weak", "irrelevant"]
+        },
+        "judge_c_reasoning_assessment": {
+          "type": "string",
+          "enum": ["sound", "weak", "irrelevant"]
+        }
+      },
+      "description": "Judge E's per-production-judge reasoning quality assessment. 'sound' = the reasoning supports the verdict; 'weak' = reasoning has gaps; 'irrelevant' = reasoning misses the point of the case."
+    },
+    "judge_role": {
+      "type": "string",
+      "const": "arbiter",
+      "description": "Judge E always operates as 'arbiter' role. Distinct from production judges A/B/C ('production') and Judge D ('calibration_anchor')."
+    }
+  },
+  "if": {
+    "properties": {
+      "verdict": {"const": "OUT-OF-SCOPE"}
+    },
+    "required": ["verdict"]
+  },
+  "then": {
+    "properties": {
+      "evidence_gap": {"type": "object"}
+    },
+    "required": ["evidence_gap"]
+  }
+}
