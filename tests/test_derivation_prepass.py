@@ -393,3 +393,90 @@ class TestDerivedFlagCoverage:
                 f"Pre-pass CONSTRUCT incorrectly materialized {derived_pred} on "
                 f"{fixture} (over-derivation); derived: {sorted(derived)}"
             )
+
+
+# ────────────────────────────────────────────────────────────────────
+# Phase 5.6 — TestPostMigrationDetection
+# ────────────────────────────────────────────────────────────────────
+# End-to-end acceptance: migrated consumer rules fire correctly on
+# triggering fixtures with derivations enabled (default v0.5 behavior).
+# Inverts the TestBrittlenessOracle assertions — same fixtures,
+# opposite expectations.
+
+def _check_pattern_ids_with_derivations(fixture_path: Path) -> set[str]:
+    """Run the full check pipeline (with default-on derivations for
+    iso42001) and return the set of patternIds that fired in C3."""
+    args = argparse.Namespace(
+        file=fixture_path, pubkey=None, context=None, rules=None,
+        skip_rules=False, build=False,
+        enable_oos=False, disable_oos=True,  # focus on C3 firings
+        enable_derivations=False, disable_derivations=False,
+        no_color=True, verbose=False, repo_root=None, pack=["iso42001"],
+    )
+    paths.set_active_pack(["iso42001"])
+    try:
+        result = run_structured(args)
+        return {f.get("patternId") for f in (result.rules.firings or []) if f.get("patternId")}
+    finally:
+        paths.set_active_pack(["vv40"])
+
+
+# (pattern, fixture, should_fire) — inverts TestBrittlenessOracle
+POST_MIGRATION_FIRINGS = [
+    ("W-AIMS-DATA-DRIFT-UNDETECTED",
+     "W-AIMS-DATA-DRIFT-UNDETECTED/triggering.jsonld", True),
+    ("W-AIMS-DATA-DRIFT-UNDETECTED",
+     "W-AIMS-DATA-DRIFT-UNDETECTED/negative.jsonld", False),
+
+    ("W-AR-02",
+     "W-AR-02-empty-string/empty_string_triggering.jsonld", True),
+
+    ("W-AIMS-OBJECTIVE-UNMEASURED",
+     "W-AIMS-OBJECTIVE-UNMEASURED-empty-string/empty_string_triggering.jsonld", True),
+
+    ("W-AIMS-AUDIT-STALE",
+     "W-AIMS-AUDIT-STALE/triggering.jsonld", True),
+    ("W-AIMS-AUDIT-STALE",
+     "W-AIMS-AUDIT-STALE/negative.jsonld", False),
+
+    ("W-AIMS-MODEL-EVAL-STALE",
+     "W-AIMS-MODEL-EVAL-STALE/triggering.jsonld", True),
+    ("W-AIMS-MODEL-EVAL-STALE",
+     "W-AIMS-MODEL-EVAL-STALE/ambiguous.jsonld", False),  # eval is newer — should NOT fire
+
+    ("W-AIMS-MODEL-EVAL-SCOPE",
+     "W-AIMS-MODEL-EVAL-SCOPE/triggering.jsonld", True),
+    ("W-AIMS-MODEL-EVAL-SCOPE",
+     "W-AIMS-MODEL-EVAL-SCOPE/matching.jsonld", False),
+
+    ("W-AIMS-CROSSWALK-INVALID",
+     "W-AIMS-CROSSWALK-INVALID/triggering.jsonld", True),
+    ("W-AIMS-CROSSWALK-INVALID",
+     "W-AIMS-CROSSWALK-INVALID/valid.jsonld", False),
+]
+
+
+@needs_jar
+class TestPostMigrationDetection:
+    """End-to-end acceptance: with v0.5 derivation pre-pass enabled,
+    migrated consumer rules fire correctly on the same brittleness
+    fixtures TestBrittlenessOracle showed v0.4 missed.
+
+    Spec §5 #2 C3 differential acceptance criterion: this is the
+    post-migration confirmation that the brittleness is fixed."""
+
+    @pytest.mark.parametrize("pattern,fixture,should_fire", POST_MIGRATION_FIRINGS)
+    def test_consumer_rule_fires_correctly(self, pattern, fixture, should_fire):
+        fixture_path = BRITTLENESS_DIR / fixture
+        assert fixture_path.exists(), f"missing fixture: {fixture}"
+        fired = _check_pattern_ids_with_derivations(fixture_path)
+        if should_fire:
+            assert pattern in fired, (
+                f"v0.5 post-migration expected: {pattern} fires on {fixture}; "
+                f"actual firings: {sorted(fired)}"
+            )
+        else:
+            assert pattern not in fired, (
+                f"v0.5 post-migration expected: {pattern} silent on {fixture}; "
+                f"actual firings: {sorted(fired)}"
+            )

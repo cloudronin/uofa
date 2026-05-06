@@ -52,8 +52,8 @@ NIST AI RMF 1.0 GOVERN function organizes around 6 categories with ~22 subcatego
 | Gx.1.a | AI incidents logged without root cause analysis | Y | N | Y | C3 W-AIMS-INCIDENT-UNCLOSED. |
 | Gx.1.b | Root cause analysis adequacy not validated | N | Y | Y | OOS rule 7: W-AIMS-OOS-NONCONFORMITY-ROOT-CAUSE-ADEQUACY. |
 | **Cross-cutting (data lifecycle)** |
-| Gx.2.a | Data drift undetected | P | N | P | C3 W-AIMS-DATA-DRIFT-UNDETECTED has Jena negated-existential limitation — rule structure can't reliably differentiate "monitoring missing" from "monitoring present" without per-package hasMonitoring annotation. Downgraded from Y to P in Phase H. |
-| Gx.2.b | Data lineage discontinuity | Y | N | Y | C3 W-AIMS-DATA-LINEAGE-BROKEN. |
+| Gx.2.a | Data drift undetected | Y | N | Y | C3 W-AIMS-DATA-DRIFT-UNDETECTED migrated v0.5.0 to consume `_noMonitoringEvidence` derived flag from the SPARQL CONSTRUCT pre-pass (UofA_Derivation_PrePass_Spec_v0_1.md §3.3.4). Phase H Y→P downgrade reverted P→Y. |
+| Gx.2.b | Data lineage discontinuity | Y | N | Y | C3 W-AIMS-DATA-LINEAGE-BROKEN (v0.5 migrated to consume `_lineageGap`). |
 
 ## Coverage tally
 
@@ -61,14 +61,19 @@ Counting each row: Y = 1.0, P = 0.5 (per spec §7 Q3 default), N/O = 0.0 (O excl
 
 | Bucket | Count | Coverage contribution |
 |---|---|---|
-| Combined Y | 22 | 22.0 |
-| Combined P | 6 | 3.0 |
+| Combined Y | 23 | 23.0 |
+| Combined P | 5 | 2.5 |
 | Combined N | 3 | 0.0 |
 | Combined O | 4 | (excluded) |
 
-**Combined coverage:** (22 + 3.0) / (33 − 4 out-of-scope) = 25.0 / 29 = **86.2%**
+**Combined coverage:** (23 + 2.5) / (33 − 4 out-of-scope) = 25.5 / 29 = **87.9%**
 
-**Acceptance criterion ≥ 70%:** PASSED. Combined coverage climbed from 82.8% (v0.4 + Phase H) to 86.2% with the v0.4.2 addition of W-AIMS-OOS-SUPPLIER-EVIDENCE-ADEQUACY moving G6.1.b from N to Y.
+**Acceptance criterion ≥ 70%:** PASSED.
+
+**Coverage trajectory:**
+- v0.4 + Phase H: 82.8% (after Gx.2.a Y→P downgrade for Jena negated-existential limitation)
+- v0.4.2: 86.2% (G6.1.b N→Y via W-AIMS-OOS-SUPPLIER-EVIDENCE-ADEQUACY)
+- v0.5.0: 87.9% (Gx.2.a P→Y via `_noMonitoringEvidence` derivation pre-pass — fix for the Phase H downgrade)
 
 ### Detection-path split
 
@@ -107,7 +112,7 @@ Useful methodology output per spec §2.5.2: how many failure modes are structura
 | G1.6.b | W-AIMS-DEPLOYMENT-DRIFT | Y | Y | ✅ PASS |
 | G2.1.a | W-AIMS-ROLE-UNASSIGNED | Y | Y (×2) | ✅ PASS |
 | Gx.1.a | W-AIMS-INCIDENT-UNCLOSED | Y | Y | ✅ PASS |
-| Gx.2.a | W-AIMS-DATA-DRIFT-UNDETECTED | Y | N | ⚠️ DOWNGRADED to P (Jena negated-existential limitation) |
+| Gx.2.a | W-AIMS-DATA-DRIFT-UNDETECTED | Y | Y | ✅ PASS (v0.5 derivation pre-pass restores firing — Phase H downgrade reverted) |
 | G1.5.b-c3 | W-AIMS-IMPACT-SCOPE | Y | Y | ✅ PASS |
 | G5.2.b-c3 | W-AIMS-IMPACT-STAKEHOLDER | (depends on COU2 absence of affectedStakeholder) | Y | ✅ PASS |
 | eval-stale | W-AIMS-MODEL-EVAL-STALE | Y | Y | ✅ PASS |
@@ -128,14 +133,24 @@ All 8 OOS rules verified via cal-aims-NNN fixtures with over-firing discipline c
 | control-eff | oos_aims_control_operational_effectiveness_warranted | cal-aims-003 | ✅ PASS |
 | objective-validity | oos_aims_objective_measurement_methodology_validity_warranted | cal-aims-008 | ✅ PASS |
 
-### Phase H summary
+### Phase H summary (v0.5 update)
 
-- C3 predictions: 7 of 7 testable predictions PASS; 1 downgraded (Gx.2.a → P) due to Jena rule limitation; 4 not directly testable on COU fixtures (engine-verified on cal-aims-style minimum bundles instead).
-- OOS predictions: 8 of 8 PASS.
-- Coverage matrix recomputed after Gx.2.a downgrade: **82.8% combined** (still ≥70% acceptance).
+- C3 predictions: 8 of 8 testable predictions PASS (Gx.2.a restored Y after v0.5 derivation pre-pass migration); 4 not directly testable on COU fixtures (engine-verified on brittleness oracle fixtures instead — see `tests/fixtures/brittleness/`).
+- OOS predictions: 9 of 9 PASS (8 original + supplier-evidence-adequacy added v0.4.2).
+- Coverage matrix recomputed after Gx.2.a P→Y restoration: **87.9% combined** (≥70% acceptance, up from 86.2% post-v0.4.2).
 - Spec §5 #5 (coverage matrix validation) acceptance criterion: PASSED.
 
-### v0.5 follow-ups identified
+### v0.5 brittleness oracle suite (NEW v0.5)
 
-1. W-AIMS-DATA-DRIFT-UNDETECTED rule needs reformulation to handle the negated-existential semantics (currently can't reliably differentiate "monitoring missing" from "monitoring present" without per-package `hasMonitoring` annotation).
-2. The 4 "engine-only" C3 predictions should get dedicated minimum-bundle fixtures under `tests/fixtures/weakeners/W-AIMS-*/` for direct positive/negative verification.
+`tests/test_derivation_prepass.py` and `tests/fixtures/brittleness/` ship a comprehensive brittleness oracle:
+- TestBrittlenessOracle (7 tests) — asserts v0.4 W-AIMS rules MISS on triggering fixtures (documents the brittleness baseline).
+- TestDerivedFlagCoverage (14 tests) — asserts each pre-pass CONSTRUCT correctly materializes its derived flag.
+- TestPostMigrationDetection (12 tests) — asserts the 8 migrated W-AIMS rules fire correctly under default v0.5 (with derivations enabled).
+
+Total: 33 brittleness/derivation tests + 10 backward-compat tests = 43 substrate-related tests in the v0.5 derivation pre-pass test suite, all passing.
+
+### v0.5+ follow-ups identified
+
+1. The 4 "engine-only" C3 predictions (W-AR-02 in calibration/non-empty case, etc.) get partial coverage via the brittleness oracle. Dedicated fixtures under `tests/fixtures/weakeners/W-AIMS-*/` for direct positive/negative verification of the non-migrated patterns (W-AIMS-INCIDENT-UNCLOSED, W-AIMS-ROLE-UNASSIGNED, etc.) are still useful future work.
+2. W-AIMS-DATA-LINEAGE-BROKEN multi-hop transitive closure (currently 1-hop) is a v0.6 candidate now that the substrate exists.
+3. New aggregation-based patterns (W-AIMS-CONTROL-COUNT-EXCESSIVE etc.) deferred per spec §3.3.8 — practitioner-driven additions when real assurance need motivates them.
