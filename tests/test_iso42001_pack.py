@@ -50,6 +50,7 @@ EXPECTED_RULE = {
     6: "oos_aims_internal_audit_independence_warranted",
     7: "oos_aims_nonconformity_root_cause_adequacy_warranted",
     8: "oos_aims_objective_measurement_methodology_validity_warranted",
+    9: "oos_aims_supplier_evidence_adequacy_warranted",  # added v0.4.2
 }
 
 
@@ -160,7 +161,7 @@ class TestOOSOverFiringDiscipline:
     rule. The OOS engine's discriminator clauses (claim type) ensure rules
     silently skip packages they don't apply to."""
 
-    @pytest.mark.parametrize("n", list(range(1, 9)))
+    @pytest.mark.parametrize("n", list(range(1, 10)))
     def test_cal_aims_fires_only_expected_rule(self, n):
         result = run_structured(_check_args(_cal_aims_path(n), enable_oos=True))
         assert result.oos is not None, f"OOS should run for cal-aims-{n:03d}"
@@ -179,7 +180,7 @@ class TestOOSOverFiringDiscipline:
             f"cal-aims-{n:03d} OVER-FIRES: unexpected rules fired: {unexpected}"
         )
 
-    @pytest.mark.parametrize("n", list(range(1, 9)))
+    @pytest.mark.parametrize("n", list(range(1, 10)))
     def test_evidence_gap_metadata(self, n):
         """Each firing must carry the spec-required evidence_gap fields."""
         result = run_structured(_check_args(_cal_aims_path(n), enable_oos=True))
@@ -285,6 +286,7 @@ PHASE_H_OOS_PREDICTIONS = [
     ("Gx.1.b", "oos_aims_nonconformity_root_cause_adequacy_warranted", 7),
     ("control-eff-oos", "oos_aims_control_operational_effectiveness_warranted", 3),
     ("objective-validity-oos", "oos_aims_objective_measurement_methodology_validity_warranted", 8),
+    ("G6.1.b", "oos_aims_supplier_evidence_adequacy_warranted", 9),  # added v0.4.2
 ]
 
 
@@ -348,6 +350,7 @@ class TestVocabularyIntegrity:
         "InternalAuditIndependenceClaim",
         "NonconformityRootCauseAdequacyClaim",
         "AIMSObjectiveMeasurementMethodologyValidityClaim",
+        "SupplierAssuranceEvidenceAdequacyClaim",  # added v0.4.2
     ])
     def test_claim_types_declared(self, claim_type):
         assert f"uofa-aims:{claim_type}" in self._shapes_text(), (
@@ -366,6 +369,7 @@ class TestVocabularyIntegrity:
         "NonconformityRecord", "RootCauseAnalysisRecord",
         "RootCauseExpertReviewRecord", "AIMSObjectiveStatement",
         "MeasurementMethodologyDocument", "MethodologyValidationRecord",
+        "SupplierEvidenceAdequacyReviewRecord",  # added v0.4.2
     ])
     def test_evidence_types_declared(self, evidence_type):
         assert f"uofa-aims:{evidence_type}" in self._shapes_text(), (
