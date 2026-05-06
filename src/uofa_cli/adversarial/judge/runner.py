@@ -86,7 +86,10 @@ _MOCK_VERDICT_MAP = {
 
 # Encounter-order ledger keyed by case_id. All mock providers use this to
 # pick the same verdict array index per case, which is what preserves the
-# pairwise-κ structure designed into _MOCK_VERDICTS_*.
+# pairwise-κ structure designed into _MOCK_VERDICTS_*. _judge_bundle pre-
+# warms the ledger in bundle iteration order before submitting tasks, so
+# that asyncio.as_completed (which yields in completion order, not bundle
+# order) doesn't shuffle the case-id → index assignment.
 _MOCK_CASE_LEDGER: dict[str, int] = {}
 
 
@@ -936,19 +939,41 @@ async def _judge_bundle(
                 if halted_early:
                     break
         else:
-            # Concurrent path: gather all (case × judge) tasks, bound
-            # per-vendor by semaphores. Output ordering matches input
-            # bundle ordering (asyncio.gather preserves the task list
-            # order in its results).
-            tasks = []
+            # Concurrent path: stream-write each task's result as it
+            # completes via asyncio.as_completed, with a flush() after
+            # every line. The previous pattern (asyncio.gather then a
+            # post-loop write) buffered every result until the entire
+            # run finished — a SIGKILL or budget halt mid-run dropped
+            # everything in memory. Stage 2 Day 1 attempts on
+            # 2026-05-06 hit this: ~1000 Gemini calls billed, 0
+            # records persisted when the run was stopped.
+            #
+            # Output is in completion order rather than bundle order;
+            # downstream adjudication aligns by case_id, so order
+            # doesn't affect correctness. The flush() after each line
+            # also makes mid-run progress visible to watchdogs that
+            # poll record counts via wc -l on the JSONL files.
+            #
+            # Pre-warm the mock provider's encounter-order ledger in
+            # bundle order — without this, asyncio.as_completed yields
+            # tasks in completion order, which would assign different
+            # ledger indices to the same case_ids vs the serial path
+            # and shift the designed κ structure of mock fixtures.
+            # No-op for non-mock providers (real providers don't read
+            # the ledger).
             for entry in cases:
-                for pos, token, provider in zip(positions, tokens, providers):
-                    tasks.append(_judge_one(entry, pos, token, provider))
-            results = await asyncio.gather(*tasks)
-            for pos, _case_id, judgment in results:
+                _mock_case_index(entry.case_id)
+            tasks = [
+                _judge_one(entry, pos, token, provider)
+                for entry in cases
+                for pos, token, provider in zip(positions, tokens, providers)
+            ]
+            for coro in asyncio.as_completed(tasks):
+                pos, _case_id, judgment = await coro
                 if judgment is None:
                     continue
                 handles[pos].write(json.dumps(_judgment_to_dict(judgment)) + "\n")
+                handles[pos].flush()
                 verdicts_by_pos[pos].append(judgment.verdict)
             if tracker is not None and tracker.over_budget:
                 halted_early = True

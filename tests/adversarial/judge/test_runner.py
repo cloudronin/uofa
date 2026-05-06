@@ -705,6 +705,80 @@ class TestJudgeBundleConcurrency:
                 f"position {pos} mismatch under concurrency"
             )
 
+    def test_concurrent_path_streams_writes_per_completion(self, tmp_path: Path) -> None:
+        """Records flush to disk as each (case × judge) task completes,
+        not all at once at the end. Regression for Stage 2 Day 1
+        2026-05-06 incident: SIGKILL during gather lost 1000+ Gemini
+        calls' worth of in-memory records.
+
+        Approach: each provider awaits a small sleep so the event loop
+        actually yields between tasks. Snapshot file sizes after the
+        very first per-case round completes — under streaming writes,
+        at least one judgments_*.jsonl is non-empty at that point;
+        under batched writes (old gather-then-write), all three are
+        empty until the entire run finishes.
+        """
+        from uofa_cli.adversarial.judge.runner import _judge_bundle
+        from .fixtures.mock_bundle import write_mock_bundle
+
+        bundle = write_mock_bundle(tmp_path / "b.tgz")
+        out = tmp_path / "out"
+        out.mkdir()
+
+        # Wrap each provider's judge() so it awaits a tiny sleep
+        # (forcing the event loop to yield to as_completed) and so
+        # the C provider on its later calls snapshots file sizes —
+        # by the third call to C, the first per-case A/B/C round
+        # should have completed and flushed at least one record.
+        sizes_during_run: list[tuple[int, int, int]] = []
+        call_count = {"a": 0, "b": 0, "c": 0}
+
+        def make_tracking(p, key):
+            orig = p.judge
+            async def tracking(case: dict) -> Judgment:
+                call_count[key] += 1
+                await asyncio.sleep(0.01)  # yield to event loop
+                if key == "c" and call_count["c"] >= 3:
+                    sa = (out / "judgments_A.jsonl").stat().st_size
+                    sb = (out / "judgments_B.jsonl").stat().st_size
+                    sc = (out / "judgments_C.jsonl").stat().st_size
+                    sizes_during_run.append((sa, sb, sc))
+                return await orig(case)
+            return tracking
+
+        provider_a = _MockProvider("mock_a")
+        provider_b = _MockProvider("mock_b")
+        provider_c = _MockProvider("mock_c")
+        provider_a.judge = make_tracking(provider_a, "a")
+        provider_b.judge = make_tracking(provider_b, "b")
+        provider_c.judge = make_tracking(provider_c, "c")
+
+        async def _run() -> None:
+            await _judge_bundle(
+                in_bundle=bundle,
+                providers=[provider_a, provider_b, provider_c],
+                positions=("A", "B", "C"),
+                tokens=("mock_a", "mock_b", "mock_c"),
+                out_dir=out,
+                calibration_only=False,
+                concurrency=3,
+            )
+
+        asyncio.run(_run())
+
+        # At least one mid-run snapshot must show non-zero file sizes —
+        # proving records flushed before the run completed.
+        assert sizes_during_run, "no mid-run snapshots were taken"
+        assert any(any(s > 0 for s in row) for row in sizes_during_run), (
+            f"all mid-run snapshots show empty files; writes were "
+            f"batched, not streamed. Snapshots: {sizes_during_run}"
+        )
+
+        # Sanity: final output has the expected number of records.
+        for pos in ("A", "B", "C"):
+            n = len((out / f"judgments_{pos}.jsonl").read_text().splitlines())
+            assert n >= 1, f"position {pos} has no records after run"
+
     def test_per_judge_overrides_apply(self, tmp_path: Path) -> None:
         """concurrency_per_judge overrides the global concurrency value."""
         from uofa_cli.adversarial.judge.runner import _judge_bundle
