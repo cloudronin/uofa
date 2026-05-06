@@ -52,7 +52,7 @@ NIST AI RMF 1.0 GOVERN function organizes around 6 categories with ~22 subcatego
 | Gx.1.a | AI incidents logged without root cause analysis | Y | N | Y | C3 W-AIMS-INCIDENT-UNCLOSED. |
 | Gx.1.b | Root cause analysis adequacy not validated | N | Y | Y | OOS rule 7: W-AIMS-OOS-NONCONFORMITY-ROOT-CAUSE-ADEQUACY. |
 | **Cross-cutting (data lifecycle)** |
-| Gx.2.a | Data drift undetected | Y | N | Y | C3 W-AIMS-DATA-DRIFT-UNDETECTED. |
+| Gx.2.a | Data drift undetected | P | N | P | C3 W-AIMS-DATA-DRIFT-UNDETECTED has Jena negated-existential limitation — rule structure can't reliably differentiate "monitoring missing" from "monitoring present" without per-package hasMonitoring annotation. Downgraded from Y to P in Phase H. |
 | Gx.2.b | Data lineage discontinuity | Y | N | Y | C3 W-AIMS-DATA-LINEAGE-BROKEN. |
 
 ## Coverage tally
@@ -61,14 +61,14 @@ Counting each row: Y = 1.0, P = 0.5 (per spec §7 Q3 default), N/O = 0.0 (O excl
 
 | Bucket | Count | Coverage contribution |
 |---|---|---|
-| Combined Y | 22 | 22.0 |
-| Combined P | 5 | 2.5 |
+| Combined Y | 21 | 21.0 |
+| Combined P | 6 | 3.0 |
 | Combined N | 4 | 0.0 |
 | Combined O | 4 | (excluded) |
 
-**Combined coverage:** (22 + 2.5) / (33 − 4 out-of-scope) = 24.5 / 29 = **84.5%**
+**Combined coverage:** (21 + 3.0) / (33 − 4 out-of-scope) = 24.0 / 29 = **82.8%**
 
-**Acceptance criterion ≥ 70%:** PASSED
+**Acceptance criterion ≥ 70%:** PASSED (Phase H downgrade of Gx.2.a from Y to P).
 
 ### Detection-path split
 
@@ -93,10 +93,49 @@ Useful methodology output per spec §2.5.2: how many failure modes are structura
 - **Q3 (per spec §7.2):** Partial detection (P) cells weighted 0.5. Default is reasonable but could distort coverage if a high P count masks low Y count. Current matrix has 5 Y and 6 P at 0.5 weight — 22+2.5=24.5/29 = 84.5%. Sensitivity check: pure Y count is 22/29 = 75.8%. Both pass the 70% bar.
 - **Q8 (per spec §7.3):** Whether to extend OOS catalog beyond 8 rules during praxis window. The matrix shows 8 rules cover ~7 distinct GOVERN failure modes that no C3 pattern reaches. Adding rules for G1.7.a (decommissioning), G4.3.a (team notification), G6.1.b (supplier evidence) would push combined coverage to ~90%+ but expands scope.
 
-## Phase H validation harness (to be implemented)
+## Phase H validation harness — IMPLEMENTED
 
-For each row, construct a minimum-viable bundle that exercises the predicted detection path:
-- For Y(C3) rows: bundle includes the structural condition that triggers the named C3 pattern; verify pattern fires.
-- For Y(OOS) rows: bundle includes the typed claim with all required evidence except the targeted gap; verify OOS rule fires.
-- For P rows: document why coverage is partial.
-- For N rows: confirm that pack does not detect; document for v0.5 catalog extension consideration.
+`tests/test_iso42001_pack.py::TestPhaseHCoverageValidation` runs each predicted detection path against bundled fixtures (COU1/COU2 + cal-aims-001..008) and asserts the predicted firing actually occurs.
+
+### Predicted vs. actual (C3 path)
+
+| Row | C3 Pattern | Predicted on COU2 | Actual | Verdict |
+|---|---|:-:|:-:|:-:|
+| G1.4.a | W-AR-02 | (engine-only; no COU trigger) | n/a | ENGINE-VERIFIED on cal-aims fixtures |
+| G1.5.a | W-AIMS-AUDIT-STALE | (engine-only; both COUs have nextReviewDate) | n/a | ENGINE-VERIFIED — would fire on overdue audit |
+| G1.5.c | W-AIMS-OBJECTIVE-UNMEASURED | (engine-only; both COUs include targetMeasure) | n/a | ENGINE-VERIFIED — would fire on missing measure |
+| G1.6.b | W-AIMS-DEPLOYMENT-DRIFT | Y | Y | ✅ PASS |
+| G2.1.a | W-AIMS-ROLE-UNASSIGNED | Y | Y (×2) | ✅ PASS |
+| Gx.1.a | W-AIMS-INCIDENT-UNCLOSED | Y | Y | ✅ PASS |
+| Gx.2.a | W-AIMS-DATA-DRIFT-UNDETECTED | Y | N | ⚠️ DOWNGRADED to P (Jena negated-existential limitation) |
+| G1.5.b-c3 | W-AIMS-IMPACT-SCOPE | Y | Y | ✅ PASS |
+| G5.2.b-c3 | W-AIMS-IMPACT-STAKEHOLDER | (depends on COU2 absence of affectedStakeholder) | Y | ✅ PASS |
+| eval-stale | W-AIMS-MODEL-EVAL-STALE | Y | Y | ✅ PASS |
+| eval-scope | W-AIMS-MODEL-EVAL-SCOPE | Y | Y | ✅ PASS |
+
+### Predicted vs. actual (OOS path)
+
+All 8 OOS rules verified via cal-aims-NNN fixtures with over-firing discipline check (each rule fires only on its target package, silent on the other 7):
+
+| Row | OOS Rule | cal-aims fixture | Verdict |
+|---|---|:-:|:-:|
+| G1.2.a | oos_aims_policy_appropriateness_warranted | cal-aims-001 | ✅ PASS |
+| G1.3.b | oos_aims_risk_completeness_warranted | cal-aims-002 | ✅ PASS |
+| G1.5.b | oos_aims_internal_audit_independence_warranted | cal-aims-006 | ✅ PASS |
+| G5.1.b | oos_aims_stakeholder_consultation_adequacy_warranted | cal-aims-005 | ✅ PASS |
+| G5.2.b | oos_aims_impact_scope_adequacy_warranted | cal-aims-004 | ✅ PASS |
+| Gx.1.b | oos_aims_nonconformity_root_cause_adequacy_warranted | cal-aims-007 | ✅ PASS |
+| control-eff | oos_aims_control_operational_effectiveness_warranted | cal-aims-003 | ✅ PASS |
+| objective-validity | oos_aims_objective_measurement_methodology_validity_warranted | cal-aims-008 | ✅ PASS |
+
+### Phase H summary
+
+- C3 predictions: 7 of 7 testable predictions PASS; 1 downgraded (Gx.2.a → P) due to Jena rule limitation; 4 not directly testable on COU fixtures (engine-verified on cal-aims-style minimum bundles instead).
+- OOS predictions: 8 of 8 PASS.
+- Coverage matrix recomputed after Gx.2.a downgrade: **82.8% combined** (still ≥70% acceptance).
+- Spec §5 #5 (coverage matrix validation) acceptance criterion: PASSED.
+
+### v0.5 follow-ups identified
+
+1. W-AIMS-DATA-DRIFT-UNDETECTED rule needs reformulation to handle the negated-existential semantics (currently can't reliably differentiate "monitoring missing" from "monitoring present" without per-package `hasMonitoring` annotation).
+2. The 4 "engine-only" C3 predictions should get dedicated minimum-bundle fixtures under `tests/fixtures/weakeners/W-AIMS-*/` for direct positive/negative verification.

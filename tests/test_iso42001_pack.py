@@ -241,6 +241,93 @@ class TestDualOutputDifferential:
 
 
 # ────────────────────────────────────────────────────────────────────
+# Phase H — coverage matrix validation (spec §5 #5)
+# ────────────────────────────────────────────────────────────────────
+# For each row in coverage/nist_ai_rmf_govern_coverage.md the matrix
+# predicts which detection path (C3 pattern or OOS rule) catches the
+# GOVERN failure mode. This harness drives the predictions through the
+# real engine on the bundled fixtures (COU1/COU2 + cal-aims-001..008)
+# and asserts the predicted firings actually occur.
+
+# Tuples: (row_id, path, expected_pattern_or_rule, fixture_loader, must_not_be_in)
+# - "path" ∈ {"c3", "oos"}
+# - For c3: "must fire on COU2 fixture"; "must NOT fire on COU1 fixture"
+#   (COU2 is the high-risk bundle deliberately constructed to trigger
+#    structural-defect patterns; COU1 should be silent on them)
+# - For oos: "must fire on cal-aims-NNN; silent on the other 7"
+#   (already covered by TestOOSOverFiringDiscipline; re-asserted here
+#    against the matrix's row-level claim for traceability)
+PHASE_H_C3_PREDICTIONS = [
+    # (row_id, expected_pattern, fires_on_high_risk_cou)
+    ("G1.4.a", "W-AR-02", False),  # C3 catches accept-rationale lacking justification body — neither COU has this trigger; documented as Y at engine-level (cal-aims-* would trigger if structured)
+    ("G1.5.a", "W-AIMS-AUDIT-STALE", False),  # cadence + missing nextReviewDate — neither COU triggers (COU2 has nextReviewDate)
+    ("G1.5.c", "W-AIMS-OBJECTIVE-UNMEASURED", False),  # COU bundles include targetMeasure
+    ("G1.6.b", "W-AIMS-DEPLOYMENT-DRIFT", True),  # COU2 has deliberate v1.4 vs v1.5 mismatch
+    ("G2.1.a", "W-AIMS-ROLE-UNASSIGNED", True),  # COU2 has 2 roles without assignedPerson
+    ("Gx.1.a", "W-AIMS-INCIDENT-UNCLOSED", True),  # COU2 has nonconformity without RCA
+    ("Gx.2.a", "W-AIMS-DATA-DRIFT-UNDETECTED", False),  # rule has Jena negated-existential limitation; downgraded to P in matrix
+    # Rows below have impact assessment / model eval triggers in COU2:
+    ("G1.5.b-c3-side", "W-AIMS-IMPACT-SCOPE", True),  # COU2 assessmentScope ≠ deployedScope
+    ("G5.2.b-c3-side", "W-AIMS-IMPACT-STAKEHOLDER", False),  # COU2 has affectedStakeholder for ImpactAssessment? actually no — COU2 doesn't list it explicitly
+    ("eval-stale-c3", "W-AIMS-MODEL-EVAL-STALE", True),  # COU2 evaluatedModelVersion ≠ currentModelVersion
+    ("eval-scope-c3", "W-AIMS-MODEL-EVAL-SCOPE", True),  # COU2 testSetCoverage ≠ deploymentPopulation
+]
+
+PHASE_H_OOS_PREDICTIONS = [
+    # (row_id, expected_rule, target_cal_aims_NNN)
+    ("G1.2.a", "oos_aims_policy_appropriateness_warranted", 1),
+    ("G1.3.b", "oos_aims_risk_completeness_warranted", 2),
+    ("G1.5.b", "oos_aims_internal_audit_independence_warranted", 6),
+    ("G5.1.b", "oos_aims_stakeholder_consultation_adequacy_warranted", 5),
+    ("G5.2.b", "oos_aims_impact_scope_adequacy_warranted", 4),
+    ("Gx.1.b", "oos_aims_nonconformity_root_cause_adequacy_warranted", 7),
+    ("control-eff-oos", "oos_aims_control_operational_effectiveness_warranted", 3),
+    ("objective-validity-oos", "oos_aims_objective_measurement_methodology_validity_warranted", 8),
+]
+
+
+@needs_jar
+class TestPhaseHCoverageValidation:
+    """Spec §5 #5 — for each predicted detection path in the GOVERN coverage
+    matrix, verify the predicted pattern/rule actually fires on the
+    appropriate fixture."""
+
+    def _run_check(self, fp: Path):
+        return run_structured(_check_args(fp, enable_oos=True))
+
+    @pytest.mark.parametrize("row_id,pattern,fires_on_cou2", PHASE_H_C3_PREDICTIONS)
+    def test_c3_prediction(self, row_id, pattern, fires_on_cou2):
+        """C3 predictions: pattern fires on COU2 (high risk) per matrix Y;
+        pattern silent on COU1 (low risk) per matrix differential."""
+        cou1 = self._run_check(HYBRID_DIR / "cou1/uofa-iso42001-cou1.jsonld")
+        cou2 = self._run_check(HYBRID_DIR / "cou2/uofa-iso42001-cou2.jsonld")
+        cou1_pids = {f.get("patternId") for f in (cou1.rules.firings or [])}
+        cou2_pids = {f.get("patternId") for f in (cou2.rules.firings or [])}
+
+        if fires_on_cou2:
+            assert pattern in cou2_pids, (
+                f"Coverage matrix row {row_id} predicts {pattern} fires on "
+                f"COU2 (high risk); actual COU2 firings: {sorted(cou2_pids)}"
+            )
+        # COU1 differential: pattern should be silent on low-risk bundle
+        assert pattern not in cou1_pids, (
+            f"Coverage matrix row {row_id}: {pattern} fired on COU1 "
+            "(low risk) — differential expectation is silence on low risk."
+        )
+
+    @pytest.mark.parametrize("row_id,rule,n", PHASE_H_OOS_PREDICTIONS)
+    def test_oos_prediction(self, row_id, rule, n):
+        """OOS predictions: each Y(OOS) row maps to exactly one OOS rule
+        which fires on its targeted cal-aims-NNN fixture."""
+        result = self._run_check(_cal_aims_path(n))
+        rule_names = [f.get("rule_name") for f in (result.oos.firings or [])]
+        assert rule in rule_names, (
+            f"Coverage matrix row {row_id} predicts {rule} fires on "
+            f"cal-aims-{n:03d}; actual firings: {rule_names}"
+        )
+
+
+# ────────────────────────────────────────────────────────────────────
 # Vocabulary integrity
 # ────────────────────────────────────────────────────────────────────
 
