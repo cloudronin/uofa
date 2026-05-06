@@ -1,9 +1,31 @@
 # ============================================================================
-# UofA iso42001 pack — C3 forward-chaining weakener catalog v0.4
+# UofA iso42001 pack — C3 forward-chaining weakener catalog v0.5
 # ============================================================================
-# PRD: UofA_iso42001_Pack_Spec_v0_4.md §2.3
+# PRD: UofA_iso42001_Pack_Spec_v0_4.md §2.3 + UofA_Derivation_PrePass_Spec_v0_1.md §3.3
 # Engine: Apache Jena GenericRuleReasoner (FORWARD_RETE mode)
-# Pack:   iso42001 v0.4.0
+# Pack:   iso42001 v0.5.0
+#
+# v0.5 migrations: 8 rules now consume derived flags materialized by the
+# pre-pass CONSTRUCTs in derivations/iso42001_derivations_v0.1.sparql
+# instead of expressing the brittle detection logic inline. The
+# brittleness baseline (TestBrittlenessOracle) documents what the v0.4
+# rules missed; the migrated rules correctly fire on the same fixtures
+# under default v0.5 (with derivations enabled).
+#
+# Migrated rules consume derived flags:
+#   w_aims_ar_02                  → noValue(?rat, _justificationNonEmpty)
+#   w_aims_audit_stale            → (?audit _auditOverdue "true"^^xsd:boolean)
+#   w_aims_data_drift_undetected  → (?uofa _noMonitoringEvidence "true"^^xsd:boolean)
+#   w_aims_data_lineage_broken    → (?dr _lineageGap "true"^^xsd:boolean)
+#   w_aims_model_eval_stale       → (?eval _modelEvalStaleByVersion "true"^^xsd:boolean)
+#   w_aims_model_eval_scope       → (?uofa _evalCoverageGap "true"^^xsd:boolean)
+#   w_aims_objective_unmeasured   → noValue(?obj, _targetMeasureNonEmpty)
+#   w_aims_crosswalk_invalid      → (?uofa _crosswalkUnsupported ?fw)
+#
+# Unmigrated rules (work cleanly in pure Jena, no pre-pass needed):
+#   w_aims_prov_01, w_aims_al_02, w_aims_impact_scope,
+#   w_aims_impact_stakeholder, w_aims_deployment_drift,
+#   w_aims_incident_unclosed, w_aims_role_unassigned
 #
 # These rules detect structural defects within structurally complete bundles.
 # They run after SHACL validation and before OOS bundle-sufficiency evaluation.
@@ -53,8 +75,10 @@
 
 # ----------------------------------------------------------------------------
 # W-AR-02: acceptance criteria not justified — adapted to risk acceptance
-# Fires when a RiskEntry has treatmentDecision "Accept" with an acceptance
-# rationale that lacks a justification body.
+# v0.5 migrated to consume _justificationNonEmpty derived flag.
+# Fires when the rationale's justification predicate is absent OR
+# present-but-empty (the empty-string case the v0.4 rule missed,
+# discovered during v0.4.1 fixture authoring per pre-pass spec §3.3.7).
 # ----------------------------------------------------------------------------
 [w_aims_ar_02:
     (?uofa rdf:type uofa:UnitOfAssurance)
@@ -62,7 +86,7 @@
     (?re rdf:type uofa-aims:RiskEntry)
     (?re uofa-aims:treatmentDecision 'Accept')
     (?re uofa-aims:hasAcceptanceRationale ?rat)
-    noValue(?rat, uofa:justification)
+    noValue(?rat, uofa-aims:_justificationNonEmpty)
     makeSkolem(?ann, ?uofa, 'W-AR-02', ?re)
     ->
     (?ann rdf:type uofa:WeakenerAnnotation)
@@ -109,9 +133,7 @@
     (?uofa rdf:type uofa:UnitOfAssurance)
     (?uofa uofa:hasEvidence ?audit)
     (?audit rdf:type uofa-aims:AuditResultsRecord)
-    (?audit uofa-aims:auditCadence ?cadence)
-    (?audit uofa:isFoundationalEvidence "true"^^xsd:boolean)
-    noValue(?audit, uofa-aims:nextReviewDate)
+    (?audit uofa-aims:_auditOverdue "true"^^xsd:boolean)
     makeSkolem(?ann, ?uofa, 'W-AIMS-AUDIT-STALE', ?audit)
     ->
     (?ann rdf:type uofa:WeakenerAnnotation)
@@ -164,21 +186,19 @@
 ]
 
 # ----------------------------------------------------------------------------
-# W-AIMS-DATA-DRIFT-UNDETECTED: ongoing data quality monitoring absent or
-# methodology mismatched to data type.
+# W-AIMS-DATA-DRIFT-UNDETECTED: ongoing data quality monitoring absent.
+# v0.5 migrated to consume _noMonitoringEvidence derived flag — fixes
+# the Phase H negated-existential limitation that broke the v0.4 rule.
 # ----------------------------------------------------------------------------
 [w_aims_data_drift_undetected:
     (?uofa rdf:type uofa:UnitOfAssurance)
-    (?uofa uofa-aims:dataResource ?dr)
-    (?dr rdf:type uofa-aims:DataResourceProvenance)
-    noValue(?uofa, uofa:hasEvidence, ?monitor)
-    noValue(?monitor, rdf:type, uofa-aims:OngoingDataQualityMonitoring)
-    makeSkolem(?ann, ?uofa, 'W-AIMS-DATA-DRIFT-UNDETECTED', ?dr)
+    (?uofa uofa-aims:_noMonitoringEvidence "true"^^xsd:boolean)
+    makeSkolem(?ann, ?uofa, 'W-AIMS-DATA-DRIFT-UNDETECTED', ?uofa)
     ->
     (?ann rdf:type uofa:WeakenerAnnotation)
     (?ann uofa:patternId 'W-AIMS-DATA-DRIFT-UNDETECTED')
     (?ann uofa:severity 'High')
-    (?ann uofa:affectedNode ?dr)
+    (?ann uofa:affectedNode ?uofa)
     (?ann schema:description 'Data resource declared but no OngoingDataQualityMonitoring evidence present — data drift would go undetected.')
     (?uofa uofa:hasWeakener ?ann)
 ]
@@ -191,11 +211,8 @@
 # ----------------------------------------------------------------------------
 [w_aims_data_lineage_broken:
     (?uofa rdf:type uofa:UnitOfAssurance)
-    (?uofa uofa-aims:dataResource ?dr)
-    (?dr rdf:type uofa-aims:DataResourceProvenance)
-    (?dr uofa-aims:provenanceStage ?stage)
-    notEqual(?stage, 'consumption')
-    noValue(?dr, uofa-aims:hasNextStage)
+    (?uofa uofa:hasEvidence ?dr)
+    (?dr uofa-aims:_lineageGap "true"^^xsd:boolean)
     makeSkolem(?ann, ?uofa, 'W-AIMS-DATA-LINEAGE-BROKEN', ?dr)
     ->
     (?ann rdf:type uofa:WeakenerAnnotation)
@@ -213,10 +230,7 @@
 [w_aims_model_eval_stale:
     (?uofa rdf:type uofa:UnitOfAssurance)
     (?uofa uofa:hasEvidence ?eval)
-    (?eval rdf:type uofa-aims:ModelEvaluationReport)
-    (?eval uofa-aims:evaluatedModelVersion ?evalver)
-    (?uofa uofa:currentModelVersion ?curver)
-    notEqual(?evalver, ?curver)
+    (?eval uofa-aims:_modelEvalStaleByVersion "true"^^xsd:boolean)
     makeSkolem(?ann, ?uofa, 'W-AIMS-MODEL-EVAL-STALE', ?eval)
     ->
     (?ann rdf:type uofa:WeakenerAnnotation)
@@ -234,11 +248,9 @@
 # ----------------------------------------------------------------------------
 [w_aims_model_eval_scope:
     (?uofa rdf:type uofa:UnitOfAssurance)
+    (?uofa uofa-aims:_evalCoverageGap "true"^^xsd:boolean)
     (?uofa uofa:hasEvidence ?eval)
     (?eval rdf:type uofa-aims:ModelEvaluationReport)
-    (?eval uofa-aims:testSetCoverage ?cov)
-    (?eval uofa-aims:deploymentPopulation ?pop)
-    notEqual(?cov, ?pop)
     makeSkolem(?ann, ?uofa, 'W-AIMS-MODEL-EVAL-SCOPE', ?eval)
     ->
     (?ann rdf:type uofa:WeakenerAnnotation)
@@ -298,7 +310,7 @@
     (?uofa rdf:type uofa:UnitOfAssurance)
     (?uofa uofa:hasEvidence ?obj)
     (?obj rdf:type uofa-aims:AIMSObjectiveStatement)
-    noValue(?obj, uofa-aims:targetMeasure)
+    noValue(?obj, uofa-aims:_targetMeasureNonEmpty)
     makeSkolem(?ann, ?uofa, 'W-AIMS-OBJECTIVE-UNMEASURED', ?obj)
     ->
     (?ann rdf:type uofa:WeakenerAnnotation)
@@ -338,12 +350,8 @@
 # ----------------------------------------------------------------------------
 [w_aims_crosswalk_invalid:
     (?uofa rdf:type uofa:UnitOfAssurance)
-    (?uofa uofa:hasEvidence ?soa)
-    (?soa rdf:type uofa-aims:StatementOfApplicability)
-    (?soa uofa-aims:mappedToFramework ?fw)
-    noValue(?soa, uofa:hasEvidence, ?ctrl)
-    noValue(?ctrl, uofa-aims:mappedToFramework, ?fw)
-    makeSkolem(?ann, ?uofa, 'W-AIMS-CROSSWALK-INVALID', ?soa)
+    (?uofa uofa-aims:_crosswalkUnsupported ?fw)
+    makeSkolem(?ann, ?uofa, 'W-AIMS-CROSSWALK-INVALID', ?fw)
     ->
     (?ann rdf:type uofa:WeakenerAnnotation)
     (?ann uofa:patternId 'W-AIMS-CROSSWALK-INVALID')
