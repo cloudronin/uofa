@@ -247,4 +247,35 @@
     (?validation rdf:type uofa-aims:MethodologyValidationRecord)
 ]
 
-# End of iso42001 OOS rules v0.1 (8 rules per spec §2.4)
+# ----------------------------------------------------------------------------
+# Rule 9 — cal-aims-009 — W-AIMS-OOS-SUPPLIER-EVIDENCE-ADEQUACY (added v0.4.2)
+# Maps to ISO 42001 Annex A.10.2 supplier AI assurance.
+# Typical bundle failure: bundle includes supplier-provided assurance
+# evidence (SOC 2 reports, supplier-published model factsheets, third-party
+# audits of supplier AI systems) but lacks documented organization-side
+# review of that evidence against the organization's specific risk profile
+# and intended use. Annex A.10.2 structural coverage exists in the SHACL
+# profile (SupplierAIAssuranceShape requires identifier); this OOS rule
+# catches the judgment-required adequacy question.
+# Mirrors the W-AIMS-OOS-INTERNAL-AUDIT-INDEPENDENCE pattern: structural
+# artifact (audit results / supplier evidence) present but adequacy is
+# bundle-insufficient without an attestation of qualified review.
+# ----------------------------------------------------------------------------
+# bundle_check_rule_name: oos_aims_supplier_evidence_adequacy_warranted
+# calibration_target: cal-aims-009
+# defeater_type: supplier AI assurance evidence adequacy — UofA cannot evaluate whether third-party supplier-provided assurance evidence adequately covers the organization's risk profile without a documented organization-side adequacy review
+# missing_evidence: organization-side review record evaluating whether supplier-provided AI assurance evidence (SOC 2 reports, supplier factsheets, third-party audits of supplier AI systems) adequately addresses the organization's specific risk profile and intended use, per ISO 42001 Annex A.10.2
+# sufficiency_starts_at: 4
+[oos_aims_supplier_evidence_adequacy_warranted:
+    (?uofa uofa:bundleSufficient "true"^^xsd:boolean)
+    <-
+    (?uofa rdf:type uofa:UnitOfAssurance)
+    (?uofa uofa:bindsClaim ?claim)
+    (?claim rdf:type uofa-aims:SupplierAssuranceEvidenceAdequacyClaim)
+    (?claim uofa:hasSupportingEvidence ?supplier)
+    (?supplier rdf:type uofa-aims:SupplierAIAssurance)
+    (?claim uofa:hasSupportingEvidence ?review)
+    (?review rdf:type uofa-aims:SupplierEvidenceAdequacyReviewRecord)
+]
+
+# End of iso42001 OOS rules v0.1 (9 rules — 8 v0.4 + W-AIMS-OOS-SUPPLIER-EVIDENCE-ADEQUACY added v0.4.2)
