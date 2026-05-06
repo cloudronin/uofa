@@ -1,0 +1,250 @@
+# ============================================================================
+# UofA iso42001 pack — Productive-OOS Rules v0.1 — bundle-sufficiency catalog
+# ============================================================================
+# PRD: UofA_iso42001_Pack_Spec_v0_4.md §2.4
+# Engine: net.uofa.oos.OOSEngine (path-two LHS-decomposition over Jena rule body)
+# Schema: src/uofa_cli/oos/SCHEMA_NOTES.md
+#
+# Direction: Jena backward syntax `[name: head <- body]`. The engine does NOT
+# use Jena's reasoner to prove the head; instead it walks the body clauses in
+# declared order with binding propagation, looking for the first clause that
+# fails. The head is ceremonial — it carries the methodological framing
+# (this rule checks if the bundle is sufficient to warrant the claim) but the
+# OOSEngine does its own walk.
+#
+# Each rule has discriminator clauses (matching the AIMS claim type, which is
+# the AIMS pack's natural discriminator — vv40 uses adversarialProvenance
+# sourceTaxonomy because the calibration packages there are flat; AIMS bundles
+# carry explicit typed claims, so the claim type IS the discriminator) and
+# sufficiency clauses checking whether the bundle has the structurally
+# present supporting evidence types per spec §2.4.1-§2.4.8.
+#
+# Comment block keys consumed by OOSEngine:
+#   bundle_check_rule_name — informational; same as the rule's [name:] anchor
+#   calibration_target     — informational; cal-aims-XXX reference
+#   defeater_type          — NL phrase → evidence_gap.would_support_defeater_evaluation
+#   missing_evidence       — NL phrase → evidence_gap.missing_evidence_type
+#   sufficiency_starts_at  — integer; 1-based index of the first sufficiency clause
+# ============================================================================
+
+@prefix uofa:      <https://uofa.net/vocab#>.
+@prefix uofa-aims: <https://uofa.net/vocab/aims#>.
+@prefix rdf:       <http://www.w3.org/1999/02/22-rdf-syntax-ns#>.
+@prefix xsd:       <http://www.w3.org/2001/XMLSchema#>.
+
+# ----------------------------------------------------------------------------
+# Rule 1 — cal-aims-001 — W-AIMS-OOS-POLICY-APPROPRIATENESS
+# Maps to ISO 42001 clause 5.2.a "appropriate to the purpose of the organization"
+# Typical bundle failure: bundles contain AI policy and organizational purpose
+# separately but few contain a documented review linking the two. Final clause
+# fires, producing missing_evidence_type "PolicyToPurposeReviewRecord".
+# ----------------------------------------------------------------------------
+# bundle_check_rule_name: oos_aims_policy_appropriateness_warranted
+# calibration_target: cal-aims-001
+# defeater_type: AI policy appropriateness — UofA cannot evaluate whether the AI policy is appropriate to organizational purpose without a documented policy-to-purpose review
+# missing_evidence: documented review record linking the AI policy to the organizational purpose statement, demonstrating fitness for organizational context per ISO 42001 clause 5.2.a
+# sufficiency_starts_at: 4
+[oos_aims_policy_appropriateness_warranted:
+    (?uofa uofa:bundleSufficient "true"^^xsd:boolean)
+    <-
+    (?uofa rdf:type uofa:UnitOfAssurance)
+    (?uofa uofa:bindsClaim ?claim)
+    (?claim rdf:type uofa-aims:AIPolicyAppropriatenessClaim)
+    (?claim uofa:hasSupportingEvidence ?policy)
+    (?policy rdf:type uofa-aims:AIPolicy)
+    (?claim uofa:hasSupportingEvidence ?purpose)
+    (?purpose rdf:type uofa-aims:OrganizationalPurposeStatement)
+    (?claim uofa:hasSupportingEvidence ?review)
+    (?review rdf:type uofa-aims:PolicyToPurposeReviewRecord)
+]
+
+# ----------------------------------------------------------------------------
+# Rule 2 — cal-aims-002 — W-AIMS-OOS-RISK-COMPLETENESS
+# Maps to ISO 42001 clause 6.1.2.c "identifies risks that aid or prevent
+# achieving its AI objectives"
+# Typical bundle failure: risk register present but no methodology document
+# and no comparison against an external framework (NIST AI RMF, ISO/IEC 23894,
+# MITRE ATLAS).
+# ----------------------------------------------------------------------------
+# bundle_check_rule_name: oos_aims_risk_completeness_warranted
+# calibration_target: cal-aims-002
+# defeater_type: AI risk identification completeness — UofA cannot evaluate whether the risk register is complete relative to AI objectives without a documented identification methodology and comparison against an external risk framework
+# missing_evidence: structured risk framework comparison record cross-checking the AI risk register against an external framework such as NIST AI RMF, ISO/IEC 23894, or MITRE ATLAS, demonstrating identification completeness per ISO 42001 clause 6.1.2.c
+# sufficiency_starts_at: 4
+[oos_aims_risk_completeness_warranted:
+    (?uofa uofa:bundleSufficient "true"^^xsd:boolean)
+    <-
+    (?uofa rdf:type uofa:UnitOfAssurance)
+    (?uofa uofa:bindsClaim ?claim)
+    (?claim rdf:type uofa-aims:RiskIdentificationCompletenessClaim)
+    (?claim uofa:hasSupportingEvidence ?register)
+    (?register rdf:type uofa-aims:RiskRegister)
+    (?claim uofa:hasSupportingEvidence ?methodology)
+    (?methodology rdf:type uofa-aims:RiskIdentificationMethodology)
+    (?claim uofa:hasSupportingEvidence ?comparison)
+    (?comparison rdf:type uofa-aims:RiskFrameworkComparisonRecord)
+]
+
+# ----------------------------------------------------------------------------
+# Rule 3 — cal-aims-003 — W-AIMS-OOS-CONTROL-OPERATIONAL-EFFECTIVENESS
+# Maps to Annex A controls (parameterized over each control in the SoA per
+# spec §2.4.3 special property). Engine multi-binding semantics fire this
+# rule once per ControlOperationalEffectivenessClaim in the package.
+# Typical bundle failure: implementation evidence present, possibly self-
+# assessment of effectiveness, but no independent verification.
+# ----------------------------------------------------------------------------
+# bundle_check_rule_name: oos_aims_control_operational_effectiveness_warranted
+# calibration_target: cal-aims-003
+# defeater_type: AI control operational effectiveness — UofA cannot evaluate whether a declared Annex A control operates effectively without independent verification evidence beyond self-assessment
+# missing_evidence: independent verification record by a party other than the control implementer (third-party audit, internal-non-implementer review, or accredited certification body assessment) demonstrating operational effectiveness of the declared Annex A control
+# sufficiency_starts_at: 4
+[oos_aims_control_operational_effectiveness_warranted:
+    (?uofa uofa:bundleSufficient "true"^^xsd:boolean)
+    <-
+    (?uofa rdf:type uofa:UnitOfAssurance)
+    (?uofa uofa:bindsClaim ?claim)
+    (?claim rdf:type uofa-aims:ControlOperationalEffectivenessClaim)
+    (?claim uofa-aims:claimsControl ?control)
+    (?control rdf:type uofa-aims:AIMSControl)
+    (?claim uofa:hasSupportingEvidence ?implementation)
+    (?implementation rdf:type uofa-aims:ControlImplementationRecord)
+    (?claim uofa:hasSupportingEvidence ?assessment)
+    (?assessment rdf:type uofa-aims:ControlEffectivenessAssessment)
+    (?claim uofa:hasSupportingEvidence ?independent)
+    (?independent rdf:type uofa-aims:IndependentVerificationRecord)
+]
+
+# ----------------------------------------------------------------------------
+# Rule 4 — cal-aims-004 — W-AIMS-OOS-IMPACT-SCOPE-ADEQUACY
+# Maps to ISO 42001 Annex A.5.2 AI system impact assessment process.
+# Typical bundle failure: impact assessments present but lack scope
+# justification documents and almost never contain stakeholder validation of
+# the assessment scope. The structural form of scope mismatch is caught by
+# the C3 W-AIMS-IMPACT-SCOPE pattern; this OOS rule catches scope adequacy
+# (a judgment-required claim, per spec §2.3.3 reframing note).
+# ----------------------------------------------------------------------------
+# bundle_check_rule_name: oos_aims_impact_scope_adequacy_warranted
+# calibration_target: cal-aims-004
+# defeater_type: AI impact assessment scope adequacy — UofA cannot evaluate whether the impact assessment scope is adequate without documented stakeholder validation that the chosen scope captures the right impact dimensions
+# missing_evidence: stakeholder validation record documenting that affected-party representatives reviewed and validated the impact assessment scope choice as adequate for the AI system's deployment context, per ISO 42001 Annex A.5.2
+# sufficiency_starts_at: 4
+[oos_aims_impact_scope_adequacy_warranted:
+    (?uofa uofa:bundleSufficient "true"^^xsd:boolean)
+    <-
+    (?uofa rdf:type uofa:UnitOfAssurance)
+    (?uofa uofa:bindsClaim ?claim)
+    (?claim rdf:type uofa-aims:ImpactAssessmentScopeAdequacyClaim)
+    (?claim uofa:hasSupportingEvidence ?assessment)
+    (?assessment rdf:type uofa-aims:ImpactAssessmentRecord)
+    (?claim uofa:hasSupportingEvidence ?justification)
+    (?justification rdf:type uofa-aims:ImpactAssessmentScopeJustification)
+    (?claim uofa:hasSupportingEvidence ?validation)
+    (?validation rdf:type uofa-aims:StakeholderValidationRecord)
+]
+
+# ----------------------------------------------------------------------------
+# Rule 5 — cal-aims-005 — W-AIMS-OOS-STAKEHOLDER-CONSULTATION-ADEQUACY
+# Maps to ISO 42001 clause 4.2 "needs and expectations of interested parties"
+# Typical bundle failure: stakeholder lists present but typically lack
+# consultation logs and integration records showing how consultation
+# outcomes shaped AIMS decisions.
+# ----------------------------------------------------------------------------
+# bundle_check_rule_name: oos_aims_stakeholder_consultation_adequacy_warranted
+# calibration_target: cal-aims-005
+# defeater_type: AI stakeholder consultation adequacy — UofA cannot evaluate whether interested-party needs and expectations were adequately addressed without documented evidence that consultation outcomes were integrated into AIMS decisions
+# missing_evidence: consultation outcome integration record documenting how stakeholder consultation outputs shaped specific AIMS decisions (policy, scope, control selection, risk treatment), per ISO 42001 clause 4.2
+# sufficiency_starts_at: 4
+[oos_aims_stakeholder_consultation_adequacy_warranted:
+    (?uofa uofa:bundleSufficient "true"^^xsd:boolean)
+    <-
+    (?uofa rdf:type uofa:UnitOfAssurance)
+    (?uofa uofa:bindsClaim ?claim)
+    (?claim rdf:type uofa-aims:StakeholderConsultationAdequacyClaim)
+    (?claim uofa:hasSupportingEvidence ?mapping)
+    (?mapping rdf:type uofa-aims:StakeholderMappingDocument)
+    (?claim uofa:hasSupportingEvidence ?log)
+    (?log rdf:type uofa-aims:ConsultationLog)
+    (?claim uofa:hasSupportingEvidence ?integration)
+    (?integration rdf:type uofa-aims:ConsultationOutcomeIntegrationRecord)
+]
+
+# ----------------------------------------------------------------------------
+# Rule 6 — cal-aims-006 — W-AIMS-OOS-INTERNAL-AUDIT-INDEPENDENCE
+# Maps to ISO 42001 clause 9.2.b "objectivity and impartiality of the audit
+# process"
+# Typical bundle failure: audit results present but no documented attestation
+# of auditor independence from the audited function.
+# ----------------------------------------------------------------------------
+# bundle_check_rule_name: oos_aims_internal_audit_independence_warranted
+# calibration_target: cal-aims-006
+# defeater_type: AI internal audit independence — UofA cannot evaluate whether the internal AIMS audit was conducted with objectivity and impartiality without documented attestation of auditor independence from the audited function
+# missing_evidence: auditor independence attestation documenting that the auditor has no implementation or operational responsibility for the audited AIMS function, satisfying the impartiality requirement of ISO 42001 clause 9.2.b
+# sufficiency_starts_at: 4
+[oos_aims_internal_audit_independence_warranted:
+    (?uofa uofa:bundleSufficient "true"^^xsd:boolean)
+    <-
+    (?uofa rdf:type uofa:UnitOfAssurance)
+    (?uofa uofa:bindsClaim ?claim)
+    (?claim rdf:type uofa-aims:InternalAuditIndependenceClaim)
+    (?claim uofa:hasSupportingEvidence ?results)
+    (?results rdf:type uofa-aims:AuditResultsRecord)
+    (?claim uofa:hasSupportingEvidence ?attestation)
+    (?attestation rdf:type uofa-aims:AuditorIndependenceAttestation)
+    (?claim uofa:hasSupportingEvidence ?nonoverlap)
+    (?nonoverlap rdf:type uofa-aims:AuditScopeNonOverlapAttestation)
+]
+
+# ----------------------------------------------------------------------------
+# Rule 7 — cal-aims-007 — W-AIMS-OOS-NONCONFORMITY-ROOT-CAUSE-ADEQUACY
+# Maps to ISO 42001 clause 10.2.b.2 "determining the causes of the
+# nonconformity"
+# Typical bundle failure: bundles contain nonconformity records and corrective
+# actions (caught by C3 W-AIMS-INCIDENT-UNCLOSED if RCA is missing entirely).
+# Some contain summary RCA. Few contain expert review of the RCA itself.
+# ----------------------------------------------------------------------------
+# bundle_check_rule_name: oos_aims_nonconformity_root_cause_adequacy_warranted
+# calibration_target: cal-aims-007
+# defeater_type: AI nonconformity root cause adequacy — UofA cannot evaluate whether the documented root cause analysis adequately identifies underlying causes without expert review of the RCA itself
+# missing_evidence: root cause expert review record documenting that an independent subject-matter expert reviewed the root cause analysis and validated its adequacy in identifying underlying causes, per ISO 42001 clause 10.2.b.2
+# sufficiency_starts_at: 4
+[oos_aims_nonconformity_root_cause_adequacy_warranted:
+    (?uofa uofa:bundleSufficient "true"^^xsd:boolean)
+    <-
+    (?uofa rdf:type uofa:UnitOfAssurance)
+    (?uofa uofa:bindsClaim ?claim)
+    (?claim rdf:type uofa-aims:NonconformityRootCauseAdequacyClaim)
+    (?claim uofa:hasSupportingEvidence ?nc)
+    (?nc rdf:type uofa-aims:NonconformityRecord)
+    (?claim uofa:hasSupportingEvidence ?rca)
+    (?rca rdf:type uofa-aims:RootCauseAnalysisRecord)
+    (?claim uofa:hasSupportingEvidence ?expert)
+    (?expert rdf:type uofa-aims:RootCauseExpertReviewRecord)
+]
+
+# ----------------------------------------------------------------------------
+# Rule 8 — cal-aims-008 — W-AIMS-OOS-OBJECTIVE-MEASUREMENT-METHODOLOGY-VALIDITY
+# Maps to ISO 42001 clause 6.2.b "be measurable (if practicable)"
+# Typical bundle failure: objectives present, methodology may be present, but
+# few contain validation of the methodology against alternative measurement
+# approaches or external review.
+# ----------------------------------------------------------------------------
+# bundle_check_rule_name: oos_aims_objective_measurement_methodology_validity_warranted
+# calibration_target: cal-aims-008
+# defeater_type: AIMS objective measurement methodology validity — UofA cannot evaluate whether the chosen measurement methodology validly captures objective achievement without documented validation against alternative approaches or external review
+# missing_evidence: methodology validation record documenting that the AIMS objective measurement methodology was validated against alternative measurement approaches or subjected to external expert review, demonstrating methodology validity per ISO 42001 clause 6.2.b
+# sufficiency_starts_at: 4
+[oos_aims_objective_measurement_methodology_validity_warranted:
+    (?uofa uofa:bundleSufficient "true"^^xsd:boolean)
+    <-
+    (?uofa rdf:type uofa:UnitOfAssurance)
+    (?uofa uofa:bindsClaim ?claim)
+    (?claim rdf:type uofa-aims:AIMSObjectiveMeasurementMethodologyValidityClaim)
+    (?claim uofa:hasSupportingEvidence ?objective)
+    (?objective rdf:type uofa-aims:AIMSObjectiveStatement)
+    (?claim uofa:hasSupportingEvidence ?methodology)
+    (?methodology rdf:type uofa-aims:MeasurementMethodologyDocument)
+    (?claim uofa:hasSupportingEvidence ?validation)
+    (?validation rdf:type uofa-aims:MethodologyValidationRecord)
+]
+
+# End of iso42001 OOS rules v0.1 (8 rules per spec §2.4)
