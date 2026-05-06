@@ -281,3 +281,115 @@ class TestBrittlenessOracle:
                 f"v0.4 baseline expected: {pattern} MISSES on {fixture} "
                 f"(brittleness); actual firings: {sorted(fired)}"
             )
+
+
+# ────────────────────────────────────────────────────────────────────
+# Phase 5.4 — TestDerivedFlagCoverage
+# ────────────────────────────────────────────────────────────────────
+# Verifies that each pre-pass CONSTRUCT correctly materializes its
+# derived flag on the appropriate brittleness fixture. Tests the
+# CONSTRUCTs in isolation (via the DerivationEngine subprocess) without
+# involving downstream consumer rules.
+
+def _derive_and_collect(fixture_path: Path) -> set[str]:
+    """Run DerivationEngine standalone and return the set of derived
+    predicate IRIs found in the output N-Triples."""
+    import subprocess, tempfile
+    construct_file = REPO_ROOT / "packs/iso42001/derivations/iso42001_derivations_v0.1.sparql"
+    ctx = REPO_ROOT / "spec/context/v0.5.jsonld"
+
+    with tempfile.NamedTemporaryFile(suffix=".nt", delete=False) as tmp:
+        out = Path(tmp.name)
+    try:
+        cmd = [
+            shutil.which("java"), "-jar", str(JAR), "derive",
+            "--package", str(fixture_path),
+            "--constructs", str(construct_file),
+            "--context", str(ctx),
+            "--output", str(out),
+            "--derived-only",
+        ]
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+        if result.returncode != 0:
+            raise RuntimeError(f"DerivationEngine failed: {result.stderr}")
+        # Parse N-Triples to extract derived predicates (col 2 of each triple).
+        derived_predicates = set()
+        if out.exists():
+            for line in out.read_text().splitlines():
+                if not line.strip() or line.startswith("#"):
+                    continue
+                parts = line.strip().split(" ", 2)
+                if len(parts) >= 2:
+                    pred = parts[1].strip("<>")
+                    derived_predicates.add(pred)
+        return derived_predicates
+    finally:
+        out.unlink(missing_ok=True)
+
+
+# (derived_predicate, fixture, should_be_present)
+DERIVED_FLAG_COVERAGE = [
+    ("uofa-aims:_noMonitoringEvidence",
+     "W-AIMS-DATA-DRIFT-UNDETECTED/triggering.jsonld", True),
+    ("uofa-aims:_noMonitoringEvidence",
+     "W-AIMS-DATA-DRIFT-UNDETECTED/negative.jsonld", False),
+
+    ("uofa-aims:_justificationNonEmpty",
+     "W-AR-02-empty-string/empty_string_triggering.jsonld", False),
+
+    ("uofa-aims:_targetMeasureNonEmpty",
+     "W-AIMS-OBJECTIVE-UNMEASURED-empty-string/empty_string_triggering.jsonld", False),
+
+    ("uofa-aims:_auditOverdue",
+     "W-AIMS-AUDIT-STALE/triggering.jsonld", True),
+    ("uofa-aims:_auditOverdue",
+     "W-AIMS-AUDIT-STALE/negative.jsonld", False),
+
+    ("uofa-aims:_modelEvalStaleByVersion",
+     "W-AIMS-MODEL-EVAL-STALE/triggering.jsonld", True),
+    ("uofa-aims:_modelEvalStaleByVersion",
+     "W-AIMS-MODEL-EVAL-STALE/ambiguous.jsonld", False),
+
+    ("uofa-aims:_evalCoverageGap",
+     "W-AIMS-MODEL-EVAL-SCOPE/triggering.jsonld", True),
+    ("uofa-aims:_evalCoverageGap",
+     "W-AIMS-MODEL-EVAL-SCOPE/matching.jsonld", False),
+
+    ("uofa-aims:_lineageGap",
+     "W-AIMS-DATA-LINEAGE-BROKEN/triggering_two_hop.jsonld", True),
+    ("uofa-aims:_lineageGap",
+     "W-AIMS-DATA-LINEAGE-BROKEN/continuous.jsonld", False),
+
+    ("uofa-aims:_crosswalkUnsupported",
+     "W-AIMS-CROSSWALK-INVALID/triggering.jsonld", True),
+    ("uofa-aims:_crosswalkUnsupported",
+     "W-AIMS-CROSSWALK-INVALID/valid.jsonld", False),
+]
+
+
+@needs_jar
+class TestDerivedFlagCoverage:
+    """Each pre-pass CONSTRUCT correctly materializes (or omits) its
+    derived flag on the appropriate brittleness fixture. Asserted
+    against the standalone DerivationEngine subprocess — independent
+    of consumer rules, validates the SPARQL CONSTRUCT logic in isolation."""
+
+    @pytest.mark.parametrize("derived_pred,fixture,should_be_present",
+                             DERIVED_FLAG_COVERAGE)
+    def test_derived_flag(self, derived_pred, fixture, should_be_present):
+        fixture_path = BRITTLENESS_DIR / fixture
+        assert fixture_path.exists(), f"missing fixture: {fixture}"
+        full_iri = derived_pred.replace(
+            "uofa-aims:", "https://uofa.net/vocab/aims#"
+        )
+        derived = _derive_and_collect(fixture_path)
+        if should_be_present:
+            assert full_iri in derived, (
+                f"Pre-pass CONSTRUCT failed to materialize {derived_pred} on "
+                f"{fixture}; derived predicates: {sorted(derived)}"
+            )
+        else:
+            assert full_iri not in derived, (
+                f"Pre-pass CONSTRUCT incorrectly materialized {derived_pred} on "
+                f"{fixture} (over-derivation); derived: {sorted(derived)}"
+            )
