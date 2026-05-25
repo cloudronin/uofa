@@ -109,7 +109,7 @@ description: <one-line description>
 
 === VALIDATION_RESULT ===
 name: <activity name>
-evidence_type: ValidationResult or ReviewActivity
+evidence_type: <MUST be exactly one of: ValidationResult, ReviewActivity, ProcessAttestation, DeploymentRecord, InputPedigreeLink. Case-sensitive. Do NOT emit descriptive subtypes like GridConvergenceStudy, CodeVerification, ExperimentalValidation, NumericalSolverAssessment, or ModelLimitationAssessment — those are all "ValidationResult". Grid/code/experimental/solver/limitation specifics go in `name` and `description`, not `evidence_type`.>
 description: <what was tested>
 compares_to: <what it was compared against, optional>
 has_uq: Yes or No
@@ -138,7 +138,7 @@ decision_date: <YYYY-MM-DD, optional>
 - `factor_type` MUST be exactly one of the 19 names listed above (case-sensitive). Do not paraphrase.
 - Include ALL 19 factors. For status: not-assessed or scoped-out, omit achieved_level entirely.
 - Assess based on EXPLICIT evidence in the documents. Do not infer levels from absence of information.
-- `=== ENTITY ===` MUST include at least one block with entity_type: Requirement capturing the top-level performance, safety, or certification requirement the COU is assessed against (e.g. "peak temperature must stay below 1150K for mission lifetime"). Without at least one Requirement, downstream import fails.
+- `=== ENTITY ===` MUST include at least one block with entity_type: Requirement capturing the top-level performance, safety, or certification requirement the COU is assessed against (e.g. "peak temperature must stay below 1150K for mission lifetime"). Without at least one Requirement, downstream import fails. **Each COU is assessed independently — there is no inheritance between COUs at import time.** Even when the model, datasets, or operating point reuse a prior COU's setup (e.g. "model re-uses COU1 configuration with only operating point changes"), you MUST still emit a Requirement entity for THIS COU's top-level performance / safety / certification target. Do not skip the Requirement on the assumption that it carries over from a previous COU's extraction.
 - For every assessed credibility factor, populate `acceptance_criteria` with the explicit level-passing criterion stated or implied in the narrative (e.g. "GCI < 5% across three refinement levels" for Discretization error, "MMS benchmarks pass with error < 0.1%" for Numerical code verification). Omit only for not-assessed or scoped-out factors. Unpopulated acceptance criteria cause a W-AR-01 weakener fire per factor at C3.
 - The `outcome` value in DECISION MUST be exactly one of "Accepted", "Not accepted", or "Conditional". Case-sensitive. "Not Accepted" / "not-accepted" / "Rejected" / "Declined" are all invalid — use "Not accepted".
 
