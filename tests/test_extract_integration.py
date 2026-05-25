@@ -65,6 +65,52 @@ class TestExtractEmptyFolder:
 
 
 @pytest.mark.skipif(not MORRISON_DIR.exists(), reason="Morrison evidence not available")
+class TestExtractOutputArgValidation:
+    """Regression: --output must accept a directory (auto-build filename) and
+    reject paths without a supported extension.
+
+    Previously, passing a directory to --output let the directory path flow
+    through to openpyxl, which errored with the cryptic
+    "openpyxl does not support  file format" (note the empty extension).
+    """
+
+    def test_output_as_existing_directory_succeeds(self, tmp_path):
+        out_dir = tmp_path / "outdir"
+        out_dir.mkdir()
+        result = run_uofa(
+            "extract", str(MORRISON_DIR),
+            "--model", "mock",
+            "--pack", "vv40",
+            "--output", str(out_dir),
+        )
+        if result.returncode != 0:
+            print("STDOUT:", result.stdout)
+            print("STDERR:", result.stderr)
+        assert result.returncode == 0
+        # File should land inside the directory with the source-derived name
+        produced = list(out_dir.glob("*.xlsx"))
+        assert len(produced) == 1, f"expected 1 xlsx in {out_dir}, got {produced}"
+        assert produced[0].suffix == ".xlsx"
+
+    def test_output_without_extension_errors_clearly(self, tmp_path):
+        # A nonexistent path with no extension: we can't tell if the user meant
+        # a directory (./out/) or a filename (./out). Fail with a helpful message
+        # instead of letting openpyxl produce its cryptic empty-extension error.
+        bad = tmp_path / "noext"
+        result = run_uofa(
+            "extract", str(MORRISON_DIR),
+            "--model", "mock",
+            "--pack", "vv40",
+            "--output", str(bad),
+        )
+        assert result.returncode == 1
+        combined = result.stdout + result.stderr
+        assert ".xlsx" in combined, f"error should mention .xlsx; got: {combined}"
+        # And the openpyxl-empty-extension diagnostic should NOT leak through
+        assert "does not support  file format" not in combined
+
+
+@pytest.mark.skipif(not MORRISON_DIR.exists(), reason="Morrison evidence not available")
 class TestExtractMorrisonMock:
     """Full pipeline test: Morrison evidence → mock LLM → Excel output."""
 

@@ -224,13 +224,31 @@ def run(args) -> int:
 
     # Resolve output path
     output = args.output
-    if not output:
+
+    # If --output points to an existing directory, build the filename inside it.
+    # (Without this, openpyxl would error downstream with the cryptic
+    # "openpyxl does not support  file format" when handed a directory path.)
+    if output is not None and output.exists() and output.is_dir():
+        source_name = sources[0].stem if sources else "extract"
+        output = output / f"{source_name}-extracted.xlsx"
+    elif output is None:
         if config.get("output") and config["output"].is_dir():
             source_name = sources[0].stem if sources else "extract"
             output = config["output"] / f"{source_name}-extracted.xlsx"
         else:
             source_name = sources[0].stem if sources else "extract"
             output = Path(f"{source_name}-extracted.xlsx")
+
+    # Validate extension before handing off to openpyxl. Catches the case where
+    # --output is a filename without a supported extension, or a directory path
+    # that doesn't yet exist (argparse strips trailing slashes, so we can't
+    # distinguish ./out from ./out/ once it's a Path).
+    _SUPPORTED_EXTS = (".xlsx", ".xlsm", ".xltx", ".xltm")
+    if output.suffix.lower() not in _SUPPORTED_EXTS:
+        error(f"--output must end in .xlsx (got: {output})")
+        info("  Pass an existing directory to auto-generate the filename, "
+             "or specify a full path ending in .xlsx")
+        return 1
 
     output.parent.mkdir(parents=True, exist_ok=True)
     write_extraction(result, template, output, pack_name)
