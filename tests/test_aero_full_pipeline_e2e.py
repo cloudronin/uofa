@@ -176,10 +176,11 @@ class TestAeroFullPipelineE2EMock:
             "--pack", "nasa-7009b",
             "--build",
         )
-        # Diff exits non-zero when files diverge (semantic signal, not error)
-        # and 0 when they're identical. With mock data both COUs get
-        # identical canned content, so diff should be 0. Either way, no crash.
-        assert result.returncode in (0, 1), (
+        # diff always exits 0 (see commands/diff.py:396 — exit code is
+        # hard-coded regardless of divergence). With mock canned data both
+        # COUs get identical content; the plumbing-level guarantee is that
+        # the command doesn't crash.
+        assert result.returncode == 0, (
             f"diff crashed unexpectedly (rc={result.returncode}):\n"
             f"STDOUT: {result.stdout}\nSTDERR: {result.stderr}"
         )

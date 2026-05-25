@@ -183,9 +183,9 @@ class TestMorrisonFullPipelineE2EMock:
             "diff", str(chain["cou1_jsonld"]), str(chain["cou2_jsonld"]),
             "--pack", "vv40", "--build",
         )
-        # Exit 0 = identical, 1 = diverge. Mock canned data is identical
-        # across COUs so diff usually returns 0. Either is plumbing-ok.
-        assert result.returncode in (0, 1), (
+        # diff always exits 0 (see commands/diff.py:396 — exit code is
+        # hard-coded regardless of divergence). Plumbing-level: doesn't crash.
+        assert result.returncode == 0, (
             f"diff crashed unexpectedly (rc={result.returncode}):\n"
             f"STDOUT: {result.stdout}\nSTDERR: {result.stderr}"
         )
@@ -232,7 +232,12 @@ class TestMorrisonFullPipelineE2ERealLLM:
             "diff", str(chain["cou1_jsonld"]), str(chain["cou2_jsonld"]),
             "--pack", "vv40", "--build",
         )
-        assert result.returncode in (0, 1), (
+        # diff always exits 0 (commands/diff.py:396). Whether the two COUs
+        # diverged or not is signaled in the stdout summary line; the
+        # real-LLM variant doesn't pin a specific divergence count because
+        # Morrison's shared-evidence structure can extract to identical or
+        # different firing profiles depending on LLM run-to-run variance.
+        assert result.returncode == 0, (
             f"diff crashed (rc={result.returncode}):\n"
             f"STDOUT: {result.stdout}\nSTDERR: {result.stderr}"
         )
