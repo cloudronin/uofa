@@ -303,6 +303,37 @@ references to the tools the project uses. What's not fine is attribution.
 
 ---
 
+## 11. Tracking out-of-scope work
+
+When you notice something worth fixing that's outside the current change —
+a stale doc, a TODO that's now real, a follow-up to today's fix, an
+inconsistency between two files — surface it as a GitHub issue rather
+than bundling it into the current commit or inventing a local TODO file.
+
+- **Rule:** Out-of-scope follow-ups go to GitHub Issues at
+  <https://github.com/cloudronin/uofa/issues>, not to commit messages,
+  scratch files, or a local `TODO.md` / `FOLLOWUPS.md`.
+  **Why:** Bundled follow-ups bloat the current change and obscure its
+  intent. A local TODO file isn't visible to other contributors, drifts
+  from reality fast, and competes with the canonical tracker. Issues are
+  searchable, assignable, and close cleanly when the work lands.
+
+- **Rule:** When filing, include (a) what state you observed, (b) the
+  discovering context ("Discovered during commit `<sha>` / PR #N"),
+  (c) enough background that a future reader can act on it cold, and
+  (d) a suggested next step if you know one.
+  **Why:** Issues filed mid-session lose their context within days.
+  Tying back to the originating commit lets future readers reconstruct
+  why this matters and what was tried.
+
+- **Rule:** Don't open issues for trivial fixes you can do inline in
+  seconds, vague observations ("this could be cleaner"), or
+  low-confidence hunches. The issue tracker is for real, actionable
+  out-of-scope work — not a parking lot.
+  **Why:** A noisy tracker is an ignored tracker.
+
+---
+
 ## Quick reference
 
 - **Validate before pushing:** `pytest tests/ -q` and (for CLI changes)
@@ -312,3 +343,5 @@ references to the tools the project uses. What's not fine is attribution.
 - **Stage by name:** `git add <specific files>`, never `git add .`
 - **Confirm scope before:** deleting branches, force-pushing, rewriting history,
   removing worktrees
+- **File follow-ups as issues:** <https://github.com/cloudronin/uofa/issues> —
+  not in commit messages, not in local TODO files
