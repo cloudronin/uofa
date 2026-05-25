@@ -1,6 +1,5 @@
 # iso42001 v0.4 — Build Session Summary (post-ship)
 
-**Author:** Claude (autonomous build per /Users/vishnu/.claude/plans/users-vishnu-library-cloudstorage-dropb-binary-bee.md)
 **Date:** 2026-05-06
 **Spec:** [UofA_iso42001_Pack_Spec_v0_4.md](../../../Library/CloudStorage/Dropbox/Praxis/Product%20Requirements/UofA_iso42001_Pack_Spec_v0_4.md)
 **Status:** **SHIPPED** — 12 commits pushed to `origin/main` at `c2852ff`. All 5 review-time fix items complete. Full regression 1029/1029 pass.
