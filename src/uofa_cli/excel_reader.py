@@ -132,7 +132,7 @@ def read_workbook(xlsx_path: Path, packs: list[str]) -> dict:
 
     # ── Read Model & Data ────────────────────────────────────
     ws = wb[SHEET_NAMES["model_data"]]
-    entities = _read_entities(ws, profile, errors)
+    entities = _read_entities(ws, profile, errors, warnings=warnings, summary=summary)
 
     # ── Read Validation Results ──────────────────────────────
     ws = wb[SHEET_NAMES["validation"]]
@@ -275,8 +275,16 @@ def _read_summary(ws, errors: list) -> dict:
     }
 
 
-def _read_entities(ws, profile: str, errors: list) -> list[dict]:
-    """Read Model & Data sheet."""
+def _read_entities(ws, profile: str, errors: list,
+                   warnings: list | None = None,
+                   summary: dict | None = None) -> list[dict]:
+    """Read Model & Data sheet.
+
+    If ``warnings`` is provided and the sheet has no Requirement entity,
+    a placeholder Requirement is synthesized from the Assessment Summary
+    and a warning is appended (lenient mode). If ``warnings`` is None,
+    falls back to the strict behavior of appending to ``errors``.
+    """
     sheet = SHEET_NAMES["model_data"]
     entities = []
     has_requirement = False
@@ -326,9 +334,37 @@ def _read_entities(ws, profile: str, errors: list) -> list[dict]:
         })
 
     if not has_requirement:
-        errors.append(
-            f"Sheet '{sheet}' must have at least one row with Entity Type = 'Requirement'"
-        )
+        if warnings is not None:
+            # Lenient mode: synthesize a Requirement from the Assessment
+            # Summary so the import succeeds. Handles the common case where
+            # a small LLM dropped the Requirement on a continuation-of-prior
+            # COU and the user shouldn't have to re-run extract just to add
+            # one row by hand.
+            cou_name = (summary or {}).get("cou_name") or None
+            cou_desc = (summary or {}).get("cou_description") or None
+            synth_name = cou_name or "Implicit COU Requirement"
+            synth_desc = (
+                f"Auto-synthesized from COU context: {cou_desc or cou_name or 'unspecified'}. "
+                "The extractor did not emit a Requirement entity. Review and "
+                "replace with the explicit top-level requirement before signing."
+            )
+            entities.insert(0, {
+                "entity_type": "Requirement",
+                "name": synth_name,
+                "uri": None,
+                "description": synth_desc,
+                "version": None,
+                "source": "auto-synthesized",
+            })
+            warnings.append(
+                f"Sheet '{sheet}' has no Requirement entity — synthesized "
+                f"'{synth_name}' from the Assessment Summary. Review the "
+                f"auto-filled row before signing."
+            )
+        else:
+            errors.append(
+                f"Sheet '{sheet}' must have at least one row with Entity Type = 'Requirement'"
+            )
 
     return entities
 

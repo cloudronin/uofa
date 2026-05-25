@@ -44,6 +44,13 @@ def write_extraction(
         wb.remove(wb.active)
         _create_blank_sheets(wb, pack_name)
 
+    # Ensure model_and_data has a Requirement entity. Real LLMs (especially
+    # smaller local models) sometimes drop the Requirement when the COU is
+    # a continuation of a previous one. Without this, the downstream
+    # importer hard-fails with "Sheet Model & Data must have at least one
+    # row with Entity Type = Requirement".
+    _ensure_requirement_entity(result)
+
     # Write each section
     if "Assessment Summary" in wb.sheetnames:
         _write_summary_sheet(wb["Assessment Summary"], result.assessment_summary)
@@ -377,3 +384,46 @@ def _fuzzy_match_dropdown(value: str, valid_values: list[str]) -> str:
 
     matches = difflib.get_close_matches(value, valid_values, n=1, cutoff=0.6)
     return matches[0] if matches else value
+
+
+def _ensure_requirement_entity(result: ExtractionResult) -> None:
+    """Synthesize a Requirement entity from the Assessment Summary when
+    ``result.model_and_data`` has none. Mutates the list in place.
+
+    Real LLMs (especially smaller local models) sometimes drop the
+    Requirement when the COU is a continuation of a previous one (the
+    model decides "this reuses cou1's setup" and emits only Model +
+    Dataset). The downstream importer hard-fails without a Requirement,
+    so we backfill from the COU's own description in the Assessment
+    Summary. The synthesized row carries confidence 0.5 (yellow band)
+    so a human reviewer notices it before signing.
+    """
+    has_requirement = any(
+        e.get("entity_type") and getattr(e["entity_type"], "value", None) == "Requirement"
+        for e in result.model_and_data
+    )
+    if has_requirement:
+        return
+
+    summary = result.assessment_summary or {}
+    cou_name_fe = summary.get("cou_name")
+    cou_desc_fe = summary.get("cou_description")
+    cou_name = cou_name_fe.value if cou_name_fe and cou_name_fe.value else None
+    cou_desc = cou_desc_fe.value if cou_desc_fe and cou_desc_fe.value else None
+
+    synth_name = cou_name or "Implicit COU Requirement"
+    synth_desc = (
+        f"Auto-synthesized from COU context: {cou_desc or cou_name or 'unspecified'}. "
+        "The extractor did not emit a Requirement entity. Review and replace "
+        "with the explicit top-level performance, safety, or certification "
+        "requirement before signing."
+    )
+
+    result.model_and_data.insert(0, {
+        "entity_type": FieldExtraction(
+            value="Requirement", confidence=0.5, source_file="auto-synthesized"),
+        "name": FieldExtraction(
+            value=synth_name, confidence=0.5, source_file="auto-synthesized"),
+        "description": FieldExtraction(
+            value=synth_desc, confidence=0.5, source_file="auto-synthesized"),
+    })
