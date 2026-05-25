@@ -87,6 +87,15 @@ _DEFAULT_CAPS: dict[str, dict[str, object]] = {
 }
 
 
+# Extras keys that are meaningful only to Ollama (Qwen3's thinking-mode
+# disable flag) and must be filtered before forwarding to litellm for
+# non-Ollama backends — Anthropic / OpenAI reject unknown kwargs with a
+# 400 InvalidRequest ("Extra inputs are not permitted"). The Ollama
+# direct-HTTP path consumes these keys before _completion_kwargs runs,
+# so dropping them here only affects the non-Ollama litellm path.
+_OLLAMA_ONLY_EXTRA_KEYS = frozenset({"think"})
+
+
 @dataclass
 class LiteLLMBackend:
     """Wraps `litellm.completion()`. One instance per (backend, model) pair."""
@@ -333,9 +342,13 @@ class LiteLLMBackend:
             kwargs["api_key"] = self.api_key
         if self.base_url:
             kwargs["api_base"] = self.base_url
-        # Backend-specific extras (e.g. Ollama's `think` flag)
+        # Backend-specific extras. _completion_kwargs runs only for non-
+        # Ollama backends (Ollama branches out to the direct-HTTP path
+        # earlier in generate()), so Ollama-only keys like `think` must
+        # be filtered here — Anthropic/OpenAI reject them with 400.
         if options.extra:
-            kwargs.update(options.extra)
+            kwargs.update({k: v for k, v in options.extra.items()
+                           if k not in _OLLAMA_ONLY_EXTRA_KEYS})
         return kwargs
 
     def _generate_ollama_direct(self, prompt: str, options: GenerationOptions) -> str:

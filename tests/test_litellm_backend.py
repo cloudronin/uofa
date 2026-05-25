@@ -263,6 +263,29 @@ def test_extra_kwargs_merged_for_litellm_backends(fake_litellm):
     assert fake_litellm.last_kwargs["my_custom_kwarg"] == "value"
 
 
+def test_think_extra_dropped_for_non_ollama_backends(fake_litellm):
+    """Regression: `think` is Ollama-only (Qwen3 thinking-mode disable).
+    Forwarding it to Anthropic / OpenAI yields a 400 InvalidRequest
+    ("Extra inputs are not permitted") from the upstream API.
+    _completion_kwargs filters known Ollama-only keys before handing the
+    kwargs to litellm, while preserving all other extras.
+
+    Originally surfaced 2026-05-25 running the aero + Morrison e2e with
+    UOFA_E2E_MODEL=anthropic/claude-sonnet-4-5; the extract failed
+    instantly with the upstream 400. Issue tracked in commit history.
+    """
+    b = LiteLLMBackend(backend_name="anthropic", model_name="claude")
+    b.generate("hi", GenerationOptions(
+        extra={"think": False, "my_custom_kwarg": "preserved"},
+    ))
+    assert "think" not in fake_litellm.last_kwargs, (
+        "think kwarg leaked to non-Ollama backend — Anthropic would 400"
+    )
+    assert fake_litellm.last_kwargs["my_custom_kwarg"] == "preserved", (
+        "non-Ollama-only extras should still forward unchanged"
+    )
+
+
 def test_ollama_direct_forwards_think_extra(monkeypatch):
     """Ollama's direct-HTTP path puts `think` at the payload top level
     (matches the daemon's API), not inside `options`."""
