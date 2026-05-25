@@ -372,17 +372,21 @@ def _call_llm(
         extra={"think": True} if thinking else {"think": False},
     )
 
-    # Prefer structured generation so backends enforce JSON shape (matches
-    # the previous Ollama `format:"json"` behavior; remote backends gain
-    # the same guarantee for free). Fall back to plain generate() for
-    # backends that don't advertise structured-output support.
-    if backend.supports_structured_output():
-        try:
-            result_dict = backend.generate_structured(prompt, schema={}, options=options)
-            return json.dumps(result_dict)
-        except NotImplementedError:
-            pass
-
+    # Always use plain generate() for extract. The extract prompts use the
+    # v4-kv "=== SECTION ===" text-block format and explicitly forbid JSON
+    # ("Output ONLY the `=== SECTION ===` blocks above. No JSON. No markdown
+    # fences."). The structured-output path forces response_format=json_object
+    # on Anthropic / OpenAI, which conflicts with the prompt and causes the
+    # LLM to emit a generic JSON dict with arbitrary top-level keys
+    # (project_name, evidence, ...) instead of the expected text blocks.
+    # Downstream _parse_response then returns an empty dict and every cell
+    # in the produced xlsx is left blank (or shows template placeholder
+    # text). Ollama already takes this path because it has
+    # supports_structured_output=False; non-Ollama backends must follow.
+    #
+    # If/when extract prompts migrate to JSON-schema-driven generation, this
+    # branch can return; pass a non-empty schema so the model has structure
+    # to fill in rather than inventing keys.
     return backend.generate(prompt, options)
 
 
