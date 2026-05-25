@@ -52,6 +52,10 @@ from test_extract_integration import (
 
 REAL_LLM_ENABLED = os.environ.get("UOFA_RUN_REAL_LLM") == "1"
 
+# Real-LLM model defaults to local Ollama; override with UOFA_E2E_MODEL.
+# See tests/test_aero_full_pipeline_e2e.py for examples.
+REAL_LLM_MODEL = os.environ.get("UOFA_E2E_MODEL", "ollama/qwen3.5:4b")
+
 pytestmark = pytest.mark.skipif(not HAS_OPENPYXL, reason="openpyxl required")
 
 
@@ -211,9 +215,9 @@ class TestMorrisonFullPipelineE2ERealLLM:
     def chain(self, tmp_path_factory):
         tmp = tmp_path_factory.mktemp("morrison_e2e_real")
         cou1_xlsx, cou1_jsonld = _extract_and_import(
-            tmp, MORRISON_COU1_DIR, "cou1", "ollama/qwen3.5:4b")
+            tmp, MORRISON_COU1_DIR, "cou1", REAL_LLM_MODEL)
         cou2_xlsx, cou2_jsonld = _extract_and_import(
-            tmp, MORRISON_COU2_DIR, "cou2", "ollama/qwen3.5:4b")
+            tmp, MORRISON_COU2_DIR, "cou2", REAL_LLM_MODEL)
         return {"tmp": tmp,
                 "cou1_jsonld": cou1_jsonld, "cou2_jsonld": cou2_jsonld}
 
