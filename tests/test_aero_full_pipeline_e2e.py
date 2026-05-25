@@ -43,7 +43,10 @@ except ImportError:
     HAS_OPENPYXL = False
 
 # Reuse the run_uofa helper from the existing integration test module.
-from tests.test_extract_integration import run_uofa, AERO_COU1_DIR, AERO_COU2_DIR
+# pytest's rootdir-import mode (no tests/__init__.py) puts the tests
+# directory on sys.path, so the bare module name resolves. Don't use
+# `from tests.test_extract_integration` — that breaks CI collection.
+from test_extract_integration import run_uofa, AERO_COU1_DIR, AERO_COU2_DIR
 
 REAL_LLM_ENABLED = os.environ.get("UOFA_RUN_REAL_LLM") == "1"
 

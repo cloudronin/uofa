@@ -43,7 +43,10 @@ try:
 except ImportError:
     HAS_OPENPYXL = False
 
-from tests.test_extract_integration import (
+# pytest's rootdir-import mode (no tests/__init__.py) puts the tests
+# directory on sys.path, so the bare module name resolves. Don't use
+# `from tests.test_extract_integration` — that breaks CI collection.
+from test_extract_integration import (
     run_uofa, MORRISON_COU1_DIR, MORRISON_COU2_DIR,
 )
 
