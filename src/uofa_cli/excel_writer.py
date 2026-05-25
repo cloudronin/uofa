@@ -147,7 +147,14 @@ def _write_summary_sheet(ws, summary: dict[str, FieldExtraction]) -> None:
 
     for field_name, col in field_map.items():
         fe = summary.get(field_name)
+        cell = ws.cell(row=data_row, column=col)
         if fe is None or fe.value is None:
+            # Clear the template's placeholder hint text so it doesn't
+            # surface to the importer as if it were extracted data. Without
+            # this, a missing extraction looks like "Profile = 'Minimal or
+            # Complete'" downstream — a confusing enum-validation error
+            # instead of a clear "required field empty" signal.
+            cell.value = None
             continue
 
         value = fe.value
@@ -155,7 +162,6 @@ def _write_summary_sheet(ws, summary: dict[str, FieldExtraction]) -> None:
         if field_name in dropdown_maps:
             value = _fuzzy_match_dropdown(str(value), dropdown_maps[field_name])
 
-        cell = ws.cell(row=data_row, column=col)
         cell.value = value
         _apply_confidence_color(cell, fe.confidence)
         _add_source_comment(cell, fe)
@@ -316,14 +322,17 @@ def _write_decision_sheet(ws, decision: dict[str, FieldExtraction]) -> None:
 
     for field_name, col in field_map.items():
         fe = decision.get(field_name)
+        cell = ws.cell(row=data_row, column=col)
         if fe is None or fe.value is None:
+            # Clear template placeholder hint (see _write_summary_sheet
+            # for the rationale).
+            cell.value = None
             continue
 
         value = fe.value
         if field_name == "outcome":
             value = _fuzzy_match_dropdown(str(value), VALID_DECISION_OUTCOMES)
 
-        cell = ws.cell(row=data_row, column=col)
         cell.value = value
         _apply_confidence_color(cell, fe.confidence)
         _add_source_comment(cell, fe)
@@ -378,9 +387,30 @@ def _add_source_comment(cell, fe: FieldExtraction) -> None:
 
 
 def _fuzzy_match_dropdown(value: str, valid_values: list[str]) -> str:
-    """Fuzzy match a value against valid dropdown options."""
+    """Fuzzy match a value against valid dropdown options.
+
+    Handles three classes of LLM-output gap on enum fields:
+
+    1. Exact match — return as-is.
+    2. Enumerator-text echo: LLM emitted prompt text like ``"Minimal or
+       Complete"``, ``"Low / Medium / High"``, or ``"Accepted / Not
+       accepted / Conditional"`` instead of picking one option. Split on
+       common separators (``or``, ``/``, ``,``) and return the first token
+       that matches a valid value.
+    3. Typos / minor variants: difflib fuzzy match (cutoff 0.6) — handles
+       things like ``"ValidationResults"`` vs ``"ValidationResult"``.
+
+    Falls back to the original value if nothing matches.
+    """
     if value in valid_values:
         return value
+
+    import re
+    tokens = re.split(r"\s+or\s+|\s*[/,]\s*", value)
+    for tok in tokens:
+        tok = tok.strip()
+        if tok in valid_values:
+            return tok
 
     matches = difflib.get_close_matches(value, valid_values, n=1, cutoff=0.6)
     return matches[0] if matches else value

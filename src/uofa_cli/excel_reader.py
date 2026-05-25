@@ -32,6 +32,31 @@ def _cell_ref(col: int, row: int) -> str:
     return f"{chr(64 + col)}{row}"
 
 
+def _fuzzy_normalize_enum(value: str, valid_values: list[str]) -> str | None:
+    """Detect and normalize LLM enum-echo. Returns the canonical value if
+    the input is an enumerator-text echo of the prompt (e.g. "Minimal or
+    Complete", "Low / Medium / High", "Accepted / Not accepted /
+    Conditional"); returns None otherwise.
+
+    Intentionally NARROW — only normalizes inputs whose token split
+    produces at least one canonical match. A genuinely-invalid value like
+    "Approved" (not enum-echo, just wrong) returns None so the caller can
+    still error loudly. This preserves the strict-mode contract that
+    invalid-but-not-echo inputs are import errors.
+
+    Mirrors the enum-split branch of excel_writer._fuzzy_match_dropdown.
+    """
+    import re
+    if value in valid_values:
+        return value
+    tokens = re.split(r"\s+or\s+|\s*[/,]\s*", value)
+    for tok in tokens:
+        tok = tok.strip()
+        if tok in valid_values:
+            return tok
+    return None
+
+
 def _cell_value(ws, row: int, col: int) -> str | None:
     """Read a cell value, stripping whitespace. Returns None for empty cells."""
     val = ws.cell(row=row, column=col).value
@@ -122,7 +147,7 @@ def read_workbook(xlsx_path: Path, packs: list[str]) -> dict:
 
     # ── Read Assessment Summary (row 3) ──────────────────────
     ws = wb[SHEET_NAMES["summary"]]
-    summary = _read_summary(ws, errors)
+    summary = _read_summary(ws, errors, warnings=warnings)
     profile = summary.get("profile", "Minimal")
 
     # Credibility Factors is only required for Complete profile
@@ -146,7 +171,7 @@ def read_workbook(xlsx_path: Path, packs: list[str]) -> dict:
 
     # ── Read Decision ────────────────────────────────────────
     ws = wb[SHEET_NAMES["decision"]]
-    decision = _read_decision(ws, errors)
+    decision = _read_decision(ws, errors, warnings=warnings)
 
     if errors:
         raise ImportError(errors)
@@ -198,11 +223,18 @@ def _find_header_row(ws, header_keyword: str, search_col: int = 1, max_row: int 
     return 2  # default
 
 
-def _read_summary(ws, errors: list) -> dict:
+def _read_summary(ws, errors: list, warnings: list | None = None) -> dict:
     """Read Assessment Summary sheet.
 
     Finds the header row (containing "Project Name") and reads data from
     the last populated row in the header block.
+
+    If ``warnings`` is provided, enum fields (profile, assurance_level)
+    that don't match the canonical set are normalized via
+    ``_fuzzy_normalize_enum`` (handles "Minimal or Complete" → "Minimal"
+    LLM-output gaps) and a per-field warning is appended instead of an
+    error. If ``warnings`` is None, falls back to the strict legacy
+    behavior of appending to ``errors``.
     """
     sheet = SHEET_NAMES["summary"]
 
@@ -237,9 +269,19 @@ def _read_summary(ws, errors: list) -> dict:
     if not cou_name:
         errors.append(f"Sheet '{sheet}', cell {_cell_ref(2, row)} (COU Name) is required")
 
-    # Validate profile
+    # Validate profile (lenient mode: normalize enum-echo via fuzzy match;
+    # genuinely-invalid non-echo inputs still error)
     if profile and profile not in VALID_PROFILES:
-        errors.append(f"Sheet '{sheet}', cell {_cell_ref(4, row)}: '{profile}' is not a valid profile. Expected: {', '.join(VALID_PROFILES)}")
+        normalized = _fuzzy_normalize_enum(profile, VALID_PROFILES) if warnings is not None else None
+        if normalized is not None:
+            warnings.append(
+                f"Sheet '{sheet}', cell {_cell_ref(4, row)}: "
+                f"'{profile}' is not a canonical profile — normalized to "
+                f"'{normalized}'. Canonical set: {', '.join(VALID_PROFILES)}"
+            )
+            profile = normalized
+        else:
+            errors.append(f"Sheet '{sheet}', cell {_cell_ref(4, row)}: '{profile}' is not a valid profile. Expected: {', '.join(VALID_PROFILES)}")
     if not profile:
         profile = "Minimal"
 
@@ -248,9 +290,19 @@ def _read_summary(ws, errors: list) -> dict:
         # Allow free text (Category A-E, Other) per spec
         pass
 
-    # Validate assurance level
+    # Validate assurance level (lenient mode: normalize enum-echo only;
+    # genuinely-invalid non-echo inputs still error)
     if assurance_level and assurance_level not in VALID_ASSURANCE_LEVELS:
-        errors.append(f"Sheet '{sheet}', cell {_cell_ref(7, row)}: '{assurance_level}' is not a valid assurance level. Expected: {', '.join(VALID_ASSURANCE_LEVELS)}")
+        normalized = _fuzzy_normalize_enum(assurance_level, VALID_ASSURANCE_LEVELS) if warnings is not None else None
+        if normalized is not None:
+            warnings.append(
+                f"Sheet '{sheet}', cell {_cell_ref(7, row)}: "
+                f"'{assurance_level}' is not a canonical assurance level — normalized to "
+                f"'{normalized}'. Canonical set: {', '.join(VALID_ASSURANCE_LEVELS)}"
+            )
+            assurance_level = normalized
+        else:
+            errors.append(f"Sheet '{sheet}', cell {_cell_ref(7, row)}: '{assurance_level}' is not a valid assurance level. Expected: {', '.join(VALID_ASSURANCE_LEVELS)}")
 
     # Parse MRL
     mrl_int = None
@@ -555,8 +607,13 @@ def _read_factors(ws, packs: list[str], errors: list) -> list[dict]:
     return factors
 
 
-def _read_decision(ws, errors: list) -> dict:
-    """Read Decision sheet."""
+def _read_decision(ws, errors: list, warnings: list | None = None) -> dict:
+    """Read Decision sheet.
+
+    Lenient mode (warnings provided) normalizes non-canonical outcome values
+    via _fuzzy_normalize_enum — handles LLM enum-echo like
+    "Accepted / Not accepted / Conditional".
+    """
     sheet = SHEET_NAMES["decision"]
 
     # Find header row containing "Decision Outcome"
@@ -574,16 +631,23 @@ def _read_decision(ws, errors: list) -> dict:
     decided_by = _cell_value(ws, row, 4)    # D
     decision_date = ws.cell(row=row, column=5).value  # E — raw for date
 
+    valid_outcomes = VALID_DECISION_OUTCOMES + ["Conditional"]
     if not outcome:
         errors.append(f"Sheet '{sheet}', cell {_cell_ref(1, row)}: Decision Outcome is required")
-    elif outcome not in VALID_DECISION_OUTCOMES:
-        # Also accept "Conditional" per spec
-        valid = VALID_DECISION_OUTCOMES + ["Conditional"]
-        if outcome not in valid:
+    elif outcome not in valid_outcomes:
+        normalized = _fuzzy_normalize_enum(outcome, valid_outcomes) if warnings is not None else None
+        if normalized is not None:
+            warnings.append(
+                f"Sheet '{sheet}', cell {_cell_ref(1, row)}: "
+                f"'{outcome}' is not a canonical decision outcome — normalized to "
+                f"'{normalized}'. Canonical set: {', '.join(valid_outcomes)}"
+            )
+            outcome = normalized
+        else:
             errors.append(
                 f"Sheet '{sheet}', cell {_cell_ref(1, row)}: "
                 f"'{outcome}' is not a valid outcome. "
-                f"Expected: {', '.join(valid)}"
+                f"Expected: {', '.join(valid_outcomes)}"
             )
 
     return {
