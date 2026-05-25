@@ -190,6 +190,10 @@ def _parse_weakener_output(stdout: str) -> dict:
 
 PASSING_IDS = [k for k, v in SPECS.items() if v.get("expect_import") == "pass"]
 ERROR_IDS = [k for k, v in SPECS.items() if v.get("expect_import") == "error"]
+# Cases that previously erred but, after the leniency commits (1a0e831 for
+# evidence_type vocab, 8f61d29 for missing-Requirement synthesis), now
+# import successfully with a per-issue warning surfaced from stderr.
+WARNING_IDS = [k for k, v in SPECS.items() if v.get("expect_import") == "warning"]
 WEAKENER_IDS = [k for k, v in SPECS.items()
                 if v.get("expect_import") == "pass" and v.get("expected_weakeners") is not None]
 ROUNDTRIP_IDS = [k for k, v in SPECS.items()
@@ -269,6 +273,38 @@ class TestImportErrors:
         expected = spec["expect_error"]
         combined = result.stderr + result.stdout
         assert expected in combined, f"{name}: expected '{expected}' in output"
+
+
+@pytest.mark.skipif(not OPENPYXL_AVAILABLE, reason="openpyxl not installed")
+class TestImportWarnings:
+    """Cases where the importer used to hard-fail but now succeeds with a
+    lenient normalization + warning (per the LLM-output-gap fixes in
+    commits 1a0e831 / 8f61d29). Asserts rc==0 AND the expected warning
+    text appears in the combined output.
+    """
+
+    @pytest.fixture(params=WARNING_IDS)
+    def warning_result(self, request, fixture_dir):
+        name = request.param
+        spec = SPECS[name]
+        xlsx = fixture_dir / f"{name}.xlsx"
+        result = run_uofa("import", str(xlsx), "--pack", spec["packs"][0])
+        return name, spec, result
+
+    def test_warning_exit_code_zero(self, warning_result):
+        name, _, result = warning_result
+        assert result.returncode == 0, (
+            f"{name}: lenient import should succeed (rc=0); got {result.returncode}\n"
+            f"STDERR: {result.stderr}"
+        )
+
+    def test_warning_message_present(self, warning_result):
+        name, spec, result = warning_result
+        expected = spec["expect_warning"]
+        combined = result.stderr + result.stdout
+        assert expected in combined, (
+            f"{name}: expected warning '{expected}' in output; got:\n{combined}"
+        )
 
 
 # ── Roundtrip tests (import → sign → SHACL, no Java) ─────────

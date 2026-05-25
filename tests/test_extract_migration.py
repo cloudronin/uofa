@@ -144,9 +144,12 @@ def test_mock_backend_via_llm_config_produces_equivalent_result(
     legacy_result = extract(tiny_corpus, "mock", "vv40", vv40_pack_prompt)
 
     # Configure a MockBackend that returns the same JSON _mock_extract emits.
+    # Extract now uses generate() (not generate_structured) since commit 7b0f41c —
+    # the v4-kv prompts explicitly forbid JSON, so the structured-output path
+    # was dropped. Plumb the canned response through `responses` (substring
+    # match) which generate() consults, not `structured_responses`.
     canned_json_str = _mock_extract("vv40")
-    canned_dict = json.loads(canned_json_str)
-    backend = MockBackend(structured_responses={"V&V 40": canned_dict})
+    backend = MockBackend(responses={"V&V 40": canned_json_str})
 
     # Patch get_backend so the new code path receives our configured mock.
     with patch("uofa_cli.llm.get_backend", return_value=backend):
@@ -222,10 +225,12 @@ def test_thinking_true_passes_through_to_backend_options():
             pack_name="vv40",
             thinking=True,
         )
-    # The most recent call to generate_structured carried our extra kwarg
+    # Extract now uses generate() not generate_structured (commit 7b0f41c
+    # — v4-kv prompts forbid JSON). The thinking-flag plumbing must still
+    # survive the trip.
     methods_called = [c[0] for c in backend.calls]
     last_options = backend.calls[-1][2]
-    assert methods_called[-1] == "generate_structured"
+    assert methods_called[-1] == "generate"
     assert last_options.extra.get("think") is True
 
 

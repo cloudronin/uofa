@@ -555,14 +555,23 @@ SPECS = {
     "e2e-err-no-requirement": {
         "packs": ["vv40"],
         "data": _err_no_requirement,
-        "expect_import": "error",
-        "expect_error": "must have at least one row with Entity Type = 'Requirement'",
+        # Since commit 8f61d29, the importer synthesizes a Requirement entity
+        # from the Assessment Summary's COU fields when none is present and
+        # emits a warning instead of erroring. This handles the common case
+        # where a small LLM drops the Requirement on continuation-of-prior-COU
+        # evidence.
+        "expect_import": "warning",
+        "expect_warning": "no Requirement entity — synthesized",
     },
     "e2e-err-invalid-evidence": {
         "packs": ["nasa-7009b"],
         "data": _err_invalid_evidence,
-        "expect_import": "error",
-        "expect_error": "'CustomType' is not a valid evidence type",
+        # Since commit 1a0e831, the importer normalizes non-canonical
+        # evidence_type values (real LLMs sometimes emit descriptive labels
+        # like 'CustomType' instead of the constrained enum) via fuzzy match
+        # + fallback to ValidationResult, and emits a warning.
+        "expect_import": "warning",
+        "expect_warning": "'CustomType' is not a canonical evidence type",
     },
     "e2e-err-not-xlsx": {
         "packs": ["vv40"],
