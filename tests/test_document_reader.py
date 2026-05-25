@@ -197,15 +197,20 @@ class TestCsvReader:
 # ── Morrison evidence integration ────────────────────────────
 
 
-MORRISON_DIR = Path(__file__).parent / "fixtures" / "extract" / "morrison-evidence"
+# Reader tests use COU2 because it carries the richer file set (10 files
+# vs cou1's 9 — cou2 has the additional monte_carlo_uq_cou2.csv) so the
+# count + format-mix assertions stay meaningful. Cou1 is otherwise
+# structurally equivalent.
+MORRISON_DIR = Path(__file__).parent / "fixtures" / "extract" / "morrison-evidence-cou2"
 
 
 @pytest.mark.skipif(not MORRISON_DIR.exists(), reason="Morrison evidence not available")
 class TestMorrisonDiscovery:
     def test_discover_morrison_files(self):
         files, warnings = discover_files([MORRISON_DIR])
-        # Should find 11 files (12 minus EVIDENCE_MANIFEST.txt)
-        assert len(files) == 11
+        # cou2 has 11 entries (10 evidence files + 1 manifest); discover_files
+        # filters EVIDENCE_MANIFEST.txt out, so we expect 10.
+        assert len(files) == 10
         # Manifest should be skipped
         assert all("EVIDENCE_MANIFEST" not in f.name for f in files)
 
@@ -220,14 +225,16 @@ class TestMorrisonDiscovery:
     def test_glob_pdfs_only(self):
         files, _ = discover_files([MORRISON_DIR], glob_pattern="*.pdf")
         assert all(f.suffix == ".pdf" for f in files)
-        assert len(files) == 3
+        # cou2 has 2 PDFs: risk_assessment_memo + decision_rationale_cou2
+        assert len(files) == 2
 
     def test_read_morrison_text_files(self):
         """Read only txt/csv files (no pdfplumber/python-docx needed)."""
         files, _ = discover_files([MORRISON_DIR], glob_pattern="*.txt,*.csv")
         corpus = read_corpus(files)
         assert corpus.total_tokens > 0
-        assert len(corpus.chunks) >= 6  # 4 csv + 2 txt
+        # cou2 has 4 csv + 2 txt = 6 chunks (csv: mesh, piv, hemolysis, MC UQ)
+        assert len(corpus.chunks) >= 6
         # Check CSV has markdown tables
         csv_chunks = [c for c in corpus.chunks if c.format == "csv"]
         assert all("|" in c.text for c in csv_chunks)

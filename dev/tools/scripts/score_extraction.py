@@ -32,9 +32,10 @@ _LOG_PATH = _ROOT / "dev" / "tools" / "scripts" / "extract_accuracy_log.jsonl"
 # factor_names_symbol is resolved at runtime via excel_constants import to
 # avoid pulling the module in at module load time.
 PACK_CASE_FIXTURES: dict[tuple[str, str], tuple[str, str, str]] = {
-    ("vv40", "cou1"):      ("morrison-evidence",    "morrison-cou1.json",       "VV40_FACTOR_NAMES"),
-    ("nasa-7009b", "cou1"): ("aero-evidence-cou1",  "aero-cou1-nasa7009b.json", "NASA_ALL_FACTOR_NAMES"),
-    ("nasa-7009b", "cou2"): ("aero-evidence-cou2",  "aero-cou2-nasa7009b.json", "NASA_ALL_FACTOR_NAMES"),
+    ("vv40", "cou1"):      ("morrison-evidence-cou1", "morrison-cou1.json",       "VV40_FACTOR_NAMES"),
+    ("vv40", "cou2"):      ("morrison-evidence-cou2", "morrison-cou2.json",       "VV40_FACTOR_NAMES"),
+    ("nasa-7009b", "cou1"): ("aero-evidence-cou1",    "aero-cou1-nasa7009b.json", "NASA_ALL_FACTOR_NAMES"),
+    ("nasa-7009b", "cou2"): ("aero-evidence-cou2",    "aero-cou2-nasa7009b.json", "NASA_ALL_FACTOR_NAMES"),
 }
 
 

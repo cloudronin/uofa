@@ -17,7 +17,8 @@ except ImportError:
     HAS_OPENPYXL = False
 
 REPO_ROOT = Path(__file__).parent.parent
-MORRISON_DIR = Path(__file__).parent / "fixtures" / "extract" / "morrison-evidence"
+MORRISON_COU1_DIR = Path(__file__).parent / "fixtures" / "extract" / "morrison-evidence-cou1"
+MORRISON_COU2_DIR = Path(__file__).parent / "fixtures" / "extract" / "morrison-evidence-cou2"
 AERO_COU1_DIR = Path(__file__).parent / "fixtures" / "extract" / "aero-evidence-cou1"
 AERO_COU2_DIR = Path(__file__).parent / "fixtures" / "extract" / "aero-evidence-cou2"
 
@@ -64,7 +65,7 @@ class TestExtractEmptyFolder:
         assert "No supported files" in result.stderr or "No supported files" in result.stdout
 
 
-@pytest.mark.skipif(not MORRISON_DIR.exists(), reason="Morrison evidence not available")
+@pytest.mark.skipif(not MORRISON_COU1_DIR.exists(), reason="Morrison evidence not available")
 class TestExtractOutputArgValidation:
     """Regression: --output must accept a directory (auto-build filename) and
     reject paths without a supported extension.
@@ -78,7 +79,7 @@ class TestExtractOutputArgValidation:
         out_dir = tmp_path / "outdir"
         out_dir.mkdir()
         result = run_uofa(
-            "extract", str(MORRISON_DIR),
+            "extract", str(MORRISON_COU1_DIR),
             "--model", "mock",
             "--pack", "vv40",
             "--output", str(out_dir),
@@ -98,7 +99,7 @@ class TestExtractOutputArgValidation:
         # instead of letting openpyxl produce its cryptic empty-extension error.
         bad = tmp_path / "noext"
         result = run_uofa(
-            "extract", str(MORRISON_DIR),
+            "extract", str(MORRISON_COU1_DIR),
             "--model", "mock",
             "--pack", "vv40",
             "--output", str(bad),
@@ -110,14 +111,14 @@ class TestExtractOutputArgValidation:
         assert "does not support  file format" not in combined
 
 
-@pytest.mark.skipif(not MORRISON_DIR.exists(), reason="Morrison evidence not available")
+@pytest.mark.skipif(not MORRISON_COU1_DIR.exists(), reason="Morrison evidence not available")
 class TestExtractMorrisonMock:
     """Full pipeline test: Morrison evidence → mock LLM → Excel output."""
 
     def test_extract_succeeds(self, tmp_path):
         out = tmp_path / "output.xlsx"
         result = run_uofa(
-            "extract", str(MORRISON_DIR),
+            "extract", str(MORRISON_COU1_DIR),
             "--model", "mock",
             "--pack", "vv40",
             "--output", str(out),
@@ -131,7 +132,7 @@ class TestExtractMorrisonMock:
     def test_output_exists(self, tmp_path):
         out = tmp_path / "output.xlsx"
         run_uofa(
-            "extract", str(MORRISON_DIR),
+            "extract", str(MORRISON_COU1_DIR),
             "--model", "mock",
             "--pack", "vv40",
             "--output", str(out),
@@ -141,7 +142,7 @@ class TestExtractMorrisonMock:
     def test_output_has_factors(self, tmp_path):
         out = tmp_path / "output.xlsx"
         run_uofa(
-            "extract", str(MORRISON_DIR),
+            "extract", str(MORRISON_COU1_DIR),
             "--model", "mock",
             "--pack", "vv40",
             "--output", str(out),
@@ -159,7 +160,7 @@ class TestExtractMorrisonMock:
     def test_output_has_decision(self, tmp_path):
         out = tmp_path / "output.xlsx"
         run_uofa(
-            "extract", str(MORRISON_DIR),
+            "extract", str(MORRISON_COU1_DIR),
             "--model", "mock",
             "--pack", "vv40",
             "--output", str(out),
@@ -175,7 +176,7 @@ class TestExtractMorrisonMock:
     def test_glob_filter(self, tmp_path):
         out = tmp_path / "output.xlsx"
         result = run_uofa(
-            "extract", str(MORRISON_DIR),
+            "extract", str(MORRISON_COU1_DIR),
             "--model", "mock",
             "--pack", "vv40",
             "--output", str(out),
@@ -188,7 +189,7 @@ class TestExtractMorrisonMock:
     def test_verbose_output(self, tmp_path):
         out = tmp_path / "output.xlsx"
         result = run_uofa(
-            "extract", str(MORRISON_DIR),
+            "extract", str(MORRISON_COU1_DIR),
             "--model", "mock",
             "--pack", "vv40",
             "--output", str(out),
