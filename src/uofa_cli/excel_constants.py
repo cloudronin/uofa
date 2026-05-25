@@ -169,3 +169,29 @@ FACTOR_STANDARD_NASA = "NASA-STD-7009B"
 
 CONTEXT_URL = "https://raw.githubusercontent.com/cloudronin/uofa/main/spec/context/v0.5.jsonld"
 BASE_URI = "https://uofa.net/instances"
+
+
+# ── Hand-maintained normalizers ───────────────────────────────
+
+
+def normalize_evidence_type(value: str) -> tuple[str, bool]:
+    """Map an evidence_type cell value to the canonical EVIDENCE_TYPES enum.
+
+    Returns ``(normalized_value, was_substituted)``. LLM extractors sometimes
+    emit descriptive domain labels (e.g. ``GridConvergenceStudy``,
+    ``CodeVerification``) instead of the constrained core enum. This
+    normalizer:
+
+    1. Returns the value unchanged if already canonical.
+    2. Tries a difflib fuzzy match (cutoff=0.6) — handles typos and minor
+       variants like ``ValidationResults`` vs ``ValidationResult``.
+    3. Falls back to ``ValidationResult`` (the most common case, and the
+       reader's default for empty cells).
+    """
+    import difflib
+    if value in EVIDENCE_TYPES:
+        return value, False
+    matches = difflib.get_close_matches(value, EVIDENCE_TYPES, n=1, cutoff=0.6)
+    if matches:
+        return matches[0], True
+    return "ValidationResult", True

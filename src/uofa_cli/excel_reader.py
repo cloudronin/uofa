@@ -15,6 +15,7 @@ from uofa_cli.excel_constants import (
     VALID_PROFILES, VALID_DECISION_OUTCOMES, VALID_FACTOR_STATUSES,
     VALID_DEVICE_CLASSES, VALID_ASSURANCE_LEVELS,
     EVIDENCE_TYPES,
+    normalize_evidence_type,
 )
 
 
@@ -103,6 +104,7 @@ def read_workbook(xlsx_path: Path, packs: list[str]) -> dict:
         raise ImportError([f"Cannot open workbook: {exc}"])
 
     errors = []
+    warnings: list[str] = []
 
     # ── Validate required sheets ─────────────────────────────
     required_sheets = [
@@ -134,7 +136,7 @@ def read_workbook(xlsx_path: Path, packs: list[str]) -> dict:
 
     # ── Read Validation Results ──────────────────────────────
     ws = wb[SHEET_NAMES["validation"]]
-    validation_results = _read_validation_results(ws, errors)
+    validation_results = _read_validation_results(ws, errors, warnings)
 
     # ── Read Credibility Factors ─────────────────────────────
     factors = []
@@ -155,6 +157,7 @@ def read_workbook(xlsx_path: Path, packs: list[str]) -> dict:
         "validation_results": validation_results,
         "factors": factors,
         "decision": decision,
+        "_warnings": warnings,
     }
 
 
@@ -330,12 +333,17 @@ def _read_entities(ws, profile: str, errors: list) -> list[dict]:
     return entities
 
 
-def _read_validation_results(ws, errors: list) -> list[dict]:
+def _read_validation_results(ws, errors: list, warnings: list | None = None) -> list[dict]:
     """Read Validation Results sheet.
 
     Detects whether the Type column (v2) is present by checking headers.
     Old template: Result Name, Identifier/URI, Description, ...
     v2 template:  Result Name, Type, Identifier/URI, Description, ...
+
+    If ``warnings`` is provided, evidence_type values outside the canonical
+    enum are normalized (via ``normalize_evidence_type``) and a per-row
+    warning is appended instead of an error. If ``warnings`` is None,
+    falls back to the legacy strict behavior (append to errors).
     """
     sheet = SHEET_NAMES["validation"]
     results = []
@@ -388,11 +396,26 @@ def _read_validation_results(ws, errors: list) -> list[dict]:
         if not evidence_type:
             evidence_type = "ValidationResult"
         elif evidence_type not in EVIDENCE_TYPES:
-            errors.append(
-                f"Sheet '{sheet}', cell {_cell_ref(col_type, row)}: "
-                f"'{evidence_type}' is not a valid evidence type. "
-                f"Expected: {', '.join(EVIDENCE_TYPES)}"
-            )
+            if warnings is not None:
+                # Lenient mode: normalize against the canonical enum and warn.
+                # Handles the common case where an LLM extractor emits a
+                # descriptive domain label (GridConvergenceStudy, etc.)
+                # instead of the constrained enum value.
+                original = evidence_type
+                normalized, _substituted = normalize_evidence_type(original)
+                warnings.append(
+                    f"Sheet '{sheet}', cell {_cell_ref(col_type, row)}: "
+                    f"'{original}' is not a canonical evidence type — "
+                    f"normalized to '{normalized}'. "
+                    f"Canonical set: {', '.join(EVIDENCE_TYPES)}"
+                )
+                evidence_type = normalized
+            else:
+                errors.append(
+                    f"Sheet '{sheet}', cell {_cell_ref(col_type, row)}: "
+                    f"'{evidence_type}' is not a valid evidence type. "
+                    f"Expected: {', '.join(EVIDENCE_TYPES)}"
+                )
 
         results.append({
             "name": name,

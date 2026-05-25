@@ -69,6 +69,11 @@ def run(args) -> int:
             error(e)
         return 1
 
+    # Surface non-fatal normalizations from the reader (e.g. LLM-produced
+    # evidence_type labels that were mapped onto the canonical enum).
+    for w in data.pop("_warnings", []):
+        warn(w)
+
     # Override profile if requested
     if args.profile:
         data["summary"]["profile"] = args.profile.capitalize()

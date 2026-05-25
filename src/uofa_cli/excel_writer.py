@@ -12,6 +12,7 @@ from uofa_cli.excel_constants import (
     VV40_FACTOR_CATEGORIES, NASA_ONLY_FACTOR_CATEGORIES,
     VALID_DECISION_OUTCOMES, VALID_PROFILES, VALID_ASSURANCE_LEVELS,
     VALID_DEVICE_CLASSES,
+    normalize_evidence_type,
 )
 
 # Confidence color thresholds
@@ -176,6 +177,9 @@ def _write_entities_sheet(ws, entities: list[dict[str, FieldExtraction]]) -> Non
 
 def _write_validation_sheet(ws, results: list[dict[str, FieldExtraction]]) -> None:
     """Write validation result rows."""
+    from openpyxl.comments import Comment
+    from openpyxl.styles import PatternFill
+
     data_row = _find_data_row(ws)
 
     for i, vr in enumerate(results):
@@ -194,9 +198,32 @@ def _write_validation_sheet(ws, results: list[dict[str, FieldExtraction]]) -> No
             fe = vr.get(field_name)
             if fe is None or fe.value is None:
                 continue
+
+            value = fe.value
+            substitution_note = None
+
+            # Normalize evidence_type against the canonical enum so the
+            # downstream importer accepts what the LLM produced. Without this,
+            # descriptive labels like 'GridConvergenceStudy' would land in the
+            # cell verbatim and the importer would reject them.
+            if field_name == "evidence_type":
+                original = str(value)
+                normalized, substituted = normalize_evidence_type(original)
+                if substituted:
+                    substitution_note = (
+                        f"LLM emitted '{original}'; normalized to "
+                        f"'{normalized}' to match the canonical evidence_type enum."
+                    )
+                value = normalized
+
             cell = ws.cell(row=row, column=col)
-            cell.value = fe.value
+            cell.value = value
             _apply_confidence_color(cell, fe.confidence)
+            if substitution_note:
+                # Yellow-highlight the substituted cell so a human reviewer sees
+                # it before saving / re-running. Comment carries the original.
+                cell.fill = PatternFill(start_color=_YELLOW, end_color=_YELLOW, fill_type="solid")
+                cell.comment = Comment(substitution_note, "uofa-extract")
             _add_source_comment(cell, fe)
 
 
