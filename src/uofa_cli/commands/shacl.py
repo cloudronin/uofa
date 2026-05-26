@@ -59,17 +59,34 @@ def run_structured(args) -> ShaclResult:
 
     if args.raw:
         from pyshacl import validate as shacl_validate
-        shapes_graph = _load_combined_shapes(shacl_paths)
-        conforms, _, results_text = shacl_validate(
-            data_graph=str(args.file),
-            shacl_graph=shapes_graph,
-            data_graph_format="json-ld",
+        from uofa_cli.shacl_friendly import (
+            _load_data_graph, _collect_violations, format_drilled_violations_text,
         )
+        shapes_graph = _load_combined_shapes(shacl_paths)
+        # Load data via rdflib first to dodge the pyshacl JSON-LD path bug
+        # and to give us the parsed Graph for the drill-in.
+        data_graph = _load_data_graph(args.file)
+        conforms, results_graph, results_text = shacl_validate(
+            data_graph=data_graph,
+            shacl_graph=shapes_graph,
+        )
+
+        # Even in --raw, run the drill-in when there's an OR-constraint
+        # failure on the profile dispatcher (the user's complaint was that
+        # --raw without drill-in is unusable). Append the drilled-in
+        # detail AFTER the pyshacl text so tool-integration consumers can
+        # still parse the raw report from the top.
+        violations = [] if conforms else _collect_violations(
+            data_graph, results_graph, shapes_graph,
+        )
+        drilled_text = format_drilled_violations_text(violations)
+        combined_text = results_text + drilled_text if drilled_text else results_text
+
         return ShaclResult(
             file=args.file,
             conforms=bool(conforms),
-            violations=[],
-            raw_text=results_text,
+            violations=violations,
+            raw_text=combined_text,
             exit_code=0 if conforms else 1,
         )
 

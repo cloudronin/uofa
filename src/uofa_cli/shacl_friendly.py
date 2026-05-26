@@ -501,6 +501,39 @@ def _collect_violations(data_g: Graph, results_graph: Graph,
     return violations
 
 
+def format_drilled_violations_text(violations: list[dict]) -> str:
+    """Render drilled-in violations as a plain-text block.
+
+    Used to append actionable per-field detail after pyshacl's raw output
+    in ``uofa shacl FILE --raw`` so the tool-integration consumer still
+    sees the unmodified pyshacl report and the human gets the drill-in.
+
+    Only renders the new (drilled-in) violation shape; legacy violations
+    without 'requirement' are skipped (they're already in the pyshacl raw
+    output above).
+    """
+    drilled = [v for v in violations if "requirement" in v]
+    if not drilled:
+        return ""
+
+    lines: list[str] = []
+    lines.append("")
+    lines.append("── Drilled-in inner failures ──")
+    profiles = {v.get("profile") for v in drilled if v.get("profile")}
+    if profiles:
+        prof = next(iter(profiles))
+        lines.append(f"Declared profile: {prof} — {len(drilled)} field(s) failed")
+        lines.append("")
+    for v in drilled:
+        lines.append(f"[{v['severity']}] {v['path']}")
+        lines.append(f"    Required: {v['requirement']}")
+        lines.append(f"    Actual:   {v['actual']}")
+        if v.get("fix"):
+            lines.append(f"    Fix:      {v['fix']}")
+        lines.append("")
+    return "\n".join(lines)
+
+
 def print_violations(violations: list[dict]):
     """Print formatted violation messages.
 
