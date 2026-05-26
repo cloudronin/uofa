@@ -1146,6 +1146,54 @@ class TestImport:
         # After signing, hash should not be all zeros
         assert doc["hash"] != "sha256:" + "0" * 64
 
+    def test_import_key_check_without_explicit_sign(self, tmp_path):
+        """Regression for the May-25 NAFEMS-demo bug.
+
+        Previously, `uofa import FILE --key K --check` (no explicit --sign)
+        raised ``'Namespace' object has no attribute 'pubkey'`` because the
+        synthetic argparse.Namespace built by import_excel.py to invoke
+        check.run() was missing the ``pubkey`` (and ``build``) keys that
+        check.py reads.
+
+        Expected behavior now:
+          1. --key + --check implies --sign (user intent was clearly to
+             sign-then-verify), so the import auto-signs;
+          2. the synthetic Namespace handed to check carries a derived
+             pubkey (key.with_suffix('.pub')), so the integrity verify
+             works even from outside the repo root.
+
+        Asserts target the bug-fix signals directly (auto-sign fired,
+        C1 integrity passed, no AttributeError) — not the overall
+        returncode, because STARTER_XLSX has deviceClass='Other' which
+        intentionally fails C2 SHACL and would mask the bug-fix signal.
+        """
+        output = tmp_path / "output.jsonld"
+        key = REPO_ROOT / "keys" / "research.key"
+        result = run_uofa("import", str(STARTER_XLSX), "-o", str(output),
+                          "--key", str(key), "--check", "--pack", "vv40")
+        combined = result.stdout + result.stderr
+
+        # The original bug: synthetic Namespace missing pubkey/build keys.
+        # No matter what else happens downstream, those AttributeErrors
+        # must not surface.
+        assert "AttributeError" not in combined, (
+            f"original namespace bug still present:\n{combined}"
+        )
+        assert "'Namespace' object has no attribute" not in combined, (
+            f"namespace key missing from synthetic args:\n{combined}"
+        )
+
+        # Auto-sign on --key + --check fired (implied --sign behavior).
+        assert "Signed" in result.stdout, (
+            f"auto-sign should have fired on --key + --check; stdout:\n{result.stdout}"
+        )
+
+        # C1 Integrity check ran AND succeeded against the auto-signed file
+        # — proving the derived-pubkey path works (this is the load-bearing
+        # behavioral signal that the bug is fixed).
+        assert "Signature valid" in result.stdout
+        assert "Hash match" in result.stdout
+
     def test_import_missing_file(self):
         result = run_uofa("import", "nonexistent.xlsx", "--pack", "vv40")
         assert result.returncode == 1

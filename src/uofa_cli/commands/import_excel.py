@@ -106,7 +106,13 @@ def run(args) -> int:
     info(f"  Profile: {data['summary']['profile']}, Pack: {', '.join(packs)}")
 
     # ── Optional: Sign ───────────────────────────────────────
-    if args.sign:
+    # Implicitly sign when --key is provided alongside --check: the only
+    # reason to pass --key to import + verify is to verify against that
+    # key, which requires signing first. Avoids the confusing two-step
+    # "your file isn't signed, signature invalid" detour.
+    should_sign = args.sign or bool(args.check and args.key)
+    signing_key: Path | None = None
+    if should_sign:
         key = args.key
         # Auto-detect key from project if not specified
         if not key and project_root:
@@ -119,6 +125,7 @@ def run(args) -> int:
         if not key.exists():
             error(f"Key file not found: {key}")
             return 1
+        signing_key = key
 
         from uofa_cli.integrity import sign_file
         ctx = paths.context_file()
@@ -130,12 +137,26 @@ def run(args) -> int:
     if args.check:
         from uofa_cli.commands import check
         import argparse
+
+        # Derive pubkey from the signing key path (convention is .key → .pub
+        # per integrity.py:77 and keygen). Falls back to None, which lets
+        # check.py default to paths.default_pubkey() (<repo>/keys/research.pub).
+        # Doing the derivation here means `uofa import --key foo.key --check`
+        # works outside the repo root, where default_pubkey() can't resolve.
+        pubkey_for_check: Path | None = None
+        if signing_key is not None:
+            candidate = signing_key.with_suffix(".pub")
+            if candidate.exists():
+                pubkey_for_check = candidate
+
         check_args = argparse.Namespace(
             file=output,
+            pubkey=pubkey_for_check,
             key=None,
             context=None,
             rules=None,
             skip_rules=False,
+            build=False,
             no_color=getattr(args, "no_color", False),
             verbose=getattr(args, "verbose", False),
             repo_root=getattr(args, "repo_root", None),
