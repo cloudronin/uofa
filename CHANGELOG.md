@@ -2,6 +2,103 @@
 
 All notable changes to this project are documented here.
 
+## [0.9.0] — 2026-05-26
+
+### Added — ISO 42001 pack
+
+New `packs/iso42001` pack for AI management system assurance (AIMS). Phase A–F build-out:
+
+- **Pack scaffold + vocabulary** ([`packs/iso42001/`](packs/iso42001/)): SHACL profile, vocabulary extensions for AI management system constructs, and `ProfileMinimal` switch for compatibility with v0.5 context.
+- **C3 weakener catalog** (Phase B): forward-chaining patterns for AI risk management gaps. Pattern IDs follow `W-AIMS-*` naming.
+- **OOS bundle-sufficiency rules** (Phase C, 8 rules): out-of-scope detection for AI-system bundle coverage.
+- **NIST AI RMF GOVERN coverage matrix** (Phase D): dual-detection across categories with calibrated thresholds.
+- **`cal-aims-*` calibration packages** (Phase E, 8 packages + supplier-evidence rule 9): per-category calibration fixtures with positive/negative/boundary tests.
+- **Hybrid case study** (Phase F): COU1 + COU2 worked example illustrating the dual-COU pattern under iso42001.
+- **End-to-end test suite** (Phase G): 58 tests, all passing.
+- **Coverage validation harness** (Phase H): coverage matrix verification.
+
+Phase 5.x follow-ups: brittleness oracle proving v0.4 W-AIMS rules miss on triggering fixtures; pre-pass `CONSTRUCT` file with manifest-declared derivations; eight W-AIMS rules migrated to consume derived flags; post-migration detection tests confirming Gx.2.a coverage flips P→Y. Pack version stamped at 0.5.0 (independent of CLI release).
+
+### Added — Adversarial judge module
+
+New `src/uofa_cli/adversarial/` subsystem for multi-judge adjudication of credibility decisions:
+
+- **litellm-first refactor** routing through a vendor-neutral provider abstraction.
+- **Production trio + arbiter**: Gemini 2.5 Pro, Mistral Large 2, Sambanova-hosted Llama 4; Phase 4 Waves E–I production-readiness work.
+- **TPM-aware concurrency tracker** with per-judge daily caps and per-vendor concurrency limits for multi-day production runs.
+- **Stage 1 / Stage 5 calibration**: prompt v1.6 with thinking-mode UNCERTAIN anchors, schema-coercion expansion, retry semantics.
+- **Capability table + cost reading** for Llama 4 (override path) and other non-standard providers.
+- **Stratified pilot runner** for Phase 2 sampling; full-panel smoke + raw_response cost fix.
+
+### Added — Productive-OOS substrate
+
+New `src/uofa_cli/oos/` substrate-validation module ([`feat(oos)` 80f91d0](commits/80f91d0)). Productionizes out-of-scope detection with bundle-sufficiency validation feeding the rule engine.
+
+### Added — Derivation pre-pass engine
+
+New `src/uofa_cli/derivations/` Python orchestration paired with `net.uofa.derive.DerivationEngine` on the JVM side:
+
+- Config-driven dispatcher routing derivation rules across pre-pass passes.
+- Manifest-declared derivations with snapshotting; backward-compatible with v0.4 packs.
+- CLI flags to wire pre-pass into `uofa check`.
+
+### Added — E2E test chains
+
+Real-LLM end-to-end tests now chain the full pipeline:
+
+- VV40 Morrison: `extract → import → check → rules` for both COUs ([`test(e2e)` daaf00d](commits/daaf00d)).
+- NASA aero: `extract → import → rules → diff` for both COUs ([`test(e2e)` f78675b](commits/f78675b)).
+- Morrison fixtures split into per-COU evidence folders; COU2 extraction ground truth added.
+- Real-LLM model is parameterized via `UOFA_E2E_MODEL` for swap-in across providers.
+
+### Added — Agent operational rules
+
+`AGENTS.md` at repo root codifies operational rules for AI coding agents and human contributors. Notable: §11 tracks out-of-scope work in GitHub Issues; explicit prohibition on AI-tool attribution in commits, docs, and frontmatter.
+
+### Changed — Extract prompts
+
+`packs/vv40/prompts/vv40_extract_prompt.txt` and `packs/nasa-7009b/prompts/nasa_7009b_extract_prompt.txt` tightened to reduce LLM enum-echo and template-placeholder leakage. Closes #20 and #21.
+
+### Fixed — Import
+
+- **Synthetic Namespace for `--check`** was missing the public key plus build metadata; fixed so signature verification succeeds on `import --check` ([1b673cb](commits/1b673cb)).
+- **LLM enum-echo + template-placeholder leak** during import. The importer now rejects values that literally echo the prompt enum or carry unresolved `{{placeholder}}` markers, and surfaces the offending cell. Closes #24 ([27ec134](commits/27ec134)).
+- **Missing `Requirement` entity** synthesized from Assessment Summary when the workbook omits an explicit Requirement row ([8f61d29](commits/8f61d29)).
+- **LLM `evidence_type` vocabulary** normalized against the canonical enum, fixing case- and synonym-drift on extracted values ([1a0e831](commits/1a0e831)).
+
+### Fixed — SHACL
+
+- **OR-constraint drilling**: `pyshacl` reports OR failures as a single rolled-up message; the friendly reporter now drills into the inner branches to surface which underlying field failed ([5cfdfb4](commits/5cfdfb4)).
+- **`--raw` output** now appends the drilled-in inner failures after the standard pyshacl text, instead of replacing it ([2c0a2bc](commits/2c0a2bc)).
+
+### Fixed — Extract
+
+- **Structured-output path dropped**: the v4-kv prompt format conflicts with litellm structured-output mode; `uofa extract` now always uses free-form completion with the kv parser ([7b0f41c](commits/7b0f41c)).
+- **`--output` directory handling**: `extract` now accepts a directory target and validates the `.xlsx` extension on file targets ([ee8fa80](commits/ee8fa80)).
+
+### Fixed — LLM backend
+
+- **Ollama-only `think` kwarg**: dropped before forwarding to litellm so non-Ollama providers no longer reject the request ([10bd970](commits/10bd970)).
+
+### Fixed — Adversarial judge
+
+- Production runs now match calibration on `thinking_enabled`; `prompt_template_version` pinned into production runs.
+- `additionalProperties` stripped at nested-object level in JSON schemas sent to providers.
+- Per-task streaming writes in concurrent path; hf-llama switched to direct Sambanova Cloud API.
+- Mistral and Gemini provider verification: model IDs corrected, nullable-array transform, `if/then` stripping.
+
+### Fixed — CI and tests
+
+- **E2E import paths**: `tests.` prefix dropped from cross-imports so CI test collection no longer breaks ([d90c52c](commits/d90c52c)).
+- **`diff` exit codes**: e2e checks tightened to assert `rc == 0` since `uofa diff` never returns 1 ([8fb1992](commits/8fb1992)).
+- **Aero real-LLM assertions** relaxed to plumbing + parsed `diff` stdout, avoiding model-output flakiness.
+- **`fix(test)`** subprocess timeout bound on the extract end-to-end test.
+- **Devcontainer** installs `[judge]` extras for adversarial-judge tests, with `skipif` guards where appropriate.
+
+### Documentation
+
+- Site: new Extract on-ramp flow on the homepage; Excel on-ramp page reframed as the Authoring on-ramp (extract → review → import).
+
 ## [0.8.0] — 2026-05-04
 
 ### Added — Extract eval v1 (synthetic corpus + held-out test)
