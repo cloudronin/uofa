@@ -17,6 +17,8 @@ uofa extract ./evidence --pack vv40 -o assessment.xlsx
 
 Use `--pack nasa-7009b` for the aerospace factor set. Extract is model-assisted, so it is fast but not authoritative. It is a starting point for review, not a verdict.
 
+**Before your first extract:** the local extract path needs a model on disk. Install with `pip install 'uofa[extract]'` (or `pip install -e '.[extract]'` from a clone), then run `uofa setup` once to pull the default `qwen3.5:4b` model (~3 GB). See [Install](/start/install/) for the full prerequisites. If you'll only ever pass `--model` for a hosted LLM, skip `uofa setup`.
+
 **On sensitive evidence:** extract runs fully local with a model served by Ollama, so nothing leaves your machine. A hosted model is also supported through the `--model` flag if your evidence is not sensitive and you want higher extraction quality. See [LLM configuration](/docs/llm-config/).
 
 ## 2. Review the workbook
