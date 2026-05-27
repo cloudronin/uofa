@@ -335,6 +335,15 @@ def check_test_imports_vs_install() -> bool:
     # Build the set of local helper modules so cross-test imports
     # (e.g. `import edge_case_builders` from a sibling) aren't flagged.
     local_modules = {f.stem for f in tests_dir.rglob("*.py") if f.stem != "__init__"}
+    # Tests that exercise dev/tools/scripts/ directly sys.path-insert that
+    # directory and import the script as a top-level module (see e.g.
+    # tests/adversarial/judge/test_calibration_validator.py). Those scripts
+    # are project-local, not pip packages, so include their stems too.
+    scripts_dir = REPO / "dev" / "tools" / "scripts"
+    if scripts_dir.exists():
+        local_modules |= {
+            f.stem for f in scripts_dir.glob("*.py") if f.stem != "__init__"
+        }
 
     # Top-level imports only — `ast.walk` would surface function-scoped
     # imports gated behind try/except (e.g. `from PIL import Image` inside
