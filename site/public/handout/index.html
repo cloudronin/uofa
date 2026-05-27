@@ -1,0 +1,550 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Unit of Assurance — Conference handout</title>
+<meta name="description" content="An open-source way to package simulation credibility evidence so a reviewer can verify it without reading 200 pages of prose." />
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link
+  rel="stylesheet"
+  href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400;1,9..144,500&family=IBM+Plex+Sans:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap"
+/>
+
+<style>
+/* ── Theme tokens (dark = default) ────────────────────────── */
+:root {
+  --bg:           #0c0d0e;
+  --bg-elev:      #131418;
+  --bg-subtle:    #1a1c21;
+  --bg-code:      #0f1013;
+  --border:       #25262c;
+  --border-bright:#3a3b42;
+  --text:         #e8e6e1;
+  --text-muted:   #9a988f;
+  --text-faint:   #6b6a64;
+  --accent:       #d4a35a;
+  --accent-hi:    #ead0a0;
+  --accent-dim:   #8b6c3a;
+  --critical:     #c97864;
+  --high:         #d4a35a;
+  --medium:       #b9a472;
+  --pass:         #7eb87a;
+
+  --font-serif: 'Fraunces', ui-serif, Georgia, serif;
+  --font-sans:  'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif;
+  --font-mono:  'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+}
+
+/* Light theme — print-friendly, ink-economical */
+[data-theme="light"] {
+  --bg:           #ffffff;
+  --bg-elev:      #faf8f3;
+  --bg-subtle:    #f3f0e8;
+  --bg-code:      #f7f4ec;
+  --border:       #d8d4c7;
+  --border-bright:#b8b3a5;
+  --text:         #1a1a1a;
+  --text-muted:   #5a5752;
+  --text-faint:   #8a8780;
+  --accent:       #a07832;
+  --accent-hi:    #7d5d22;
+  --accent-dim:   #c7a76a;
+  --critical:     #a85440;
+  --high:         #a07832;
+  --medium:       #8a7340;
+  --pass:         #4a8a48;
+}
+
+/* ── Print sizing ─────────────────────────────────────────── */
+@page {
+  size: letter portrait;
+  margin: 0;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 10.5pt;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+/* The page itself: 8.5 × 11 in, with internal padding */
+.page {
+  width: 8.5in;
+  height: 11in;
+  padding: 0.45in 0.55in 0.4in;
+  margin: 0 auto;
+  background: var(--bg);
+  display: grid;
+  grid-template-rows: auto auto 1fr auto auto;
+  gap: 0.18in;
+  overflow: hidden;
+}
+
+@media screen {
+  body { padding: 32px 0; min-height: 100vh; }
+  .page {
+    box-shadow: 0 24px 70px rgba(0,0,0,0.55), 0 2px 8px rgba(0,0,0,0.3);
+    border: 1px solid var(--border);
+  }
+  [data-theme="light"] body { background: #e8e4d8; }
+  [data-theme="light"] .page {
+    box-shadow: 0 24px 70px rgba(60,50,30,0.18), 0 2px 8px rgba(60,50,30,0.08);
+  }
+}
+
+/* ── Header ───────────────────────────────────────────────── */
+.header {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 14px;
+  align-items: start;
+  padding-bottom: 0.16in;
+  border-bottom: 1px solid var(--border);
+}
+
+.logo {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  color: var(--accent);
+}
+
+.brand-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 9.5pt;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin: 2px 0 4px;
+}
+
+h1.title {
+  font-family: var(--font-serif);
+  font-variation-settings: 'opsz' 80;
+  font-weight: 400;
+  font-size: 28pt;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  margin: 0 0 5px;
+  color: var(--text);
+}
+
+h1.title em {
+  color: var(--accent);
+  font-style: italic;
+  font-variation-settings: 'opsz' 80;
+}
+
+h1.title .title-abbr {
+  font-family: var(--font-mono);
+  font-size: 13pt;
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+  font-style: normal;
+  vertical-align: 0.18em;
+  margin-left: 4px;
+}
+
+.tagline em {
+  font-style: italic;
+  color: var(--accent);
+}
+
+.tagline {
+  font-family: var(--font-serif);
+  font-variation-settings: 'opsz' 30;
+  font-weight: 400;
+  font-size: 12.5pt;
+  line-height: 1.32;
+  margin: 0 0 6px;
+  color: var(--text);
+  max-width: 6.5in;
+}
+
+.author {
+  font-family: var(--font-mono);
+  font-size: 8.5pt;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+/* ── Problem block ────────────────────────────────────────── */
+.problem {
+  padding: 0.1in 0 0.05in;
+}
+
+.section-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 8.5pt;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin: 0 0 6px;
+}
+
+.problem p {
+  margin: 0;
+  font-size: 10.5pt;
+  line-height: 1.5;
+  color: var(--text);
+  max-width: 7.4in;
+}
+
+/* ── Middle: cards + terminal side by side ───────────────── */
+.middle {
+  display: grid;
+  grid-template-columns: 1fr 3.1in;
+  gap: 0.22in;
+  align-items: stretch;
+  min-height: 0;
+}
+
+.cards {
+  display: grid;
+  grid-template-rows: repeat(3, 1fr);
+  gap: 1px;
+  background: var(--border);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.card {
+  background: var(--bg);
+  padding: 0.14in 0.18in;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.card .tag {
+  font-family: var(--font-mono);
+  font-size: 8pt;
+  color: var(--accent);
+  letter-spacing: 0.12em;
+  margin: 0 0 4px;
+}
+
+.card h3 {
+  font-family: var(--font-serif);
+  font-variation-settings: 'opsz' 30;
+  font-weight: 500;
+  font-size: 12.5pt;
+  line-height: 1.15;
+  margin: 0 0 4px;
+  color: var(--text);
+}
+
+.card p {
+  margin: 0;
+  font-size: 9.5pt;
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+
+/* ── Terminal block (Morrison demo) ──────────────────────── */
+.terminal {
+  background: var(--bg-code);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.terminal-bar {
+  background: var(--bg-subtle);
+  padding: 5px 10px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  border-bottom: 1px solid var(--border);
+}
+
+.terminal-bar .dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  display: inline-block;
+}
+.terminal-bar .dot.r { background: #4a3a3a; }
+.terminal-bar .dot.y { background: #4a4530; }
+.terminal-bar .dot.g { background: #364530; }
+[data-theme="light"] .terminal-bar .dot.r { background: #c97864; }
+[data-theme="light"] .terminal-bar .dot.y { background: #d4a35a; }
+[data-theme="light"] .terminal-bar .dot.g { background: #7eb87a; }
+.terminal-bar .title {
+  font-family: var(--font-mono);
+  font-size: 7.5pt;
+  color: var(--text-faint);
+  margin-left: 4px;
+}
+
+.terminal pre {
+  margin: 0;
+  padding: 9px 11px 11px;
+  font-family: var(--font-mono);
+  font-size: 7.6pt;
+  line-height: 1.45;
+  color: var(--text);
+  white-space: pre;
+  overflow: hidden;
+  flex: 1;
+}
+
+.term-prompt { color: var(--accent); }
+.term-cmd    { color: var(--text); }
+.term-faint  { color: var(--text-faint); }
+.term-dim    { color: var(--text-muted); }
+.term-ok     { color: var(--pass); }
+.term-warn   { color: var(--accent); }
+.term-crit   { color: var(--critical); }
+.term-high   { color: var(--high); }
+.term-med    { color: var(--medium); }
+
+/* ── Why it fits ──────────────────────────────────────────── */
+.why {
+  padding: 0.04in 0;
+}
+.why p {
+  margin: 0;
+  font-size: 10pt;
+  line-height: 1.5;
+  color: var(--text);
+  max-width: 7.4in;
+}
+.why p strong { color: var(--accent); font-weight: 500; }
+
+/* ── Try it band ──────────────────────────────────────────── */
+.try {
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.16in 0.2in;
+  display: grid;
+  grid-template-columns: 1fr 1.05in;
+  gap: 0.22in;
+  align-items: center;
+}
+
+.try-content {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.18in;
+}
+
+.try-item .label {
+  font-family: var(--font-mono);
+  font-size: 7.5pt;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin: 0 0 3px;
+}
+
+.try-item .target {
+  font-family: var(--font-mono);
+  font-size: 9.5pt;
+  color: var(--text);
+  word-break: break-all;
+  line-height: 1.3;
+}
+
+.qr-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.qr-block img {
+  width: 0.95in;
+  height: 0.95in;
+  display: block;
+  background: white;
+  padding: 4px;
+  border-radius: 4px;
+}
+
+.qr-block .qr-caption {
+  font-family: var(--font-mono);
+  font-size: 7pt;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+/* ── Footer ───────────────────────────────────────────────── */
+.footer {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.2in;
+  align-items: end;
+  padding-top: 0.1in;
+  border-top: 1px solid var(--border);
+}
+
+.ask {
+  margin: 0;
+  font-size: 10pt;
+  line-height: 1.45;
+  color: var(--text);
+  max-width: 5.6in;
+}
+.ask strong { color: var(--accent); font-weight: 500; }
+
+.contact {
+  text-align: right;
+  font-family: var(--font-mono);
+  font-size: 8.5pt;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+.contact .name {
+  color: var(--text);
+  font-weight: 500;
+}
+.contact a {
+  color: var(--text);
+  text-decoration: none;
+}
+.contact .urls {
+  color: var(--accent);
+}
+</style>
+</head>
+<body>
+
+<div class="page">
+
+  <header class="header">
+    <svg class="logo" viewBox="0 0 100 100" aria-hidden="true">
+      <polygon points="50,4 91,27 91,73 50,96 9,73 9,27" fill="none" stroke="currentColor" stroke-width="5"/>
+      <polygon points="50,22 76,37 76,63 50,78 24,63 24,37" fill="none" stroke="currentColor" stroke-width="3" opacity="0.55"/>
+      <text x="50" y="60" text-anchor="middle" font-family="Fraunces, Georgia, serif" font-size="34" font-weight="500" fill="currentColor">U</text>
+    </svg>
+    <div>
+      <p class="brand-eyebrow">ASME V&amp;V 40 · NASA-STD-7009B · Open source · Apache-2.0</p>
+      <h1 class="title">Unit of <em>Assurance</em> <span class="title-abbr">(UofA)</span></h1>
+      <p class="tagline">An open-source way to package simulation credibility evidence so a reviewer can verify it <em>without reading 200 pages of prose.</em></p>
+      <p class="author">Vishnu Vettrivel · Doctoral Candidate, Systems Engineering, George Washington University</p>
+    </div>
+  </header>
+
+  <section class="problem">
+    <p class="section-eyebrow">The problem</p>
+    <p>Reviewers don't reject your simulation. They reject your evidence package. Standards tell you <em>what</em> to assess. Your tools capture <em>what ran</em>. Neither captures <em>why you believe it</em>, and that's where submissions stall.</p>
+  </section>
+
+  <section class="middle">
+    <div class="cards">
+      <div class="card">
+        <p class="tag">C1 · PACKAGES</p>
+        <h3>Decisions as artifacts</h3>
+        <p>Your credibility evidence becomes a portable, signed object you hand a reviewer. Ed25519 + SHA-256. Tool-independent. Tamper-evident.</p>
+      </div>
+      <div class="card">
+        <p class="tag">C2 · DETECTS GAPS</p>
+        <h3>A rule engine for weakeners</h3>
+        <p>Forward-chaining rules catch missing UQ and unsupported claims. Surfaces compound risks no standalone SPARQL query can find.</p>
+      </div>
+      <div class="card">
+        <p class="tag">C3 · COMPARES</p>
+        <h3>Two contexts of use, side by side</h3>
+        <p>When the bar moves, see exactly which factor moved with it. Diff one COU against another in 30 seconds.</p>
+      </div>
+    </div>
+
+    <div class="terminal" aria-label="Sample uofa rules output on the Morrison blood pump COU 2 evidence package">
+      <div class="terminal-bar">
+        <span class="dot r"></span>
+        <span class="dot y"></span>
+        <span class="dot g"></span>
+        <span class="title">uofa rules morrison/cou2</span>
+      </div>
+<pre><span class="term-prompt">$</span> <span class="term-cmd">uofa rules morrison/cou2.jsonld</span>
+
+<span class="term-faint">══════════════════════════════════</span>
+<span class="term-cmd">  Weakener Detection Report</span>
+<span class="term-faint">══════════════════════════════════</span>
+
+<span class="term-dim">SUMMARY:</span> <span class="term-cmd">18 weakeners detected</span>
+<span class="term-faint">──────────────────────────────────</span>
+  <span class="term-crit">Critical:  9</span>
+  <span class="term-high">High:      7</span>
+  <span class="term-med">Medium:    2</span>
+
+<span class="term-crit">⚡ W-PROV-01</span>   <span class="term-faint">[Crit]   7 hits</span>
+<span class="term-crit">⚡ COMPOUND-01</span> <span class="term-faint">[Crit]   2 hits</span>
+<span class="term-high">⚠ W-EP-04</span>     <span class="term-faint">[High]   6 hits</span>
+<span class="term-high">⚠ W-ON-02</span>     <span class="term-faint">[High]   1 hit</span>
+<span class="term-med">⚠ W-AL-02</span>     <span class="term-faint">[Med]    1 hit</span>
+<span class="term-med">⚠ W-CON-04</span>    <span class="term-faint">[Med]    1 hit</span>
+
+<span class="term-faint">──────────────────────────────────</span>
+<span class="term-warn">⚡ 2 compound inferences</span> <span class="term-faint">— chained,</span>
+<span class="term-faint">  not detectable by standalone SPARQL.</span></pre>
+    </div>
+  </section>
+
+  <section class="why">
+    <p class="section-eyebrow">Why it might fit you</p>
+    <p>Works in <strong>medical device</strong> (ASME V&amp;V 40) and <strong>aerospace</strong> (NASA-STD-7009B) today. Runs locally, so evidence never leaves your environment. Sits alongside your PLM and SPDM — it doesn't replace them.</p>
+  </section>
+
+  <section class="try">
+    <div class="try-content">
+      <div class="try-item">
+        <p class="label">Zero install</p>
+        <p class="target">codespaces.new/<br/>cloudronin/uofa</p>
+      </div>
+      <div class="try-item">
+        <p class="label">On your machine</p>
+        <p class="target">pip install uofa<br/>uofa setup</p>
+      </div>
+      <div class="try-item">
+        <p class="label">Worked example</p>
+        <p class="target">uofa.net/demo</p>
+      </div>
+    </div>
+    <div class="qr-block">
+      <img src="qr-demo.png" alt="QR code to uofa.net/demo" />
+      <p class="qr-caption">Scan for demo</p>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <p class="ask"><strong>The ask:</strong> Run it on one of your own models — even a small one. Email me what breaks or what's missing.</p>
+    <div class="contact">
+      <div class="name">Vishnu Vettrivel</div>
+      <div><a href="mailto:support@uofa.net">support@uofa.net</a></div>
+      <div class="urls">uofa.net · github.com/cloudronin/uofa</div>
+    </div>
+  </footer>
+
+</div>
+
+<script>
+  // Theme switcher from ?theme=light query string
+  (function () {
+    var params = new URLSearchParams(window.location.search);
+    var theme = params.get('theme');
+    if (theme === 'light') {
+      document.documentElement.setAttribute('data-theme', 'light');
+    }
+  })();
+</script>
+
+</body>
+</html>
