@@ -56,3 +56,15 @@ def substrate_paths() -> dict:
         "vocab_path": REPO_ROOT / "uofa/vocab/v0.5/oos_substrate_test.ttl",
         "context_path": REPO_ROOT / "spec/context/v0.5.jsonld",
     }
+
+
+@pytest.fixture
+def substrate_report_path(tmp_path: Path) -> Path:
+    """Per-test report destination for the substrate test JAR.
+
+    Writes go to pytest's ``tmp_path`` instead of an in-repo location so the
+    committed snapshot at ``tests/substrate/oos_backward_substrate_test_report.json``
+    — referenced by ``docs/decisions/2026-05-05-oos-substrate.md`` as a
+    decision-relevant artifact — isn't mutated by test runs.
+    """
+    return tmp_path / "oos_backward_substrate_test_report.json"
