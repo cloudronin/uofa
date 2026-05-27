@@ -1,60 +1,45 @@
 ---
-title: Excel on-ramp
-description: Fill an Excel workbook and convert it to a signed JSON-LD evidence package in one command.
+title: "Authoring on-ramp: evidence to signed UofA"
+description: From an evidence folder to a signed, validated UofA package — extract proposes, you review, import signs.
 ---
 
-For simulation engineers who prefer working in a spreadsheet, the Excel import pipeline produces a signed JSON-LD evidence package in a single command.
+This is the fastest path from the evidence you already have to a signed, validated UofA package. It does not require JSON-LD or RDF. You work in a spreadsheet you already know how to read, and the tool does the rest.
 
-## One-command import
+The path has three stages: extract, review, import. Extract is optional. If you would rather fill the workbook by hand, skip to step 2.
 
-```bash
-# Start from the filled example or a pack template
-cp packs/vv40/templates/uofa-starter-filled.xlsx my-assessment.xlsx
+## 1. Extract a first pass from your evidence
 
-# Edit my-assessment.xlsx in Excel — fill in your project details,
-# credibility factors, validation results, and decision
-
-# Import, sign, and validate in one step
-uofa import my-assessment.xlsx --sign --key keys/research.key --check --pack vv40
-```
-
-The Excel template has five sheets:
-
-| Sheet | What goes here |
-|---|---|
-| Assessment Summary | Project name, COU, decision, dates |
-| Model & Data | Model URI, datasets, source documents |
-| Validation Results | Per-result name, metric, comparator |
-| Credibility Factors | Per-factor name, required level, achieved level, rationale |
-| Decision | Decision text, decided by, criteria reference |
-
-Factor names and categories are pre-populated. You fill in levels, rationale, and status. The import command generates URIs, assigns `factorStandard`, tracks provenance, and writes a complete JSON-LD file.
-
-## Pack-specific behaviour
-
-| Pack | Factor count | Level range | Notes |
-|---|---|---|---|
-| `vv40` | 13 | 1–5 | ASME V&V 40-2018 taxonomy. Default. |
-| `nasa-7009b` | 19 | 0–4 | NASA-STD-7009B. `assessmentPhase` auto-assigned. |
-
-Pass `--pack nasa-7009b` to use the NASA template:
+Point `uofa extract` at a folder of source material. It reads the documents and proposes values for each credibility factor, one sheet per factor.
 
 ```bash
-uofa import my-assessment.xlsx --pack nasa-7009b --sign --key keys/aero.key --check
+uofa extract ./evidence --pack vv40 -o assessment.xlsx
 ```
 
-## What the importer guarantees
+Use `--pack nasa-7009b` for the aerospace factor set. Extract is model-assisted, so it is fast but not authoritative. It is a starting point for review, not a verdict.
 
-| Feature | Detail |
-|---|---|
-| URI generation | Stable per-row URIs from sheet position and project name |
-| Provenance | An `ImportActivity` entry with timestamp, source file, and tool version |
-| Error messages | Sheet name and cell reference (e.g. `[Credibility Factors!C7] Required Level must be 1-5`) |
-| SHACL-synced | Factor names, level ranges, and enums are generated from SHACL via `uofa schema --emit python` |
+**On sensitive evidence:** extract runs fully local with a model served by Ollama, so nothing leaves your machine. A hosted model is also supported through the `--model` flag if your evidence is not sensitive and you want higher extraction quality. See [LLM configuration](/docs/llm-config/).
 
-## Where to start
+## 2. Review the workbook
 
-Either:
+Open `assessment.xlsx`. Each factor is on its own sheet, with confidence coloring that shows where extraction was uncertain. Check those first. Correct levels, add the acceptance criteria the model could not infer, and fill anything left blank.
 
-- Copy `packs/vv40/templates/uofa-starter-filled.xlsx` and edit your details over the working example, or
-- Copy `packs/vv40/templates/vv40-template.xlsx` for an empty form
+This step is the point of the whole on-ramp. Extract makes the gaps machine-checkable, but the engineer is the one who decides what is true. Nothing downstream trusts a value you have not reviewed.
+
+If you skipped extract, start here: open a blank workbook scaffolded by `uofa init`, and fill it in directly.
+
+## 3. Import to a signed package
+
+One command turns the reviewed workbook into signed, validated JSON-LD, with completeness and integrity checks built in.
+
+```bash
+$ uofa import assessment.xlsx --pack vv40 --sign --key research.key --check
+  ✓ signed with ed25519
+  ✓ SHACL Complete profile conforms
+  → assessment.jsonld
+```
+
+The result is portable, tamper-evident, and ready for the rule engine. From here, run [`uofa rules`](/reference/cli/) to detect weakeners, or [`uofa diff`](/reference/cli/) to compare two contexts of use.
+
+## What you get
+
+Minutes from an evidence folder to a signed package a reviewer can verify without reading the prose behind it. The spreadsheet is where humans review. The rule engine is where machines verify. The two stay separate on purpose.

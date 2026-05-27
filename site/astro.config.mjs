@@ -63,7 +63,7 @@ export default defineConfig({
             { label: 'Live demo (Morrison)', link: '/demo/' },
             { label: 'Install', link: '/start/install/' },
             { label: 'Your first UofA', link: '/start/first-uofa/' },
-            { label: 'Excel on-ramp', link: '/start/from-excel/' },
+            { label: 'Authoring on-ramp', link: '/start/from-excel/' },
           ],
         },
         {
