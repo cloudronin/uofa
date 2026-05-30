@@ -24,15 +24,25 @@ def add_arguments(parser):
                         help="run all quality gates on the output")
     parser.add_argument("--profile", choices=["minimal", "complete"],
                         help="override profile auto-detection")
+    parser.add_argument("--sip-pubkey", type=Path,
+                        help="SIP measurement public key for verifying a SIP-bundle input (default: keys/research.pub)")
+    parser.add_argument("--decision-pubkey", type=Path,
+                        help="engineer public key for verifying a SIP-bundle engineerDecision on import")
 
 
 def run(args) -> int:
-    from uofa_cli.excel_reader import read_workbook, ImportError as ExcelImportError
-    from uofa_cli.excel_mapper import map_to_jsonld
-
     # ── Project-aware defaults ───────────────────────────────
     project_root = paths.find_project_root()
     config = paths.load_project_config(project_root) if project_root else {}
+
+    # ── v2 native SIP-bundle path (SIP §7.3 v2) ──────────────
+    # A SIP evidence bundle (.json) maps directly to surrogate-pack JSON-LD via
+    # the native reader, skipping the xlsx/LLM on-ramp for measured fields.
+    if args.file and args.file.suffix.lower() == ".json" and _looks_like_sip_bundle(args.file):
+        return _run_sip_import(args, args.file, project_root, config)
+
+    from uofa_cli.excel_reader import read_workbook, ImportError as ExcelImportError
+    from uofa_cli.excel_mapper import map_to_jsonld
 
     # Resolve input file: CLI > uofa.toml template > error
     xlsx = args.file
@@ -105,16 +115,61 @@ def run(args) -> int:
     info(f"  {n_vr} validation result(s), {n_factors} credibility factor(s)")
     info(f"  Profile: {data['summary']['profile']}, Pack: {', '.join(packs)}")
 
-    # ── Optional: Sign ───────────────────────────────────────
-    # Implicitly sign when --key is provided alongside --check: the only
-    # reason to pass --key to import + verify is to verify against that
-    # key, which requires signing first. Avoids the confusing two-step
-    # "your file isn't signed, signature invalid" detour.
+    return _sign_and_check(args, output, packs, project_root)
+
+
+def _looks_like_sip_bundle(path: Path) -> bool:
+    try:
+        doc = json.loads(Path(path).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return False
+    return isinstance(doc, dict) and str(doc.get("schemaVersion", "")).startswith("sip-evidence-bundle")
+
+
+def _run_sip_import(args, bundle_path: Path, project_root, config) -> int:
+    """v2 native SIP-bundle import: verify signatures, map to surrogate-pack JSON-LD."""
+    from uofa_cli.readers.sip_bundle_reader import read_sip_bundle
+
+    packs = ["surrogate"]
+    paths.set_active_pack(packs)
+    step_header(f"Importing SIP bundle {bundle_path.name}")
+
+    measurement_pubkey = getattr(args, "sip_pubkey", None) or paths.default_pubkey()
+    decision_pubkey = getattr(args, "decision_pubkey", None)
+    try:
+        doc = read_sip_bundle(bundle_path, measurement_pubkey=measurement_pubkey,
+                              decision_pubkey=decision_pubkey)
+    except (ValueError, FileNotFoundError) as exc:
+        error(str(exc))
+        return 1
+
+    output = args.output
+    if not output and config.get("output"):
+        output = config["output"] / f"{bundle_path.stem}.jsonld"
+    if not output:
+        output = bundle_path.with_suffix(".jsonld")
+    output.parent.mkdir(parents=True, exist_ok=True)
+    with open(output, "w") as f:
+        json.dump(doc, f, indent=2, sort_keys=True, ensure_ascii=False)
+        f.write("\n")
+
+    result_line("Imported SIP bundle", True, str(output))
+    info("  measurement signature verified")
+    if "decision" in doc:
+        info(f"  engineer decision: {doc['decision']} (signature verified)")
+    else:
+        info("  engineer decision: none verified → no inferred acceptance")
+    return _sign_and_check(args, output, packs, project_root)
+
+
+def _sign_and_check(args, output: Path, packs, project_root) -> int:
+    # Implicitly sign when --key is provided alongside --check: the only reason
+    # to pass --key to import + verify is to verify against that key, which
+    # requires signing first.
     should_sign = args.sign or bool(args.check and args.key)
     signing_key: Path | None = None
     if should_sign:
         key = args.key
-        # Auto-detect key from project if not specified
         if not key and project_root:
             key_candidates = list((project_root / "keys").glob("*.key"))
             if key_candidates:
@@ -133,16 +188,10 @@ def run(args) -> int:
         result_line("Signed", True)
         info(f"  SHA-256: {sha256_hex[:16]}...")
 
-    # ── Optional: Check ──────────────────────────────────────
     if args.check:
         from uofa_cli.commands import check
         import argparse
 
-        # Derive pubkey from the signing key path (convention is .key → .pub
-        # per integrity.py:77 and keygen). Falls back to None, which lets
-        # check.py default to paths.default_pubkey() (<repo>/keys/research.pub).
-        # Doing the derivation here means `uofa import --key foo.key --check`
-        # works outside the repo root, where default_pubkey() can't resolve.
         pubkey_for_check: Path | None = None
         if signing_key is not None:
             candidate = signing_key.with_suffix(".pub")
