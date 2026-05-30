@@ -132,28 +132,11 @@ def test_end_to_end_init_to_check(workspace):
     assert imported["decision"] == "Accepted"  # verified engineer decision carried in
     assert "https://uofa.net/vocab/surrogate#trainingEnvelope" in imported
 
-    # 7) check — the surrogate pack fires on the imported COU, via the
-    #    derivation-aware detection path (run_structured), which is what the
-    #    pack tests, the interpretation pipeline, and `uofa diff` use.
-    #    (The legacy `uofa check` CLI does NOT run the derivation pre-pass — a
-    #    pre-existing repo behavior affecting every derived-flag pack — so
-    #    W-SURR-03, which consumes a derived flag, surfaces here, not via the
-    #    bare CLI. W-SURR-01 is pure-Jena and surfaces either way.)
-    import argparse as _argparse
-    from uofa_cli import paths as _paths
-    from uofa_cli.commands.check import run_structured
-
-    _paths.set_active_pack(["surrogate"])
-    result = run_structured(_argparse.Namespace(
-        file=cou, pubkey=None, context=None, rules=None, skip_rules=False, build=False,
-        enable_oos=False, disable_oos=False, no_color=True, verbose=False,
-        repo_root=None, pack=["surrogate"],
-    ))
-    pids = {f["patternId"] for f in (result.rules.firings or [])}
-    assert "W-SURR-03" in pids, f"expected extrapolation weakener; got {pids}"
-    assert "W-SURR-01" in pids, f"expected unchecked-constraint weakener; got {pids}"
-
-    # And the CLI import+check path runs and surfaces the pure-Jena weakener.
-    r = _uofa("import", str(pkg), "--sip-pubkey", str(ws / "sip.pub"),
-              "--decision-pubkey", str(ws / "eng.pub"), "-o", str(ws / "cou2.jsonld"), "--check")
-    assert "W-SURR-01" in (r.stdout + r.stderr)
+    # 7) check — the surrogate pack fires on the imported COU via the real CLI.
+    #    `uofa check` runs the derivation pre-pass + OOS, so W-SURR-03 (which
+    #    consumes the derived _evalOutsideEnvelope flag) surfaces directly, and
+    #    W-SURR-01 (pure Jena, unchecked declared constraint) alongside it.
+    r = _uofa("check", str(cou), "--pack", "surrogate")
+    out = r.stdout + r.stderr
+    assert "W-SURR-03" in out, f"expected extrapolation weakener via uofa check; got:\n{out}"
+    assert "W-SURR-01" in out, f"expected unchecked-constraint weakener; got:\n{out}"

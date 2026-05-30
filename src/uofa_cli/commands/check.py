@@ -11,7 +11,7 @@ import argparse
 from dataclasses import dataclass
 from pathlib import Path
 
-from uofa_cli.output import header, step_header, result_line
+from uofa_cli.output import header, step_header, result_line, info
 from uofa_cli.shacl_friendly import run_shacl_multi, print_results
 from uofa_cli.integrity import verify_file
 from uofa_cli import paths
@@ -278,84 +278,107 @@ def run_structured(args) -> CheckResult:
 
 
 def run(args) -> int:
-    if not args.file.exists():
-        raise FileNotFoundError(f"File not found: {args.file}")
+    """I/O shell over ``run_structured``.
 
-    results: dict[str, bool | None] = {}
+    Delegates the full pipeline (SHACL + integrity + derivation pre-pass +
+    rules-on-enriched + OOS) to ``run_structured`` and renders the typed
+    ``CheckResult`` for humans. This is what lets derived-flag weakeners (e.g.
+    iso42001's W-AIMS rules, surrogate's W-SURR-03) and OOS findings surface
+    under the user-facing ``uofa check`` — the legacy shell ran rules on the
+    un-enriched file and never ran OOS. For packs that declare neither a
+    derivation pre-pass nor OOS (vv40, nasa-7009b), ``run_structured`` leaves
+    both fields ``None``, so the rendered output is byte-identical to before.
+    """
+    import sys
+
+    from uofa_cli.commands import rules as rules_mod
+
+    result = run_structured(args)
 
     # ── C2: SHACL ─────────────────────────────────────────────
     step_header("C2: SHACL profile validation")
-    shacl_paths = paths.all_shacl_schemas()
-    conforms, violations = run_shacl_multi(args.file, shacl_paths)
-    print_results(conforms, violations)
-    results["C2 SHACL"] = conforms
+    print_results(result.shacl.conforms, result.shacl.violations)
 
     # ── C1: Integrity ─────────────────────────────────────────
-    ctx = args.context or paths.context_file()
     step_header("C1: Integrity verification (hash + signature)")
-    pubkey = args.pubkey or paths.default_pubkey()
-    if pubkey.exists():
-        hash_ok, sig_ok = verify_file(args.file, pubkey, ctx)
-        result_line("Hash match", hash_ok)
-        result_line("Signature valid", sig_ok)
-        results["C1 Integrity"] = hash_ok and sig_ok
+    if result.integrity.pubkey_found:
+        result_line("Hash match", result.integrity.hash_ok)
+        result_line("Signature valid", result.integrity.sig_ok)
     else:
-        result_line("Integrity check", False, f"public key not found: {pubkey}")
-        results["C1 Integrity"] = False
+        result_line("Integrity check", False,
+                    f"public key not found: {result.integrity.pubkey_path}")
 
-    # ── C3: Rules ─────────────────────────────────────────────
-    import sys
-    sys.stdout.flush()
-    if args.skip_rules:
-        results["C3 Rules"] = None
-    else:
-        from uofa_cli.commands import rules as rules_mod
-        rules_args = argparse.Namespace(
-            file=args.file,
-            rules=args.rules,
-            context=args.context,
-            build=args.build,
-            raw=False,
-            format="summary",
-            output=None,
+    # ── C2.5: Derivation pre-pass (only when a pack declares it) ──
+    if result.derivations is not None:
+        step_header("C2.5: Derivation pre-pass")
+        result_line(
+            "Derived analytic predicates", True,
+            f"{result.derivations.derived_triple_count} triple(s) from "
+            f"{result.derivations.construct_count} CONSTRUCT(s)",
         )
-        try:
-            rc = rules_mod.run(rules_args)
-            results["C3 Rules"] = (rc == 0)
-        except FileNotFoundError as exc:
-            result_line("Rule engine", False, str(exc).split("\n")[0])
-            results["C3 Rules"] = False
+    elif result.derivations_error:
+        step_header("C2.5: Derivation pre-pass")
+        result_line("Derivation pre-pass", False, result.derivations_error)
+
+    # ── C3: Rules (run on the enriched package by run_structured) ──
+    if result.rules is not None:
+        step_header("C3: Jena rule engine — weakener detection")
+        sys.stdout.flush()
+        for line in result.rules.raw_stdout.splitlines():
+            print(rules_mod._colorize_line(line))
+        if result.rules.raw_stderr:
+            print(result.rules.raw_stderr, file=sys.stderr, end="")
+    elif result.rules_error is not None:
+        step_header("C3: Jena rule engine — weakener detection")
+        result_line("Rule engine", False, result.rules_error)
+    # else: --skip-rules → no C3 section (matches the legacy shell)
+
+    # ── OOS: productive out-of-scope (only when a pack declares it) ──
+    if result.oos is not None:
+        _render_oos(result.oos)
+    elif result.oos_error and getattr(args, "enable_oos", False):
+        step_header("OOS: productive out-of-scope (bundle sufficiency)")
+        result_line("OOS engine", False, result.oos_error)
 
     # ── Summary ───────────────────────────────────────────────
     header(f"Summary: {args.file.name}")
-    all_ok = True
-    for label, ok in results.items():
-        if ok is None:
-            result_line(label, True, "skipped")
-        else:
-            result_line(label, ok)
-            if not ok:
-                all_ok = False
+    result_line("C2 SHACL", result.shacl.conforms)
+    result_line("C1 Integrity", result.integrity.ok)
+    if result.rules is None and result.rules_error is None:
+        result_line("C3 Rules", True, "skipped")
+    else:
+        result_line("C3 Rules", result.rules is not None and result.rules.returncode == 0)
+    if result.oos is not None:
+        result_line("OOS", result.oos.returncode == 0,
+                    f"{len(result.oos.firings)} judgment-required gap(s)")
 
     # ── --explain pipeline (spec §3.1) ────────────────────────
-    # Per spec §2.6, check supports all five functions; in P-B only `explain`
-    # is implemented. Runs over both rules firings and shacl violations.
+    # Firings now come from the enriched rules pass (so derived-flag weakeners
+    # are explained too); the richness re-invocation in _run_explain is
+    # unchanged.
     if getattr(args, "explain", False):
-        rules_firings = []
-        # Re-run rules.run_structured to get firings (the run() above just
-        # printed exit status). Skipped when --skip-rules.
-        if not args.skip_rules:
-            from uofa_cli.commands import rules as rules_mod
-            try:
-                rs = rules_mod.run_structured(rules_args)
-                rules_firings = rs.firings
-            except (FileNotFoundError, RuntimeError):
-                pass
+        rules_firings = result.rules.firings if result.rules is not None else []
+        _run_explain(args, conforms=result.shacl.conforms,
+                     violations=result.shacl.violations, rules_firings=rules_firings)
 
-        _run_explain(args, conforms=conforms, violations=violations,
-                     rules_firings=rules_firings)
+    return result.exit_code
 
-    return 0 if all_ok else 1
+
+def _render_oos(oos_result) -> None:
+    """Render OOS bundle-sufficiency findings (judgment-required gaps).
+
+    Productive-OOS: a finding is a gap the practitioner must judge, not a
+    pipeline failure — surfaced as informational lines.
+    """
+    step_header("OOS: productive out-of-scope (bundle sufficiency)")
+    firings = oos_result.firings or []
+    if not firings:
+        result_line("Bundle sufficiency", True, "no judgment-required gaps surfaced")
+        return
+    for firing in firings:
+        rule = firing.get("rule_name") or firing.get("verdict", "OUT-OF-SCOPE")
+        gap = (firing.get("evidence_gap") or {}).get("missing_evidence_type", "")
+        info(f"{rule}: missing {gap}" if gap else f"{rule}: judgment-required gap")
 
 
 def _run_explain(args, *, conforms: bool, violations: list,
