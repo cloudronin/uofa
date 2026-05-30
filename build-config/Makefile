@@ -20,12 +20,20 @@ KEY  ?= keys/research.key
 
 .PHONY: all test validate morrison morrison-shacl morrison-rules morrison-verify morrison-diff
 .PHONY: morrison-build morrison-sign clean check shacl verify rules sign corpus corpus-clean
-.PHONY: clean-bundled
+.PHONY: clean-bundled firewall-guard
 
 # ── Primary targets ─────────────────────────────────────────
 
-all: clean morrison-build test validate morrison morrison-diff
+all: clean morrison-build firewall-guard test validate morrison morrison-diff
 	@echo "\n✓ All checks passed."
+
+# ── Interrogation firewall guard (SIP measures, never judges) ─
+# Fails the build if the SIP evidence bundle schema whitelists a verdict
+# field, its denylist drifts from FORBIDDEN_TOKENS, a committed bundle carries
+# a forbidden field, or the wheel stops force-including specs/. See AGENTS.md §12.
+
+firewall-guard:
+	cd $(ROOT) && python dev/tools/scripts/firewall_guard.py
 
 # ── Generic targets (delegate to uofa CLI) ──────────────────
 
@@ -103,6 +111,18 @@ clean-bundled:
 
 corpus:
 	cd $(ROOT) && python tests/corpus/build.py
+
+# ── Interrogation eval corpus (AirfRANS, pull-on-demand) ────
+# AirfRANS is ODbL share-alike and never vendored. Install the extra, then pull
+# on demand into UOFA_AIRFRANS_DIR; the eval harness skips when it is absent.
+UOFA_AIRFRANS_DIR ?= $(ROOT)/dev/build/airfrans
+
+interrogate-corpus:
+	@echo "AirfRANS eval corpus (ODbL; never committed to the repo)."
+	@echo "  1) pip install -e '.[interrogate-corpus]'"
+	@echo "  2) set UOFA_AIRFRANS_DIR (current: $(UOFA_AIRFRANS_DIR))"
+	@echo "  3) pull AirfRANS into that dir; the harness reads it on demand."
+	@echo "See packs/surrogate/README.md and tests/fixtures/interrogate/pdebench/LICENSE.md."
 
 corpus-clean:
 	cd $(ROOT) && rm -rf tests/corpus/edge-cases tests/corpus/import-tests

@@ -12,7 +12,7 @@ import json
 from pathlib import Path
 
 from uofa_cli.integrity import verify_file
-from uofa_cli.output import error, result_line, step_header, warn
+from uofa_cli.output import error, info, result_line, step_header, warn
 from uofa_cli import paths
 
 HELP = "verify hash + ed25519 signature (C1 integrity)"
@@ -24,6 +24,8 @@ def add_arguments(parser):
     parser.add_argument("file", type=Path, help="UofA JSON-LD file to verify")
     parser.add_argument("--pubkey", type=Path, help="ed25519 public key (default: keys/research.pub)")
     parser.add_argument("--context", "-c", type=Path, help="JSON-LD context file")
+    parser.add_argument("--decision-pubkey", type=Path,
+                        help="engineer's public key, to verify a SIP engineerDecision signature (Addendum A6)")
 
 
 def run(args) -> int:
@@ -49,6 +51,12 @@ def run(args) -> int:
     if not pubkey.exists():
         raise FileNotFoundError(f"Public key not found: {pubkey}")
 
+    # SIP evidence bundles carry two independent signatures with two scopes
+    # (Addendum A6); route them through the dual-signature path.
+    from uofa_cli.interrogate.signing import is_sip_bundle
+    if doc is not None and is_sip_bundle(doc):
+        return _verify_sip(args, doc, pubkey)
+
     ctx = args.context or paths.context_file()
     step_header("C1: Integrity verification (hash + signature)")
 
@@ -57,6 +65,37 @@ def run(args) -> int:
     result_line("Hash match", hash_ok)
     result_line("Signature valid", sig_ok)
 
+    return 0 if (hash_ok and sig_ok) else 1
+
+
+def _verify_sip(args, doc: dict, measurement_pubkey: Path) -> int:
+    """Verify a SIP bundle's measurement signature and, independently, any
+    engineer decision signature (Addendum A6).
+
+    Only the measurement signature gates the package. A missing, unsupplied-key,
+    mis-scoped, or unverifiable decision signature is surfaced as "no engineer
+    decision" — never as a failure of the whole package (A6 step 3 / A10).
+    """
+    from uofa_cli.interrogate import signing
+
+    step_header("C1: SIP integrity (measurement + decision signatures)")
+    hash_ok, sig_ok = signing.verify_measurement(doc, measurement_pubkey)
+    result_line("Measurement hash match", hash_ok)
+    result_line("Measurement signature valid", sig_ok)
+
+    if "engineerDecision" not in doc:
+        info("Engineer decision: none present (valid measurement package, no judgment).")
+    elif args.decision_pubkey is None:
+        info("Engineer decision: present but no --decision-pubkey supplied → treated as no decision.")
+    else:
+        ok, reason = signing.verify_decision(doc, args.decision_pubkey)
+        if ok:
+            decided_by = doc["engineerDecision"].get("decidedBy", "")
+            result_line("Engineer decision signature valid", True, f"decidedBy {decided_by}")
+        else:
+            info(f"Engineer decision: not verified → treated as no decision ({reason}).")
+
+    # The measurement signature is the only gate on the package.
     return 0 if (hash_ok and sig_ok) else 1
 
 

@@ -334,6 +334,68 @@ than bundling it into the current commit or inventing a local TODO file.
 
 ---
 
+## 12. The interrogation firewall (signature-scoped)
+
+SIP — the Surrogate Interrogation Probe (`uofa interrogate`) — **measures; it
+does not decide.** A package MAY carry an engineer's decision, but only as a
+signed, attributed human act — never as something the tool authored. This is
+the same enforcement class as the §10 AI-attribution prohibition. (Addendum A
+superseded the earlier "these tokens never appear anywhere" rule; the thing
+forbidden was always *SIP deciding*, not the vocabulary.)
+
+- **Rule:** SIP's measurement output MUST contain no decision content (no
+  pass/fail, accepted, validated, credibility score) and SIP MUST NOT author or
+  sign a decision. Decision content is valid **only** inside a top-level
+  `engineerDecision` block whose `decisionSignature` verifies against an
+  externally supplied human key over the decision block **plus the measurements
+  it references** (the A6 scope). Decision content in the measurement region, or
+  in an unsigned / mis-scoped / unverifiable `engineerDecision` block, is a
+  breach. The forbidden-token list lives in
+  `src/uofa_cli/interrogate/forbidden.py::FORBIDDEN_TOKENS`, scoped to the
+  measurement region by `find_forbidden_in_measurement_region` and consumed by
+  the schema (measurement-region denylist + `engineerDecision` exempt), the
+  `firewall-guard` make target, and the `tests/interrogate/` tests.
+  **Why:** the signed evidence contract is the only interface between
+  measurement and judgment. A verdict authored by the tool — or one crossing
+  the boundary unsigned — collapses the separation that makes the evidence
+  auditable rather than self-certifying.
+
+- **Rule:** No fused step. `review` and `sign` are separate; `uofa interrogate`
+  MUST NOT threshold, print a verdict, chain into `check`/`rules`/`validate`, or
+  offer any measure-and-sign-in-one path. `uofa decision sign` REQUIRES the
+  engineer's own `--key` — no default, no service key, no headless/batch
+  stamping — and re-verifies the measurement signature before signing
+  (stale-bundle refusal). The tool never suggests or defaults the criterion or
+  verdict; `accepted` and `not-accepted` are symmetric.
+  **Why:** "interrogate-and-decide in one step," or a default/synthesized
+  decider, is the verdict-in-the-tool breach reintroduced through UX.
+
+- **Rule:** UofA **verifies** decision signatures; it never creates, holds,
+  issues, or manages the deciding key (it is the engineer's, like a git signing
+  key). `uofa verify` reports the measurement and decision signatures
+  independently; a missing/mis-scoped/unverifiable decision is surfaced as "no
+  engineer decision," never as failure of the package. The SIP schema MUST ship
+  in the wheel (`pyproject` force-includes `specs/`) so the schema layer runs
+  for pip-installed users, not just source checkouts.
+  **Why:** verifying without custody keeps a clean verification model from
+  drifting into an identity-management product. A firewall that only runs in
+  the dev tree is not a firewall.
+
+- **Rule (vendor conformance).** The CLI and the signed-package contract are the
+  integration surface; no special integration path is granted. A vendor may
+  drive the CLI (passing through to the engineer's key) or consume the signed
+  artifact — but the decision signature MUST be the deciding human's key.
+  Substituting a platform service/identity key is non-conformant (the
+  unattributed-decision breach relocated). Conformance is defined by the
+  artifact — a decision signature that verifies against a real human key over
+  the A6 scope — and is checkable from the package alone; UofA does not certify,
+  bless, or audit integrations.
+
+A change that violates this rule is out of scope by default and tracked per
+§11, not merged as a convenience.
+
+---
+
 ## Quick reference
 
 - **Validate before pushing:** `pytest tests/ -q` and (for CLI changes)

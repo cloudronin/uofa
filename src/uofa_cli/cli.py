@@ -66,7 +66,7 @@ def _run():
     sub = parser.add_subparsers(dest="command", title="commands")
 
     # ── Register subcommands ──────────────────────────────────
-    from uofa_cli.commands import keygen, sign, verify, shacl, rules, check, validate, init, diff, schema, packs, migrate, import_excel, extract_cmd, adversarial, catalog, setup, demo
+    from uofa_cli.commands import keygen, sign, verify, shacl, rules, check, validate, init, diff, schema, packs, migrate, import_excel, extract_cmd, adversarial, catalog, setup, demo, interrogate, decision
     from uofa_cli.commands import explain as explain_cmd
 
     modules = {
@@ -89,6 +89,8 @@ def _run():
         "adversarial": adversarial,
         "setup":       setup,
         "demo":        demo,
+        "interrogate": interrogate,
+        "decision":    decision,
     }
 
     subparsers: dict[str, argparse.ArgumentParser] = {}

@@ -1,0 +1,345 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SIPEvidenceBundle",
+  "description": "Surrogate Interrogation Probe (SIP) evidence bundle — the frozen integration contract between SIP and the UofA surrogate pack (SIP_Evidence_Contract_Spec_v0_1.md §5, Addendum A). SIP measures; it never judges. THE FIREWALL (Addendum A5, signature-scoped, supersedes the flat token denylist): decision content (decisionValue, accepted/not-accepted, acceptance language) is valid ONLY inside an engineerDecision block whose decisionSignature verifies against an externally supplied human key over the correct scope (Addendum A6). It is forbidden everywhere else — the 'measurement region'. Root additionalProperties:false rejects any decision field at the top level; the measurement-region freeform objects (measurements, per-measurement config/runEnvironment, provenance) carry a propertyNames denylist kept in lockstep with src/uofa_cli/interrogate/forbidden.py::FORBIDDEN_TOKENS; the engineerDecision block is EXEMPT from that denylist and governed by the signature check instead. Exact-property-name matching, so parentModelSnapshot.parentDecision (the parent COU's recorded decision, inherited provenance per §5.6) is legitimate.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "bundleId",
+    "sipVersion",
+    "schemaVersion",
+    "generatedAt",
+    "subject",
+    "declaredScope",
+    "measurementProvenance",
+    "measurements",
+    "provenance",
+    "completeness"
+  ],
+  "properties": {
+    "bundleId": { "type": "string", "minLength": 1 },
+    "sipVersion": { "type": "string", "minLength": 1 },
+    "schemaVersion": { "type": "string", "minLength": 1 },
+    "generatedAt": { "type": "string", "format": "date-time" },
+
+    "subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "§5.2 the surrogate under interrogation.",
+      "required": ["surrogateId", "modelVersion", "surrogateType", "modelFingerprint", "adapterRef"],
+      "properties": {
+        "surrogateId": { "type": "string", "minLength": 1 },
+        "modelVersion": { "type": "string" },
+        "surrogateType": {
+          "type": "string",
+          "enum": ["ROM", "PINN", "operator-learning", "data-driven-emulator", "ML-closure"]
+        },
+        "modelFingerprint": { "type": "string", "description": "hash of the surrogate artifact" },
+        "adapterRef": { "type": "string", "description": "dotted or file path to the ModelAdapter used" }
+      }
+    },
+
+    "declaredScope": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "§5.3 declared training envelope, COU evaluation point/region, and physics constraints.",
+      "required": ["trainingEnvelope", "declaredPhysicsConstraint"],
+      "properties": {
+        "trainingEnvelope": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["dimensions"],
+          "properties": {
+            "dimensions": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["name", "min", "max"],
+                "properties": {
+                  "name": { "type": "string" },
+                  "min": { "type": "number" },
+                  "max": { "type": "number" },
+                  "units": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "evaluationPoint": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "per-dimension scalar coordinates of the COU evaluation point.",
+          "required": ["coordinates"],
+          "properties": {
+            "coordinates": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["name", "value"],
+                "properties": {
+                  "name": { "type": "string" },
+                  "value": { "type": "number" },
+                  "units": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "evaluationRegion": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "per-dimension bounds of the COU evaluation region.",
+          "required": ["dimensions"],
+          "properties": {
+            "dimensions": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["name", "min", "max"],
+                "properties": {
+                  "name": { "type": "string" },
+                  "min": { "type": "number" },
+                  "max": { "type": "number" },
+                  "units": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "declaredPhysicsConstraint": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["constraintId", "description"],
+            "properties": {
+              "constraintId": { "type": "string" },
+              "description": { "type": "string" },
+              "kind": { "type": "string", "description": "conservation | boundary-condition | invariant | monotonicity | ..." }
+            }
+          }
+        },
+        "scopeProvenance": {
+          "type": "object",
+          "description": "Addendum A14.1: per-scope-field provenance recorded by `uofa interrogate init`. Keys are scope-field identifiers (e.g. 'trainingEnvelope.reynolds', 'evaluationPoint.aoa', 'constraint.mass-conservation'); values are 'extracted-from:<source>;confirmed-by-engineer' or 'entered-by-engineer'. Measurement-region content, not a decision.",
+          "additionalProperties": { "type": "string" }
+        }
+      }
+    },
+
+    "measurementProvenance": {
+      "type": "array",
+      "description": "§5.4 per-measurement provenance: which library+version+config+seed produced each measurement.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["measurementId", "producedBy"],
+        "properties": {
+          "measurementId": { "type": "string", "minLength": 1 },
+          "producedBy": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["library", "version"],
+            "properties": {
+              "library": { "type": "string" },
+              "version": { "type": "string" }
+            }
+          },
+          "config": {
+            "type": "object",
+            "description": "freeform per-measurement configuration; the denylist forbids verdict keys even here.",
+            "propertyNames": {
+              "not": {
+                "enum": [
+                  "verdict", "passFail", "pass_fail", "accepted", "rejected",
+                  "validated", "credible", "credibilityIndex", "decision", "outcome",
+                  "certify", "certified", "score", "rating", "approved"
+                ]
+              }
+            }
+          },
+          "seed": { "type": ["integer", "null"] },
+          "runEnvironment": {
+            "type": "object",
+            "description": "freeform run environment (python/platform/library versions); denylist forbids verdict keys.",
+            "propertyNames": {
+              "not": {
+                "enum": [
+                  "verdict", "passFail", "pass_fail", "accepted", "rejected",
+                  "validated", "credible", "credibilityIndex", "decision", "outcome",
+                  "certify", "certified", "score", "rating", "approved"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+
+    "measurements": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "§5.5 the interrogation measurements. SIP computes; it does not threshold.",
+      "propertyNames": {
+        "not": {
+          "enum": [
+            "verdict", "passFail", "pass_fail", "accepted", "rejected",
+            "validated", "credible", "credibilityIndex", "decision", "outcome",
+            "certify", "certified", "score", "rating", "approved"
+          ]
+        }
+      },
+      "required": ["referenceResiduals", "envelopeCoverage", "physicsConstraintResidual", "uqCalibration"],
+      "properties": {
+        "referenceResiduals": {
+          "type": "array",
+          "description": "residuals of surrogate outputs vs the reference set, per quantity of interest.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["quantityOfInterest", "statistics"],
+            "properties": {
+              "quantityOfInterest": { "type": "string" },
+              "statistics": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "count": { "type": ["integer", "null"] },
+                  "mean": { "type": ["number", "null"] },
+                  "min": { "type": ["number", "null"] },
+                  "max": { "type": ["number", "null"] },
+                  "rms": { "type": ["number", "null"] },
+                  "l2": { "type": ["number", "null"] },
+                  "stddev": { "type": ["number", "null"] }
+                }
+              },
+              "measurementRef": { "type": "string", "description": "links to a measurementProvenance.measurementId" }
+            }
+          }
+        },
+        "envelopeCoverage": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "whether the benchmark spans the training envelope and whether the eval point lies inside it.",
+          "required": ["benchmarkSpansEnvelope", "evaluationPointInEnvelope"],
+          "properties": {
+            "benchmarkSpansEnvelope": { "type": ["boolean", "null"] },
+            "evaluationPointInEnvelope": { "type": ["boolean", "null"] },
+            "measurementRef": { "type": "string" }
+          }
+        },
+        "physicsConstraintResidual": {
+          "type": "array",
+          "description": "residuals of conservation/invariant checks, per declared physics constraint.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["constraintId", "statistics"],
+            "properties": {
+              "constraintId": { "type": "string", "description": "references a declaredScope.declaredPhysicsConstraint.constraintId" },
+              "statistics": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "count": { "type": ["integer", "null"] },
+                  "mean": { "type": ["number", "null"] },
+                  "max": { "type": ["number", "null"] },
+                  "rms": { "type": ["number", "null"] }
+                }
+              },
+              "measurementRef": { "type": "string" }
+            }
+          }
+        },
+        "uqCalibration": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "empirical coverage of the surrogate's prediction intervals, plus the method used.",
+          "required": ["surrogateUQMethod"],
+          "properties": {
+            "surrogateUQMethod": { "type": ["string", "null"], "description": "e.g. conformal-prediction, ensemble, mc-dropout, none" },
+            "empiricalCoverage": { "type": ["number", "null"], "minimum": 0.0, "maximum": 1.0 },
+            "nominalCoverage": { "type": ["number", "null"], "minimum": 0.0, "maximum": 1.0 },
+            "measurementRef": { "type": "string" }
+          }
+        }
+      }
+    },
+
+    "parentModelSnapshot": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "description": "§5.6 inherited-credibility snapshot of the high-fidelity parent. Populated when the reference is a parent model. parentDecision is the PARENT COU's recorded decision (inherited provenance), NOT a SIP verdict; absence (omitted or null) means no decision was recorded.",
+      "required": ["parentCOU", "snapshotTimestamp"],
+      "properties": {
+        "parentCOU": { "type": "string" },
+        "parentDecision": {
+          "type": ["string", "null"],
+          "enum": ["Accepted", "Not Accepted", "Conditional", null]
+        },
+        "parentMRL": { "type": ["string", "integer", "null"] },
+        "parentSignatureTimestamp": { "type": ["string", "null"] },
+        "snapshotTimestamp": { "type": "string" }
+      }
+    },
+
+    "completeness": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "§5.7 completeness self-declaration. Drives the surrogate pack's productive-OOS rules: a COU that legitimately omits a dimension is not penalized.",
+      "required": ["fieldsPresent", "fieldsDeliberatelyOmitted"],
+      "properties": {
+        "fieldsPresent": { "type": "array", "items": { "type": "string" } },
+        "fieldsDeliberatelyOmitted": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["field", "reason"],
+            "properties": {
+              "field": { "type": "string" },
+              "reason": { "type": "string", "minLength": 1 }
+            }
+          }
+        }
+      }
+    },
+
+    "provenance": {
+      "type": "object",
+      "description": "§6 PROV-DM: the interrogation run is a prov:Activity; surrogate/benchmark/reference are prov:Entity prov:used by the run; the bundle is a prov:Entity prov:wasGeneratedBy the run; each measurement library is a prov:SoftwareAgent. Freeform shape, but the denylist forbids any verdict key crossing in here.",
+      "propertyNames": {
+        "not": {
+          "enum": [
+            "verdict", "passFail", "pass_fail", "accepted", "rejected",
+            "validated", "credible", "credibilityIndex", "decision", "outcome",
+            "certify", "certified", "score", "rating", "approved"
+          ]
+        }
+      }
+    },
+
+    "hash": { "type": "string", "description": "integrity field added by signing (sha256:...)" },
+    "signature": { "type": "string", "description": "integrity field added by signing (ed25519:...)" },
+    "signatureAlg": { "type": "string" },
+    "canonicalizationAlg": { "type": "string" },
+
+    "engineerDecision": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Addendum A4: the engineer's attributed acceptance decision, written AFTER judging the comparison — NOT by SIP's measurement pass. EXEMPT from the measurement-region denylist (decision content is valid here and nowhere else); governed by decisionSignature, which must verify against an externally supplied human key over the decision block PLUS the measurements it references (Addendum A6). A missing / unverifiable / mis-scoped signature means NO decision (A6 step 3), never inferred acceptance.",
+      "required": ["decidedBy", "acceptanceCriterion", "decisionValue", "decidedAt", "decisionSignature"],
+      "properties": {
+        "decidedBy": { "type": "string", "minLength": 1, "description": "the engineer's key identity (public-key fingerprint), not a free-text name (A4/A8)." },
+        "acceptanceCriterion": { "type": "string", "minLength": 1, "description": "the engineer's stated criterion, e.g. 'lift coefficient within 3% of reference over the training envelope'." },
+        "decisionValue": { "type": "string", "enum": ["Accepted", "Not accepted", "Conditional"], "description": "the engineer's judgment for this COU." },
+        "decisionRationale": { "type": "string" },
+        "decidedAt": { "type": "string" },
+        "decisionSignature": { "type": "string", "minLength": 1, "description": "ed25519 over canonical({measurementHash, decision-block-minus-signature}) with the engineer's key (A6)." }
+      }
+    }
+  }
+}
