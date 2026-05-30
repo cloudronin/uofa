@@ -1,0 +1,316 @@
+# ============================================================================
+# UofA surrogate pack shapes v0.1
+# ============================================================================
+# Spec: UofA_Surrogate_Pack_Spec_v0_1.md §5 (vocabulary), §6 (weakeners)
+# Standards anchors: ASME VVUQ 20-2009, ASME V&V 40-2018, PCMM (SAND2007-5948)
+# Upstream measured-evidence source: SIP (SIP_Evidence_Contract_Spec_v0_1.md §5).
+#
+# Two sections:
+#   §A — uofa-surr: vocabulary (RDFS class hierarchy + property declarations)
+#   §B — light SHACL shapes (validate structure WHEN PRESENT; never required of
+#        a UofA, so the additions are backward-compatible with v0.5 packages and
+#        the core ProfileMinimal/ProfileComplete switch is untouched)
+#
+# Substrate decision (mirrors iso42001): vocabulary lives in this same file. No
+# separate vocab.ttl and no core mutation — embedded RDFS is picked up by the
+# pyshacl loader because shapes and vocabulary share the data graph.
+#
+# Field names are frozen against the SIP evidence contract (G3) so SIP-sourced
+# evidence maps directly onto this vocabulary (SIP §7.4 field-to-pattern map).
+# ============================================================================
+
+@prefix sh:        <http://www.w3.org/ns/shacl#> .
+@prefix uofa:      <https://uofa.net/vocab#> .
+@prefix uofa-surr: <https://uofa.net/vocab/surrogate#> .
+@prefix rdf:       <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs:      <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd:       <http://www.w3.org/2001/XMLSchema#> .
+
+# ============================================================================
+# §A. Vocabulary (uofa-surr:)
+# ============================================================================
+# New namespace https://uofa.net/vocab/surrogate# covering the surrogate
+# subject, its declared scope (training envelope, evaluation point/region),
+# governing physics constraints and their check evidence, the surrogate's own
+# UQ method, benchmark provenance, and the embedded parent-credibility snapshot.
+# Subclassed onto core classes where a hierarchy applies; flat otherwise.
+# ============================================================================
+
+# --- §A.1 Subject -----------------------------------------------------------
+
+uofa-surr:SurrogateModel a rdfs:Class ;
+    rdfs:subClassOf uofa:Model ;
+    rdfs:label "Surrogate Model" ;
+    rdfs:comment "A physics-based AI/ML surrogate standing in for high-fidelity simulation: ROM, PINN, operator-learning, data-driven emulator, or ML closure." .
+
+uofa-surr:surrogateType a rdf:Property ;
+    rdfs:domain uofa-surr:SurrogateModel ;
+    rdfs:range xsd:string ;
+    rdfs:label "surrogate type" ;
+    rdfs:comment "One of: ROM, PINN, operator-learning, data-driven-emulator, ML-closure." .
+
+# --- §A.2 Declared scope: training envelope --------------------------------
+
+uofa-surr:TrainingEnvelope a rdfs:Class ;
+    rdfs:label "Training Envelope" ;
+    rdfs:comment "The declared input domain over which the surrogate is trained/valid, as per-dimension bounds. The operating-envelope artifact W-ON-02 checks for presence and W-SURR-03 checks for containment of the evaluation point/region." .
+
+uofa-surr:EnvelopeDimension a rdfs:Class ;
+    rdfs:label "Envelope Dimension" ;
+    rdfs:comment "One named input dimension with a lower and upper bound (e.g. reynolds in [2e6, 6e6])." .
+
+uofa-surr:trainingEnvelope a rdf:Property ;
+    rdfs:range uofa-surr:TrainingEnvelope ;
+    rdfs:label "training envelope" ;
+    rdfs:comment "Links the surrogate COU to its declared TrainingEnvelope." .
+
+uofa-surr:hasDimension a rdf:Property ;
+    rdfs:range uofa-surr:EnvelopeDimension ;
+    rdfs:label "has dimension" ;
+    rdfs:comment "Links a TrainingEnvelope or EvaluationRegion to one of its named bounded dimensions." .
+
+uofa-surr:dimensionName a rdf:Property ;
+    rdfs:range xsd:string ;
+    rdfs:label "dimension name" .
+
+uofa-surr:minBound a rdf:Property ;
+    rdfs:range xsd:decimal ;
+    rdfs:label "minimum bound" .
+
+uofa-surr:maxBound a rdf:Property ;
+    rdfs:range xsd:decimal ;
+    rdfs:label "maximum bound" .
+
+# --- §A.3 Declared scope: evaluation point / region ------------------------
+
+uofa-surr:EvaluationPoint a rdfs:Class ;
+    rdfs:label "Evaluation Point" ;
+    rdfs:comment "Where this COU exercises the surrogate, as per-dimension scalar coordinates." .
+
+uofa-surr:EvaluationRegion a rdfs:Class ;
+    rdfs:label "Evaluation Region" ;
+    rdfs:comment "Where this COU exercises the surrogate, as per-dimension bounds (uses hasDimension like a TrainingEnvelope)." .
+
+uofa-surr:PointCoordinate a rdfs:Class ;
+    rdfs:label "Point Coordinate" ;
+    rdfs:comment "One named scalar coordinate of an EvaluationPoint (e.g. aoa = 4.0)." .
+
+uofa-surr:evaluationPoint a rdf:Property ;
+    rdfs:range uofa-surr:EvaluationPoint ;
+    rdfs:label "evaluation point" .
+
+uofa-surr:evaluationRegion a rdf:Property ;
+    rdfs:range uofa-surr:EvaluationRegion ;
+    rdfs:label "evaluation region" .
+
+uofa-surr:hasCoordinate a rdf:Property ;
+    rdfs:range uofa-surr:PointCoordinate ;
+    rdfs:label "has coordinate" .
+
+uofa-surr:coordinateName a rdf:Property ;
+    rdfs:range xsd:string ;
+    rdfs:label "coordinate name" .
+
+uofa-surr:coordinateValue a rdf:Property ;
+    rdfs:range xsd:decimal ;
+    rdfs:label "coordinate value" .
+
+# --- §A.4 Physics constraints + check evidence ------------------------------
+
+uofa-surr:PhysicsConstraint a rdfs:Class ;
+    rdfs:label "Declared Physics Constraint" ;
+    rdfs:comment "A governing law or invariant the surrogate is expected to respect (conservation, boundary condition, monotonicity)." .
+
+uofa-surr:ConstraintCheckEvidence a rdfs:Class ;
+    rdfs:subClassOf uofa:ValidationResult ;
+    rdfs:label "Constraint Check Evidence" ;
+    rdfs:comment "A checkable residual/conservation-check artifact for a declared physics constraint. Measured by SIP (physicsConstraintResidual)." .
+
+uofa-surr:declaredPhysicsConstraint a rdf:Property ;
+    rdfs:range uofa-surr:PhysicsConstraint ;
+    rdfs:label "declared physics constraint" .
+
+uofa-surr:constraintId a rdf:Property ;
+    rdfs:range xsd:string ;
+    rdfs:label "constraint id" .
+
+uofa-surr:constraintKind a rdf:Property ;
+    rdfs:range xsd:string ;
+    rdfs:label "constraint kind" ;
+    rdfs:comment "conservation | boundary-condition | invariant | monotonicity | ..." .
+
+uofa-surr:hasConstraintCheckEvidence a rdf:Property ;
+    rdfs:domain uofa-surr:PhysicsConstraint ;
+    rdfs:range uofa-surr:ConstraintCheckEvidence ;
+    rdfs:label "has constraint check evidence" ;
+    rdfs:comment "Links a declared physics constraint to its residual/conservation-check artifact. Absence is W-SURR-01." .
+
+# --- §A.5 Surrogate UQ + benchmark provenance -------------------------------
+
+uofa-surr:surrogateUQMethod a rdf:Property ;
+    rdfs:range xsd:string ;
+    rdfs:label "surrogate UQ method" ;
+    rdfs:comment "UQ approach for the surrogate's own prediction uncertainty (e.g. conformal-prediction, ensemble, mc-dropout). Consumed by reused W-AL-02." .
+
+uofa-surr:BenchmarkProvenance a rdfs:Class ;
+    rdfs:subClassOf uofa:ProcessAttestation ;
+    rdfs:label "Benchmark Provenance" ;
+    rdfs:comment "Provenance of the benchmark set used to interrogate the surrogate. Supports the W-SURR-04 benchmark-coverage-gap candidate (method-first; not pre-implemented)." .
+
+uofa-surr:hasBenchmarkProvenance a rdf:Property ;
+    rdfs:range uofa-surr:BenchmarkProvenance ;
+    rdfs:label "has benchmark provenance" .
+
+# --- §A.6 Embedded parent-credibility snapshot (G2) -------------------------
+
+uofa-surr:ParentModelSnapshot a rdfs:Class ;
+    rdfs:label "Parent Model Snapshot" ;
+    rdfs:comment "Embedded snapshot of the high-fidelity parent model's credibility for the COU the surrogate inherits from. v1 inheritance architecture: no live cross-package reasoning. parentDecision is the parent's RECORDED decision (inherited provenance), never a SIP/UofA verdict." .
+
+uofa-surr:parentModelSnapshot a rdf:Property ;
+    rdfs:range uofa-surr:ParentModelSnapshot ;
+    rdfs:label "parent model snapshot" .
+
+uofa-surr:parentCOU a rdf:Property ;
+    rdfs:label "parent COU" ;
+    rdfs:comment "Identifier of the parent high-fidelity model's Context of Use." .
+
+uofa-surr:parentDecision a rdf:Property ;
+    rdfs:range xsd:string ;
+    rdfs:label "parent decision" ;
+    rdfs:comment "The parent COU's recorded decision: Accepted, Not Accepted, or Conditional. Absence means no decision recorded. W-SURR-02 reads this." .
+
+uofa-surr:parentMRL a rdf:Property ;
+    rdfs:label "parent MRL" ;
+    rdfs:comment "The parent's Model Readiness Level (PCMM-grounded)." .
+
+uofa-surr:parentSignatureTimestamp a rdf:Property ;
+    rdfs:label "parent signature timestamp" .
+
+uofa-surr:snapshotTimestamp a rdf:Property ;
+    rdfs:label "snapshot timestamp" ;
+    rdfs:comment "When this snapshot of the parent decision was taken (drift indicator)." .
+
+# --- §A.7 Derived flag (materialized by the pre-pass; declared so it is known)
+
+uofa-surr:_evalOutsideEnvelope a rdf:Property ;
+    rdfs:range xsd:boolean ;
+    rdfs:label "(derived) evaluation outside envelope" ;
+    rdfs:comment "Materialized by derivations/surrogate_derivations_v0.1.sparql when the evaluation point/region is not contained in the training envelope. Leading underscore signals 'computed, not authored'. Consumed by W-SURR-03." .
+
+# --- §A.8 OOS claim + evidence types (judgment-required dimensions) ----------
+# Productive-OOS (Phase C): claim types whose bundle-sufficiency the OOS engine
+# checks. Absence of the required evidence surfaces a judgment-required gap
+# (OUT-OF-SCOPE), not a structural defeater — a COU that legitimately omits the
+# dimension is not penalized.
+
+uofa-surr:CalibrationClaim a rdfs:Class ;
+    rdfs:subClassOf uofa:AssuranceClaim ;
+    rdfs:label "Surrogate Calibration Claim" ;
+    rdfs:comment "Claim that the surrogate was calibrated. Bundle-sufficiency (OOS-SURR-CALIBRATION / D-VAL-07) wants calibration evidence AND calibration-data provenance distinct from training data." .
+
+uofa-surr:ComparativePerformanceClaim a rdfs:Class ;
+    rdfs:subClassOf uofa:AssuranceClaim ;
+    rdfs:label "Comparative Performance Claim" ;
+    rdfs:comment "Claim that the surrogate's performance was compared against an alternative model or CSE baseline. Bundle-sufficiency (OOS-SURR-COMPARISON / D-CCB-15) wants a model-comparison record." .
+
+uofa-surr:CalibrationEvidence a rdfs:Class ;
+    rdfs:subClassOf uofa:ValidationResult ;
+    rdfs:label "Calibration Evidence" .
+
+uofa-surr:CalibrationDataProvenance a rdfs:Class ;
+    rdfs:subClassOf uofa:ProcessAttestation ;
+    rdfs:label "Calibration Data Provenance" ;
+    rdfs:comment "Provenance of the calibration data, distinct from training data (D-VAL-07)." .
+
+uofa-surr:ModelComparisonRecord a rdfs:Class ;
+    rdfs:subClassOf uofa:ValidationResult ;
+    rdfs:label "Model Comparison Record" ;
+    rdfs:comment "Comparison of the surrogate against an alternative SciML model or a CSE baseline using purpose-specific metrics (D-CCB-15)." .
+
+# ============================================================================
+# §B. Light SHACL shapes (structure-when-present; never required of a UofA)
+# ============================================================================
+# These target the surrogate-specific classes only, so a UofA that declares no
+# surrogate evidence is wholly unaffected (backward compatible). They validate
+# the internal structure of surrogate artifacts when they ARE present.
+# ============================================================================
+
+uofa-surr:SurrogateModelShape a sh:NodeShape ;
+    sh:targetClass uofa-surr:SurrogateModel ;
+    sh:property [
+        sh:path uofa-surr:surrogateType ;
+        sh:datatype xsd:string ;
+        sh:in ( "ROM" "PINN" "operator-learning" "data-driven-emulator" "ML-closure" ) ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:message "A SurrogateModel must declare exactly one surrogateType from the enum." ;
+    ] .
+
+uofa-surr:EnvelopeDimensionShape a sh:NodeShape ;
+    sh:targetClass uofa-surr:EnvelopeDimension ;
+    sh:property [
+        sh:path uofa-surr:dimensionName ;
+        sh:datatype xsd:string ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path uofa-surr:minBound ;
+        sh:datatype xsd:decimal ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path uofa-surr:maxBound ;
+        sh:datatype xsd:decimal ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+    ] .
+
+uofa-surr:PointCoordinateShape a sh:NodeShape ;
+    sh:targetClass uofa-surr:PointCoordinate ;
+    sh:property [
+        sh:path uofa-surr:coordinateName ;
+        sh:datatype xsd:string ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path uofa-surr:coordinateValue ;
+        sh:datatype xsd:decimal ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+    ] .
+
+uofa-surr:PhysicsConstraintShape a sh:NodeShape ;
+    sh:targetClass uofa-surr:PhysicsConstraint ;
+    sh:property [
+        sh:path uofa-surr:constraintId ;
+        sh:datatype xsd:string ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:message "A declared PhysicsConstraint must carry a constraintId." ;
+    ] .
+
+uofa-surr:ParentModelSnapshotShape a sh:NodeShape ;
+    sh:targetClass uofa-surr:ParentModelSnapshot ;
+    sh:property [
+        sh:path uofa-surr:parentCOU ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:message "A ParentModelSnapshot must identify the parentCOU." ;
+    ] ;
+    sh:property [
+        sh:path uofa-surr:snapshotTimestamp ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:message "A ParentModelSnapshot must record snapshotTimestamp." ;
+    ] ;
+    sh:property [
+        sh:path uofa-surr:parentDecision ;
+        sh:datatype xsd:string ;
+        sh:in ( "Accepted" "Not Accepted" "Conditional" ) ;
+        sh:maxCount 1 ;
+        sh:message "parentDecision, when present, must be Accepted, Not Accepted, or Conditional (absence = no decision recorded)." ;
+    ] .

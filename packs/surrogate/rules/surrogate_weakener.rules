@@ -1,0 +1,133 @@
+# ============================================================================
+# UofA surrogate pack — C3 forward-chaining weakener catalog v0.1
+# ============================================================================
+# Spec: UofA_Surrogate_Pack_Spec_v0_1.md §6
+# Engine: Apache Jena GenericRuleReasoner (FORWARD_RETE mode)
+# Pack:   surrogate v0.1.0
+#
+# THE REAL CATALOG DELTA: three NEW patterns. The four REUSE patterns
+# (W-EP-03, W-AR-04, W-AL-02, W-ON-02) are NOT redefined here — they live in
+# packs/core/rules/uofa_weakener.rules and fire as-is on surrogate packages
+# that carry the core properties they key on (the CLI combines core + pack
+# rule files before invoking the engine). This is the "reuse as-is" discipline
+# of the spec, and it means NO core mutation:
+#
+#   W-EP-03  (High)   stale benchmark/training data: core keys on
+#                     dataVintage < modelRevisionDate. Surrogate pkg carries these.
+#   W-AR-04  (High)   surrogate version drift: core keys on model configuration.
+#   W-AL-02  (Medium) UQ declared, no sensitivity analysis: core keys on
+#                     hasUncertaintyQuantification=true + no hasSensitivityAnalysis.
+#                     A surrogate that declares surrogateUQMethod sets UQ=true.
+#   W-ON-02  (High)   no operating envelope declared (PRESENCE): core keys on
+#                     the COU's hasOperatingEnvelope / hasApplicabilityConstraint.
+#                     Surrogate pkg points hasOperatingEnvelope at its
+#                     trainingEnvelope; omitting it fires W-ON-02 unchanged.
+#
+# W-SURR-03 is a CONTAINMENT check, deliberately distinct from W-ON-02's
+# PRESENCE check, and a new pattern (not an enrichment of the shared core
+# pattern) so W-ON-02's semantics are unchanged across all packs.
+#
+# Method-first: W-SURR-04 (benchmark coverage gap) and the
+# interrogation-residuals-unlinked candidate are NOT implemented here. They
+# stay documented gap-probe targets, promoted only through the coverage method.
+#
+# Naming convention (mirrors W-AIMS-*):
+#   - Rule anchor (lowercase, underscore):  w_surr_<descriptor>
+#   - patternId string (uppercase, hyphen): 'W-SURR-NN'
+# ============================================================================
+
+@prefix uofa:      <https://uofa.net/vocab#>.
+@prefix uofa-surr: <https://uofa.net/vocab/surrogate#>.
+@prefix prov:      <http://www.w3.org/ns/prov#>.
+@prefix rdf:       <http://www.w3.org/1999/02/22-rdf-syntax-ns#>.
+@prefix rdfs:      <http://www.w3.org/2000/01/rdf-schema#>.
+@prefix xsd:       <http://www.w3.org/2001/XMLSchema#>.
+@prefix schema:    <https://schema.org/>.
+
+# ----------------------------------------------------------------------------
+# W-SURR-01: Physics-Constraint Evidence Missing (High).
+# Fires when a declaredPhysicsConstraint is present but carries no
+# hasConstraintCheckEvidence — the surrogate claims to respect a governing law
+# and provides no checkable residual/conservation artifact. Auditability check
+# only: it does NOT evaluate whether the physics is actually violated.
+# ----------------------------------------------------------------------------
+[w_surr_01:
+    (?uofa rdf:type uofa:UnitOfAssurance)
+    (?uofa uofa-surr:declaredPhysicsConstraint ?pc)
+    (?pc rdf:type uofa-surr:PhysicsConstraint)
+    noValue(?pc, uofa-surr:hasConstraintCheckEvidence)
+    makeSkolem(?ann, ?uofa, 'W-SURR-01', ?pc)
+    ->
+    (?ann rdf:type uofa:WeakenerAnnotation)
+    (?ann uofa:patternId 'W-SURR-01')
+    (?ann uofa:severity 'High')
+    (?ann uofa:affectedNode ?pc)
+    (?ann schema:description 'Declared physics constraint has no linked constraint-check evidence — the surrogate claims to respect a governing law with no checkable residual/conservation artifact.')
+    (?uofa uofa:hasWeakener ?ann)
+]
+
+# ----------------------------------------------------------------------------
+# W-SURR-02: Unvalidated Parent Credibility — severity-split (do NOT collapse).
+# A surrogate's credibility is conditional on the high-fidelity parent it
+# approximates. v1 reads the embedded parentModelSnapshot (no engine change).
+# Two arms with DISTINCT severities because active rejection and an
+# unrecorded/in-progress parent decision are different epistemic states:
+#   (a) parentDecision = "Not Accepted"  -> Critical  (active rejection)
+#   (b) parentDecision absent/unrecorded -> High      (in-progress / unknown)
+# Collapsing both to Critical would over-fire on legitimately in-progress
+# parent COUs. Loosely analogous to the W-PROV-01 chain logic.
+# ----------------------------------------------------------------------------
+[w_surr_02_parent_not_accepted:
+    (?uofa rdf:type uofa:UnitOfAssurance)
+    (?uofa uofa-surr:parentModelSnapshot ?snap)
+    (?snap uofa-surr:parentDecision 'Not Accepted')
+    makeSkolem(?ann, ?uofa, 'W-SURR-02', ?snap)
+    ->
+    (?ann rdf:type uofa:WeakenerAnnotation)
+    (?ann uofa:patternId 'W-SURR-02')
+    (?ann uofa:severity 'Critical')
+    (?ann uofa:affectedNode ?snap)
+    (?ann schema:description 'Surrogate inherits credibility from a parent COU whose recorded decision is Not Accepted — inherited-credibility defeater.')
+    (?uofa uofa:hasWeakener ?ann)
+]
+
+[w_surr_02_parent_unrecorded:
+    (?uofa rdf:type uofa:UnitOfAssurance)
+    (?uofa uofa-surr:parentModelSnapshot ?snap)
+    (?snap rdf:type uofa-surr:ParentModelSnapshot)
+    noValue(?snap, uofa-surr:parentDecision)
+    makeSkolem(?ann, ?uofa, 'W-SURR-02', ?snap)
+    ->
+    (?ann rdf:type uofa:WeakenerAnnotation)
+    (?ann uofa:patternId 'W-SURR-02')
+    (?ann uofa:severity 'High')
+    (?ann uofa:affectedNode ?snap)
+    (?ann schema:description 'Surrogate inherits credibility from a parent COU with no recorded decision — the inherited credibility cannot be confirmed.')
+    (?uofa uofa:hasWeakener ?ann)
+]
+
+# ----------------------------------------------------------------------------
+# W-SURR-03: Extrapolation Beyond Training Envelope (High).
+# CONTAINMENT check (distinct from W-ON-02's presence check). Consumes the
+# derived _evalOutsideEnvelope flag materialized by the SPARQL pre-pass in
+# derivations/surrogate_derivations_v0.1.sparql (per-dimension numeric
+# containment — impossible in pure Jena; mirrors the iso42001
+# _modelEvalStaleByVersion / _auditOverdue numeric-derivation precedent and the
+# W-CON-02/W-PROV-01 Jena-vs-post-pass split). When trainingEnvelope is
+# undeclared, W-ON-02 already covers the gap; W-SURR-03 assumes it is declared
+# and checks that the evaluation point/region is contained within it.
+# ----------------------------------------------------------------------------
+[w_surr_03:
+    (?uofa rdf:type uofa:UnitOfAssurance)
+    (?uofa uofa-surr:_evalOutsideEnvelope 'true'^^xsd:boolean)
+    makeSkolem(?ann, ?uofa, 'W-SURR-03', ?uofa)
+    ->
+    (?ann rdf:type uofa:WeakenerAnnotation)
+    (?ann uofa:patternId 'W-SURR-03')
+    (?ann uofa:severity 'High')
+    (?ann uofa:affectedNode ?uofa)
+    (?ann schema:description 'COU evaluation point/region is not contained within the declared training envelope — the surrogate is exercised in extrapolation.')
+    (?uofa uofa:hasWeakener ?ann)
+]
+
+# End of surrogate weakener catalog v0.1 (3 new patterns: W-SURR-01/02/03)

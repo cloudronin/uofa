@@ -1,0 +1,76 @@
+# ============================================================================
+# UofA surrogate pack — Productive-OOS Rules v0.1 — bundle-sufficiency catalog
+# ============================================================================
+# Spec: UofA_Surrogate_Pack_Spec_v0_1.md §7
+# Engine: net.uofa.oos.OOSEngine (path-two LHS-decomposition over Jena rule body)
+# Schema: src/uofa_cli/oos/SCHEMA_NOTES.md
+#
+# Backward syntax `[name: head <- body]`. The OOSEngine walks the body clauses
+# in declared order with binding propagation, emitting OUT-OF-SCOPE on the first
+# clause that fails. Discriminator clauses (UnitOfAssurance, bindsClaim, claim
+# type) establish which OOS category applies; sufficiency clauses (from
+# sufficiency_starts_at) check the structurally present supporting evidence.
+#
+# These surface JUDGMENT-REQUIRED gaps that the C3 W-SURR catalog does not
+# cover structurally (productive-OOS): a COU that legitimately omits the
+# dimension is reported, not penalized. They move D-VAL-07 and D-CCB-15 from
+# GAP to PARTIAL in coverage/ (dual-detection).
+#
+# Comment-block keys consumed by OOSEngine:
+#   bundle_check_rule_name — informational; same as the [name:] anchor
+#   calibration_target     — informational; cal-surr-XXX reference
+#   defeater_type          — NL → evidence_gap.would_support_defeater_evaluation
+#   missing_evidence       — NL → evidence_gap.missing_evidence_type
+#   sufficiency_starts_at  — 1-based index of the first sufficiency clause
+# ============================================================================
+
+@prefix uofa:      <https://uofa.net/vocab#>.
+@prefix uofa-surr: <https://uofa.net/vocab/surrogate#>.
+@prefix rdf:       <http://www.w3.org/1999/02/22-rdf-syntax-ns#>.
+@prefix xsd:       <http://www.w3.org/2001/XMLSchema#>.
+
+# ----------------------------------------------------------------------------
+# Rule 1 — cal-surr-04 — OOS-SURR-CALIBRATION (proto-taxonomy D-VAL-07)
+# A calibration claim needs both calibration evidence AND calibration-data
+# provenance distinct from training data. Bundles routinely carry the former
+# and omit the latter; the final clause fires.
+# ----------------------------------------------------------------------------
+# bundle_check_rule_name: oos_surr_calibration_provenance_warranted
+# calibration_target: cal-surr-04
+# defeater_type: surrogate calibration provenance — UofA cannot evaluate whether the surrogate was calibrated on data distinct from its training set without documented calibration-data provenance
+# missing_evidence: calibration-data provenance record establishing that the calibration data is distinct from the training data, per the V&V-for-SciML validation-domain distinction (proto-taxonomy D-VAL-07)
+# sufficiency_starts_at: 4
+[oos_surr_calibration_provenance_warranted:
+    (?uofa uofa:bundleSufficient "true"^^xsd:boolean)
+    <-
+    (?uofa rdf:type uofa:UnitOfAssurance)
+    (?uofa uofa:bindsClaim ?claim)
+    (?claim rdf:type uofa-surr:CalibrationClaim)
+    (?claim uofa:hasSupportingEvidence ?cal)
+    (?cal rdf:type uofa-surr:CalibrationEvidence)
+    (?claim uofa:hasSupportingEvidence ?prov)
+    (?prov rdf:type uofa-surr:CalibrationDataProvenance)
+]
+
+# ----------------------------------------------------------------------------
+# Rule 2 — cal-surr-05 — OOS-SURR-COMPARISON (proto-taxonomy D-CCB-15)
+# A comparative-performance claim needs a model-comparison record against an
+# alternative SciML model or a CSE baseline. Absent that record, UofA cannot
+# evaluate the comparative claim.
+# ----------------------------------------------------------------------------
+# bundle_check_rule_name: oos_surr_model_comparison_warranted
+# calibration_target: cal-surr-05
+# defeater_type: surrogate comparative performance — UofA cannot evaluate a comparative-performance claim without a documented comparison against an alternative model or a CSE baseline using purpose-specific metrics
+# missing_evidence: model-comparison record benchmarking the surrogate against an alternative SciML model or a CSE baseline on purpose-specific metrics (proto-taxonomy D-CCB-15)
+# sufficiency_starts_at: 4
+[oos_surr_model_comparison_warranted:
+    (?uofa uofa:bundleSufficient "true"^^xsd:boolean)
+    <-
+    (?uofa rdf:type uofa:UnitOfAssurance)
+    (?uofa uofa:bindsClaim ?claim)
+    (?claim rdf:type uofa-surr:ComparativePerformanceClaim)
+    (?claim uofa:hasSupportingEvidence ?cmp)
+    (?cmp rdf:type uofa-surr:ModelComparisonRecord)
+]
+
+# End of surrogate productive-OOS catalog v0.1 (2 rules)

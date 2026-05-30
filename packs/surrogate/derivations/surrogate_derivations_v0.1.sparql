@@ -1,0 +1,81 @@
+# ============================================================================
+# UofA surrogate pack — Derivation pre-pass v0.1
+# ============================================================================
+# Spec: UofA_Surrogate_Pack_Spec_v0_1.md §6 (W-SURR-03 containment)
+# Engine: Apache Jena ARQ via DerivationEngine.java
+# Pack: surrogate v0.1.0
+#
+# Materializes the derived analytic predicate uofa-surr:_evalOutsideEnvelope,
+# consumed by the W-SURR-03 Jena rule. Per-dimension numeric containment is
+# not expressible in pure Jena rules (no arithmetic comparison across matched
+# dimensions), so it is computed here — mirroring the iso42001
+# _modelEvalStaleByVersion / _auditOverdue numeric-derivation precedent and the
+# W-CON-02 / W-PROV-01 "Python/SPARQL post-pass where the math is cleaner" split.
+#
+# Naming convention: <pack-namespace>:_<name>; leading underscore signals
+# "materialized, not authored".
+#
+# Two CONSTRUCTs cover the two ways a COU declares where it exercises the
+# surrogate: a single evaluationPoint, or an evaluationRegion (bounds). Either
+# firing materializes the same flag; W-SURR-03 fires once on the UofA.
+# ============================================================================
+
+PREFIX uofa: <https://uofa.net/vocab#>
+PREFIX uofa-surr: <https://uofa.net/vocab/surrogate#>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+
+
+# ----------------------------------------------------------------------------
+# 1. _evalOutsideEnvelope — evaluation POINT outside the training envelope
+# ----------------------------------------------------------------------------
+# True when any evaluation-point coordinate falls outside the [minBound,
+# maxBound] of the training-envelope dimension with the same name. Coordinates
+# and bounds are cast to xsd:decimal so the comparison is numeric, not lexical.
+# Consumer: w_surr_03 (rules/surrogate_weakener.rules)
+CONSTRUCT { ?uofa uofa-surr:_evalOutsideEnvelope "true"^^xsd:boolean }
+WHERE {
+    ?uofa a uofa:UnitOfAssurance ;
+          uofa-surr:trainingEnvelope ?env ;
+          uofa-surr:evaluationPoint ?ep .
+    ?env uofa-surr:hasDimension ?dim .
+    ?dim uofa-surr:dimensionName ?dname ;
+         uofa-surr:minBound ?dmin ;
+         uofa-surr:maxBound ?dmax .
+    ?ep uofa-surr:hasCoordinate ?coord .
+    ?coord uofa-surr:coordinateName ?cname ;
+           uofa-surr:coordinateValue ?cval .
+    FILTER ( STR(?cname) = STR(?dname) )
+    FILTER ( xsd:decimal(?cval) < xsd:decimal(?dmin)
+          || xsd:decimal(?cval) > xsd:decimal(?dmax) )
+}
+
+
+# ----------------------------------------------------------------------------
+# 2. _evalOutsideEnvelope — evaluation REGION not contained in the envelope
+# ----------------------------------------------------------------------------
+# True when, for a shared dimension name, the evaluation region extends below
+# the envelope's minBound or above its maxBound (the region is not a subset of
+# the training envelope on that dimension).
+# Consumer: w_surr_03 (rules/surrogate_weakener.rules)
+CONSTRUCT { ?uofa uofa-surr:_evalOutsideEnvelope "true"^^xsd:boolean }
+WHERE {
+    ?uofa a uofa:UnitOfAssurance ;
+          uofa-surr:trainingEnvelope ?env ;
+          uofa-surr:evaluationRegion ?reg .
+    ?env uofa-surr:hasDimension ?edim .
+    ?edim uofa-surr:dimensionName ?dname ;
+          uofa-surr:minBound ?emin ;
+          uofa-surr:maxBound ?emax .
+    ?reg uofa-surr:hasDimension ?rdim .
+    ?rdim uofa-surr:dimensionName ?rname ;
+          uofa-surr:minBound ?rmin ;
+          uofa-surr:maxBound ?rmax .
+    FILTER ( STR(?rname) = STR(?dname) )
+    FILTER ( xsd:decimal(?rmin) < xsd:decimal(?emin)
+          || xsd:decimal(?rmax) > xsd:decimal(?emax) )
+}
+
+
+# End of surrogate derivations v0.1 (2 CONSTRUCTs, both -> _evalOutsideEnvelope)
