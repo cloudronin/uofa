@@ -65,7 +65,8 @@ def resolve(
             f"Pack '{pack_name}' not found: {exc}"
         ) from exc
 
-    oos_section = manifest.get("oos") or {}
+    oos_cfg = paths.detection_config(manifest).get("oos")
+    oos_section = oos_cfg or {}
     rule_files_decl = oos_section.get("rule_files") or []
 
     if enable_flag:
@@ -88,7 +89,7 @@ def resolve(
             source=SOURCE_CLI_FORCE_OFF,
         )
 
-    if "oos" in manifest:
+    if oos_cfg is not None:
         enabled = bool(oos_section.get("enabled", False))
         rule_files = (
             _resolve_rule_paths(rule_files_decl, pack_name, root)

@@ -67,7 +67,8 @@ def resolve(
             f"Pack '{pack_name}' not found: {exc}"
         ) from exc
 
-    section = manifest.get("derivations") or {}
+    deriv_cfg = paths.detection_config(manifest).get("derivations")
+    section = deriv_cfg or {}
     files_decl = section.get("files") or []
 
     if enable_flag:
@@ -90,7 +91,7 @@ def resolve(
             source=SOURCE_CLI_FORCE_OFF,
         )
 
-    if "derivations" in manifest:
+    if deriv_cfg is not None:
         enabled = bool(section.get("enabled", False))
         files = (
             _resolve_paths(files_decl, pack_name, root)

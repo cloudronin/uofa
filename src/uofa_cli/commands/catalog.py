@@ -85,7 +85,7 @@ def _parse_rules_for_pack(pack_name: str) -> list[dict]:
     except FileNotFoundError:
         return []
 
-    rules_rel = manifest.get("rules")
+    rules_rel = paths.detection_config(manifest).get("rules")
     if not rules_rel:
         return []
 

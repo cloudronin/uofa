@@ -128,6 +128,34 @@ def validate_pack_manifest(manifest: dict, pack_name: str, root: Path = None) ->
         ) from exc
 
 
+def detection_config(manifest: dict) -> dict:
+    """Detection config (shapes/rules/oos/derivations), source-agnostic.
+
+    Pack-shaped §2a migration: reads the detection capability's payload (the new
+    ``capabilities[]`` shape) when present, else the legacy flat fields. Each
+    value is None when undeclared. Centralizing the capabilities-vs-flat read
+    here keeps every loader / resolver / info-command source-agnostic during and
+    after the migration — there is one place that knows about both shapes.
+    """
+    for cap in manifest.get("capabilities", []):
+        if cap.get("leg") == "detection":
+            payload = cap.get("payload") or {}
+            return {
+                "shapes": payload.get("shapes"),
+                "rules": payload.get("rules"),
+                "oos": payload.get("oos"),
+                "derivations": payload.get("derivations"),
+                "patternIds": payload.get("patternIds"),
+            }
+    return {
+        "shapes": manifest.get("shapes"),
+        "rules": manifest.get("rules"),
+        "oos": manifest.get("oos"),
+        "derivations": manifest.get("derivations"),
+        "patternIds": None,
+    }
+
+
 def list_packs(root: Path = None) -> list[str]:
     """Return names of all installed packs (directories under packs/ with pack.json)."""
     root = root or find_repo_root()
@@ -147,9 +175,11 @@ def shacl_schema(root: Path = None) -> Path:
     root = root or find_repo_root()
     try:
         manifest = pack_manifest("core", root=root)
-        pack_path = pack_dir("core", root=root) / manifest["shapes"]
-        if pack_path.exists():
-            return pack_path
+        shapes_rel = detection_config(manifest).get("shapes")
+        if shapes_rel:
+            pack_path = pack_dir("core", root=root) / shapes_rel
+            if pack_path.exists():
+                return pack_path
     except (FileNotFoundError, KeyError):
         pass
     return root / "spec" / "schemas" / "uofa_shacl.ttl"
@@ -189,7 +219,7 @@ def all_shacl_schemas(root: Path = None) -> list[Path]:
             continue
         try:
             manifest = pack_manifest(pack_name, root=root)
-            shapes_rel = manifest.get("shapes")
+            shapes_rel = detection_config(manifest).get("shapes")
             if shapes_rel:
                 shapes_path = pack_dir(pack_name, root=root) / shapes_rel
                 if shapes_path.exists():
@@ -286,9 +316,11 @@ def rules_file(input_path: Path = None, root: Path = None) -> Path:
     root = root or find_repo_root()
     try:
         manifest = pack_manifest("core", root=root)
-        pack_path = pack_dir("core", root=root) / manifest["rules"]
-        if pack_path.exists():
-            return pack_path
+        rules_rel = detection_config(manifest).get("rules")
+        if rules_rel:
+            pack_path = pack_dir("core", root=root) / rules_rel
+            if pack_path.exists():
+                return pack_path
     except (FileNotFoundError, KeyError):
         pass
     return root / "packs" / "core" / "rules" / "uofa_weakener.rules"
@@ -304,7 +336,7 @@ def all_rules_files(input_path: Path = None, root: Path = None) -> list[Path]:
             continue
         try:
             manifest = pack_manifest(pack_name, root=root)
-            rules_rel = manifest.get("rules")
+            rules_rel = detection_config(manifest).get("rules")
             if rules_rel:
                 rules_path = pack_dir(pack_name, root=root) / rules_rel
                 if rules_path.exists():

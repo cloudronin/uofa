@@ -30,7 +30,10 @@ def test_manifest_loads_and_is_versioned() -> None:
     assert manifest["name"] == "surrogate"
     # Pack version stamps independently of the CLI release.
     assert manifest["version"] == "0.1.0"
-    assert manifest["shapes"] == "shapes/surrogate_shapes.ttl"
+    # Detection config is read source-agnostically: surrogate is migrated to the
+    # capabilities[] shape (shapes live in the detection capability's payload), so
+    # assert via the accessor rather than the legacy flat field.
+    assert paths.detection_config(manifest)["shapes"] == "shapes/surrogate_shapes.ttl"
 
 
 def test_shapes_file_exists() -> None:

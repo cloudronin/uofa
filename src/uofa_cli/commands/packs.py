@@ -76,13 +76,15 @@ def _show_pack(name: str, verbose: bool) -> int:
     if standards:
         info(f"  Standards:   {', '.join(standards)}")
 
-    shapes_rel = manifest.get("shapes", "")
+    det = paths.detection_config(manifest)
+    shapes_rel = det.get("shapes") or ""
     if shapes_rel:
         shapes_path = pdir / shapes_rel
         info(f"  Shapes:      {shapes_path.relative_to(paths.find_repo_root())}")
 
-    rules_rel = manifest.get("rules")
-    patterns = manifest.get("weakener_patterns", "?")
+    rules_rel = det.get("rules")
+    pattern_ids = det.get("patternIds")
+    patterns = len(pattern_ids) if pattern_ids is not None else manifest.get("weakener_patterns", "?")
     if rules_rel:
         rules_path = pdir / rules_rel
         info(f"  Rules:       {rules_path.relative_to(paths.find_repo_root())} ({patterns} patterns)")

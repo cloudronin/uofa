@@ -642,7 +642,7 @@ def _run_python(args) -> int:
     for pack_name in paths.list_packs(root):
         try:
             manifest = paths.pack_manifest(pack_name, root=root)
-            shapes_rel = manifest.get("shapes")
+            shapes_rel = paths.detection_config(manifest).get("shapes")
             if shapes_rel:
                 shapes_path = paths.pack_dir(pack_name, root=root) / shapes_rel
                 if shapes_path.exists() and shapes_path not in shacl_files:
