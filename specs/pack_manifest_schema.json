@@ -1,0 +1,108 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://uofa.net/schemas/pack-manifest/v1.json",
+  "title": "UofA Pack Manifest",
+  "description": "The contract for a packs/<name>/pack.json. Pack-shaped architecture spec §2a/§7: a uniform envelope (identity + version + core-compatibility + dependencies) around one-or-more leg-specific capability blocks. LEGACY-TOLERANT during migration: the pre-refactor flat detection fields (shapes/rules/oos/derivations/template/prompt/factors/weakener_patterns) are still accepted so existing packs validate unchanged; they will be expressed as a `detection` capability block as each pack is migrated, after which the legacy fields are removed and `capabilities`/`coreCompatibility` become required.",
+  "type": "object",
+  "required": ["name", "version"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "type": "string" },
+
+    "name": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+    "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+" },
+    "description": { "type": "string" },
+    "standards": { "type": "array", "items": { "type": "string" } },
+    "author": { "type": "string" },
+    "license": { "type": "string" },
+
+    "coreCompatibility": {
+      "type": "string",
+      "description": "Semver range of the core this pack requires (e.g. '>=0.5.0'). Enforced at load once migrated."
+    },
+    "dependencies": {
+      "type": "array",
+      "description": "Other packs this pack requires, by name + semver range.",
+      "items": {
+        "type": "object",
+        "required": ["pack", "range"],
+        "additionalProperties": false,
+        "properties": {
+          "pack": { "type": "string" },
+          "range": { "type": "string" }
+        }
+      }
+    },
+    "capabilities": {
+      "type": "array",
+      "description": "One block per capability the pack provides. Same envelope, leg-specific payload (§2a).",
+      "items": { "$ref": "#/$defs/capability" }
+    },
+
+    "shapes": { "type": ["string", "null"], "description": "LEGACY detection payload (pre-capabilities migration)." },
+    "rules": { "type": ["string", "null"], "description": "LEGACY detection payload." },
+    "template": { "type": ["string", "null"], "description": "LEGACY authoring template." },
+    "prompt": { "type": ["string", "null"], "description": "LEGACY extract prompt." },
+    "factors": { "type": ["integer", "null"], "description": "LEGACY factor count." },
+    "weakener_patterns": {
+      "type": "integer",
+      "description": "LEGACY patternId count — drifts from the rules files. Superseded by the per-capability `patternIds` list, which cannot lie."
+    },
+    "oos": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "LEGACY out-of-scope config.",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "rule_files": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "derivations": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "LEGACY derivation pre-pass config.",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "files": { "type": "array", "items": { "type": "string" } }
+      }
+    }
+  },
+  "$defs": {
+    "capability": {
+      "type": "object",
+      "required": ["leg", "capabilityId", "targetInterface", "interfaceVersion", "firewallPlacement"],
+      "additionalProperties": false,
+      "properties": {
+        "leg": {
+          "enum": ["measurement", "detection", "guardrail", "reference"],
+          "description": "Which capability boundary this block implements."
+        },
+        "capabilityId": {
+          "type": "string",
+          "pattern": "^(measurement|detection|guardrail|reference):[a-z0-9][a-z0-9-]*$",
+          "description": "Stable id, e.g. 'measurement:envelope-distance', 'detection:surrogate-weakeners'."
+        },
+        "targetInterface": { "type": "string" },
+        "interfaceVersion": {
+          "type": "string",
+          "pattern": "^[0-9]+\\.[0-9]+",
+          "description": "Semver of the interface this capability implements; core enforces compatibility on load."
+        },
+        "firewallPlacement": {
+          "enum": ["measurement-region", "action-region", "reference-side"],
+          "description": "Which firewall region this capability's output belongs to (spec §0/§4). The P2.5 chokepoint reads this to decide which policy applies."
+        },
+        "provenance": {
+          "type": "object",
+          "description": "What this capability stamps into the bundle's provenance (the pack's identity + version).",
+          "additionalProperties": true
+        },
+        "payload": {
+          "type": "object",
+          "description": "Leg-specific payload. detection -> {shapes, rules, patternIds[], oos, derivations}; measurement/guardrail/reference -> {impl: 'module:Class', outputKeys[]}.",
+          "additionalProperties": true
+        }
+      }
+    }
+  }
+}

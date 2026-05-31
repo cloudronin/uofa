@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import functools
 import json
 import os
 import shutil
@@ -85,11 +86,46 @@ def pack_dir(pack_name: str = None, root: Path = None) -> Path:
 
 
 def pack_manifest(pack_name: str = None, root: Path = None) -> dict:
-    """Load and return the pack manifest (pack.json)."""
+    """Load and return the pack manifest (pack.json). Plain loader — no validation.
+
+    Validation happens once at the load gate (``validate_active_packs``), not on
+    every access, so this stays a cheap reader.
+    """
     manifest_path = pack_dir(pack_name, root) / "pack.json"
     if not manifest_path.exists():
         raise FileNotFoundError(f"Pack manifest not found: {manifest_path}")
     return json.loads(manifest_path.read_text())
+
+
+def pack_manifest_schema_path(root: Path = None) -> Path:
+    """Path to the pack-manifest JSON Schema (the §7 compatibility contract)."""
+    root = root or find_repo_root()
+    return root / "specs" / "pack_manifest_schema.json"
+
+
+@functools.lru_cache(maxsize=4)
+def _manifest_schema(schema_path_str: str) -> dict:
+    return json.loads(Path(schema_path_str).read_text(encoding="utf-8"))
+
+
+def validate_pack_manifest(manifest: dict, pack_name: str, root: Path = None) -> None:
+    """Validate a pack manifest against the pack-manifest JSON Schema. Raises ValueError.
+
+    Pack-shaped architecture §7: real load-time enforcement replacing the old
+    bare ``json.loads`` + directory-exists check. Legacy-tolerant during the
+    migration (the schema still accepts the pre-``capabilities`` flat fields), so
+    unmigrated packs validate unchanged.
+    """
+    import jsonschema
+
+    schema = _manifest_schema(str(pack_manifest_schema_path(root)))
+    try:
+        jsonschema.validate(manifest, schema)
+    except jsonschema.ValidationError as exc:
+        loc = "/".join(str(p) for p in exc.path) or "(root)"
+        raise ValueError(
+            f"Pack '{pack_name}' manifest is invalid at {loc}: {exc.message}"
+        ) from exc
 
 
 def list_packs(root: Path = None) -> list[str]:
@@ -120,15 +156,26 @@ def shacl_schema(root: Path = None) -> Path:
 
 
 def validate_active_packs(root: Path = None):
-    """Check that all active packs exist. Raises FileNotFoundError if not."""
+    """Validate core + all active packs at the load gate. Raises on first problem.
+
+    Pack-shaped §7 enforcement (was directory-exists only): each pack must exist
+    AND its manifest must conform to the pack-manifest schema. A missing pack
+    raises FileNotFoundError; a malformed manifest raises ValueError — loud
+    failure, never silent degradation.
+    """
     root = root or find_repo_root()
     available = list_packs(root)
-    for pack_name in _active_packs:
+    seen: set[str] = set()
+    for pack_name in ["core", *_active_packs]:
+        if pack_name in seen:
+            continue
+        seen.add(pack_name)
         if pack_name != "core" and pack_name not in available:
             raise FileNotFoundError(
                 f"Pack '{pack_name}' not found. "
                 f"Available packs: {', '.join(available)}"
             )
+        validate_pack_manifest(pack_manifest(pack_name, root=root), pack_name, root=root)
 
 
 def all_shacl_schemas(root: Path = None) -> list[Path]:
