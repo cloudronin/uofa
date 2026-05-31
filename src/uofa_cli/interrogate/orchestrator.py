@@ -12,6 +12,7 @@ import importlib.metadata
 import platform
 import sys
 
+from uofa_cli import firewall
 from uofa_cli.interrogate import measurement_method as mm
 from uofa_cli.interrogate import measurements as M
 from uofa_cli.interrogate.loader import Benchmark, Reference
@@ -78,6 +79,10 @@ def run_measurements(adapter, benchmark: Benchmark, reference: Reference,
     fields_present: list = []
     for method in _effective_methods():
         block = method.compute(ctx)
+        # Every measurement output crosses the firewall chokepoint (§0/§4): a
+        # method that tried to emit a verdict/decision — or a non-measurement-
+        # shaped scalar — is denied here, fail-closed, before it enters the bundle.
+        firewall.enforce_crossing(block, placement=firewall.PLACEMENT_MEASUREMENT)
         measurements[method.output_key] = block
         provenance.append(method.provenance(ctx))
         if method.is_present(block):
