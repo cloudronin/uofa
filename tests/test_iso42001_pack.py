@@ -108,11 +108,14 @@ class TestPackRegistration:
 
     def test_oos_enabled_by_default(self):
         manifest = paths.pack_manifest("iso42001")
-        assert "oos" in manifest, "iso42001 pack must declare oos config"
-        assert manifest["oos"]["enabled"] is True, (
+        # OOS config read source-agnostically: iso42001 is migrated to the
+        # capabilities[] shape (oos lives in the detection capability payload).
+        oos = paths.detection_config(manifest)["oos"]
+        assert oos is not None, "iso42001 pack must declare oos config"
+        assert oos["enabled"] is True, (
             "iso42001 pack ships with oos.enabled: true per spec §2.8.1"
         )
-        assert "rules/oos/oos_v0.1.rules" in manifest["oos"]["rule_files"]
+        assert "rules/oos/oos_v0.1.rules" in oos["rule_files"]
 
     def test_oos_config_resolution(self):
         cfg = oos_config.resolve(
