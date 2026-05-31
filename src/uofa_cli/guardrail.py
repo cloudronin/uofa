@@ -90,8 +90,17 @@ class ThresholdGuardrailStub(Guardrail):
 def build_guardrail_action(
     guardrail: Guardrail, firings: list[dict], *, context: dict | None = None
 ) -> dict:
-    """Assemble the ``guardrailAction`` block content (without its signature)."""
-    return guardrail.assess(firings, context=context)
+    """Assemble the ``guardrailAction`` block content (without its signature).
+
+    Pack-attributes the firings first (§5/§7.3) — the guardrail is the
+    evidence/action producer that records *which pack fired which weakener*, so
+    attribution happens here rather than in the byte-stable core check report.
+    Works on copies, so the caller's firings list is left untouched.
+    """
+    from uofa_cli.commands.rules import attribute_firings
+
+    attributed = attribute_firings([dict(f) for f in (firings or [])])
+    return guardrail.assess(attributed, context=context)
 
 
 def sign_guardrail_action(package: dict, key_path: str | Path, block_without_signature: dict) -> dict:

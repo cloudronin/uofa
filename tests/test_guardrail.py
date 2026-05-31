@@ -56,6 +56,18 @@ def test_stub_consumes_firings_and_decides_nothing():
     assert block["action"] == "none"  # interface only — no policy
 
 
+def test_build_attributes_raw_firings_without_mutating_caller():
+    # Raw check-report firings arrive WITHOUT a pack key; the guardrail attributes
+    # them via the manifest index (§7.3), recording which pack fired which weakener.
+    raw = [
+        {"patternId": "W-AIMS-AUDIT-STALE", "severity": "High", "hits": 1},
+        {"patternId": "W-EP-04", "severity": "High", "hits": 6},
+    ]
+    block = G.build_guardrail_action(G.ThresholdGuardrailStub(), raw)
+    assert block["packsFired"] == ["core", "iso42001"]
+    assert "pack" not in raw[0]  # caller's firings left untouched (attributed on copies)
+
+
 def test_guardrail_action_signs_verifies_and_is_tamper_evident(tmp_path):
     key, pub = _keys(tmp_path)
     p = tmp_path / "pkg.json"

@@ -515,7 +515,12 @@ def run_structured(args) -> RulesResult:
         encoding="utf-8", errors="replace",
     )
 
-    firings = attribute_firings(parse_firings(completed.stdout) if fmt == "summary" else [])
+    # Firings are NOT pack-attributed here: run_structured().firings feeds the C3
+    # check report, whose serialization is a byte-stable backward-compat contract
+    # (tests/oos/test_production_oos.py::test_55). Pack provenance (§5/§7.3) is
+    # applied at the evidence/action boundary by the consumer that records it —
+    # the guardrail — via attribute_firings, not ambiently injected into every report.
+    firings = parse_firings(completed.stdout) if fmt == "summary" else []
     return RulesResult(
         file=args.file,
         returncode=completed.returncode,
