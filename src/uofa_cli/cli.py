@@ -7,7 +7,7 @@ import sys
 
 from uofa_cli import __version__
 from uofa_cli.output import set_color, error
-from uofa_cli.paths import find_repo_root, set_active_pack
+from uofa_cli.paths import find_repo_root
 
 
 def _force_utf8_streams() -> None:
@@ -121,11 +121,10 @@ def _run():
     if args.no_color:
         set_color(False)
 
-    # Resolve active pack(s) and thread them explicitly on args (P2d). The global
-    # is still set during the migration so any not-yet-threaded reader keeps
-    # working; commands read args.active_packs and pass it down explicitly.
+    # Resolve active pack(s) and thread them explicitly on args (P2d-3). The
+    # process global is gone; commands read args.active_packs (via
+    # paths.resolve_active_packs) and pass it down explicitly.
     args.active_packs = _pre_args.pack or args.pack or ["vv40"]
-    set_active_pack(args.active_packs)
 
     # Resolve repo root early so commands can use paths.*
     try:

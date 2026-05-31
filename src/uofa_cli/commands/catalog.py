@@ -50,7 +50,6 @@ def run(args) -> int:
         # the parent parser's value at parse time, so the value set in cli.py
         # may not reflect what the user passed after the subcommand name.
         args.active_packs = args.pack
-    paths.set_active_pack(paths.resolve_active_packs(args))  # keep the global synced (P2d migration)
     records = _collect_patterns(args)
     if args.format == "json":
         print(json.dumps(records, indent=2))

@@ -40,14 +40,6 @@ pytestmark = pytest.mark.skipif(
 )
 
 
-@pytest.fixture(autouse=True)
-def _active_surrogate():
-    prev = paths.get_active_pack()
-    paths.set_active_pack(["surrogate"])
-    yield
-    paths.set_active_pack(prev)
-
-
 # ── fixture builders (full IRIs for uofa-surr: terms; @vocab covers core) ──
 
 
@@ -128,9 +120,12 @@ def _write(tmp_path: Path, name: str, pkg: dict) -> Path:
 
 
 def _firings(path: Path) -> dict:
+    # active_packs threaded explicitly (P2d-3): rules resolves which .rules files
+    # to load via paths.resolve_active_packs(args), reading args.active_packs.
     args = argparse.Namespace(
         file=path, rules=None, context=paths.context_file(),
         build=False, raw=False, format="summary", output=None,
+        active_packs=["surrogate"],
     )
     result = rules_mod.run_structured(args)
     return {f["patternId"]: f["severity"] for f in result.firings}
@@ -144,6 +139,7 @@ def _firings_with_derivations(path: Path) -> dict:
         args = argparse.Namespace(
             file=enriched, rules=None, context=paths.context_file(),
             build=False, raw=False, format="summary", output=None,
+            active_packs=["surrogate"],
         )
         result = rules_mod.run_structured(args)
         return {f["patternId"]: f["severity"] for f in result.firings}

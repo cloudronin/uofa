@@ -29,7 +29,6 @@ from pathlib import Path
 
 import pytest
 
-from uofa_cli import paths
 from uofa_cli.commands import rules as rules_mod
 
 
@@ -42,15 +41,6 @@ needs_jar = pytest.mark.skipif(
     not (JAVA_AVAILABLE and JAR.exists()),
     reason="java + built JAR required",
 )
-
-
-@pytest.fixture(autouse=True)
-def _activate_iso42001_pack():
-    """Activate iso42001 pack for all tests; restore prior pack after."""
-    prior = paths.get_active_pack()
-    paths.set_active_pack(["iso42001"])
-    yield
-    paths.set_active_pack(prior or ["vv40"])
 
 
 def _firings(fixture_path: Path) -> set[str]:
@@ -77,6 +67,7 @@ def _firings(fixture_path: Path) -> set[str]:
         verbose=False,
         repo_root=None,
         pack=["iso42001"],
+        active_packs=["iso42001"],
     )
     result = check_run_structured(args)
     return {r.get("patternId") for r in (result.rules.firings or []) if r.get("patternId")}

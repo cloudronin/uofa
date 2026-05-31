@@ -35,19 +35,14 @@ pytestmark = pytest.mark.skipif(
 )
 
 
-@pytest.fixture(autouse=True)
-def _active_surrogate():
-    prev = paths.get_active_pack()
-    paths.set_active_pack(["surrogate"])
-    yield
-    paths.set_active_pack(prev)
-
-
 def _pids(path: Path) -> set[str]:
+    # active_packs threaded explicitly (P2d-3): check resolves the active set via
+    # paths.resolve_active_packs(args), which reads args.active_packs.
     args = argparse.Namespace(
         file=path, pubkey=None, context=None, rules=None, skip_rules=False,
         build=False, enable_oos=False, disable_oos=False,
         no_color=True, verbose=False, repo_root=None, pack=["surrogate"],
+        active_packs=["surrogate"],
     )
     result = run_structured(args)
     assert result.rules is not None and result.rules.returncode == 0

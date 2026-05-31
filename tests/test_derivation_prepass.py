@@ -26,7 +26,6 @@ from pathlib import Path
 
 import pytest
 
-from uofa_cli import paths
 from uofa_cli.commands.check import run_structured
 from uofa_cli.derivations import config as derivation_config
 from uofa_cli.derivations import runner as derivation_runner
@@ -47,7 +46,13 @@ def _check_args(file_path: Path, *, pack: list[str] | None = None,
                 enable_oos: bool = False, disable_oos: bool = False,
                 enable_derivations: bool = False,
                 disable_derivations: bool = False) -> argparse.Namespace:
-    """Build a minimal args namespace for check.run_structured()."""
+    """Build a minimal args namespace for check.run_structured().
+
+    Threads ``active_packs`` from ``pack`` (P2d-3): check resolves the active set
+    via ``paths.resolve_active_packs(args)`` (reads ``args.active_packs``); there
+    is no process global to pre-seed.
+    """
+    packs = pack or ["vv40"]
     return argparse.Namespace(
         file=file_path,
         pubkey=None,
@@ -62,7 +67,8 @@ def _check_args(file_path: Path, *, pack: list[str] | None = None,
         no_color=True,
         verbose=False,
         repo_root=None,
-        pack=pack or ["vv40"],
+        pack=packs,
+        active_packs=packs,
     )
 
 
@@ -125,42 +131,34 @@ class TestBackwardCompat:
 
     def test_vv40_morrison_check_unchanged(self):
         """vv40 morrison case study still passes; derivations field is None."""
-        paths.set_active_pack(["vv40"])
-        try:
-            morrison = REPO_ROOT / "packs/vv40/examples/morrison/cou1/uofa-morrison-cou1.jsonld"
-            assert morrison.exists()
-            result = run_structured(_check_args(morrison, pack=["vv40"]))
-            assert result.shacl.conforms is True, "morrison SHACL must still conform"
-            assert result.derivations is None, (
-                "vv40 has no derivations section → result.derivations must be None"
-            )
-            assert result.derivations_error is None
-        finally:
-            paths.set_active_pack(["vv40"])
+        morrison = REPO_ROOT / "packs/vv40/examples/morrison/cou1/uofa-morrison-cou1.jsonld"
+        assert morrison.exists()
+        result = run_structured(_check_args(morrison, pack=["vv40"]))
+        assert result.shacl.conforms is True, "morrison SHACL must still conform"
+        assert result.derivations is None, (
+            "vv40 has no derivations section → result.derivations must be None"
+        )
+        assert result.derivations_error is None
 
     @needs_jar
     def test_vv40_morrison_oos_byte_identical(self):
         """OOS phase output for vv40 morrison must be byte-identical:
         derivations is None → effective_package is original → OOS sees
         exactly what it saw pre-v0.5."""
-        paths.set_active_pack(["vv40"])
-        try:
-            morrison = REPO_ROOT / "packs/vv40/examples/morrison/cou1/uofa-morrison-cou1.jsonld"
-            result = run_structured(
-                _check_args(morrison, pack=["vv40"], enable_oos=True)
-            )
-            # vv40 ships with oos.enabled: false, but --oos forces on.
-            # The substantive check: result.oos exists (engine ran) AND
-            # the firings list is what it always was (vv40's 5 OOS rules
-            # silently skip morrison since morrison has no adversarial
-            # provenance taxonomy match).
-            assert result.oos is not None
-            assert result.oos.returncode == 0
-            # Backward-compat assertion: no spurious firings introduced
-            # by the pre-pass infrastructure.
-            assert isinstance(result.oos.firings, list)
-        finally:
-            paths.set_active_pack(["vv40"])
+        morrison = REPO_ROOT / "packs/vv40/examples/morrison/cou1/uofa-morrison-cou1.jsonld"
+        result = run_structured(
+            _check_args(morrison, pack=["vv40"], enable_oos=True)
+        )
+        # vv40 ships with oos.enabled: false, but --oos forces on.
+        # The substantive check: result.oos exists (engine ran) AND
+        # the firings list is what it always was (vv40's 5 OOS rules
+        # silently skip morrison since morrison has no adversarial
+        # provenance taxonomy match).
+        assert result.oos is not None
+        assert result.oos.returncode == 0
+        # Backward-compat assertion: no spurious firings introduced
+        # by the pre-pass infrastructure.
+        assert isinstance(result.oos.firings, list)
 
     def test_pack_load_tolerance_no_derivations_field(self):
         """Pack manifests omitting `derivations` must load without error."""
@@ -181,29 +179,21 @@ class TestPipelineIntegration:
     def test_no_active_pack_with_derivations_means_no_prepass(self):
         """When the active pack has no derivations section, the pre-pass
         is a no-op and result.derivations is None."""
-        paths.set_active_pack(["vv40"])
-        try:
-            morrison = REPO_ROOT / "packs/vv40/examples/morrison/cou1/uofa-morrison-cou1.jsonld"
-            result = run_structured(_check_args(morrison, pack=["vv40"]))
-            assert result.derivations is None
-        finally:
-            paths.set_active_pack(["vv40"])
+        morrison = REPO_ROOT / "packs/vv40/examples/morrison/cou1/uofa-morrison-cou1.jsonld"
+        result = run_structured(_check_args(morrison, pack=["vv40"]))
+        assert result.derivations is None
 
     def test_cli_disable_flag_overrides_pack_config(self):
         """--no-derivations forces pre-pass off even if pack declares it on.
         For v0.5.0 phase 5.1, no pack declares derivations yet, so this
         test just verifies the flag plumbs through without error."""
-        paths.set_active_pack(["iso42001"])
-        try:
-            # iso42001 v0.4.x has no derivations section yet
-            cou1 = REPO_ROOT / "packs/iso42001/examples/hybrid/cou1/uofa-iso42001-cou1.jsonld"
-            result = run_structured(
-                _check_args(cou1, pack=["iso42001"], disable_derivations=True)
-            )
-            assert result.derivations is None
-            assert result.derivations_error is None
-        finally:
-            paths.set_active_pack(["vv40"])
+        # iso42001 v0.4.x has no derivations section yet
+        cou1 = REPO_ROOT / "packs/iso42001/examples/hybrid/cou1/uofa-iso42001-cou1.jsonld"
+        result = run_structured(
+            _check_args(cou1, pack=["iso42001"], disable_derivations=True)
+        )
+        assert result.derivations is None
+        assert result.derivations_error is None
 
 
 # ────────────────────────────────────────────────────────────────────
@@ -420,13 +410,10 @@ def _check_pattern_ids_with_derivations(fixture_path: Path) -> set[str]:
         enable_oos=False, disable_oos=True,  # focus on C3 firings
         enable_derivations=False, disable_derivations=False,
         no_color=True, verbose=False, repo_root=None, pack=["iso42001"],
+        active_packs=["iso42001"],
     )
-    paths.set_active_pack(["iso42001"])
-    try:
-        result = run_structured(args)
-        return {f.get("patternId") for f in (result.rules.firings or []) if f.get("patternId")}
-    finally:
-        paths.set_active_pack(["vv40"])
+    result = run_structured(args)
+    return {f.get("patternId") for f in (result.rules.firings or []) if f.get("patternId")}
 
 
 # (pattern, fixture, should_fire) — inverts TestBrittlenessOracle

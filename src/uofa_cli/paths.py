@@ -11,7 +11,6 @@ from pathlib import Path
 _MARKER = Path("spec") / "schemas" / "uofa_shacl.ttl"
 _PACK_MARKER = Path("packs") / "core" / "pack.json"
 _repo_root_cache = None
-_active_packs: list[str] = ["vv40"]
 
 # Interface versions the core provides. A pack capability declares the interface
 # + version it implements; the loader enforces major-version compatibility (§7).
@@ -25,35 +24,16 @@ CORE_INTERFACE_VERSIONS: dict[str, str] = {
 }
 
 
-def set_active_pack(pack_names):
-    """Set the active pack name(s) (called from CLI when --pack is provided).
-
-    Accepts a single string or list of strings.
-    """
-    global _active_packs
-    if isinstance(pack_names, str):
-        _active_packs = [pack_names]
-    elif isinstance(pack_names, list):
-        _active_packs = pack_names
-    else:
-        _active_packs = [str(pack_names)]
-
-
-def get_active_pack() -> list[str]:
-    """Return the currently active pack name(s)."""
-    return _active_packs
-
-
 def resolve_active_packs(args=None) -> list[str]:
     """The active pack set for this invocation — the P2d explicit-threading accessor.
 
     Reads ``args.active_packs`` (set once by the CLI entry point) when present;
-    otherwise falls back to the process default during the migration. Commands
-    call this and pass the result down explicitly, so the legacy global has
-    exactly one place to disappear from in P2d-3.
+    otherwise defaults to the open-core baseline pack ``vv40``. There is no
+    process global (removed in P2d-3) — commands resolve here and thread the
+    result down explicitly.
     """
     explicit = getattr(args, "active_packs", None)
-    return list(explicit) if explicit else get_active_pack()
+    return list(explicit) if explicit else ["vv40"]
 
 
 def find_repo_root(override: str = None) -> Path:
@@ -106,11 +86,11 @@ def pack_dir(pack_name: str = None, root: Path = None, active: list[str] = None)
 
     ``pack_name`` wins when given; otherwise the first ``active`` pack (or
     ``core``) is used. ``active`` is the explicit active-pack set (P2d threading);
-    when None it falls back to the process default during the migration.
+    when None it defaults to the open-core baseline pack ``vv40``.
     """
     root = root or find_repo_root()
     if active is None:
-        active = get_active_pack()
+        active = ["vv40"]
     name = (pack_name or active[0]) if active else "core"
     return root / "packs" / name
 
@@ -314,11 +294,11 @@ def validate_active_packs(root: Path = None, active: list[str] = None):
     dependencies, and no patternId collisions across active packs. A missing pack
     raises FileNotFoundError; anything else raises ValueError — loud failure,
     never silent degradation. ``active`` is the explicit active set (P2d); None
-    falls back to the process default during the migration.
+    defaults to the open-core baseline pack ``vv40``.
     """
     root = root or find_repo_root()
     if active is None:
-        active = get_active_pack()
+        active = ["vv40"]
     available = list_packs(root)
     core_version = None
     manifests: list[tuple[str, dict]] = []
@@ -343,12 +323,12 @@ def validate_active_packs(root: Path = None, active: list[str] = None):
 def all_shacl_schemas(root: Path = None, active: list[str] = None) -> list[Path]:
     """Return SHACL shape file paths for core + all active packs.
 
-    ``active`` is the explicit active set (P2d); None falls back to the process
-    default during the migration.
+    ``active`` is the explicit active set (P2d); None defaults to the open-core
+    baseline pack ``vv40``.
     """
     root = root or find_repo_root()
     if active is None:
-        active = get_active_pack()
+        active = ["vv40"]
     validate_active_packs(root, active=active)
     paths_list = [shacl_schema(root)]
 
@@ -467,12 +447,12 @@ def rules_file(input_path: Path = None, root: Path = None) -> Path:
 def all_rules_files(input_path: Path = None, root: Path = None, active: list[str] = None) -> list[Path]:
     """Return rules file paths for core + all active packs.
 
-    ``active`` is the explicit active set (P2d); None falls back to the process
-    default during the migration.
+    ``active`` is the explicit active set (P2d); None defaults to the open-core
+    baseline pack ``vv40``.
     """
     root = root or find_repo_root()
     if active is None:
-        active = get_active_pack()
+        active = ["vv40"]
     paths_list = [rules_file(input_path, root)]
 
     for pack_name in active:

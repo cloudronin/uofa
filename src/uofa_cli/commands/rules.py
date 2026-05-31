@@ -628,6 +628,7 @@ def _run_explain(args, result: RulesResult) -> None:
             context=getattr(args, "context", None),
             build=getattr(args, "build", False),
             raw=False, format="jsonld", output=None,
+            active_packs=getattr(args, "active_packs", None),
         )
         jsonld_result = run_structured(jsonld_args)
         if jsonld_result.returncode == 0 and jsonld_result.raw_stdout:
@@ -645,7 +646,7 @@ def _run_explain(args, result: RulesResult) -> None:
             firings=result.firings,
             jsonld_firings=jsonld_firings,
             individual_annotations=individual_annotations,
-            options=args_to_options(args, pack_name=_active_pack_name()),
+            options=args_to_options(args, pack_name=_active_pack_name(args)),
         )
     except LLMError as exc:
         print_degradation(
@@ -657,10 +658,10 @@ def _run_explain(args, result: RulesResult) -> None:
     print_envelope(env, format=args.explain_format or "text")
 
 
-def _active_pack_name() -> str:
+def _active_pack_name(args) -> str:
     """Return the first active pack name; defaults to 'vv40'."""
     try:
-        active = paths.get_active_pack()
+        active = paths.resolve_active_packs(args)
         return active[0] if active else "vv40"
     except Exception:  # noqa: BLE001
         return "vv40"

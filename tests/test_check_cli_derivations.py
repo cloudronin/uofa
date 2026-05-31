@@ -35,25 +35,20 @@ def _engine_available() -> bool:
 pytestmark = pytest.mark.skipif(not _engine_available(), reason="Jena engine (Java + JAR) not available")
 
 
-@pytest.fixture(autouse=True)
-def _restore_pack():
-    prev = paths.get_active_pack()
-    yield
-    paths.set_active_pack(prev)
-
-
 def _args(file_path: Path, pack: str) -> argparse.Namespace:
+    # active_packs is threaded explicitly (P2d-3): check resolves the active set
+    # via paths.resolve_active_packs(args), which reads args.active_packs.
     return argparse.Namespace(
         file=file_path, pubkey=None, context=None, rules=None, skip_rules=False, build=False,
         enable_oos=False, disable_oos=False, enable_derivations=False, disable_derivations=False,
         explain=False, no_color=True, verbose=False, repo_root=None, pack=[pack],
+        active_packs=[pack],
     )
 
 
 def test_uofa_check_cli_fires_derived_flag_weakener(capsys):
     # W-SURR-03 consumes the derived _evalOutsideEnvelope flag; it must surface
     # under the bare `uofa check` CLI (not only run_structured).
-    paths.set_active_pack(["surrogate"])
     check.run(_args(SURR_COU2, "surrogate"))
     out = capsys.readouterr().out
     assert "C2.5: Derivation pre-pass" in out
@@ -61,7 +56,6 @@ def test_uofa_check_cli_fires_derived_flag_weakener(capsys):
 
 
 def test_uofa_check_cli_renders_oos_section_for_oos_pack(capsys):
-    paths.set_active_pack(["surrogate"])
     check.run(_args(SURR_COU2, "surrogate"))
     out = capsys.readouterr().out
     assert "OOS: productive out-of-scope" in out
@@ -69,7 +63,6 @@ def test_uofa_check_cli_renders_oos_section_for_oos_pack(capsys):
 
 def test_uofa_check_cli_unchanged_for_pack_without_derivations_or_oos(capsys):
     # vv40 declares neither a derivation pre-pass nor OOS → no new sections.
-    paths.set_active_pack(["vv40"])
     check.run(_args(MORRISON, "vv40"))
     out = capsys.readouterr().out
     assert "C2.5" not in out

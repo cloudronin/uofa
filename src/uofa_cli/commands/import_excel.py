@@ -68,7 +68,6 @@ def run(args) -> int:
     if not getattr(args, "pack", None) and config.get("pack"):
         packs = [config["pack"]]
         args.active_packs = packs
-        paths.set_active_pack(packs)  # keep the global synced (P2d migration)
 
     step_header(f"Importing {xlsx.name}")
 
@@ -133,7 +132,6 @@ def _run_sip_import(args, bundle_path: Path, project_root, config) -> int:
 
     packs = ["surrogate"]
     args.active_packs = packs
-    paths.set_active_pack(packs)  # keep the global synced (P2d migration)
     step_header(f"Importing SIP bundle {bundle_path.name}")
 
     measurement_pubkey = getattr(args, "sip_pubkey", None) or paths.default_pubkey()
@@ -212,6 +210,11 @@ def _sign_and_check(args, output: Path, packs, project_root) -> int:
             verbose=getattr(args, "verbose", False),
             repo_root=getattr(args, "repo_root", None),
             pack=packs,
+            # Thread the active set explicitly (P2d-3): check.run_structured
+            # resolves packs via paths.resolve_active_packs(args), which reads
+            # args.active_packs — not args.pack — so the surrogate bundle is
+            # validated against surrogate shapes, not the vv40 default.
+            active_packs=packs,
             raw=False,
         )
         print()

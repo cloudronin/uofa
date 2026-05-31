@@ -63,7 +63,6 @@ def run(args) -> int:
     if not getattr(args, "pack", None) and config.get("pack"):
         packs = [config["pack"]]
         args.active_packs = packs
-        paths.set_active_pack(packs)  # keep the global synced (P2d migration)
     pack_name = packs[0]
 
     # Resolve LLM target. Two paths:

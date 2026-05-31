@@ -53,8 +53,7 @@ class TestOrDrillInOnAeroCou1:
 
     @pytest.fixture(scope="class")
     def violations(self):
-        paths.set_active_pack(["nasa-7009b"])
-        shapes = paths.all_shacl_schemas()
+        shapes = paths.all_shacl_schemas(active=["nasa-7009b"])
         conforms, violations = run_shacl_multi(FAILING_XLSX, shapes)
         assert conforms is False
         return violations
@@ -133,8 +132,7 @@ class TestDrillInDoesNotTriggerOnConformingDocs:
     """
 
     def test_morrison_cou1_conforms(self):
-        paths.set_active_pack(["vv40"])
-        shapes = paths.all_shacl_schemas()
+        shapes = paths.all_shacl_schemas(active=["vv40"])
         conforms, violations = run_shacl_multi(MORRISON_COU1, shapes)
         assert conforms is True, (
             f"Morrison cou1 should conform; got violations: {violations}"

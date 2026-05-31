@@ -362,7 +362,8 @@ class AdversarialGenerator:
 
             try:
                 conforms, violations = run_shacl_multi(
-                    candidate_path, paths.all_shacl_schemas()
+                    candidate_path,
+                    paths.all_shacl_schemas(active=[self.pack] if self.pack else None),
                 )
             except Exception as e:
                 last_error = f"SHACL run failed: {e}"

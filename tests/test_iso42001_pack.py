@@ -54,18 +54,14 @@ EXPECTED_RULE = {
 }
 
 
-@pytest.fixture(autouse=True)
-def _activate_iso42001_pack():
-    """Activate iso42001 pack for all tests; restore default after."""
-    prior = paths.get_active_pack()
-    paths.set_active_pack(["iso42001"])
-    yield
-    paths.set_active_pack(prior or ["vv40"])
-
-
 def _check_args(file_path: Path, *, enable_oos: bool = False,
                 disable_oos: bool = False) -> argparse.Namespace:
-    """Build a minimal args namespace for check.run_structured()."""
+    """Build a minimal args namespace for check.run_structured().
+
+    Threads ``active_packs=["iso42001"]`` explicitly (P2d-3): check resolves the
+    active set via ``paths.resolve_active_packs(args)``, which reads
+    ``args.active_packs`` — there is no process global to pre-seed.
+    """
     return argparse.Namespace(
         file=file_path,
         pubkey=None,
@@ -79,6 +75,7 @@ def _check_args(file_path: Path, *, enable_oos: bool = False,
         verbose=False,
         repo_root=None,
         pack=["iso42001"],
+        active_packs=["iso42001"],
     )
 
 

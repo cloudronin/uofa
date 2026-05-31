@@ -66,17 +66,17 @@ def run(args) -> int:
     info("Running C1 + C2 + C3 pipeline against the demo artifact...")
     info("══════════════════════════════════════════════════════════════")
 
-    # Set the active pack (the demo fixture conforms to vv40 shapes).
+    # Set the active pack (the demo fixture conforms to vv40 shapes). Threaded
+    # explicitly onto the inner check_args below (P2d-3) — there is no global.
     demo_pack = manifest.get("pack", "vv40")
     args.active_packs = [demo_pack] if isinstance(demo_pack, str) else list(demo_pack)
-    paths.set_active_pack(args.active_packs)  # keep the global synced (P2d migration)
 
     # The fixture's @context is a relative path that points at the wheel's
     # `_data/repo/spec/context/...`. In source-tree dev that location does
     # not exist (it's a wheel-build artifact), so the SHACL parser fails
     # to load @context. Mirror the fixture + bundled context into a tmp
     # dir whose layout makes the relative @context resolve correctly.
-    rc = _run_pipeline_in_tmp_layout(uofa_path)
+    rc = _run_pipeline_in_tmp_layout(uofa_path, active_packs=args.active_packs)
 
     info("")
     info("══════════════════════════════════════════════════════════════")
@@ -103,7 +103,7 @@ def _bundled_demo_dir() -> Path | None:
     return candidate if candidate.is_dir() else None
 
 
-def _run_pipeline_in_tmp_layout(uofa_path: Path) -> int:
+def _run_pipeline_in_tmp_layout(uofa_path: Path, active_packs: list[str] | None = None) -> int:
     """Stage the demo fixture into a tmp dir whose layout matches the
     wheel-bundled @context relative path, then run check.run().
 
@@ -143,6 +143,7 @@ def _run_pipeline_in_tmp_layout(uofa_path: Path) -> int:
             rules=None,
             skip_rules=False,
             build=False,
+            active_packs=active_packs,
         )
         saved_cache = paths._repo_root_cache
         paths._repo_root_cache = staged_repo

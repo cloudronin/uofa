@@ -106,8 +106,10 @@ class MeasurementMethod(ABC):
 #   3. methods added imperatively via ``register_measurement()`` — the small
 #      persistent "extras" registry below (a premium pack registering at import,
 #      or a test dropping in a stub). Persistent, so tests that add extras must
-#      restore (snapshot/restore helpers provided), exactly like the
-#      ``set_active_pack``/``get_active_pack`` snapshot pattern.
+#      restore (snapshot/restore helpers provided). The active pack set, by
+#      contrast, is no longer a process global — it is threaded explicitly via
+#      ``args.active_packs`` / ``paths.resolve_active_packs`` (P2d-3); only this
+#      imperative extras registry remains snapshot/restore territory.
 
 _EXTRA_REGISTRY: dict[str, MeasurementMethod] = {}
 
@@ -224,7 +226,11 @@ def pack_measurement_methods(pack_names: list[str] | None = None,
     from uofa_cli import paths
 
     if pack_names is None:
-        pack_names = ["core", *paths.get_active_pack()]
+        # The orchestrator has no args to thread; default to the open-core +
+        # vv40 set. vv40 declares no measurement capability, so this is
+        # behaviour-identical to the former ["core", *active] default while the
+        # active-pack global is gone (P2d-3).
+        pack_names = ["core", "vv40"]
     try:
         root = root or paths.find_repo_root()
     except FileNotFoundError:

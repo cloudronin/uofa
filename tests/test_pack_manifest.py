@@ -64,12 +64,8 @@ def test_malformed_capability_raises(bad_cap):
 
 
 def test_validate_active_packs_enforces_at_load_gate():
-    prev = paths.get_active_pack()
-    paths.set_active_pack(["surrogate"])
-    try:
-        paths.validate_active_packs()  # core + surrogate manifests both conform → no raise
-    finally:
-        paths.set_active_pack(prev)
+    # core + surrogate manifests both conform → no raise
+    paths.validate_active_packs(active=["surrogate"])
 
 
 # ── P2c: cross-pack compatibility enforcement ───────────────────────────────
@@ -136,10 +132,6 @@ def test_enforce_missing_dependency():
 
 
 def test_validate_active_packs_real_sets_pass_enforcement():
-    prev = paths.get_active_pack()
-    try:
-        for pack in ("surrogate", "iso42001", "nasa-7009b", "vv40"):
-            paths.set_active_pack([pack])
-            paths.validate_active_packs()  # core + pack (incl shared-id reuse) → no raise
-    finally:
-        paths.set_active_pack(prev)
+    for pack in ("surrogate", "iso42001", "nasa-7009b", "vv40"):
+        # core + pack (incl shared-id reuse) → no raise
+        paths.validate_active_packs(active=[pack])

@@ -421,6 +421,7 @@ def _run_explain(args, *, conforms: bool, violations: list,
                 context=args.context,
                 build=args.build,
                 raw=False, format="jsonld", output=None,
+                active_packs=getattr(args, "active_packs", None),
             )
             jsonld_result = rules_mod.run_structured(jsonld_args)
             if jsonld_result.returncode == 0 and jsonld_result.raw_stdout:

@@ -38,14 +38,6 @@ pytestmark = pytest.mark.skipif(
 )
 
 
-@pytest.fixture(autouse=True)
-def _active_surrogate():
-    prev = paths.get_active_pack()
-    paths.set_active_pack(["surrogate"])
-    yield
-    paths.set_active_pack(prev)
-
-
 def _cal(prefix: str) -> Path:
     matches = sorted(PACKAGES_DIR.glob(f"{prefix}-*.jsonld"))
     assert matches, f"no calibration package matching {prefix}-*"
@@ -53,10 +45,13 @@ def _cal(prefix: str) -> Path:
 
 
 def _check_args(path: Path, *, enable_oos: bool = False) -> argparse.Namespace:
+    # active_packs threaded explicitly (P2d-3): check resolves the active set via
+    # paths.resolve_active_packs(args), which reads args.active_packs.
     return argparse.Namespace(
         file=path, pubkey=None, context=None, rules=None, skip_rules=False,
         build=False, enable_oos=enable_oos, disable_oos=False,
         no_color=True, verbose=False, repo_root=None, pack=["surrogate"],
+        active_packs=["surrogate"],
     )
 
 
