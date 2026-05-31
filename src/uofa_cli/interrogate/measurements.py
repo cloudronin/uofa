@@ -15,6 +15,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from uofa_cli.interrogate.measurement_method import MeasurementContext, MeasurementMethod
+
 
 def _np():
     try:
@@ -118,3 +120,152 @@ def uq_empirical_coverage(lower: Any, upper: Any, reference: Any) -> float:
         return 0.0
     inside = (ref[:n] >= lo[:n]) & (ref[:n] <= hi[:n])
     return float(inside.mean())
+
+
+# ── The four open-core measurement methods (the first measurement pack) ──────
+#
+# Each wraps one of the functions above as a `MeasurementMethod`, reproducing the
+# exact block shapes the orchestrator emitted before the §3 refactor — so the
+# byte-identical golden gate (tests/interrogate/test_bundle_golden.py) holds.
+# They `compute`, they never threshold; provenance ids are declared here, not
+# hardcoded in the orchestrator.
+
+
+class ResidualMeasurement(MeasurementMethod):
+    """Per-QoI residual statistics of surrogate outputs vs the reference set."""
+
+    capability_id = "measurement:reference-residuals"
+    output_key = "referenceResiduals"
+    provenance_id = "m-residuals"
+
+    def compute(self, ctx: MeasurementContext) -> list:
+        out = []
+        for qoi, ref_values in ctx.reference.reference.items():
+            if qoi not in ctx.predicted:
+                continue
+            out.append({
+                "quantityOfInterest": qoi,
+                "statistics": residual_statistics(ctx.predicted[qoi], ref_values),
+                "measurementRef": self.provenance_id,
+            })
+        return out
+
+    def provenance(self, ctx: MeasurementContext) -> dict:
+        return {
+            "measurementId": self.provenance_id,
+            "producedBy": {"library": "numpy", "version": ctx.numpy_version},
+            "config": {"metric": "abs-residual-statistics"},
+            "seed": ctx.seed,
+            "runEnvironment": ctx.run_env,
+        }
+
+
+class EnvelopeMeasurement(MeasurementMethod):
+    """Whether the benchmark spans the training envelope and the eval point is inside it."""
+
+    capability_id = "measurement:envelope-coverage"
+    output_key = "envelopeCoverage"
+    provenance_id = "m-envelope"
+
+    def compute(self, ctx: MeasurementContext) -> dict:
+        env_dims = ctx.scope.get("trainingEnvelope", {}).get("dimensions", [])
+        eval_point = None
+        if ctx.scope.get("evaluationPoint"):
+            eval_point = {c["name"]: c["value"]
+                          for c in ctx.scope["evaluationPoint"].get("coordinates", [])}
+        coverage = envelope_coverage(
+            env_dims, ctx.benchmark.input_names, ctx.benchmark.inputs, eval_point
+        )
+        coverage["measurementRef"] = self.provenance_id
+        return coverage
+
+    def provenance(self, ctx: MeasurementContext) -> dict:
+        return {
+            "measurementId": self.provenance_id,
+            "producedBy": {"library": "uofa-sip", "version": ctx.sip_version},
+            "config": {"method": "per-dimension-containment"},
+            "seed": ctx.seed,
+            "runEnvironment": ctx.run_env,
+        }
+
+
+class PhysicsConstraintMeasurement(MeasurementMethod):
+    """Per-constraint residual statistics of conservation/invariant checks."""
+
+    capability_id = "measurement:physics-residuals"
+    output_key = "physicsConstraintResidual"
+    provenance_id = "m-physics"
+
+    def compute(self, ctx: MeasurementContext) -> list:
+        out = []
+        for constraint in ctx.scope.get("declaredPhysicsConstraint", []):
+            cid = constraint["constraintId"]
+            residual_field = ctx.reference.constraint_fields.get(cid)
+            if residual_field is None:
+                continue
+            out.append({
+                "constraintId": cid,
+                "statistics": constraint_residual_statistics(residual_field),
+                "measurementRef": self.provenance_id,
+            })
+        return out
+
+    def provenance(self, ctx: MeasurementContext) -> dict:
+        return {
+            "measurementId": self.provenance_id,
+            "producedBy": {"library": "numpy", "version": ctx.numpy_version},
+            "config": {"metric": "constraint-residual-statistics"},
+            "seed": ctx.seed,
+            "runEnvironment": ctx.run_env,
+        }
+
+    def is_present(self, block: Any) -> bool:
+        # Present only when at least one declared constraint had a residual field.
+        return bool(block)
+
+
+class UQCalibrationMeasurement(MeasurementMethod):
+    """Empirical coverage of the surrogate's prediction intervals (+ the method used)."""
+
+    capability_id = "measurement:uq-calibration"
+    output_key = "uqCalibration"
+    provenance_id = "m-uq"
+
+    def compute(self, ctx: MeasurementContext) -> dict:
+        uq = {"surrogateUQMethod": ctx.scope.get("surrogateUQMethod")}
+        for qoi, (lower, upper) in ctx.reference.uq_intervals.items():
+            if qoi in ctx.reference.reference:
+                uq["empiricalCoverage"] = uq_empirical_coverage(
+                    lower, upper, ctx.reference.reference[qoi]
+                )
+                uq["measurementRef"] = self.provenance_id
+                break
+        return uq
+
+    def provenance(self, ctx: MeasurementContext) -> dict:
+        return {
+            "measurementId": self.provenance_id,
+            "producedBy": {"library": "numpy", "version": ctx.numpy_version},
+            "config": {"method": "empirical-interval-coverage"},
+            "seed": ctx.seed,
+            "runEnvironment": ctx.run_env,
+        }
+
+    def is_present(self, block: Any) -> bool:
+        # Present only when an empirical coverage was actually computed.
+        return "empiricalCoverage" in block
+
+
+def default_methods() -> list[MeasurementMethod]:
+    """The four open-core measurement methods, in canonical emit order.
+
+    Order is load-bearing: it fixes the ``measurements`` key order and the
+    ``measurementProvenance`` order that the byte-identical golden gate pins
+    across the §3 refactor. New methods (premium packs) append after these.
+    """
+    return [
+        ResidualMeasurement(),
+        EnvelopeMeasurement(),
+        PhysicsConstraintMeasurement(),
+        UQCalibrationMeasurement(),
+    ]

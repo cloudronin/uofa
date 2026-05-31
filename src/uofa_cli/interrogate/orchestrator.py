@@ -12,6 +12,7 @@ import importlib.metadata
 import platform
 import sys
 
+from uofa_cli.interrogate import measurement_method as mm
 from uofa_cli.interrogate import measurements as M
 from uofa_cli.interrogate.loader import Benchmark, Reference
 
@@ -27,9 +28,36 @@ def _run_environment() -> dict:
     return {"python": sys.version.split()[0], "platform": platform.platform()}
 
 
+def _effective_methods() -> list[mm.MeasurementMethod]:
+    """The measurement methods this run emits, in stable order, deduped by id.
+
+    Open-core defaults first (their order fixes the ``measurements`` /
+    ``measurementProvenance`` key order the golden gate pins), then any
+    measurement capabilities the active packs declare (``payload.impl``), then
+    methods registered imperatively via ``register_measurement``. Recomputed per
+    run from the CURRENT active set, so packs contribute through the interface
+    with no orchestrator change and nothing lingers across runs.
+    """
+    methods: list[mm.MeasurementMethod] = []
+    seen: set[str] = set()
+    for source in (M.default_methods(), mm.pack_measurement_methods(), mm.extra_measurements()):
+        for method in source:
+            if method.capability_id in seen:
+                continue
+            seen.add(method.capability_id)
+            methods.append(method)
+    return methods
+
+
 def run_measurements(adapter, benchmark: Benchmark, reference: Reference,
-                     scope: dict, *, seed: int | None = None) -> tuple[dict, list]:
-    """Return ``(measurements, measurement_provenance)`` per the SIP contract.
+                     scope: dict, *, seed: int | None = None) -> tuple[dict, list, list]:
+    """Return ``(measurements, measurement_provenance, fields_present)``.
+
+    Discovers measurement methods through the :class:`MeasurementMethod`
+    interface + registry and invokes each over a single
+    :class:`MeasurementContext`, rather than calling the four functions by
+    hardcoded attribute reference. Each method declares its own provenance id
+    (no hardcoded ids here) and whether its output counts as present.
 
     ``scope`` is the practitioner's declared-scope dict (trainingEnvelope,
     evaluationPoint/Region, declaredPhysicsConstraint, surrogateUQMethod).
@@ -39,76 +67,20 @@ def run_measurements(adapter, benchmark: Benchmark, reference: Reference,
     run_env = _run_environment()
 
     predicted = adapter.predict(benchmark.inputs)
+    ctx = mm.MeasurementContext(
+        predicted=predicted, benchmark=benchmark, reference=reference,
+        scope=scope, seed=seed, run_env=run_env,
+        numpy_version=numpy_version, sip_version=sip_version,
+    )
 
-    reference_residuals = []
-    for qoi, ref_values in reference.reference.items():
-        if qoi not in predicted:
-            continue
-        reference_residuals.append({
-            "quantityOfInterest": qoi,
-            "statistics": M.residual_statistics(predicted[qoi], ref_values),
-            "measurementRef": "m-residuals",
-        })
+    measurements: dict = {}
+    provenance: list = []
+    fields_present: list = []
+    for method in _effective_methods():
+        block = method.compute(ctx)
+        measurements[method.output_key] = block
+        provenance.append(method.provenance(ctx))
+        if method.is_present(block):
+            fields_present.append(method.output_key)
 
-    env_dims = scope.get("trainingEnvelope", {}).get("dimensions", [])
-    eval_point = None
-    if scope.get("evaluationPoint"):
-        eval_point = {c["name"]: c["value"]
-                      for c in scope["evaluationPoint"].get("coordinates", [])}
-    coverage = M.envelope_coverage(env_dims, benchmark.input_names, benchmark.inputs, eval_point)
-    coverage["measurementRef"] = "m-envelope"
-
-    physics = []
-    for constraint in scope.get("declaredPhysicsConstraint", []):
-        cid = constraint["constraintId"]
-        residual_field = reference.constraint_fields.get(cid)
-        if residual_field is None:
-            continue
-        physics.append({
-            "constraintId": cid,
-            "statistics": M.constraint_residual_statistics(residual_field),
-            "measurementRef": "m-physics",
-        })
-
-    uq = {"surrogateUQMethod": scope.get("surrogateUQMethod")}
-    for qoi, (lower, upper) in reference.uq_intervals.items():
-        if qoi in reference.reference:
-            uq["empiricalCoverage"] = M.uq_empirical_coverage(
-                lower, upper, reference.reference[qoi]
-            )
-            uq["measurementRef"] = "m-uq"
-            break
-
-    measurements = {
-        "referenceResiduals": reference_residuals,
-        "envelopeCoverage": coverage,
-        "physicsConstraintResidual": physics,
-        "uqCalibration": uq,
-    }
-
-    provenance = [
-        {"measurementId": "m-residuals",
-         "producedBy": {"library": "numpy", "version": numpy_version},
-         "config": {"metric": "abs-residual-statistics"}, "seed": seed,
-         "runEnvironment": run_env},
-        {"measurementId": "m-envelope",
-         "producedBy": {"library": "uofa-sip", "version": sip_version},
-         "config": {"method": "per-dimension-containment"}, "seed": seed,
-         "runEnvironment": run_env},
-        {"measurementId": "m-physics",
-         "producedBy": {"library": "numpy", "version": numpy_version},
-         "config": {"metric": "constraint-residual-statistics"}, "seed": seed,
-         "runEnvironment": run_env},
-        {"measurementId": "m-uq",
-         "producedBy": {"library": "numpy", "version": numpy_version},
-         "config": {"method": "empirical-interval-coverage"}, "seed": seed,
-         "runEnvironment": run_env},
-    ]
-
-    measured_families = ["referenceResiduals", "envelopeCoverage"]
-    if physics:
-        measured_families.append("physicsConstraintResidual")
-    if "empiricalCoverage" in uq:
-        measured_families.append("uqCalibration")
-
-    return measurements, provenance, measured_families
+    return measurements, provenance, fields_present
