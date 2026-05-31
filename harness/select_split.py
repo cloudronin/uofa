@@ -133,9 +133,17 @@ def render(task_results: dict[str, list[dict]]) -> str:
                      f"(in-envelope {stats['in_median']:.4g}); elevation "
                      f"{('%.1fx' % stats['elevation']) if stats['elevation'] else 'n/a'}")
         asym = aoa_asymmetry(rows)
-        if asym:
-            lines.append(f"    AoA asymmetry: high-side Cd-error median={asym['high_side_cd_median']:.4g} "
-                         f"(n={asym['n_high']}) vs low-side {asym['low_side_cd_median']:.4g} (n={asym['n_low']}) "
-                         f"— degradation concentrates on the high (stall) side; low-side flagged cases are "
-                         f"flagged-but-fine and are reported, not dropped.")
+        if asym and asym["high_side_cd_median"] is not None and asym["low_side_cd_median"] is not None:
+            hi, lo = asym["high_side_cd_median"], asym["low_side_cd_median"]
+            # Report whichever side the data shows is worse — do NOT assume the
+            # high/stall side dominates. The better side's flagged cases are
+            # flagged-but-fine and are reported, never dropped to inflate the gap.
+            worse, better = ("high", "low") if hi >= lo else ("low", "high")
+            worse_med, better_med = (hi, lo) if worse == "high" else (lo, hi)
+            stall = " (toward stall)" if worse == "high" else ""
+            lines.append(
+                f"    AoA asymmetry: out-of-envelope Cd error is higher on the {worse}-AoA side"
+                f"{stall} (median {worse_med:.4g}, n={asym['n_' + worse]}) than the {better}-AoA side "
+                f"(median {better_med:.4g}, n={asym['n_' + better]}); degradation concentrates on the "
+                f"{worse} side. The {better}-side flagged cases are flagged-but-fine — reported, not dropped.")
     return "\n".join(lines)

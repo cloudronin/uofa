@@ -167,8 +167,22 @@ def test_select_split_reports_aoa_asymmetry_without_dropping_low_side():
     assert asym["high_side_cd_median"] > asym["low_side_cd_median"]
     assert asym["n_high"] == 6 and asym["n_low"] == 6  # low side counted, not dropped
     report = select_split.render({"aoa": rows}).lower()
-    assert "asymmetry" in report and "high (stall) side" in report
-    assert "flagged-but-fine" in report  # low-side honesty stated in the report
+    assert "asymmetry" in report
+    # data-driven: high side is worse here, so the report must name the HIGH side
+    assert "higher on the high-aoa side" in report
+    assert "flagged-but-fine" in report  # better-side honesty stated in the report
+
+
+def test_select_split_asymmetry_names_the_low_side_when_it_is_worse():
+    # Inverted case (the REAL AirfRANS finding): low side degrades more. The
+    # report must name the LOW side, not a hardcoded stall narrative.
+    rows = _split_rows("aoa", 0.01, 0.02, low_err=0.09)  # low_err >> high_err
+    report = select_split.render({"aoa": rows}).lower()
+    assert "higher on the low-aoa side" in report
+    # the asymmetry line must NOT invoke stall when the high side isn't the worse one
+    # (the "(stall)" in the physical-grounds default justification is separate and fine)
+    assert "toward stall" not in report
+    assert "flagged-but-fine" in report
 
 
 @pytest.mark.skipif(not _sklearn_available(), reason="scikit-learn not installed")

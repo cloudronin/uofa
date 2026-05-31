@@ -99,7 +99,12 @@ def run_corpus(corpus: Corpus, model_path: Path, envelope: dict, out_dir: Path,
         integrity.generate_keypair(key)
     pub = key.with_suffix(".pub")
 
-    cases = corpus.evaluation[:limit] if limit else corpus.evaluation
+    # evaluation = in-band holdout (front) ∪ out-of-band test (back); when limited,
+    # take an even spread so a smoke run samples BOTH groups, not just the front.
+    cases = corpus.evaluation
+    if limit and limit < len(cases):
+        step = len(cases) / limit
+        cases = [cases[int(i * step)] for i in range(limit)]
     rows: list[dict] = []
     work = Path(tempfile.mkdtemp(prefix="airfrans_corpus_"))
 

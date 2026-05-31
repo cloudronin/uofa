@@ -55,7 +55,10 @@ def _dispatch(args) -> int:
         from harness.airfrans_pull import TASKS, load_airfrans
         results = {t: select_split.evaluate_task(load_airfrans(t, args.root)) for t in TASKS}
         select_split.write_error_vs_parameter(results, args.out)
+        chosen, _ = select_split.choose(results)
+        (args.out / "chosen_split.txt").write_text(chosen + "\n", encoding="utf-8")
         print(select_split.render(results))
+        print(f"\n[chosen split written to {args.out / 'chosen_split.txt'}]")
         return 0
 
     if args.cmd == "train":
@@ -81,7 +84,10 @@ def _dispatch(args) -> int:
     if args.cmd == "gap":
         from harness import error_gap
         rows = error_gap.load_table(args.table)
-        print(error_gap.render_report(rows))
+        split_file = args.table.parent / "chosen_split.txt"
+        label = (split_file.read_text().strip() + " extrapolation"
+                 if split_file.exists() else "extrapolation")
+        print(error_gap.render_report(rows, split_label=label))
         return 0
 
     return 2

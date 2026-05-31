@@ -95,7 +95,7 @@ def plausibility(rows: list[dict]) -> dict:
     }
 
 
-def render_report(rows: list[dict], *, split_label: str = "AoA extrapolation") -> str:
+def render_report(rows: list[dict], *, split_label: str = "extrapolation") -> str:
     gap = error_gap(rows)
     plaus = plausibility(rows)
     lines: list[str] = []
