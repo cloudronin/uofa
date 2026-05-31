@@ -21,6 +21,7 @@ KEY  ?= keys/research.key
 .PHONY: all test validate morrison morrison-shacl morrison-rules morrison-verify morrison-diff
 .PHONY: morrison-build morrison-sign clean check shacl verify rules sign corpus corpus-clean
 .PHONY: clean-bundled firewall-guard
+.PHONY: airfrans-pull airfrans-select airfrans-train airfrans-corpus airfrans-gap
 
 # ── Primary targets ─────────────────────────────────────────
 
@@ -121,8 +122,30 @@ interrogate-corpus:
 	@echo "AirfRANS eval corpus (ODbL; never committed to the repo)."
 	@echo "  1) pip install -e '.[interrogate-corpus]'"
 	@echo "  2) set UOFA_AIRFRANS_DIR (current: $(UOFA_AIRFRANS_DIR))"
-	@echo "  3) pull AirfRANS into that dir; the harness reads it on demand."
+	@echo "  3) make airfrans-pull → airfrans-select → airfrans-train → airfrans-corpus → airfrans-gap"
 	@echo "See packs/surrogate/README.md and tests/fixtures/interrogate/pdebench/LICENSE.md."
+
+# ── Experiment A: AirfRANS corpus harness (measured error-gap) ──
+# The honest-surrogate error-gap experiment. Needs the [interrogate-corpus]
+# extra + a local AirfRANS pull; `airfrans-gap` is pure arithmetic over the
+# committed per-case table. No LLM, no verdict — the harness measures.
+AIRFRANS_TASK ?= aoa
+AIRFRANS_OUT  ?= $(ROOT)/dev/build/airfrans-exp
+
+airfrans-pull:
+	cd $(ROOT) && python -m harness pull --task $(AIRFRANS_TASK) --root $(UOFA_AIRFRANS_DIR)
+
+airfrans-select:
+	cd $(ROOT) && python -m harness select --root $(UOFA_AIRFRANS_DIR) --out $(AIRFRANS_OUT)
+
+airfrans-train:
+	cd $(ROOT) && python -m harness train --task $(AIRFRANS_TASK) --root $(UOFA_AIRFRANS_DIR) --out $(AIRFRANS_OUT)
+
+airfrans-corpus:
+	cd $(ROOT) && python -m harness corpus --task $(AIRFRANS_TASK) --root $(UOFA_AIRFRANS_DIR) --out $(AIRFRANS_OUT)
+
+airfrans-gap:
+	cd $(ROOT) && python -m harness gap --table $(AIRFRANS_OUT)/per_case.jsonl
 
 corpus-clean:
 	cd $(ROOT) && rm -rf tests/corpus/edge-cases tests/corpus/import-tests
