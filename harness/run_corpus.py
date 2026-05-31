@@ -28,7 +28,7 @@ from pathlib import Path
 from harness.datasets import FEATURES, TARGETS, Case, Corpus
 
 COLUMNS = [
-    "case_id", "reynolds", "aoa",
+    "case_id", "reynolds", "aoa", "g1", "g2",   # g1=camber, g2=max thickness
     "eval_point_in_envelope",     # SIP's containment fact
     "w_surr_03_fired",            # read from the real `uofa check`
     "pred_cl", "pred_cd", "ref_cl", "ref_cd", "err_cl", "err_cd",
@@ -133,6 +133,7 @@ def run_corpus(corpus: Corpus, model_path: Path, envelope: dict, out_dir: Path,
         pred_cl, pred_cd = float(pred[0]), float(pred[1])
         rows.append({
             "case_id": case.case_id, "reynolds": case.reynolds, "aoa": case.aoa,
+            "g1": case.g1, "g2": case.g2,
             "eval_point_in_envelope": in_env,
             "w_surr_03_fired": fired,
             "pred_cl": pred_cl, "pred_cd": pred_cd,

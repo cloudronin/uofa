@@ -37,8 +37,9 @@ def load_table(path: Path) -> list[dict]:
     with open(path, newline="") as f:
         rows = list(csv.DictReader(f))
     for r in rows:
-        for k in ("reynolds", "aoa", "pred_cl", "pred_cd", "ref_cl", "ref_cd", "err_cl", "err_cd"):
-            r[k] = float(r[k])
+        for k in ("reynolds", "aoa", "g1", "g2", "pred_cl", "pred_cd", "ref_cl", "ref_cd", "err_cl", "err_cd"):
+            if k in r:
+                r[k] = float(r[k])
         r["w_surr_03_fired"] = str(r["w_surr_03_fired"]).lower() in ("true", "1")
     return rows
 

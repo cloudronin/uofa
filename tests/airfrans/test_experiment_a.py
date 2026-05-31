@@ -185,6 +185,34 @@ def test_select_split_asymmetry_names_the_low_side_when_it_is_worse():
     assert "flagged-but-fine" in report
 
 
+def test_asymmetry_slice_distinguishes_broad_from_thickness_driven():
+    from harness import asymmetry_slice
+    env = {"aoa": (0.0, 10.0), "reynolds": (3e6, 5e6)}
+    thick = [8, 10, 12, 14, 16, 18, 20, 22, 24]
+
+    def _rows(errs):
+        return [{"w_surr_03_fired": True, "aoa": -5.0, "reynolds": 4e6, "g1": 2.0,
+                 "g2": t, "err_cd": e, "err_cl": 0.2} for t, e in zip(thick, errs)]
+
+    # BROAD: error hovers ~0.05 with no thickness trend → dropping the thickest
+    # third barely moves the median.
+    broad = _rows([0.050, 0.054, 0.047, 0.052, 0.049, 0.053, 0.046, 0.051, 0.048])
+    db = asymmetry_slice.confound_diagnostic(asymmetry_slice.fired_by_side(broad, env, "aoa")["low"])
+    assert abs(db["median_err_cd_all"] - db["median_err_cd_excl_thickest_third"]) / db["median_err_cd_all"] < 0.15
+
+    # THICKNESS-DRIVEN: error rises monotonically with thickness → median collapses
+    # when the thickest third is removed, and rank correlation is strong.
+    driven = _rows([0.01 * t for t in thick])
+    dd = asymmetry_slice.confound_diagnostic(asymmetry_slice.fired_by_side(driven, env, "aoa")["low"])
+    assert dd["median_err_cd_excl_thickest_third"] < dd["median_err_cd_all"]
+    assert dd["spearman_thickness_vs_err_cd"] > 0.8
+
+    # render carries no verdict token
+    from uofa_cli.interrogate.forbidden import FORBIDDEN_TOKENS
+    report = asymmetry_slice.render(driven, env, param="aoa").lower()
+    assert all(t.lower() not in report for t in FORBIDDEN_TOKENS)
+
+
 @pytest.mark.skipif(not _sklearn_available(), reason="scikit-learn not installed")
 def test_evaluate_task_degrades_out_of_envelope():
     corpus = datasets.synthetic_task(seed=3, n_train=120, n_eval_in=6, n_eval_high=8, n_eval_low=6)

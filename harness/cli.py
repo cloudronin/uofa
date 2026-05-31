@@ -37,6 +37,9 @@ def main(argv=None) -> int:
     p_co.add_argument("--limit", type=int, default=None)
     p_gap = sub.add_parser("gap", help="compute the error-gap number from the per-case table")
     p_gap.add_argument("--table", type=Path, default=Path("dev/build/airfrans-exp/per_case.jsonl"))
+    p_slice = sub.add_parser("slice", help="slice fired cases by envelope side + geometry (thickness)")
+    p_slice.add_argument("--table", type=Path, default=Path("dev/build/airfrans-exp/per_case.jsonl"))
+    p_slice.add_argument("--param", default="aoa", choices=["aoa", "reynolds"])
 
     args = parser.parse_args(argv)
     return _dispatch(args)
@@ -88,6 +91,15 @@ def _dispatch(args) -> int:
         label = (split_file.read_text().strip() + " extrapolation"
                  if split_file.exists() else "extrapolation")
         print(error_gap.render_report(rows, split_label=label))
+        return 0
+
+    if args.cmd == "slice":
+        from harness import asymmetry_slice, error_gap
+        rows = error_gap.load_table(args.table)
+        env_file = args.table.parent / "declared_envelope.json"
+        bounds = json.loads(env_file.read_text())["envelope"]
+        envelope = {k: tuple(v) for k, v in bounds.items()}
+        print(asymmetry_slice.render(rows, envelope, param=args.param))
         return 0
 
     return 2
