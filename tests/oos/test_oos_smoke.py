@@ -73,9 +73,11 @@ def test_resolve_pack_config_enabled_with_rule_files(tmp_path):
     rules_dir = pack_dir / "rules"
     rules_dir.mkdir(parents=True)
     (rules_dir / "test.rules").write_text("# stub\n")
+    # OOS config lives in the detection capability's payload (capabilities[]
+    # shape; the legacy flat `oos` field was dropped in the P2c migration).
     (pack_dir / "pack.json").write_text(
-        '{"name": "fakepak", '
-        '"oos": {"enabled": true, "rule_files": ["rules/test.rules"]}}'
+        '{"name": "fakepak", "capabilities": [{"leg": "detection", '
+        '"payload": {"oos": {"enabled": true, "rule_files": ["rules/test.rules"]}}}]}'
     )
     (fake_root / "spec" / "schemas").mkdir(parents=True)
     (fake_root / "spec" / "schemas" / "uofa_shacl.ttl").write_text("# stub\n")
@@ -93,7 +95,8 @@ def test_resolve_pack_config_enabled_but_missing_rule_files_raises(tmp_path):
     pack_dir = fake_root / "packs" / "fakepak"
     pack_dir.mkdir(parents=True)
     (pack_dir / "pack.json").write_text(
-        '{"name": "fakepak", "oos": {"enabled": true}}'
+        '{"name": "fakepak", "capabilities": [{"leg": "detection", '
+        '"payload": {"oos": {"enabled": true}}}]}'
     )
     (fake_root / "spec" / "schemas").mkdir(parents=True)
     (fake_root / "spec" / "schemas" / "uofa_shacl.ttl").write_text("# stub\n")
@@ -108,8 +111,8 @@ def test_resolve_enable_flag_nonexistent_rule_file_raises(tmp_path):
     pack_dir = fake_root / "packs" / "fakepak"
     pack_dir.mkdir(parents=True)
     (pack_dir / "pack.json").write_text(
-        '{"name": "fakepak", '
-        '"oos": {"enabled": false, "rule_files": ["rules/nonexistent.rules"]}}'
+        '{"name": "fakepak", "capabilities": [{"leg": "detection", '
+        '"payload": {"oos": {"enabled": false, "rule_files": ["rules/nonexistent.rules"]}}}]}'
     )
     (fake_root / "spec" / "schemas").mkdir(parents=True)
     (fake_root / "spec" / "schemas" / "uofa_shacl.ttl").write_text("# stub\n")
