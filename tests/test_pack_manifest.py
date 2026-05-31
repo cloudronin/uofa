@@ -122,8 +122,10 @@ def test_enforce_interface_version_major_mismatch():
 
 
 def test_enforce_unknown_interface():
+    # `detection` and `measurement` are known core interfaces (P2c, P3); a
+    # capability targeting an interface the core does NOT provide fails loudly.
     with pytest.raises(ValueError, match="unknown"):
-        paths._enforce_pack_compatibility([_detcap("x", [], iface="measurement")], "0.5.0", ["x"])
+        paths._enforce_pack_compatibility([_detcap("x", [], iface="no-such-interface")], "0.5.0", ["x"])
 
 
 def test_enforce_missing_dependency():

@@ -15,9 +15,9 @@ _active_packs: list[str] = ["vv40"]
 
 # Interface versions the core provides. A pack capability declares the interface
 # + version it implements; the loader enforces major-version compatibility (§7).
-# Only `detection` exists today; measurement/reference/guardrail are added here
-# when their interfaces land (P3/P4/P6).
-CORE_INTERFACE_VERSIONS: dict[str, str] = {"detection": "1.0"}
+# `detection` and `measurement` exist today; reference/guardrail are added here
+# when their interfaces land (P4/P6).
+CORE_INTERFACE_VERSIONS: dict[str, str] = {"detection": "1.0", "measurement": "1.0"}
 
 
 def set_active_pack(pack_names):
