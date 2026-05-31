@@ -44,13 +44,14 @@ def run(args) -> int:
     # pack so the catalog reflects total available patterns, not just those
     # in the active subset.
     if getattr(args, "all_packs", False):
-        paths.set_active_pack(paths.list_packs())
+        args.active_packs = paths.list_packs()
     elif args.pack:
         # Re-apply active pack from args: the subparser's --pack action clobbers
-        # the parent parser's value at parse time, so the global set in cli.py
+        # the parent parser's value at parse time, so the value set in cli.py
         # may not reflect what the user passed after the subcommand name.
-        paths.set_active_pack(args.pack)
-    records = _collect_patterns()
+        args.active_packs = args.pack
+    paths.set_active_pack(paths.resolve_active_packs(args))  # keep the global synced (P2d migration)
+    records = _collect_patterns(args)
     if args.format == "json":
         print(json.dumps(records, indent=2))
         return 0
@@ -60,18 +61,18 @@ def run(args) -> int:
     return _render_table(records)
 
 
-def _collect_patterns() -> list[dict]:
+def _collect_patterns(args) -> list[dict]:
     """Gather all patterns from .rules files in active packs."""
     records: list[dict] = []
-    for pack_name in _active_with_core():
+    for pack_name in _active_with_core(args):
         for rec in _parse_rules_for_pack(pack_name):
             records.append(rec)
 
     return sorted(records, key=lambda r: (r["pack"], r["patternId"]))
 
 
-def _active_with_core() -> list[str]:
-    active = paths.get_active_pack() or []
+def _active_with_core(args) -> list[str]:
+    active = paths.resolve_active_packs(args)
     ordered = ["core"]
     for name in active:
         if name != "core" and name not in ordered:

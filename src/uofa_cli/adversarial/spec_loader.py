@@ -566,13 +566,9 @@ def _known_weakener_ids(pack_name: str) -> frozenset[str]:
     except FileNotFoundError:
         return frozenset()
 
-    # Switch active pack temporarily so all_rules_files picks up pack-specific rules.
-    saved = paths.get_active_pack()
-    try:
-        paths.set_active_pack([pack_name])
-        rule_files = paths.all_rules_files(root=root)
-    finally:
-        paths.set_active_pack(saved)
+    # Pass the pack explicitly so all_rules_files picks up its rules — no global
+    # mutation, so the save/restore band-aid (the P2d test-isolation root cause) is gone.
+    rule_files = paths.all_rules_files(root=root, active=[pack_name])
 
     for rf in rule_files:
         try:

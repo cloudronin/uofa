@@ -67,7 +67,9 @@ def run(args) -> int:
     info("══════════════════════════════════════════════════════════════")
 
     # Set the active pack (the demo fixture conforms to vv40 shapes).
-    paths.set_active_pack(manifest.get("pack", "vv40"))
+    demo_pack = manifest.get("pack", "vv40")
+    args.active_packs = [demo_pack] if isinstance(demo_pack, str) else list(demo_pack)
+    paths.set_active_pack(args.active_packs)  # keep the global synced (P2d migration)
 
     # The fixture's @context is a relative path that points at the wheel's
     # `_data/repo/spec/context/...`. In source-tree dev that location does

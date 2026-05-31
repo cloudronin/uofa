@@ -59,10 +59,11 @@ def run(args) -> int:
 
     # Resolve pack: CLI dispatcher already sets active pack from --pack flag.
     # If no --pack was given and we're in a project, override with toml pack.
-    packs = paths.get_active_pack()
+    packs = paths.resolve_active_packs(args)
     if not getattr(args, "pack", None) and config.get("pack"):
         packs = [config["pack"]]
-        paths.set_active_pack(packs)
+        args.active_packs = packs
+        paths.set_active_pack(packs)  # keep the global synced (P2d migration)
     pack_name = packs[0]
 
     # Resolve LLM target. Two paths:
