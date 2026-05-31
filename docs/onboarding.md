@@ -627,11 +627,15 @@ Finds the repo root by searching upward for the marker file
 compat). All other paths are relative to this root. The root is cached
 globally after first discovery.
 
-**Pack-aware resolution:** The `--pack` flag (default: `core`) sets the
-active pack via `set_active_pack()`. Asset functions like
-`shacl_schema()` and `rules_file()` read from the active pack's
-manifest (`pack.json`) to locate files. If the pack or manifest is
-missing, they fall back to the legacy hardcoded paths.
+**Pack-aware resolution:** The `--pack` flag (default: `vv40`) is parsed
+in `cli.py` into `args.active_packs`. Commands resolve the active set via
+`paths.resolve_active_packs(args)` and pass it explicitly (the `active=`
+argument) to the pack readers — `pack_dir()`, `validate_active_packs()`,
+`all_shacl_schemas()`, `all_rules_files()` — which default to `["vv40"]`
+when none is supplied. Asset functions like `shacl_schema()` and
+`rules_file()` read from the active pack's manifest (`pack.json`) to
+locate files. If the pack or manifest is missing, they fall back to the
+legacy hardcoded paths.
 
 Key pattern: commands never hardcode paths. They call
 `paths.shacl_schema()`, `paths.jar_path()`,
