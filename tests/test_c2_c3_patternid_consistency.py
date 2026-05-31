@@ -76,6 +76,31 @@ def test_c2_still_rejects_malformed_patternids(bad):
     assert not re.compile(_c2_pattern()).match(bad)
 
 
+def test_patternid_pack_index_attributes_to_owning_pack():
+    index = paths.patternid_pack_index()
+    # Each pack's distinctive ids resolve to that pack.
+    assert index.get("W-EP-04") == "core"
+    assert index.get("W-AIMS-AUDIT-STALE") == "iso42001"
+    assert index.get("W-SURR-03") == "surrogate"
+    assert index.get("W-NASA-01") == "nasa-7009b"
+    # A base id reused by a pack stays owned by core (first declarer wins).
+    assert index.get("W-PROV-01") == "core"
+    # Every declared id is in the index.
+    assert set(_declared_pattern_ids()) <= set(index)
+
+
+def test_attribute_firings_stamps_owning_pack():
+    from uofa_cli.commands.rules import attribute_firings
+    firings = [
+        {"patternId": "W-AIMS-AUDIT-STALE", "severity": "High", "hits": 1},
+        {"patternId": "W-EP-04", "severity": "High", "hits": 6},
+        {"patternId": "W-SURR-03", "severity": "High", "hits": 1},
+        {"patternId": "W-NOPE-99", "severity": "Low", "hits": 1},  # unrecognized
+    ]
+    attribute_firings(firings)
+    assert [f["pack"] for f in firings] == ["iso42001", "core", "surrogate", None]
+
+
 def test_derived_json_schema_pattern_in_sync_with_shacl():
     # spec/schemas/uofa.schema.json is generated from the SHACL (`uofa schema`).
     # If the SHACL pattern changed but the schema wasn't regenerated, catch it.

@@ -178,6 +178,23 @@ def parse_firings(stdout_text: str) -> list[dict]:
     return list(seen.values())
 
 
+def attribute_firings(firings: list[dict], root: Path | None = None) -> list[dict]:
+    """Stamp each firing with the detection pack that owns its patternId (§5/§7.3).
+
+    Adds a ``pack`` key — the owning pack name, or ``None`` for an unrecognized
+    patternId — so the reasoned output records *which detection pack fired which
+    weakener* (the §7.3 auditability requirement). Uses the manifest-built index
+    (``paths.patternid_pack_index``), the same data the loader uses. Mutates and
+    returns ``firings``.
+    """
+    index = paths.patternid_pack_index(root)
+    for firing in firings:
+        pid = firing.get("patternId")
+        if pid:
+            firing["pack"] = index.get(pid)
+    return firings
+
+
 # Pattern descriptions live in .rules files as `# W-XX-NN: <description>`
 # header comments preceding each rule block (or descriptive form like
 # `# W-AIMS-AUDIT-STALE: <description>` for the iso42001 pack). Parsing
@@ -498,7 +515,7 @@ def run_structured(args) -> RulesResult:
         encoding="utf-8", errors="replace",
     )
 
-    firings = parse_firings(completed.stdout) if fmt == "summary" else []
+    firings = attribute_firings(parse_firings(completed.stdout) if fmt == "summary" else [])
     return RulesResult(
         file=args.file,
         returncode=completed.returncode,

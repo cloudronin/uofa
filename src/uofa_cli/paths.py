@@ -156,6 +156,37 @@ def detection_config(manifest: dict) -> dict:
     return {"shapes": None, "rules": None, "oos": None, "derivations": None, "patternIds": None}
 
 
+@functools.lru_cache(maxsize=4)
+def _patternid_pack_index_cached(root_str: str) -> tuple[tuple[str, str], ...]:
+    root = Path(root_str)
+    index: dict[str, str] = {}
+    for name in list_packs(root):
+        try:
+            manifest = pack_manifest(name, root=root)
+        except FileNotFoundError:
+            continue
+        for pid in detection_config(manifest).get("patternIds") or []:
+            index.setdefault(pid, name)  # first declarer wins (core owns reused base ids)
+    return tuple(index.items())
+
+
+def patternid_pack_index(root: Path = None) -> dict[str, str]:
+    """``{patternId: owning detection pack}`` built from the loaded manifests.
+
+    The provenance-attribution index (§5/§7.3): records which detection pack
+    contributes each weakener patternId, so reasoned output can stamp which pack
+    fired which weakener. Same data the loader uses (``detection_config`` payloads).
+    A patternId reused from core resolves to ``core`` (first declarer wins —
+    matching the base-vocabulary semantics in ``_enforce_pack_compatibility``).
+    Returns ``{}`` if the repo root can't be resolved.
+    """
+    try:
+        root = root or find_repo_root()
+    except FileNotFoundError:
+        return {}
+    return dict(_patternid_pack_index_cached(str(root)))
+
+
 def list_packs(root: Path = None) -> list[str]:
     """Return names of all installed packs (directories under packs/ with pack.json)."""
     root = root or find_repo_root()
