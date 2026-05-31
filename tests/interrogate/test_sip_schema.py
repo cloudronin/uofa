@@ -206,6 +206,42 @@ class TestFirewall:
         validate_bundle(bundle)
 
 
+class TestMeasurementRelaxation:
+    """Pack-shaped §3: the measurements block accepts any conforming method's key
+    (per-method validation), while the firewall survives the relaxation."""
+
+    def test_additional_array_method_accepted(self) -> None:
+        # A premium array-shaped method (e.g. a Wasserstein distance per QoI).
+        bundle = _base_bundle()
+        bundle["measurements"]["wassersteinDistance"] = [
+            {"quantityOfInterest": "lift_coefficient", "value": 0.013, "measurementRef": "m-residuals-cl"}
+        ]
+        validate_bundle(bundle)  # no core schema change needed for a new method
+
+    def test_additional_object_method_accepted(self) -> None:
+        # A premium object-shaped method.
+        bundle = _base_bundle()
+        bundle["measurements"]["densityCoverage"] = {"coverage": 0.88, "measurementRef": "m-residuals-cl"}
+        validate_bundle(bundle)
+
+    def test_scalar_method_value_rejected(self) -> None:
+        # Firewall survives: even a NON-forbidden new key is rejected when its
+        # value is a scalar — the structural additionalProperties:{array|object}
+        # constraint backstops the propertyNames denylist, so a verdict can't be
+        # smuggled in as a scalar under an innocent name.
+        bundle = _base_bundle()
+        bundle["measurements"]["summaryLabel"] = "PASS"
+        with pytest.raises(jsonschema.ValidationError):
+            validate_bundle(bundle)
+
+    def test_known_method_shape_still_validated(self) -> None:
+        # per-method validation: the four known methods keep their exact shapes.
+        bundle = _base_bundle()
+        bundle["measurements"]["envelopeCoverage"]["benchmarkSpansEnvelope"] = "not-a-bool"
+        with pytest.raises(jsonschema.ValidationError):
+            validate_bundle(bundle)
+
+
 def _engineer_decision() -> dict:
     return {
         "decidedBy": "sha256:engineerkeyfingerprint",
