@@ -16,6 +16,13 @@ from cryptography.hazmat.primitives import serialization
 
 INTEGRITY_FIELDS = {"hash", "signature", "signatureAlg", "canonicalizationAlg"}
 
+# Honest label for what canonicalize_and_hash actually does: sorted-key compact
+# JSON, NOT RDF Dataset Canonicalization. This field was previously mislabeled
+# "RDFC-1.0" — a claim the code never implemented. Adopting a standardized
+# canonicalization (RFC 8785 JCS / RDFC) is a separate, later capability
+# decision; this names the scheme truthfully in the meantime.
+CANONICALIZATION_ALG = "json-sortkeys/v1"
+
 
 def resolve_context(doc: dict, jsonld_path: Path, context_path: Path = None) -> dict:
     """Resolve external @context reference to inline object.
@@ -55,7 +62,14 @@ def strip_integrity_fields(doc: dict) -> dict:
 
 
 def canonicalize_and_hash(doc: dict) -> tuple[str, str]:
-    """Canonicalize JSON-LD and compute SHA-256. Returns (canonical_str, hex_digest)."""
+    """Serialize as sorted-key compact JSON and SHA-256 it. Returns (canonical_str, hex_digest).
+
+    Scheme (``CANONICALIZATION_ALG`` = ``json-sortkeys/v1``): UTF-8, keys sorted
+    lexicographically, ``,``/``:`` separators, no ASCII escaping. This operates on
+    the JSON *serialization*, NOT RDF/JSON-LD canonicalization — it is sensitive
+    to JSON structure, not RDF semantics. Adopting RFC 8785 JCS or RDF Dataset
+    Canonicalization is a separate, later decision.
+    """
     canonical = json.dumps(doc, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
     canonical_bytes = canonical.encode("utf-8")
     sha256_hex = hashlib.sha256(canonical_bytes).hexdigest()
@@ -86,7 +100,14 @@ def generate_keypair(key_path: Path):
 
 
 def sign_hash(sha256_hex: str, key_path: Path) -> str:
-    """Sign the SHA-256 hex string with ed25519 private key. Returns signature hex."""
+    """Sign the SHA-256 hex *string* with an ed25519 private key. Returns signature hex.
+
+    Note: the signature is over the lowercase hex-string bytes (``sha256_hex``
+    UTF-8 encoded), NOT the raw 32-byte digest. This is intentional and
+    self-consistent (``verify_signature`` reconstructs the same hex string), but
+    it is non-standard — an external verifier expecting ed25519-over-digest-bytes
+    must hex-encode the digest first.
+    """
     with open(key_path, "rb") as f:
         private_key = serialization.load_pem_private_key(f.read(), password=None)
 
@@ -142,7 +163,7 @@ def sign_file(input_path: Path, key_path: Path, context_path: Path = None,
     original["hash"] = f"sha256:{sha256_hex}"
     original["signature"] = f"ed25519:{sig_hex}"
     original["signatureAlg"] = "ed25519"
-    original["canonicalizationAlg"] = "RDFC-1.0"
+    original["canonicalizationAlg"] = CANONICALIZATION_ALG
 
     out = output_path or input_path
     with open(out, "w", encoding="utf-8") as f:

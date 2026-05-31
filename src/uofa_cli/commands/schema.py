@@ -249,7 +249,7 @@ def _generate_schema(shacl_path: Path) -> dict:
         },
         "canonicalizationAlg": {
             "type": "string",
-            "description": "Canonicalization algorithm (e.g., RDFC-1.0)",
+            "description": "Canonicalization algorithm (e.g., json-sortkeys/v1)",
         },
     }
 

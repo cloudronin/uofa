@@ -128,7 +128,7 @@ class TestValidBundle:
                 "hash": "sha256:deadbeef",
                 "signature": "ed25519:cafef00d",
                 "signatureAlg": "ed25519",
-                "canonicalizationAlg": "RDFC-1.0",
+                "canonicalizationAlg": "json-sortkeys/v1",
             }
         )
         validate_bundle(bundle)

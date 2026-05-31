@@ -32,6 +32,7 @@ from pathlib import Path
 from cryptography.hazmat.primitives import serialization
 
 from uofa_cli.integrity import (
+    CANONICALIZATION_ALG,
     INTEGRITY_FIELDS,
     canonicalize_and_hash,
     sign_hash,
@@ -74,7 +75,7 @@ def sign_measurement(package_path: Path, key_path: Path, output_path: Path | Non
     package["hash"] = f"sha256:{sha256_hex}"
     package["signature"] = f"ed25519:{sig_hex}"
     package["signatureAlg"] = "ed25519"
-    package["canonicalizationAlg"] = "RDFC-1.0"
+    package["canonicalizationAlg"] = CANONICALIZATION_ALG
     out = Path(output_path or package_path)
     out.write_text(json.dumps(package, indent=2, ensure_ascii=False), encoding="utf-8")
     return sha256_hex, sig_hex

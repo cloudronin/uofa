@@ -16,6 +16,7 @@ from uofa_cli.excel_constants import (
     PROFILE_URIS, CONTEXT_URL, BASE_URI,
 )
 from uofa_cli import __version__
+from uofa_cli.integrity import CANONICALIZATION_ALG
 
 
 def slugify(text: str) -> str:
@@ -151,7 +152,7 @@ def map_to_jsonld(data: dict, packs: list[str], source_path: Path) -> dict:
     doc["hash"] = "sha256:" + "0" * 64
     doc["signature"] = "ed25519:" + "0" * 128
     doc["signatureAlg"] = "ed25519"
-    doc["canonicalizationAlg"] = "RDFC-1.0"
+    doc["canonicalizationAlg"] = CANONICALIZATION_ALG
 
     # ── Provenance chain ─────────────────────────────────────
     doc["provenanceChain"] = [

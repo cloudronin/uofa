@@ -224,7 +224,7 @@ def _build(
         "hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
         "signature": "ed25519:0000000000000000000000000000000000000000000000000000000000000000" + "0" * 64,
         "signatureAlg": "ed25519",
-        "canonicalizationAlg": "RDFC-1.0",
+        "canonicalizationAlg": "json-sortkeys/v1",
         "hasCredibilityFactor": factors,
         "hasWeakener": [],
         "hasDecisionRecord": {
