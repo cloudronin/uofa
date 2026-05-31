@@ -135,13 +135,13 @@ def validate_pack_manifest(manifest: dict, pack_name: str, root: Path = None) ->
 
 
 def detection_config(manifest: dict) -> dict:
-    """Detection config (shapes/rules/oos/derivations), source-agnostic.
+    """Detection config (shapes/rules/oos/derivations/patternIds) from a manifest.
 
-    Pack-shaped §2a migration: reads the detection capability's payload (the new
-    ``capabilities[]`` shape) when present, else the legacy flat fields. Each
-    value is None when undeclared. Centralizing the capabilities-vs-flat read
-    here keeps every loader / resolver / info-command source-agnostic during and
-    after the migration — there is one place that knows about both shapes.
+    Reads the detection capability's payload. Every pack is migrated to the
+    ``capabilities[]`` shape (the legacy flat-field fallback was removed in P2c
+    drop-shim), so a pack with no detection capability returns all-None. The one
+    place that knows the detection-payload shape, used by every loader /
+    resolver / info-command.
     """
     for cap in manifest.get("capabilities", []):
         if cap.get("leg") == "detection":
@@ -153,13 +153,7 @@ def detection_config(manifest: dict) -> dict:
                 "derivations": payload.get("derivations"),
                 "patternIds": payload.get("patternIds"),
             }
-    return {
-        "shapes": manifest.get("shapes"),
-        "rules": manifest.get("rules"),
-        "oos": manifest.get("oos"),
-        "derivations": manifest.get("derivations"),
-        "patternIds": None,
-    }
+    return {"shapes": None, "rules": None, "oos": None, "derivations": None, "patternIds": None}
 
 
 def list_packs(root: Path = None) -> list[str]:

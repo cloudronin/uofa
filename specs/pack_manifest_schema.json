@@ -2,9 +2,9 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://uofa.net/schemas/pack-manifest/v1.json",
   "title": "UofA Pack Manifest",
-  "description": "The contract for a packs/<name>/pack.json. Pack-shaped architecture spec §2a/§7: a uniform envelope (identity + version + core-compatibility + dependencies) around one-or-more leg-specific capability blocks. LEGACY-TOLERANT during migration: the pre-refactor flat detection fields (shapes/rules/oos/derivations/template/prompt/factors/weakener_patterns) are still accepted so existing packs validate unchanged; they will be expressed as a `detection` capability block as each pack is migrated, after which the legacy fields are removed and `capabilities`/`coreCompatibility` become required.",
+  "description": "The contract for a packs/<name>/pack.json. Pack-shaped architecture spec §2a/§7: a uniform envelope (identity + version + core-compatibility + dependencies) around one-or-more leg-specific capability blocks. The migration is complete — every pack declares its detection/measurement/etc. config inside capabilities[] (the pre-refactor flat detection fields shapes/rules/oos/derivations/weakener_patterns are no longer accepted). template/prompt/factors remain top-level authoring/taxonomy metadata.",
   "type": "object",
-  "required": ["name", "version"],
+  "required": ["name", "version", "capabilities"],
   "additionalProperties": false,
   "properties": {
     "$schema": { "type": "string" },
@@ -35,37 +35,14 @@
     },
     "capabilities": {
       "type": "array",
-      "description": "One block per capability the pack provides. Same envelope, leg-specific payload (§2a).",
+      "minItems": 1,
+      "description": "One block per capability the pack provides — at least one. Same envelope, leg-specific payload (§2a).",
       "items": { "$ref": "#/$defs/capability" }
     },
 
-    "shapes": { "type": ["string", "null"], "description": "LEGACY detection payload (pre-capabilities migration)." },
-    "rules": { "type": ["string", "null"], "description": "LEGACY detection payload." },
-    "template": { "type": ["string", "null"], "description": "LEGACY authoring template." },
-    "prompt": { "type": ["string", "null"], "description": "LEGACY extract prompt." },
-    "factors": { "type": ["integer", "null"], "description": "LEGACY factor count." },
-    "weakener_patterns": {
-      "type": "integer",
-      "description": "LEGACY patternId count — drifts from the rules files. Superseded by the per-capability `patternIds` list, which cannot lie."
-    },
-    "oos": {
-      "type": "object",
-      "additionalProperties": false,
-      "description": "LEGACY out-of-scope config.",
-      "properties": {
-        "enabled": { "type": "boolean" },
-        "rule_files": { "type": "array", "items": { "type": "string" } }
-      }
-    },
-    "derivations": {
-      "type": "object",
-      "additionalProperties": false,
-      "description": "LEGACY derivation pre-pass config.",
-      "properties": {
-        "enabled": { "type": "boolean" },
-        "files": { "type": "array", "items": { "type": "string" } }
-      }
-    }
+    "template": { "type": ["string", "null"], "description": "Authoring template (xlsx) for `uofa import`." },
+    "prompt": { "type": ["string", "null"], "description": "Extract prompt for `uofa extract`." },
+    "factors": { "type": ["integer", "null"], "description": "Credibility-factor count (taxonomy metadata)." }
   },
   "$defs": {
     "capability": {
