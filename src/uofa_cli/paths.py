@@ -89,10 +89,17 @@ def find_repo_root(override: str = None) -> Path:
 
 # ── Pack resolution ──────────────────────────────────────────
 
-def pack_dir(pack_name: str = None, root: Path = None) -> Path:
-    """Return the directory for the given pack."""
+def pack_dir(pack_name: str = None, root: Path = None, active: list[str] = None) -> Path:
+    """Return the directory for the given pack.
+
+    ``pack_name`` wins when given; otherwise the first ``active`` pack (or
+    ``core``) is used. ``active`` is the explicit active-pack set (P2d threading);
+    when None it falls back to the process default during the migration.
+    """
     root = root or find_repo_root()
-    name = pack_name or _active_packs[0] if _active_packs else "core"
+    if active is None:
+        active = get_active_pack()
+    name = (pack_name or active[0]) if active else "core"
     return root / "packs" / name
 
 
@@ -286,7 +293,7 @@ def _enforce_pack_compatibility(manifests, core_version, available):
                     pattern_owner[pid] = name
 
 
-def validate_active_packs(root: Path = None):
+def validate_active_packs(root: Path = None, active: list[str] = None):
     """Validate core + all active packs at the load gate. Raises on first problem.
 
     Pack-shaped §7 enforcement (was directory-exists only): each pack must exist,
@@ -294,14 +301,17 @@ def validate_active_packs(root: Path = None):
     compatible — core-version range, capability interface versions, declared
     dependencies, and no patternId collisions across active packs. A missing pack
     raises FileNotFoundError; anything else raises ValueError — loud failure,
-    never silent degradation.
+    never silent degradation. ``active`` is the explicit active set (P2d); None
+    falls back to the process default during the migration.
     """
     root = root or find_repo_root()
+    if active is None:
+        active = get_active_pack()
     available = list_packs(root)
     core_version = None
     manifests: list[tuple[str, dict]] = []
     seen: set[str] = set()
-    for pack_name in ["core", *_active_packs]:
+    for pack_name in ["core", *active]:
         if pack_name in seen:
             continue
         seen.add(pack_name)
@@ -318,13 +328,19 @@ def validate_active_packs(root: Path = None):
     _enforce_pack_compatibility(manifests, core_version, available)
 
 
-def all_shacl_schemas(root: Path = None) -> list[Path]:
-    """Return SHACL shape file paths for core + all active packs."""
+def all_shacl_schemas(root: Path = None, active: list[str] = None) -> list[Path]:
+    """Return SHACL shape file paths for core + all active packs.
+
+    ``active`` is the explicit active set (P2d); None falls back to the process
+    default during the migration.
+    """
     root = root or find_repo_root()
-    validate_active_packs(root)
+    if active is None:
+        active = get_active_pack()
+    validate_active_packs(root, active=active)
     paths_list = [shacl_schema(root)]
 
-    for pack_name in _active_packs:
+    for pack_name in active:
         if pack_name == "core":
             continue
         try:
@@ -436,12 +452,18 @@ def rules_file(input_path: Path = None, root: Path = None) -> Path:
     return root / "packs" / "core" / "rules" / "uofa_weakener.rules"
 
 
-def all_rules_files(input_path: Path = None, root: Path = None) -> list[Path]:
-    """Return rules file paths for core + all active packs."""
+def all_rules_files(input_path: Path = None, root: Path = None, active: list[str] = None) -> list[Path]:
+    """Return rules file paths for core + all active packs.
+
+    ``active`` is the explicit active set (P2d); None falls back to the process
+    default during the migration.
+    """
     root = root or find_repo_root()
+    if active is None:
+        active = get_active_pack()
     paths_list = [rules_file(input_path, root)]
 
-    for pack_name in _active_packs:
+    for pack_name in active:
         if pack_name == "core":
             continue
         try:
