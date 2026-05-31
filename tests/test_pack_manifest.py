@@ -70,3 +70,74 @@ def test_validate_active_packs_enforces_at_load_gate():
         paths.validate_active_packs()  # core + surrogate manifests both conform → no raise
     finally:
         paths.set_active_pack(prev)
+
+
+# ── P2c: cross-pack compatibility enforcement ───────────────────────────────
+
+
+def test_version_helpers():
+    assert paths._version_tuple("0.5.0") == (0, 5, 0)
+    assert paths._satisfies("0.5.0", ">=0.5.0")
+    assert paths._satisfies("0.6.1", ">=0.5.0")
+    assert not paths._satisfies("0.4.9", ">=0.5.0")
+    assert paths._satisfies("1.0", "==1.0")
+
+
+def _detcap(pack, pids, *, iface_ver="1.0", iface="detection"):
+    return (pack, {"name": pack, "version": "0.1.0", "capabilities": [
+        {"leg": "detection", "capabilityId": f"detection:{pack}",
+         "targetInterface": iface, "interfaceVersion": iface_ver,
+         "firewallPlacement": "measurement-region",
+         "payload": {"patternIds": pids}}]})
+
+
+def test_enforce_allows_core_pattern_reuse_by_a_pack():
+    # core declares W-PROV-01; an iso-like pack reuses it — NOT a collision
+    # (core's patternIds are the reusable base vocabulary).
+    manifests = [
+        ("core", {"name": "core", "version": "0.5.0", "capabilities": [
+            {"leg": "detection", "capabilityId": "detection:core", "targetInterface": "detection",
+             "interfaceVersion": "1.0", "firewallPlacement": "measurement-region",
+             "payload": {"patternIds": ["W-PROV-01", "W-AR-02"]}}]}),
+        _detcap("isolike", ["W-PROV-01", "W-AIMS-X"]),
+    ]
+    paths._enforce_pack_compatibility(manifests, "0.5.0", ["isolike"])  # must not raise
+
+
+def test_enforce_flags_collision_between_two_noncore_packs():
+    manifests = [_detcap("p1", ["W-DUP-01"]), _detcap("p2", ["W-DUP-01"])]
+    with pytest.raises(ValueError, match="collision"):
+        paths._enforce_pack_compatibility(manifests, "0.5.0", ["p1", "p2"])
+
+
+def test_enforce_core_compatibility_range():
+    m = [("x", {"name": "x", "version": "0.1.0", "coreCompatibility": ">=99.0.0", "capabilities": []})]
+    with pytest.raises(ValueError, match="requires core"):
+        paths._enforce_pack_compatibility(m, "0.5.0", [])
+
+
+def test_enforce_interface_version_major_mismatch():
+    with pytest.raises(ValueError, match="major mismatch"):
+        paths._enforce_pack_compatibility([_detcap("x", ["W-X-01"], iface_ver="2.0")], "0.5.0", ["x"])
+
+
+def test_enforce_unknown_interface():
+    with pytest.raises(ValueError, match="unknown"):
+        paths._enforce_pack_compatibility([_detcap("x", [], iface="measurement")], "0.5.0", ["x"])
+
+
+def test_enforce_missing_dependency():
+    m = [("x", {"name": "x", "version": "0.1.0",
+                "dependencies": [{"pack": "ghost", "range": ">=1.0.0"}], "capabilities": []})]
+    with pytest.raises(ValueError, match="not installed"):
+        paths._enforce_pack_compatibility(m, "0.5.0", ["x"])
+
+
+def test_validate_active_packs_real_sets_pass_enforcement():
+    prev = paths.get_active_pack()
+    try:
+        for pack in ("surrogate", "iso42001", "nasa-7009b", "vv40"):
+            paths.set_active_pack([pack])
+            paths.validate_active_packs()  # core + pack (incl shared-id reuse) → no raise
+    finally:
+        paths.set_active_pack(prev)

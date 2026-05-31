@@ -13,6 +13,12 @@ _PACK_MARKER = Path("packs") / "core" / "pack.json"
 _repo_root_cache = None
 _active_packs: list[str] = ["vv40"]
 
+# Interface versions the core provides. A pack capability declares the interface
+# + version it implements; the loader enforces major-version compatibility (§7).
+# Only `detection` exists today; measurement/reference/guardrail are added here
+# when their interfaces land (P3/P4/P6).
+CORE_INTERFACE_VERSIONS: dict[str, str] = {"detection": "1.0"}
+
 
 def set_active_pack(pack_names):
     """Set the active pack name(s) (called from CLI when --pack is provided).
@@ -185,16 +191,85 @@ def shacl_schema(root: Path = None) -> Path:
     return root / "spec" / "schemas" / "uofa_shacl.ttl"
 
 
+def _version_tuple(v: str) -> tuple[int, int, int]:
+    parts: list[int] = []
+    for p in str(v).split(".")[:3]:
+        digits = "".join(ch for ch in p if ch.isdigit())
+        parts.append(int(digits) if digits else 0)
+    while len(parts) < 3:
+        parts.append(0)
+    return parts[0], parts[1], parts[2]
+
+
+def _satisfies(version: str, requirement: str) -> bool:
+    """Minimal semver-range check: supports >=, <=, ==, >, < and a bare version (>=)."""
+    req = str(requirement).strip()
+    for op in (">=", "<=", "==", ">", "<"):
+        if req.startswith(op):
+            target, v = _version_tuple(req[len(op):]), _version_tuple(version)
+            return {">=": v >= target, "<=": v <= target, "==": v == target,
+                    ">": v > target, "<": v < target}[op]
+    return _version_tuple(version) >= _version_tuple(req)
+
+
+def _enforce_pack_compatibility(manifests, core_version, available):
+    """§7 cross-pack enforcement over [(name, manifest), ...] for core + active packs.
+
+    Checks core-version range, capability interface versions, declared
+    dependencies, and patternId collisions ACROSS NON-CORE packs (core's
+    patternIds are the reusable base vocabulary — iso42001 deliberately reuses
+    W-PROV-01/W-AR-02/W-AL-02, so a core↔pack overlap is not a collision). Raises
+    ValueError on the first incompatibility — loud, never silent.
+    """
+    pattern_owner: dict[str, str] = {}
+    for name, m in manifests:
+        cc = m.get("coreCompatibility")
+        if cc and core_version and not _satisfies(core_version, cc):
+            raise ValueError(
+                f"Pack '{name}' requires core {cc} but the loaded core is {core_version}."
+            )
+        for dep in m.get("dependencies", []):
+            if dep.get("pack") not in available and dep.get("pack") != "core":
+                raise ValueError(
+                    f"Pack '{name}' depends on pack '{dep.get('pack')}' which is not installed."
+                )
+        for cap in m.get("capabilities", []):
+            iface = cap.get("targetInterface")
+            core_iface_ver = CORE_INTERFACE_VERSIONS.get(iface)
+            if core_iface_ver is None:
+                raise ValueError(
+                    f"Pack '{name}' capability '{cap.get('capabilityId')}' targets unknown "
+                    f"interface '{iface}'. Core provides: {sorted(CORE_INTERFACE_VERSIONS)}."
+                )
+            if _version_tuple(cap.get("interfaceVersion", "0"))[0] != _version_tuple(core_iface_ver)[0]:
+                raise ValueError(
+                    f"Pack '{name}' capability '{cap.get('capabilityId')}' needs {iface} "
+                    f"v{cap.get('interfaceVersion')}; core provides v{core_iface_ver} (major mismatch)."
+                )
+            if name != "core":
+                for pid in (cap.get("payload") or {}).get("patternIds") or []:
+                    if pattern_owner.get(pid, name) != name:
+                        raise ValueError(
+                            f"patternId '{pid}' is declared by both '{pattern_owner[pid]}' and "
+                            f"'{name}' — collision across active packs."
+                        )
+                    pattern_owner[pid] = name
+
+
 def validate_active_packs(root: Path = None):
     """Validate core + all active packs at the load gate. Raises on first problem.
 
-    Pack-shaped §7 enforcement (was directory-exists only): each pack must exist
-    AND its manifest must conform to the pack-manifest schema. A missing pack
-    raises FileNotFoundError; a malformed manifest raises ValueError — loud
-    failure, never silent degradation.
+    Pack-shaped §7 enforcement (was directory-exists only): each pack must exist,
+    its manifest must conform to the schema, AND the active set must be mutually
+    compatible — core-version range, capability interface versions, declared
+    dependencies, and no patternId collisions across active packs. A missing pack
+    raises FileNotFoundError; anything else raises ValueError — loud failure,
+    never silent degradation.
     """
     root = root or find_repo_root()
     available = list_packs(root)
+    core_version = None
+    manifests: list[tuple[str, dict]] = []
     seen: set[str] = set()
     for pack_name in ["core", *_active_packs]:
         if pack_name in seen:
@@ -205,7 +280,12 @@ def validate_active_packs(root: Path = None):
                 f"Pack '{pack_name}' not found. "
                 f"Available packs: {', '.join(available)}"
             )
-        validate_pack_manifest(pack_manifest(pack_name, root=root), pack_name, root=root)
+        manifest = pack_manifest(pack_name, root=root)
+        validate_pack_manifest(manifest, pack_name, root=root)
+        manifests.append((pack_name, manifest))
+        if pack_name == "core":
+            core_version = manifest.get("version")
+    _enforce_pack_compatibility(manifests, core_version, available)
 
 
 def all_shacl_schemas(root: Path = None) -> list[Path]:
