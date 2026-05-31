@@ -636,7 +636,7 @@ def _run_python(args) -> int:
     """Generate Python constants from SHACL shapes (core + all packs)."""
     step_header("Generating Python constants from SHACL shapes")
 
-    shacl_files = paths.all_shacl_schemas()
+    shacl_files = paths.all_shacl_schemas(active=paths.resolve_active_packs(args))
     # Also load any pack shapes not in active packs (we want all packs)
     root = paths.find_repo_root()
     for pack_name in paths.list_packs(root):

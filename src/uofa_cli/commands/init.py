@@ -73,7 +73,7 @@ def run(args) -> int:
     result_line("Keypair generated", True, str(key_path.name))
 
     # ── Copy Excel template from pack ─────────────────────────
-    active_pack = paths.get_active_pack()
+    active_pack = paths.resolve_active_packs(args)
     pack_name = active_pack[0] if active_pack else "vv40"
     xlsx_template = _find_pack_template(pack_name)
 

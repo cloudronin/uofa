@@ -121,8 +121,11 @@ def _run():
     if args.no_color:
         set_color(False)
 
-    # Set active pack(s) before resolving repo root
-    set_active_pack(_pre_args.pack or args.pack or ["vv40"])
+    # Resolve active pack(s) and thread them explicitly on args (P2d). The global
+    # is still set during the migration so any not-yet-threaded reader keeps
+    # working; commands read args.active_packs and pass it down explicitly.
+    args.active_packs = _pre_args.pack or args.pack or ["vv40"]
+    set_active_pack(args.active_packs)
 
     # Resolve repo root early so commands can use paths.*
     try:

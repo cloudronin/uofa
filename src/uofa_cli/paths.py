@@ -44,6 +44,18 @@ def get_active_pack() -> list[str]:
     return _active_packs
 
 
+def resolve_active_packs(args=None) -> list[str]:
+    """The active pack set for this invocation — the P2d explicit-threading accessor.
+
+    Reads ``args.active_packs`` (set once by the CLI entry point) when present;
+    otherwise falls back to the process default during the migration. Commands
+    call this and pass the result down explicitly, so the legacy global has
+    exactly one place to disappear from in P2d-3.
+    """
+    explicit = getattr(args, "active_packs", None)
+    return list(explicit) if explicit else get_active_pack()
+
+
 def find_repo_root(override: str = None) -> Path:
     """Find the UofA repo root by walking up from cwd looking for markers."""
     global _repo_root_cache

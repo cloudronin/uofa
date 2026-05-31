@@ -481,7 +481,7 @@ def run_structured(args) -> RulesResult:
     if args.rules:
         rules = args.rules
     else:
-        rules_list = paths.all_rules_files(args.file)
+        rules_list = paths.all_rules_files(args.file, active=paths.resolve_active_packs(args))
         rules = _combine_rules_files(rules_list)
 
     ctx = args.context or paths.context_file()

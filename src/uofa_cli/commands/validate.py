@@ -52,7 +52,7 @@ def run(args) -> int:
     if args.pack is None:
         shacl_paths = [paths.shacl_schema()]
     else:
-        shacl_paths = paths.all_shacl_schemas()
+        shacl_paths = paths.all_shacl_schemas(active=paths.resolve_active_packs(args))
     passed = 0
     failed = 0
 

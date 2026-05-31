@@ -17,16 +17,16 @@ def add_arguments(parser):
 def run(args) -> int:
     if args.name:
         return _show_pack(args.name, args.pack_verbose)
-    return _list_packs()
+    return _list_packs(paths.resolve_active_packs(args))
 
 
-def _list_packs() -> int:
+def _list_packs(active: list[str]) -> int:
     pack_names = paths.list_packs()
     if not pack_names:
         info("No packs installed.")
         return 0
 
-    active = paths.get_active_pack()
+
     header("Installed packs")
 
     for name in pack_names:

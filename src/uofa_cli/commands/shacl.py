@@ -55,7 +55,7 @@ def run_structured(args) -> ShaclResult:
     if not args.file.exists():
         raise FileNotFoundError(f"File not found: {args.file}")
 
-    shacl_paths = paths.all_shacl_schemas()
+    shacl_paths = paths.all_shacl_schemas(active=paths.resolve_active_packs(args))
 
     if args.raw:
         from pyshacl import validate as shacl_validate
@@ -124,7 +124,7 @@ def _run_explain(args, result: ShaclResult) -> None:
     )
     from uofa_cli.llm.errors import LLMError
 
-    pack_name = (paths.get_active_pack() or ["vv40"])[0]
+    pack_name = paths.resolve_active_packs(args)[0]
     try:
         env = interpret_shacl_output(
             structured_output={"violations": result.violations, "conforms": result.conforms},

@@ -131,7 +131,7 @@ def run_structured(args) -> CheckResult:
     ctx = args.context or paths.context_file()
 
     # ── C2: SHACL ─────────────────────────────────────────────
-    shacl_paths = paths.all_shacl_schemas()
+    shacl_paths = paths.all_shacl_schemas(active=paths.resolve_active_packs(args))
     conforms, violations = run_shacl_multi(args.file, shacl_paths)
     shacl_result = ShaclResult(
         file=args.file,
@@ -170,7 +170,7 @@ def run_structured(args) -> CheckResult:
     derivation_error: str | None = None
     effective_package = args.file  # default: no derivation, use original
     if not args.skip_rules:
-        active_packs = paths.get_active_pack() or ["vv40"]
+        active_packs = paths.resolve_active_packs(args)
         pack_for_derive = active_packs[0]
         try:
             derive_cfg = derivation_config.resolve(
@@ -203,6 +203,7 @@ def run_structured(args) -> CheckResult:
             raw=False,
             format="summary",
             output=None,
+            active_packs=getattr(args, "active_packs", None),
         )
         try:
             rules_result = rules_mod.run_structured(rules_args)
@@ -220,7 +221,7 @@ def run_structured(args) -> CheckResult:
     oos_result: oos_runner.OOSResult | None = None
     oos_error: str | None = None
     if not args.skip_rules:
-        active_packs = paths.get_active_pack() or ["vv40"]
+        active_packs = paths.resolve_active_packs(args)
         pack_for_oos = active_packs[0]
         try:
             oos_cfg = oos_config.resolve(
@@ -397,7 +398,7 @@ def _run_explain(args, *, conforms: bool, violations: list,
     )
     from uofa_cli.llm.errors import LLMError
 
-    pack_name = (paths.get_active_pack() or ["vv40"])[0]
+    pack_name = paths.resolve_active_packs(args)[0]
     try:
         package_doc = _json.loads(args.file.read_text(encoding="utf-8"))
     except (OSError, ValueError) as exc:

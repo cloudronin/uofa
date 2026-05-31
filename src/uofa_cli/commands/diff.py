@@ -441,7 +441,7 @@ def _run_explain(args, result: DiffResult) -> None:
     )
     from uofa_cli.llm.errors import LLMError
 
-    pack_name = (paths.get_active_pack() or ["vv40"])[0]
+    pack_name = paths.resolve_active_packs(args)[0]
     structured = {
         "only_a": result.only_a,
         "only_b": result.only_b,
