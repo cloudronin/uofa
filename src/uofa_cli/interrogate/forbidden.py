@@ -61,9 +61,16 @@ def forbidden_property_names_constraint() -> dict:
     return {"not": {"enum": list(FORBIDDEN_TOKENS)}}
 
 
-# The one region where decision content is legitimate (Addendum A4/A5): a
-# top-level engineerDecision block, governed by its signature, not the denylist.
+# The regions where decision/action content is legitimate (Addendum A4/A5,
+# generalized for the pack-shaped legs): top-level blocks each governed by their
+# OWN signature scope, not the denylist. ``engineerDecision`` is the original (a
+# signed human decision); ``guardrailAction`` is the guardrail leg's output (§6);
+# downstream verified-outcome labels can add more. Each is excluded from the
+# measurement signature and exempt from the measurement-region denylist —
+# additive content in its own scope, never mixed into the measurement region.
 DECISION_BLOCK_KEY = "engineerDecision"
+GUARDRAIL_BLOCK_KEY = "guardrailAction"
+ACTION_REGION_KEYS: tuple[str, ...] = (DECISION_BLOCK_KEY, GUARDRAIL_BLOCK_KEY)
 
 
 def find_forbidden_property_names(obj, _path: str = "$"):
@@ -86,21 +93,23 @@ def find_forbidden_property_names(obj, _path: str = "$"):
 
 
 def find_forbidden_in_measurement_region(bundle):
-    """Forbidden property names anywhere EXCEPT the top-level engineerDecision block.
+    """Forbidden property names anywhere EXCEPT the top-level action-region blocks.
 
     The signature-scoped firewall (Addendum A5, superseding the flat denylist):
-    decision content is valid only inside a verifying-signed ``engineerDecision``
-    block and forbidden everywhere else — the "measurement region". This walker
-    enforces the "everywhere else" half. Only the *top-level* engineerDecision is
-    exempt; a decision block smuggled deeper (e.g. inside ``measurements``) is
+    decision/action content is valid only inside a verifying-signed action-region
+    block (``ACTION_REGION_KEYS`` — ``engineerDecision``, ``guardrailAction``, …)
+    and is forbidden everywhere else — the "measurement region". This walker
+    enforces the "everywhere else" half. Only the *top-level* action-region blocks
+    are exempt; such a block smuggled deeper (e.g. inside ``measurements``) is
     still fully scanned, so it cannot be used to bypass the firewall.
     """
     if not isinstance(bundle, dict):
         yield from find_forbidden_property_names(bundle)
         return
     forbidden = set(FORBIDDEN_TOKENS)
+    exempt = set(ACTION_REGION_KEYS)
     for key, value in bundle.items():
-        if key == DECISION_BLOCK_KEY:
+        if key in exempt:
             continue
         if key in forbidden:
             yield (f"$.{key}", key)

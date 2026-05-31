@@ -37,11 +37,13 @@ from uofa_cli.integrity import (
     sign_hash,
     verify_signature,
 )
+from uofa_cli.interrogate.forbidden import ACTION_REGION_KEYS, DECISION_BLOCK_KEY
 
-DECISION_BLOCK_KEY = "engineerDecision"
-# The measurement signature's scope excludes the integrity fields AND the
-# engineer-decision block (which is signed separately, later, by a human).
-MEASUREMENT_EXCLUDED = set(INTEGRITY_FIELDS) | {DECISION_BLOCK_KEY}
+# The measurement signature's scope excludes the integrity fields AND every
+# action-region block (engineerDecision, guardrailAction, …) — each signed
+# separately in its own scope. Excluding them is what lets the measurement
+# signature keep verifying after a decision/action block is appended.
+MEASUREMENT_EXCLUDED = set(INTEGRITY_FIELDS) | set(ACTION_REGION_KEYS)
 
 
 def is_sip_bundle(doc: dict) -> bool:
@@ -111,16 +113,63 @@ def fingerprint_from_public_key(pubkey_path: Path) -> str:
     return _fingerprint(public_key)
 
 
-# ── Decision scope ───────────────────────────────────────────────────────────
+# ── Action-region scopes (generalized two-scope signing) ─────────────────────
+# An action-region block (engineerDecision, guardrailAction, downstream labels)
+# is signed over its OWN scope = {"measurementHash": <recomputed>, <scope_key>:
+# <block − signature>}. Binding to the *recomputed* measurement hash makes it
+# tamper-evident (altering any measurement breaks it) and lets the measurement
+# signature and the block signature verify independently. engineerDecision uses
+# scope_key="decision"; the guardrail leg uses scope_key="action".
+
+
+def _scoped_block_hash(package: dict, scope_key: str, block_without_signature: dict) -> str:
+    scope = {"measurementHash": measurement_hash(package), scope_key: block_without_signature}
+    _, sha256_hex = canonicalize_and_hash(scope)
+    return sha256_hex
 
 
 def _decision_scope_hash(package: dict, decision_block_without_signature: dict) -> str:
-    scope = {
-        "measurementHash": measurement_hash(package),
-        "decision": decision_block_without_signature,
-    }
-    _, sha256_hex = canonicalize_and_hash(scope)
-    return sha256_hex
+    """Back-compat alias: the engineerDecision scope (scope_key='decision')."""
+    return _scoped_block_hash(package, "decision", decision_block_without_signature)
+
+
+def sign_scoped_block(
+    package: dict, key_path: Path, block_without_signature: dict,
+    *, scope_key: str, signature_field: str,
+) -> dict:
+    """Sign an action-region block over its scope; return block + ``signature_field``."""
+    sha256_hex = _scoped_block_hash(package, scope_key, block_without_signature)
+    sig_hex = sign_hash(sha256_hex, Path(key_path))
+    return {**block_without_signature, signature_field: f"ed25519:{sig_hex}"}
+
+
+def verify_scoped_block(
+    package: dict, pubkey_path: Path,
+    *, block_key: str, scope_key: str, signature_field: str,
+    attributed_by_field: str | None = None,
+) -> tuple[bool, str]:
+    """Verify an action-region block's signature over its scope. Returns (ok, reason).
+
+    A missing/unsigned/mis-scoped/unverifiable block, or an attributed-key
+    mismatch, all resolve to (False, reason) — the caller treats any of these as
+    "no such block", never package failure.
+    """
+    block = package.get(block_key)
+    if not isinstance(block, dict):
+        return False, f"no {block_key} block present"
+    sig_field = block.get(signature_field)
+    if not sig_field:
+        return False, f"{block_key} present but unsigned"
+    block_without_sig = {k: v for k, v in block.items() if k != signature_field}
+    sha256_hex = _scoped_block_hash(package, scope_key, block_without_sig)
+    sig_hex = sig_field.split(":", 1)[1] if ":" in sig_field else sig_field
+    if not verify_signature(sha256_hex, sig_hex, Path(pubkey_path)):
+        return False, f"{block_key} signature does not verify over scope ({scope_key} + measurements)"
+    if attributed_by_field:
+        expected = fingerprint_from_public_key(Path(pubkey_path))
+        if block.get(attributed_by_field) != expected:
+            return False, f"{attributed_by_field} does not match the supplied key fingerprint"
+    return True, "ok"
 
 
 def build_decision_block(
@@ -144,31 +193,27 @@ def build_decision_block(
 
 
 def sign_decision(package: dict, key_path: Path, decision_block_without_signature: dict) -> dict:
-    """Return the engineerDecision block with a decisionSignature over the A6 scope."""
-    sha256_hex = _decision_scope_hash(package, decision_block_without_signature)
-    sig_hex = sign_hash(sha256_hex, Path(key_path))
-    return {**decision_block_without_signature, "decisionSignature": f"ed25519:{sig_hex}"}
+    """Engineer-decision block signed over the A6 scope (decision + measurements).
+
+    Thin wrapper over ``sign_scoped_block`` (scope_key='decision') — behaviour and
+    output bytes are identical to the pre-generalization implementation.
+    """
+    return sign_scoped_block(
+        package, key_path, decision_block_without_signature,
+        scope_key="decision", signature_field="decisionSignature",
+    )
 
 
 def verify_decision(package: dict, decision_pubkey_path: Path) -> tuple[bool, str]:
-    """Verify the decision signature over its A6 scope. Returns (ok, reason).
+    """Verify the engineer-decision signature over its A6 scope. Returns (ok, reason).
 
-    A missing block, missing/unverifiable signature, mis-scoped signature, or a
-    decidedBy that doesn't match the supplied key all resolve to (False, reason)
-    — the caller treats any of these as "no engineer decision," never failure.
+    A missing block, missing/unverifiable/mis-scoped signature, or a decidedBy
+    that doesn't match the supplied key all resolve to (False, reason) — the
+    caller treats any of these as "no engineer decision," never failure. Thin
+    wrapper over ``verify_scoped_block``.
     """
-    block = package.get(DECISION_BLOCK_KEY)
-    if not isinstance(block, dict):
-        return False, "no engineerDecision block present"
-    sig_field = block.get("decisionSignature")
-    if not sig_field:
-        return False, "engineerDecision present but unsigned"
-    block_without_sig = {k: v for k, v in block.items() if k != "decisionSignature"}
-    sha256_hex = _decision_scope_hash(package, block_without_sig)
-    sig_hex = sig_field.split(":", 1)[1] if ":" in sig_field else sig_field
-    if not verify_signature(sha256_hex, sig_hex, Path(decision_pubkey_path)):
-        return False, "decision signature does not verify over scope (decision + measurements)"
-    expected = fingerprint_from_public_key(Path(decision_pubkey_path))
-    if block.get("decidedBy") != expected:
-        return False, "decidedBy does not match the supplied decision key fingerprint"
-    return True, "ok"
+    return verify_scoped_block(
+        package, decision_pubkey_path,
+        block_key=DECISION_BLOCK_KEY, scope_key="decision",
+        signature_field="decisionSignature", attributed_by_field="decidedBy",
+    )
