@@ -51,6 +51,7 @@ def run_interrogation(
 
     from uofa_cli.interrogate import loader, orchestrator, packager
     from uofa_cli.interrogate import prov as prov_mod
+    from uofa_cli.interrogate import reference_source as refsrc
     from uofa_cli.interrogate.adapter import load_adapter
 
     bundle_id = bundle_id or f"sip-bundle-{uuid.uuid4().hex[:12]}"
@@ -63,7 +64,10 @@ def run_interrogation(
 
     adapter = load_adapter(adapter_ref)
     benchmark = loader.load_benchmark(Path(benchmark_path))
-    reference = loader.load_reference(Path(reference_path))
+    # Truth flows through the ReferenceSource interface (§3a): the precomputed
+    # file path resolves to a serve-only FileReferenceSource; a premium pack can
+    # supply a custom (serve+generate) source by class reference instead.
+    reference = refsrc.to_reference(refsrc.load_reference_source(Path(reference_path)))
 
     measurements, measurement_provenance, measured_families = orchestrator.run_measurements(
         adapter, benchmark, reference, scope, seed=seed
