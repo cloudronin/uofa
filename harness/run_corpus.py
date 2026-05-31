@@ -90,59 +90,67 @@ def run_corpus(corpus: Corpus, model_path: Path, envelope: dict, out_dir: Path,
 
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
+    # `uofa check` reads the pack from a process-global; set it to surrogate for
+    # the per-case checks, then RESTORE it. Without the restore an in-process
+    # caller (the engine-gated harness test) leaks the surrogate pack into later
+    # tests — e.g. the vv40 OOS suite, which relies on the default pack. Mirrors
+    # the save/restore convention in spec_loader.py and the iso42001/surrogate tests.
+    prior_pack = paths.get_active_pack()
     paths.set_active_pack(["surrogate"])
+    try:
+        model = joblib.load(model_path)
+        adapter_ref = _generate_adapter(model_path, out_dir)
+        key = out_dir / "harness.key"
+        if not key.exists():
+            integrity.generate_keypair(key)
+        pub = key.with_suffix(".pub")
 
-    model = joblib.load(model_path)
-    adapter_ref = _generate_adapter(model_path, out_dir)
-    key = out_dir / "harness.key"
-    if not key.exists():
-        integrity.generate_keypair(key)
-    pub = key.with_suffix(".pub")
+        # evaluation = in-band holdout (front) ∪ out-of-band test (back); when limited,
+        # take an even spread so a smoke run samples BOTH groups, not just the front.
+        cases = corpus.evaluation
+        if limit and limit < len(cases):
+            step = len(cases) / limit
+            cases = [cases[int(i * step)] for i in range(limit)]
+        rows: list[dict] = []
+        work = Path(tempfile.mkdtemp(prefix="airfrans_corpus_"))
 
-    # evaluation = in-band holdout (front) ∪ out-of-band test (back); when limited,
-    # take an even spread so a smoke run samples BOTH groups, not just the front.
-    cases = corpus.evaluation
-    if limit and limit < len(cases):
-        step = len(cases) / limit
-        cases = [cases[int(i * step)] for i in range(limit)]
-    rows: list[dict] = []
-    work = Path(tempfile.mkdtemp(prefix="airfrans_corpus_"))
+        for case in cases:
+            # SIP measurement bundle for this case (1-point benchmark + RANS reference).
+            bench = work / "bench.npz"
+            ref = work / "ref.npz"
+            np.savez(bench, inputs=np.array([case.features()], dtype=float),
+                     input_names=np.array(list(FEATURES)))
+            np.savez(ref, **{"ref__cl": np.array([case.cl]), "ref__cd": np.array([case.cd])})
+            bundle = work / "bundle.json"
+            run_interrogation(
+                adapter_ref=adapter_ref, benchmark_path=bench, reference_path=ref,
+                scope=_scope(envelope, case), output_path=bundle, key_path=key,
+                bundle_id=f"airfrans-{case.case_id}", generated_at="2026-05-30T00:00:00Z",
+            )
 
-    for case in cases:
-        # SIP measurement bundle for this case (1-point benchmark + RANS reference).
-        bench = work / "bench.npz"
-        ref = work / "ref.npz"
-        np.savez(bench, inputs=np.array([case.features()], dtype=float),
-                 input_names=np.array(list(FEATURES)))
-        np.savez(ref, **{"ref__cl": np.array([case.cl]), "ref__cd": np.array([case.cd])})
-        bundle = work / "bundle.json"
-        run_interrogation(
-            adapter_ref=adapter_ref, benchmark_path=bench, reference_path=ref,
-            scope=_scope(envelope, case), output_path=bundle, key_path=key,
-            bundle_id=f"airfrans-{case.case_id}", generated_at="2026-05-30T00:00:00Z",
-        )
+            # v2 map → surrogate-pack JSON-LD → real `uofa check` → fired flag.
+            cou = work / "cou.jsonld"
+            doc = read_sip_bundle(bundle, measurement_pubkey=pub)
+            cou.write_text(json.dumps(doc), encoding="utf-8")
+            fired, _ = _w_surr_03_fired(cou)
 
-        # v2 map → surrogate-pack JSON-LD → real `uofa check` → fired flag.
-        cou = work / "cou.jsonld"
-        doc = read_sip_bundle(bundle, measurement_pubkey=pub)
-        cou.write_text(json.dumps(doc), encoding="utf-8")
-        fired, _ = _w_surr_03_fired(cou)
+            in_env = doc_in_envelope(bundle)
+            pred = np.asarray(model.predict([case.features()]))[0]
+            pred_cl, pred_cd = float(pred[0]), float(pred[1])
+            rows.append({
+                "case_id": case.case_id, "reynolds": case.reynolds, "aoa": case.aoa,
+                "g1": case.g1, "g2": case.g2,
+                "eval_point_in_envelope": in_env,
+                "w_surr_03_fired": fired,
+                "pred_cl": pred_cl, "pred_cd": pred_cd,
+                "ref_cl": case.cl, "ref_cd": case.cd,
+                "err_cl": abs(pred_cl - case.cl), "err_cd": abs(pred_cd - case.cd),
+            })
 
-        in_env = doc_in_envelope(bundle)
-        pred = np.asarray(model.predict([case.features()]))[0]
-        pred_cl, pred_cd = float(pred[0]), float(pred[1])
-        rows.append({
-            "case_id": case.case_id, "reynolds": case.reynolds, "aoa": case.aoa,
-            "g1": case.g1, "g2": case.g2,
-            "eval_point_in_envelope": in_env,
-            "w_surr_03_fired": fired,
-            "pred_cl": pred_cl, "pred_cd": pred_cd,
-            "ref_cl": case.cl, "ref_cd": case.cd,
-            "err_cl": abs(pred_cl - case.cl), "err_cd": abs(pred_cd - case.cd),
-        })
-
-    _write_table(rows, out_dir)
-    return rows
+        _write_table(rows, out_dir)
+        return rows
+    finally:
+        paths.set_active_pack(prior_pack)
 
 
 def doc_in_envelope(bundle_path: Path) -> bool | None:
