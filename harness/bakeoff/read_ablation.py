@@ -32,6 +32,17 @@ MECHANISM_MIN_FRAC = 0.50
 MIN_PAIRED_COMMITTED = 12
 
 
+def verdict(danger_fired_flag: float, danger_catalog_ablated: float) -> str:
+    """The pre-registered primary verdict. Pure so the CONFIRM/FALSIFY/inconclusive
+    boundaries are unit-testable — a pre-registration whose FALSIFY can't fire is toothless."""
+    delta = danger_fired_flag - danger_catalog_ablated
+    if delta >= CONFIRM_DELTA and danger_fired_flag > 0:
+        return "CONFIRM (detect-without-meaning is harmful)"
+    if abs(delta) <= FALSIFY_DELTA:
+        return "FALSIFY (the n=24 inversion was noise)"
+    return "INCONCLUSIVE (do not stand on it; grow more)"
+
+
 def _load_rows(corpus_dir: Path) -> list[dict]:
     return [json.loads(Path(f).read_text()) for f in sorted(glob.glob(str(corpus_dir / "*.json")))]
 
@@ -91,15 +102,8 @@ def read(output_path: Path, corpus_dir: Path) -> dict:
     if "fired_flag" in results and "catalog_ablated" in results:
         dff = results["fired_flag"]["hard_core"]["dangerous_error_rate"]
         dca = results["catalog_ablated"]["hard_core"]["dangerous_error_rate"]
-        delta = round(dff - dca, 4)
-        if delta >= CONFIRM_DELTA and dff > 0:
-            verdict = "CONFIRM (detect-without-meaning is harmful)"
-        elif abs(delta) <= FALSIFY_DELTA:
-            verdict = "FALSIFY (the n=24 inversion was noise)"
-        else:
-            verdict = "INCONCLUSIVE (do not stand on it; grow more)"
         out["primary"] = {"danger_fired_flag": dff, "danger_catalog_ablated": dca,
-                          "delta": delta, "verdict": verdict}
+                          "delta": round(dff - dca, 4), "verdict": verdict(dff, dca)}
         out["mechanism"] = _mechanism_signature(rows, results["fired_flag"].get("answers", []),
                                                  results["catalog_ablated"].get("answers", []))
         if out["mechanism"]["accept_residual_risk_frac"] is not None:
