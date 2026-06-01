@@ -42,7 +42,10 @@ ANSWER_SCHEMA = {
 
 # Ablation conditions — vary ONLY what the prompt reveals, to measure the lift the
 # weakener catalog/rule gives (see harness/bakeoff/ablation.py).
-CONDITIONS = ("full", "fired_flag", "definition_only", "catalog_ablated", "measures_only")
+# `raw_artifact` is the coverage experiment's K1 (Experiment B): the model reads the
+# UNSTRUCTURED evidence package as prose (the defeater present but unflagged), no SIP
+# fields, no catalog — the buyer's "paste the docs into a good LLM" alternative.
+CONDITIONS = ("full", "fired_flag", "definition_only", "catalog_ablated", "measures_only", "raw_artifact")
 
 FULL_INSTR_DEFAULT = (
     "A weakener fired on a credibility evidence package. Using ONLY the supplied pattern "
@@ -103,6 +106,13 @@ def build_prompt(row: dict, condition: str = "full", measures_variant: str = "na
         body = [ABLATED_INSTR, "", measures, "", context]
     elif condition == "measures_only":
         body = [ABLATED_INSTR, "", measures]
+    elif condition == "raw_artifact":
+        artifact = inp.get("raw_artifact")
+        if not artifact:
+            raise ValueError(f"row {row.get('row_id')} has no raw_artifact (coverage cells only)")
+        body = [ABLATED_INSTR, "",
+                "INTENDED USE: " + inp.get("case_context", {}).get("cou", ""), "",
+                "EVIDENCE PACKAGE (as supplied by the surrogate's authors):", artifact]
     else:
         raise ValueError(f"unknown ablation condition: {condition!r} (use one of {CONDITIONS})")
     return "\n".join(body) + "\n" + _footer()

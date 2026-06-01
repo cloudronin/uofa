@@ -25,6 +25,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from harness.bakeoff.coverage_artifacts import RAW_ARTIFACTS
+
 CORPUS_DIR = Path(__file__).resolve().parent / "corpus"
 
 FIRE_INSTR = (
@@ -73,6 +75,10 @@ def build_row(c: dict) -> dict:
             # This is the fair test of the catalog's detection lift (ablation --measures raw).
             "measures_raw": RAW_MEASURES.get(c["id"], c["measures"]),
             "case_context": c["context"],
+            # Unstructured prose evidence package (the defeater present but unflagged) — the
+            # coverage experiment's K1 input (Experiment B). Present only on the coverage cells
+            # (no NVIDIA-signal analogue); None elsewhere.
+            "raw_artifact": RAW_ARTIFACTS.get(c["id"]),
         },
         "answer_key": {
             "gold_mechanism": c["mechanism"],
