@@ -73,6 +73,13 @@ the escalation is a closable gap (SLM-justifying) or correct caution (not).
 
 ## 2026-05-31 — catalog-lift ablation (`qwen2.5:7b`, 24 hard cells)
 
+> **SUPERSEDED in part by the n=60 run below.** The "detect-without-meaning
+> (`fired_flag`) is harmful" claim in this section was a two-row artifact and was
+> FALSIFIED at n=60 (Δ collapsed from +0.083 to +0.017, inside the noise band). The
+> "catalog must be applied whole / confidence-to-commit" reading *did* survive and
+> strengthen. Read this section as the preview that motivated the pre-registration,
+> not as a standing result.
+
 How much does the weakener catalog/rule help? Same model, same cells, same
 posture-grounded scorer; vary only what the prompt reveals (`run_p0` conditions),
 under two measure renderings. `ablation-{named,raw}-2026-05-31-*.json`.
