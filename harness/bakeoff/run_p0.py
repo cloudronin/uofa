@@ -131,7 +131,11 @@ def run_corpus(rows: list[dict], backend=None, *, seed: int = 0) -> list[dict]:
     if backend is None:
         from uofa_cli.llm import get_backend
         backend = get_backend()
-    return [generate_answer(backend, row, seed=seed) for row in rows]
+    answers = []
+    for i, row in enumerate(rows, 1):
+        print(f"  [{i}/{len(rows)}] generating: {row.get('row_id')}", flush=True)
+        answers.append(generate_answer(backend, row, seed=seed))
+    return answers
 
 
 def main(argv: list[str] | None = None) -> int:
