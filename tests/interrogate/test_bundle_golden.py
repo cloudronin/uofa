@@ -26,13 +26,37 @@ _ENV_KEYS = {"version", "python", "platform"}
 
 
 def _normalize(obj):
-    """Recursively normalize env-varying values + round floats for cross-numpy stability."""
+    """Recursively normalize env-varying values + round floats for cross-numpy stability.
+
+    Beyond the ``version``/``python``/``platform`` keys, two more things are
+    env-varying and must be scrubbed or the gate is host-pinned (and leaks an
+    absolute home path, AGENTS.md §10):
+      - the PROV-DM block embeds library versions inside SoftwareAgent identifiers
+        (``sip:agent/numpy@1.26.4``), labels (``numpy 1.26.4``), and the activity's
+        ``wasAssociatedWith`` refs — CI installs a different numpy/uofa;
+      - ``subject.adapterRef`` is the absolute path to the fixture adapter, which
+        differs per checkout (``/Users/...`` vs ``/workspaces/...``).
+    """
     if isinstance(obj, dict):
-        return {k: ("<env>" if k in _ENV_KEYS else _normalize(v)) for k, v in obj.items()}
+        is_agent = obj.get("type") == "prov:SoftwareAgent"
+        out = {}
+        for k, v in obj.items():
+            if k in _ENV_KEYS:
+                out[k] = "<env>"
+            elif is_agent and k == "label" and isinstance(v, str) and " " in v:
+                out[k] = v.rsplit(" ", 1)[0] + " <env>"  # "numpy 1.26.4" → "numpy <env>"
+            else:
+                out[k] = _normalize(v)
+        return out
     if isinstance(obj, list):
         return [_normalize(x) for x in obj]
     if isinstance(obj, float):
         return round(obj, 10)
+    if isinstance(obj, str):
+        if obj.startswith("sip:agent/") and "@" in obj:
+            return obj.rsplit("@", 1)[0] + "@<env>"  # "sip:agent/numpy@1.26.4" → "...@<env>"
+        if str(ADAPTER) in obj:
+            return obj.replace(str(ADAPTER), "<adapter>")  # abs adapterRef path → stable
     return obj
 
 
