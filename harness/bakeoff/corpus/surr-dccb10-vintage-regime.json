@@ -1,0 +1,83 @@
+{
+  "row_id": "surr-dccb10-vintage-regime",
+  "split": "train:hard-core",
+  "hard_core": true,
+  "strata": {
+    "d_category": "D-CCB-10",
+    "backbone": "data-support",
+    "measure_type": [
+      "data-vintage",
+      "regime-match"
+    ],
+    "domain": "internal-flow-surrogate",
+    "polarity": "fire",
+    "archetype": "fresh-data-wrong-regime"
+  },
+  "input": {
+    "instruction": "A weakener fired on a credibility evidence package. Using ONLY the supplied pattern definition and measures, explain what the flag means, why it fired, and what the engineer should do. Choose ONE action_class from the §5B vocabulary, report a verbalized confidence, and escalate if uncertain. Stay within measure-don't-judge: report on the evidence package, never on whether the model is correct.",
+    "fired_pattern": {
+      "id": "W-EP-03",
+      "d_category": "D-CCB-10",
+      "interface": "weakener-interface@1",
+      "definition": "Training-data fidelity/regime not matched to the COU: the data is recent but drawn from a different operating regime than the application.",
+      "standard_anchor": "ASME V&V 40 data adequacy; proto-taxonomy D-CCB-10 (data fidelity/vintage)"
+    },
+    "measures": {
+      "data_vintage": "current (last quarter)",
+      "training_regime": "steady low-load",
+      "cou_regime": "high-load transient",
+      "regime_overlap": "minimal"
+    },
+    "case_context": {
+      "cou": "surrogate predicts a transient response for a control-margin decision",
+      "model_influence": "high",
+      "decision_consequence": "control margin on the predicted transient"
+    }
+  },
+  "answer_key": {
+    "gold_mechanism": "Data recency is not the same as regime adequacy; the recent training data is from steady low-load operation, while the COU is a high-load transient — a regime the data does not represent — so the data is inadequate for the application despite being current.",
+    "gold_action": {
+      "selected_class": "acquire-validation",
+      "allowed_classes": [
+        "acquire-validation",
+        "restrict-cou",
+        "supply-evidence"
+      ],
+      "coherent_alternatives": [
+        "restrict-cou"
+      ],
+      "posture_basis": "standard-derived (ASME V&V 40: credibility bounded to the validated domain)",
+      "selection_basis": "provisional-self-adjudicated",
+      "parameters": {
+        "scope": "high-load transient regime",
+        "against": "regime-representative data"
+      }
+    },
+    "forbidden_claims": [
+      "asserts the transient prediction is wrong (a verdict the regime gap does not support)",
+      "treats data recency as evidence of regime adequacy"
+    ],
+    "acceptable_confidence": [
+      "high",
+      "0.78-0.95"
+    ]
+  },
+  "hardness": {
+    "obvious_signal": "the training data was collected last quarter — it is fresh / current",
+    "obvious_posture": "proceed",
+    "conflicting_signal": "freshness is not regime-match: the recent data is all from low-load operation while the COU is a high-load transient, so the recent data does not represent the application regime",
+    "gold_posture": "block"
+  },
+  "label_provenance": {
+    "external_grounding": "ASME V&V 40 data adequacy (D-CCB-10): training-data fidelity must match the application regime; vintage/recency does not establish regime match.",
+    "by_field": {
+      "gold_mechanism": "standard-grounded (V&V 40 data adequacy)",
+      "gold_action.posture": "standard-derived (V&V 40 applicability)",
+      "gold_action.selected_class": "provisional-self-adjudicated (row-builder; needs independent expert/solver adjudication before disposition-gate use)"
+    },
+    "not_sourced_from": [
+      "pipeline output",
+      "frontier model draft"
+    ]
+  }
+}

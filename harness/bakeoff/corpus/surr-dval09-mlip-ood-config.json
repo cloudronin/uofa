@@ -1,0 +1,84 @@
+{
+  "row_id": "surr-dval09-mlip-ood-config",
+  "split": "train:hard-core",
+  "hard_core": true,
+  "strata": {
+    "d_category": "D-VAL-09",
+    "backbone": "uncertainty-support",
+    "measure_type": [
+      "uq-calibration",
+      "train-test-mismatch"
+    ],
+    "domain": "interatomic-potential",
+    "polarity": "fire",
+    "archetype": "indist-calibrated-ood-use"
+  },
+  "input": {
+    "instruction": "A weakener fired on a credibility evidence package. Using ONLY the supplied pattern definition and measures, explain what the flag means, why it fired, and what the engineer should do. Choose ONE action_class from the §5B vocabulary, report a verbalized confidence, and escalate if uncertain. Stay within measure-don't-judge: report on the evidence package, never on whether the model is correct.",
+    "fired_pattern": {
+      "id": "W-AL-02",
+      "d_category": "D-VAL-09",
+      "interface": "weakener-interface@1",
+      "definition": "Ensemble UQ calibrated on in-distribution configurations while the COU samples novel configurations the ensemble has not been calibrated against.",
+      "standard_anchor": "ASME V&V 40 uncertainty; proto-taxonomy D-VAL-09"
+    },
+    "measures": {
+      "surrogateUQMethod": "deep-ensemble",
+      "test_split_calibration": "good (ECE 0.02)",
+      "test_split_distribution": "near-equilibrium configurations",
+      "cou_distribution": "high-energy transition states",
+      "calibration_on_cou_distribution": "absent"
+    },
+    "case_context": {
+      "cou": "the potential drives a reaction-rate estimate over transition states",
+      "model_influence": "high",
+      "decision_consequence": "reaction pathway selected on the estimate"
+    }
+  },
+  "answer_key": {
+    "gold_mechanism": "Calibration was measured on near-equilibrium configurations; the COU samples transition states from a different distribution where the ensemble is uncalibrated, so the test-split ECE does not bound the COU's uncertainty.",
+    "gold_action": {
+      "selected_class": "acquire-validation",
+      "allowed_classes": [
+        "acquire-validation",
+        "restrict-cou",
+        "supply-evidence"
+      ],
+      "coherent_alternatives": [
+        "restrict-cou"
+      ],
+      "posture_basis": "standard-derived (ASME V&V 40: credibility bounded to the validated domain)",
+      "selection_basis": "provisional-self-adjudicated",
+      "parameters": {
+        "scope": "transition-state configurations",
+        "against": "reference electronic-structure forces"
+      }
+    },
+    "forbidden_claims": [
+      "asserts the potential's transition-state forces are wrong (a verdict the evidence does not support)",
+      "treats equilibrium-split calibration as calibration for transition states"
+    ],
+    "acceptable_confidence": [
+      "high",
+      "0.75-0.93"
+    ]
+  },
+  "hardness": {
+    "obvious_signal": "the ensemble's force-error calibration looks good on the held-out test split",
+    "obvious_posture": "proceed",
+    "conflicting_signal": "the held-out split is drawn from the same equilibrium configurations; the COU samples high-energy transition states (a different distribution) where ML interatomic-potential ensembles are known to be overconfident",
+    "gold_posture": "block"
+  },
+  "label_provenance": {
+    "external_grounding": "BNN vs deep ensembles for UQ in ML interatomic potentials (arXiv:2509.19180): ensemble UQ is distribution-dependent and overconfident off-distribution.",
+    "by_field": {
+      "gold_mechanism": "paper-grounded (MLIP ensemble UQ off-distribution)",
+      "gold_action.posture": "standard-derived (V&V 40 applicability)",
+      "gold_action.selected_class": "provisional-self-adjudicated (row-builder; needs independent expert/solver adjudication before disposition-gate use)"
+    },
+    "not_sourced_from": [
+      "pipeline output",
+      "frontier model draft"
+    ]
+  }
+}

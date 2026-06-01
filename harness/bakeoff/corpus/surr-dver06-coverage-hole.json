@@ -1,0 +1,83 @@
+{
+  "row_id": "surr-dver06-coverage-hole",
+  "split": "train:hard-core",
+  "hard_core": true,
+  "strata": {
+    "d_category": "D-VER-06",
+    "backbone": "verification-support",
+    "measure_type": [
+      "benchmark-coverage",
+      "design-of-experiments"
+    ],
+    "domain": "external-aero-CFD",
+    "polarity": "fire",
+    "archetype": "spans-on-average-cell-empty"
+  },
+  "input": {
+    "instruction": "A weakener fired on a credibility evidence package. Using ONLY the supplied pattern definition and measures, explain what the flag means, why it fired, and what the engineer should do. Choose ONE action_class from the §5B vocabulary, report a verbalized confidence, and escalate if uncertain. Stay within measure-don't-judge: report on the evidence package, never on whether the model is correct.",
+    "fired_pattern": {
+      "id": "W-SURR-04",
+      "d_category": "D-VER-06",
+      "interface": "weakener-interface@1",
+      "definition": "Benchmark coverage gap at the COU cell: the benchmark spans the space on average but the specific decision-relevant cell is unsampled.",
+      "standard_anchor": "ASME V&V 40 application-domain coverage; proto-taxonomy D-VER-06"
+    },
+    "measures": {
+      "benchmark_average_density": "good across the box",
+      "cou_cell": "high-Re x high-AoA corner",
+      "cou_cell_sample_count": 0,
+      "coverage_metric": "box-average, not per-cell"
+    },
+    "case_context": {
+      "cou": "surrogate evaluated at the high-Re high-AoA corner for a stall-margin decision",
+      "model_influence": "high",
+      "decision_consequence": "stall margin set on the surrogate"
+    }
+  },
+  "answer_key": {
+    "gold_mechanism": "An average coverage statistic over the box hides a hole at the COU's specific cell, which has no benchmark samples; solution-verification therefore does not cover the decision point even though the benchmark spans the space on average.",
+    "gold_action": {
+      "selected_class": "acquire-validation",
+      "allowed_classes": [
+        "acquire-validation",
+        "restrict-cou",
+        "supply-evidence"
+      ],
+      "coherent_alternatives": [
+        "restrict-cou"
+      ],
+      "posture_basis": "standard-derived (ASME V&V 40: credibility bounded to the validated domain)",
+      "selection_basis": "provisional-self-adjudicated",
+      "parameters": {
+        "scope": "the COU cell (high-Re, high-AoA)",
+        "against": "a reference at that cell"
+      }
+    },
+    "forbidden_claims": [
+      "asserts the corner prediction is wrong (a verdict the coverage gap does not support)",
+      "treats good average coverage as coverage at the unsampled cell"
+    ],
+    "acceptable_confidence": [
+      "high",
+      "0.78-0.95"
+    ]
+  },
+  "hardness": {
+    "obvious_signal": "the validation benchmark covers the full Reynolds x AoA box with good average density",
+    "obvious_posture": "proceed",
+    "conflicting_signal": "the COU's specific cell (high-Re, high-AoA corner) has zero benchmark samples — a coverage hole the average density statistic hides",
+    "gold_posture": "block"
+  },
+  "label_provenance": {
+    "external_grounding": "AirfRANS (NeurIPS 2022): highest error at the parameter-space boundary / under-represented cells; average coverage is not per-cell coverage.",
+    "by_field": {
+      "gold_mechanism": "paper-grounded (AirfRANS boundary error) + DoE principle",
+      "gold_action.posture": "standard-derived (V&V 40 applicability)",
+      "gold_action.selected_class": "provisional-self-adjudicated (row-builder; needs independent expert/solver adjudication before disposition-gate use)"
+    },
+    "not_sourced_from": [
+      "pipeline output",
+      "frontier model draft"
+    ]
+  }
+}

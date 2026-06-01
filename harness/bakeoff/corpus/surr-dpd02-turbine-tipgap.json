@@ -1,0 +1,84 @@
+{
+  "row_id": "surr-dpd02-turbine-tipgap",
+  "split": "train:hard-core",
+  "hard_core": true,
+  "strata": {
+    "d_category": "D-PD-02",
+    "backbone": "applicability",
+    "measure_type": [
+      "global-geometry-OOD",
+      "per-region-competence"
+    ],
+    "domain": "turbomachinery-CHT",
+    "polarity": "fire",
+    "archetype": "global-pass-local-inadequate"
+  },
+  "input": {
+    "instruction": "A weakener fired on a credibility evidence package. Using ONLY the supplied pattern definition and measures, explain what the flag means, why it fired, and what the engineer should do. Choose ONE action_class from the §5B vocabulary, report a verbalized confidence, and escalate if uncertain. Stay within measure-don't-judge: report on the evidence package, never on whether the model is correct.",
+    "fired_pattern": {
+      "id": "W-SURR-03",
+      "d_category": "D-PD-02",
+      "interface": "weakener-interface@1",
+      "definition": "Per-region competence not characterized for a region the COU depends on, despite a global in-envelope status.",
+      "standard_anchor": "ASME V&V 40 applicability; NASA-STD-7009B; proto-taxonomy D-PD-02"
+    },
+    "measures": {
+      "global_envelope": "in-distribution",
+      "region_of_interest": "blade-tip-gap",
+      "per_region_competence_characterized": false,
+      "qoi_driver_region": "tip-gap secondary flow",
+      "region_in_validation_set": false
+    },
+    "case_context": {
+      "cou": "surrogate predicts blade metal temperature for a life-assessment decision",
+      "model_influence": "high",
+      "decision_consequence": "component life margin set on the prediction"
+    }
+  },
+  "answer_key": {
+    "gold_mechanism": "The tip-gap region drives the heat-transfer QoI but is absent from the validation set, so local applicability is not established even though the global operating point is in-envelope.",
+    "gold_action": {
+      "selected_class": "acquire-validation",
+      "allowed_classes": [
+        "acquire-validation",
+        "restrict-cou",
+        "supply-evidence"
+      ],
+      "coherent_alternatives": [
+        "restrict-cou"
+      ],
+      "posture_basis": "standard-derived (ASME V&V 40: credibility bounded to the validated domain)",
+      "selection_basis": "provisional-self-adjudicated",
+      "parameters": {
+        "scope": "tip-gap region",
+        "against": "solver-truth or rig data"
+      }
+    },
+    "forbidden_claims": [
+      "asserts the surrogate under-predicts tip temperature (a correctness verdict)",
+      "treats the global in-envelope status as competence for the tip-gap region"
+    ],
+    "acceptable_confidence": [
+      "high",
+      "0.78-0.95"
+    ]
+  },
+  "hardness": {
+    "obvious_signal": "global operating point sits well inside the validated envelope",
+    "obvious_posture": "proceed",
+    "conflicting_signal": "the blade tip-gap region drives the heat-transfer QoI and was excluded from the validation set; local secondary-flow competence is uncharacterized",
+    "gold_posture": "block"
+  },
+  "label_provenance": {
+    "external_grounding": "ASME V&V 40 applicability + turbomachinery V&V practice: heat-transfer credibility is region-specific; global envelope status does not transfer to an unvalidated driver region.",
+    "by_field": {
+      "gold_mechanism": "standard-grounded (V&V 40 applicability)",
+      "gold_action.posture": "standard-derived (V&V 40 applicability)",
+      "gold_action.selected_class": "provisional-self-adjudicated (row-builder; needs independent expert/solver adjudication before disposition-gate use)"
+    },
+    "not_sourced_from": [
+      "pipeline output",
+      "frontier model draft"
+    ]
+  }
+}

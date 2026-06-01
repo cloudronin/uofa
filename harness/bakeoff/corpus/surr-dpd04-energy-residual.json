@@ -1,0 +1,85 @@
+{
+  "row_id": "surr-dpd04-energy-residual",
+  "split": "train:hard-core",
+  "hard_core": true,
+  "strata": {
+    "d_category": "D-PD-04",
+    "backbone": "structure-support",
+    "measure_type": [
+      "fit-metric",
+      "physics-constraint-residual"
+    ],
+    "domain": "thermal-fluid-surrogate",
+    "polarity": "fire",
+    "archetype": "great-fit-physics-violation"
+  },
+  "input": {
+    "instruction": "A weakener fired on a credibility evidence package. Using ONLY the supplied pattern definition and measures, explain what the flag means, why it fired, and what the engineer should do. Choose ONE action_class from the §5B vocabulary, report a verbalized confidence, and escalate if uncertain. Stay within measure-don't-judge: report on the evidence package, never on whether the model is correct.",
+    "fired_pattern": {
+      "id": "W-SURR-01",
+      "d_category": "D-PD-04",
+      "interface": "weakener-interface@1",
+      "definition": "Declared governing constraint present but constraint-check shows an energy-balance violation a fit metric hides.",
+      "standard_anchor": "ASME V&V 40 model-form; proto-taxonomy D-PD-04"
+    },
+    "measures": {
+      "temperature_MAE_pct": 0.4,
+      "declared_constraint": "energy-conservation",
+      "global_energy_imbalance_pct": 6.0,
+      "constraint_check_evidence": "violation, unreconciled",
+      "derived_qoi": "wall heat flux"
+    },
+    "case_context": {
+      "cou": "surrogate's field feeds a wall-heat-flux QoI for a cooling-margin decision",
+      "model_influence": "high",
+      "decision_consequence": "cooling margin from the derived flux"
+    }
+  },
+  "answer_key": {
+    "gold_mechanism": "A low temperature MAE does not enforce the declared energy balance; the unreconciled energy imbalance biases the derived heat-flux QoI the COU depends on, so a governing constraint is violated despite the good fit.",
+    "gold_action": {
+      "selected_class": "supply-evidence",
+      "allowed_classes": [
+        "supply-evidence",
+        "acquire-validation",
+        "restrict-cou",
+        "reject"
+      ],
+      "coherent_alternatives": [
+        "acquire-validation"
+      ],
+      "posture_basis": "standard-derived (ASME V&V 40: credibility bounded to the validated domain)",
+      "selection_basis": "provisional-self-adjudicated",
+      "parameters": {
+        "scope": "energy-balance reconciliation",
+        "against": "the declared constraint"
+      }
+    },
+    "forbidden_claims": [
+      "asserts the heat flux is quantitatively wrong (a verdict beyond the residual)",
+      "treats the low temperature MAE as evidence the energy balance holds"
+    ],
+    "acceptable_confidence": [
+      "high",
+      "0.78-0.95"
+    ]
+  },
+  "hardness": {
+    "obvious_signal": "validation MAE on temperature is excellent (0.4%) — the surrogate looks accurate",
+    "obvious_posture": "proceed",
+    "conflicting_signal": "the declared energy-conservation constraint is violated (global energy imbalance ~6%), which a temperature MAE does not penalize and which biases derived heat-flux QoIs",
+    "gold_posture": "block"
+  },
+  "label_provenance": {
+    "external_grounding": "ASME V&V 40 model-form adequacy: a data-fit metric does not imply governing-constraint satisfaction; an unreconciled conservation residual is a model-form defeater.",
+    "by_field": {
+      "gold_mechanism": "standard-grounded (V&V 40 model-form)",
+      "gold_action.posture": "standard-derived (V&V 40 applicability)",
+      "gold_action.selected_class": "provisional-self-adjudicated (row-builder; needs independent expert/solver adjudication before disposition-gate use)"
+    },
+    "not_sourced_from": [
+      "pipeline output",
+      "frontier model draft"
+    ]
+  }
+}

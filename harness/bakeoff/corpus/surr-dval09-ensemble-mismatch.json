@@ -1,0 +1,85 @@
+{
+  "row_id": "surr-dval09-ensemble-mismatch",
+  "split": "train:hard-core",
+  "hard_core": true,
+  "strata": {
+    "d_category": "D-VAL-09",
+    "backbone": "uncertainty-support",
+    "measure_type": [
+      "uq-calibration",
+      "train-test-mismatch"
+    ],
+    "domain": "PDE-surrogate",
+    "polarity": "fire",
+    "archetype": "indist-calibrated-ood-use"
+  },
+  "input": {
+    "instruction": "A weakener fired on a credibility evidence package. Using ONLY the supplied pattern definition and measures, explain what the flag means, why it fired, and what the engineer should do. Choose ONE action_class from the §5B vocabulary, report a verbalized confidence, and escalate if uncertain. Stay within measure-don't-judge: report on the evidence package, never on whether the model is correct.",
+    "fired_pattern": {
+      "id": "W-AL-02",
+      "d_category": "D-VAL-09",
+      "interface": "weakener-interface@1",
+      "definition": "Prediction UQ validated only in-distribution while the COU extrapolates: the reported coverage does not cover the regime the decision uses.",
+      "standard_anchor": "ASME V&V 40 uncertainty; proto-taxonomy D-VAL-09"
+    },
+    "measures": {
+      "surrogateUQMethod": "deep-ensemble",
+      "in_distribution_coverage": 0.91,
+      "nominal": 0.9,
+      "cou_regime": "mild extrapolation (outside the calibration distribution)",
+      "coverage_under_extrapolation": "not measured",
+      "variance_trend": "decreases with members"
+    },
+    "case_context": {
+      "cou": "the UQ band sets a safety margin at an operating point beyond the calibration set",
+      "model_influence": "high",
+      "decision_consequence": "safety margin from the reported band"
+    }
+  },
+  "answer_key": {
+    "gold_mechanism": "The interval coverage was validated in-distribution, but the COU extrapolates and deep ensembles underdisperse under train-test mismatch, so the in-distribution calibration is not evidence of coverage in the COU's regime.",
+    "gold_action": {
+      "selected_class": "acquire-validation",
+      "allowed_classes": [
+        "acquire-validation",
+        "supply-evidence",
+        "restrict-cou"
+      ],
+      "coherent_alternatives": [
+        "restrict-cou"
+      ],
+      "posture_basis": "standard-derived (ASME V&V 40: credibility bounded to the validated domain)",
+      "selection_basis": "provisional-self-adjudicated",
+      "parameters": {
+        "scope": "coverage in the extrapolation regime",
+        "against": "held-out error at the COU operating point"
+      }
+    },
+    "forbidden_claims": [
+      "asserts the mean prediction is inaccurate (a verdict the flag does not support)",
+      "treats in-distribution coverage as a coverage guarantee in the extrapolation regime"
+    ],
+    "acceptable_confidence": [
+      "high",
+      "0.78-0.95"
+    ]
+  },
+  "hardness": {
+    "obvious_signal": "reported in-distribution interval coverage is 0.91 vs nominal 0.90 — looks calibrated",
+    "obvious_posture": "proceed",
+    "conflicting_signal": "coverage was measured in-distribution, the COU is a mild extrapolation, and deep ensembles underdisperse precisely under train-test mismatch — so the calibration does not transfer",
+    "gold_posture": "block"
+  },
+  "label_provenance": {
+    "external_grounding": "Calibration-aware uncertainty for neural PDE surrogates (arXiv:2602.11090): ensembles lack a mechanism to calibrate against train-test mismatch; UQ and Deep Ensembles (arXiv:2007.08792): ensembles underdisperse.",
+    "by_field": {
+      "gold_mechanism": "paper-grounded (ensemble underdispersion under mismatch)",
+      "gold_action.posture": "standard-derived (V&V 40 applicability)",
+      "gold_action.selected_class": "provisional-self-adjudicated (row-builder; needs independent expert/solver adjudication before disposition-gate use)"
+    },
+    "not_sourced_from": [
+      "pipeline output",
+      "frontier model draft"
+    ]
+  }
+}

@@ -1,0 +1,84 @@
+{
+  "row_id": "surr-dval09-conditional-coverage",
+  "split": "train:hard-core",
+  "hard_core": true,
+  "strata": {
+    "d_category": "D-VAL-09",
+    "backbone": "uncertainty-support",
+    "measure_type": [
+      "uq-calibration",
+      "conditional-coverage"
+    ],
+    "domain": "structural-FEA-surrogate",
+    "polarity": "fire",
+    "archetype": "marginal-calibrated-conditional-fails"
+  },
+  "input": {
+    "instruction": "A weakener fired on a credibility evidence package. Using ONLY the supplied pattern definition and measures, explain what the flag means, why it fired, and what the engineer should do. Choose ONE action_class from the §5B vocabulary, report a verbalized confidence, and escalate if uncertain. Stay within measure-don't-judge: report on the evidence package, never on whether the model is correct.",
+    "fired_pattern": {
+      "id": "W-AL-02",
+      "d_category": "D-VAL-09",
+      "interface": "weakener-interface@1",
+      "definition": "UQ marginally calibrated but conditional coverage at the COU subgroup fails: average coverage hides a subgroup the decision depends on.",
+      "standard_anchor": "ASME V&V 40 uncertainty; proto-taxonomy D-VAL-09"
+    },
+    "measures": {
+      "marginal_coverage": 0.9,
+      "nominal": 0.9,
+      "cou_subgroup": "high-stress elements",
+      "conditional_coverage_cou_subgroup": 0.62,
+      "calibration_metric": "marginal only"
+    },
+    "case_context": {
+      "cou": "the intervals gate a fatigue decision driven by high-stress elements",
+      "model_influence": "high",
+      "decision_consequence": "fatigue margin from the intervals"
+    }
+  },
+  "answer_key": {
+    "gold_mechanism": "Marginal coverage averages over subgroups and reads nominal, but conditional coverage on the high-stress subgroup the COU depends on is far below nominal, so the UQ is not validated for the decision-relevant regime.",
+    "gold_action": {
+      "selected_class": "acquire-validation",
+      "allowed_classes": [
+        "acquire-validation",
+        "supply-evidence",
+        "restrict-cou"
+      ],
+      "coherent_alternatives": [
+        "restrict-cou"
+      ],
+      "posture_basis": "standard-derived (ASME V&V 40: credibility bounded to the validated domain)",
+      "selection_basis": "provisional-self-adjudicated",
+      "parameters": {
+        "scope": "conditional coverage on the high-stress subgroup",
+        "against": "held-out high-stress cases"
+      }
+    },
+    "forbidden_claims": [
+      "asserts the intervals are wrong everywhere (a verdict beyond the subgroup gap)",
+      "treats marginal coverage as conditional coverage for the COU subgroup"
+    ],
+    "acceptable_confidence": [
+      "high",
+      "0.78-0.95"
+    ]
+  },
+  "hardness": {
+    "obvious_signal": "marginal (overall) interval coverage is 0.90 vs nominal 0.90 — calibration looks correct",
+    "obvious_posture": "proceed",
+    "conflicting_signal": "conditional coverage on the high-stress subgroup the COU's fatigue decision depends on is only 0.62; marginal coverage averages over subgroups and hides the under-coverage where it matters",
+    "gold_posture": "block"
+  },
+  "label_provenance": {
+    "external_grounding": "Conformal/UQ practice + ASME V&V 40: marginal coverage does not imply conditional coverage; the decision-relevant subgroup must be validated.",
+    "by_field": {
+      "gold_mechanism": "standard-grounded (V&V 40) + conformal conditional-coverage principle",
+      "gold_action.posture": "standard-derived (V&V 40 applicability)",
+      "gold_action.selected_class": "provisional-self-adjudicated (row-builder; needs independent expert/solver adjudication before disposition-gate use)"
+    },
+    "not_sourced_from": [
+      "pipeline output",
+      "frontier model draft"
+    ]
+  }
+}

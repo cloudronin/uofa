@@ -1,0 +1,84 @@
+{
+  "row_id": "surr-dpd02-carbench-wheelhousing",
+  "split": "train:hard-core",
+  "hard_core": true,
+  "strata": {
+    "d_category": "D-PD-02",
+    "backbone": "applicability",
+    "measure_type": [
+      "global-geometry-OOD",
+      "per-region-competence"
+    ],
+    "domain": "automotive-aero-CFD",
+    "polarity": "fire",
+    "archetype": "global-pass-local-inadequate"
+  },
+  "input": {
+    "instruction": "A weakener fired on a credibility evidence package. Using ONLY the supplied pattern definition and measures, explain what the flag means, why it fired, and what the engineer should do. Choose ONE action_class from the §5B vocabulary, report a verbalized confidence, and escalate if uncertain. Stay within measure-don't-judge: report on the evidence package, never on whether the model is correct.",
+    "fired_pattern": {
+      "id": "W-SURR-03",
+      "d_category": "D-PD-02",
+      "interface": "weakener-interface@1",
+      "definition": "Per-region competence not characterized: a known high-variance region is not flagged out-of-competence even when the input is globally in-envelope.",
+      "standard_anchor": "ASME V&V 40 applicability; proto-taxonomy D-PD-02 (Jakeman arXiv:2502.15496)"
+    },
+    "measures": {
+      "geometry_OOD_percentile": 0.41,
+      "global_envelope": "in-distribution",
+      "region_of_interest": "wheel-housing",
+      "per_region_competence_characterized": false,
+      "ensemble_variance_region": "elevated, not propagated to COU"
+    },
+    "case_context": {
+      "cou": "surrogate informs a drag-sensitivity decision; wheel-housing flow contributes to the QoI",
+      "model_influence": "medium-high",
+      "decision_consequence": "design change carried forward"
+    }
+  },
+  "answer_key": {
+    "gold_mechanism": "Global in-envelope status does not establish local competence in a known high-variance region; per-region characterization is absent for a region the COU depends on.",
+    "gold_action": {
+      "selected_class": "acquire-validation",
+      "allowed_classes": [
+        "acquire-validation",
+        "restrict-cou",
+        "supply-evidence"
+      ],
+      "coherent_alternatives": [
+        "restrict-cou"
+      ],
+      "posture_basis": "standard-derived (ASME V&V 40: credibility bounded to the validated domain)",
+      "selection_basis": "provisional-self-adjudicated",
+      "parameters": {
+        "scope": "wheel-housing region",
+        "against": "solver-truth"
+      }
+    },
+    "forbidden_claims": [
+      "asserts the surrogate is inaccurate in the region (a verdict the flag does not support)",
+      "treats the 41st-percentile global pass as competence evidence for the region"
+    ],
+    "acceptable_confidence": [
+      "high",
+      "0.80-0.95"
+    ]
+  },
+  "hardness": {
+    "obvious_signal": "global geometry-OOD reads 41st percentile, in-distribution",
+    "obvious_posture": "proceed",
+    "conflicting_signal": "the wheel-housing is a known high-variance region with per-region competence ABSENT and elevated regional ensemble variance not propagated to the COU",
+    "gold_posture": "block"
+  },
+  "label_provenance": {
+    "external_grounding": "CarBench (arXiv:2512.07847) + DrivAerML solver truth: wheel-housing is a high-variance regime with elevated regional error despite global in-envelope status.",
+    "by_field": {
+      "gold_mechanism": "solver-derived (CarBench/DrivAerML)",
+      "gold_action.posture": "standard-derived (V&V 40 applicability)",
+      "gold_action.selected_class": "provisional-self-adjudicated (row-builder; needs independent expert/solver adjudication before disposition-gate use)"
+    },
+    "not_sourced_from": [
+      "pipeline output",
+      "frontier model draft"
+    ]
+  }
+}

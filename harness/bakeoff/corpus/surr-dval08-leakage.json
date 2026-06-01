@@ -1,0 +1,83 @@
+{
+  "row_id": "surr-dval08-leakage",
+  "split": "train:hard-core",
+  "hard_core": true,
+  "strata": {
+    "d_category": "D-VAL-08",
+    "backbone": "validation-support",
+    "measure_type": [
+      "validation-independence",
+      "data-provenance"
+    ],
+    "domain": "data-driven-emulator",
+    "polarity": "fire",
+    "archetype": "validation-present-leakage"
+  },
+  "input": {
+    "instruction": "A weakener fired on a credibility evidence package. Using ONLY the supplied pattern definition and measures, explain what the flag means, why it fired, and what the engineer should do. Choose ONE action_class from the §5B vocabulary, report a verbalized confidence, and escalate if uncertain. Stay within measure-don't-judge: report on the evidence package, never on whether the model is correct.",
+    "fired_pattern": {
+      "id": "W-AR-05",
+      "d_category": "D-VAL-08",
+      "interface": "weakener-interface@1",
+      "definition": "Validation against independent data not established: a low validation error coexists with evidence the validation set overlaps training (leakage).",
+      "standard_anchor": "ASME V&V 40 independent validation data; proto-taxonomy D-VAL-08"
+    },
+    "measures": {
+      "validation_error": 0.012,
+      "split_independence": "compromised",
+      "normalization_fit_on": "full dataset (incl. validation)",
+      "shared_seeds_train_val": true
+    },
+    "case_context": {
+      "cou": "emulator validated for a sign-off on a design metric",
+      "model_influence": "high",
+      "decision_consequence": "design sign-off on the validation score"
+    }
+  },
+  "answer_key": {
+    "gold_mechanism": "The validation error is optimistic because the validation set is not independent of training (shared seeds, normalization fit on the full set), so the low score is not evidence of generalization to the COU.",
+    "gold_action": {
+      "selected_class": "acquire-validation",
+      "allowed_classes": [
+        "acquire-validation",
+        "supply-evidence",
+        "reject"
+      ],
+      "coherent_alternatives": [
+        "supply-evidence"
+      ],
+      "posture_basis": "standard-derived (ASME V&V 40: credibility bounded to the validated domain)",
+      "selection_basis": "provisional-self-adjudicated",
+      "parameters": {
+        "scope": "validation on a genuinely independent set",
+        "against": "held-out, leakage-free data"
+      }
+    },
+    "forbidden_claims": [
+      "asserts the emulator does not generalize (a verdict the leakage does not establish)",
+      "treats the low (leaked) validation error as evidence of independent validation"
+    ],
+    "acceptable_confidence": [
+      "high",
+      "0.80-0.95"
+    ]
+  },
+  "hardness": {
+    "obvious_signal": "validation error is very low (1.2%) — the surrogate looks well-validated",
+    "obvious_posture": "proceed",
+    "conflicting_signal": "the validation split was drawn AFTER feature-normalization fit on the full set and shares simulation seeds with training, so the validation set is not independent (leakage inflates the score)",
+    "gold_posture": "block"
+  },
+  "label_provenance": {
+    "external_grounding": "ASME V&V 40 requires validation against data independent of training; well-documented ML leakage modes (shared seeds, pre-split normalization) inflate validation scores.",
+    "by_field": {
+      "gold_mechanism": "standard-grounded (V&V 40 independence) + ML leakage principle",
+      "gold_action.posture": "standard-derived (V&V 40 applicability)",
+      "gold_action.selected_class": "provisional-self-adjudicated (row-builder; needs independent expert/solver adjudication before disposition-gate use)"
+    },
+    "not_sourced_from": [
+      "pipeline output",
+      "frontier model draft"
+    ]
+  }
+}

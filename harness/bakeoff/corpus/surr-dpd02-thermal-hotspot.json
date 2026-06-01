@@ -1,0 +1,83 @@
+{
+  "row_id": "surr-dpd02-thermal-hotspot",
+  "split": "train:hard-core",
+  "hard_core": true,
+  "strata": {
+    "d_category": "D-PD-02",
+    "backbone": "applicability",
+    "measure_type": [
+      "global-field-error",
+      "per-region-competence"
+    ],
+    "domain": "electronics-thermal-surrogate",
+    "polarity": "fire",
+    "archetype": "global-pass-local-inadequate"
+  },
+  "input": {
+    "instruction": "A weakener fired on a credibility evidence package. Using ONLY the supplied pattern definition and measures, explain what the flag means, why it fired, and what the engineer should do. Choose ONE action_class from the §5B vocabulary, report a verbalized confidence, and escalate if uncertain. Stay within measure-don't-judge: report on the evidence package, never on whether the model is correct.",
+    "fired_pattern": {
+      "id": "W-SURR-03",
+      "d_category": "D-PD-02",
+      "interface": "weakener-interface@1",
+      "definition": "Per-region competence not characterized: a local hotspot region the COU depends on is not validated even though the global field error is low.",
+      "standard_anchor": "ASME V&V 40 applicability; proto-taxonomy D-PD-02"
+    },
+    "measures": {
+      "global_field_RMS_error_C": 1.5,
+      "region_of_interest": "junction hotspot",
+      "peak_temperature_error_characterized": false,
+      "qoi": "peak junction temperature"
+    },
+    "case_context": {
+      "cou": "surrogate predicts peak junction temperature for a reliability sign-off",
+      "model_influence": "high",
+      "decision_consequence": "reliability sign-off on the peak"
+    }
+  },
+  "answer_key": {
+    "gold_mechanism": "A low board-mean field RMS is insensitive to a localized hotspot; the surrogate's peak-temperature competence at the junction — which the reliability QoI depends on — is uncharacterized, so applicability for the decision region is not established.",
+    "gold_action": {
+      "selected_class": "acquire-validation",
+      "allowed_classes": [
+        "acquire-validation",
+        "restrict-cou",
+        "supply-evidence"
+      ],
+      "coherent_alternatives": [
+        "restrict-cou"
+      ],
+      "posture_basis": "standard-derived (ASME V&V 40: credibility bounded to the validated domain)",
+      "selection_basis": "provisional-self-adjudicated",
+      "parameters": {
+        "scope": "junction-hotspot peak temperature",
+        "against": "reference thermal solution"
+      }
+    },
+    "forbidden_claims": [
+      "asserts the peak temperature is under-predicted (a verdict the gap does not support)",
+      "treats the low global RMS as competence for the local peak"
+    ],
+    "acceptable_confidence": [
+      "high",
+      "0.78-0.95"
+    ]
+  },
+  "hardness": {
+    "obvious_signal": "the board-level mean-temperature field error is low (1.5 C RMS) — looks accurate",
+    "obvious_posture": "proceed",
+    "conflicting_signal": "the junction-hotspot peak drives the reliability decision and the surrogate's peak-temperature error there is uncharacterized; a board-mean RMS is insensitive to a localized peak",
+    "gold_posture": "block"
+  },
+  "label_provenance": {
+    "external_grounding": "ASME V&V 40 region-specific applicability: a global aggregate error does not establish local competence at a decision-driving hotspot.",
+    "by_field": {
+      "gold_mechanism": "standard-grounded (V&V 40 applicability)",
+      "gold_action.posture": "standard-derived (V&V 40 applicability)",
+      "gold_action.selected_class": "provisional-self-adjudicated (row-builder; needs independent expert/solver adjudication before disposition-gate use)"
+    },
+    "not_sourced_from": [
+      "pipeline output",
+      "frontier model draft"
+    ]
+  }
+}

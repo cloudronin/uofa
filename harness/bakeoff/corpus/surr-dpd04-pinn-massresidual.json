@@ -1,0 +1,85 @@
+{
+  "row_id": "surr-dpd04-pinn-massresidual",
+  "split": "train:hard-core",
+  "hard_core": true,
+  "strata": {
+    "d_category": "D-PD-04",
+    "backbone": "structure-support",
+    "measure_type": [
+      "fit-metric",
+      "physics-constraint-residual"
+    ],
+    "domain": "reacting-flow-surrogate",
+    "polarity": "fire",
+    "archetype": "great-fit-physics-violation"
+  },
+  "input": {
+    "instruction": "A weakener fired on a credibility evidence package. Using ONLY the supplied pattern definition and measures, explain what the flag means, why it fired, and what the engineer should do. Choose ONE action_class from the §5B vocabulary, report a verbalized confidence, and escalate if uncertain. Stay within measure-don't-judge: report on the evidence package, never on whether the model is correct.",
+    "fired_pattern": {
+      "id": "W-SURR-01",
+      "d_category": "D-PD-04",
+      "interface": "weakener-interface@1",
+      "definition": "Declared governing constraint present but constraint-check evidence shows a violation the fit metric hides: low data error coexists with a large conservation residual.",
+      "standard_anchor": "ASME V&V 40 model-form; proto-taxonomy D-PD-04 (governing constraints)"
+    },
+    "measures": {
+      "field_R2_vs_data": 0.995,
+      "declared_constraint": "mass-conservation",
+      "continuity_residual_integral": 0.08,
+      "constraint_check_evidence": "violation, not reconciled",
+      "data_sparsity": "sparse pointwise samples"
+    },
+    "case_context": {
+      "cou": "surrogate predicts species fields feeding an emissions estimate",
+      "model_influence": "high",
+      "decision_consequence": "emissions compliance argued on the fields"
+    }
+  },
+  "answer_key": {
+    "gold_mechanism": "A high pointwise R^2 against sparse data does not enforce the declared conservation law; the integral continuity residual is large, so the model violates a governing constraint the COU's QoI depends on despite the excellent data fit.",
+    "gold_action": {
+      "selected_class": "supply-evidence",
+      "allowed_classes": [
+        "supply-evidence",
+        "acquire-validation",
+        "restrict-cou",
+        "reject"
+      ],
+      "coherent_alternatives": [
+        "acquire-validation"
+      ],
+      "posture_basis": "standard-derived (ASME V&V 40: credibility bounded to the validated domain)",
+      "selection_basis": "provisional-self-adjudicated",
+      "parameters": {
+        "scope": "mass-conservation reconciliation",
+        "against": "the declared constraint"
+      }
+    },
+    "forbidden_claims": [
+      "asserts the species fields are quantitatively wrong (a verdict beyond the residual)",
+      "treats the high R^2 as evidence the conservation law holds"
+    ],
+    "acceptable_confidence": [
+      "high",
+      "0.78-0.95"
+    ]
+  },
+  "hardness": {
+    "obvious_signal": "pointwise field R^2 against data is excellent (0.995) — the fit looks great",
+    "obvious_posture": "proceed",
+    "conflicting_signal": "the declared mass-conservation constraint residual is large (continuity violated by ~8%), which a pointwise R^2 against sparse data does not penalize",
+    "gold_posture": "block"
+  },
+  "label_provenance": {
+    "external_grounding": "ASME V&V 40 model-form adequacy + PINN/physics-ML practice: data fit does not imply constraint satisfaction; an unreconciled conservation residual is a model-form defeater.",
+    "by_field": {
+      "gold_mechanism": "standard-grounded (V&V 40 model-form) + physics-ML principle",
+      "gold_action.posture": "standard-derived (V&V 40 applicability)",
+      "gold_action.selected_class": "provisional-self-adjudicated (row-builder; needs independent expert/solver adjudication before disposition-gate use)"
+    },
+    "not_sourced_from": [
+      "pipeline output",
+      "frontier model draft"
+    ]
+  }
+}

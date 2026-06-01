@@ -1,0 +1,83 @@
+{
+  "row_id": "surr-dval09-aleatory-only",
+  "split": "train:hard-core",
+  "hard_core": true,
+  "strata": {
+    "d_category": "D-VAL-09",
+    "backbone": "uncertainty-support",
+    "measure_type": [
+      "uq-completeness",
+      "epistemic-uncertainty"
+    ],
+    "domain": "PDE-surrogate",
+    "polarity": "fire",
+    "archetype": "aleatory-present-epistemic-missing"
+  },
+  "input": {
+    "instruction": "A weakener fired on a credibility evidence package. Using ONLY the supplied pattern definition and measures, explain what the flag means, why it fired, and what the engineer should do. Choose ONE action_class from the §5B vocabulary, report a verbalized confidence, and escalate if uncertain. Stay within measure-don't-judge: report on the evidence package, never on whether the model is correct.",
+    "fired_pattern": {
+      "id": "W-AL-02",
+      "d_category": "D-VAL-09",
+      "interface": "weakener-interface@1",
+      "definition": "Only one uncertainty source reported: aleatory (data-noise) UQ present, but model-form / extrapolation (epistemic) uncertainty not propagated to the application domain.",
+      "standard_anchor": "ASME V&V 40 uncertainty completeness; proto-taxonomy D-VAL-09"
+    },
+    "measures": {
+      "reported_uq": "aleatory (homoscedastic output noise)",
+      "epistemic_uq_propagated": false,
+      "cou_location": "near training boundary",
+      "dominant_uncertainty_at_cou": "epistemic (extrapolation)"
+    },
+    "case_context": {
+      "cou": "intervals gate an acceptance decision near the training-domain edge",
+      "model_influence": "high",
+      "decision_consequence": "acceptance on the reported intervals"
+    }
+  },
+  "answer_key": {
+    "gold_mechanism": "The reported UQ captures only aleatory output noise; epistemic (model-form / extrapolation) uncertainty — which dominates near the training boundary the COU sits at — is not propagated, so the intervals understate the decision-relevant uncertainty.",
+    "gold_action": {
+      "selected_class": "supply-evidence",
+      "allowed_classes": [
+        "supply-evidence",
+        "acquire-validation",
+        "restrict-cou"
+      ],
+      "coherent_alternatives": [
+        "acquire-validation"
+      ],
+      "posture_basis": "standard-derived (ASME V&V 40: credibility bounded to the validated domain)",
+      "selection_basis": "provisional-self-adjudicated",
+      "parameters": {
+        "scope": "epistemic / extrapolation uncertainty",
+        "against": "the declared application domain"
+      }
+    },
+    "forbidden_claims": [
+      "asserts the prediction is over/under-confident as a fact (a verdict beyond the completeness gap)",
+      "treats the aleatory intervals as total predictive uncertainty"
+    ],
+    "acceptable_confidence": [
+      "high",
+      "0.78-0.95"
+    ]
+  },
+  "hardness": {
+    "obvious_signal": "the surrogate reports prediction intervals — UQ is present and looks complete",
+    "obvious_posture": "proceed",
+    "conflicting_signal": "the reported intervals are aleatory only (output-noise); model-form and extrapolation (epistemic) uncertainty are not propagated, and the COU is near the training boundary where epistemic dominates",
+    "gold_posture": "block"
+  },
+  "label_provenance": {
+    "external_grounding": "ASME V&V 40 uncertainty completeness (D-VAL-09): prediction UQ must propagate extrapolation/structure uncertainty; aleatory-only UQ is incomplete near the domain edge.",
+    "by_field": {
+      "gold_mechanism": "standard-grounded (V&V 40 uncertainty completeness)",
+      "gold_action.posture": "standard-derived (V&V 40 applicability)",
+      "gold_action.selected_class": "provisional-self-adjudicated (row-builder; needs independent expert/solver adjudication before disposition-gate use)"
+    },
+    "not_sourced_from": [
+      "pipeline output",
+      "frontier model draft"
+    ]
+  }
+}

@@ -1,0 +1,84 @@
+{
+  "row_id": "surr-surr02-parent-rejected",
+  "split": "train:hard-core",
+  "hard_core": true,
+  "strata": {
+    "d_category": "D-PD-01",
+    "backbone": "applicability",
+    "measure_type": [
+      "inheritance",
+      "parent-decision"
+    ],
+    "domain": "surrogate-of-surrogate",
+    "polarity": "fire",
+    "archetype": "child-fine-parent-rejected"
+  },
+  "input": {
+    "instruction": "A weakener fired on a credibility evidence package. Using ONLY the supplied pattern definition and measures, explain what the flag means, why it fired, and what the engineer should do. Choose ONE action_class from the §5B vocabulary, report a verbalized confidence, and escalate if uncertain. Stay within measure-don't-judge: report on the evidence package, never on whether the model is correct.",
+    "fired_pattern": {
+      "id": "W-SURR-02",
+      "d_category": "D-PD-01",
+      "interface": "weakener-interface@1",
+      "definition": "Inherited credibility defect: the surrogate's parent reference model carries a recorded 'Not Accepted' decision the child package does not reconcile.",
+      "standard_anchor": "ASME V&V 40 hierarchical credibility; proto-taxonomy D-PD-01 (declared limitations / provenance)"
+    },
+    "measures": {
+      "child_vs_parent_R2": 0.99,
+      "parent_model": "RANS closure surrogate",
+      "parentDecision": "Not Accepted",
+      "parent_cou_overlap": "high",
+      "inheritance_reconciled": false
+    },
+    "case_context": {
+      "cou": "the surrogate stands in for a parent whose decision was Not Accepted",
+      "model_influence": "high",
+      "decision_consequence": "decision carried on the child surrogate"
+    }
+  },
+  "answer_key": {
+    "gold_mechanism": "The surrogate is faithful to its parent (high R^2), but the parent carries a recorded Not-Accepted decision for an overlapping COU that the child does not reconcile; inheriting fidelity to a rejected parent inherits the rejection, so the credibility defect propagates.",
+    "gold_action": {
+      "selected_class": "reject",
+      "allowed_classes": [
+        "reject",
+        "acquire-validation",
+        "restrict-cou"
+      ],
+      "coherent_alternatives": [
+        "acquire-validation"
+      ],
+      "posture_basis": "standard-derived (ASME V&V 40: credibility bounded to the validated domain)",
+      "selection_basis": "provisional-self-adjudicated",
+      "parameters": {
+        "basis": "unreconciled parent 'Not Accepted' decision",
+        "blocks": "use for the overlapping COU"
+      }
+    },
+    "forbidden_claims": [
+      "asserts the surrogate itself is inaccurate (a verdict the inheritance does not establish)",
+      "treats high fidelity to the parent as independent credibility"
+    ],
+    "acceptable_confidence": [
+      "high",
+      "0.80-0.95"
+    ]
+  },
+  "hardness": {
+    "obvious_signal": "the surrogate's own validation metrics against its parent are excellent (R^2 0.99)",
+    "obvious_posture": "proceed",
+    "conflicting_signal": "the parent reference model the surrogate was trained against carries a recorded parentDecision = 'Not Accepted' for an overlapping COU, so the child inherits the parent's unresolved credibility defect — fidelity to a rejected parent is not credibility",
+    "gold_posture": "block"
+  },
+  "label_provenance": {
+    "external_grounding": "ASME V&V 40 hierarchical credibility: a surrogate's credibility is bounded by its reference; an unreconciled parent rejection propagates to the child.",
+    "by_field": {
+      "gold_mechanism": "standard-grounded (V&V 40 hierarchical credibility)",
+      "gold_action.posture": "standard-derived (V&V 40 applicability)",
+      "gold_action.selected_class": "provisional-self-adjudicated (row-builder; needs independent expert/solver adjudication before disposition-gate use)"
+    },
+    "not_sourced_from": [
+      "pipeline output",
+      "frontier model draft"
+    ]
+  }
+}

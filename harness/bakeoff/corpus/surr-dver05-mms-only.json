@@ -1,0 +1,83 @@
+{
+  "row_id": "surr-dver05-mms-only",
+  "split": "train:hard-core",
+  "hard_core": true,
+  "strata": {
+    "d_category": "D-VER-05",
+    "backbone": "verification-support",
+    "measure_type": [
+      "code-verification",
+      "solution-verification"
+    ],
+    "domain": "structural-FEA-surrogate",
+    "polarity": "fire",
+    "archetype": "code-verified-solution-unverified"
+  },
+  "input": {
+    "instruction": "A weakener fired on a credibility evidence package. Using ONLY the supplied pattern definition and measures, explain what the flag means, why it fired, and what the engineer should do. Choose ONE action_class from the §5B vocabulary, report a verbalized confidence, and escalate if uncertain. Stay within measure-don't-judge: report on the evidence package, never on whether the model is correct.",
+    "fired_pattern": {
+      "id": "W-SURR-04",
+      "d_category": "D-VER-05",
+      "interface": "weakener-interface@1",
+      "definition": "Code-verification evidence present but solution-verification on the application domain absent: MMS/idealized tests passed, application-domain residuals unlinked.",
+      "standard_anchor": "ASME V&V 40 verification levels; proto-taxonomy D-VER-05 / D-VER-06"
+    },
+    "measures": {
+      "code_verification_MMS": "passed at expected order",
+      "solution_verification_on_cou": "absent",
+      "application_residuals_linked": false,
+      "cou_configuration": "notched component under combined load"
+    },
+    "case_context": {
+      "cou": "surrogate predicts a stress concentration for a fatigue decision",
+      "model_influence": "high",
+      "decision_consequence": "fatigue life argued on the stress field"
+    }
+  },
+  "answer_key": {
+    "gold_mechanism": "Code verification (MMS) establishes the solver's order of accuracy but not solution accuracy on the application configuration; solution-verification evidence for the COU's geometry/loads is absent, so verification does not cover the decision.",
+    "gold_action": {
+      "selected_class": "acquire-validation",
+      "allowed_classes": [
+        "acquire-validation",
+        "supply-evidence",
+        "restrict-cou"
+      ],
+      "coherent_alternatives": [
+        "supply-evidence"
+      ],
+      "posture_basis": "standard-derived (ASME V&V 40: credibility bounded to the validated domain)",
+      "selection_basis": "provisional-self-adjudicated",
+      "parameters": {
+        "scope": "solution-verification on the COU configuration",
+        "against": "a reference solution"
+      }
+    },
+    "forbidden_claims": [
+      "asserts the stress prediction is wrong (a verdict the verification gap does not support)",
+      "treats passing MMS as solution-verification for the application"
+    ],
+    "acceptable_confidence": [
+      "high",
+      "0.78-0.95"
+    ]
+  },
+  "hardness": {
+    "obvious_signal": "a manufactured-solution (MMS) verification suite passes at expected order — verification looks done",
+    "obvious_posture": "proceed",
+    "conflicting_signal": "MMS exercises the discretization, not the application geometry/loads; solution-verification (residuals against a reference on the COU's actual configuration) is absent",
+    "gold_posture": "block"
+  },
+  "label_provenance": {
+    "external_grounding": "ASME V&V 10/40 verification hierarchy: code verification (MMS) and solution verification are distinct; passing one is not evidence for the other.",
+    "by_field": {
+      "gold_mechanism": "standard-grounded (V&V 40 verification levels)",
+      "gold_action.posture": "standard-derived (V&V 40 applicability)",
+      "gold_action.selected_class": "provisional-self-adjudicated (row-builder; needs independent expert/solver adjudication before disposition-gate use)"
+    },
+    "not_sourced_from": [
+      "pipeline output",
+      "frontier model draft"
+    ]
+  }
+}

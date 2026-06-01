@@ -1,0 +1,84 @@
+{
+  "row_id": "surr-dver06-resolution-hole",
+  "split": "train:hard-core",
+  "hard_core": true,
+  "strata": {
+    "d_category": "D-VER-06",
+    "backbone": "verification-support",
+    "measure_type": [
+      "benchmark-coverage",
+      "resolution-generalization"
+    ],
+    "domain": "PDE-operator-learning",
+    "polarity": "fire",
+    "archetype": "spans-on-average-cell-empty"
+  },
+  "input": {
+    "instruction": "A weakener fired on a credibility evidence package. Using ONLY the supplied pattern definition and measures, explain what the flag means, why it fired, and what the engineer should do. Choose ONE action_class from the §5B vocabulary, report a verbalized confidence, and escalate if uncertain. Stay within measure-don't-judge: report on the evidence package, never on whether the model is correct.",
+    "fired_pattern": {
+      "id": "W-SURR-04",
+      "d_category": "D-VER-06",
+      "interface": "weakener-interface@1",
+      "definition": "Benchmark coverage gap at the COU resolution: the verification set spans a resolution range on average but the COU's specific resolution is unsampled.",
+      "standard_anchor": "ASME V&V 40 application-domain coverage; proto-taxonomy D-VER-06"
+    },
+    "measures": {
+      "verified_resolutions": "32x32..512x512",
+      "cou_resolution": "1024x1024",
+      "cou_resolution_in_verification_set": false,
+      "coverage_metric": "range-average"
+    },
+    "case_context": {
+      "cou": "the operator surrogate is queried at 1024x1024 for a fine-scale decision",
+      "model_influence": "high",
+      "decision_consequence": "decision on the 1024x1024 prediction"
+    }
+  },
+  "answer_key": {
+    "gold_mechanism": "The verification set spans resolutions on average but excludes the COU's 1024x1024 grid; neural operators do not guarantee resolution generalization past the verified range, so verification does not cover the decision point.",
+    "gold_action": {
+      "selected_class": "restrict-cou",
+      "allowed_classes": [
+        "restrict-cou",
+        "acquire-validation",
+        "supply-evidence"
+      ],
+      "coherent_alternatives": [
+        "acquire-validation"
+      ],
+      "posture_basis": "standard-derived (ASME V&V 40: credibility bounded to the validated domain)",
+      "selection_basis": "provisional-self-adjudicated",
+      "parameters": {
+        "scope": "restrict to verified resolutions (<=512x512)",
+        "blocks": "use of the 1024x1024 prediction"
+      }
+    },
+    "forbidden_claims": [
+      "asserts the 1024x1024 prediction is wrong (a verdict the coverage gap does not support)",
+      "treats average resolution coverage as coverage at the unsampled COU resolution"
+    ],
+    "acceptable_confidence": [
+      "high",
+      "medium",
+      "0.65-0.92"
+    ]
+  },
+  "hardness": {
+    "obvious_signal": "the verification set covers 32x32 through 512x512 grids — looks like broad resolution coverage",
+    "obvious_posture": "proceed",
+    "conflicting_signal": "the COU runs at 1024x1024, beyond every verified grid; operator-learning surrogates do not automatically generalize past the verified resolution, so the broad-but-bounded coverage does not include the decision point",
+    "gold_posture": "block"
+  },
+  "label_provenance": {
+    "external_grounding": "FNO failure modes (arXiv:2601.11428): resolution generalization is not automatic; verification at coarser grids does not cover a finer COU resolution.",
+    "by_field": {
+      "gold_mechanism": "paper-grounded (FNO resolution generalization)",
+      "gold_action.posture": "standard-derived (V&V 40 applicability)",
+      "gold_action.selected_class": "provisional-self-adjudicated (row-builder; needs independent expert/solver adjudication before disposition-gate use)"
+    },
+    "not_sourced_from": [
+      "pipeline output",
+      "frontier model draft"
+    ]
+  }
+}

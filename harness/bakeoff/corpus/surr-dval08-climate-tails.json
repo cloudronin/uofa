@@ -1,0 +1,84 @@
+{
+  "row_id": "surr-dval08-climate-tails",
+  "split": "train:hard-core",
+  "hard_core": true,
+  "strata": {
+    "d_category": "D-VAL-08",
+    "backbone": "validation-support",
+    "measure_type": [
+      "aggregate-skill",
+      "tail-coverage"
+    ],
+    "domain": "climate-emulator",
+    "polarity": "fire",
+    "archetype": "low-aggregate-high-finescale"
+  },
+  "input": {
+    "instruction": "A weakener fired on a credibility evidence package. Using ONLY the supplied pattern definition and measures, explain what the flag means, why it fired, and what the engineer should do. Choose ONE action_class from the §5B vocabulary, report a verbalized confidence, and escalate if uncertain. Stay within measure-don't-judge: report on the evidence package, never on whether the model is correct.",
+    "fired_pattern": {
+      "id": "W-SURR-04",
+      "d_category": "D-VAL-08",
+      "interface": "weakener-interface@1",
+      "definition": "Validation against purpose-specific criteria absent: aggregate skill is high but the decision-relevant regime (extreme tails) is not validated.",
+      "standard_anchor": "ASME V&V 40 purpose-specific validation; proto-taxonomy D-VAL-08"
+    },
+    "measures": {
+      "aggregate_skill_score": 0.96,
+      "metric": "bulk RMSE skill",
+      "tail_event_skill_reported": false,
+      "cou_regime": "99.9th-percentile extremes"
+    },
+    "case_context": {
+      "cou": "emulator screens a climate-risk adaptation decision keyed to extreme events",
+      "model_influence": "high",
+      "decision_consequence": "adaptation investment screened on the emulator"
+    }
+  },
+  "answer_key": {
+    "gold_mechanism": "Aggregate skill is dominated by the well-sampled bulk and does not validate the extreme-tail regime the COU's decision depends on; purpose-specific validation for the decision regime is absent.",
+    "gold_action": {
+      "selected_class": "acquire-validation",
+      "allowed_classes": [
+        "acquire-validation",
+        "restrict-cou",
+        "supply-evidence"
+      ],
+      "coherent_alternatives": [
+        "restrict-cou",
+        "supply-evidence"
+      ],
+      "posture_basis": "standard-derived (ASME V&V 40: credibility bounded to the validated domain)",
+      "selection_basis": "provisional-self-adjudicated",
+      "parameters": {
+        "scope": "extreme-tail regime",
+        "against": "held-out extreme events"
+      }
+    },
+    "forbidden_claims": [
+      "asserts the emulator is unskilled at extremes (a verdict the evidence does not support)",
+      "treats the high aggregate skill as validation for the tail decision"
+    ],
+    "acceptable_confidence": [
+      "high",
+      "0.75-0.95"
+    ]
+  },
+  "hardness": {
+    "obvious_signal": "overall RMSE skill score is excellent (0.96) across the record",
+    "obvious_posture": "proceed",
+    "conflicting_signal": "the COU is an extreme-event (tail) decision, and tail skill is not reported; aggregate RMSE is dominated by the well-sampled bulk and is blind to rare extremes",
+    "gold_posture": "block"
+  },
+  "label_provenance": {
+    "external_grounding": "ASME V&V 40 purpose-specific validation: the metric must be tied to the decision; aggregate skill is not evidence for an unvalidated decision-relevant regime.",
+    "by_field": {
+      "gold_mechanism": "standard-grounded (V&V 40 purpose-specific validation)",
+      "gold_action.posture": "standard-derived (V&V 40 applicability)",
+      "gold_action.selected_class": "provisional-self-adjudicated (row-builder; needs independent expert/solver adjudication before disposition-gate use)"
+    },
+    "not_sourced_from": [
+      "pipeline output",
+      "frontier model draft"
+    ]
+  }
+}

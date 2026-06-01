@@ -27,6 +27,16 @@ from dataclasses import dataclass, field
 BLOCK_CLASSES = frozenset({"supply-evidence", "acquire-validation", "restrict-cou", "reject"})
 PROCEED_CLASSES = frozenset({"accept-residual-risk", "accept", "none"})
 
+
+def _posture(action_class) -> str:
+    """block (does not proceed on the surrogate) vs proceed.
+
+    This is the **standard-derived** axis (ASME V&V 40 bounds credibility to the
+    validated domain), so scoring on posture is grounded — it does not rest on the
+    provisional-self-adjudicated choice of *which* §5B class among coherent ones.
+    """
+    return "block" if action_class in BLOCK_CLASSES else "proceed"
+
 _CONF_LABEL = {"high": 0.9, "medium": 0.6, "moderate": 0.6, "low": 0.3, "very-low": 0.1}
 
 
@@ -72,16 +82,24 @@ def bucket_action(selected: str | None, gold_action: dict) -> str:
 class RowScore:
     row_id: str
     hard_core: bool
-    action_bucket: str            # correct | partial | wrong | harmful
+    action_bucket: str            # correct | partial | wrong | harmful (exact §5B selection)
+    posture_match: bool           # block/proceed matches gold (the standard-derived axis)
     forbidden_violated: bool      # a §7.6 honest-promise / measure-don't-judge breach
     confidence: float             # verbalized → float
     confidence_acceptable: bool
     escalated: bool
-    # "handled correctly" for the selective curve: right action + no forbidden claim.
+    # EXPLANATION-gate correctness — the gate we run now: right posture + no forbidden
+    # claim. Posture is STANDARD-derived (V&V 40), so this is grounded and does NOT rest
+    # on the provisional-self-adjudicated §5B selection.
     correct: bool = field(init=False)
+    # DISPOSITION-gate correctness — the exact adjudicated-best §5B class. PROVISIONAL:
+    # the gold selection is self-adjudicated, so this is reported, never gated on, until
+    # the labels are independently re-adjudicated (addendum).
+    selection_correct: bool = field(init=False)
 
     def __post_init__(self):
-        self.correct = (self.action_bucket == "correct") and (not self.forbidden_violated)
+        self.correct = self.posture_match and (not self.forbidden_violated)
+        self.selection_correct = (self.action_bucket == "correct") and (not self.forbidden_violated)
 
 
 def _confidence_acceptable(conf: float, acceptable) -> bool:
@@ -119,11 +137,14 @@ def score_row(row: dict, answer: dict) -> RowScore:
     """
     key = row.get("answer_key", {})
     gold_action = key.get("gold_action", {})
+    selected = answer.get("action_class")
+    gold_class = gold_action.get("selected_class")
     conf = confidence_to_float(answer.get("confidence"))
     return RowScore(
         row_id=row.get("row_id", "?"),
         hard_core=bool(row.get("hard_core", row.get("split", "").startswith("train:hard"))),
-        action_bucket=bucket_action(answer.get("action_class"), gold_action),
+        action_bucket=bucket_action(selected, gold_action),
+        posture_match=bool(selected) and (_posture(selected) == _posture(gold_class)),
         forbidden_violated=bool(answer.get("forbidden_violated", False)),
         confidence=conf,
         confidence_acceptable=_confidence_acceptable(conf, key.get("acceptable_confidence")),
@@ -185,11 +206,13 @@ def summarize(scores: list[RowScore], *, alpha: float = 0.02) -> dict:
     return {
         "n": n,
         "action_buckets": buckets,
-        "dangerous_error_rate": buckets["harmful"] / n,          # the headline safety axis
+        "dangerous_error_rate": buckets["harmful"] / n,          # harmful = proceed-when-block (standard-derived)
+        "posture_accuracy": sum(1 for s in scores if s.correct) / n,             # explanation gate (grounded)
+        "selection_accuracy": sum(1 for s in scores if s.selection_correct) / n,  # disposition gate (PROVISIONAL — self-adjudicated gold)
         "forbidden_violation_rate": sum(1 for s in scores if s.forbidden_violated) / n,
         "escalation_rate": sum(1 for s in scores if s.escalated) / n,
-        "ece": ece(scores),
-        "selective_coverage_at_alpha": coverage_at_risk(points, alpha),
+        "ece": ece(scores),                                       # over the grounded posture-correctness
+        "selective_coverage_at_alpha": coverage_at_risk(points, alpha),  # grounded (posture)
         "alpha": alpha,
         "selective_curve": points,
     }
@@ -209,6 +232,9 @@ def scorecard(rows: list[dict], answers: list[dict], *, alpha: float = 0.02) -> 
         "overall": summarize(scores, alpha=alpha),
         "hard_core": summarize(hard, alpha=alpha),
         "elicitation": "verbalized",
+        "scored_on": ("explanation gate — dangerous-error + selective-coverage are on the "
+                      "STANDARD-derived posture (grounded); selection_accuracy is the disposition "
+                      "axis and is PROVISIONAL (self-adjudicated gold), reported not gated"),
     }
 
 
@@ -241,8 +267,9 @@ def gate_read(card: dict, *, max_dangerous_error: float = 0.0,
                 + ("Distrust this clear; it routes to grow-and-rerun, not to the disposition gate."
                    if clears else "A fail is informative even at this size."))
     else:
-        recommended_next = ("run the disposition gate (explanation commodity at ship size; the moat is "
-                            "one level up)" if clears else
+        recommended_next = ("explanation commodity at ship size → the disposition gate is the next "
+                            "question, but it needs independently-adjudicated labels first (this "
+                            "slice is provisional-self-adjudicated)" if clears else
                             "escalate to stock 7–8B before any fine-tune (main-plan ladder)")
         note = ("clears on hard-core → explanation commodity at this size; route per the decision tree"
                 if clears else
