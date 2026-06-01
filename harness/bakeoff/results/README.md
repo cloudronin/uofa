@@ -70,3 +70,47 @@ honest statement is *"safe but timid, with an unresolved escalation,"* **not**
 Grow the slice (more conflicting-signal cells) **and** independently adjudicate
 the escalated set — that is what turns this preview into a real read on whether
 the escalation is a closable gap (SLM-justifying) or correct caution (not).
+
+## 2026-05-31 — catalog-lift ablation (`qwen2.5:7b`, 24 hard cells)
+
+How much does the weakener catalog/rule help? Same model, same cells, same
+posture-grounded scorer; vary only what the prompt reveals (`run_p0` conditions),
+under two measure renderings. `ablation-{named,raw}-2026-05-31-*.json`.
+
+**Raw (de-named) measures — the fair detection test** (the model must INFER the gap):
+
+| condition (raw) | danger | posture | escal | cov@2% | ECE |
+|---|---|---|---|---|---|
+| `full` (fired + meaning) | 0.00 | **1.00** | 18/24 | 0.25 | 0.10 |
+| `fired_flag` (fired, no meaning) | **0.08** | 0.83 | 19/24 | 0.08 | 0.28 |
+| `definition_only` (meaning, not asserted) | 0.00 | 0.83 | 22/24 | 0.00 | 0.40 |
+| `catalog_ablated` (no catalog) | 0.00 | 0.96 | 20/24 | 0.17 | 0.10 |
+| `measures_only` (no catalog, no context) | 0.00 | 0.92 | 21/24 | 0.12 | 0.10 |
+
+### The read (n=24 — preview, not verdict)
+
+1. **The catalog's lift is confidence-to-commit, not danger-catching.** Removing
+   it entirely (`catalog_ablated`/`measures_only`) keeps dangerous-error at **0.00**
+   — the stock 7B is cautious enough to avoid false-OK from raw measures without
+   the catalog. What the full catalog buys is *commitment*: `full` has the lowest
+   escalation (18/24) and the highest selective coverage (0.25) while holding
+   posture at a perfect 1.00.
+2. **The catalog must be applied WHOLE.** `fired_flag` — telling the model "a
+   weakener fired" *without its meaning* — is the **only** condition that produced
+   dangerous false-OKs (2: the PINN mass-residual and the data-leakage cells, both
+   accepted). A flag without an explanation induces *misplaced confidence* worse
+   than no flag at all. `definition_only` (meaning, not asserted) instead
+   over-escalates (22/24, zero coverage). Only the pair — *it fired AND here is
+   what it means* — gives both safety and commitment.
+3. **Product implication:** this validates pairing detection with grounded
+   explanation (the UofA design) and warns against detect-only flagging.
+
+**Named measures** (conclusion handed over as a field, e.g.
+`per_region_competence_characterized: false`) understated all of this: there the
+lift was ~0 and the catalog even *caused* one over-action (it flagged a calibrated
+control). That run is kept for contrast but the de-named run is the fair test.
+
+**Caveats:** n=24 — the danger story is 2 rows and the posture deltas 1–4 rows;
+the model punts a lot under every condition (18–22/24 escalation), so the "lift"
+is in coverage from a low base. Confirm on a larger slice before drawing the
+detect-only-is-harmful conclusion firmly.
