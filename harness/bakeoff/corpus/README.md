@@ -18,9 +18,29 @@ mechanism = paper/solver-grounded, disposition = `selection_basis: adjudicated`,
 | `surr-dval09-ensemble-uq` | D-VAL-09 (prediction UQ) | fire | deep-ensemble UQ (arXiv:2007.08792, 2602.11090) |
 | `surr-dval09-ensemble-uq-control` | D-VAL-09 | suppress | matched accept-control (recalibrated UQ) |
 
-The dangerous-OK + multi-coherent rows carry `coherent_alternatives` +
-`selection_basis: adjudicated`, so they double as the **disposition-slice** seed
-(addendum). The controls measure **over-action**.
+The controls measure **over-action**.
+
+## Two honesty flags before this doubles as the disposition-gate slice
+
+**1. Dispositions are `provisional-self-adjudicated`, not independent.** The
+mechanism fields are paper/solver-grounded, but the gold §5B *actions* are the
+row-builder's reasoning (`selection_basis: provisional-self-adjudicated`). That
+is fine for an **explanation-gate preview** — the explanation key leans on the
+grounded mechanism — but it is **not** a valid disposition-gate seed: a
+disposition gate scored against self-adjudicated gold would test whether one
+model reproduces another model's reasoned action (the tautology one level up).
+Before promotion, the gold actions need **expert- or solver-truth-derived**
+adjudication. Do not let `adjudicated` stand in for *independently* adjudicated.
+
+**2. These rows are not yet hardened.** A hard cell is one where the obvious
+feature points the *wrong* way (the §5A dangerous-OK case: global pass → "looks
+fine," but locally inadequate). Most of the current `D-PD-02 / D-VER-06 / D-VAL-09`
+rows are still latchable from a single obvious feature that points the *right*
+way (e.g. `evaluationPointInEnvelope: false`), which makes them **easy** and
+would **inflate a clear**. The growth target is a few dozen **conflicting-signal**
+cells, not more easy ones. Read any small-N result as a **preview** (`gate_read`
+flags `preview` below `min_hard_core_n`): a clear routes to *grow-and-rerun*, not
+to "commodity → disposition."
 
 **The full hard slice is the expensive curation** (plan: "does not accelerate").
 Per the plan + the disposition-gate addendum, grow it concentrated on the hard

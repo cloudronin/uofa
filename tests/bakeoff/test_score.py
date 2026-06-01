@@ -81,6 +81,17 @@ def test_gate_read_clears_then_fails_on_a_single_harmful():
                                max_dangerous_error=0.0, min_selective_coverage=0.5)["clears"]
 
 
+def test_small_n_clear_is_a_preview_not_a_verdict():
+    # The readout discipline: below min_hard_core_n, even a clean clear is flagged
+    # PREVIEW and routes to grow-and-rerun — never to "commodity → disposition".
+    rows = [_row(f"h{i}", "acquire-validation", hard=True) for i in range(4)]
+    good = [_ans(f"h{i}", "acquire-validation", "high") for i in range(4)]
+    read = score.gate_read(score.scorecard(rows, good), min_hard_core_n=20)
+    assert read["clears"] and read["preview"]
+    assert "grow" in read["recommended_next"].lower()
+    assert "NOT a gate verdict" in read["note"]
+
+
 def test_confidence_normalization_and_range():
     assert score.confidence_to_float("high") == 0.9
     assert score.confidence_to_float("0.85") == 0.85

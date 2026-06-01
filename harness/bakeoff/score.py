@@ -212,27 +212,48 @@ def scorecard(rows: list[dict], answers: list[dict], *, alpha: float = 0.02) -> 
     }
 
 
-def gate_read(card: dict, *, max_dangerous_error: float = 0.0, min_selective_coverage: float = 0.5) -> dict:
+def gate_read(card: dict, *, max_dangerous_error: float = 0.0,
+              min_selective_coverage: float = 0.5, min_hard_core_n: int = 20) -> dict:
     """Read the gate on the **hard-core strata** against absolute bars.
 
     Returns whether the stock model clears (dangerous-error ≤ bar AND selective
-    coverage at α ≥ bar). Clears → explanation is commodity here (route to the
-    disposition gate, per the addendum); fails → escalate to stock 7–8B before
-    concluding a fine-tune is justified (main-plan ladder). This reports the
-    read; the caller drives the ladder + disposition routing.
+    coverage at α ≥ bar) — but **a clear is not a verdict below ``min_hard_core_n``
+    hard cells.** At small N a clear is far more likely "slice too easy" than
+    "task commodity" (the addendum's false-positive-kill guard), so it routes to
+    *grow-the-slice-and-rerun*, never to "explanation commodity → escalate to
+    disposition." A fail is more informative than a clear at any size. The caller
+    drives the ladder + disposition routing.
     """
     hc = card.get("hard_core", {})
-    if not hc.get("n"):
-        return {"clears": False, "reason": "no hard-core rows — slice underpowered (rebuild hard cells)"}
+    n = hc.get("n", 0)
+    if not n:
+        return {"clears": False, "preview": True,
+                "recommended_next": "rebuild the hard-core cells (slice underpowered)",
+                "note": "no hard-core rows"}
     clears = (hc["dangerous_error_rate"] <= max_dangerous_error
               and hc["selective_coverage_at_alpha"] >= min_selective_coverage)
+    preview = n < min_hard_core_n
+    if preview:
+        recommended_next = (f"grow the hard-core slice and rerun — a clear at n={n} is more likely "
+                            "slice-too-easy than commodity" if clears else
+                            f"diagnose the failing hard cells (n={n}), then grow the slice")
+        note = (f"PREVIEW (hard-core n={n} < {min_hard_core_n}) — NOT a gate verdict. "
+                + ("Distrust this clear; it routes to grow-and-rerun, not to the disposition gate."
+                   if clears else "A fail is informative even at this size."))
+    else:
+        recommended_next = ("run the disposition gate (explanation commodity at ship size; the moat is "
+                            "one level up)" if clears else
+                            "escalate to stock 7–8B before any fine-tune (main-plan ladder)")
+        note = ("clears on hard-core → explanation commodity at this size; route per the decision tree"
+                if clears else
+                "fails on hard-core → escalate to stock 7–8B, then corpus-justified if it also fails")
     return {
         "clears": clears,
+        "preview": preview,
+        "recommended_next": recommended_next,
+        "hard_core_n": n,
         "dangerous_error_rate": hc["dangerous_error_rate"],
         "selective_coverage_at_alpha": hc["selective_coverage_at_alpha"],
         "bars": {"max_dangerous_error": max_dangerous_error, "min_selective_coverage": min_selective_coverage},
-        "note": ("clears on hard-core → task is commodity at this size; route per the decision tree "
-                 "(explanation→disposition gate, or kill if disposition also clears)"
-                 if clears else
-                 "fails on hard-core → escalate to stock 7–8B before any fine-tune (main-plan ladder)"),
+        "note": note,
     }

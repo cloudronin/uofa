@@ -69,6 +69,8 @@ The appliance still ships — but as the carrier of the convention moat and the 
 
 Before accepting **either** gate as a kill, segment the result by the **hard-core strata**, not the aggregate. The danger is an aggregate pass that masks hard-case failure: the model clears the easy bulk and quietly fails the dangerous-OK and multi-coherent cells — the exact cells the moat would live in. If the aggregate passes but the hard cells fail, the **slice was too easy**, not the task. That is a "slice underpowered, rebuild the hard cells" finding, not a "task is commodity" finding. Always read the gate on the hard-core strata.
 
+**Distrust a clear at small N.** Below a minimum hard-core count a clear is itself untrustworthy: on a handful of cells a clear is far more likely *slice-too-easy* than *task-commodity*, so a small-N clear routes to **grow-the-slice-and-rerun**, never to a verdict (a fail is more informative than a clear at that size). And a hard cell is one where the **obvious feature points the wrong way** (the §5A dangerous-OK case); a cell whose correct disposition is recoverable from one obvious feature is easy and inflates a clear, so hardness must be checked per cell, not assumed. This is encoded in `harness/bakeoff/score.py::gate_read` (the `preview` flag below `min_hard_core_n`). Relatedly, gold dispositions adjudicated only by the corpus-builder are `provisional-self-adjudicated`, not the **expert-/solver-adjudicated** labels this slice requires (above) — scoring a disposition gate against self-adjudicated gold is the tautology one level up, so those labels must be re-adjudicated with independent authority before promotion.
+
 ## One-line decision tree
 
 ```
