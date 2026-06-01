@@ -70,6 +70,9 @@ def run(argv: list[str] | None = None) -> int:
                    help="reuse a recorded full-condition result (its hard_core) instead of re-running 'full'")
     p.add_argument("--output", type=Path)
     p.add_argument("--seed", type=int, default=0)
+    p.add_argument("--temperature", type=float, default=0.0,
+                   help="sampling temperature (default 0.0 = greedy/deterministic; the seed is "
+                        "inert at 0.0). Set > 0 for a genuine multi-seed sampling-robustness run.")
     args = p.parse_args(argv)
 
     rows = run_p0.load_corpus(args.corpus)
@@ -96,9 +99,11 @@ def run(argv: list[str] | None = None) -> int:
             results["full"] = {"hard_core": rec["hard_core"], "reused_from": str(args.full_from)}
             print(f"=== full: reused from {args.full_from} ===", flush=True)
             continue
-        print(f"\n=== condition: {cond} | measures={args.measures} ({len(rows)} cells) ===", flush=True)
+        print(f"\n=== condition: {cond} | measures={args.measures} seed={args.seed} "
+              f"T={args.temperature} ({len(rows)} cells) ===", flush=True)
         answers = run_p0.run_corpus(rows, backend, condition=cond,
-                                    measures_variant=args.measures, seed=args.seed)
+                                    measures_variant=args.measures, seed=args.seed,
+                                    temperature=args.temperature)
         card = score.scorecard(rows, answers, alpha=args.alpha)
         results[cond] = {"hard_core": card["hard_core"], "answers": answers}
 

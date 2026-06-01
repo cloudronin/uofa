@@ -130,12 +130,17 @@ def _normalize(row: dict, out: dict) -> dict:
 
 
 def generate_answer(backend, row: dict, *, condition: str = "full",
-                    measures_variant: str = "named", seed: int = 0) -> dict:
-    """Generate one structured answer for a row via the stock model backend."""
+                    measures_variant: str = "named", seed: int = 0,
+                    temperature: float = 0.0) -> dict:
+    """Generate one structured answer for a row via the stock model backend.
+
+    ``temperature`` defaults to 0.0 (greedy/deterministic — the canonical operating
+    point and what the recorded runs use). At temp 0 the ``seed`` is inert; set
+    temperature > 0 for a genuine multi-seed sampling-robustness check."""
     from uofa_cli.llm import GenerationOptions
 
     prompt = build_prompt(row, condition, measures_variant)
-    options = GenerationOptions(temperature=0.0, seed=seed, max_tokens=700)
+    options = GenerationOptions(temperature=temperature, seed=seed, max_tokens=700)
     if backend.supports_structured_output():
         out = backend.generate_structured(prompt, ANSWER_SCHEMA, options)
     else:
@@ -165,7 +170,8 @@ def load_corpus(corpus_dir: str | Path) -> list[dict]:
 
 
 def run_corpus(rows: list[dict], backend=None, *, condition: str = "full",
-               measures_variant: str = "named", seed: int = 0) -> list[dict]:
+               measures_variant: str = "named", seed: int = 0,
+               temperature: float = 0.0) -> list[dict]:
     """Generate answers for every row under ``condition``. ``backend`` defaults to the
     project config (the appliance's bundled stock model); pass one in tests."""
     if backend is None:
@@ -173,9 +179,11 @@ def run_corpus(rows: list[dict], backend=None, *, condition: str = "full",
         backend = get_backend()
     answers = []
     for i, row in enumerate(rows, 1):
-        print(f"  [{i}/{len(rows)}] {condition}/{measures_variant}: {row.get('row_id')}", flush=True)
+        print(f"  [{i}/{len(rows)}] {condition}/{measures_variant} seed={seed} T={temperature}: "
+              f"{row.get('row_id')}", flush=True)
         answers.append(generate_answer(backend, row, condition=condition,
-                                       measures_variant=measures_variant, seed=seed))
+                                       measures_variant=measures_variant, seed=seed,
+                                       temperature=temperature))
     return answers
 
 
