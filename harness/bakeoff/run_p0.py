@@ -189,6 +189,10 @@ def run_corpus(rows: list[dict], backend=None, *, condition: str = "full",
         backend = get_backend()
     answers = []
     for i, row in enumerate(rows, 1):
+        # The raw_artifact (coverage K1) condition only applies to cells carrying a prose
+        # artifact (the 31 no-NVIDIA-signal defeaters); skip the rest cleanly.
+        if condition == "raw_artifact" and not row.get("input", {}).get("raw_artifact"):
+            continue
         print(f"  [{i}/{len(rows)}] {condition}/{measures_variant} seed={seed} T={temperature}: "
               f"{row.get('row_id')}", flush=True)
         answers.append(generate_answer(backend, row, condition=condition,
