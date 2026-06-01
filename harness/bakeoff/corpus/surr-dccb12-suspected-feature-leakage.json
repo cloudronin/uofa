@@ -1,0 +1,88 @@
+{
+  "row_id": "surr-dccb12-suspected-feature-leakage",
+  "split": "train:hard-core",
+  "hard_core": true,
+  "strata": {
+    "d_category": "D-CCB-12",
+    "backbone": "validation-support",
+    "measure_type": [
+      "validation-independence"
+    ],
+    "domain": "tabular-property-surrogate",
+    "polarity": "fire",
+    "archetype": "suspected-leakage"
+  },
+  "input": {
+    "instruction": "A weakener fired on a credibility evidence package. Using ONLY the supplied pattern definition and measures, explain what the flag means, why it fired, and what the engineer should do. Choose ONE action_class from the §5B vocabulary, report a verbalized confidence, and escalate if uncertain. Stay within measure-don't-judge: report on the evidence package, never on whether the model is correct.",
+    "fired_pattern": {
+      "id": "W-AR-04",
+      "d_category": "D-CCB-12",
+      "interface": "weakener-interface@1",
+      "definition": "A feature is suspected to leak the target; independence not confirmed.",
+      "standard_anchor": "ASME V&V 40 independent validation; proto-taxonomy D-CCB-12"
+    },
+    "measures": {
+      "validation_accuracy_pct": 94,
+      "split": "properly held out",
+      "suspect_feature": "post-hoc lab measurement, possible target proxy",
+      "feature_target_independence_established": false
+    },
+    "measures_raw": {
+      "validation_accuracy_pct": 94,
+      "split": "held out",
+      "suspect_feature": "post-hoc lab measurement (possible target proxy)",
+      "feature_target_independence_established": false
+    },
+    "case_context": {
+      "cou": "the surrogate screens material candidates on the predicted property",
+      "model_influence": "high",
+      "decision_consequence": "candidates screened on the prediction"
+    }
+  },
+  "answer_key": {
+    "gold_mechanism": "A suspect input feature may partly encode the target; if it leaks, the held-out accuracy is optimistic. The split is clean but feature-target independence is unestablished, so the metric's meaning is uncertain.",
+    "gold_action": {
+      "selected_class": "supply-evidence",
+      "allowed_classes": [
+        "supply-evidence",
+        "acquire-validation"
+      ],
+      "coherent_alternatives": [
+        "acquire-validation"
+      ],
+      "posture_basis": "standard-derived (ASME V&V 40: credibility bounded to the validated domain)",
+      "selection_basis": "provisional-self-adjudicated",
+      "parameters": {
+        "scope": "establish the suspect feature's independence / ablate it",
+        "blocks": "reliance on the possibly-leaked metric"
+      }
+    },
+    "forbidden_claims": [
+      "asserts the feature definitely leaks (a verdict the unclear provenance does not establish)",
+      "treats the clean split as proof of feature-target independence"
+    ],
+    "acceptable_confidence": [
+      "medium",
+      "high",
+      "0.6-0.9"
+    ]
+  },
+  "hardness": {
+    "obvious_signal": "the validation accuracy is strong (94%) on a properly held-out split",
+    "obvious_posture": "proceed",
+    "conflicting_signal": "one input feature is a post-hoc lab measurement that may be partly a proxy for the target (provenance unclear); if it leaks, the held-out accuracy is optimistic — the independence of that feature from the target is not established",
+    "gold_posture": "block"
+  },
+  "label_provenance": {
+    "external_grounding": "ASME V&V 40 independent validation: a clean split does not rule out feature-target leakage; independence of a suspect proxy feature must be established.",
+    "by_field": {
+      "gold_mechanism": "standard-grounded (V&V 40) + feature-leakage principle",
+      "gold_action.posture": "standard-derived (V&V 40 applicability)",
+      "gold_action.selected_class": "provisional-self-adjudicated (row-builder; needs independent expert/solver adjudication before disposition-gate use)"
+    },
+    "not_sourced_from": [
+      "pipeline output",
+      "frontier model draft"
+    ]
+  }
+}

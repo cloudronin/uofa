@@ -94,6 +94,18 @@ def test_gate_read_clears_then_fails_on_a_single_harmful():
                                max_dangerous_error=0.0, min_selective_coverage=0.5)["clears"]
 
 
+def test_committed_comparison_pairs_only_cells_committed_in_both():
+    rows = [_row(f"r{i}", "acquire-validation") for i in range(4)]
+    a = [_ans("r0", "acquire-validation", escalate=False), _ans("r1", "acquire-validation", escalate=False),
+         _ans("r2", "acquire-validation", escalate=True),  _ans("r3", "accept-residual-risk", escalate=True)]
+    b = [_ans("r0", "acquire-validation", escalate=True),  _ans("r1", "accept", escalate=False),
+         _ans("r2", "acquire-validation", escalate=False), _ans("r3", "acquire-validation", escalate=True)]
+    cmp = score.committed_comparison(rows, a, b, label_a="A", label_b="B")
+    assert cmp["n_paired_committed"] == 1          # only r1 is committed (escalate=False) in BOTH
+    assert cmp["A"]["dangerous_error_rate"] == 0.0  # A: acquire-validation (block, correct)
+    assert cmp["B"]["dangerous_error_rate"] == 1.0  # B: accept (proceed on block-gold -> harmful)
+
+
 def test_small_n_clear_is_a_preview_not_a_verdict():
     # The readout discipline: below min_hard_core_n, even a clean clear is flagged
     # PREVIEW and routes to grow-and-rerun — never to "commodity → disposition".

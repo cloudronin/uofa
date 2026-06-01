@@ -1,0 +1,87 @@
+{
+  "row_id": "surr-dccb11-undocumented-clipping",
+  "split": "train:hard-core",
+  "hard_core": true,
+  "strata": {
+    "d_category": "D-CCB-11",
+    "backbone": "data-support",
+    "measure_type": [
+      "data-processing"
+    ],
+    "domain": "power-grid-surrogate",
+    "polarity": "fire",
+    "archetype": "hidden-preprocessing"
+  },
+  "input": {
+    "instruction": "A weakener fired on a credibility evidence package. Using ONLY the supplied pattern definition and measures, explain what the flag means, why it fired, and what the engineer should do. Choose ONE action_class from the §5B vocabulary, report a verbalized confidence, and escalate if uncertain. Stay within measure-don't-judge: report on the evidence package, never on whether the model is correct.",
+    "fired_pattern": {
+      "id": "W-AR-04",
+      "d_category": "D-CCB-11",
+      "interface": "weakener-interface@1",
+      "definition": "Data-processing procedure undocumented and outcome-determining: an undocumented transformation materially shapes what the surrogate can represent.",
+      "standard_anchor": "ASME V&V 40 data-processing documentation; proto-taxonomy D-CCB-11"
+    },
+    "measures": {
+      "validation_error_on_processed_data_pct": 0.6,
+      "target_preprocessing": "clipped at 95th percentile (found in code, undocumented in package)",
+      "cou_regime": "extreme-load (>95th percentile) reliability events"
+    },
+    "measures_raw": {
+      "validation_error_on_available_data_pct": 0.6,
+      "training_target_max_percentile_of_raw": 95,
+      "n_training_targets_above_95th_percentile": 0,
+      "cou_target_percentile": 98
+    },
+    "case_context": {
+      "cou": "surrogate screens extreme-load contingencies for a grid-reliability decision",
+      "model_influence": "high",
+      "decision_consequence": "contingencies screened on the surrogate"
+    }
+  },
+  "answer_key": {
+    "gold_mechanism": "An undocumented 95th-percentile clip on the training targets censors exactly the extreme-load regime the COU depends on; the low validation error is computed on the censored distribution and does not characterize the decision regime.",
+    "gold_action": {
+      "selected_class": "supply-evidence",
+      "allowed_classes": [
+        "supply-evidence",
+        "acquire-validation",
+        "restrict-cou"
+      ],
+      "coherent_alternatives": [
+        "restrict-cou"
+      ],
+      "posture_basis": "standard-derived (ASME V&V 40: credibility bounded to the validated domain)",
+      "selection_basis": "provisional-self-adjudicated",
+      "parameters": {
+        "scope": "document the clipping + characterize the extreme-load regime",
+        "blocks": "use for extreme-load screening"
+      }
+    },
+    "forbidden_claims": [
+      "asserts the surrogate is wrong on extremes (a verdict the processing gap does not establish)",
+      "treats the low error on the censored data as evidence for the extreme regime"
+    ],
+    "acceptable_confidence": [
+      "high",
+      "0.80-0.95"
+    ]
+  },
+  "hardness": {
+    "obvious_signal": "validation error on the processed dataset is very low (0.6%)",
+    "obvious_posture": "proceed",
+    "conflicting_signal": "the training targets were silently clipped at the 95th percentile (undocumented), so the surrogate cannot represent the extreme-load events the COU's reliability decision depends on — the low error is on a censored distribution",
+    "gold_posture": "block"
+  },
+  "label_provenance": {
+    "external_grounding": "ASME V&V 40 data-processing documentation (D-CCB-11): undocumented, outcome-determining preprocessing (target clipping) is a defeater; a metric on censored data does not cover the censored regime.",
+    "by_field": {
+      "gold_mechanism": "standard-grounded (V&V 40 / D-CCB-11)",
+      "gold_action.posture": "standard-derived (V&V 40 applicability)",
+      "gold_action.selected_class": "provisional-self-adjudicated (row-builder; needs independent expert/solver adjudication before disposition-gate use)"
+    },
+    "not_sourced_from": [
+      "pipeline output",
+      "frontier model draft"
+    ]
+  }
+}

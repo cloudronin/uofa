@@ -1,0 +1,86 @@
+{
+  "row_id": "surr-dpd04-symmetry-broken",
+  "split": "train:hard-core",
+  "hard_core": true,
+  "strata": {
+    "d_category": "D-PD-04",
+    "backbone": "structure-support",
+    "measure_type": [
+      "physics-constraint-residual"
+    ],
+    "domain": "structural-mechanics-surrogate",
+    "polarity": "fire",
+    "archetype": "great-fit-physics-violation"
+  },
+  "input": {
+    "instruction": "A weakener fired on a credibility evidence package. Using ONLY the supplied pattern definition and measures, explain what the flag means, why it fired, and what the engineer should do. Choose ONE action_class from the §5B vocabulary, report a verbalized confidence, and escalate if uncertain. Stay within measure-don't-judge: report on the evidence package, never on whether the model is correct.",
+    "fired_pattern": {
+      "id": "W-SURR-01",
+      "d_category": "D-PD-04",
+      "interface": "weakener-interface@1",
+      "definition": "A declared problem symmetry the solution must respect is broken by the surrogate.",
+      "standard_anchor": "ASME V&V 40 model-form; proto-taxonomy D-PD-04"
+    },
+    "measures": {
+      "displacement_nrmse_pct": 1.1,
+      "problem_symmetry": "mirror (geometry+load)",
+      "predicted_asymmetry_across_plane_pct": 18
+    },
+    "measures_raw": {
+      "displacement_nrmse_pct": 1.1,
+      "geometry_and_load_symmetry": "mirror",
+      "predicted_field_asymmetry_across_plane_pct": 18
+    },
+    "case_context": {
+      "cou": "surrogate predicts peak stress for a structural-margin decision",
+      "model_influence": "high",
+      "decision_consequence": "structural margin on the predicted field"
+    }
+  },
+  "answer_key": {
+    "gold_mechanism": "The problem is mirror-symmetric so the true response must be symmetric; an 18% predicted asymmetry across the symmetry plane is a model-form defect a good aggregate NRMSE hides.",
+    "gold_action": {
+      "selected_class": "supply-evidence",
+      "allowed_classes": [
+        "supply-evidence",
+        "acquire-validation",
+        "reject"
+      ],
+      "coherent_alternatives": [
+        "acquire-validation"
+      ],
+      "posture_basis": "standard-derived (ASME V&V 40: credibility bounded to the validated domain)",
+      "selection_basis": "provisional-self-adjudicated",
+      "parameters": {
+        "scope": "reconcile the broken symmetry",
+        "blocks": "use for the margin until explained"
+      }
+    },
+    "forbidden_claims": [
+      "asserts the peak-stress value is wrong (a verdict beyond the symmetry violation)",
+      "treats the good NRMSE as evidence the symmetry holds"
+    ],
+    "acceptable_confidence": [
+      "high",
+      "0.80-0.95"
+    ]
+  },
+  "hardness": {
+    "obvious_signal": "the displacement-field fit to the reference is excellent (NRMSE 1.1%)",
+    "obvious_posture": "proceed",
+    "conflicting_signal": "the loading and geometry are mirror-symmetric, so the response must be symmetric, but the surrogate's predicted field is asymmetric by 18% across the symmetry plane — it breaks a symmetry the physics guarantees",
+    "gold_posture": "block"
+  },
+  "label_provenance": {
+    "external_grounding": "ASME V&V 40 model-form: a solution that breaks a symmetry the problem guarantees is inadequate regardless of aggregate fit.",
+    "by_field": {
+      "gold_mechanism": "standard-grounded (V&V 40 model-form) + symmetry principle",
+      "gold_action.posture": "standard-derived (V&V 40 applicability)",
+      "gold_action.selected_class": "provisional-self-adjudicated (row-builder; needs independent expert/solver adjudication before disposition-gate use)"
+    },
+    "not_sourced_from": [
+      "pipeline output",
+      "frontier model draft"
+    ]
+  }
+}

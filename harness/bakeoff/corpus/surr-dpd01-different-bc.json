@@ -1,0 +1,89 @@
+{
+  "row_id": "surr-dpd01-different-bc",
+  "split": "train:hard-core",
+  "hard_core": true,
+  "strata": {
+    "d_category": "D-PD-01",
+    "backbone": "applicability",
+    "measure_type": [
+      "applicability",
+      "boundary-conditions"
+    ],
+    "domain": "heat-transfer-surrogate",
+    "polarity": "fire",
+    "archetype": "boundary-condition-mismatch"
+  },
+  "input": {
+    "instruction": "A weakener fired on a credibility evidence package. Using ONLY the supplied pattern definition and measures, explain what the flag means, why it fired, and what the engineer should do. Choose ONE action_class from the §5B vocabulary, report a verbalized confidence, and escalate if uncertain. Stay within measure-don't-judge: report on the evidence package, never on whether the model is correct.",
+    "fired_pattern": {
+      "id": "W-SURR-03",
+      "d_category": "D-PD-01",
+      "interface": "weakener-interface@1",
+      "definition": "COU boundary condition differs in kind from every training case.",
+      "standard_anchor": "ASME V&V 40 applicability; proto-taxonomy D-PD-01"
+    },
+    "measures": {
+      "n_validation_cases": 200,
+      "training_boundary_condition": "fixed-temperature (Dirichlet)",
+      "cou_boundary_condition": "convective (Robin)",
+      "training_cases_with_robin_bc": 0
+    },
+    "measures_raw": {
+      "n_validation_cases": 200,
+      "training_boundary_condition": "fixed-temperature (Dirichlet)",
+      "cou_boundary_condition": "convective (Robin)",
+      "n_training_cases_with_robin_bc": 0
+    },
+    "case_context": {
+      "cou": "surrogate predicts a temperature field under a convective BC",
+      "model_influence": "high",
+      "decision_consequence": "thermal decision under the new BC"
+    }
+  },
+  "answer_key": {
+    "gold_mechanism": "Every training case uses a Dirichlet wall; the COU is a Robin (convective) BC — a structurally different boundary condition the surrogate never trained on, so the 200-case validation does not cover it.",
+    "gold_action": {
+      "selected_class": "acquire-validation",
+      "allowed_classes": [
+        "acquire-validation",
+        "restrict-cou",
+        "reject"
+      ],
+      "coherent_alternatives": [
+        "restrict-cou"
+      ],
+      "posture_basis": "standard-derived (ASME V&V 40: credibility bounded to the validated domain)",
+      "selection_basis": "provisional-self-adjudicated",
+      "parameters": {
+        "scope": "validation under the convective BC",
+        "against": "a Robin-BC reference"
+      }
+    },
+    "forbidden_claims": [
+      "asserts the temperature field is wrong (a verdict the BC mismatch does not establish)",
+      "treats the 200 Dirichlet cases as coverage for the Robin BC"
+    ],
+    "acceptable_confidence": [
+      "high",
+      "0.82-0.96"
+    ]
+  },
+  "hardness": {
+    "obvious_signal": "the surrogate is validated across a wide range of operating points (200 cases)",
+    "obvious_posture": "proceed",
+    "conflicting_signal": "all 200 training/validation cases use a fixed-temperature (Dirichlet) wall, but the COU is a convective (Robin) boundary condition — a different kind of BC the surrogate never saw, not a new point within the trained family",
+    "gold_posture": "block"
+  },
+  "label_provenance": {
+    "external_grounding": "ASME V&V 40 applicability: the validated domain is the trained BC family; a structurally different boundary condition is outside it regardless of case count.",
+    "by_field": {
+      "gold_mechanism": "standard-grounded (V&V 40 applicability)",
+      "gold_action.posture": "standard-derived (V&V 40 applicability)",
+      "gold_action.selected_class": "provisional-self-adjudicated (row-builder; needs independent expert/solver adjudication before disposition-gate use)"
+    },
+    "not_sourced_from": [
+      "pipeline output",
+      "frontier model draft"
+    ]
+  }
+}

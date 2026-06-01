@@ -1,0 +1,89 @@
+{
+  "row_id": "surr-dccb12-temporal-leakage",
+  "split": "train:hard-core",
+  "hard_core": true,
+  "strata": {
+    "d_category": "D-CCB-12",
+    "backbone": "validation-support",
+    "measure_type": [
+      "validation-independence",
+      "temporal-split"
+    ],
+    "domain": "timeseries-load-surrogate",
+    "polarity": "fire",
+    "archetype": "temporal-leakage"
+  },
+  "input": {
+    "instruction": "A weakener fired on a credibility evidence package. Using ONLY the supplied pattern definition and measures, explain what the flag means, why it fired, and what the engineer should do. Choose ONE action_class from the §5B vocabulary, report a verbalized confidence, and escalate if uncertain. Stay within measure-don't-judge: report on the evidence package, never on whether the model is correct.",
+    "fired_pattern": {
+      "id": "W-AR-05",
+      "d_category": "D-CCB-12",
+      "interface": "weakener-interface@1",
+      "definition": "Time-series validation split allows leakage: validation samples are temporally interleaved with training, so future information leaks into the reported metric.",
+      "standard_anchor": "ASME V&V 40 independent validation; proto-taxonomy D-CCB-12"
+    },
+    "measures": {
+      "validation_error_pct": 0.9,
+      "split_strategy": "random over an autocorrelated series",
+      "train_val_temporal_overlap": "interleaved",
+      "cou_task": "forward forecast"
+    },
+    "measures_raw": {
+      "validation_error_pct": 0.9,
+      "split_strategy": "random",
+      "series_autocorrelation": "high",
+      "train_val_temporal_relationship": "interleaved",
+      "cou_task": "forward forecast"
+    },
+    "case_context": {
+      "cou": "surrogate forecasts load ahead of time for a dispatch decision",
+      "model_influence": "high",
+      "decision_consequence": "dispatch set on the forecast"
+    }
+  },
+  "answer_key": {
+    "gold_mechanism": "A random split over an autocorrelated series puts validation samples temporally adjacent to training, leaking future information; the low error reflects near-duplicate neighbours, not the forward-forecast skill the COU needs.",
+    "gold_action": {
+      "selected_class": "acquire-validation",
+      "allowed_classes": [
+        "acquire-validation",
+        "supply-evidence"
+      ],
+      "coherent_alternatives": [
+        "supply-evidence"
+      ],
+      "posture_basis": "standard-derived (ASME V&V 40: credibility bounded to the validated domain)",
+      "selection_basis": "provisional-self-adjudicated",
+      "parameters": {
+        "scope": "a temporally-blocked forward-forecast evaluation",
+        "against": "out-of-time data"
+      }
+    },
+    "forbidden_claims": [
+      "asserts the forecast is inaccurate (a verdict the leakage does not establish)",
+      "treats the leaked-split error as forward-forecast skill"
+    ],
+    "acceptable_confidence": [
+      "high",
+      "0.82-0.96"
+    ]
+  },
+  "hardness": {
+    "obvious_signal": "the validation error is very low (0.9%) on a large validation set",
+    "obvious_posture": "proceed",
+    "conflicting_signal": "the split is RANDOM over an autocorrelated time series, so validation samples are temporally adjacent to (interleaved with) training samples — future information leaks in, and the COU is a genuine forward forecast the random-split metric does not represent",
+    "gold_posture": "block"
+  },
+  "label_provenance": {
+    "external_grounding": "ASME V&V 40 independent validation + time-series practice: a random split over autocorrelated data leaks future information; forward-forecast skill requires a temporally-blocked evaluation.",
+    "by_field": {
+      "gold_mechanism": "standard-grounded (V&V 40) + temporal-leakage principle",
+      "gold_action.posture": "standard-derived (V&V 40 applicability)",
+      "gold_action.selected_class": "provisional-self-adjudicated (row-builder; needs independent expert/solver adjudication before disposition-gate use)"
+    },
+    "not_sourced_from": [
+      "pipeline output",
+      "frontier model draft"
+    ]
+  }
+}

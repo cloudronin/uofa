@@ -1,0 +1,91 @@
+{
+  "row_id": "surr-dpd02-transfer-no-revalidation",
+  "split": "train:hard-core",
+  "hard_core": true,
+  "strata": {
+    "d_category": "D-PD-01",
+    "backbone": "applicability",
+    "measure_type": [
+      "transfer",
+      "applicability"
+    ],
+    "domain": "geomechanics-surrogate",
+    "polarity": "fire",
+    "archetype": "transfer-without-revalidation"
+  },
+  "input": {
+    "instruction": "A weakener fired on a credibility evidence package. Using ONLY the supplied pattern definition and measures, explain what the flag means, why it fired, and what the engineer should do. Choose ONE action_class from the §5B vocabulary, report a verbalized confidence, and escalate if uncertain. Stay within measure-don't-judge: report on the evidence package, never on whether the model is correct.",
+    "fired_pattern": {
+      "id": "W-AR-04",
+      "d_category": "D-PD-01",
+      "interface": "weakener-interface@1",
+      "definition": "Surrogate transferred from a different system and used without re-validation on the target system.",
+      "standard_anchor": "ASME V&V 40 applicability/provenance; proto-taxonomy D-PD-01"
+    },
+    "measures": {
+      "reported_validation_error_pct": 2.0,
+      "validation_system": "sandstone reservoir",
+      "cou_system": "carbonate reservoir",
+      "revalidation_on_cou_system": "none",
+      "constitutive_behaviour_match": "different (carbonate vs sandstone)"
+    },
+    "measures_raw": {
+      "reported_validation_error_pct": 2.0,
+      "validation_data_source_id": "system-A",
+      "evaluation_target_id": "system-B",
+      "n_validation_points_from_system_B": 0,
+      "system_A_vs_B_constitutive_class": "different"
+    },
+    "case_context": {
+      "cou": "transferred surrogate predicts subsidence for a carbonate-reservoir decision",
+      "model_influence": "high",
+      "decision_consequence": "injection plan set on the prediction"
+    }
+  },
+  "answer_key": {
+    "gold_mechanism": "The validation evidence exists but pertains to a different physical system (sandstone); the COU is a carbonate reservoir with different constitutive behaviour and no re-validation, so applicability to the target system is not established despite the low reported error.",
+    "gold_action": {
+      "selected_class": "acquire-validation",
+      "allowed_classes": [
+        "acquire-validation",
+        "restrict-cou",
+        "reject"
+      ],
+      "coherent_alternatives": [
+        "restrict-cou"
+      ],
+      "posture_basis": "standard-derived (ASME V&V 40: credibility bounded to the validated domain)",
+      "selection_basis": "provisional-self-adjudicated",
+      "parameters": {
+        "scope": "re-validation on the carbonate system",
+        "against": "target-system truth"
+      }
+    },
+    "forbidden_claims": [
+      "asserts the subsidence prediction is wrong (a verdict the transfer gap does not establish)",
+      "treats validation on the sandstone system as validation for the carbonate COU"
+    ],
+    "acceptable_confidence": [
+      "high",
+      "0.82-0.96"
+    ]
+  },
+  "hardness": {
+    "obvious_signal": "the surrogate was validated to high accuracy (2% error) — validation evidence is present",
+    "obvious_posture": "proceed",
+    "conflicting_signal": "that validation was on a DIFFERENT reservoir (sandstone); the COU is a carbonate reservoir with different constitutive behaviour, and no re-validation on the target system exists — validation present but for the wrong system",
+    "gold_posture": "block"
+  },
+  "label_provenance": {
+    "external_grounding": "ASME V&V 40 applicability: validation transfers only within the validated domain; a surrogate validated on a different physical system requires re-validation on the target.",
+    "by_field": {
+      "gold_mechanism": "standard-grounded (V&V 40 applicability/transfer)",
+      "gold_action.posture": "standard-derived (V&V 40 applicability)",
+      "gold_action.selected_class": "provisional-self-adjudicated (row-builder; needs independent expert/solver adjudication before disposition-gate use)"
+    },
+    "not_sourced_from": [
+      "pipeline output",
+      "frontier model draft"
+    ]
+  }
+}

@@ -1,0 +1,89 @@
+{
+  "row_id": "surr-dval08-metric-mismatch",
+  "split": "train:hard-core",
+  "hard_core": true,
+  "strata": {
+    "d_category": "D-VAL-08",
+    "backbone": "validation-support",
+    "measure_type": [
+      "validation-metric"
+    ],
+    "domain": "drug-PK-surrogate",
+    "polarity": "fire",
+    "archetype": "validated-on-wrong-metric"
+  },
+  "input": {
+    "instruction": "A weakener fired on a credibility evidence package. Using ONLY the supplied pattern definition and measures, explain what the flag means, why it fired, and what the engineer should do. Choose ONE action_class from the §5B vocabulary, report a verbalized confidence, and escalate if uncertain. Stay within measure-don't-judge: report on the evidence package, never on whether the model is correct.",
+    "fired_pattern": {
+      "id": "W-AR-05",
+      "d_category": "D-VAL-08",
+      "interface": "weakener-interface@1",
+      "definition": "Validation metric not tied to the COU's quantity of interest: the surrogate is validated on a metric the decision does not use.",
+      "standard_anchor": "ASME V&V 40 purpose-specific validation; proto-taxonomy D-VAL-08"
+    },
+    "measures": {
+      "validated_metric": "R^2 on concentration-time curve",
+      "validated_metric_value": 0.97,
+      "cou_quantity_of_interest": "time-to-peak concentration (Tmax)",
+      "tmax_error_validated": "not reported"
+    },
+    "measures_raw": {
+      "reported_metric": "R2_on_concentration_curve",
+      "reported_metric_value": 0.97,
+      "cou_quantity_of_interest": "time_to_peak",
+      "error_on_cou_quantity_reported": "none"
+    },
+    "case_context": {
+      "cou": "surrogate informs a dosing-interval decision driven by Tmax",
+      "model_influence": "high",
+      "decision_consequence": "dosing interval set on Tmax"
+    }
+  },
+  "answer_key": {
+    "gold_mechanism": "The strong R^2 is on the concentration curve, which is insensitive to the time-to-peak the COU's dosing decision depends on; the decision-relevant quantity (Tmax) is not validated, so the validation metric is not tied to the purpose.",
+    "gold_action": {
+      "selected_class": "acquire-validation",
+      "allowed_classes": [
+        "acquire-validation",
+        "supply-evidence",
+        "restrict-cou"
+      ],
+      "coherent_alternatives": [
+        "supply-evidence"
+      ],
+      "posture_basis": "standard-derived (ASME V&V 40: credibility bounded to the validated domain)",
+      "selection_basis": "provisional-self-adjudicated",
+      "parameters": {
+        "scope": "Tmax accuracy",
+        "against": "held-out PK data"
+      }
+    },
+    "forbidden_claims": [
+      "asserts the Tmax prediction is wrong (a verdict the metric mismatch does not support)",
+      "treats the curve R^2 as validation for the timing decision"
+    ],
+    "acceptable_confidence": [
+      "high",
+      "medium",
+      "0.65-0.92"
+    ]
+  },
+  "hardness": {
+    "obvious_signal": "the surrogate is validated and the reported metric (R^2 on concentration curve) is strong (0.97)",
+    "obvious_posture": "proceed",
+    "conflicting_signal": "the COU decision depends on the peak-concentration timing (Tmax), and the R^2-on-the-curve metric is insensitive to Tmax errors; the decision-relevant quantity is not validated",
+    "gold_posture": "block"
+  },
+  "label_provenance": {
+    "external_grounding": "ASME V&V 40 purpose-specific validation: the validation metric must be tied to the COU's QoI; an aggregate curve fit does not validate a timing quantity.",
+    "by_field": {
+      "gold_mechanism": "standard-grounded (V&V 40 purpose-specific validation)",
+      "gold_action.posture": "standard-derived (V&V 40 applicability)",
+      "gold_action.selected_class": "provisional-self-adjudicated (row-builder; needs independent expert/solver adjudication before disposition-gate use)"
+    },
+    "not_sourced_from": [
+      "pipeline output",
+      "frontier model draft"
+    ]
+  }
+}

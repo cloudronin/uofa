@@ -1,0 +1,89 @@
+{
+  "row_id": "surr-dver06-steady-for-transient",
+  "split": "train:hard-core",
+  "hard_core": true,
+  "strata": {
+    "d_category": "D-VER-06",
+    "backbone": "verification-support",
+    "measure_type": [
+      "benchmark-coverage"
+    ],
+    "domain": "internal-flow-surrogate",
+    "polarity": "fire",
+    "archetype": "verified-regime-mismatch"
+  },
+  "input": {
+    "instruction": "A weakener fired on a credibility evidence package. Using ONLY the supplied pattern definition and measures, explain what the flag means, why it fired, and what the engineer should do. Choose ONE action_class from the §5B vocabulary, report a verbalized confidence, and escalate if uncertain. Stay within measure-don't-judge: report on the evidence package, never on whether the model is correct.",
+    "fired_pattern": {
+      "id": "W-SURR-04",
+      "d_category": "D-VER-06",
+      "interface": "weakener-interface@1",
+      "definition": "Solution-verification performed in a different operating mode than the COU.",
+      "standard_anchor": "ASME V&V 40 application-domain coverage; proto-taxonomy D-VER-06"
+    },
+    "measures": {
+      "verification_residuals": "low, documented",
+      "verification_mode": "steady-state",
+      "cou_mode": "fast transient",
+      "transient_verification": "none"
+    },
+    "measures_raw": {
+      "verification_residual_norm": "low",
+      "verification_operating_mode": "steady-state",
+      "cou_operating_mode": "fast transient",
+      "n_transient_verification_cases": 0
+    },
+    "case_context": {
+      "cou": "surrogate predicts a transient pressure spike for a surge-margin decision",
+      "model_influence": "high",
+      "decision_consequence": "surge margin on the transient prediction"
+    }
+  },
+  "answer_key": {
+    "gold_mechanism": "Solution-verification was performed at steady-state, but the COU is a fast transient the verification did not cover, so the documented residuals do not characterize the transient behaviour the decision depends on.",
+    "gold_action": {
+      "selected_class": "acquire-validation",
+      "allowed_classes": [
+        "acquire-validation",
+        "restrict-cou",
+        "supply-evidence"
+      ],
+      "coherent_alternatives": [
+        "restrict-cou"
+      ],
+      "posture_basis": "standard-derived (ASME V&V 40: credibility bounded to the validated domain)",
+      "selection_basis": "provisional-self-adjudicated",
+      "parameters": {
+        "scope": "transient-mode verification",
+        "against": "a transient reference"
+      }
+    },
+    "forbidden_claims": [
+      "asserts the transient prediction is wrong (a verdict the mode mismatch does not support)",
+      "treats steady-state verification as coverage for the transient COU"
+    ],
+    "acceptable_confidence": [
+      "high",
+      "medium",
+      "0.68-0.92"
+    ]
+  },
+  "hardness": {
+    "obvious_signal": "solution-verification residuals against the reference are low and well-documented",
+    "obvious_posture": "proceed",
+    "conflicting_signal": "the verification was all at STEADY-STATE; the COU is a fast transient, and the surrogate's transient behaviour is unverified — verification present but for the wrong operating mode",
+    "gold_posture": "block"
+  },
+  "label_provenance": {
+    "external_grounding": "ASME V&V 40: verification must cover the COU's operating mode; steady-state verification does not cover transient behaviour.",
+    "by_field": {
+      "gold_mechanism": "standard-grounded (V&V 40 verification coverage)",
+      "gold_action.posture": "standard-derived (V&V 40 applicability)",
+      "gold_action.selected_class": "provisional-self-adjudicated (row-builder; needs independent expert/solver adjudication before disposition-gate use)"
+    },
+    "not_sourced_from": [
+      "pipeline output",
+      "frontier model draft"
+    ]
+  }
+}

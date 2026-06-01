@@ -1,0 +1,87 @@
+{
+  "row_id": "surr-dccb13-tuned-on-validation",
+  "split": "train:hard-core",
+  "hard_core": true,
+  "strata": {
+    "d_category": "D-CCB-13",
+    "backbone": "validation-support",
+    "measure_type": [
+      "hyperparameter-selection",
+      "validation-independence"
+    ],
+    "domain": "data-driven-emulator",
+    "polarity": "fire",
+    "archetype": "model-selection-on-the-validation-set"
+  },
+  "input": {
+    "instruction": "A weakener fired on a credibility evidence package. Using ONLY the supplied pattern definition and measures, explain what the flag means, why it fired, and what the engineer should do. Choose ONE action_class from the §5B vocabulary, report a verbalized confidence, and escalate if uncertain. Stay within measure-don't-judge: report on the evidence package, never on whether the model is correct.",
+    "fired_pattern": {
+      "id": "W-AR-04",
+      "d_category": "D-CCB-13",
+      "interface": "weakener-interface@1",
+      "definition": "Model selection performed on the reported validation set: the validation metric is optimistic because hyperparameters were chosen against it.",
+      "standard_anchor": "ASME V&V 40 independent validation; proto-taxonomy D-CCB-13"
+    },
+    "measures": {
+      "reported_validation_accuracy_pct": 96,
+      "hyperparameter_selection": "grid search maximizing accuracy on the reported validation set",
+      "separate_test_set": "none"
+    },
+    "measures_raw": {
+      "reported_validation_accuracy_pct": 96,
+      "model_selection_objective": "maximize accuracy on the reported validation set",
+      "n_separate_test_sets": 0
+    },
+    "case_context": {
+      "cou": "the validation accuracy is cited as the credibility basis for acceptance",
+      "model_influence": "high",
+      "decision_consequence": "acceptance on the validation accuracy"
+    }
+  },
+  "answer_key": {
+    "gold_mechanism": "Hyperparameters were chosen to maximize accuracy on the reported validation set with no separate test set, so the number is an optimistic model-selection metric and overstates unbiased generalization to the COU.",
+    "gold_action": {
+      "selected_class": "acquire-validation",
+      "allowed_classes": [
+        "acquire-validation",
+        "supply-evidence"
+      ],
+      "coherent_alternatives": [
+        "supply-evidence"
+      ],
+      "posture_basis": "standard-derived (ASME V&V 40: credibility bounded to the validated domain)",
+      "selection_basis": "provisional-self-adjudicated",
+      "parameters": {
+        "scope": "evaluation on a held-out test set untouched by model selection",
+        "against": "an independent set"
+      }
+    },
+    "forbidden_claims": [
+      "asserts the model does not generalize (a verdict the selection bias does not establish)",
+      "treats the selection-optimistic accuracy as an unbiased generalization estimate"
+    ],
+    "acceptable_confidence": [
+      "high",
+      "medium",
+      "0.68-0.92"
+    ]
+  },
+  "hardness": {
+    "obvious_signal": "the validation accuracy is strong (96%) and hyperparameter tuning is documented",
+    "obvious_posture": "proceed",
+    "conflicting_signal": "the documented tuning SELECTED hyperparameters by maximizing accuracy on that same validation set (no separate test set), so the reported number is an optimistic selection metric, not an unbiased estimate",
+    "gold_posture": "block"
+  },
+  "label_provenance": {
+    "external_grounding": "ASME V&V 40 + ML practice: selecting hyperparameters on the validation set inflates the reported metric; an unbiased estimate needs a held-out test set.",
+    "by_field": {
+      "gold_mechanism": "standard-grounded (V&V 40) + model-selection principle",
+      "gold_action.posture": "standard-derived (V&V 40 applicability)",
+      "gold_action.selected_class": "provisional-self-adjudicated (row-builder; needs independent expert/solver adjudication before disposition-gate use)"
+    },
+    "not_sourced_from": [
+      "pipeline output",
+      "frontier model draft"
+    ]
+  }
+}

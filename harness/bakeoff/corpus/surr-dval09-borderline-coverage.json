@@ -1,0 +1,88 @@
+{
+  "row_id": "surr-dval09-borderline-coverage",
+  "split": "train:hard-core",
+  "hard_core": true,
+  "strata": {
+    "d_category": "D-VAL-09",
+    "backbone": "uncertainty-support",
+    "measure_type": [
+      "uq-calibration"
+    ],
+    "domain": "subsurface-flow-surrogate",
+    "polarity": "fire",
+    "archetype": "mild-miscalibration"
+  },
+  "input": {
+    "instruction": "A weakener fired on a credibility evidence package. Using ONLY the supplied pattern definition and measures, explain what the flag means, why it fired, and what the engineer should do. Choose ONE action_class from the §5B vocabulary, report a verbalized confidence, and escalate if uncertain. Stay within measure-don't-judge: report on the evidence package, never on whether the model is correct.",
+    "fired_pattern": {
+      "id": "W-AL-02",
+      "d_category": "D-VAL-09",
+      "interface": "weakener-interface@1",
+      "definition": "Prediction-interval coverage is below nominal; COU-relevance of the gap is unclear.",
+      "standard_anchor": "ASME V&V 40 uncertainty; proto-taxonomy D-VAL-09"
+    },
+    "measures": {
+      "empirical_coverage": 0.82,
+      "nominal_coverage": 0.95,
+      "interval_bias": "too narrow (over-confident)",
+      "cou_consumes": "interval as a risk bound"
+    },
+    "measures_raw": {
+      "empirical_coverage": 0.82,
+      "nominal_coverage": 0.95,
+      "cou_uses_interval_as": "risk bound"
+    },
+    "case_context": {
+      "cou": "the prediction interval is used directly as a risk bound",
+      "model_influence": "high",
+      "decision_consequence": "risk bound taken from the interval"
+    }
+  },
+  "answer_key": {
+    "gold_mechanism": "Empirical coverage 0.82 vs nominal 0.95 means the intervals are over-confident; since the COU uses the interval as a risk bound, the under-coverage propagates into an under-stated risk the decision relies on.",
+    "gold_action": {
+      "selected_class": "supply-evidence",
+      "allowed_classes": [
+        "supply-evidence",
+        "acquire-validation",
+        "restrict-cou"
+      ],
+      "coherent_alternatives": [
+        "acquire-validation"
+      ],
+      "posture_basis": "standard-derived (ASME V&V 40: credibility bounded to the validated domain)",
+      "selection_basis": "provisional-self-adjudicated",
+      "parameters": {
+        "scope": "recalibrate / widen the intervals to nominal coverage",
+        "blocks": "using the interval as a risk bound as-is"
+      }
+    },
+    "forbidden_claims": [
+      "asserts the predictions are wrong (a verdict the miscalibration does not establish)",
+      "treats 0.82 coverage as adequate for a 0.95-nominal risk bound"
+    ],
+    "acceptable_confidence": [
+      "high",
+      "medium",
+      "0.65-0.92"
+    ]
+  },
+  "hardness": {
+    "obvious_signal": "prediction intervals are reported and roughly the right size (mean width plausible)",
+    "obvious_posture": "proceed",
+    "conflicting_signal": "the empirical coverage is 0.82 against a nominal 0.95 — the intervals are systematically too narrow (over-confident), and the COU consumes the interval as a risk bound, so the under-coverage propagates into an under-stated risk",
+    "gold_posture": "block"
+  },
+  "label_provenance": {
+    "external_grounding": "ASME V&V 40 uncertainty: under-covering intervals used as a risk bound understate risk; recalibration is needed before reliance.",
+    "by_field": {
+      "gold_mechanism": "standard-grounded (V&V 40 uncertainty calibration)",
+      "gold_action.posture": "standard-derived (V&V 40 applicability)",
+      "gold_action.selected_class": "provisional-self-adjudicated (row-builder; needs independent expert/solver adjudication before disposition-gate use)"
+    },
+    "not_sourced_from": [
+      "pipeline output",
+      "frontier model draft"
+    ]
+  }
+}

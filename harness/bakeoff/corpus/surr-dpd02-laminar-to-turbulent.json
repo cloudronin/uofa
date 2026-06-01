@@ -1,0 +1,91 @@
+{
+  "row_id": "surr-dpd02-laminar-to-turbulent",
+  "split": "train:hard-core",
+  "hard_core": true,
+  "strata": {
+    "d_category": "D-PD-02",
+    "backbone": "applicability",
+    "measure_type": [
+      "envelope-containment",
+      "regime-change"
+    ],
+    "domain": "pipe-flow-surrogate",
+    "polarity": "fire",
+    "archetype": "regime-boundary-crossing"
+  },
+  "input": {
+    "instruction": "A weakener fired on a credibility evidence package. Using ONLY the supplied pattern definition and measures, explain what the flag means, why it fired, and what the engineer should do. Choose ONE action_class from the §5B vocabulary, report a verbalized confidence, and escalate if uncertain. Stay within measure-don't-judge: report on the evidence package, never on whether the model is correct.",
+    "fired_pattern": {
+      "id": "W-SURR-03",
+      "d_category": "D-PD-02",
+      "interface": "weakener-interface@1",
+      "definition": "COU Reynolds number crosses the laminar–turbulent transition the training set never spanned.",
+      "standard_anchor": "ASME V&V 40 applicability; proto-taxonomy D-PD-02"
+    },
+    "measures": {
+      "train_error_pct": 1.5,
+      "training_reynolds_max": 1500,
+      "cou_reynolds": 4000,
+      "transition_reynolds": 2300,
+      "training_points_above_transition": 0
+    },
+    "measures_raw": {
+      "train_error_pct": 1.5,
+      "training_reynolds_max": 1500,
+      "cou_reynolds": 4000,
+      "laminar_turbulent_transition_reynolds": 2300,
+      "training_points_above_2300": 0
+    },
+    "case_context": {
+      "cou": "surrogate predicts pressure drop at Re 4000 for a sizing decision",
+      "model_influence": "high",
+      "decision_consequence": "pump sizing on the prediction"
+    }
+  },
+  "answer_key": {
+    "gold_mechanism": "Training is all laminar (Re ≤ 1500); the COU at Re 4000 is past the laminar–turbulent transition (~2300), a physically distinct regime with different dynamics the surrogate never trained on — not an interpolation.",
+    "gold_action": {
+      "selected_class": "acquire-validation",
+      "allowed_classes": [
+        "acquire-validation",
+        "restrict-cou",
+        "reject"
+      ],
+      "coherent_alternatives": [
+        "restrict-cou"
+      ],
+      "posture_basis": "standard-derived (ASME V&V 40: credibility bounded to the validated domain)",
+      "selection_basis": "provisional-self-adjudicated",
+      "parameters": {
+        "scope": "the turbulent regime (Re > 2300)",
+        "against": "a turbulent reference"
+      }
+    },
+    "forbidden_claims": [
+      "asserts the pressure-drop prediction is wrong (a verdict the regime gap does not establish)",
+      "treats the same-order Reynolds number as evidence of applicability across the transition"
+    ],
+    "acceptable_confidence": [
+      "high",
+      "0.82-0.96"
+    ]
+  },
+  "hardness": {
+    "obvious_signal": "the surrogate has low error (1.5%) and the COU Reynolds number is within the same order of magnitude as training",
+    "obvious_posture": "proceed",
+    "conflicting_signal": "training is entirely laminar (Re ≤ 1500) but the COU is at Re 4000 — past the laminar–turbulent transition, a physically distinct regime with different governing dynamics the surrogate never saw",
+    "gold_posture": "block"
+  },
+  "label_provenance": {
+    "external_grounding": "ASME V&V 40 applicability: crossing the laminar–turbulent transition is a regime change, not interpolation; a laminar-trained surrogate is not applicable in turbulence.",
+    "by_field": {
+      "gold_mechanism": "standard-grounded (V&V 40) + transition physics",
+      "gold_action.posture": "standard-derived (V&V 40 applicability)",
+      "gold_action.selected_class": "provisional-self-adjudicated (row-builder; needs independent expert/solver adjudication before disposition-gate use)"
+    },
+    "not_sourced_from": [
+      "pipeline output",
+      "frontier model draft"
+    ]
+  }
+}

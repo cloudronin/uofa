@@ -1,0 +1,88 @@
+{
+  "row_id": "surr-dval09-uq-absent-entirely",
+  "split": "train:hard-core",
+  "hard_core": true,
+  "strata": {
+    "d_category": "D-VAL-09",
+    "backbone": "uncertainty-support",
+    "measure_type": [
+      "uq-completeness"
+    ],
+    "domain": "additive-manufacturing-surrogate",
+    "polarity": "fire",
+    "archetype": "uq-absent"
+  },
+  "input": {
+    "instruction": "A weakener fired on a credibility evidence package. Using ONLY the supplied pattern definition and measures, explain what the flag means, why it fired, and what the engineer should do. Choose ONE action_class from the §5B vocabulary, report a verbalized confidence, and escalate if uncertain. Stay within measure-don't-judge: report on the evidence package, never on whether the model is correct.",
+    "fired_pattern": {
+      "id": "W-AL-02",
+      "d_category": "D-VAL-09",
+      "interface": "weakener-interface@1",
+      "definition": "Prediction uncertainty entirely absent: the surrogate reports point predictions with no uncertainty for a decision that depends on it.",
+      "standard_anchor": "ASME V&V 40 uncertainty; proto-taxonomy D-VAL-09"
+    },
+    "measures": {
+      "test_set_mae_pct": 3.0,
+      "prediction_uncertainty_reported": "none (point predictions only)",
+      "cou_needs_uncertainty_bound": true
+    },
+    "measures_raw": {
+      "test_mae_pct": 3.0,
+      "n_uncertainty_fields_in_output": 0,
+      "output_schema": [
+        "point_estimate"
+      ],
+      "cou_decision_rule": "threshold on predicted value +/- a bound"
+    },
+    "case_context": {
+      "cou": "surrogate predicts residual stress to gate part acceptance",
+      "model_influence": "high",
+      "decision_consequence": "parts accepted/rejected on the predicted stress"
+    }
+  },
+  "answer_key": {
+    "gold_mechanism": "The package reports point predictions with no uncertainty of any kind, but the COU's acceptance threshold requires an uncertainty bound; a low MAE does not supply the missing predictive uncertainty.",
+    "gold_action": {
+      "selected_class": "supply-evidence",
+      "allowed_classes": [
+        "supply-evidence",
+        "acquire-validation"
+      ],
+      "coherent_alternatives": [
+        "acquire-validation"
+      ],
+      "posture_basis": "standard-derived (ASME V&V 40: credibility bounded to the validated domain)",
+      "selection_basis": "provisional-self-adjudicated",
+      "parameters": {
+        "scope": "predictive uncertainty quantification",
+        "blocks": "threshold-based part acceptance"
+      }
+    },
+    "forbidden_claims": [
+      "asserts the predictions are over/under-confident (a verdict — there is no UQ to judge)",
+      "treats the low MAE as a substitute for predictive uncertainty"
+    ],
+    "acceptable_confidence": [
+      "high",
+      "0.82-0.96"
+    ]
+  },
+  "hardness": {
+    "obvious_signal": "mean-absolute-error on the test set is low (3%) and well-reported",
+    "obvious_posture": "proceed",
+    "conflicting_signal": "the surrogate reports point predictions ONLY — there is no prediction uncertainty of any kind, yet the COU sets a part-acceptance threshold that needs an uncertainty bound",
+    "gold_posture": "block"
+  },
+  "label_provenance": {
+    "external_grounding": "ASME V&V 40 uncertainty: a decision needing an uncertainty bound is not supported by point predictions; total absence of UQ is a decisive completeness gap.",
+    "by_field": {
+      "gold_mechanism": "standard-grounded (V&V 40 uncertainty completeness)",
+      "gold_action.posture": "standard-derived (V&V 40 applicability)",
+      "gold_action.selected_class": "provisional-self-adjudicated (row-builder; needs independent expert/solver adjudication before disposition-gate use)"
+    },
+    "not_sourced_from": [
+      "pipeline output",
+      "frontier model draft"
+    ]
+  }
+}

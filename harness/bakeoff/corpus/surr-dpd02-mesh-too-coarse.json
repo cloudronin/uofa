@@ -1,0 +1,90 @@
+{
+  "row_id": "surr-dpd02-mesh-too-coarse",
+  "split": "train:hard-core",
+  "hard_core": true,
+  "strata": {
+    "d_category": "D-PD-02",
+    "backbone": "applicability",
+    "measure_type": [
+      "resolution-adequacy"
+    ],
+    "domain": "cfd-boundary-layer-surrogate",
+    "polarity": "fire",
+    "archetype": "training-resolution-inadequate"
+  },
+  "input": {
+    "instruction": "A weakener fired on a credibility evidence package. Using ONLY the supplied pattern definition and measures, explain what the flag means, why it fired, and what the engineer should do. Choose ONE action_class from the §5B vocabulary, report a verbalized confidence, and escalate if uncertain. Stay within measure-don't-judge: report on the evidence package, never on whether the model is correct.",
+    "fired_pattern": {
+      "id": "W-SURR-03",
+      "d_category": "D-PD-02",
+      "interface": "weakener-interface@1",
+      "definition": "Training resolution cannot resolve the COU's controlling feature.",
+      "standard_anchor": "ASME V&V 40 applicability/discretization; proto-taxonomy D-PD-02"
+    },
+    "measures": {
+      "train_fit_error_pct": 1.2,
+      "training_mesh_y_plus": 80,
+      "cou_qoi": "wall heat flux",
+      "y_plus_required_for_qoi": 1,
+      "training_samples_resolving_boundary_layer": 0
+    },
+    "measures_raw": {
+      "train_fit_error_pct": 1.2,
+      "training_mesh_y_plus": 80,
+      "cou_qoi": "wall heat flux",
+      "y_plus_to_resolve_thermal_boundary_layer": 1,
+      "n_training_samples_with_y_plus_below_1": 0
+    },
+    "case_context": {
+      "cou": "surrogate predicts wall heat flux for a cooling-design decision",
+      "model_influence": "high",
+      "decision_consequence": "cooling design on the heat-flux prediction"
+    }
+  },
+  "answer_key": {
+    "gold_mechanism": "The training mesh (y+ ~ 80) is in the wall-function regime and never resolves the thermal boundary layer the COU's wall-heat-flux QoI depends on (needs y+ < 1); a good fit to under-resolved training data does not give the unresolved physics.",
+    "gold_action": {
+      "selected_class": "reject",
+      "allowed_classes": [
+        "reject",
+        "acquire-validation",
+        "restrict-cou"
+      ],
+      "coherent_alternatives": [
+        "acquire-validation"
+      ],
+      "posture_basis": "standard-derived (ASME V&V 40: credibility bounded to the validated domain)",
+      "selection_basis": "provisional-self-adjudicated",
+      "parameters": {
+        "basis": "training resolution cannot resolve the COU QoI",
+        "blocks": "wall-heat-flux use"
+      }
+    },
+    "forbidden_claims": [
+      "asserts a heat-flux value is wrong (a verdict the resolution gap does not establish)",
+      "treats the fit to under-resolved training data as resolving the boundary layer"
+    ],
+    "acceptable_confidence": [
+      "high",
+      "0.82-0.96"
+    ]
+  },
+  "hardness": {
+    "obvious_signal": "the surrogate matches its training data to 1.2% and the training set is large",
+    "obvious_posture": "proceed",
+    "conflicting_signal": "the training CFD used a mesh with y+ ~ 80 (wall-function regime), but the COU's quantity of interest is wall heat flux, which needs y+ < 1 to resolve the thermal boundary layer — the controlling feature was never resolved in any training sample",
+    "gold_posture": "block"
+  },
+  "label_provenance": {
+    "external_grounding": "ASME V&V 40 discretization/applicability: a surrogate cannot supply physics its training resolution never resolved; wall heat flux requires near-wall resolution (y+ < 1).",
+    "by_field": {
+      "gold_mechanism": "standard-grounded (V&V 40) + boundary-layer resolution physics",
+      "gold_action.posture": "standard-derived (V&V 40 applicability)",
+      "gold_action.selected_class": "provisional-self-adjudicated (row-builder; needs independent expert/solver adjudication before disposition-gate use)"
+    },
+    "not_sourced_from": [
+      "pipeline output",
+      "frontier model draft"
+    ]
+  }
+}

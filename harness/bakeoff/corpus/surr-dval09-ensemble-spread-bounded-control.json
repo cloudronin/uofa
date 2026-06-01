@@ -1,0 +1,84 @@
+{
+  "row_id": "surr-dval09-ensemble-spread-bounded-control",
+  "split": "control",
+  "hard_core": true,
+  "strata": {
+    "d_category": "D-VAL-09",
+    "backbone": "uncertainty-support",
+    "measure_type": [
+      "uq-calibration",
+      "decision-margin"
+    ],
+    "domain": "weather-emulator-surrogate",
+    "polarity": "suppress",
+    "archetype": "alarming-spread-but-margin"
+  },
+  "input": {
+    "instruction": "Assess whether the evidence package has the gap this pattern describes. If the package is complete for this COU, the correct disposition is to accept — do NOT over-act on an alarming-looking but adequately-addressed signal. Choose ONE action_class from the §5B vocabulary, report a verbalized confidence, and escalate if uncertain. Stay within measure-don't-judge.",
+    "fired_pattern": {
+      "id": "W-AL-02",
+      "d_category": "D-VAL-09",
+      "interface": "weakener-interface@1",
+      "definition": "Ensemble spread looks large; the decision threshold has margin beyond the spread.",
+      "standard_anchor": "ASME V&V 40 uncertainty + decision margin; proto-taxonomy D-VAL-09"
+    },
+    "measures": {
+      "ensemble_std_pct_of_mean": 15,
+      "ensemble_coverage": 0.93,
+      "nominal_coverage": 0.95,
+      "distance_to_decision_threshold_in_std": 4.0
+    },
+    "measures_raw": {
+      "ensemble_std_pct_of_mean": 15,
+      "ensemble_coverage": 0.93,
+      "nominal_coverage": 0.95,
+      "distance_to_decision_threshold_in_std": 4.0
+    },
+    "case_context": {
+      "cou": "a binary threshold decision with the predicted value far from the threshold",
+      "model_influence": "high",
+      "decision_consequence": "threshold decision against the predicted value"
+    }
+  },
+  "answer_key": {
+    "gold_mechanism": "The ensemble spread is large but validated (coverage 0.93 vs 0.95), and the decision threshold is 4σ from the prediction, so even the full calibrated spread does not change the decision — the alarming spread is real but immaterial to this threshold.",
+    "gold_action": {
+      "selected_class": "accept-residual-risk",
+      "allowed_classes": [
+        "accept-residual-risk"
+      ],
+      "coherent_alternatives": [],
+      "posture_basis": "standard-derived (ASME V&V 40: credibility bounded to the validated domain)",
+      "selection_basis": "provisional-self-adjudicated",
+      "parameters": {
+        "justification": "validated spread (0.93 vs 0.95) is 4σ short of the decision threshold; the decision is robust to it"
+      }
+    },
+    "forbidden_claims": [
+      "acts on the spread magnitude while ignoring the 4σ decision margin (over-action)",
+      "asserts the emulator is accurate (a verdict the package does not adjudicate)"
+    ],
+    "acceptable_confidence": [
+      "high",
+      "0.78-0.94"
+    ]
+  },
+  "hardness": {
+    "obvious_signal": "the deep-ensemble disagreement is large (std = 15% of the mean) — looks uncertain",
+    "obvious_posture": "block",
+    "conflicting_signal": "the ensemble spread is validated (coverage 0.93 vs nominal 0.95), and the COU's decision threshold sits 4 standard deviations away from the predicted value — even the full validated spread does not reach the threshold, so the decision is robust to it",
+    "gold_posture": "proceed"
+  },
+  "label_provenance": {
+    "external_grounding": "ASME V&V 40 uncertainty + decision margin: a calibrated uncertainty that does not reach the decision threshold is immaterial to the decision; over-acting on its magnitude is over-action.",
+    "by_field": {
+      "gold_mechanism": "standard-grounded (V&V 40) + decision-margin",
+      "gold_action.posture": "standard-derived (V&V 40 applicability)",
+      "gold_action.selected_class": "provisional-self-adjudicated (row-builder; needs independent expert/solver adjudication before disposition-gate use)"
+    },
+    "not_sourced_from": [
+      "pipeline output",
+      "frontier model draft"
+    ]
+  }
+}

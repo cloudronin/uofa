@@ -1,0 +1,89 @@
+{
+  "row_id": "surr-dpd02-rollout-horizon",
+  "split": "train:hard-core",
+  "hard_core": true,
+  "strata": {
+    "d_category": "D-PD-02",
+    "backbone": "applicability",
+    "measure_type": [
+      "envelope-containment",
+      "error-accumulation"
+    ],
+    "domain": "dynamics-rollout-surrogate",
+    "polarity": "fire",
+    "archetype": "horizon-extrapolation"
+  },
+  "input": {
+    "instruction": "A weakener fired on a credibility evidence package. Using ONLY the supplied pattern definition and measures, explain what the flag means, why it fired, and what the engineer should do. Choose ONE action_class from the §5B vocabulary, report a verbalized confidence, and escalate if uncertain. Stay within measure-don't-judge: report on the evidence package, never on whether the model is correct.",
+    "fired_pattern": {
+      "id": "W-SURR-03",
+      "d_category": "D-PD-02",
+      "interface": "weakener-interface@1",
+      "definition": "Autoregressive rollout horizon far exceeds the validated horizon; error accumulation is uncharacterized.",
+      "standard_anchor": "ASME V&V 40 applicability; proto-taxonomy D-PD-02"
+    },
+    "measures": {
+      "single_step_error_pct": 0.2,
+      "validated_horizon_steps": 10,
+      "cou_horizon_steps": 500,
+      "long_horizon_error_characterized": false
+    },
+    "measures_raw": {
+      "single_step_error_pct": 0.2,
+      "max_validated_horizon_steps": 10,
+      "cou_rollout_steps": 500,
+      "long_horizon_error_data": "none"
+    },
+    "case_context": {
+      "cou": "surrogate is rolled out 500 steps for a trajectory-safety decision",
+      "model_influence": "high",
+      "decision_consequence": "trajectory safety on the 500-step rollout"
+    }
+  },
+  "answer_key": {
+    "gold_mechanism": "A tiny single-step error compounds over a 500-step autoregressive rollout the validation (≤10 steps) never characterized; per-step accuracy does not bound long-horizon error.",
+    "gold_action": {
+      "selected_class": "acquire-validation",
+      "allowed_classes": [
+        "acquire-validation",
+        "restrict-cou",
+        "reject"
+      ],
+      "coherent_alternatives": [
+        "restrict-cou"
+      ],
+      "posture_basis": "standard-derived (ASME V&V 40: credibility bounded to the validated domain)",
+      "selection_basis": "provisional-self-adjudicated",
+      "parameters": {
+        "scope": "long-horizon (500-step) rollout stability",
+        "against": "a reference trajectory"
+      }
+    },
+    "forbidden_claims": [
+      "asserts the rollout diverges (a verdict the uncharacterized horizon does not establish)",
+      "treats single-step accuracy as a bound on 500-step rollout error"
+    ],
+    "acceptable_confidence": [
+      "high",
+      "0.82-0.96"
+    ]
+  },
+  "hardness": {
+    "obvious_signal": "single-step prediction error is tiny (0.2%) and well-validated",
+    "obvious_posture": "proceed",
+    "conflicting_signal": "the COU requires a 500-step autoregressive rollout, but validation only covers single-step and 10-step horizons; a 0.2% per-step error compounds over 500 steps and the long-horizon behaviour is entirely uncharacterized",
+    "gold_posture": "block"
+  },
+  "label_provenance": {
+    "external_grounding": "ASME V&V 40 applicability: validation must cover the COU's rollout horizon; single/short-step accuracy does not bound compounded long-horizon error.",
+    "by_field": {
+      "gold_mechanism": "standard-grounded (V&V 40) + autoregressive error-accumulation",
+      "gold_action.posture": "standard-derived (V&V 40 applicability)",
+      "gold_action.selected_class": "provisional-self-adjudicated (row-builder; needs independent expert/solver adjudication before disposition-gate use)"
+    },
+    "not_sourced_from": [
+      "pipeline output",
+      "frontier model draft"
+    ]
+  }
+}

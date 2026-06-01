@@ -1,0 +1,90 @@
+{
+  "row_id": "surr-dccb10-augmented-not-real",
+  "split": "train:hard-core",
+  "hard_core": true,
+  "strata": {
+    "d_category": "D-CCB-10",
+    "backbone": "data-support",
+    "measure_type": [
+      "data-fidelity"
+    ],
+    "domain": "materials-surrogate",
+    "polarity": "fire",
+    "archetype": "synthetic-data-fidelity"
+  },
+  "input": {
+    "instruction": "A weakener fired on a credibility evidence package. Using ONLY the supplied pattern definition and measures, explain what the flag means, why it fired, and what the engineer should do. Choose ONE action_class from the §5B vocabulary, report a verbalized confidence, and escalate if uncertain. Stay within measure-don't-judge: report on the evidence package, never on whether the model is correct.",
+    "fired_pattern": {
+      "id": "W-EP-03",
+      "d_category": "D-CCB-10",
+      "interface": "weakener-interface@1",
+      "definition": "Training-data fidelity not characterized: a large fraction of training data is synthetically augmented, and its fidelity to the real system is not established.",
+      "standard_anchor": "ASME V&V 40 data fidelity; proto-taxonomy D-CCB-10"
+    },
+    "measures": {
+      "training_samples": 50000,
+      "synthetic_fraction": 0.8,
+      "synthetic_source": "GAN augmentation",
+      "augmentation_fidelity_to_real_system": "not characterized",
+      "validation_set_source": "same augmented pool"
+    },
+    "measures_raw": {
+      "training_samples": 50000,
+      "fraction_synthetically_generated": 0.8,
+      "validation_set_drawn_from": "same pool as training (incl. synthetic)",
+      "n_real_system_validation_points": 0
+    },
+    "case_context": {
+      "cou": "surrogate predicts fatigue life from microstructure for a qualification decision",
+      "model_influence": "high",
+      "decision_consequence": "material qualification on the prediction"
+    }
+  },
+  "answer_key": {
+    "gold_mechanism": "80% of training (and the validation set) is GAN-augmented with uncharacterized fidelity to real microstructures, so the low validation error may reflect learning the augmentation distribution rather than the real system the COU qualifies.",
+    "gold_action": {
+      "selected_class": "supply-evidence",
+      "allowed_classes": [
+        "supply-evidence",
+        "acquire-validation",
+        "restrict-cou"
+      ],
+      "coherent_alternatives": [
+        "acquire-validation"
+      ],
+      "posture_basis": "standard-derived (ASME V&V 40: credibility bounded to the validated domain)",
+      "selection_basis": "provisional-self-adjudicated",
+      "parameters": {
+        "scope": "augmentation-fidelity characterization + validation on real data",
+        "blocks": "qualification on the augmented metric"
+      }
+    },
+    "forbidden_claims": [
+      "asserts the fatigue predictions are wrong (a verdict the fidelity gap does not establish)",
+      "treats the low error on augmented validation data as real-system credibility"
+    ],
+    "acceptable_confidence": [
+      "high",
+      "medium",
+      "0.68-0.92"
+    ]
+  },
+  "hardness": {
+    "obvious_signal": "the training set is large (50k samples) and the validation error is low (1.5%)",
+    "obvious_posture": "proceed",
+    "conflicting_signal": "80% of the 50k samples are synthetically augmented (GAN-generated), the augmentation fidelity to real microstructures is uncharacterized, and the validation set is drawn from the same augmented pool — so the low error may reflect learning the augmentation, not the real system",
+    "gold_posture": "block"
+  },
+  "label_provenance": {
+    "external_grounding": "ASME V&V 40 data fidelity (D-CCB-10): synthetically augmented training data needs characterized fidelity to the real system; validation on the same augmented pool does not establish it.",
+    "by_field": {
+      "gold_mechanism": "standard-grounded (V&V 40 / D-CCB-10)",
+      "gold_action.posture": "standard-derived (V&V 40 applicability)",
+      "gold_action.selected_class": "provisional-self-adjudicated (row-builder; needs independent expert/solver adjudication before disposition-gate use)"
+    },
+    "not_sourced_from": [
+      "pipeline output",
+      "frontier model draft"
+    ]
+  }
+}

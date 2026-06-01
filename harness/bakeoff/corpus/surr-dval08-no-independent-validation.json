@@ -1,0 +1,84 @@
+{
+  "row_id": "surr-dval08-no-independent-validation",
+  "split": "train:hard-core",
+  "hard_core": true,
+  "strata": {
+    "d_category": "D-VAL-08",
+    "backbone": "validation-support",
+    "measure_type": [
+      "validation-independence"
+    ],
+    "domain": "battery-thermal-surrogate",
+    "polarity": "fire",
+    "archetype": "no-independent-validation"
+  },
+  "input": {
+    "instruction": "A weakener fired on a credibility evidence package. Using ONLY the supplied pattern definition and measures, explain what the flag means, why it fired, and what the engineer should do. Choose ONE action_class from the §5B vocabulary, report a verbalized confidence, and escalate if uncertain. Stay within measure-don't-judge: report on the evidence package, never on whether the model is correct.",
+    "fired_pattern": {
+      "id": "W-AR-05",
+      "d_category": "D-VAL-08",
+      "interface": "weakener-interface@1",
+      "definition": "Validation against independent data absent: only training-set performance is reported; no independent validation evidence exists.",
+      "standard_anchor": "ASME V&V 40 independent validation; proto-taxonomy D-VAL-08"
+    },
+    "measures": {
+      "training_set_R2": 0.998,
+      "independent_validation_present": false,
+      "all_reported_metrics_computed_on": "training set"
+    },
+    "measures_raw": {
+      "R2_on_training_partition": 0.998,
+      "n_points_in_holdout_partition": 0,
+      "all_reported_metrics_partition": "training",
+      "cou_inputs_in_an_evaluated_holdout": "none"
+    },
+    "case_context": {
+      "cou": "surrogate predicts cell temperature for a thermal-runaway safety margin",
+      "model_influence": "high",
+      "decision_consequence": "safety margin set on the prediction"
+    }
+  },
+  "answer_key": {
+    "gold_mechanism": "Every reported metric is on the training set; no independent validation evidence exists, so generalization to the COU is uncharacterized — training-set R^2 is not credibility for unseen inputs.",
+    "gold_action": {
+      "selected_class": "acquire-validation",
+      "allowed_classes": [
+        "acquire-validation",
+        "reject"
+      ],
+      "coherent_alternatives": [],
+      "posture_basis": "standard-derived (ASME V&V 40: credibility bounded to the validated domain)",
+      "selection_basis": "provisional-self-adjudicated",
+      "parameters": {
+        "scope": "independent validation against held-out data",
+        "blocks": "use for the safety margin"
+      }
+    },
+    "forbidden_claims": [
+      "asserts the surrogate is inaccurate (a verdict the absence of validation does not establish)",
+      "treats training-set R^2 as validation evidence"
+    ],
+    "acceptable_confidence": [
+      "high",
+      "0.85-0.97"
+    ]
+  },
+  "hardness": {
+    "obvious_signal": "the reported training-set accuracy is excellent (R^2 0.998)",
+    "obvious_posture": "proceed",
+    "conflicting_signal": "there is NO independent validation at all — every reported metric is on the training set, so generalization to the COU is entirely uncharacterized",
+    "gold_posture": "block"
+  },
+  "label_provenance": {
+    "external_grounding": "ASME V&V 40: validation requires data independent of training; training-set performance is not validation. A complete absence of independent validation is a decisive gap.",
+    "by_field": {
+      "gold_mechanism": "standard-grounded (V&V 40 independent validation)",
+      "gold_action.posture": "standard-derived (V&V 40 applicability)",
+      "gold_action.selected_class": "provisional-self-adjudicated (row-builder; needs independent expert/solver adjudication before disposition-gate use)"
+    },
+    "not_sourced_from": [
+      "pipeline output",
+      "frontier model draft"
+    ]
+  }
+}

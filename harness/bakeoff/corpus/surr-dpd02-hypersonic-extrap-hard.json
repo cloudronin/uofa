@@ -1,0 +1,92 @@
+{
+  "row_id": "surr-dpd02-hypersonic-extrap-hard",
+  "split": "train:hard-core",
+  "hard_core": true,
+  "strata": {
+    "d_category": "D-PD-02",
+    "backbone": "applicability",
+    "measure_type": [
+      "envelope-containment"
+    ],
+    "domain": "hypersonics-surrogate",
+    "polarity": "fire",
+    "archetype": "global-pass-local-inadequate"
+  },
+  "input": {
+    "instruction": "A weakener fired on a credibility evidence package. Using ONLY the supplied pattern definition and measures, explain what the flag means, why it fired, and what the engineer should do. Choose ONE action_class from the §5B vocabulary, report a verbalized confidence, and escalate if uncertain. Stay within measure-don't-judge: report on the evidence package, never on whether the model is correct.",
+    "fired_pattern": {
+      "id": "W-SURR-03",
+      "d_category": "D-PD-02",
+      "interface": "weakener-interface@1",
+      "definition": "Evaluation regime crosses a physical regime boundary the training set did not cover.",
+      "standard_anchor": "ASME V&V 40 applicability; proto-taxonomy D-PD-02"
+    },
+    "measures": {
+      "training_mach_max": 6.0,
+      "cou_mach": 6.5,
+      "numeric_extrapolation_pct": 8,
+      "physical_regime_boundary_crossed": "real-gas dissociation onset (~Mach 6.2)",
+      "training_data_above_dissociation_onset": "none"
+    },
+    "measures_raw": {
+      "training_mach_range": [
+        2.0,
+        6.0
+      ],
+      "evaluation_mach": 6.5,
+      "fraction_of_training_within_0_3_mach_of_eval": 0.02,
+      "real_gas_effects_onset_mach": 6.2
+    },
+    "case_context": {
+      "cou": "surrogate predicts heat flux at Mach 6.5 for a TPS sizing decision",
+      "model_influence": "high",
+      "decision_consequence": "thermal protection system sizing"
+    }
+  },
+  "answer_key": {
+    "gold_mechanism": "An 8% numeric Mach increase looks small, but it crosses the real-gas dissociation threshold the training set never sampled, so the COU sits in a physically distinct regime — applicability is not established despite the small numeric margin.",
+    "gold_action": {
+      "selected_class": "acquire-validation",
+      "allowed_classes": [
+        "acquire-validation",
+        "restrict-cou",
+        "reject"
+      ],
+      "coherent_alternatives": [
+        "restrict-cou"
+      ],
+      "posture_basis": "standard-derived (ASME V&V 40: credibility bounded to the validated domain)",
+      "selection_basis": "provisional-self-adjudicated",
+      "parameters": {
+        "scope": "the post-dissociation regime (Mach > 6.2)",
+        "against": "solver or experimental truth"
+      }
+    },
+    "forbidden_claims": [
+      "asserts the heat-flux prediction is wrong (a verdict the regime gap does not support)",
+      "treats the small numeric Mach margin as evidence of applicability across the regime boundary"
+    ],
+    "acceptable_confidence": [
+      "high",
+      "0.80-0.95"
+    ]
+  },
+  "hardness": {
+    "obvious_signal": "Mach number 6.5 is only 8% above the training maximum of 6.0 — barely outside",
+    "obvious_posture": "proceed",
+    "conflicting_signal": "the 8% Mach increase crosses the real-gas dissociation threshold (~Mach 6.2); the training set is entirely below it, so the COU is in a physically distinct regime the surrogate never saw, not a small extrapolation",
+    "gold_posture": "block"
+  },
+  "label_provenance": {
+    "external_grounding": "ASME V&V 40 applicability + hypersonics: a small numeric parameter change that crosses a physical regime boundary (real-gas effects) is a regime extrapolation, not interpolation.",
+    "by_field": {
+      "gold_mechanism": "standard-grounded (V&V 40) + hypersonics physics",
+      "gold_action.posture": "standard-derived (V&V 40 applicability)",
+      "gold_action.selected_class": "provisional-self-adjudicated (row-builder; needs independent expert/solver adjudication before disposition-gate use)"
+    },
+    "not_sourced_from": [
+      "pipeline output",
+      "frontier model draft"
+    ]
+  }
+}

@@ -1,0 +1,87 @@
+{
+  "row_id": "surr-dccb10-uncorrected-sensor-drift",
+  "split": "train:hard-core",
+  "hard_core": true,
+  "strata": {
+    "d_category": "D-CCB-10",
+    "backbone": "data-support",
+    "measure_type": [
+      "data-fidelity"
+    ],
+    "domain": "turbomachinery-surrogate",
+    "polarity": "fire",
+    "archetype": "biased-training-source"
+  },
+  "input": {
+    "instruction": "A weakener fired on a credibility evidence package. Using ONLY the supplied pattern definition and measures, explain what the flag means, why it fired, and what the engineer should do. Choose ONE action_class from the §5B vocabulary, report a verbalized confidence, and escalate if uncertain. Stay within measure-don't-judge: report on the evidence package, never on whether the model is correct.",
+    "fired_pattern": {
+      "id": "W-EP-03",
+      "d_category": "D-CCB-10",
+      "interface": "weakener-interface@1",
+      "definition": "Training data carries a known, uncorrected systematic bias.",
+      "standard_anchor": "ASME V&V 40 data fidelity; proto-taxonomy D-CCB-10"
+    },
+    "measures": {
+      "fit_to_training_measurements_pct": 0.8,
+      "sensor_calibration_drift_pct": 3.0,
+      "drift_correction_applied": false,
+      "drift_documented_in_logs": true
+    },
+    "measures_raw": {
+      "fit_to_training_measurements_pct": 0.8,
+      "sensor_calibration_drift_pct_over_campaign": 3.0,
+      "drift_correction_applied": false,
+      "drift_present_in_logs": true
+    },
+    "case_context": {
+      "cou": "surrogate predicts efficiency for an acceptance decision",
+      "model_influence": "high",
+      "decision_consequence": "acceptance on the predicted efficiency"
+    }
+  },
+  "answer_key": {
+    "gold_mechanism": "The training measurements carry a documented, uncorrected +3% sensor drift; the surrogate faithfully reproduces a biased truth, so a tight fit inherits the systematic error rather than correcting it.",
+    "gold_action": {
+      "selected_class": "supply-evidence",
+      "allowed_classes": [
+        "supply-evidence",
+        "acquire-validation"
+      ],
+      "coherent_alternatives": [
+        "acquire-validation"
+      ],
+      "posture_basis": "standard-derived (ASME V&V 40: credibility bounded to the validated domain)",
+      "selection_basis": "provisional-self-adjudicated",
+      "parameters": {
+        "scope": "correct/quantify the sensor drift",
+        "blocks": "use until the bias is handled"
+      }
+    },
+    "forbidden_claims": [
+      "asserts the efficiency prediction is off by 3% (a verdict the package does not adjudicate)",
+      "treats the tight fit to biased data as accuracy"
+    ],
+    "acceptable_confidence": [
+      "high",
+      "0.80-0.95"
+    ]
+  },
+  "hardness": {
+    "obvious_signal": "the surrogate reproduces the training measurements to 0.8%",
+    "obvious_posture": "proceed",
+    "conflicting_signal": "the training measurements come from a sensor with a documented calibration drift (+3% over the campaign) that was never corrected, so the surrogate faithfully learned a biased truth and inherits the systematic error",
+    "gold_posture": "block"
+  },
+  "label_provenance": {
+    "external_grounding": "ASME V&V 40 data fidelity: a surrogate fit to data with a known uncorrected systematic bias inherits that bias; fit quality does not remove it.",
+    "by_field": {
+      "gold_mechanism": "standard-grounded (V&V 40 data fidelity)",
+      "gold_action.posture": "standard-derived (V&V 40 applicability)",
+      "gold_action.selected_class": "provisional-self-adjudicated (row-builder; needs independent expert/solver adjudication before disposition-gate use)"
+    },
+    "not_sourced_from": [
+      "pipeline output",
+      "frontier model draft"
+    ]
+  }
+}

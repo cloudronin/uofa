@@ -1,0 +1,91 @@
+{
+  "row_id": "surr-dccb15-rare-failure-class",
+  "split": "train:hard-core",
+  "hard_core": true,
+  "strata": {
+    "d_category": "D-CCB-15",
+    "backbone": "data-support",
+    "measure_type": [
+      "data-coverage",
+      "class-imbalance"
+    ],
+    "domain": "fault-detection-surrogate",
+    "polarity": "fire",
+    "archetype": "rare-regime-undersampled"
+  },
+  "input": {
+    "instruction": "A weakener fired on a credibility evidence package. Using ONLY the supplied pattern definition and measures, explain what the flag means, why it fired, and what the engineer should do. Choose ONE action_class from the §5B vocabulary, report a verbalized confidence, and escalate if uncertain. Stay within measure-don't-judge: report on the evidence package, never on whether the model is correct.",
+    "fired_pattern": {
+      "id": "W-EP-03",
+      "d_category": "D-CCB-15",
+      "interface": "weakener-interface@1",
+      "definition": "The COU's decision regime is a tiny, under-characterized fraction of the training data.",
+      "standard_anchor": "ASME V&V 40 application-domain coverage; proto-taxonomy D-CCB-15"
+    },
+    "measures": {
+      "overall_accuracy_pct": 98.5,
+      "cou_regime": "rare-fault",
+      "rare_fault_fraction_of_training": 0.003,
+      "rare_fault_regime_error_reported": "none",
+      "nominal_class_fraction": 0.97
+    },
+    "measures_raw": {
+      "overall_accuracy_pct": 98.5,
+      "cou_regime": "rare-fault",
+      "rare_fault_fraction_of_training": 0.003,
+      "rare_fault_regime_error_reported": "none",
+      "nominal_class_fraction": 0.97
+    },
+    "case_context": {
+      "cou": "surrogate flags the rare fault for a maintenance-safety decision",
+      "model_influence": "high",
+      "decision_consequence": "maintenance action on the rare-fault flag"
+    }
+  },
+  "answer_key": {
+    "gold_mechanism": "Overall accuracy is dominated by the 97% nominal class; the COU's rare-fault regime is 0.3% of training with uncharacterized error, so the headline accuracy does not characterize the decision regime.",
+    "gold_action": {
+      "selected_class": "acquire-validation",
+      "allowed_classes": [
+        "acquire-validation",
+        "supply-evidence",
+        "restrict-cou"
+      ],
+      "coherent_alternatives": [
+        "supply-evidence"
+      ],
+      "posture_basis": "standard-derived (ASME V&V 40: credibility bounded to the validated domain)",
+      "selection_basis": "provisional-self-adjudicated",
+      "parameters": {
+        "scope": "rare-fault-regime performance",
+        "against": "a fault-enriched evaluation set"
+      }
+    },
+    "forbidden_claims": [
+      "asserts the fault detector fails (a verdict the coverage gap does not establish)",
+      "treats the imbalance-dominated overall accuracy as rare-regime performance"
+    ],
+    "acceptable_confidence": [
+      "high",
+      "0.80-0.95"
+    ]
+  },
+  "hardness": {
+    "obvious_signal": "overall accuracy is very high (98.5%) on a large, representative-looking dataset",
+    "obvious_posture": "proceed",
+    "conflicting_signal": "the COU is specifically the rare-fault regime, which is 0.3% of training; the high overall accuracy is dominated by the abundant nominal class, and error in the rare-fault regime the decision depends on is uncharacterized",
+    "gold_posture": "block"
+  },
+  "label_provenance": {
+    "external_grounding": "ASME V&V 40 coverage: aggregate accuracy over an imbalanced dataset does not characterize a rare decision regime; the regime needs its own evaluation.",
+    "by_field": {
+      "gold_mechanism": "standard-grounded (V&V 40 coverage)",
+      "gold_action.posture": "standard-derived (V&V 40 applicability)",
+      "gold_action.selected_class": "provisional-self-adjudicated (row-builder; needs independent expert/solver adjudication before disposition-gate use)"
+    },
+    "not_sourced_from": [
+      "pipeline output",
+      "frontier model draft"
+    ]
+  }
+}

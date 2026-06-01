@@ -1,0 +1,90 @@
+{
+  "row_id": "surr-dval08-single-point-validation",
+  "split": "train:hard-core",
+  "hard_core": true,
+  "strata": {
+    "d_category": "D-VAL-08",
+    "backbone": "validation-support",
+    "measure_type": [
+      "validation-coverage"
+    ],
+    "domain": "combustion-surrogate",
+    "polarity": "fire",
+    "archetype": "single-point-validation"
+  },
+  "input": {
+    "instruction": "A weakener fired on a credibility evidence package. Using ONLY the supplied pattern definition and measures, explain what the flag means, why it fired, and what the engineer should do. Choose ONE action_class from the §5B vocabulary, report a verbalized confidence, and escalate if uncertain. Stay within measure-don't-judge: report on the evidence package, never on whether the model is correct.",
+    "fired_pattern": {
+      "id": "W-AR-05",
+      "d_category": "D-VAL-08",
+      "interface": "weakener-interface@1",
+      "definition": "Validation evidence is a single operating point; the COU spans a range.",
+      "standard_anchor": "ASME V&V 40 application-domain coverage; proto-taxonomy D-VAL-08"
+    },
+    "measures": {
+      "validation_error_at_point_pct": 0.5,
+      "n_validation_operating_points": 1,
+      "cou_operating_range": "equivalence ratio 0.6–1.4 (nonlinear chemistry)",
+      "validation_points_inside_cou_range": 1
+    },
+    "measures_raw": {
+      "validation_error_at_point_pct": 0.5,
+      "n_validation_operating_points": 1,
+      "cou_operating_range_equivalence_ratio": [
+        0.6,
+        1.4
+      ],
+      "chemistry_linearity_over_range": "highly nonlinear"
+    },
+    "case_context": {
+      "cou": "surrogate predicts flame temperature across an equivalence-ratio sweep",
+      "model_influence": "high",
+      "decision_consequence": "operability map from the sweep"
+    }
+  },
+  "answer_key": {
+    "gold_mechanism": "A single-point validation, however accurate, does not cover a COU that sweeps a wide, nonlinear equivalence-ratio range; coverage of the decision domain is not established.",
+    "gold_action": {
+      "selected_class": "acquire-validation",
+      "allowed_classes": [
+        "acquire-validation",
+        "restrict-cou"
+      ],
+      "coherent_alternatives": [
+        "restrict-cou"
+      ],
+      "posture_basis": "standard-derived (ASME V&V 40: credibility bounded to the validated domain)",
+      "selection_basis": "provisional-self-adjudicated",
+      "parameters": {
+        "scope": "validation across the equivalence-ratio range",
+        "against": "experimental data across the sweep"
+      }
+    },
+    "forbidden_claims": [
+      "asserts the swept predictions are wrong (a verdict one point does not support)",
+      "treats single-point accuracy as range coverage"
+    ],
+    "acceptable_confidence": [
+      "high",
+      "0.80-0.95"
+    ]
+  },
+  "hardness": {
+    "obvious_signal": "validation against experiment is excellent (0.5% error) and well-documented",
+    "obvious_posture": "proceed",
+    "conflicting_signal": "that validation is at a SINGLE operating point (one equivalence ratio), but the COU sweeps equivalence ratio across a wide flammability range where the chemistry is highly nonlinear — one point does not cover the swept range",
+    "gold_posture": "block"
+  },
+  "label_provenance": {
+    "external_grounding": "ASME V&V 40 application-domain coverage: validation must span the COU's domain; a single point does not cover a nonlinear swept range.",
+    "by_field": {
+      "gold_mechanism": "standard-grounded (V&V 40 coverage)",
+      "gold_action.posture": "standard-derived (V&V 40 applicability)",
+      "gold_action.selected_class": "provisional-self-adjudicated (row-builder; needs independent expert/solver adjudication before disposition-gate use)"
+    },
+    "not_sourced_from": [
+      "pipeline output",
+      "frontier model draft"
+    ]
+  }
+}

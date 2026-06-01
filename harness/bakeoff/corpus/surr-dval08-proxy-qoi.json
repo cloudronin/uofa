@@ -1,0 +1,92 @@
+{
+  "row_id": "surr-dval08-proxy-qoi",
+  "split": "train:hard-core",
+  "hard_core": true,
+  "strata": {
+    "d_category": "D-VAL-08",
+    "backbone": "validation-support",
+    "measure_type": [
+      "validation-metric"
+    ],
+    "domain": "battery-degradation-surrogate",
+    "polarity": "fire",
+    "archetype": "validated-on-correlated-proxy"
+  },
+  "input": {
+    "instruction": "A weakener fired on a credibility evidence package. Using ONLY the supplied pattern definition and measures, explain what the flag means, why it fired, and what the engineer should do. Choose ONE action_class from the §5B vocabulary, report a verbalized confidence, and escalate if uncertain. Stay within measure-don't-judge: report on the evidence package, never on whether the model is correct.",
+    "fired_pattern": {
+      "id": "W-AR-05",
+      "d_category": "D-VAL-08",
+      "interface": "weakener-interface@1",
+      "definition": "Validation is on a proxy quantity correlated with, but not equal to, the decision QoI.",
+      "standard_anchor": "ASME V&V 40 purpose-specific validation; proto-taxonomy D-VAL-08"
+    },
+    "measures": {
+      "validated_quantity": "capacity fade",
+      "validated_quantity_error_pct": 2.0,
+      "cou_decision_quantity": "internal resistance growth",
+      "proxy_correlation_historical": "high",
+      "proxy_correlation_under_cou_profile": "diverges",
+      "internal_resistance_error_validated": "not reported"
+    },
+    "measures_raw": {
+      "validated_quantity": "capacity_fade",
+      "validated_quantity_error_pct": 2.0,
+      "cou_decision_quantity": "internal_resistance_growth",
+      "proxy_correlation_under_cou_profile": "diverges",
+      "internal_resistance_error_validated": "none"
+    },
+    "case_context": {
+      "cou": "surrogate sets end-of-life from internal resistance under fast charge",
+      "model_influence": "high",
+      "decision_consequence": "end-of-life call on internal resistance"
+    }
+  },
+  "answer_key": {
+    "gold_mechanism": "Validation is on capacity fade, a proxy that correlates with the COU's internal-resistance QoI historically but diverges under the fast-charge profile; the decision quantity is not separately validated.",
+    "gold_action": {
+      "selected_class": "acquire-validation",
+      "allowed_classes": [
+        "acquire-validation",
+        "supply-evidence",
+        "restrict-cou"
+      ],
+      "coherent_alternatives": [
+        "supply-evidence"
+      ],
+      "posture_basis": "standard-derived (ASME V&V 40: credibility bounded to the validated domain)",
+      "selection_basis": "provisional-self-adjudicated",
+      "parameters": {
+        "scope": "internal-resistance accuracy under the COU profile",
+        "against": "held-out resistance data"
+      }
+    },
+    "forbidden_claims": [
+      "asserts the resistance prediction is wrong (a verdict the proxy mismatch does not support)",
+      "treats capacity-fade validation as validation of the resistance QoI"
+    ],
+    "acceptable_confidence": [
+      "high",
+      "medium",
+      "0.68-0.92"
+    ]
+  },
+  "hardness": {
+    "obvious_signal": "the surrogate is validated and the reported error on capacity fade is low (2%)",
+    "obvious_posture": "proceed",
+    "conflicting_signal": "the COU decision is end-of-life from internal resistance growth, not capacity fade; the two correlate historically but diverge under the COU's fast-charge profile, and internal-resistance accuracy is not separately validated",
+    "gold_posture": "block"
+  },
+  "label_provenance": {
+    "external_grounding": "ASME V&V 40 purpose-specific validation: the validation quantity must be the decision QoI; a correlated proxy that diverges in the COU regime does not validate it.",
+    "by_field": {
+      "gold_mechanism": "standard-grounded (V&V 40 purpose-specific validation)",
+      "gold_action.posture": "standard-derived (V&V 40 applicability)",
+      "gold_action.selected_class": "provisional-self-adjudicated (row-builder; needs independent expert/solver adjudication before disposition-gate use)"
+    },
+    "not_sourced_from": [
+      "pipeline output",
+      "frontier model draft"
+    ]
+  }
+}
