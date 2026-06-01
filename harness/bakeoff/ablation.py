@@ -62,6 +62,10 @@ def run(argv: list[str] | None = None) -> int:
     p.add_argument("--conditions", default="full,catalog_ablated,measures_only",
                    help="comma-separated subset of " + ",".join(run_p0.CONDITIONS))
     p.add_argument("--alpha", type=float, default=0.02)
+    p.add_argument("--measures", choices=["named", "raw"], default="named",
+                   help="measures rendering: 'named' (conclusion-bearing fields) or 'raw' "
+                        "(de-named signals — the fair detection test). NOTE: a 'named' --full-from "
+                        "is not comparable to a 'raw' run; re-run full under the same --measures.")
     p.add_argument("--full-from", type=Path,
                    help="reuse a recorded full-condition result (its hard_core) instead of re-running 'full'")
     p.add_argument("--output", type=Path)
@@ -92,11 +96,18 @@ def run(argv: list[str] | None = None) -> int:
             results["full"] = {"hard_core": rec["hard_core"], "reused_from": str(args.full_from)}
             print(f"=== full: reused from {args.full_from} ===", flush=True)
             continue
-        print(f"\n=== condition: {cond} ({len(rows)} cells) ===", flush=True)
-        answers = run_p0.run_corpus(rows, backend, condition=cond, seed=args.seed)
+        print(f"\n=== condition: {cond} | measures={args.measures} ({len(rows)} cells) ===", flush=True)
+        answers = run_p0.run_corpus(rows, backend, condition=cond,
+                                    measures_variant=args.measures, seed=args.seed)
         card = score.scorecard(rows, answers, alpha=args.alpha)
         results[cond] = {"hard_core": card["hard_core"], "answers": answers}
 
+    # Ensure the baseline is present for the lift table even if 'full' wasn't in --conditions.
+    if "full" not in results and args.full_from:
+        rec = json.loads(Path(args.full_from).read_text())
+        results = {"full": {"hard_core": rec["hard_core"], "reused_from": str(args.full_from)}, **results}
+
+    print(f"\nmeasures rendering: {args.measures}")
     _print_table(results)
     if args.output:
         args.output.write_text(json.dumps(results, indent=2), encoding="utf-8")

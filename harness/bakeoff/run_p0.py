@@ -72,16 +72,20 @@ def _footer() -> str:
     )
 
 
-def build_prompt(row: dict, condition: str = "full") -> str:
+def build_prompt(row: dict, condition: str = "full", measures_variant: str = "named") -> str:
     """Assemble the prompt for one row under an ablation ``condition``.
 
     The output schema, the §5B menu, and everything held out (answer_key, hardness,
     provenance) are identical across conditions — only the *revealed* inputs change,
     so the gate metrics are directly comparable and their difference is the lift.
+
+    ``measures_variant``: ``"named"`` uses the conclusion-bearing measures;
+    ``"raw"`` uses the de-named ``measures_raw`` (raw signals — the fair detection test).
     """
     inp = row.get("input", {})
     pattern = inp.get("fired_pattern", {})
-    measures = "MEASURES:\n" + json.dumps(inp.get("measures", {}), indent=2)
+    chosen = inp.get("measures_raw") or inp.get("measures", {}) if measures_variant == "raw" else inp.get("measures", {})
+    measures = "MEASURES:\n" + json.dumps(chosen, indent=2)
     context = "CASE CONTEXT:\n" + json.dumps(inp.get("case_context", {}), indent=2)
 
     if condition == "full":
@@ -125,11 +129,12 @@ def _normalize(row: dict, out: dict) -> dict:
     }
 
 
-def generate_answer(backend, row: dict, *, condition: str = "full", seed: int = 0) -> dict:
+def generate_answer(backend, row: dict, *, condition: str = "full",
+                    measures_variant: str = "named", seed: int = 0) -> dict:
     """Generate one structured answer for a row via the stock model backend."""
     from uofa_cli.llm import GenerationOptions
 
-    prompt = build_prompt(row, condition)
+    prompt = build_prompt(row, condition, measures_variant)
     options = GenerationOptions(temperature=0.0, seed=seed, max_tokens=700)
     if backend.supports_structured_output():
         out = backend.generate_structured(prompt, ANSWER_SCHEMA, options)
@@ -159,7 +164,8 @@ def load_corpus(corpus_dir: str | Path) -> list[dict]:
     return rows
 
 
-def run_corpus(rows: list[dict], backend=None, *, condition: str = "full", seed: int = 0) -> list[dict]:
+def run_corpus(rows: list[dict], backend=None, *, condition: str = "full",
+               measures_variant: str = "named", seed: int = 0) -> list[dict]:
     """Generate answers for every row under ``condition``. ``backend`` defaults to the
     project config (the appliance's bundled stock model); pass one in tests."""
     if backend is None:
@@ -167,8 +173,9 @@ def run_corpus(rows: list[dict], backend=None, *, condition: str = "full", seed:
         backend = get_backend()
     answers = []
     for i, row in enumerate(rows, 1):
-        print(f"  [{i}/{len(rows)}] {condition}: {row.get('row_id')}", flush=True)
-        answers.append(generate_answer(backend, row, condition=condition, seed=seed))
+        print(f"  [{i}/{len(rows)}] {condition}/{measures_variant}: {row.get('row_id')}", flush=True)
+        answers.append(generate_answer(backend, row, condition=condition,
+                                       measures_variant=measures_variant, seed=seed))
     return answers
 
 

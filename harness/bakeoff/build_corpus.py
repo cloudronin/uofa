@@ -68,6 +68,10 @@ def build_row(c: dict) -> dict:
                 "definition": c["pattern"][1], "standard_anchor": c["anchor"],
             },
             "measures": c["measures"],
+            # De-named rendering: the SAME information as raw signals/numbers, with the
+            # conclusion-bearing field names removed, so the model must INFER the gap.
+            # This is the fair test of the catalog's detection lift (ablation --measures raw).
+            "measures_raw": RAW_MEASURES.get(c["id"], c["measures"]),
             "case_context": c["context"],
         },
         "answer_key": {
@@ -648,6 +652,97 @@ CELLS: list[dict] = [
 ]
 
 
+# De-named measures: the SAME underlying information as the cell's `measures`, but as
+# raw signals/numbers with the conclusion-bearing field names removed. The model must
+# now INFER the gap (e.g. "0 validation samples in a QoI-dominant region + regional std
+# 5x global, not in the propagated uncertainty" ⇒ per-region competence uncharacterized)
+# rather than read a boolean that already states it. This is the fair detection test.
+RAW_MEASURES: dict[str, dict] = {
+    "surr-dpd02-carbench-wheelhousing": {
+        "global_geometry_OOD_percentile": 0.41, "validation_samples_in_wheel_housing": 0,
+        "wheel_housing_contribution_to_qoi": "dominant", "ensemble_std_wheel_housing": 0.19,
+        "ensemble_std_global_mean": 0.04, "cou_propagated_uncertainty_sources": ["global ensemble std"]},
+    "surr-dpd02-turbine-tipgap": {
+        "global_operating_point": "interior of envelope (~0.6 of range)",
+        "validation_cases_covering_tip_gap": 0, "tip_gap_contribution_to_heat_transfer_qoi": "primary driver",
+        "tip_gap_secondary_flow_error": "not evaluated"},
+    "surr-dval09-fno-spectral": {
+        "validation_relative_L2_allscales": 0.03, "validation_relative_L2_high_freq_band": 0.38,
+        "qoi_scale": "fine-scale mixing structure", "metric_reported": "all-scales aggregate only"},
+    "surr-dval08-climate-tails": {
+        "bulk_rmse_skill_score": 0.96, "skill_on_99_9th_percentile_events": "not reported",
+        "decision_regime": "99.9th-percentile extreme events", "fraction_of_record_that_is_extreme": 0.001},
+    "surr-dval09-ensemble-mismatch": {
+        "uq_method": "deep ensemble (5 members)", "interval_coverage_on_indist_test": 0.91,
+        "nominal_coverage": 0.90, "cou_input_vs_training_support": "outside (mild extrapolation)",
+        "interval_coverage_on_extrapolation_set": "not measured",
+        "ensemble_std_5_members": 0.08, "ensemble_std_3_members": 0.11},
+    "surr-dval09-mlip-ood-config": {
+        "uq_method": "deep ensemble", "force_error_ece_on_test_split": 0.02,
+        "test_split_configurations": "near-equilibrium", "cou_configurations": "high-energy transition states",
+        "ece_on_transition_states": "not measured"},
+    "surr-dpd04-pinn-massresidual": {
+        "pointwise_field_R2_vs_data": 0.995, "data_samples": "sparse scattered points",
+        "declared_constraint": "mass conservation (continuity)", "integrated_continuity_residual": 0.08},
+    "surr-dver05-mms-only": {
+        "mms_verification": "2nd order, passed", "residuals_vs_reference_on_application_config": "not provided",
+        "application_config": "notched component, combined load"},
+    "surr-dver06-coverage-hole": {
+        "benchmark_samples_total": 480, "benchmark_box": "Re [2e6,6e6] x AoA [-5,15]",
+        "cou_point": "Re 5.8e6, AoA 14", "benchmark_samples_within_5pct_of_cou_point": 0},
+    "surr-dval08-leakage": {
+        "reported_validation_error": 0.012, "feature_normalization_fit_on": "train+validation combined",
+        "simulation_seeds_shared_between_train_and_val": True, "val_split_drawn": "after normalization"},
+    "surr-dval09-aleatory-only": {
+        "reported_interval_source": "homoscedastic output-noise variance",
+        "model_form_or_extrapolation_variance_in_interval": "absent",
+        "cou_input_distance_to_nearest_training_point": "at the training-domain edge"},
+    "surr-dccb10-vintage-regime": {
+        "training_data_collected": "last quarter", "training_data_operating_points": "steady, 20-40% load",
+        "cou_operating_point": "90% load, transient", "training_points_in_cou_regime": 0},
+    "surr-dpd02-thermal-hotspot": {
+        "board_mean_temperature_rms_error_C": 1.5, "qoi": "peak junction temperature",
+        "validation_points_at_junction_hotspot": 0, "peak_vs_mean_temperature_gradient": "steep"},
+    "surr-dpd04-energy-residual": {
+        "temperature_mae_pct": 0.4, "declared_constraint": "energy conservation",
+        "global_energy_imbalance_pct": 6.0, "qoi_derived_from_field": "wall heat flux"},
+    "surr-dccb12-seed-sensitivity": {
+        "reported_accuracy_pct": 98.5, "training_runs_reported": 1, "seeds_or_inits_varied": "none reported",
+        "published_run_to_run_spread_for_architecture_pct": "3-6"},
+    "surr-dccb14-repro-gap": {
+        "report": "strong, signed", "trained_weights_provided": False,
+        "environment_specification_provided": False, "reproduction_scripts_provided": False},
+    "surr-surr02-parent-rejected": {
+        "child_vs_parent_r2": 0.99, "parent_model": "RANS closure surrogate",
+        "parent_model_recorded_decision": "Not Accepted", "parent_cou_overlap_with_child_cou": "high",
+        "reconciliation_of_parent_decision_in_child_package": "none"},
+    "surr-dver06-resolution-hole": {
+        "verified_grid_resolutions": ["32x32", "64x64", "128x128", "256x256", "512x512"],
+        "cou_grid_resolution": "1024x1024", "verification_at_1024x1024": "none"},
+    "surr-dval09-conditional-coverage": {
+        "marginal_interval_coverage": 0.90, "nominal_coverage": 0.90,
+        "cou_decision_subgroup": "high-stress elements", "interval_coverage_on_high_stress_subgroup": 0.62},
+    "surr-dval09-largevar-calibrated-control": {
+        "interval_width": "wide (~2x typical)", "empirical_coverage_in_cou_regime": 0.90,
+        "nominal_coverage": 0.90, "epistemic_variance_included_in_interval": True,
+        "calibration_holdout_set": "disjoint, in COU regime"},
+    "surr-dpd02-edge-but-validated-control": {
+        "evaluation_point": "AoA 12.6 (nominal box AoA max = 12.0)",
+        "dedicated_reference_run_at_evaluation_point": "present",
+        "residual_at_point_vs_reference": "within stated bound", "validation_evidence_covers_point": True},
+    "surr-dpd03-omitted-but-not-asserted-control": {
+        "evidence_dimensions_present": ["steady-state validation", "UQ", "provenance"],
+        "evidence_dimension_absent": "transient response", "cou_declared_qoi": "steady-state coefficient only",
+        "cou_statement_on_transients": "explicitly out of scope"},
+    "surr-dval08-modesterror-but-within-tolerance-control": {
+        "validation_error_pct": 8.0, "cou_declared_acceptance_criterion_pct": 15.0,
+        "cou_stage": "early screening", "acceptance_criterion_provenance": "documented, COU-tied"},
+    "surr-dpd04-residual-declared-bounded-control": {
+        "continuity_residual_pct": 2.0, "declared_model_form_uncertainty_allowance_pct": 5.0,
+        "residual_propagated_into_qoi_uncertainty": True, "residual_documented": True},
+}
+
+
 def main() -> int:
     violations = hardness_violations(CELLS)
     if violations:
@@ -659,6 +754,13 @@ def main() -> int:
     ids = [c["id"] for c in CELLS]
     if len(ids) != len(set(ids)):
         print("duplicate row_id in CELLS"); return 1
+
+    missing_raw = [c["id"] for c in CELLS if c["id"] not in RAW_MEASURES]
+    if missing_raw:
+        print("cells missing a RAW_MEASURES (de-named) entry — the fair detection test needs one:")
+        for m in missing_raw:
+            print("  -", m)
+        return 1
 
     CORPUS_DIR.mkdir(parents=True, exist_ok=True)
     # Replace the generated set (keep README.md; remove stale *.json).

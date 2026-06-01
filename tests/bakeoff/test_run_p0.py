@@ -88,6 +88,18 @@ def test_ablation_conditions_reveal_only_what_they_should():
         run_p0.build_prompt(row, "nonsense")
 
 
+def test_measures_raw_denames_the_conclusion():
+    rows = run_p0.load_corpus(CORPUS)
+    row = next(r for r in rows if r["row_id"] == "surr-dpd02-carbench-wheelhousing")
+    named = run_p0.build_prompt(row, "measures_only", measures_variant="named")
+    raw = run_p0.build_prompt(row, "measures_only", measures_variant="raw")
+    # the conclusion-bearing field is in the named rendering, NOT in the raw one
+    assert "per_region_competence_characterized" in named
+    assert "per_region_competence_characterized" not in raw
+    # the raw rendering carries the underlying signal that the model must infer from
+    assert "validation_samples_in_wheel_housing" in raw
+
+
 def test_gold_following_model_clears_the_gate():
     rows = run_p0.load_corpus(CORPUS)
     card = score.scorecard(rows, _answers(rows, gold=True), alpha=0.02)
