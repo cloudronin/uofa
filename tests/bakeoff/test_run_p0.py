@@ -62,6 +62,32 @@ def test_run_corpus_normalizes_answers():
     assert all(a.get("row_id") and a.get("action_class") for a in answers)
 
 
+def test_ablation_conditions_reveal_only_what_they_should():
+    import pytest
+    rows = run_p0.load_corpus(CORPUS)
+    row = next(r for r in rows if r["strata"]["polarity"] == "fire")
+    pid = row["input"]["fired_pattern"]["id"]
+    defn = row["input"]["fired_pattern"]["definition"]
+
+    full = run_p0.build_prompt(row, "full")
+    ablated = run_p0.build_prompt(row, "catalog_ablated")
+    measures_only = run_p0.build_prompt(row, "measures_only")
+
+    # full reveals the weakener + its catalog meaning; the ablated conditions do NOT
+    assert pid in full and defn in full
+    assert pid not in ablated and defn not in ablated
+    assert pid not in measures_only and defn not in measures_only
+    # all conditions keep the measures + the §5B menu + the output schema (comparable scoring)
+    for p in (full, ablated, measures_only):
+        assert "MEASURES:" in p and "action_class" in p and "supply-evidence" in p
+    # catalog_ablated keeps context; measures_only drops it
+    assert "CASE CONTEXT:" in ablated and "CASE CONTEXT:" not in measures_only
+    # the ablated instruction never leaks polarity (identical neutral framing)
+    assert "weakener fired" not in ablated.split("MEASURES")[0]
+    with pytest.raises(ValueError):
+        run_p0.build_prompt(row, "nonsense")
+
+
 def test_gold_following_model_clears_the_gate():
     rows = run_p0.load_corpus(CORPUS)
     card = score.scorecard(rows, _answers(rows, gold=True), alpha=0.02)

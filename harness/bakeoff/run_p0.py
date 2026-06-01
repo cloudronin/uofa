@@ -40,34 +40,68 @@ ANSWER_SCHEMA = {
 }
 
 
-def build_prompt(row: dict) -> str:
-    """Assemble the retrieval surface for one row (the same for stock and target)."""
+# Ablation conditions — vary ONLY what the prompt reveals, to measure the lift the
+# weakener catalog/rule gives (see harness/bakeoff/ablation.py).
+CONDITIONS = ("full", "fired_flag", "definition_only", "catalog_ablated", "measures_only")
+
+FULL_INSTR_DEFAULT = (
+    "A weakener fired on a credibility evidence package. Using ONLY the supplied pattern "
+    "definition and measures, explain what the flag means, why it fired, and what the engineer "
+    "should do. Stay within measure-don't-judge: report on the evidence package, never on "
+    "whether the model is correct."
+)
+# Neutral instruction for the ablated conditions — does NOT presuppose a problem, and is
+# identical across fire and control cells (so it never leaks the fire/suppress polarity).
+ABLATED_INSTR = (
+    "You are reviewing a physics-AI surrogate's credibility evidence package. From the "
+    "information below, decide whether the package adequately supports the surrogate's use for "
+    "its context of use, and choose the single most appropriate action. If the evidence is "
+    "adequate the right action may be to accept; if it is not, choose the action that addresses "
+    "the gap. Stay within measure-don't-judge: report on the evidence package, never on whether "
+    "the model is correct."
+)
+
+
+def _footer() -> str:
+    return (
+        "\nChoose ONE recommended action_class from this controlled vocabulary "
+        f"(§5B): {ACTION_CLASSES}.\n"
+        "Report a verbalized confidence (high / medium / low or a 0-1 number) and set "
+        "escalate=true if you are not confident enough to recommend a disposition.\n"
+        "Respond as JSON: {finding, why_fired, recommended_action, action_class, confidence, escalate}."
+    )
+
+
+def build_prompt(row: dict, condition: str = "full") -> str:
+    """Assemble the prompt for one row under an ablation ``condition``.
+
+    The output schema, the §5B menu, and everything held out (answer_key, hardness,
+    provenance) are identical across conditions — only the *revealed* inputs change,
+    so the gate metrics are directly comparable and their difference is the lift.
+    """
     inp = row.get("input", {})
     pattern = inp.get("fired_pattern", {})
-    parts = [
-        inp.get("instruction",
-                "A weakener fired on a credibility evidence package. Using ONLY the supplied "
-                "pattern definition and measures, explain what the flag means, why it fired, and "
-                "what the engineer should do. Stay within measure-don't-judge: report on the "
-                "evidence package, never on whether the model is correct."),
-        "",
-        f"FIRED PATTERN: {pattern.get('id', '?')}  (D-category: {pattern.get('d_category', '?')})",
-        f"DEFINITION: {pattern.get('definition', '')}",
-        f"STANDARD ANCHOR: {pattern.get('standard_anchor', '')}",
-        "",
-        "MEASURES:",
-        json.dumps(inp.get("measures", {}), indent=2),
-        "",
-        "CASE CONTEXT:",
-        json.dumps(inp.get("case_context", {}), indent=2),
-        "",
-        "Choose ONE recommended action_class from this controlled vocabulary "
-        f"(§5B): {ACTION_CLASSES}.",
-        "Report a verbalized confidence (high / medium / low or a 0-1 number) and set "
-        "escalate=true if you are not confident enough to recommend a disposition.",
-        "Respond as JSON: {finding, why_fired, recommended_action, action_class, confidence, escalate}.",
-    ]
-    return "\n".join(parts)
+    measures = "MEASURES:\n" + json.dumps(inp.get("measures", {}), indent=2)
+    context = "CASE CONTEXT:\n" + json.dumps(inp.get("case_context", {}), indent=2)
+
+    if condition == "full":
+        body = [inp.get("instruction", FULL_INSTR_DEFAULT), "",
+                f"FIRED PATTERN: {pattern.get('id', '?')}  (D-category: {pattern.get('d_category', '?')})",
+                f"DEFINITION: {pattern.get('definition', '')}",
+                f"STANDARD ANCHOR: {pattern.get('standard_anchor', '')}", "", measures, "", context]
+    elif condition == "fired_flag":
+        body = [ABLATED_INSTR + " A weakener rule fired on this package; its definition is withheld.",
+                "", f"FIRED PATTERN: {pattern.get('id', '?')}  (definition withheld)", "", measures, "", context]
+    elif condition == "definition_only":
+        body = [ABLATED_INSTR + " Consider whether the following candidate concern applies, judging only from the measures.",
+                "", f"CANDIDATE CONCERN: {pattern.get('definition', '')}", "", measures, "", context]
+    elif condition == "catalog_ablated":
+        body = [ABLATED_INSTR, "", measures, "", context]
+    elif condition == "measures_only":
+        body = [ABLATED_INSTR, "", measures]
+    else:
+        raise ValueError(f"unknown ablation condition: {condition!r} (use one of {CONDITIONS})")
+    return "\n".join(body) + "\n" + _footer()
 
 
 def _infer_action_class(text: str) -> str | None:
@@ -91,11 +125,11 @@ def _normalize(row: dict, out: dict) -> dict:
     }
 
 
-def generate_answer(backend, row: dict, *, seed: int = 0) -> dict:
+def generate_answer(backend, row: dict, *, condition: str = "full", seed: int = 0) -> dict:
     """Generate one structured answer for a row via the stock model backend."""
     from uofa_cli.llm import GenerationOptions
 
-    prompt = build_prompt(row)
+    prompt = build_prompt(row, condition)
     options = GenerationOptions(temperature=0.0, seed=seed, max_tokens=700)
     if backend.supports_structured_output():
         out = backend.generate_structured(prompt, ANSWER_SCHEMA, options)
@@ -125,16 +159,16 @@ def load_corpus(corpus_dir: str | Path) -> list[dict]:
     return rows
 
 
-def run_corpus(rows: list[dict], backend=None, *, seed: int = 0) -> list[dict]:
-    """Generate answers for every row. ``backend`` defaults to the project config
-    (the appliance's bundled stock model); pass one in tests."""
+def run_corpus(rows: list[dict], backend=None, *, condition: str = "full", seed: int = 0) -> list[dict]:
+    """Generate answers for every row under ``condition``. ``backend`` defaults to the
+    project config (the appliance's bundled stock model); pass one in tests."""
     if backend is None:
         from uofa_cli.llm import get_backend
         backend = get_backend()
     answers = []
     for i, row in enumerate(rows, 1):
-        print(f"  [{i}/{len(rows)}] generating: {row.get('row_id')}", flush=True)
-        answers.append(generate_answer(backend, row, seed=seed))
+        print(f"  [{i}/{len(rows)}] {condition}: {row.get('row_id')}", flush=True)
+        answers.append(generate_answer(backend, row, condition=condition, seed=seed))
     return answers
 
 
