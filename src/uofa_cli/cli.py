@@ -68,6 +68,7 @@ def _run():
     # ── Register subcommands ──────────────────────────────────
     from uofa_cli.commands import keygen, sign, verify, shacl, rules, check, validate, init, diff, schema, packs, migrate, import_excel, extract_cmd, adversarial, catalog, setup, demo, interrogate, decision
     from uofa_cli.commands import explain as explain_cmd
+    from uofa_cli.commands import guardrail as guardrail_cmd
 
     modules = {
         "keygen":      keygen,
@@ -91,6 +92,7 @@ def _run():
         "demo":        demo,
         "interrogate": interrogate,
         "decision":    decision,
+        "guardrail":   guardrail_cmd,
     }
 
     subparsers: dict[str, argparse.ArgumentParser] = {}

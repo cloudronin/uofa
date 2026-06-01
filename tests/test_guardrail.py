@@ -16,6 +16,7 @@ downstream), so the tests pin the contract and its firewall placement, not polic
 
 from __future__ import annotations
 
+import argparse
 import json
 
 import pytest
@@ -128,3 +129,78 @@ def test_core_guardrail_capability_resolves_and_passes_load_gate():
     core = paths.pack_manifest("core")
     impl = next(c["payload"]["impl"] for c in core["capabilities"] if c["leg"] == "guardrail")
     assert isinstance(G.load_guardrail(impl), G.Guardrail)
+
+
+# ── Basic ThresholdGuardrail (B1 — real policy on the §6 interface) ───────────
+
+
+def test_threshold_fires_and_commands_envelope_restriction():
+    block = G.ThresholdGuardrail().assess(FIRINGS)  # two High firings, default threshold High
+    assert block["capabilityId"] == "guardrail:basic-threshold"
+    assert block["action"] == "restrict"            # engineer-commanded default
+    assert block["trigger"]["thresholdSeverity"] == "High"
+    assert set(block["triggeringPatterns"]) == {"W-SURR-03", "W-EP-04"}
+
+
+def test_below_threshold_is_no_action():
+    low = [{"patternId": "W-X", "severity": "Medium", "hits": 1, "pack": "core"}]
+    block = G.ThresholdGuardrail().assess(low)       # Medium < High threshold
+    assert block["action"] == "none"
+    assert block["triggeringPatterns"] == []
+
+
+def test_engineer_commands_threshold_and_action():
+    # Raise the bar to Critical: the two High firings no longer trigger.
+    assert G.ThresholdGuardrail().assess(FIRINGS, context={"threshold": "Critical"})["action"] == "none"
+    # Command a different basic action on a Critical firing.
+    crit = [{"patternId": "W-SURR-02", "severity": "Critical", "hits": 1, "pack": "surrogate"}]
+    block = G.ThresholdGuardrail().assess(crit, context={"threshold": "Critical", "action": "refuse"})
+    assert block["action"] == "refuse"
+
+
+def test_non_basic_action_is_refused_scope_discipline():
+    # apply-fix / modify-model / retrain are Product B — the basic guardrail refuses them.
+    with pytest.raises(ValueError, match="Product B"):
+        G.ThresholdGuardrail().assess(FIRINGS, context={"action": "apply-fix"})
+
+
+def test_real_guardrail_action_signs_and_verifies(tmp_path):
+    key, pub = _keys(tmp_path)
+    p = tmp_path / "pkg.json"
+    p.write_text(json.dumps(_pkg()))
+    signing.sign_measurement(p, key)
+    pkg = json.loads(p.read_text())
+
+    block = G.build_guardrail_action(G.ThresholdGuardrail(), FIRINGS)
+    assert block["action"] == "restrict"
+    pkg["guardrailAction"] = G.sign_guardrail_action(pkg, key, block)
+    ok, reason = G.verify_guardrail_action(pkg, pub)
+    assert ok, reason
+    # Action content stays out of the measurement region (firewall).
+    assert list(find_forbidden_in_measurement_region(pkg)) == []
+
+
+def test_guardrail_command_signs_and_verifies(tmp_path, monkeypatch):
+    # The `uofa guardrail` command: firings → signed action-region block on the
+    # package. Stub the check pipeline (the rule engine is covered by the
+    # demo-chain test); this pins the command's build → sign → write wiring.
+    key, pub = _keys(tmp_path)
+    p = tmp_path / "pkg.json"
+    p.write_text(json.dumps(_pkg()))
+    signing.sign_measurement(p, key)
+
+    fake = type("R", (), {"rules": type("RR", (), {"firings": list(FIRINGS)})()})()
+    monkeypatch.setattr("uofa_cli.commands.check.run_structured", lambda _a: fake)
+
+    from uofa_cli.commands import guardrail as gcmd
+    args = argparse.Namespace(
+        file=p, key=key, threshold="High", action="restrict", min_hits=1, output=None,
+        active_packs=["surrogate"], no_color=True, repo_root=None,
+    )
+    assert gcmd.run(args) == 0
+
+    pkg = json.loads(p.read_text())
+    assert pkg["guardrailAction"]["action"] == "restrict"
+    ok, reason = G.verify_guardrail_action(pkg, pub)
+    assert ok, reason
+    assert list(find_forbidden_in_measurement_region(pkg)) == []

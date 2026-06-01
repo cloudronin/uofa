@@ -36,6 +36,9 @@ from typing import Any
 ACTION_SCOPE_KEY = "action"
 ACTION_SIGNATURE_FIELD = "actionSignature"
 
+# Severity ordering for the basic threshold trigger (Critical is most severe).
+SEVERITY_RANK = {"Critical": 4, "High": 3, "Medium": 2, "Low": 1}
+
 
 class Guardrail(ABC):
     """One contract: turn detection firings into an action-region block.
@@ -84,6 +87,73 @@ class ThresholdGuardrailStub(Guardrail):
             "packsFired": packs,
             "action": "none",
             "note": "stub guardrail — interface only; no threshold or fix logic (spec §6, downstream)",
+        }
+
+
+class ThresholdGuardrail(Guardrail):
+    """Basic guardrail (spec §6, Product A): an engineer-commanded threshold trigger.
+
+    The BASIC, mechanically-simple tier only. The engineer commands the policy —
+    the severity threshold and which envelope-restriction response to take — via
+    ``context``; the guardrail just applies that rule to the firings and emits the
+    commanded action. It NEVER modifies the surrogate, applies a fix, or retrains:
+    the sophisticated guardrail and any actual mitigation are Product B and are
+    refused here (an action outside :attr:`ALLOWED_ACTIONS` raises).
+
+    Action set (``context["action"]``, default ``"restrict"``):
+      - ``none``      below threshold → no action
+      - ``restrict``  restrict the COU so the gap no longer bears on the decision
+      - ``clip``      clip the evaluation back inside the declared envelope
+      - ``refuse``    refuse the surrogate for this COU
+    The action is recorded; the engineer applies it ("the engineer approved it" is
+    the operating posture, not an auto-act — SLM spec §1).
+    """
+
+    capability_id = "guardrail:basic-threshold"
+
+    DEFAULT_THRESHOLD = "High"
+    DEFAULT_ACTION = "restrict"
+    ALLOWED_ACTIONS = ("none", "restrict", "clip", "refuse")
+
+    def assess(self, firings: list[dict], *, context: dict | None = None) -> dict:
+        context = context or {}
+        threshold = context.get("threshold", self.DEFAULT_THRESHOLD)
+        on_trigger = context.get("action", self.DEFAULT_ACTION)
+        min_hits = int(context.get("min_hits", 1))
+        if on_trigger not in self.ALLOWED_ACTIONS:
+            raise ValueError(
+                f"guardrail action {on_trigger!r} is not in the basic set "
+                f"{self.ALLOWED_ACTIONS}; sophisticated actions and surrogate "
+                "mitigation/fixing are Product B (spec §6), not the basic guardrail."
+            )
+        threshold_rank = SEVERITY_RANK.get(threshold, SEVERITY_RANK["High"])
+        firings = firings or []
+
+        triggering = [
+            f for f in firings
+            if SEVERITY_RANK.get(f.get("severity"), 0) >= threshold_rank
+            and int(f.get("hits", 1)) >= min_hits
+        ]
+        fired = bool(triggering)
+        action = on_trigger if fired else "none"
+        return {
+            "capabilityId": self.capability_id,
+            "action": action,
+            "trigger": {
+                "thresholdSeverity": threshold,
+                "minHits": min_hits,
+                "engineerCommanded": True,
+            },
+            "firingsConsidered": len(firings),
+            "patternsFired": [f.get("patternId") for f in firings],
+            "triggeringPatterns": [f.get("patternId") for f in triggering],
+            "packsFired": sorted({f.get("pack") for f in firings if f.get("pack")}),
+            "rationale": (
+                f"{len(triggering)} firing(s) at or above {threshold} → "
+                f"engineer-commanded action '{action}'."
+                if fired else
+                f"no firing reached the {threshold} threshold → no action."
+            ),
         }
 
 
