@@ -20,7 +20,7 @@ KEY  ?= keys/research.key
 
 .PHONY: all test validate morrison morrison-shacl morrison-rules morrison-verify morrison-diff
 .PHONY: morrison-build morrison-sign clean check shacl verify rules sign corpus corpus-clean
-.PHONY: clean-bundled firewall-guard
+.PHONY: clean-bundled firewall-guard appliance-image appliance-demo
 .PHONY: airfrans-pull airfrans-select airfrans-train airfrans-corpus airfrans-gap
 
 # ── Primary targets ─────────────────────────────────────────
@@ -150,3 +150,14 @@ airfrans-gap:
 corpus-clean:
 	cd $(ROOT) && rm -rf tests/corpus/edge-cases tests/corpus/import-tests
 	@echo "✓ Corpus cleaned."
+
+# ── Concept appliance (Phase A) ─────────────────────────────
+# Self-contained, air-gap-faithful image: open core + the surrogate pack + the
+# JRE + a bundled stock explainer (Qwen 2.5 7B via Ollama). `appliance-demo`
+# brings up the two-container demo (PhysicsNeMo signals → appliance).
+
+appliance-image:
+	cd $(ROOT) && docker build -f Dockerfile.appliance -t uofa-appliance:demo .
+
+appliance-demo:
+	cd $(ROOT) && docker compose up --build --abort-on-container-exit

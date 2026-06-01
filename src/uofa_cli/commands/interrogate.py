@@ -6,11 +6,14 @@ Two surfaces, deliberately different in kind (Addendum A14):
   MEASURES and emits a signed evidence bundle + an at-a-glance comparison. This
   command never judges: no pass/fail, no threshold flag, no chaining into the
   rule engine (the firewall, §8 / AGENTS.md §12).
-- `uofa interrogate init` is the GUIDED, interactive setup wizard. It is
+- `uofa interrogate init` is the GUIDED setup wizard. By default it is
   interactive because the questions are about the *model* (what are its inputs
-  in physical terms, what is the valid envelope). It never silently defaults
-  scope, never fabricates reference values, and smoke-tests the generated
-  adapter before declaring success (A14.1/A14.3).
+  in physical terms, what is the valid envelope). `--yes` runs it
+  non-interactively for scripts/CI/containers: the engineer hands a pre-written
+  `--scope` file instead of answering prompts. Either way it never silently
+  defaults scope, never fabricates reference values, and smoke-tests the
+  generated adapter before declaring success (A14.1/A14.3) — `--yes` removes the
+  interactivity, not the rigor.
 
 Heavy deps (numpy + the user's adapter framework) are imported lazily via the
 `[interrogate]` extra.
@@ -48,8 +51,14 @@ def add_arguments(parser):
     init_p.add_argument("--benchmark", type=Path, help="benchmark inputs, used for the adapter smoke test")
     init_p.add_argument("--reference", type=Path, help="reference outputs (supplied; never generated)")
     init_p.add_argument("--out-dir", type=Path, default=Path("."), help="where to write the generated adapter + scope")
-    # NOTE: deliberately NO --yes / --non-interactive / --accept-scope (A14.1):
-    # scope is always confirmed or entered by the engineer, field by field.
+    # Non-interactive setup (scripts / CI / containers). --yes does NOT relax the
+    # A14 invariants: scope still carries per-field provenance and is never
+    # silently defaulted — the engineer supplies it as a file instead of typing it.
+    init_p.add_argument("--yes", "--non-interactive", dest="yes", action="store_true",
+                        help="non-interactive: adopt a pre-written --scope file instead of prompting")
+    init_p.add_argument("--scope", type=Path, help="(--yes) pre-written scope config (.json/.toml) adopted verbatim")
+    init_p.add_argument("--output-names", help="(--yes) comma-separated QoI names the adapter returns")
+    init_p.add_argument("--input-names", help="(--yes) comma-separated input names (overrides names derived from the scope envelope)")
 
 
 def run(args) -> int:
@@ -133,7 +142,7 @@ def _run_measure(args) -> int:
     return 0
 
 
-# ── Guided setup (`init`) — interactive; the questions are about the model ───
+# ── Guided setup (`init`) — interactive by default, `--yes` for scripts/CI ───
 
 
 def _ask(prompt: str) -> str:
@@ -179,31 +188,15 @@ def _smoke(adapter_path: Path, benchmark_path: Path, output_names: list[str]) ->
         return False, str(exc)
 
 
-def _run_init(args) -> int:
-    from uofa_cli.interrogate import init_wizard as wiz
+def _collect_init_interactive(args, wiz):
+    """Prompt the engineer for inputs, envelope, evaluation point, constraints, subject.
 
-    out_dir = Path(args.out_dir)
-    out_dir.mkdir(parents=True, exist_ok=True)
-    fmt = wiz.detect_model_format(args.model) if args.model else "unknown"
-
-    step_header("uofa interrogate init — guided setup")
-    info(f"model: {args.model or '(not provided)'}   detected format: {fmt}")
-
+    Returns ``(input_names, output_names, scope)``. build_scope tags every field
+    with provenance, so the shared invariant check downstream is belt-and-suspenders.
+    """
     input_names = _ask_list("Name the model INPUT dimensions in physical terms (comma-separated, e.g. reynolds,aoa)")
     output_names = _ask_list("Name the model OUTPUT quantities of interest (comma-separated, e.g. lift_coefficient)")
 
-    adapter_path = out_dir / "sip_adapter.py"
-    adapter_path.write_text(
-        wiz.generate_adapter_source(
-            class_name="GeneratedAdapter", model_format=fmt,
-            model_path=str(args.model or "PATH_TO_MODEL"),
-            input_names=input_names, output_names=output_names,
-        ),
-        encoding="utf-8",
-    )
-    result_line("Wrote adapter", True, str(adapter_path))
-
-    # Scope — confirm/enter every field; tag provenance; never silently default.
     provenance: dict[str, str] = {}
     envelope_dims = []
     info("Declare the training envelope (the surrogate's valid input domain):")
@@ -236,11 +229,83 @@ def _run_init(args) -> int:
     scope = wiz.build_scope(subject=subject, envelope_dimensions=envelope_dims,
                             physics_constraints=constraints, provenance=provenance,
                             evaluation_point=eval_point)
+    return input_names, output_names, scope
 
+
+def _split_csv(raw: str | None) -> list[str]:
+    return [tok.strip() for tok in (raw or "").split(",") if tok.strip()]
+
+
+def _collect_init_noninteractive(args, wiz):
+    """Non-interactive (`--yes`): adopt a pre-written ``--scope`` file verbatim.
+
+    Removes the interactivity, not the A14 rigor — the scope must already carry
+    per-field provenance (checked downstream by ``unprovenanced_scope_fields``),
+    and reference stays a supplied input, never fabricated. Returns
+    ``(input_names, output_names, scope)`` or ``None`` on a usage error.
+    """
+    if not getattr(args, "scope", None):
+        error("non-interactive `init --yes` needs --scope FILE — a pre-written scope carrying "
+              "the training envelope, evaluation point, and per-field provenance (the same shape "
+              "interactive `init` writes). Scope is never silently defaulted.")
+        return None
+    scope_path = Path(args.scope)
+    if not scope_path.is_file():
+        error(f"--scope file not found: {scope_path}")
+        return None
+    scope = _load_scope(scope_path)
+
+    output_names = _split_csv(getattr(args, "output_names", None))
+    if not output_names:
+        error("non-interactive `init --yes` needs --output-names q1,q2,... — the QoIs the adapter "
+              "returns (the scope does not carry them).")
+        return None
+
+    input_names = _split_csv(getattr(args, "input_names", None))
+    if not input_names:
+        input_names = [d.get("name") for d in scope.get("trainingEnvelope", {}).get("dimensions", [])
+                       if d.get("name")]
+    if not input_names:
+        error("cannot determine model inputs: pass --input-names, or give a --scope file whose "
+              "trainingEnvelope.dimensions each declare a name.")
+        return None
+    return input_names, output_names, scope
+
+
+def _run_init(args) -> int:
+    from uofa_cli.interrogate import init_wizard as wiz
+
+    out_dir = Path(args.out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    fmt = wiz.detect_model_format(args.model) if args.model else "unknown"
+
+    non_interactive = bool(getattr(args, "yes", False))
+    step_header("uofa interrogate init — " + ("non-interactive setup" if non_interactive else "guided setup"))
+    info(f"model: {args.model or '(not provided)'}   detected format: {fmt}")
+
+    collected = (_collect_init_noninteractive(args, wiz) if non_interactive
+                 else _collect_init_interactive(args, wiz))
+    if collected is None:
+        return 2  # usage error (non-interactive inputs incomplete)
+    input_names, output_names, scope = collected
+
+    # Invariant (both paths): never write a scope field without provenance.
     unprov = wiz.unprovenanced_scope_fields(scope)
-    if unprov:  # invariant: never write a scope field without provenance
-        error(f"internal: scope fields without provenance: {unprov}")
+    if unprov:
+        hint = "  (add provenance for these in the --scope file)" if non_interactive else "  (internal)"
+        error(f"scope fields without provenance: {unprov}{hint}")
         return 1
+
+    adapter_path = out_dir / "sip_adapter.py"
+    adapter_path.write_text(
+        wiz.generate_adapter_source(
+            class_name="GeneratedAdapter", model_format=fmt,
+            model_path=str(args.model or "PATH_TO_MODEL"),
+            input_names=input_names, output_names=output_names,
+        ),
+        encoding="utf-8",
+    )
+    result_line("Wrote adapter", True, str(adapter_path))
 
     scope_path = out_dir / "sip_scope.json"
     scope_path.write_text(json.dumps(scope, indent=2, ensure_ascii=False), encoding="utf-8")

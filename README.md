@@ -49,6 +49,51 @@ for one-time runtime installation.
 
 ---
 
+## Interrogate a Surrogate (SIP)
+
+UofA's shift-left front door for **physics-AI surrogates** (ROMs, PINNs, operator-learning, data-driven emulators, ML closures). Point it at your surrogate and get a principled, auditable read on **when to trust it** — run it yourself in minutes.
+
+`uofa interrogate` is a **measurement instrument, not a verdict.** It runs your surrogate against a benchmark, compares to a supplied reference, and emits a **signed, provenance-bearing evidence bundle** plus an at-a-glance comparison — per-QoI residuals, envelope coverage, physics-constraint residuals, UQ calibration. It **never** prints pass/fail: measure-don't-judge is the firewall. The output is trust-calibration evidence *for you to judge*.
+
+**What you supply** (your surrogate stays behind one thin adapter — UofA never imports your ML framework):
+
+| Input | Flag | What it is |
+|---|---|---|
+| Adapter | `--adapter` | a tiny `ModelAdapter` wrapping your model's `predict` (ONNX / torch / sklearn / remote) |
+| Benchmark | `--benchmark` | the evaluation inputs (`.npz` / `.json`) |
+| Reference | `--reference` | the truth to compare against — **supplied, never generated** |
+| Scope | `--scope` | the declared training envelope + evaluation point |
+
+```bash
+# guided setup — or non-interactively for CI/containers:
+#   uofa interrogate init --yes --scope sip_scope.json --output-names lift_coefficient
+uofa interrogate init --model my_surrogate.onnx
+
+# measure → signed evidence bundle + verdict-free comparison
+uofa interrogate \
+  --adapter sip_adapter.py:GeneratedAdapter \
+  --benchmark bench.npz --reference truth.npz --scope sip_scope.json \
+  -o evidence.json --key keys/research.key
+```
+
+**Try it now** on a committed surrogate evidence package (no model or data needed) — the surrogate pack's weakener catalog flags where the credibility evidence is incomplete:
+
+```bash
+uofa rules packs/surrogate/examples/airfrans/cou1/uofa-surrogate-airfrans-cou1.jsonld --pack surrogate
+```
+
+**Reading the output.** Residuals, coverage, and UQ are *measurements*; the pack's weakeners flag *evidence gaps* (e.g. an evaluation point outside the declared envelope, an unlinked residual). **Zero weakeners is not a guarantee of accuracy** — it means the evidence package is complete and auditable, and the trust decision is yours (`uofa decision sign`). In the appliance, a stock-Qwen explanation rides on top as **reference annotation** (decode, clearly labeled) — it explains the flags, it never adjudicates them.
+
+**The appliance (one command).** The concept appliance bundles the core + the surrogate pack + a stock explainer in one container; the two-container demo feeds it live signals from a PhysicsNeMo-CFD container through the SIP interface:
+
+```bash
+docker compose up        # signals-in → explained, signed, verdict-free evidence-out
+```
+
+See [Domain Packs](#domain-packs) for the `--pack surrogate` catalog, and `docs/UofA_PostRefactor_Phase_A_Implementation_Plan.md` for the appliance build.
+
+---
+
 ## Why UofA?
 
 UofA exists because the credibility frameworks are not the problem. ASME V&V 40, NASA-STD-7009B, and the FDA's 2023 guidance on CM&S credibility provide clear instructions for *how to assess* simulation credibility. The problem is the **last mile**: there is no standardized construct for packaging, transmitting, and verifying the *evidence and decisions* those assessments produce.

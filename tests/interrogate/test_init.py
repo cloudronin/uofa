@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 
 from uofa_cli.commands import interrogate
 from uofa_cli.interrogate import init_wizard as wiz
@@ -19,12 +20,73 @@ def _init_subparser_options() -> list[str]:
     return []
 
 
-def test_no_silent_scope_flag():
-    # A14.1: there is NO flag path that accepts scope without engineer confirmation.
+def _init_args(tmp_path, **over):
+    ns = argparse.Namespace(
+        interrogate_cmd="init", out_dir=tmp_path,
+        model=None, docs=None, benchmark=None, reference=None,
+        yes=True, scope=None, output_names=None, input_names=None,
+    )
+    for key, value in over.items():
+        setattr(ns, key, value)
+    return ns
+
+
+def _write_scope(tmp_path, *, provenanced=True):
+    scope = wiz.build_scope(
+        subject={"surrogateId": "s", "modelVersion": "1", "surrogateType": "PINN", "modelFingerprint": "x"},
+        envelope_dimensions=[{"name": "reynolds", "min": 1.0, "max": 5.0}, {"name": "aoa", "min": -5.0, "max": 15.0}],
+        physics_constraints=[],
+        provenance={"trainingEnvelope.reynolds": "entered-by-engineer", "trainingEnvelope.aoa": "entered-by-engineer",
+                    "evaluationPoint.reynolds": "entered-by-engineer", "evaluationPoint.aoa": "entered-by-engineer"},
+        evaluation_point=[{"name": "reynolds", "value": 3.0}, {"name": "aoa", "value": 5.0}],
+    )
+    if not provenanced:
+        scope["scopeProvenance"].pop("evaluationPoint.aoa", None)
+    path = tmp_path / "scope.json"
+    path.write_text(json.dumps(scope), encoding="utf-8")
+    return path
+
+
+def test_noninteractive_flags_exist_now():
+    # The deliberate A14.1 reversal: --yes / --non-interactive exist for scripts/CI,
+    # but they require a pre-written --scope and stay provenanced (behavior tests below).
     opts = _init_subparser_options()
     assert opts, "interrogate init subparser not found"
-    for banned in ["--yes", "-y", "--non-interactive", "--accept-scope", "--defaults", "--auto"]:
-        assert banned not in opts
+    for expected in ["--yes", "--non-interactive", "--scope", "--output-names"]:
+        assert expected in opts
+
+
+def test_noninteractive_requires_scope_file(tmp_path):
+    # No silent default: --yes without --scope is a loud usage error, writes nothing.
+    args = _init_args(tmp_path, scope=None, output_names="cl")
+    assert interrogate.run(args) == 2
+    assert not (tmp_path / "sip_scope.json").exists()
+
+
+def test_noninteractive_requires_output_names(tmp_path):
+    # The scope does not carry the adapter QoIs; they must be named explicitly.
+    args = _init_args(tmp_path, scope=_write_scope(tmp_path), output_names=None)
+    assert interrogate.run(args) == 2
+    assert not (tmp_path / "sip_adapter.py").exists()
+
+
+def test_noninteractive_rejects_unprovenanced_scope(tmp_path):
+    # The no-silent-scope invariant holds in --yes mode: an untagged field fails loudly.
+    args = _init_args(tmp_path, scope=_write_scope(tmp_path, provenanced=False), output_names="cl")
+    assert interrogate.run(args) == 1
+
+
+def test_noninteractive_adopts_scope_and_writes_adapter(tmp_path):
+    args = _init_args(tmp_path, scope=_write_scope(tmp_path),
+                      output_names="lift_coefficient,drag_coefficient")
+    assert interrogate.run(args) == 0
+    adapter = (tmp_path / "sip_adapter.py").read_text()
+    assert "class GeneratedAdapter(ModelAdapter)" in adapter
+    assert "lift_coefficient" in adapter and "drag_coefficient" in adapter
+    written = json.loads((tmp_path / "sip_scope.json").read_text())
+    assert wiz.unprovenanced_scope_fields(written) == []
+    # input names are derived from the scope's declared envelope dimensions.
+    assert [d["name"] for d in written["trainingEnvelope"]["dimensions"]] == ["reynolds", "aoa"]
 
 
 def test_scope_provenance_required_per_field():

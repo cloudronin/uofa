@@ -1,0 +1,41 @@
+# UofA two-container demo (Phase A): a PhysicsNeMo-CFD signal source feeding the
+# concept appliance through the SIP interface. One `docker compose up` shows
+# signals-in → explained, signed, verdict-free evidence-out.
+#
+# This is a DEMO / dev-integration artifact, not a shipped deployment topology
+# (Appliance spec §3): the appliance is the customer-deployed unit; PhysicsNeMo
+# is a free Apache-2.0 signal source the customer already runs. PhysicsNeMo
+# checkpoints never enter the appliance image.
+
+services:
+  physicsnemo:
+    build:
+      context: .
+      dockerfile: docker/physicsnemo/Dockerfile
+    image: uofa-physicsnemo-signal:demo
+    # To leave demo mode, serve a trained PhysicsNeMo checkpoint:
+    #   environment:
+    #     CHECKPOINT_PATH: /ckpt/model.pt
+    #   volumes:
+    #     - ./my-checkpoint.pt:/ckpt/model.pt:ro
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://127.0.0.1:8000/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 24
+
+  appliance:
+    build:
+      context: .
+      dockerfile: Dockerfile.appliance
+    image: uofa-appliance:demo
+    depends_on:
+      physicsnemo:
+        condition: service_healthy
+    environment:
+      PHYSICSNEMO_URL: http://physicsnemo:8000
+      # Bound the CPU-bound 7B explanation; override for a quick run, e.g.
+      #   EXPLAIN_TIMEOUT=90 docker compose up
+      EXPLAIN_TIMEOUT: ${EXPLAIN_TIMEOUT:-600}
+    # The demo runs to completion and exits 0. Mount a host dir to keep the
+    # signed evidence: volumes: [ "./out:/work" ].

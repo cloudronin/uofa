@@ -6,7 +6,8 @@ Pure, testable functions; the interactive prompting lives in
 - **No silent scope.** ``build_scope`` records a provenance tag for every scope
   field (``extracted-from:<src>;confirmed-by-engineer`` or
   ``entered-by-engineer``); there is no path that emits a scope field without a
-  provenance tag, and no ``--yes`` over scope exists in the command.
+  provenance tag. The command's ``--yes`` is non-interactive but still requires a
+  fully-provenanced ``--scope`` file — it does not fabricate or default scope.
 - **Never fabricate reference.** Nothing here generates reference values; the
   reference is always a supplied input.
 - **Smoke test before done (A14.3).** ``smoke_test_adapter`` exercises the
