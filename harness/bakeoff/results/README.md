@@ -192,3 +192,64 @@ temp-0 result was not a lucky greedy decode — it reproduces under sampling. Ho
 gap's *magnitude* carries real sampling variance (~+0.10–0.22); only the sign and the
 "full is better" conclusion are stable. (Temp 0.0 is the canonical operating point; temp 0.7 is
 the sampling-robustness probe only.)
+
+## 2026-06-01 — coverage experiment (Experiment B): the defensibility test
+
+Does the UofA stack *surface* the 31 defeaters NVIDIA's guardrails emit no signal for, where a
+buyer's real alternative — a capable model reading the raw, unstructured evidence docs — misses
+them? K1 = `raw_artifact` (model reads the prose package, defeater present but unflagged); K1.5 =
+`catalog_ablated` (SIP measures, no catalog); K2 = `full`. 26 fire + 5 control cells. Pre-registered
+in `PREREGISTRATION-2026-05-31-coverage-B.md`; read in `coverage-B-read.json`.
+
+| metric (26 fire cells) | K1 raw-doc | K1.5 SIP | K2 full |
+|---|---|---|---|
+| posture accuracy | 0.96 | 0.96 | 1.00 |
+| dangerous-error | 0.04 | 0.04 | 0.00 |
+| committed-correct | 0.00 | — | 0.08 |
+
+### The read (straight)
+
+**NULL — no coverage moat on the posture axis.** Δp = posture(K2) − posture(K1) = **+0.038**,
+95% CI [+0.000, +0.115] (includes 0), at/below the pre-registered NULL bar (≤+0.05). A stock 7B
+reading the raw docs already surfaces **25 of 26** defeaters — it connects "normalization on the
+combined set + shared seeds → block," "parent Not Accepted → block," "validated on sandstone,
+applied to carbonate → block," etc., from prose alone. **SIP structuring adds nothing on posture**
+(K1 = K1.5 = 0.96); the catalog adds exactly one cell (K1.5→K2, 0.96→1.00). **No catalog gaps** —
+K2 caught every fire defeater, so the catalog's enumeration is complete for these 31.
+
+**The frontier caveat makes the NULL *stronger*, not weaker:** K1 is a stock 7B; a frontier model
+reading the docs would surface defeaters at least as well, so the moat stays NULL or shrinks.
+
+**The catalog's real (small) value is calibration at the edges, not bulk surfacing.** Two coherent
+differences, 1–2 cells each:
+- K2 caught the **one** defeater K1 missed — `temporal-leakage` (K1 read "uniform random split over
+  an autocorrelated series" and *accepted*; it didn't connect random-split-on-autocorrelated → leak).
+- K1 **over-acted on 2 of 5 controls** (`fewsamples-analytic`: blocked despite exact analytic truth
+  at 1e-6; `high-but-conservative`: restricted despite a one-sided conservative 12% error). K2 got
+  all 5 right. The catalog framing prevents over-reaction to alarming-but-adequate evidence.
+
+So the raw-doc model handles the *obvious* defeaters fine and stumbles only at the **calibration
+edges** — the subtle tell, and the alarming-but-fine control. That is exactly where the catalog
+helps, and it is the same thread as the n=60 finding (commitment + don't-over-act), not
+defeater-detection.
+
+### Caveats — the NULL has uncontrolled biases both ways
+
+- **Synthetic clean artifacts understate the moat:** I authored the artifacts (~80–120 words, the
+  defeater a salient fact). A real model card buries the defeater among pages of irrelevant detail,
+  where K1 would miss more. So the real (noisy-doc) moat could be larger than this cheap NULL shows.
+- **Stock-7B K1 overstates the moat:** a frontier baseline would be stronger (above).
+- These pull opposite directions, so the cheap NULL is **weak** on the real-world question. Only a
+  **frontier K1 on real PhysicsNeMo evidence** would settle it — and per the gate discipline, a cheap
+  NULL says don't build that expensive pipeline to chase a moat that didn't show.
+- **Scope:** this measures only the posture-from-evidence task. UofA's firewall (measure-don't-judge),
+  signed audit trail, versioned pack contracts, and reproducibility are *not* tested here — a NULL on
+  "catches what the model misses" says nothing about those.
+
+### Synthesis across both experiments
+
+On this corpus / this model, the catalog's measured value is **commitment + calibration** (commit
+more correctly, over-act less on controls, catch the occasional subtle defeater) — **not**
+danger-catching (the model is cautious enough without it, n=60) and **not** bulk defeater-surfacing
+(a capable model reads these defeaters from raw docs, coverage NULL). The "catch what the model
+misses" moat did not appear on this corpus at this model size.
