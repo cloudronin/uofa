@@ -1,0 +1,1741 @@
+{
+  "full": {
+    "hard_core": {
+      "n": 60,
+      "action_buckets": {
+        "correct": 42,
+        "partial": 14,
+        "wrong": 4,
+        "harmful": 0
+      },
+      "dangerous_error_rate": 0.0,
+      "posture_accuracy": 0.9666666666666667,
+      "selection_accuracy": 0.7,
+      "forbidden_violation_rate": 0.0,
+      "escalation_rate": 0.7666666666666667,
+      "ece": 0.09999999999999998,
+      "selective_coverage_at_alpha": 0.23333333333333334,
+      "alpha": 0.02,
+      "selective_curve": [
+        {
+          "tau": 0.9,
+          "coverage": 0.23333333333333334,
+          "risk": 0.0
+        },
+        {
+          "tau": 0.6,
+          "coverage": 0.23333333333333334,
+          "risk": 0.0
+        },
+        {
+          "tau": 0.3,
+          "coverage": 0.23333333333333334,
+          "risk": 0.0
+        }
+      ]
+    },
+    "answers": [
+      {
+        "row_id": "surr-dccb10-augmented-not-real",
+        "action_class": "acquire-validation",
+        "confidence": "medium",
+        "escalate": true,
+        "raw": {
+          "finding": "The training data for the model is heavily synthetically augmented (80% of the samples), and there is no validation set drawn from real-world system data. This lack of real-world validation points raises concerns about the fidelity of the synthetic data to the actual system.",
+          "why_fired": "The pattern W-EP-03 was triggered because a large fraction of the training data (80%) is synthetically generated, and there are no validation points from the real system. This does not meet the standard defined by ASME V&V 40 D-CCB-10, which requires evidence that synthetic data accurately represents the real-world system.",
+          "recommended_action": "Acquire additional validation data from the real system to ensure the synthetic data is appropriately calibrated.",
+          "action_class": "acquire-validation",
+          "confidence": "medium",
+          "escalate": true
+        }
+      },
+      {
+        "row_id": "surr-dccb10-uncorrected-sensor-drift",
+        "action_class": "acquire-validation",
+        "confidence": "medium",
+        "escalate": true,
+        "raw": {
+          "finding": "The training data for the model exhibits a known, uncorrected systematic bias, which is flagged under D-CCB-10 in the ASME V&V 40 proto-taxonomy. This indicates that the model's predictions may be systematically off from reality.",
+          "why_fired": "The pattern W-EP-03 was triggered because the drift present in the logs has not been corrected, and the fit to training measurements is only 80%, indicating a significant discrepancy between expected performance and actual performance.",
+          "recommended_action": "Further validation of the model's predictions against independent data sources is required to understand the extent of the bias and its impact on efficiency predictions.",
+          "action_class": "acquire-validation",
+          "confidence": "medium",
+          "escalate": true
+        }
+      },
+      {
+        "row_id": "surr-dccb10-vintage-regime",
+        "action_class": "acquire-validation",
+        "confidence": "medium",
+        "escalate": true,
+        "raw": {
+          "finding": "The training data used for the model was collected in a steady state with 20-40% load conditions, while the current operating condition of the Cou (Controlled Object Under consideration) is a transient response at 90% load. There are no training points available that match this specific regime.",
+          "why_fired": "The pattern W-EP-03 indicates that the training data fidelity does not match the COU's operating regime, as per ASME V&V 40 data adequacy and D-CCB-10 proto-taxonomy. This mismatch could lead to inaccurate model predictions during transient conditions.",
+          "recommended_action": "Acquire additional validation data or adjust the model based on the new operating regime.",
+          "action_class": "acquire-validation",
+          "confidence": "medium",
+          "escalate": true
+        }
+      },
+      {
+        "row_id": "surr-dccb11-undocumented-clipping",
+        "action_class": "acquire-validation",
+        "confidence": "medium",
+        "escalate": true,
+        "raw": {
+          "finding": "The data-processing procedure used in the surrogate model is undocumented and outcome-determining. This means that an unspecified transformation significantly impacts what the surrogate can represent, potentially leading to inaccuracies in extreme-load contingency screenings for grid reliability decisions.",
+          "why_fired": "Fired due to the pattern W-AR-04 indicating that a critical data-processing step lacks documentation, which could affect the model's outcomes and decision-making process.",
+          "recommended_action": "Further investigation is required to understand the impact of this undocumented transformation on the surrogate model\u2019s performance.",
+          "action_class": "acquire-validation",
+          "confidence": "medium",
+          "escalate": true
+        }
+      },
+      {
+        "row_id": "surr-dccb12-seed-sensitivity",
+        "action_class": "acquire-validation",
+        "confidence": "medium",
+        "escalate": true,
+        "raw": {
+          "finding": "The evidence package presents a strong single-run metric without reporting seed or initialization variability, which is flagged by the pattern W-AL-02.",
+          "why_fired": "This flag fired because sensitivity to optimization randomness was not reported, and only one training run was cited as the basis for acceptance, despite there being variability in performance (3-6% spread).",
+          "recommended_action": "Further validation of the model's robustness through additional runs with varied seeds or initializations is necessary.",
+          "action_class": "acquire-validation",
+          "confidence": "medium",
+          "escalate": true
+        }
+      },
+      {
+        "row_id": "surr-dccb12-suspected-feature-leakage",
+        "action_class": "acquire-validation",
+        "confidence": "medium",
+        "escalate": true,
+        "raw": {
+          "finding": "The suspect feature 'post-hoc lab measurement (possible target proxy)' is suspected of leaking the target information, which violates the independence requirement for validation. This indicates a potential model bias or overfitting to the training data.",
+          "why_fired": "Fired due to the suspected leakage in the feature, failing to meet the D-CCB-12 standard anchor that requires independent validation and confirmed feature-target independence.",
+          "recommended_action": "Further investigation is needed into the source of this post-hoc lab measurement to ensure it does not act as a proxy for the target variable during training.",
+          "action_class": "acquire-validation",
+          "confidence": "medium",
+          "escalate": true
+        }
+      },
+      {
+        "row_id": "surr-dccb12-temporal-leakage",
+        "action_class": "acquire-validation",
+        "confidence": "medium",
+        "escalate": true,
+        "raw": {
+          "finding": "The validation split strategy allows for future information leakage into the reported metric due to temporal interleaving of training and validation samples.",
+          "why_fired": "The validation error percentage is high at 0.9%, indicating significant leakage. The train-val temporal relationship is described as interleaved, which violates the time-series validation requirement to maintain a chronological order between training and validation sets.",
+          "recommended_action": "Acquire additional validation data that respects the temporal constraints of the time series.",
+          "action_class": "acquire-validation",
+          "confidence": "medium",
+          "escalate": true
+        }
+      },
+      {
+        "row_id": "surr-dccb13-tuned-on-validation",
+        "action_class": "acquire-validation",
+        "confidence": "low",
+        "escalate": true,
+        "raw": {
+          "finding": "The reported validation accuracy of 96% is cited as the primary basis for acceptance. The model selection was performed with an objective to maximize this metric, indicating a high risk that hyperparameters were chosen based on this same set.",
+          "why_fired": "This pattern (W-AR-04) flags instances where the validation metric is optimistic because hyperparameters were selected against it, which can lead to overfitting and unreliable model performance on unseen data. Given the high influence of the model and the critical decision consequence of acceptance based solely on this metric, there is a significant risk.",
+          "recommended_action": "Further validation using an independent test set is necessary to assess true model performance.",
+          "action_class": "acquire-validation",
+          "confidence": "low",
+          "escalate": true
+        }
+      },
+      {
+        "row_id": "surr-dccb14-circular-reference",
+        "action_class": "acquire-validation",
+        "confidence": "medium",
+        "escalate": true,
+        "raw": {
+          "finding": "The credibility evidence package is weak because the validation 'truth' used is itself an unvalidated lower-fidelity model (reduced-order model), creating circular validation. This does not provide independent validation or experimental checks to support the high influence of the surrogate model on critical decision-making.",
+          "why_fired": "Fired due to the pattern W-AR-05, which indicates a circular validation where the 'truth' used for validation is not independently validated and is at a lower fidelity than the model being validated. This violates the standard anchor ASME V&V 40 reference independence.",
+          "recommended_action": "Acquire additional validation against independent high-fidelity models or experimental data to support the surrogate model's predictions.",
+          "action_class": "acquire-validation",
+          "confidence": "medium",
+          "escalate": true
+        }
+      },
+      {
+        "row_id": "surr-dccb14-repro-gap",
+        "action_class": "supply-evidence",
+        "confidence": "medium",
+        "escalate": true,
+        "raw": {
+          "finding": "The evidence package is missing trained weights, environment specifications, and reproduction scripts necessary for independent verification of the reported results.",
+          "why_fired": "Fired because the pattern W-AR-04 (D-category: D-CCB-14) identifies a lack of reproducibility artifacts in the provided evidence package. The standard anchor ASME V&V 40 SQA and proto-taxonomy D-CCB-14 require these elements for validated results.",
+          "recommended_action": "The engineer should request additional information to ensure the results can be independently verified.",
+          "action_class": "supply-evidence",
+          "confidence": "medium",
+          "escalate": true
+        }
+      },
+      {
+        "row_id": "surr-dccb15-rare-failure-class",
+        "action_class": "acquire-validation",
+        "confidence": "medium",
+        "escalate": true,
+        "raw": {
+          "finding": "The COU's decision regime for the rare fault is a tiny fraction of the training data, which falls below the standard anchor defined by ASME V&V 40 application-domain coverage (D-CCB-15). This weakens the evidence package as it may not be adequately representative.",
+          "why_fired": "The COU's decision regime for rare faults is a very small fraction of the training data, specifically 0.3% (rare_fault_fraction_of_training: 0.003), which does not meet the standard anchor requirements for comprehensive coverage in this context.",
+          "recommended_action": "Acquire additional validation to ensure the COU's decision regime for rare faults is properly characterized and representative of potential scenarios.",
+          "action_class": "acquire-validation",
+          "confidence": "medium",
+          "escalate": true
+        }
+      },
+      {
+        "row_id": "surr-dpd01-different-bc",
+        "action_class": "acquire-validation",
+        "confidence": "medium",
+        "escalate": true,
+        "raw": {
+          "finding": "The COU boundary condition (convective BC) differs in kind from every training case, which is a D-PD-01 category issue.",
+          "why_fired": "This pattern (W-SURR-03) fired because the COU boundary condition is 'convective (Robin)', and there are no training cases with this specific type of boundary condition. This deviation could significantly impact model performance and reliability under new conditions.",
+          "recommended_action": "Acquire additional validation data to assess the surrogate model's accuracy under convective BC conditions.",
+          "action_class": "acquire-validation",
+          "confidence": "medium",
+          "escalate": true
+        }
+      },
+      {
+        "row_id": "surr-dpd01-old-version-revalidated-control",
+        "action_class": "acquire-validation",
+        "confidence": "medium",
+        "escalate": true,
+        "raw": {
+          "finding": "The evidence package indicates that the surrogate version (v2) is used for decision-making on a high-influence model with significant consequences. However, there is no indication of revalidation status for this specific COU.",
+          "why_fired": "The pattern W-SURR-02 requires recording the re-validation status for the COU, which is missing in the provided evidence package.",
+          "recommended_action": "Acquire validation status for the COU version used in decision-making.",
+          "action_class": "acquire-validation",
+          "confidence": "medium",
+          "escalate": true
+        }
+      },
+      {
+        "row_id": "surr-dpd02-carbench-wheelhousing",
+        "action_class": "acquire-validation",
+        "confidence": "medium",
+        "escalate": true,
+        "raw": {
+          "finding": "The weakener fired on the credibility evidence package because the wheel housing region, which is known for high variance, is not flagged out-of-competence despite being within the global in-envelope criteria.",
+          "why_fired": "This situation aligns with the definition of W-SURR-03, where a known high-variance region (wheel housing) is not marked as out-of-competence even though it falls within the overall model's acceptable range. This suggests potential risks due to the variability in this critical region.",
+          "recommended_action": "Further investigation and validation are needed to ensure the robustness of predictions in the wheel housing area, especially given its dominant contribution to the QoI.",
+          "action_class": "acquire-validation",
+          "confidence": "medium",
+          "escalate": true
+        }
+      },
+      {
+        "row_id": "surr-dpd02-edge-but-validated-control",
+        "action_class": "accept-residual-risk",
+        "confidence": "high",
+        "escalate": false,
+        "raw": {
+          "finding": "The evaluation point is just past the nominal training box, which aligns with the standard anchor D-PD-02. The measures provided indicate that validation evidence covers this point and that the residual at the point is within stated bounds.",
+          "why_fired": "This case matches the W-SURR-03 pattern as it involves an evaluation point not contained in the declared training envelope, which is a key aspect of D-PD-02.",
+          "recommended_action": "Continue with the current validation process without changes.",
+          "action_class": "accept-residual-risk",
+          "confidence": "high",
+          "escalate": false
+        }
+      },
+      {
+        "row_id": "surr-dpd02-extrap-but-physics-bounded-control",
+        "action_class": "accept-residual-risk",
+        "confidence": "high",
+        "escalate": false,
+        "raw": {
+          "finding": "The evidence package includes the necessary measures to evaluate the surrogate model outside the training envelope, but it is done within the linear-elastic regime.",
+          "why_fired": "The evaluation load is 20% beyond the training load, which falls under the definition of W-SURR-03 (D-PD-02) as an evaluation point outside the training envelope. However, the response regime has been verified to be linear-elastic over the full range, and there are no indications that the model is being used in a way that exceeds its validated capabilities.",
+          "recommended_action": "Do not take additional action at this time; continue monitoring the model's performance.",
+          "action_class": "accept-residual-risk",
+          "confidence": "high",
+          "escalate": false
+        }
+      },
+      {
+        "row_id": "surr-dpd02-hypersonic-extrap-hard",
+        "action_class": "acquire-validation",
+        "confidence": "medium",
+        "escalate": true,
+        "raw": {
+          "finding": "The evaluation regime at Mach 6.5 crosses a physical regime boundary that the training set did not cover (Mach 2.0 to 6.0). This is flagged as a D-category issue under D-PD-02 according to ASME V&V 40 applicability.",
+          "why_fired": "The evaluation data point at Mach 6.5 falls outside the training range, which is defined from Mach 2.0 to 6.0. The fraction of training within 0.3 Mach of the evaluation regime onset (Mach 6.2) is very low (0.02), indicating a significant gap.",
+          "recommended_action": "Further investigation and validation are required given the high model influence on thermal protection system sizing decisions.",
+          "action_class": "acquire-validation",
+          "confidence": "medium",
+          "escalate": true
+        }
+      },
+      {
+        "row_id": "surr-dpd02-laminar-to-turbulent",
+        "action_class": "acquire-validation",
+        "confidence": "medium",
+        "escalate": true,
+        "raw": {
+          "finding": "The COU Reynolds number (4000) exceeds the laminar\u2013turbulent transition point (2300), which was not spanned in the training set. This discrepancy introduces uncertainty in the model's predictive capability for this range.",
+          "why_fired": "The pattern W-SURR-03 has fired because the COU Reynolds number is outside the range of the training data, specifically above the laminar\u2013turbulent transition point.",
+          "recommended_action": "Further validation and evidence gathering are required to confirm the model's reliability in this new region.",
+          "action_class": "acquire-validation",
+          "confidence": "medium",
+          "escalate": true
+        }
+      },
+      {
+        "row_id": "surr-dpd02-mesh-too-coarse",
+        "action_class": "acquire-validation",
+        "confidence": "medium",
+        "escalate": true,
+        "raw": {
+          "finding": "The training resolution cannot resolve the COU's controlling feature for wall heat flux prediction.",
+          "why_fired": "Based on the measures provided, there are no training samples with y+ below 1, and the standard requires at least some samples within this range to adequately resolve the thermal boundary layer. The wall heat flux is a critical output for the cooling design decision, making this issue significant.",
+          "recommended_action": "Acquire additional validation data or refine the model to better capture the thermal boundary layer effects.",
+          "action_class": "acquire-validation",
+          "confidence": "medium",
+          "escalate": true
+        }
+      },
+      {
+        "row_id": "surr-dpd02-ood-flag-but-validated-control",
+        "action_class": "accept-residual-risk",
+        "confidence": "high",
+        "escalate": false,
+        "raw": {
+          "finding": "The evidence package includes direct validation at the point of interest, which aligns with the OOD detector flag.",
+          "why_fired": "The pattern W-SURR-03 is triggered by the presence of an OOD detector flag and the existence of direct validation evidence at that specific point, as defined in D-PD-02.",
+          "recommended_action": "No further action required; review existing evidence suffices.",
+          "action_class": "accept-residual-risk",
+          "confidence": "high",
+          "escalate": false
+        }
+      },
+      {
+        "row_id": "surr-dpd02-rollout-horizon",
+        "action_class": "acquire-validation",
+        "confidence": "medium",
+        "escalate": true,
+        "raw": {
+          "finding": "The W-SURR-03 pattern has fired due to the autoregressive rollout horizon of 500 steps far exceeding the validated horizon of 10 steps. There is no long-term error data available for this extended horizon.",
+          "why_fired": "According to D-PD-02, the standard anchor ASME V&V 40 applicability requires that the model's performance be validated over a horizon consistent with its intended use. In this case, the rollout horizon (500 steps) is significantly longer than the validated horizon (10 steps), which introduces uncertainty in error accumulation over long horizons.",
+          "recommended_action": "Further validation of the surrogate model's performance over the extended rollout horizon should be conducted to ensure safety and reliability during trajectory-safety decisions.",
+          "action_class": "acquire-validation",
+          "confidence": "medium",
+          "escalate": true
+        }
+      },
+      {
+        "row_id": "surr-dpd02-saturation-bounded-control",
+        "action_class": "accept-residual-risk",
+        "confidence": "high",
+        "escalate": false,
+        "raw": {
+          "finding": "The evidence package meets the criteria for the fired pattern W-SURR-03 (D-PD-02) with a documented monotone physical bound bracketing the evaluation point outside the training envelope.",
+          "why_fired": "The response shape is monotone saturating, and there is validation of the physical ceiling. The prediction is bracketed by this ceiling for decision-making purposes.",
+          "recommended_action": "Continue monitoring but no immediate action required.",
+          "action_class": "accept-residual-risk",
+          "confidence": "high",
+          "escalate": false
+        }
+      },
+      {
+        "row_id": "surr-dpd02-thermal-hotspot",
+        "action_class": "acquire-validation",
+        "confidence": "medium",
+        "escalate": true,
+        "raw": {
+          "finding": "The model does not have validation points at the junction hotspot region, despite having a low global field error and a high peak vs. mean temperature gradient.",
+          "why_fired": "This fired because the pattern W-SURR-03 (D-category: D-PD-02) indicates that a local hotspot region critical for the COU is not validated even with a low global error, which is a concern for the reliability sign-off on peak junction temperature.",
+          "recommended_action": "Acquire additional validation points at the junction hotspot to ensure regional accuracy.",
+          "action_class": "acquire-validation",
+          "confidence": "medium",
+          "escalate": true
+        }
+      },
+      {
+        "row_id": "surr-dpd02-transfer-no-revalidation",
+        "action_class": "acquire-validation",
+        "confidence": "medium",
+        "escalate": true,
+        "raw": {
+          "finding": "A surrogate model transferred from system-A was used on system-B without re-validation.",
+          "why_fired": "The pattern W-AR-04 indicates that a surrogate model was transferred between systems and not revalidated for its new environment, which could lead to inaccurate predictions affecting critical decisions like the injection plan in a carbonate-reservoir subsidence analysis.",
+          "recommended_action": "Acquire validation data from system-B to ensure the surrogate model's accuracy on this new system.",
+          "action_class": "acquire-validation",
+          "confidence": "medium",
+          "escalate": true
+        }
+      },
+      {
+        "row_id": "surr-dpd02-turbine-tipgap",
+        "action_class": "acquire-validation",
+        "confidence": "medium",
+        "escalate": true,
+        "raw": {
+          "finding": "The credibility evidence package does not characterize the per-region competence for a region that the COU depends on, despite being within the global operating envelope. This is critical because the tip gap, which is a primary driver of heat transfer and thus a key quality-of-interest (QoI), has significant influence on the blade metal temperature predictions used in life-assessment decisions.",
+          "why_fired": "The pattern W-SURR-03 (D-category: D-PD-02) indicates that there is a lack of characterization for per-region competence, which is essential given the high model influence and critical nature of the decision. The tip gap error has not been evaluated, further emphasizing the need for this information.",
+          "recommended_action": "Additional validation cases are needed to properly understand the behavior in regions critical to the COU's operation.",
+          "action_class": "acquire-validation",
+          "confidence": "medium",
+          "escalate": true
+        }
+      },
+      {
+        "row_id": "surr-dpd03-omitted-but-not-asserted-control",
+        "action_class": "accept-residual-risk",
+        "confidence": "high",
+        "escalate": false,
+        "raw": {
+          "finding": "The evidence package is missing the transient response dimension, which is out of scope for the COU.",
+          "why_fired": "The pattern W-ON-02 (D-category: D-PD-03) indicates that a credibility dimension is absent from the evidence package. The evidence dimension 'transient response' is absent, and the COU explicitly disclaims transient responses in its QoI scope.",
+          "recommended_action": "No additional action required beyond documentation of this gap.",
+          "action_class": "accept-residual-risk",
+          "confidence": "high",
+          "escalate": false
+        }
+      },
+      {
+        "row_id": "surr-dpd04-energy-residual",
+        "action_class": "acquire-validation",
+        "confidence": "medium",
+        "escalate": true,
+        "raw": {
+          "finding": "The pattern W-SURR-01 (D-category: D-PD-04) has fired due to the declared governing constraint of energy conservation being present but a significant global energy imbalance percentage of 6.0%, which is above the threshold, indicating an inconsistency in the model.",
+          "why_fired": "The declared constraint check shows that the energy conservation constraint should be met, but the global energy imbalance percentage indicates a violation, suggesting a potential issue with the model's accuracy or validation.",
+          "recommended_action": "Acquire additional validation to confirm the consistency of the model with the governing constraints.",
+          "action_class": "acquire-validation",
+          "confidence": "medium",
+          "escalate": true
+        }
+      },
+      {
+        "row_id": "surr-dpd04-pinn-massresidual",
+        "action_class": "acquire-validation",
+        "confidence": "medium",
+        "escalate": true,
+        "raw": {
+          "finding": "The pattern W-SURR-01 (D-PD-04) has fired due to the presence of a declared governing constraint (mass conservation), but the integrated continuity residual is large at 0.08. This indicates that despite high R\u00b2 for data fitting, there are significant violations in mass conservation.",
+          "why_fired": "The declared constraint of mass conservation coexists with a substantial integrated continuity residual, suggesting potential inaccuracies or inconsistencies in the model's predictive capability regarding mass balance.",
+          "recommended_action": "Further investigation is required to understand and address the discrepancy between the high fit metric and the large conservation residual.",
+          "action_class": "acquire-validation",
+          "confidence": "medium",
+          "escalate": true
+        }
+      },
+      {
+        "row_id": "surr-dpd04-reciprocity-violated",
+        "action_class": "acquire-validation",
+        "confidence": "medium",
+        "escalate": true,
+        "raw": {
+          "finding": "The weakener fired on the credibility evidence package due to a fundamental physical invariance being grossly violated. The model's predicted values for S12 and S21 deviate significantly from expected behaviors, which is critical for an EMC compliance argument.",
+          "why_fired": "The measure 's_param_fit_error_dB' indicates a large margin of error, and the constraints are not respected as per the standard anchor ASME V&V 40 model-form; proto-taxonomy D-PD-04.",
+          "recommended_action": "Further validation is required to confirm the model's accuracy before proceeding with the EMC compliance argument.",
+          "action_class": "acquire-validation",
+          "confidence": "medium",
+          "escalate": true
+        }
+      },
+      {
+        "row_id": "surr-dpd04-residual-below-noise-control",
+        "action_class": "accept-residual-risk",
+        "confidence": "high",
+        "escalate": false,
+        "raw": {
+          "finding": "The evidence package includes the necessary constraint-check evidence for the declared governing constraint.",
+          "why_fired": "The pattern W-SURR-01 is triggered because there is a declaration of a governing constraint with corresponding evidence provided in the form of energy conservation residual percentage and reference data noise floor percentage.",
+          "recommended_action": "Continue monitoring the surrogate model's performance.",
+          "action_class": "accept-residual-risk",
+          "confidence": "high",
+          "escalate": false
+        }
+      },
+      {
+        "row_id": "surr-dpd04-residual-declared-bounded-control",
+        "action_class": "accept-residual-risk",
+        "confidence": "high",
+        "escalate": false,
+        "raw": {
+          "finding": "The evidence package addresses the declared model form uncertainty with a residual that is documented and propagated into QoI uncertainty.",
+          "why_fired": "The pattern matches the W-SURR-01 definition as it involves a declared governing constraint with associated constraint-check evidence, and the residual is adequately addressed in the QoI uncertainty.",
+          "recommended_action": "Do not overact on this alarming-looking but adequately-addressed signal.",
+          "action_class": "accept-residual-risk",
+          "confidence": "high",
+          "escalate": false
+        }
+      },
+      {
+        "row_id": "surr-dpd04-residual-off-qoi-control",
+        "action_class": "accept-residual-risk",
+        "confidence": "high",
+        "escalate": false,
+        "raw": {
+          "finding": "The evidence package shows that the residual in the far-field outlet has negligible sensitivity to the near-field flame position, which is the QoI of interest.",
+          "why_fired": "The pattern matches because it identifies a constraint residual and its associated QoI-sensitivity, as per D-PD-04 criteria.",
+          "recommended_action": "No further action required; document findings.",
+          "action_class": "accept-residual-risk",
+          "confidence": "high",
+          "escalate": false
+        }
+      },
+      {
+        "row_id": "surr-dpd04-symmetry-broken",
+        "action_class": "acquire-validation",
+        "confidence": "medium",
+        "escalate": true,
+        "raw": {
+          "finding": "The surrogate model predicts peak stress asymmetry across the plane, which contradicts the declared problem symmetry that must be respected.",
+          "why_fired": "The W-SURR-01 pattern is triggered because the surrogate's predicted field shows significant asymmetry (18% across the mirror plane), breaking the required symmetry for the structural-margin decision.",
+          "recommended_action": "Further investigation into the model's predictions and validation data is necessary to understand the source of this discrepancy.",
+          "action_class": "acquire-validation",
+          "confidence": "medium",
+          "escalate": true
+        }
+      },
+      {
+        "row_id": "surr-dval08-climate-tails",
+        "action_class": "acquire-validation",
+        "confidence": "medium",
+        "escalate": true,
+        "raw": {
+          "finding": "The validation evidence package lacks specific validation for the decision-relevant regime (99.9th percentile extreme events) despite having high aggregate skill.",
+          "why_fired": "Fired because while the model exhibits high overall accuracy (bulk_rmse_skill_score = 0.96), there is no reported validation for the critical decision-making regime, which involves extremely rare and severe events.",
+          "recommended_action": "Further investigation into the model's performance on extreme events is necessary to ensure robustness in these critical scenarios.",
+          "action_class": "acquire-validation",
+          "confidence": "medium",
+          "escalate": true
+        }
+      },
+      {
+        "row_id": "surr-dval08-fewsamples-analytic-control",
+        "action_class": "accept-residual-risk",
+        "confidence": "high",
+        "escalate": false,
+        "raw": {
+          "finding": "The evidence package includes 6 validation samples against an exact analytic solution (Keplerian) over the domain corners and center. This meets the standard anchor of ASME V&V 40 for sufficiency in D-VAL-08 category.",
+          "why_fired": "The pattern W-AR-05 is triggered by having few validation samples but still meeting the exact analytic solution criterion, which aligns with the domain coverage and error threshold provided.",
+          "recommended_action": "Do not over-act on an alarming-looking but adequately-addressed signal. Proceed as normal based on existing evidence.",
+          "action_class": "accept-residual-risk",
+          "confidence": "high",
+          "escalate": false
+        }
+      },
+      {
+        "row_id": "surr-dval08-high-but-conservative-control",
+        "action_class": "accept-residual-risk",
+        "confidence": "high",
+        "escalate": false,
+        "raw": {
+          "finding": "The evidence package documents the directionality of the validation error correctly.",
+          "why_fired": "The pattern W-AR-05 is triggered because there is a documented directionality of the validation error, which aligns with the standard anchor ASME V&V 40 + decision-conservatism and D-VAL-08.",
+          "recommended_action": "No additional action required; document findings as expected.",
+          "action_class": "accept-residual-risk",
+          "confidence": "high",
+          "escalate": false
+        }
+      },
+      {
+        "row_id": "surr-dval08-leakage",
+        "action_class": "acquire-validation",
+        "confidence": "medium",
+        "escalate": true,
+        "raw": {
+          "finding": "The validation error is low (0.012), but there is evidence that the validation set overlaps with the training set due to shared simulation seeds and combined feature normalization fit.",
+          "why_fired": "This flag fired because a low reported_validation_error coexists with the presence of leakage, as indicated by shared simulation seeds between train and validation sets and combined feature normalization fit on both sets. This violates the D-VAL-08 standard anchor which requires independent validation data.",
+          "recommended_action": "Further investigation is needed to ensure that the validation process does not introduce bias or overfitting.",
+          "action_class": "acquire-validation",
+          "confidence": "medium",
+          "escalate": true
+        }
+      },
+      {
+        "row_id": "surr-dval08-metric-mismatch",
+        "action_class": "acquire-validation",
+        "confidence": "medium",
+        "escalate": true,
+        "raw": {
+          "finding": "The validation metric used (R2_on_concentration_curve) is not tied to the COU's quantity of interest (time_to_peak), which means the surrogate model is validated on a metric that does not directly impact the dosing interval decision.",
+          "why_fired": "Fired because the reported validation metric (R2_on_concentration_curve) is not aligned with the COU of interest, violating the D-VAL-08 standard for purpose-specific validation.",
+          "recommended_action": "Acquire additional validation data that correlates directly with time_to_peak to ensure the surrogate model's predictions are reliable for setting dosing intervals.",
+          "action_class": "acquire-validation",
+          "confidence": "medium",
+          "escalate": true
+        }
+      },
+      {
+        "row_id": "surr-dval08-modesterror-but-within-tolerance-control",
+        "action_class": "accept-residual-risk",
+        "confidence": "high",
+        "escalate": false,
+        "raw": {
+          "finding": "The validation error percentage (8.0%) is lower than the COU's declared acceptance criterion (15.0%), but the COU is still in an early screening stage.",
+          "why_fired": "The pattern W-AR-05 describes a situation where validation against purpose-specific criteria must be judged against the COU's declared acceptance criterion, and this case meets that description.",
+          "recommended_action": "Continue with the current process as planned.",
+          "action_class": "accept-residual-risk",
+          "confidence": "high",
+          "escalate": false
+        }
+      },
+      {
+        "row_id": "surr-dval08-no-independent-validation",
+        "action_class": "acquire-validation",
+        "confidence": "medium",
+        "escalate": true,
+        "raw": {
+          "finding": "The credibility evidence package is missing independent validation data. Only training-set performance metrics are reported.",
+          "why_fired": "The pattern W-AR-05 indicates that there is no independent validation evidence available for the model. The measures show that there are no points in the holdout partition and all reported metrics pertain to the training set alone.",
+          "recommended_action": "Acquire additional validation data from independent sources to verify the model's performance on unseen data.",
+          "action_class": "acquire-validation",
+          "confidence": "medium",
+          "escalate": true
+        }
+      },
+      {
+        "row_id": "surr-dval08-proxy-qoi",
+        "action_class": "acquire-validation",
+        "confidence": "medium",
+        "escalate": true,
+        "raw": {
+          "finding": "The pattern W-AR-05 (D-category D-VAL-08) indicates that the validation is based on a proxy quantity ('capacity_fade') which diverges from the decision quality of interest ('internal_resistance_growth'). The model has high influence over the decision outcome, and the end-of-life call depends critically on internal resistance.",
+          "why_fired": "The pattern fired because the validation is not directly linked to the decision quantity of interest. Instead, it relies on a proxy that does not correlate well with the expected outcomes under certain profiles (fast charge).",
+          "recommended_action": "Further investigation and validation are required to ensure that the model accurately predicts internal resistance growth.",
+          "action_class": "acquire-validation",
+          "confidence": "medium",
+          "escalate": true
+        }
+      },
+      {
+        "row_id": "surr-dval08-single-point-validation",
+        "action_class": "acquire-validation",
+        "confidence": "medium",
+        "escalate": true,
+        "raw": {
+          "finding": "The validation evidence package is based on a single operating point, while the COU (cou) spans a range. This discrepancy between the validation coverage and the operational range of the model violates the standard anchor D-VAL-08.",
+          "why_fired": "The pattern W-AR-05 was triggered because there is a mismatch between the number of validation operating points and the range spanned by the COU, indicating inadequate validation coverage for the operational range.",
+          "recommended_action": "Acquire additional validation data to ensure that the model's performance is adequately tested across the range of equivalence ratios.",
+          "action_class": "acquire-validation",
+          "confidence": "medium",
+          "escalate": true
+        }
+      },
+      {
+        "row_id": "surr-dval09-aleatory-only",
+        "action_class": "acquire-validation",
+        "confidence": "medium",
+        "escalate": true,
+        "raw": {
+          "finding": "The credibility evidence package reports aleatory uncertainty due to homoscedastic output-noise variance but does not propagate model-form or extrapolation uncertainty. This suggests that the variability in the data alone is insufficient to fully capture the uncertainties associated with the application domain.",
+          "why_fired": "Fired because only aleatory (data-noise) uncertainty is reported, while epistemic uncertainty due to model form or extrapolation is absent from the evidence package.",
+          "recommended_action": "Further validation of the model's behavior near the training-domain edge is required to ensure that the uncertainties are fully accounted for in the application domain.",
+          "action_class": "acquire-validation",
+          "confidence": "medium",
+          "escalate": true
+        }
+      },
+      {
+        "row_id": "surr-dval09-borderline-coverage",
+        "action_class": "acquire-validation",
+        "confidence": "medium",
+        "escalate": true,
+        "raw": {
+          "finding": "The empirical coverage of the prediction interval is only 82%, which is below the nominal coverage of 95%. The COU uses this interval directly as a risk bound, making the situation more critical.",
+          "why_fired": "Prediction-interval coverage is below the nominal level, and the relevance of this gap to the COU is unclear, triggering pattern W-AL-02 (D-category: D-VAL-09).",
+          "recommended_action": "Further investigation is required to understand the implications of the lower coverage on risk management.",
+          "action_class": "acquire-validation",
+          "confidence": "medium",
+          "escalate": true
+        }
+      },
+      {
+        "row_id": "surr-dval09-conditional-coverage",
+        "action_class": "acquire-validation",
+        "confidence": "medium",
+        "escalate": true,
+        "raw": {
+          "finding": "The credibility evidence package has a weak coverage on the high-stress elements subgroup, which is critical for the fatigue decision.",
+          "why_fired": "The W-AL-02 pattern indicates that while the overall marginal interval coverage and nominal coverage are acceptable (90%), the conditional coverage at the COU subgroup 'high-stress elements' is only 62%, which fails to meet the standard. This means the decision on fatigue margin for these high-stress elements may be unreliable.",
+          "recommended_action": "Further investigation into the uncertainty of the intervals for high-stress elements is necessary to ensure the robustness of the decision.",
+          "action_class": "acquire-validation",
+          "confidence": "medium",
+          "escalate": true
+        }
+      },
+      {
+        "row_id": "surr-dval09-ensemble-mismatch",
+        "action_class": "acquire-validation",
+        "confidence": "medium",
+        "escalate": true,
+        "raw": {
+          "finding": "The UQ band reported by the model does not cover the regime where it is being used for decision-making. The interval coverage in the in-distribution test is within the nominal coverage, but no validation was performed on the extrapolation set.",
+          "why_fired": "Fired because the prediction uncertainty quantification (UQ) is validated only within the training distribution while the model is making predictions outside this range due to its high influence on decision-making. This discrepancy could lead to an underestimation of risk in safety-critical operations.",
+          "recommended_action": "Further validation should be conducted to ensure that the UQ band adequately covers the regime where it will be used.",
+          "action_class": "acquire-validation",
+          "confidence": "medium",
+          "escalate": true
+        }
+      },
+      {
+        "row_id": "surr-dval09-ensemble-spread-bounded-control",
+        "action_class": "accept-residual-risk",
+        "confidence": "high",
+        "escalate": false,
+        "raw": {
+          "finding": "The ensemble spread is 15% of the mean, which is within acceptable limits. The decision threshold has a margin beyond the spread, with a distance to the decision threshold of 4 standard deviations, which is substantial.",
+          "why_fired": "The fired pattern W-AL-02 indicates that while the ensemble spread looks large, the decision threshold has a significant margin beyond this spread, suggesting the model's uncertainty is adequately addressed by the decision margin.",
+          "recommended_action": "Do not overreact to the large ensemble spread as the decision margin provides sufficient buffer.",
+          "action_class": "accept-residual-risk",
+          "confidence": "high",
+          "escalate": false
+        }
+      },
+      {
+        "row_id": "surr-dval09-fno-spectral",
+        "action_class": "acquire-validation",
+        "confidence": "medium",
+        "escalate": true,
+        "raw": {
+          "finding": "The validation metric does not resolve the fine-scale mixing structure due to an uncharacterized high-frequency residual that is significant.",
+          "why_fired": "The relative L2 error for the high-frequency band (0.38) is significantly higher than the all-scales aggregate relative L2 error (0.03), indicating a large uncharacterized high-frequency residual in the validation results. This high-frequency residual affects the fine-scale mixing structure, which is QoI-relevant.",
+          "recommended_action": "Further investigation and validation are required to characterize the high-frequency residuals.",
+          "action_class": "acquire-validation",
+          "confidence": "medium",
+          "escalate": true
+        }
+      },
+      {
+        "row_id": "surr-dval09-largevar-calibrated-control",
+        "action_class": "accept-residual-risk",
+        "confidence": "high",
+        "escalate": false,
+        "raw": {
+          "finding": "The evidence package includes a wide interval but provides empirical coverage within the COU regime and includes epistemic variance. The decision margin is informed by this band.",
+          "why_fired": "The pattern W-AL-02 (D-category: D-VAL-09) indicates that there is a prediction uncertainty not fully validated, which is addressed in the evidence package through empirical coverage and inclusion of epistemic variance.",
+          "recommended_action": "The wide band informs a margin decision the engineer can act on.",
+          "action_class": "accept-residual-risk",
+          "confidence": "high",
+          "escalate": false
+        }
+      },
+      {
+        "row_id": "surr-dval09-mlip-ood-config",
+        "action_class": "acquire-validation",
+        "confidence": "medium",
+        "escalate": true,
+        "raw": {
+          "finding": "The W-AL-02 pattern indicates that the uncertainty quantification (UQ) method used is calibrated on in-distribution configurations but has not been tested against novel high-energy transition states. This suggests potential underestimation of uncertainties for out-of-distribution scenarios.",
+          "why_fired": "Fired because the COU samples 'high-energy transition states,' which are novel configurations, and these have not been included in the ensemble's calibration process. The UQ method lacks measurement on ECE (Expected Calibration Error) specifically for this type of configuration.",
+          "recommended_action": "Further validation is needed to ensure accurate uncertainty estimates for high-energy transition states.",
+          "action_class": "acquire-validation",
+          "confidence": "medium",
+          "escalate": true
+        }
+      },
+      {
+        "row_id": "surr-dval09-uq-absent-entirely",
+        "action_class": "acquire-validation",
+        "confidence": "medium",
+        "escalate": true,
+        "raw": {
+          "finding": "The surrogate model outputs point predictions without any uncertainty bounds for the decision on gate part acceptance. This violates the standard requirement that prediction uncertainty should be reported to support the decision rule.",
+          "why_fired": "The pattern W-AL-02 (D-category: D-VAL-09) was triggered because there are no uncertainty fields in the model's output, which is critical for a decision on part acceptance where high model influence and significant consequences exist.",
+          "recommended_action": "Provide additional uncertainty estimates to support the decision-making process.",
+          "action_class": "acquire-validation",
+          "confidence": "medium",
+          "escalate": true
+        }
+      },
+      {
+        "row_id": "surr-dval09-wide-but-physical-control",
+        "action_class": "accept-residual-risk",
+        "confidence": "high",
+        "escalate": false,
+        "raw": {
+          "finding": "The evidence package includes an interval halfwidth percentage of mean that is within the acceptable range and empirical coverage in COU regime that exceeds nominal coverage expectations. The calibration holdout method used is appropriate for validating model performance.",
+          "why_fired": "The pattern W-AL-02 (D-category: D-VAL-09) indicates a prediction uncertainty that has not been fully validated, which aligns with the measures provided.",
+          "recommended_action": "No additional action required; the current evidence package adequately addresses the validation concerns.",
+          "action_class": "accept-residual-risk",
+          "confidence": "high",
+          "escalate": false
+        }
+      },
+      {
+        "row_id": "surr-dval09-wide-prior-narrow-posterior-control",
+        "action_class": "acquire-validation",
+        "confidence": "medium",
+        "escalate": true,
+        "raw": {
+          "finding": "The evidence package provides prior parameter uncertainty and posterior predictive interval validation, but the posterior predictive interval is very narrow (5%), which may be overly confident.",
+          "why_fired": "The pattern W-AL-02 requires both wide prior uncertainty and a validated reported posterior predictive uncertainty. The current narrow posterior predictive interval suggests overconfidence in the model's predictions.",
+          "recommended_action": "Further validation of the model's assumptions is needed to ensure robustness.",
+          "action_class": "acquire-validation",
+          "confidence": "medium",
+          "escalate": true
+        }
+      },
+      {
+        "row_id": "surr-dver05-mms-only",
+        "action_class": "acquire-validation",
+        "confidence": "medium",
+        "escalate": true,
+        "raw": {
+          "finding": "The evidence package indicates that code verification has been performed with MMS/idealized tests passing. However, there is no provided information on residuals relative to the application configuration, which is a notched component under combined load conditions. This absence of application-domain residual validation suggests a potential gap in the verification process.",
+          "why_fired": "The pattern W-SURR-04 (D-category: D-VER-05) was triggered because while there is evidence of code verification, there is no solution-verification on the application domain. Specifically, MMS/idealized tests have passed but residuals in the application configuration are unlinked.",
+          "recommended_action": "Further validation and analysis are needed to ensure the model's predictions hold under real-world conditions.",
+          "action_class": "acquire-validation",
+          "confidence": "medium",
+          "escalate": true
+        }
+      },
+      {
+        "row_id": "surr-dver06-coverage-hole",
+        "action_class": "acquire-validation",
+        "confidence": "medium",
+        "escalate": true,
+        "raw": {
+          "finding": "The W-SURR-04 pattern indicates that the benchmark does not cover the specific decision-relevant cell (Re 5.8e6, AoA 14) within a 5% margin, which is crucial for the stall-margin decision.",
+          "why_fired": "This pattern fired because the benchmark coverage spans most of the space but lacks samples in the exact region where the surrogate model's performance could significantly impact the decision (stall margin set on the surrogate).",
+          "recommended_action": "The engineer should gather additional validation data to ensure robustness at this critical point.",
+          "action_class": "acquire-validation",
+          "confidence": "medium",
+          "escalate": true
+        }
+      },
+      {
+        "row_id": "surr-dver06-mesh-marginal",
+        "action_class": "acquire-validation",
+        "confidence": "low",
+        "escalate": true,
+        "raw": {
+          "finding": "The discretization convergence is demonstrated only within a coarse band of the asymptotic value, indicating that the model has not achieved the desired level of refinement necessary for reliable results.",
+          "why_fired": "The pattern W-SURR-04 (D-category: D-VER-06) was triggered because the finest mesh grid cell percentage is only 8%, which is below the standard anchor's requirement, and the asymptotic value has not been reached. This suggests that the model may not be providing a sufficiently accurate representation of the system being studied.",
+          "recommended_action": "Further investigation into the model refinement is necessary to ensure it meets the required accuracy standards.",
+          "action_class": "acquire-validation",
+          "confidence": "low",
+          "escalate": true
+        }
+      },
+      {
+        "row_id": "surr-dver06-resolution-hole",
+        "action_class": "acquire-validation",
+        "confidence": "medium",
+        "escalate": true,
+        "raw": {
+          "finding": "The verification set does not cover the resolution of 1024x1024, which is queried by the operator surrogate for fine-scale decision-making. This results in a benchmark coverage gap.",
+          "why_fired": "Fired because the COU's specific grid resolution (1024x1024) is unsampled in the verification set, even though other resolutions are covered on average.",
+          "recommended_action": "Further validation at the required resolution should be conducted to ensure accurate decision-making.",
+          "action_class": "acquire-validation",
+          "confidence": "medium",
+          "escalate": true
+        }
+      },
+      {
+        "row_id": "surr-dver06-steady-for-transient",
+        "action_class": "acquire-validation",
+        "confidence": "medium",
+        "escalate": true,
+        "raw": {
+          "finding": "The weakener fired on the credibility evidence package because solution-verification was performed in steady-state mode, while the COU (coupled model) operates in fast transient mode.",
+          "why_fired": "This discrepancy between operating modes can lead to uncertainties in the validation of the transient behavior predicted by the surrogate model. ASME V&V 40 requires comprehensive coverage of different operating conditions for robust verification.",
+          "recommended_action": "Acquire additional validation data under fast-transient conditions to ensure that the surrogate model accurately predicts the transient pressure spike.",
+          "action_class": "acquire-validation",
+          "confidence": "medium",
+          "escalate": true
+        }
+      },
+      {
+        "row_id": "surr-surr02-parent-rejected-thermal",
+        "action_class": "acquire-validation",
+        "confidence": "medium",
+        "escalate": true,
+        "raw": {
+          "finding": "The surrogate model's training reference (CFD-thermal-v3) was rejected due to the lack of mesh-independence demonstration. The surrogate does not reconcile this issue.",
+          "why_fired": "This pattern fired because the reference model used for training the surrogate carries a recorded rejection status, specifically related to mesh-independence not being demonstrated. The surrogate fails to address or resolve this issue, leading to the flagging under D-PD-01 criteria.",
+          "recommended_action": "Acquire additional validation data and analysis to support the surrogate's performance, particularly focusing on mesh-independence.",
+          "action_class": "acquire-validation",
+          "confidence": "medium",
+          "escalate": true
+        }
+      },
+      {
+        "row_id": "surr-surr02-parent-rejected",
+        "action_class": "acquire-validation",
+        "confidence": "medium",
+        "escalate": true,
+        "raw": {
+          "finding": "The weakener fired on the credibility evidence package because the parent model's 'Not Accepted' decision is not reconciled in the child surrogate package.",
+          "why_fired": "According to the pattern definition and measures provided, the parent model carries a recorded 'Not Accepted' decision that the child package does not reconcile. This discrepancy suggests potential issues with the inherited credibility defect as defined by ASME V&V 40 hierarchical credibility.",
+          "recommended_action": "Further investigation is required to understand the implications of the 'Not Accepted' decision on the surrogate model's reliability and applicability.",
+          "action_class": "acquire-validation",
+          "confidence": "medium",
+          "escalate": true
+        }
+      }
+    ]
+  },
+  "catalog_ablated": {
+    "hard_core": {
+      "n": 60,
+      "action_buckets": {
+        "correct": 30,
+        "partial": 13,
+        "wrong": 16,
+        "harmful": 1
+      },
+      "dangerous_error_rate": 0.016666666666666666,
+      "posture_accuracy": 0.7666666666666667,
+      "selection_accuracy": 0.5,
+      "forbidden_violation_rate": 0.0,
+      "escalation_rate": 0.8333333333333334,
+      "ece": 0.415,
+      "selective_coverage_at_alpha": 0.0,
+      "alpha": 0.02,
+      "selective_curve": [
+        {
+          "tau": 0.9,
+          "coverage": 0.05,
+          "risk": 0.3333333333333333
+        },
+        {
+          "tau": 0.85,
+          "coverage": 0.06666666666666667,
+          "risk": 0.25
+        },
+        {
+          "tau": 0.8,
+          "coverage": 0.06666666666666667,
+          "risk": 0.25
+        },
+        {
+          "tau": 0.75,
+          "coverage": 0.06666666666666667,
+          "risk": 0.25
+        },
+        {
+          "tau": 0.7,
+          "coverage": 0.06666666666666667,
+          "risk": 0.25
+        },
+        {
+          "tau": 0.6,
+          "coverage": 0.16666666666666666,
+          "risk": 0.7
+        },
+        {
+          "tau": 0.5,
+          "coverage": 0.16666666666666666,
+          "risk": 0.7
+        },
+        {
+          "tau": 0.3,
+          "coverage": 0.16666666666666666,
+          "risk": 0.7
+        }
+      ]
+    },
+    "answers": [
+      {
+        "row_id": "surr-dccb10-augmented-not-real",
+        "action_class": "acquire-validation",
+        "confidence": "medium",
+        "escalate": true,
+        "raw": {
+          "finding": "The evidence package shows that the AI surrogate has been trained on a large dataset with a significant fraction of synthetic data. However, there are no validation points from real system data used in the validation set.",
+          "why_fired": "Insufficient validation evidence",
+          "recommended_action": "Acquire additional validation data from real systems to ensure model performance and reliability for qualification decisions.",
+          "action_class": "acquire-validation",
+          "confidence": "medium",
+          "escalate": true
+        }
+      },
+      {
+        "row_id": "surr-dccb10-uncorrected-sensor-drift",
+        "action_class": "acquire-validation",
+        "confidence": "medium",
+        "escalate": true,
+        "raw": {
+          "finding": "The evidence package shows that the surrogate model has an 80% fit to training measurements and drift is present in logs but not corrected. However, there are concerns regarding the calibration drift and lack of drift correction.",
+          "why_fired": "The model's performance metrics suggest it can be used for predicting efficiency with some reservations due to uncorrected drift, which could impact long-term reliability.",
+          "recommended_action": "Perform a drift correction or validate the model without applying corrections to assess its stability over time.",
+          "action_class": "acquire-validation",
+          "confidence": "medium",
+          "escalate": true
+        }
+      },
+      {
+        "row_id": "surr-dccb10-vintage-regime",
+        "action_class": "acquire-validation",
+        "confidence": "low",
+        "escalate": true,
+        "raw": {
+          "finding": "The evidence package does not provide sufficient training data for the operating conditions of interest.",
+          "why_fired": "The training points do not cover the 90% load transient condition under which the surrogate will be used. This gap in coverage may lead to inaccurate predictions and could have significant consequences on control margin decisions.",
+          "recommended_action": "Acquire additional training data specific to the 90% load transient operating regime.",
+          "action_class": "acquire-validation",
+          "confidence": "low",
+          "escalate": true
+        }
+      },
+      {
+        "row_id": "surr-dccb11-undocumented-clipping",
+        "action_class": "acquire-validation",
+        "confidence": "medium",
+        "escalate": true,
+        "raw": {
+          "finding": "The evidence package provides validation error metrics but lacks comprehensive validation on the specific context of use.",
+          "why_fired": "The training target maximum percentile and cou target percentile are high, indicating good general performance. However, the validation error is relatively high at 0.6%, which suggests potential issues with model accuracy. The absence of any training targets above the 95th percentile for the specific context (extreme-load contingencies) raises concerns about how well the surrogate will perform in such scenarios.",
+          "recommended_action": "Further validation on extreme-load contingency cases is necessary to ensure accurate performance.",
+          "action_class": "acquire-validation",
+          "confidence": "medium",
+          "escalate": true
+        }
+      },
+      {
+        "row_id": "surr-dccb12-seed-sensitivity",
+        "action_class": "acquire-validation",
+        "confidence": 0.7,
+        "escalate": true,
+        "raw": {
+          "finding": "The evidence package relies heavily on the reported accuracy of a single training run without providing information on variability or reproducibility.",
+          "why_fired": "Given the context where high model influence and significant decision consequences are involved, a single-run metric does not provide adequate assurance of reliability and robustness.",
+          "recommended_action": "Further validation is necessary to assess the consistency and stability of the model's performance across multiple runs.",
+          "action_class": "acquire-validation",
+          "confidence": 0.7,
+          "escalate": true
+        }
+      },
+      {
+        "row_id": "surr-dccb12-suspected-feature-leakage",
+        "action_class": "supply-evidence",
+        "confidence": "medium",
+        "escalate": true,
+        "raw": {
+          "finding": "The evidence package indicates that the surrogate has a high validation accuracy but lacks evidence of feature-target independence. The suspect feature is also highlighted as potentially problematic.",
+          "why_fired": "The validation accuracy alone does not sufficiently support the use of the AI surrogate in the context where the model's influence on decision-making is high and the consequences are significant.",
+          "recommended_action": "Further investigation into feature-target independence is required to ensure the surrogate\u2019s reliability.",
+          "action_class": "supply-evidence",
+          "confidence": "medium",
+          "escalate": true
+        }
+      },
+      {
+        "row_id": "surr-dccb12-temporal-leakage",
+        "action_class": "acquire-validation",
+        "confidence": 0.6,
+        "escalate": true,
+        "raw": {
+          "finding": "The validation error percentage is very high at 90%, which indicates poor model performance. The series autocorrelation being high and the train-validation temporal relationship being interleaved could be valid strategies for certain models but do not directly address the issue of high validation error.",
+          "why_fired": "High validation error percentage (90%) suggests that the surrogate may not perform well in real-world scenarios, which is critical given the high model influence and severe consequences of incorrect forecasts.",
+          "recommended_action": "Acquire additional validation data or methods to improve the model's performance.",
+          "action_class": "acquire-validation",
+          "confidence": 0.6,
+          "escalate": true
+        }
+      },
+      {
+        "row_id": "surr-dccb13-tuned-on-validation",
+        "action_class": "acquire-validation",
+        "confidence": "medium",
+        "escalate": true,
+        "raw": {
+          "finding": "The evidence package provides high reported validation accuracy but lacks separate test sets for validation.",
+          "why_fired": "The model selection objective is to maximize accuracy on the reported validation set, which is the basis of acceptance. However, without separate test sets, there's no independent validation to ensure the model generalizes well.",
+          "recommended_action": "Acquire additional validation data to independently verify the model\u2019s performance.",
+          "action_class": "acquire-validation",
+          "confidence": "medium",
+          "escalate": true
+        }
+      },
+      {
+        "row_id": "surr-dccb14-circular-reference",
+        "action_class": "supply-evidence",
+        "confidence": 0.5,
+        "escalate": true,
+        "raw": {
+          "finding": "The evidence package is inadequate due to the lack of validation against high-fidelity models or experimental data and the absence of any truth validation for the reference model.",
+          "why_fired": "Inadequate validation evidence: The surrogate has only been validated against a reduced-order model used as 'truth', without independent high-fidelity checks or experimental validations. This increases the risk that the surrogate may not accurately represent reality, especially given its high influence on critical decisions.",
+          "recommended_action": "Further validation is needed to ensure accuracy and reliability of predictions.",
+          "action_class": "supply-evidence",
+          "confidence": 0.5,
+          "escalate": true
+        }
+      },
+      {
+        "row_id": "surr-dccb14-repro-gap",
+        "action_class": "supply-evidence",
+        "confidence": 0.7,
+        "escalate": true,
+        "raw": {
+          "finding": "The evidence package is lacking in several critical areas necessary for independent reproducibility.",
+          "why_fired": "The package does not provide trained weights, environment specifications, or reproduction scripts. These are essential for ensuring that the model can be independently verified and reproduced.",
+          "recommended_action": "Supply additional evidence to support reproducibility.",
+          "action_class": "supply-evidence",
+          "confidence": 0.7,
+          "escalate": true
+        }
+      },
+      {
+        "row_id": "surr-dccb15-rare-failure-class",
+        "action_class": "acquire-validation",
+        "confidence": "medium",
+        "escalate": true,
+        "raw": {
+          "finding": "The evidence package provides strong overall accuracy but lacks specific validation for the rare fault regime.",
+          "why_fired": "While the surrogate has high overall accuracy and infrequent exposure to rare faults, there is no reported error rate or additional validation for this specific condition. This gap could lead to potential misinterpretation in critical decision-making scenarios involving rare faults.",
+          "recommended_action": "Further validation is necessary to ensure reliability in the rare fault regime.",
+          "action_class": "acquire-validation",
+          "confidence": "medium",
+          "escalate": true
+        }
+      },
+      {
+        "row_id": "surr-dpd01-different-bc",
+        "action_class": "acquire-validation",
+        "confidence": "medium",
+        "escalate": true,
+        "raw": {
+          "finding": "The evidence package indicates that the surrogate was trained with fixed-temperature boundary conditions but is being used under convective boundary conditions. There are no training cases with the specific boundary condition it will be used under.",
+          "why_fired": "The gap in the training data does not adequately cover the specific boundary condition (convective) for which the model will be used, indicating a potential risk of extrapolation.",
+          "recommended_action": "Acquire additional validation data to ensure robustness under convective boundary conditions.",
+          "action_class": "acquire-validation",
+          "confidence": "medium",
+          "escalate": true
+        }
+      },
+      {
+        "row_id": "surr-dpd01-old-version-revalidated-control",
+        "action_class": "acquire-validation",
+        "confidence": "medium",
+        "escalate": true,
+        "raw": {
+          "finding": "The revalidation error is relatively low at 3.0%, but the surrogate model version (v2) is outdated compared to the latest version (v4). Given that the model influence on the decision outcome is high and the consequence of a wrong decision could be significant, there are concerns about potential inaccuracies.",
+          "why_fired": "The revalidation error percentage is within an acceptable range, but the use of an older model version suggests potential risks given its high impact on critical decisions.",
+          "recommended_action": "Acquire validation for the current model (v2) to ensure it remains reliable in the context of use.",
+          "action_class": "acquire-validation",
+          "confidence": "medium",
+          "escalate": true
+        }
+      },
+      {
+        "row_id": "surr-dpd02-carbench-wheelhousing",
+        "action_class": "acquire-validation",
+        "confidence": "medium",
+        "escalate": true,
+        "raw": {
+          "finding": "The evidence package provides information on the surrogate's performance in terms of global geometry out-of-distribution behavior and ensemble standard deviation. However, it lacks validation samples specifically from within the wheel housing region where flow contributions are deemed dominant.",
+          "why_fired": "Insufficient validation data for critical regions",
+          "recommended_action": "Acquire additional validation data",
+          "action_class": "acquire-validation",
+          "confidence": "medium",
+          "escalate": true
+        }
+      },
+      {
+        "row_id": "surr-dpd02-edge-but-validated-control",
+        "action_class": "supply-evidence",
+        "confidence": "medium",
+        "escalate": true,
+        "raw": {
+          "finding": "The evidence package shows that the surrogate model's performance is within the stated bounds at the evaluation point, and there is a dedicated reference run available to validate this. However, the evaluation point is just past the nominal training box, indicating potential extrapolation outside the training data.",
+          "why_fired": "While the residual risk appears acceptable for design decisions, the high model influence and critical nature of the decision at this evaluation point suggest that more rigorous validation or additional evidence might be necessary to fully mitigate risks.",
+          "recommended_action": "Perform a more comprehensive validation study to ensure robustness beyond the training data boundaries.",
+          "action_class": "supply-evidence",
+          "confidence": "medium",
+          "escalate": true
+        }
+      },
+      {
+        "row_id": "surr-dpd02-extrap-but-physics-bounded-control",
+        "action_class": "accept-residual-risk",
+        "confidence": 0.85,
+        "escalate": false,
+        "raw": {
+          "finding": "The evidence package shows that the surrogate model performs well within its training range and slightly beyond, which aligns with the case context of evaluating at 20% above the maximum training load. The stress evaluation under this condition is within a linear-elastic regime, matching the expected behavior.",
+          "why_fired": "The key aspect supporting the use of the model is that it operates within its validated range and exhibits consistent behavior as predicted by the regime verification.",
+          "recommended_action": "Continue using the model with caution.",
+          "action_class": "accept-residual-risk",
+          "confidence": 0.85,
+          "escalate": false
+        }
+      },
+      {
+        "row_id": "surr-dpd02-hypersonic-extrap-hard",
+        "action_class": "acquire-validation",
+        "confidence": "medium",
+        "escalate": true,
+        "raw": {
+          "finding": "The evidence package shows that the surrogate was trained on Mach numbers between 2.0 and 6.0, but the evaluation is at Mach 6.5, which falls outside this range.",
+          "why_fired": "The training data does not cover the evaluation point adequately, leading to potential extrapolation issues.",
+          "recommended_action": "Further validation is needed to ensure the surrogate's performance at higher Mach numbers.",
+          "action_class": "acquire-validation",
+          "confidence": "medium",
+          "escalate": true
+        }
+      },
+      {
+        "row_id": "surr-dpd02-laminar-to-turbulent",
+        "action_class": "acquire-validation",
+        "confidence": 0.75,
+        "escalate": true,
+        "raw": {
+          "finding": "The evidence package indicates that the surrogate has been trained with data up to Re 1500 and does not have any training points above Re 2300. This means there is no validation of its performance at higher Reynolds numbers where it will be used.",
+          "why_fired": "The training data does not cover the range required for the surrogate's intended use, which involves predicting pressure drop at a much higher Reynolds number (Re 4000).",
+          "recommended_action": "Further validation is needed to ensure accuracy in the high-Reynolds number regime.",
+          "action_class": "acquire-validation",
+          "confidence": 0.75,
+          "escalate": true
+        }
+      },
+      {
+        "row_id": "surr-dpd02-mesh-too-coarse",
+        "action_class": "acquire-validation",
+        "confidence": "medium",
+        "escalate": true,
+        "raw": {
+          "finding": "The evidence package indicates that the surrogate model has been trained with sufficient resolution of the thermal boundary layer (y+ = 80) and achieves a relatively low training fit error percentage (1.2%). However, it lacks validation data to confirm its performance in an independent context.",
+          "why_fired": "Insufficient validation evidence",
+          "recommended_action": "Acquire validation data for the surrogate model before full deployment.",
+          "action_class": "acquire-validation",
+          "confidence": "medium",
+          "escalate": true
+        }
+      },
+      {
+        "row_id": "surr-dpd02-ood-flag-but-validated-control",
+        "action_class": null,
+        "confidence": "medium",
+        "escalate": false,
+        "raw": {}
+      },
+      {
+        "row_id": "surr-dpd02-rollout-horizon",
+        "action_class": "acquire-validation",
+        "confidence": "low",
+        "escalate": true,
+        "raw": {
+          "finding": "The evidence package indicates that the single-step error percentage is within an acceptable range (0.2%), and the maximum validated horizon steps are up to 10, which might be sufficient for short-term trajectory safety decisions. However, there is no data provided regarding long-horizon errors, even though the context involves a 500-step rollout.",
+          "why_fired": "The lack of long-horizon error data is critical since the model's influence on decision-making is high and the consequences are significant for trajectory safety over 500 steps.",
+          "recommended_action": "Further validation is required to ensure reliability beyond short horizons.",
+          "action_class": "acquire-validation",
+          "confidence": "low",
+          "escalate": true
+        }
+      },
+      {
+        "row_id": "surr-dpd02-saturation-bounded-control",
+        "action_class": "accept-residual-risk",
+        "confidence": 0.9,
+        "escalate": false,
+        "raw": {
+          "finding": "The evidence package provides strong support for the model's behavior in the saturation region, which is critical for the go/no-go decision.",
+          "why_fired": "The physical ceiling has been validated and predictions are bracketed by this ceiling as required. The response shape is monotone saturating, which aligns with expected physics behaviors. The evaluation input vs training data shows a reasonable range, though slightly higher than ideal.",
+          "recommended_action": "Accept the model's use in its current form, but monitor for any unexpected behavior.",
+          "action_class": "accept-residual-risk",
+          "confidence": 0.9,
+          "escalate": false
+        }
+      },
+      {
+        "row_id": "surr-dpd02-thermal-hotspot",
+        "action_class": "acquire-validation",
+        "confidence": "medium",
+        "escalate": true,
+        "raw": {
+          "finding": "The evidence package indicates that the surrogate model has an RMS error of 1.5\u00b0C for predicting board mean temperature and is described as having a steep peak vs. mean temperature gradient. However, there are no validation points specifically at the junction hotspot, which is critical for the context of use.",
+          "why_fired": "The package lacks specific validation evidence from the junction hotspot area, despite its high model influence on reliability sign-off decisions and significant consequences if the surrogate's predictions are inaccurate.",
+          "recommended_action": "Additional validation should be conducted at the junction hotspot to ensure accurate predictions in this critical region.",
+          "action_class": "acquire-validation",
+          "confidence": "medium",
+          "escalate": true
+        }
+      },
+      {
+        "row_id": "surr-dpd02-transfer-no-revalidation",
+        "action_class": "acquire-validation",
+        "confidence": "medium",
+        "escalate": true,
+        "raw": {
+          "finding": "The evidence package shows that the surrogate model has been validated using data from system A, but there is no validation against the target system B for which it will be used. The constitutive classes are different, which may affect the transferability of the model.",
+          "why_fired": "The validation gap between the source and target systems could lead to inaccuracies in predictions.",
+          "recommended_action": "Acquire additional validation data from system B or perform cross-validation if possible.",
+          "action_class": "acquire-validation",
+          "confidence": "medium",
+          "escalate": true
+        }
+      },
+      {
+        "row_id": "surr-dpd02-turbine-tipgap",
+        "action_class": "acquire-validation",
+        "confidence": "medium",
+        "escalate": true,
+        "raw": {
+          "finding": "The evidence package lacks validation cases that cover the tip gap region, which is identified as a primary driver for heat transfer. The surrogate's influence on the decision outcome is high due to its model-influence and decision-consequence factors.",
+          "why_fired": "The lack of validation in the critical region (tip gap) means that the accuracy and reliability of the surrogate predictions cannot be fully assured, especially since this area significantly impacts heat transfer.",
+          "recommended_action": "Acquire additional validation data for the tip gap region to ensure accurate predictions.",
+          "action_class": "acquire-validation",
+          "confidence": "medium",
+          "escalate": true
+        }
+      },
+      {
+        "row_id": "surr-dpd03-omitted-but-not-asserted-control",
+        "action_class": null,
+        "confidence": "medium",
+        "escalate": false,
+        "raw": {}
+      },
+      {
+        "row_id": "surr-dpd04-energy-residual",
+        "action_class": "acquire-validation",
+        "confidence": "medium",
+        "escalate": true,
+        "raw": {
+          "finding": "The surrogate's performance is within an acceptable range for the given context, but there are concerns regarding energy conservation and model influence.",
+          "why_fired": "The global energy imbalance percentage of 6.0% exceeds a typical threshold, which could affect long-term accuracy and reliability. Additionally, the high model influence suggests that small errors in the surrogate could significantly impact critical decisions such as cooling margin.",
+          "recommended_action": "Perform additional validation to ensure robustness under various conditions.",
+          "action_class": "acquire-validation",
+          "confidence": "medium",
+          "escalate": true
+        }
+      },
+      {
+        "row_id": "surr-dpd04-pinn-massresidual",
+        "action_class": "acquire-validation",
+        "confidence": "medium",
+        "escalate": true,
+        "raw": {
+          "finding": "The R\u00b2 value is very high at 0.995, indicating a strong correlation between the surrogate model and the data. However, the data samples are sparse and scattered, which could limit the generalizability of the model. The declared constraint (mass conservation) is relevant to the context. The integrated continuity residual is relatively high at 0.08, suggesting some deviation from the expected behavior.",
+          "why_fired": "The high R\u00b2 value suggests a good fit with the data, but the sparse and scattered nature of the data samples limits confidence in the model's predictive power. The high integrated continuity residual indicates potential issues with mass conservation, which is critical for emissions compliance.",
+          "recommended_action": "Further validation is necessary to ensure robustness across a broader range of scenarios.",
+          "action_class": "acquire-validation",
+          "confidence": "medium",
+          "escalate": true
+        }
+      },
+      {
+        "row_id": "surr-dpd04-reciprocity-violated",
+        "action_class": "supply-evidence",
+        "confidence": "medium",
+        "escalate": true,
+        "raw": {
+          "finding": "The evidence package provides some relevant metrics but lacks comprehensive validation specific to the context of predicting antenna coupling for EMC compliance.",
+          "why_fired": "The s_param_fit_error_dB and network_type indicate a reasonable fit within the passive network context. However, there is no explicit validation or residual analysis directly related to the prediction accuracy in the context of antenna coupling, which is crucial for EMC compliance arguments.",
+          "recommended_action": "Perform additional validation specific to antenna coupling scenarios.",
+          "action_class": "supply-evidence",
+          "confidence": "medium",
+          "escalate": true
+        }
+      },
+      {
+        "row_id": "surr-dpd04-residual-below-noise-control",
+        "action_class": "supply-evidence",
+        "confidence": 0.75,
+        "escalate": true,
+        "raw": {
+          "finding": "The energy conservation residual is relatively small at 0.3%, which suggests the model maintains consistency with physical laws. However, the reference data noise floor is high at 1.0%, indicating potential issues with the accuracy of the surrogate's predictions.",
+          "why_fired": "While the model shows good adherence to fundamental principles, the high noise in the reference data could lead to unreliable decisions on noise margins.",
+          "recommended_action": "Supply additional evidence to validate the noise floor and improve prediction accuracy.",
+          "action_class": "supply-evidence",
+          "confidence": 0.75,
+          "escalate": true
+        }
+      },
+      {
+        "row_id": "surr-dpd04-residual-declared-bounded-control",
+        "action_class": "supply-evidence",
+        "confidence": "medium",
+        "escalate": true,
+        "raw": {
+          "finding": "The evidence package indicates that the residual is propagated into the QoI uncertainty, which aligns with the case context. The declared model form uncertainty allowance and documented residuals are also provided.",
+          "why_fired": "While the evidence package provides sufficient information to understand the handling of uncertainties, it does not explicitly address potential biases or validate the accuracy of the surrogate model beyond its form uncertainty allowance.",
+          "recommended_action": "Consider additional validation efforts",
+          "action_class": "supply-evidence",
+          "confidence": "medium",
+          "escalate": true
+        }
+      },
+      {
+        "row_id": "surr-dpd04-residual-off-qoi-control",
+        "action_class": "accept-residual-risk",
+        "confidence": "high",
+        "escalate": false,
+        "raw": {
+          "finding": "The evidence package suggests that the residual region has negligible sensitivity to the QoI of interest (near-field flame position), which is consistent with the context where this QoI feeds into a decision on flame stability.",
+          "why_fired": "The sensitivity analysis supports the model's applicability in the given context, and there are no significant gaps or contradictions identified.",
+          "recommended_action": "Accept the use of the physics-AI surrogate for its intended context.",
+          "action_class": "accept-residual-risk",
+          "confidence": "high",
+          "escalate": false
+        }
+      },
+      {
+        "row_id": "surr-dpd04-symmetry-broken",
+        "action_class": "acquire-validation",
+        "confidence": 0.7,
+        "escalate": true,
+        "raw": {
+          "finding": "The evidence package includes measures of NRMSE for displacement, symmetry in geometry and load, and predicted field asymmetry. However, the high percentage of predicted field asymmetry suggests potential issues with the model's accuracy.",
+          "why_fired": "Predicted field asymmetry is a significant concern given its high value of 18%, which may indicate that the surrogate model is not accurately capturing the physical behavior across the plane, especially in critical areas like peak stress prediction for structural margin decisions.",
+          "recommended_action": "Further validation and refinement are necessary to address the predicted field asymmetry before full use.",
+          "action_class": "acquire-validation",
+          "confidence": 0.7,
+          "escalate": true
+        }
+      },
+      {
+        "row_id": "surr-dval08-climate-tails",
+        "action_class": "acquire-validation",
+        "confidence": 0.7,
+        "escalate": true,
+        "raw": {
+          "finding": "The evidence package indicates strong skill in general but lacks specific validation for extreme events, which is critical given the context.",
+          "why_fired": "Insufficient validation of model performance on the decision regime (99.9th-percentile extreme events) and no reported skill metrics for such events.",
+          "recommended_action": "Acquire additional validation data focusing on extreme events to ensure robustness in this context.",
+          "action_class": "acquire-validation",
+          "confidence": 0.7,
+          "escalate": true
+        }
+      },
+      {
+        "row_id": "surr-dval08-fewsamples-analytic-control",
+        "action_class": null,
+        "confidence": "medium",
+        "escalate": false,
+        "raw": {}
+      },
+      {
+        "row_id": "surr-dval08-high-but-conservative-control",
+        "action_class": "accept-residual-risk",
+        "confidence": 0.75,
+        "escalate": true,
+        "raw": {
+          "finding": "The evidence package indicates that the AI surrogate over-predicts stress by a consistent margin (always positive), which is critical for decisions where the prediction feeds into setting a stress-margin. The validation error percentage is 12%, and directionality is well-documented.",
+          "why_fired": "While the directionality of errors is correctly documented, the high model influence on the decision outcome and the potential for over-prediction in safety-critical applications raise concerns about the residual risk.",
+          "recommended_action": "Continued monitoring and periodic validation updates are recommended to ensure the surrogate's performance remains acceptable.",
+          "action_class": "accept-residual-risk",
+          "confidence": 0.75,
+          "escalate": true
+        }
+      },
+      {
+        "row_id": "surr-dval08-leakage",
+        "action_class": "supply-evidence",
+        "confidence": 0.7,
+        "escalate": true,
+        "raw": {
+          "finding": "The evidence package includes validation error, feature normalization details, simulation seeds sharing, and val split timing. However, the reported validation error is only 0.012, which might be too low for high model influence cases.",
+          "why_fired": "The validation error seems unrealistically low given the context of a high model influence case where design sign-off hinges on accurate validation.",
+          "recommended_action": "Further investigation into the validation process and results is warranted to ensure reliability.",
+          "action_class": "supply-evidence",
+          "confidence": 0.7,
+          "escalate": true
+        }
+      },
+      {
+        "row_id": "surr-dval08-metric-mismatch",
+        "action_class": "accept-residual-risk",
+        "confidence": "high",
+        "escalate": false,
+        "raw": {
+          "finding": "The R2 value of 0.97 indicates a strong correlation between the surrogate model's predictions and the actual data points on the concentration curve.",
+          "why_fired": "Given that the reported metric directly relates to the quantity of interest (time to peak), the evidence provided is adequate for establishing a high degree of confidence in the surrogate model\u2019s performance for its intended use case.",
+          "recommended_action": "accept",
+          "action_class": "accept-residual-risk",
+          "confidence": "high",
+          "escalate": false
+        }
+      },
+      {
+        "row_id": "surr-dval08-modesterror-but-within-tolerance-control",
+        "action_class": null,
+        "confidence": "medium",
+        "escalate": false,
+        "raw": {}
+      },
+      {
+        "row_id": "surr-dval08-no-independent-validation",
+        "action_class": "acquire-validation",
+        "confidence": "medium",
+        "escalate": true,
+        "raw": {
+          "finding": "The evidence package provides high R2 on the training partition but lacks any validation or holdout data evaluation.",
+          "why_fired": "The lack of validation or holdout data evaluation does not provide assurance that the model generalizes well to unseen data, which is critical for safety applications.",
+          "recommended_action": "Acquire additional validation or holdout data evaluation to ensure the model's reliability in predicting cell temperature.",
+          "action_class": "acquire-validation",
+          "confidence": "medium",
+          "escalate": true
+        }
+      },
+      {
+        "row_id": "surr-dval08-proxy-qoi",
+        "action_class": "acquire-validation",
+        "confidence": "medium",
+        "escalate": true,
+        "raw": {
+          "finding": "The evidence package indicates that the surrogate diverges from the internal resistance growth profile under the coupling condition of fast charge. This divergence could impact the accuracy of the end-of-life prediction based on internal resistance.",
+          "why_fired": "The proxy correlation under the specific charging profile is poor, which may lead to inaccuracies in predicting end-of-life based on internal resistance.",
+          "recommended_action": "Further validation is needed to ensure the surrogate's accuracy under fast charge conditions.",
+          "action_class": "acquire-validation",
+          "confidence": "medium",
+          "escalate": true
+        }
+      },
+      {
+        "row_id": "surr-dval08-single-point-validation",
+        "action_class": "acquire-validation",
+        "confidence": 0.6,
+        "escalate": true,
+        "raw": {
+          "finding": "The evidence package shows that the surrogate model has been validated at one operating point within the equivalence ratio range of 0.6 to 1.4, and it is highly nonlinear in nature.",
+          "why_fired": "The validation error percentage is high (50%), and there is only a single validation operating point used for this context. The decision consequence is significant as it impacts operability maps from the equivalence-ratio sweep, which suggests a need for more robust validation to ensure model reliability.",
+          "recommended_action": "Further validation at multiple points within the operational range is necessary to reduce uncertainty.",
+          "action_class": "acquire-validation",
+          "confidence": 0.6,
+          "escalate": true
+        }
+      },
+      {
+        "row_id": "surr-dval09-aleatory-only",
+        "action_class": null,
+        "confidence": "medium",
+        "escalate": false,
+        "raw": {}
+      },
+      {
+        "row_id": "surr-dval09-borderline-coverage",
+        "action_class": null,
+        "confidence": "medium",
+        "escalate": false,
+        "raw": {}
+      },
+      {
+        "row_id": "surr-dval09-conditional-coverage",
+        "action_class": "acquire-validation",
+        "confidence": 0.7,
+        "escalate": true,
+        "raw": {
+          "finding": "The evidence package provides marginal interval coverage and nominal coverage at the required levels but does not adequately address the specific needs of the high-stress elements subgroup.",
+          "why_fired": "The interval coverage on the high-stress elements subgroup is significantly lower than the overall coverage, which may lead to less reliable predictions for these critical components.",
+          "recommended_action": "Further validation and refinement are needed to ensure reliability in high-stress scenarios.",
+          "action_class": "acquire-validation",
+          "confidence": 0.7,
+          "escalate": true
+        }
+      },
+      {
+        "row_id": "surr-dval09-ensemble-mismatch",
+        "action_class": "acquire-validation",
+        "confidence": "medium",
+        "escalate": true,
+        "raw": {
+          "finding": "The evidence package provides adequate uncertainty quantification (UQ) methods and coverage statistics for the nominal operating range but lacks information on interval coverage for extrapolation. The model is used in a context where safety margins are critical, especially at points outside the training data.",
+          "why_fired": "Interval coverage on the extrapolation set is not measured, which is crucial given the high model influence and safety-consequence context.",
+          "recommended_action": "Further validation of the UQ intervals for the extrapolation region is required to ensure accurate safety margins.",
+          "action_class": "acquire-validation",
+          "confidence": "medium",
+          "escalate": true
+        }
+      },
+      {
+        "row_id": "surr-dval09-ensemble-spread-bounded-control",
+        "action_class": "supply-evidence",
+        "confidence": 0.8,
+        "escalate": true,
+        "raw": {
+          "finding": "The ensemble coverage is high at 93%, which is strong evidence. However, the nominal coverage of 95% is slightly below the threshold that might be expected for a binary decision with significant model influence and potential severe consequences.",
+          "why_fired": "Nominal coverage is close to but not meeting an ideal standard given the context.",
+          "recommended_action": "Supply additional evidence or validation steps",
+          "action_class": "supply-evidence",
+          "confidence": 0.8,
+          "escalate": true
+        }
+      },
+      {
+        "row_id": "surr-dval09-fno-spectral",
+        "action_class": "supply-evidence",
+        "confidence": 0.7,
+        "escalate": true,
+        "raw": {
+          "finding": "The validation results show that the relative L2 error is low for all scales (0.03), but high in the high-frequency band (0.38). The QoI is a fine-scale mixing structure, which suggests that the model's performance might be critical for this aspect.",
+          "why_fired": "The validation metrics reported are not comprehensive as they only provide an all-scales aggregate measure and do not capture the performance at different frequency bands separately. Given the high influence of the model on component sizing in a fine-scale context, it is crucial to understand its behavior across all scales, especially where it performs poorly.",
+          "recommended_action": "Further validation",
+          "action_class": "supply-evidence",
+          "confidence": 0.7,
+          "escalate": true
+        }
+      },
+      {
+        "row_id": "surr-dval09-largevar-calibrated-control",
+        "action_class": "accept-residual-risk",
+        "confidence": "medium",
+        "escalate": true,
+        "raw": {
+          "finding": "The evidence package demonstrates adequate empirical coverage and nominal coverage, with epistemic variance included in the interval. The calibration holdout set is disjoint and within the COU regime.",
+          "why_fired": "The provided measures indicate that the AI surrogate has a reliable empirical and nominal coverage within the context of use, which supports its application for setting margins based on wide band information.",
+          "recommended_action": "Use the surrogate model with caution, considering the wide interval width for margin decisions.",
+          "action_class": "accept-residual-risk",
+          "confidence": "medium",
+          "escalate": true
+        }
+      },
+      {
+        "row_id": "surr-dval09-mlip-ood-config",
+        "action_class": "acquire-validation",
+        "confidence": "medium",
+        "escalate": true,
+        "raw": {
+          "finding": "The evidence package indicates the use of a deep ensemble method for uncertainty quantification (UQ) and provides an error estimate on the test split. The surrogate model is used to drive reaction-rate estimates over transition states, with high influence on decisions regarding reaction pathways.",
+          "why_fired": "While the UQ method and error estimation are provided, there is no evidence of the UQ performance specifically on transition states, which are critical for the context of use.",
+          "recommended_action": "Further validation is needed to ensure reliability in predicting reaction rates over these specific states.",
+          "action_class": "acquire-validation",
+          "confidence": "medium",
+          "escalate": true
+        }
+      },
+      {
+        "row_id": "surr-dval09-uq-absent-entirely",
+        "action_class": "supply-evidence",
+        "confidence": 0.7,
+        "escalate": true,
+        "raw": {
+          "finding": "The evidence package lacks information on the uncertainty of predictions, which is critical for decision-making in high model influence scenarios with significant consequences.",
+          "why_fired": "Insufficient evidence regarding output schema and uncertainty handling",
+          "recommended_action": "Supply additional evidence to address the lack of uncertainty bounds or intervals in the predictions.",
+          "action_class": "supply-evidence",
+          "confidence": 0.7,
+          "escalate": true
+        }
+      },
+      {
+        "row_id": "surr-dval09-wide-but-physical-control",
+        "action_class": "supply-evidence",
+        "confidence": "medium",
+        "escalate": true,
+        "raw": {
+          "finding": "The evidence package includes measures of interval halfwidth percentage of mean (40%), empirical coverage in the coupling regime (91%), nominal coverage (90%), and a calibration holdout that is disjoint and within the same coupling regime.",
+          "why_fired": "The measures provided are relevant to the context, particularly the empirical coverage which is close to the nominal coverage. However, there is no explicit evidence of how these measures translate into acceptable risk for the specific decision-making context (flood margin).",
+          "recommended_action": "Further analysis required to assess the practical implications.",
+          "action_class": "supply-evidence",
+          "confidence": "medium",
+          "escalate": true
+        }
+      },
+      {
+        "row_id": "surr-dval09-wide-prior-narrow-posterior-control",
+        "action_class": "supply-evidence",
+        "confidence": 0.7,
+        "escalate": true,
+        "raw": {
+          "finding": "The evidence package includes measures of prior parameter uncertainty, posterior predictive intervals, empirical coverage, and nominal coverage. These metrics provide some validation that the surrogate model can be used for its intended purpose.",
+          "why_fired": "While the evidence provided is useful, it does not fully address all aspects necessary to confidently validate the use of the physics-AI surrogate in making a high-influence design decision based on the posterior predictive.",
+          "recommended_action": "Further validation and refinement may be required before fully relying on the model for critical decisions.",
+          "action_class": "supply-evidence",
+          "confidence": 0.7,
+          "escalate": true
+        }
+      },
+      {
+        "row_id": "surr-dver05-mms-only",
+        "action_class": "supply-evidence",
+        "confidence": "low",
+        "escalate": true,
+        "raw": {
+          "finding": "The evidence package lacks critical information regarding the residuals of the surrogate model compared to reference data on the specific application configuration.",
+          "why_fired": "The 'residuals_vs_reference_on_application_config' measure is missing, which is essential for assessing the accuracy and reliability of the surrogate model in predicting stress concentrations for fatigue analysis under a notched component with combined load conditions.",
+          "recommended_action": "Supply evidence of residuals to validate the model's performance on the application configuration.",
+          "action_class": "supply-evidence",
+          "confidence": "low",
+          "escalate": true
+        }
+      },
+      {
+        "row_id": "surr-dver06-coverage-hole",
+        "action_class": "acquire-validation",
+        "confidence": "low",
+        "escalate": true,
+        "raw": {
+          "finding": "The evidence package does not provide any benchmark samples within 5% of the coupling point, which is critical for high-Re and high-AoA corner cases.",
+          "why_fired": "There are no samples in the validation set that closely match the operating conditions where the model has a high influence on decision-making and the consequences are severe (stall margin determination).",
+          "recommended_action": "Further validation is needed to ensure the surrogate performs well at the critical coupling point.",
+          "action_class": "acquire-validation",
+          "confidence": "low",
+          "escalate": true
+        }
+      },
+      {
+        "row_id": "surr-dver06-mesh-marginal",
+        "action_class": "acquire-validation",
+        "confidence": "medium",
+        "escalate": true,
+        "raw": {
+          "finding": "The evidence package indicates that the model's convergence trend is monotone, but it does not provide sufficient information regarding the asymptotic value of the QoI. The finest mesh GCI percentage and coupling acceptance tolerance are provided, which align with the context of a high model influence and decision consequence based on a 5% acceptance tolerance.",
+          "why_fired": "The evidence package lacks information about whether the asymptotic value has been reached, which is crucial for determining the reliability of the model in this context.",
+          "recommended_action": "Further validation is required to ensure that the model's behavior stabilizes and meets the necessary criteria.",
+          "action_class": "acquire-validation",
+          "confidence": "medium",
+          "escalate": true
+        }
+      },
+      {
+        "row_id": "surr-dver06-resolution-hole",
+        "action_class": "acquire-validation",
+        "confidence": "low",
+        "escalate": true,
+        "raw": {
+          "finding": "The evidence package does not provide any verification results at the 1024x1024 resolution, which is the one being used for decision-making.",
+          "why_fired": "Given the high model influence and decision consequence, it is critical to have validation or verification results at this specific grid resolution.",
+          "recommended_action": "Acquire additional validation data.",
+          "action_class": "acquire-validation",
+          "confidence": "low",
+          "escalate": true
+        }
+      },
+      {
+        "row_id": "surr-dver06-steady-for-transient",
+        "action_class": "acquire-validation",
+        "confidence": 0.7,
+        "escalate": true,
+        "raw": {
+          "finding": "The evidence package shows that the verification is based on steady-state conditions while the model operates in fast transient mode. There are no transient cases verified.",
+          "why_fired": "The context of use involves a high-influence, critical decision-making scenario where transient behavior is crucial, but the validation does not cover this aspect adequately.",
+          "recommended_action": "Acquire additional validation data for transient conditions.",
+          "action_class": "acquire-validation",
+          "confidence": 0.7,
+          "escalate": true
+        }
+      },
+      {
+        "row_id": "surr-surr02-parent-rejected-thermal",
+        "action_class": "acquire-validation",
+        "confidence": 0.75,
+        "escalate": true,
+        "raw": {
+          "finding": "The surrogate model's NRMSE is within an acceptable range, but the reference model has not been accepted due to lack of mesh independence.",
+          "why_fired": "The gap in the evidence package lies in the acceptance status and validation requirements for the reference CFD model (CFD-thermal-v3).",
+          "recommended_action": "Acquire additional validation for the surrogate model using the validated reference model once it is accepted.",
+          "action_class": "acquire-validation",
+          "confidence": 0.75,
+          "escalate": true
+        }
+      },
+      {
+        "row_id": "surr-surr02-parent-rejected",
+        "action_class": "supply-evidence",
+        "confidence": "low",
+        "escalate": true,
+        "raw": {
+          "finding": "The evidence package lacks documentation of the reconciliation process for the parent model's decision, which was Not Accepted.",
+          "why_fired": "The 'reconciliation_of_parent_decision_in_child_package' field is marked as 'none', and there is no information provided on how this decision impacts the child surrogate.",
+          "recommended_action": "Provide a detailed explanation of the reconciliation process for the parent model's decision, including any changes or considerations made in the child surrogate to address these issues.",
+          "action_class": "supply-evidence",
+          "confidence": "low",
+          "escalate": true
+        }
+      }
+    ]
+  }
+}

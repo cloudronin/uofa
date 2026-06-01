@@ -171,3 +171,24 @@ read needs a less-escalating setup or many more cells.
 a preview, not a verdict. Posture is the grounded axis; the selection axis stays
 provisional-self-adjudicated. The firmest signal is `full ≫ partials` on posture +
 coverage (10–17 cells); the danger axis is 1–2 cells and reads as noise at this n.
+
+### Robustness of the surviving finding (cell-bootstrap + multi-seed)
+
+The one surviving claim (`full ≫ catalog_ablated` on posture + commitment) was stress-tested
+two ways. **Cell-bootstrap** (paired over the 60 cells, temp-0 data): posture +0.167 [95% CI
++0.083, +0.267] and committed-correct +0.183 [+0.083, +0.283] — both exclude 0, so the gap is
+not driven by a few cells; danger −0.017 [−0.050, +0.000] includes 0 (noise), consistent with
+the FALSIFY. **Multi-seed** (temp 0.7, seeds 1/2/3, `ablation-raw-n60-seed{1,2,3}-T07.json`):
+
+| sample | Δ posture | Δ committed | bootstrap |
+|---|---|---|---|
+| temp-0 seed 0 | +0.17 | +0.18 | robust |
+| T0.7 seed 1 | +0.22 | +0.20 | robust |
+| T0.7 seed 2 | +0.10 | +0.07 | CI grazes 0 |
+| T0.7 seed 3 | +0.20 | +0.18 | robust |
+
+Positive in **all 4 samples** (+0.10 to +0.22 posture), bootstrap-robust in **3 of 4**. The
+temp-0 result was not a lucky greedy decode — it reproduces under sampling. Honest caveat: the
+gap's *magnitude* carries real sampling variance (~+0.10–0.22); only the sign and the
+"full is better" conclusion are stable. (Temp 0.0 is the canonical operating point; temp 0.7 is
+the sampling-robustness probe only.)
