@@ -54,3 +54,19 @@ on (escalate=False) in BOTH conditions being compared**:
 
 Recorded read goes in `results/README.md`; raw scorecards in
 `results/ablation-raw-n60-*.json`.
+
+---
+
+## OUTCOME (2026-05-31, n=60) — FALSIFY
+
+Δ = danger(fired_flag) − danger(catalog_ablated) = 0.033 − 0.017 = **+0.017** ≤ 0.02 → **FALSIFY**.
+At n=60 fired_flag produced 2 dangerous false-OKs and catalog_ablated produced 1 — a one-cell
+difference. The n=24 inversion (2 vs 0, Δ=+0.083) was a two-row artifact; catalog_ablated is not
+immune at scale. **The detect-without-meaning harm does not survive.** The over-commitment mechanism
+is still visible on the 2 fired_flag failures (both accept-residual-risk, ff-commits-where-ca-escalates),
+but not at a rate that beats the no-catalog baseline.
+
+What survived instead (the original, non-primary finding, replicated and strengthened): `full` ≫
+every partial on posture (0.98 vs 0.77–0.83) and coverage (0.28 vs ~0.00); the catalog's
+confidence-to-commit lift is *more* pronounced on the broader corpus. The paired-committed read came
+back underpowered (n=1, n=6 < 12) — the model escalates 72–90%, starving the commit-in-both set.

@@ -114,3 +114,53 @@ control). That run is kept for contrast but the de-named run is the fair test.
 the model punts a lot under every condition (18–22/24 escalation), so the "lift"
 is in coverage from a low base. Confirm on a larger slice before drawing the
 detect-only-is-harmful conclusion firmly.
+
+## 2026-05-31 — catalog-lift ablation at n=60 (the pre-registered confirmatory run)
+
+The n=24 detect-without-meaning finding, re-tested on the grown 60-cell corpus
+against thresholds pinned **before** the run (`PREREGISTRATION-2026-05-31-ablation-n60.md`).
+Raw scorecards: `ablation-raw-n60-2026-05-31-qwen2.5-7b.json`; read: `ablation-raw-n60-read.json`.
+
+| condition (raw) | danger | posture | escal | cov@2% | ECE |
+|---|---|---|---|---|---|
+| **`full`** (fired + meaning + measures) | **0.00** | **0.98** | **0.72** | **0.28** | 0.10 |
+| `fired_flag` (fired, no meaning) | 0.03 | 0.77 | 0.90 | 0.02 | 0.42 |
+| `definition_only` (meaning, not asserted) | 0.00 | 0.78 | 0.90 | 0.00 | 0.18 |
+| `catalog_ablated` (no catalog) | 0.02 | 0.82 | 0.88 | 0.00 | 0.04 |
+| `measures_only` (no catalog, no context) | 0.02 | 0.83 | 0.87 | 0.00 | 0.06 |
+
+### The read (straight — not cushioned)
+
+**1. The pre-registered primary finding is FALSIFIED.** Δ = danger(fired_flag) −
+danger(catalog_ablated) = 0.033 − 0.017 = **+0.017**, inside the pinned |Δ|≤0.02
+noise band. At n=60, fired_flag had **2** dangerous false-OKs and catalog_ablated
+had **1** — a one-cell difference out of 60. The n=24 inversion (2 vs 0, Δ=+0.083)
+was a two-row artifact; catalog_ablated, which looked immune at n=24 (0.00), is not
+at scale (0.017). **"Detect-without-meaning is uniquely harmful" does not survive.**
+The over-commitment *mechanism* is still visible on the 2 fired_flag failures
+(pinn-massresidual, leakage — both accept-residual-risk, ff-commits-where-ca-escalates),
+but it does not occur at a rate that beats the no-catalog baseline. The mechanism is
+real; the population-level harm claim is not. *The pre-registration did its job — the
+bigger run broke a finding I'd built toward, instead of being read to fit.*
+
+**2. What survives — the confidence-to-commit lift, firmer at n=60.** `full` stands
+clearly apart from every partial: posture 0.98 vs 0.77–0.83 (~10–13 cells), coverage
+0.28 vs ~0.00 (~17 cells vs ~0), lowest escalation. All four partials collapse into
+one mediocre cluster. The gap **grew** from n=24 (catalog_ablated held coverage 0.17)
+to n=60 (it dropped to 0.00 while full held 0.28) — the broader, harder corpus makes
+the catalog's value *more* pronounced. This is the original catalog-ablation finding
+replicating and strengthening, and it rests on a 10–17 cell gap (far firmer than any
+1–2 cell danger difference). The surviving claim is **"the lift needs the whole
+catalog"** — established by `full ≫ every partial`, not by the falsified
+flag-without-meaning-is-harmful route.
+
+**3. The paired-committed read is underpowered.** n=1 (ff vs ca) and n=6 (full vs ca)
+committed-in-both, both below the ≥12 floor — the model escalates 72–90%, starving the
+intersection. The commitment story is carried by the aggregate coverage gap instead
+(full 0.28 vs partials ~0): full commits *more*, at top posture. Powering the paired
+read needs a less-escalating setup or many more cells.
+
+**Caveats (held):** one model (`qwen2.5:7b`), one seed (temp 0), n=60 hard cells —
+a preview, not a verdict. Posture is the grounded axis; the selection axis stays
+provisional-self-adjudicated. The firmest signal is `full ≫ partials` on posture +
+coverage (10–17 cells); the danger axis is 1–2 cells and reads as noise at this n.
