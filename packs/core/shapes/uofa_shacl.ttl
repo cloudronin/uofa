@@ -14,9 +14,9 @@ uofa:UnitOfAssurance_ProfileShape
   # Must declare a known profile
   sh:property [
     sh:path uofa:conformsToProfile ;
-    sh:in ( uofa:ProfileMinimal uofa:ProfileComplete ) ;
+    sh:in ( uofa:ProfileMinimal uofa:ProfileComplete uofa:ProfileDisposition ) ;
     sh:minCount 1 ;
-    sh:message "conformsToProfile must be ProfileMinimal or ProfileComplete." ;
+    sh:message "conformsToProfile must be ProfileMinimal, ProfileComplete, or ProfileDisposition." ;
   ] ;
   # EITHER MinimalBody when profile = Minimal OR CompleteBody when profile = Complete
   sh:or (
@@ -34,7 +34,33 @@ uofa:UnitOfAssurance_ProfileShape
       ] ;
       sh:node uofa:UnitOfAssurance_CompleteBody
     ]
+    # v0.6 additive: ProfileDisposition dispatches to the Disposition body.
+    [
+      sh:property [
+        sh:path uofa:conformsToProfile ;
+        sh:hasValue uofa:ProfileDisposition
+      ] ;
+      sh:node uofa:UnitOfAssurance_DispositionBody
+    ]
   ) .
+
+################################################################
+# Disposition body (v0.6, additive). ProfileDisposition = the full
+# Complete body PLUS a required hasDisposition edge: it reuses
+# CompleteBody via sh:node so the profile only ADDS, never relaxes.
+# Defined in core (not the disposition pack) so the dispatcher branch
+# above resolves a known shape during core-only validation; the
+# Disposition/Discrepancy *node* shapes live in packs/disposition.
+################################################################
+uofa:UnitOfAssurance_DispositionBody
+  a sh:NodeShape ;
+  sh:node uofa:UnitOfAssurance_CompleteBody ;
+  sh:property [
+    sh:path uofa:hasDisposition ;
+    sh:nodeKind sh:IRI ;
+    sh:minCount 1 ;
+    sh:message "Disposition: must declare at least one hasDisposition (DecisionRecord → Disposition)." ;
+  ] .
 
 ################################################################
 # Minimal body (applies only when ProfileMinimal is chosen)

@@ -1,0 +1,113 @@
+# ============================================================================
+# UofA disposition pack shapes v0.1 (for ontology v0.6)
+# ============================================================================
+# Spec: UofA_KGFM_Disposition_Completion_Experiment_v0_2.md (Stage 0).
+# Standards anchor: ASME V&V 40-2018 (disposition = the V&V 40 decision action).
+#
+# Two node-type shapes, both "validate structure WHEN PRESENT" (each has its own
+# sh:targetClass, so they fire only on uofa:Disposition / uofa:Discrepancy nodes
+# and never constrain a plain v0.5 package). They are loaded only under
+# `--pack disposition`, so the profile is opt-in and v0.5 stays untouched.
+#
+# The ProfileDisposition *profile* (the dispatcher branch + DispositionBody,
+# which requires hasDisposition) lives in packs/core/shapes/uofa_shacl.ttl — it
+# must be resolvable during core-only validation. This pack only adds the
+# Disposition/Discrepancy node-type vocab + structural shapes.
+#
+# Schema only: no pipeline, no model, no KGFM. actionClass is action-region
+# (decision) content, validated here for *structure* only. SIP never emits it;
+# the (private) Discrepancy emitter never emits it.
+# ============================================================================
+
+@prefix sh:   <http://www.w3.org/ns/shacl#> .
+@prefix uofa: <https://uofa.net/vocab#> .
+@prefix rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+
+################################################################
+# §A — embedded vocabulary (RDFS), mirroring the surrogate pack:
+# no separate vocab.ttl, no core mutation; picked up by the loader.
+################################################################
+
+uofa:Disposition a rdfs:Class ;
+    rdfs:label "Disposition" ;
+    rdfs:comment "A typed action taken (or proposed) in response to a credibility assessment: the V&V 40 disposition made first-class. Linked from a DecisionRecord via uofa:hasDisposition, alongside (never replacing) the free-text uofa:decision." .
+
+uofa:Discrepancy a rdfs:Class ;
+    rdfs:label "Discrepancy" ;
+    rdfs:comment "A surrogate-vs-solver gap as a first-class fact: surrogate prediction, solver truth, and their magnitude. Emitted as a measured FACT — it carries no disposition and no actionClass." .
+
+################################################################
+# §B — Disposition node shape (action-region; structure only).
+################################################################
+
+uofa:DispositionShape a sh:NodeShape ;
+    sh:targetClass uofa:Disposition ;
+    sh:property [
+        sh:path uofa:actionClass ;
+        sh:datatype xsd:string ;
+        sh:in ( "restrict-cou" "acquire-validation" "characterize-region" "accept-residual-risk" "change-cou" ) ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:message "A Disposition must declare exactly one actionClass from the controlled vocabulary (restrict-cou, acquire-validation, characterize-region, accept-residual-risk, change-cou)." ;
+    ] ;
+    sh:property [
+        sh:path uofa:actionParameters ;
+        sh:datatype xsd:string ;
+        sh:maxCount 1 ;
+        sh:message "actionParameters, when present, is a single free-text string scoping the action." ;
+    ] ;
+    sh:property [
+        sh:path uofa:confidenceLevel ;
+        sh:maxCount 1 ;
+        sh:message "confidenceLevel, when present, is a single value (e.g. High/Medium/Low or a decimal)." ;
+    ] .
+
+################################################################
+# §C — Discrepancy node shape (measured fact; structure only).
+# Numeric fields are xsd:double: the v0.6 @context coerces JSON numbers
+# to xsd:double, which rdflib's JSON-LD parser represents with a Python
+# float value (well-typed). NOTE: xsd:decimal would FAIL here — rdflib
+# coerces a JSON float to an xsd:decimal literal whose Python value is a
+# float (not Decimal), and pyshacl then rejects it as a datatype
+# mismatch. Plain sh:datatype + cardinality (the surrogate
+# EnvelopeDimension idiom), not sh:or.
+################################################################
+
+uofa:DiscrepancyShape a sh:NodeShape ;
+    sh:targetClass uofa:Discrepancy ;
+    sh:property [
+        sh:path uofa:surrogatePrediction ;
+        sh:datatype xsd:double ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:message "A Discrepancy must carry exactly one surrogatePrediction (number)." ;
+    ] ;
+    sh:property [
+        sh:path uofa:solverTruth ;
+        sh:datatype xsd:double ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:message "A Discrepancy must carry exactly one solverTruth (number)." ;
+    ] ;
+    sh:property [
+        sh:path uofa:discrepancyMagnitude ;
+        sh:datatype xsd:double ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:message "A Discrepancy must carry exactly one discrepancyMagnitude (number); the harness emits |surrogatePrediction − solverTruth|." ;
+    ] ;
+    sh:property [
+        sh:path uofa:discrepancyRegion ;
+        sh:datatype xsd:string ;
+        sh:maxCount 1 ;
+        sh:message "discrepancyRegion, when present, is a single free-text region label (derived from envelope containment)." ;
+    ] ;
+    sh:property [
+        sh:path uofa:measureType ;
+        sh:datatype xsd:string ;
+        sh:maxCount 1 ;
+        sh:in ( "point" "aggregate" ) ;
+        sh:message "measureType, when present, must be 'point' or 'aggregate'." ;
+    ] .
