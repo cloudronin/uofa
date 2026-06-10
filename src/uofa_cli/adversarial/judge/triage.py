@@ -36,6 +36,12 @@ from uofa_cli.adversarial.judge.providers.base import Judgment
 DEFAULT_CONFIDENCE_FLOOR = 0.6
 
 
+# Spec Part 3.1 default: below this confidence a *forced* (non-UNCERTAIN)
+# verdict is treated as low-confidence, and the case is additionally routed
+# to the adjudication queue even when majority logic calls it CONVERGENT.
+DEFAULT_LOW_CONFIDENCE_ROUTE_THRESHOLD = 0.5
+
+
 class TriageBucket(str, Enum):
     """v1.6: two-bucket partition. UNCERTAIN folds into DISAGREEMENT."""
     CONVERGENT = "CONVERGENT"
@@ -182,3 +188,26 @@ def align_trios(
 
     common = sorted(set(by_a) & set(by_b) & set(by_c))
     return [(by_a[k], by_b[k], by_c[k]) for k in common]
+
+
+def is_low_confidence_forced(
+    entry: TriageEntry,
+    *,
+    threshold: float = DEFAULT_LOW_CONFIDENCE_ROUTE_THRESHOLD,
+) -> bool:
+    """True if any judge in the trio emitted a forced verdict below threshold.
+
+    A "forced" verdict is any committed verdict class other than UNCERTAIN.
+    Per spec Part 3.1, a forced verdict held below `threshold` signals the
+    judge is not actually committed; such a case routes into the adjudication
+    queue alongside DISAGREEMENT cases, compensating for judges that
+    under-emit UNCERTAIN in production.
+
+    Read-only predicate over an already-triaged entry. It does NOT participate
+    in bucket assignment (`triage_case` is unchanged); it only governs whether
+    `run_triage` additionally writes an otherwise-CONVERGENT entry to the queue.
+    """
+    return any(
+        j.verdict != "UNCERTAIN" and j.confidence < threshold
+        for j in entry.judgments
+    )

@@ -227,6 +227,46 @@ class TestRunTriage:
         # v1.6: UNCERTAIN bin folded into DISAGREEMENT (was DIVERGENT in v1.5).
         assert summary["bucket_counts"]["DISAGREEMENT"] == 1
 
+    def test_low_conf_routing_adds_forced_convergent_case(self, tmp_path: Path) -> None:
+        # c1: convergent REAL-GAP, but judge C holds a forced verdict at 0.30.
+        # c2: genuine disagreement. c3: clean high-confidence convergent.
+        a = [_make_judgment("c1", "REAL-GAP", 0.9), _make_judgment("c2", "REAL-GAP", 0.9), _make_judgment("c3", "REAL-GAP", 0.9)]
+        b = [_make_judgment("c1", "REAL-GAP", 0.9), _make_judgment("c2", "GENERATOR-ARTIFACT", 0.9), _make_judgment("c3", "REAL-GAP", 0.9)]
+        c = [_make_judgment("c1", "GENERATOR-ARTIFACT", 0.30), _make_judgment("c2", "OUT-OF-SCOPE", 0.9), _make_judgment("c3", "REAL-GAP", 0.9)]
+        for name, jl in (("a", a), ("b", b), ("c", c)):
+            _write_judgments_jsonl(tmp_path / f"j_{name}.jsonl", jl)
+
+        def _run(out_name: str, **extra) -> Path:
+            args = _args(
+                judgments_a=tmp_path / "j_a.jsonl",
+                judgments_b=tmp_path / "j_b.jsonl",
+                judgments_c=tmp_path / "j_c.jsonl",
+                out=tmp_path / out_name,
+                confidence_floor=0.6,
+                **extra,
+            )
+            assert run_triage(args) == 0
+            return tmp_path / out_name
+
+        # Flag ON (default): queue has c2 (disagreement) AND c1 (low-conf forced route).
+        on = _run("on", low_conf_routing=True, low_conf_threshold=0.5)
+        text_on = (on / "adjudication_queue.csv").read_text()
+        ids_on = {r.split(",")[0] for r in text_on.splitlines()[1:]}
+        assert ids_on == {"c1", "c2"}
+        assert "low_confidence_forced_route" in text_on
+        summary_on = json.loads((on / "triage_summary.json").read_text())
+        assert summary_on["low_confidence_forced_routed"] == 1
+        assert summary_on["bucket_counts"]["CONVERGENT"] == 2  # c1, c3
+        assert summary_on["bucket_counts"]["DISAGREEMENT"] == 1  # c2
+
+        # Flag OFF: queue is exactly the pre-change behavior (c2 only).
+        off = _run("off", low_conf_routing=False, low_conf_threshold=0.5)
+        ids_off = {r.split(",")[0] for r in (off / "adjudication_queue.csv").read_text().splitlines()[1:]}
+        assert ids_off == {"c2"}
+        # Bucket counts identical with the lever on vs off (invariance).
+        summary_off = json.loads((off / "triage_summary.json").read_text())
+        assert summary_off["bucket_counts"] == summary_on["bucket_counts"]
+
 
 # ── run_adjudicate ─────────────────────────────────────────────────────
 

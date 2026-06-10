@@ -3,6 +3,7 @@ evidence packages for Phase 2 coverage experiments."""
 
 from __future__ import annotations
 
+import argparse
 from pathlib import Path
 
 HELP = "generate / orchestrate / classify synthetic credibility evidence packages"
@@ -343,6 +344,16 @@ def add_arguments(parser):
     tg.add_argument(
         "--confidence-floor", type=float, default=0.6,
         help="confidence below which an agreeing verdict routes to DIVERGENT (default 0.6, spec §10.1)",
+    )
+    tg.add_argument(
+        "--low-conf-routing", action=argparse.BooleanOptionalAction, default=True,
+        help="additionally route CONVERGENT cases where any judge emits a forced "
+             "(non-UNCERTAIN) verdict below --low-conf-threshold into the adjudication "
+             "queue (default on; spec Part 3.1)",
+    )
+    tg.add_argument(
+        "--low-conf-threshold", type=float, default=0.5,
+        help="confidence floor for the forced-verdict adjudication route (default 0.5)",
     )
 
     # ----- calibrate (Phase 3 v1.6 §8.1–8.4, Stage 1) -----

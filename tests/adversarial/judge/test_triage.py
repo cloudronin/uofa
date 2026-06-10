@@ -7,8 +7,10 @@ import pytest
 from uofa_cli.adversarial.judge.providers.base import Judgment
 from uofa_cli.adversarial.judge.triage import (
     DEFAULT_CONFIDENCE_FLOOR,
+    DEFAULT_LOW_CONFIDENCE_ROUTE_THRESHOLD,
     TriageBucket,
     align_trios,
+    is_low_confidence_forced,
     triage_case,
     triage_corpus,
 )
@@ -182,6 +184,51 @@ class TestAlignTrios:
         # Output is sorted by case_id.
         assert trios[0][0].case_id == "c1"
         assert trios[1][0].case_id == "c2"
+
+
+# ── is_low_confidence_forced (spec Part 3.1) ────────────────────────────
+
+
+class TestLowConfidenceForcedRouting:
+    """Additive predicate: flags forced low-confidence verdicts for the
+    adjudication queue without affecting bucket assignment."""
+
+    def test_default_threshold_value(self) -> None:
+        assert DEFAULT_LOW_CONFIDENCE_ROUTE_THRESHOLD == 0.5
+
+    def test_high_conf_convergent_not_flagged(self) -> None:
+        e = triage_case(_j("c1", "REAL-GAP", 0.9), _j("c1", "REAL-GAP", 0.9), _j("c1", "REAL-GAP", 0.9))
+        assert e.bucket == TriageBucket.CONVERGENT
+        assert is_low_confidence_forced(e) is False
+
+    def test_forced_low_conf_dissent_flagged(self) -> None:
+        # Two agree confidently (CONVERGENT); the third holds a forced verdict at 0.4.
+        e = triage_case(_j("c1", "REAL-GAP", 0.9), _j("c1", "REAL-GAP", 0.9), _j("c1", "GENERATOR-ARTIFACT", 0.4))
+        assert e.bucket == TriageBucket.CONVERGENT
+        assert is_low_confidence_forced(e) is True
+
+    def test_low_conf_uncertain_is_not_forced(self) -> None:
+        # A low-confidence UNCERTAIN is not a forced verdict; not flagged for it.
+        e = triage_case(_j("c1", "REAL-GAP", 0.9), _j("c1", "REAL-GAP", 0.9), _j("c1", "UNCERTAIN", 0.3))
+        assert is_low_confidence_forced(e) is False
+
+    def test_threshold_is_exclusive(self) -> None:
+        e = triage_case(_j("c1", "REAL-GAP", 0.9), _j("c1", "REAL-GAP", 0.9), _j("c1", "GENERATOR-ARTIFACT", 0.5))
+        assert is_low_confidence_forced(e, threshold=0.5) is False  # == is not <
+        assert is_low_confidence_forced(e, threshold=0.6) is True
+
+    def test_predicate_does_not_change_bucket_counts(self) -> None:
+        trios = [
+            (_j("c1", "REAL-GAP", 0.9), _j("c1", "REAL-GAP", 0.9), _j("c1", "GENERATOR-ARTIFACT", 0.4)),
+            (_j("c2", "REAL-GAP", 0.9), _j("c2", "GENERATOR-ARTIFACT", 0.9), _j("c2", "OUT-OF-SCOPE", 0.9)),
+        ]
+        before = triage_corpus(trios).bucket_counts
+        for t in trios:
+            is_low_confidence_forced(triage_case(*t))
+        after = triage_corpus(trios).bucket_counts
+        assert before == after
+        assert before[TriageBucket.CONVERGENT] == 1  # c1 convergent despite the flagged dissent
+        assert before[TriageBucket.DISAGREEMENT] == 1  # c2
 
     def test_drops_cases_missing_from_any_judge(self) -> None:
         a = [_j("c1", "REAL-GAP"), _j("c2", "REAL-GAP"), _j("c3", "REAL-GAP")]
