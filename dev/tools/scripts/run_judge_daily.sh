@@ -6,7 +6,8 @@
 # daily_status.log. Safe to run daily from launchd/cron: --resume skips
 # already-judged cases, the Gemini daily cap halts each pass once it is hit,
 # and --max-cost hard-stops the spend. A mid-run kill loses at most one
-# in-flight case (the runner streams per-task writes).
+# in-flight case (the runner streams per-task writes). A single-instance lock
+# (step 0) keeps two daily passes from ever overlapping.
 #
 # Overridable via env: UOFA_REPO, UOFA_JUDGE_ENV, UOFA_PYTHON,
 # UOFA_PROMPT_VERSION (set to v1.2.0 ONLY if gate-7 PASS; default v1.1.0).
@@ -23,6 +24,21 @@ STATUS_LOG="$REPO/dev/build/adversarial/phase3/production/daily_status.log"
 mkdir -p "$OUT" "$(dirname "$STATUS_LOG")"
 
 stamp() { date -u +%FT%TZ; }
+
+# 0. Single-instance guard. launchd has no overlap protection and macOS ships
+#    no flock, so use an atomic noclobber create plus a PID-liveness check: if a
+#    prior pass is still running we skip this fire; a stale lock (holder gone,
+#    e.g. after SIGKILL) is reclaimed. The EXIT trap releases it on a clean exit.
+LOCK="$OUT/.judge_daily.lock"
+if ! ( set -o noclobber; printf '%s\n' "$$" > "$LOCK" ) 2>/dev/null; then
+  oldpid=$(cat "$LOCK" 2>/dev/null || true)
+  if [ -n "${oldpid:-}" ] && kill -0 "$oldpid" 2>/dev/null; then
+    echo "$(stamp) SKIP already_running pid=$oldpid" >> "$STATUS_LOG"
+    exit 0
+  fi
+  printf '%s\n' "$$" > "$LOCK"   # stale lock; reclaim it
+fi
+trap 'rm -f "$LOCK"' EXIT
 
 # 1. Credentials. chmod-600 file; Judge C (SambaNova) needs SAMBANOVA_API_KEY,
 #    NOT HF_TOKEN — the provider does not fall back to HF_TOKEN.
