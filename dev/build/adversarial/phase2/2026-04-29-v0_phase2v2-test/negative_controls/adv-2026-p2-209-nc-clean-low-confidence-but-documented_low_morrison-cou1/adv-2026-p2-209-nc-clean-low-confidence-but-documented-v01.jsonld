@@ -1,0 +1,309 @@
+{
+  "@context": "https://raw.githubusercontent.com/cloudronin/uofa/main/spec/context/v0.5.jsonld",
+  "id": "https://uofa.net/synth/morrison-cou1-nc9-clean",
+  "type": [
+    "UnitOfAssurance",
+    "uofa:SyntheticAdversarialSample"
+  ],
+  "synthetic": true,
+  "conformsToProfile": "https://uofa.net/vocab#ProfileMinimal",
+  "name": "Morrison COU1 — CPB hemolysis credibility assessment (NC-9 honest low-confidence, accepted with documented residual uncertainty)",
+  "description": "V&V 40 credibility assessment for CFD hemolysis prediction of the FDA generic centrifugal blood pump under cardiopulmonary bypass (CPB) conditions. COU1 evaluates whether the computational model can identify worst-case hemolysis operating conditions for a Class II CPB device at Model Risk Level 2. Evidence confidence is approximately 50% due to limited experimental replicates and wide scatter in the power-law hemolysis model exponents; this is honestly documented throughout. The assessment team accepts the limitation as residual uncertainty because: (a) the relative hemolysis index criterion (RH < 1) provides a conservative safety margin that absorbs the quantified uncertainty bounds, (b) independent bench testing corroborates the CFD ranking of worst-case operating points, and (c) the sensitivity analysis identifies the two dominant uncertain inputs so targeted follow-on testing can close the gap before final design freeze.",
+  "bindsRequirement": "https://uofa.net/synth/req/cpb-hemolysis-mrl2",
+  "bindsClaim": "https://uofa.net/synth/claim/cpb-hemolysis-worst-case-identification",
+  "bindsModel": "https://uofa.net/synth/model/cfd-hemolysis-centrifugal-pump-v3",
+  "bindsDataset": [
+    "https://uofa.net/synth/data/fda-pump-experimental-hemolysis-dataset",
+    "https://uofa.net/synth/data/cfd-mesh-convergence-study-results",
+    "https://uofa.net/synth/data/power-law-coefficient-literature-survey"
+  ],
+  "hasContextOfUse": {
+    "decisionConsequence": "High",
+    "description": "A CFD model is used to evaluate the sensitivity of pump-induced hemolysis to variations in component dimensions for a centrifugal blood pump used during cardiopulmonary bypass surgery. Model influence is MEDIUM (testing confirms results); decision consequence is HIGH (incorrect tolerance decision could impact clinical hemolysis levels). Model Risk Level 2.",
+    "deviceClass": "Class II",
+    "hasApplicabilityConstraint": {
+      "description": "Placeholder constraint inserted to satisfy the noValue check on uofa:hasApplicabilityConstraint in the W-ON-02 rule predicate. Not substantively meaningful.",
+      "id": "https://uofa.net/morrison/cou/cou1-cpb/applicability-placeholder",
+      "name": "Placeholder applicability constraint (v0.5.10 NC regen)",
+      "type": "ApplicabilityConstraint"
+    },
+    "hasOperatingEnvelope": {
+      "description": "Placeholder envelope inserted to satisfy the noValue check on uofa:hasOperatingEnvelope in the W-ON-02 rule predicate. Not substantively meaningful.",
+      "id": "https://uofa.net/morrison/cou/cou1-cpb/envelope-placeholder",
+      "name": "Placeholder operating envelope (v0.5.10 NC regen)",
+      "type": "OperatingEnvelope"
+    },
+    "id": "https://uofa.net/morrison/cou/cou1-cpb",
+    "intendedUse": "Use CFD to identify worst-case operating conditions for hemolysis across 5 flow-speed combinations for a Class II CPB device. Results compared against predicate device hemolysis using relative hemolysis index (RH < 1 acceptance criterion).",
+    "modelInfluence": "Medium",
+    "name": "COU1: Cardiopulmonary bypass use (Class II)",
+    "type": "ContextOfUse"
+  },
+  "hasValidationResult": [
+    {
+      "id": "https://uofa.net/synth/validation/vr-hemolysis-bench-comparison",
+      "type": "ValidationResult",
+      "name": "Bench-scale hemolysis comparison — FDA pump 5-point operating map",
+      "description": "CFD-predicted normalized index of hemolysis (NIH) compared against in-vitro measurements at 5 flow-speed operating points. Mean absolute error 18%; 95% prediction interval spans ±35% of measured NIH due to scatter in power-law exponent C and α drawn from literature. Honestly reported: confidence in point predictions is approximately 50% but ranking of worst-case operating point is preserved across all sampled parameter sets.",
+      "comparedAgainst": "https://uofa.net/synth/data/fda-pump-experimental-hemolysis-dataset",
+      "prov:wasGeneratedBy": "https://uofa.net/synth/activity/cfd-hemolysis-validation-run-2025",
+      "hasUncertaintyQuantification": {
+        "id": "https://uofa.net/synth/uq/hemolysis-bench-uq",
+        "type": "UncertaintyQuantification",
+        "method": "Monte Carlo sampling of power-law exponents (N=500 draws from literature distribution)",
+        "confidenceLevel": 0.5,
+        "intervalDescription": "95% prediction interval on NIH: ±35% of experimental mean. Wide bounds driven primarily by uncertainty in power-law coefficient C (CV=28%) and exponent α (CV=19%). Ranking of worst-case point stable in 94% of MC draws.",
+        "name": "Hemolysis bench UQ — Monte Carlo on power-law parameters"
+      }
+    },
+    {
+      "id": "https://uofa.net/synth/validation/vr-pressure-flow-curve",
+      "type": "ValidationResult",
+      "name": "Pressure-flow curve validation — centrifugal pump hydraulic performance",
+      "description": "CFD-predicted head-flow curves at 2500, 3000, and 3500 RPM compared against manufacturer bench data. Agreement within 4% across all operating points. Confidence in hydraulic prediction is high (~90%); this sub-result anchors the flow-field boundary conditions for the hemolysis calculation.",
+      "comparedAgainst": "https://uofa.net/synth/data/fda-pump-experimental-hemolysis-dataset",
+      "prov:wasGeneratedBy": "https://uofa.net/synth/activity/cfd-hydraulic-validation-run-2025",
+      "hasUncertaintyQuantification": {
+        "id": "https://uofa.net/synth/uq/pressure-flow-uq",
+        "type": "UncertaintyQuantification",
+        "method": "Direct comparison with 3-replicate bench measurements; uncertainty propagated from flow meter calibration (±1.5%) and pressure transducer (±0.8%).",
+        "confidenceLevel": 0.9,
+        "intervalDescription": "95% CI on predicted head: ±4.2% of measured value. Narrow bounds; hydraulic sub-model is well-characterised.",
+        "name": "Hydraulic performance UQ"
+      }
+    },
+    {
+      "id": "https://uofa.net/synth/validation/vr-mesh-convergence",
+      "type": "ValidationResult",
+      "name": "Mesh convergence and discretisation error quantification",
+      "description": "Grid convergence index (GCI) study performed on three systematically refined meshes (2.1M, 6.8M, 18.4M cells). GCI for NIH prediction: 8.3% on fine mesh. Discretisation error is documented and bounded; does not materially widen the overall prediction interval relative to the power-law parameter uncertainty.",
+      "comparedAgainst": "https://uofa.net/synth/data/cfd-mesh-convergence-study-results",
+      "prov:wasGeneratedBy": "https://uofa.net/synth/activity/mesh-convergence-study-2025",
+      "hasUncertaintyQuantification": {
+        "id": "https://uofa.net/synth/uq/mesh-gci-uq",
+        "type": "UncertaintyQuantification",
+        "method": "Richardson extrapolation / GCI per Celik et al. 2008",
+        "confidenceLevel": 0.95,
+        "intervalDescription": "GCI_fine = 8.3%; apparent order of convergence p=1.92, consistent with second-order scheme.",
+        "name": "Mesh GCI UQ"
+      }
+    }
+  ],
+  "hasSensitivityAnalysis": {
+    "id": "https://uofa.net/synth/sa/hemolysis-sensitivity-2025",
+    "type": "SensitivityAnalysis",
+    "name": "Sobol sensitivity analysis — hemolysis model uncertain inputs",
+    "description": "First- and total-order Sobol indices computed over 6 uncertain inputs (power-law coefficient C, exponent α, red blood cell exposure-time threshold, turbulent viscosity ratio cap, inlet velocity profile shape, and gap clearance tolerance). Power-law coefficient C accounts for 52% of NIH output variance (S1=0.52, ST=0.61) and exponent α accounts for 31% (S1=0.31, ST=0.38); remaining four inputs together contribute less than 10% of variance. These two dominant parameters are the primary drivers of the wide ±35% prediction interval and are the focus of the recommended follow-on experimental programme to reduce residual uncertainty."
+  },
+  "wasDerivedFrom": "https://doi.org/10.1115/1.4041740",
+  "wasAttributedTo": "https://uofa.net/synth/org/morrison-vv-team",
+  "generatedAtTime": "2026-04-19T00:00:00Z",
+  "hash": "sha256:a3f7c2e1b84d609f5e2a1c3d7b0e4f8a2c6d9e1b3f5a7c0d2e4b6f8a1c3e5d7",
+  "signature": "ed25519:b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2",
+  "hasCredibilityFactor": [
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Software quality assurance",
+      "type": "CredibilityFactor",
+      "factorStatus": "assessed",
+      "requiredLevel": 2,
+      "achievedLevel": 2,
+      "rationale": "The CFD solver (ANSYS Fluent 2023R1) is a commercially validated code with documented V&V test suite, release notes, and regression testing. Version control of all case files and UDF scripts maintained in institutional Git repository with tagged release corresponding to this study. Gradation 2 requirements met; higher gradation not required at MRL 2.",
+      "acceptanceCriteria": {
+        "id": "https://uofa.net/synth/ac/sqa-ac",
+        "type": "AcceptanceCriteria",
+        "name": "SQA acceptance criterion — MRL 2",
+        "description": "Solver must be a commercially validated code with documented regression test suite; case files version-controlled. Gradation 2 sufficient for MRL 2 per ASME V&V 40 Table 3."
+      }
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Numerical code verification",
+      "type": "CredibilityFactor",
+      "factorStatus": "assessed",
+      "requiredLevel": 2,
+      "achievedLevel": 2,
+      "rationale": "Solver verified against three canonical benchmark cases: lid-driven cavity (Re=1000), backward-facing step (Re=800), and rotating disk in quiescent fluid. All results within published reference data tolerances. Code verification at Gradation 2 is adequate for MRL 2.",
+      "acceptanceCriteria": {
+        "id": "https://uofa.net/synth/ac/ncv-ac",
+        "type": "AcceptanceCriteria",
+        "name": "Numerical code verification acceptance criterion",
+        "description": "Solver must reproduce at least two canonical benchmark solutions within published tolerance bands. Gradation 2 required at MRL 2."
+      }
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Discretization error",
+      "type": "CredibilityFactor",
+      "factorStatus": "assessed",
+      "requiredLevel": 2,
+      "achievedLevel": 2,
+      "rationale": "GCI study on three systematically refined meshes yields GCI_fine = 8.3% for NIH, consistent with second-order convergence. The discretisation error is bounded and documented. At MRL 2, Gradation 2 (GCI reported and below 10%) is the required level and is met.",
+      "acceptanceCriteria": {
+        "id": "https://uofa.net/synth/ac/disc-error-ac",
+        "type": "AcceptanceCriteria",
+        "name": "Discretisation error acceptance criterion",
+        "description": "GCI on QoI must be computed on at least three meshes and reported. GCI_fine < 10% required for Gradation 2 at MRL 2."
+      }
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Test conditions",
+      "type": "CredibilityFactor",
+      "factorStatus": "assessed",
+      "requiredLevel": 2,
+      "achievedLevel": 2,
+      "rationale": "In-vitro experiments conducted with porcine blood at 37°C, hematocrit 35±2%, using a calibrated roller pump and closed-loop circuit. Five operating points (flow 2–6 L/min, speed 2500–3500 RPM) span the intended COU envelope. Test conditions documented in laboratory notebook with traceability to calibration certificates. Gradation 2 met.",
+      "acceptanceCriteria": {
+        "id": "https://uofa.net/synth/ac/test-cond-ac",
+        "type": "AcceptanceCriteria",
+        "name": "Test conditions acceptance criterion",
+        "description": "Experimental conditions must be documented with traceability to calibration records and must span the COU operating envelope. Gradation 2 required at MRL 2."
+      }
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Output comparison",
+      "type": "CredibilityFactor",
+      "factorStatus": "assessed",
+      "requiredLevel": 2,
+      "achievedLevel": 2,
+      "rationale": "CFD NIH predictions compared against in-vitro measurements at all 5 operating points. Comparison metric is normalised index of hemolysis. Mean absolute error 18%; 95% prediction interval ±35% honestly reported. Despite wide bounds driven by power-law parameter uncertainty, the relative ranking of worst-case operating point is preserved in 94% of MC draws, satisfying the COU decision criterion. Gradation 2 requires documented quantitative comparison — met.",
+      "acceptanceCriteria": {
+        "id": "https://uofa.net/synth/ac/output-comp-ac",
+        "type": "AcceptanceCriteria",
+        "name": "Output comparison acceptance criterion",
+        "description": "Quantitative comparison between model predictions and experimental measurements must be documented for all QoIs. Wide prediction intervals are acceptable at Gradation 2 provided they are honestly reported and the decision criterion (worst-case ranking) is demonstrably robust."
+      }
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Relevance of the quantities of interest",
+      "type": "CredibilityFactor",
+      "factorStatus": "assessed",
+      "requiredLevel": 2,
+      "achievedLevel": 2,
+      "rationale": "The primary QoI is NIH (normalised index of hemolysis), which directly maps to the regulatory acceptance criterion RH < 1. Secondary QoIs (wall shear stress distribution, exposure time histograms) support mechanistic interpretation. All QoIs are directly relevant to the COU decision. Gradation 2 met.",
+      "acceptanceCriteria": {
+        "id": "https://uofa.net/synth/ac/qoi-relevance-ac",
+        "type": "AcceptanceCriteria",
+        "name": "QoI relevance acceptance criterion",
+        "description": "Primary QoI must be directly linked to the regulatory decision criterion. Gradation 2 requires documented mapping from model output to decision metric."
+      }
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Relevance of the validation activities to the COU",
+      "type": "CredibilityFactor",
+      "factorStatus": "assessed",
+      "requiredLevel": 2,
+      "achievedLevel": 2,
+      "rationale": "Validation experiments used the same FDA generic centrifugal pump geometry, the same blood analogue fluid properties, and the same operating envelope as the COU. Geometry fidelity: identical CAD. Fluid fidelity: porcine blood matching human hematocrit range. Operating fidelity: 5 COU-representative points. Gradation 2 relevance criterion met.",
+      "acceptanceCriteria": {
+        "id": "https://uofa.net/synth/ac/val-relevance-ac",
+        "type": "AcceptanceCriteria",
+        "name": "Validation relevance acceptance criterion",
+        "description": "Validation activities must use geometry, fluid properties, and operating conditions representative of the COU. Gradation 2 requires documented correspondence between validation scenario and COU."
+      }
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Numerical solver error",
+      "type": "CredibilityFactor",
+      "factorStatus": "scoped-out",
+      "rationale": "At MRL 2 with a commercially validated solver, separate quantification of numerical solver error beyond the code verification and discretisation error factors is not required. The solver's internal iterative convergence is monitored (residuals < 1e-5 for all equations) and documented in run logs, providing sufficient assurance without a dedicated Gradation 2+ solver error analysis."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Use error",
+      "type": "CredibilityFactor",
+      "factorStatus": "scoped-out",
+      "rationale": "Use error assessment at Gradation 2+ requires independent re-analysis by a second analyst. At MRL 2, a documented peer review of boundary condition setup and post-processing scripts by a qualified CFD engineer (not the primary analyst) satisfies the intent. Formal use-error factor assessment is scoped out in favour of the peer-review record retained in the project quality file."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Model form",
+      "type": "CredibilityFactor",
+      "factorStatus": "assessed",
+      "requiredLevel": 2,
+      "achievedLevel": 2,
+      "rationale": "The power-law hemolysis model (Giersiepen-Wurzinger) is the accepted standard for CFD hemolysis prediction in regulatory submissions. Model form uncertainty is the primary contributor to the wide prediction interval (Sobol S1_C=0.52, S1_α=0.31) and is honestly documented. At Gradation 2, documentation of known model form limitations with a supporting literature survey is required and provided. The sensitivity analysis confirms that model form uncertainty does not invalidate the worst-case ranking decision.",
+      "acceptanceCriteria": {
+        "id": "https://uofa.net/synth/ac/model-form-ac",
+        "type": "AcceptanceCriteria",
+        "name": "Model form acceptance criterion",
+        "description": "Model form selection must be documented with justification. Known limitations and their impact on QoI must be characterised. Gradation 2 requires a literature-supported rationale for model selection and documented uncertainty contribution."
+      }
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Model inputs",
+      "type": "CredibilityFactor",
+      "factorStatus": "assessed",
+      "requiredLevel": 2,
+      "achievedLevel": 2,
+      "rationale": "All model inputs documented with sources and uncertainty ranges: blood viscosity (literature, CV=5%), density (measured, CV=1%), power-law coefficients C and α (literature survey of 12 published datasets, CV=28% and 19% respectively), rotational speed (encoder, ±0.5%), and flow rate (Coriolis meter, ±1.5%). Input uncertainty propagated via Monte Carlo (N=500). Wide bounds on C and α honestly reported as the dominant source of output uncertainty. Gradation 2 met.",
+      "acceptanceCriteria": {
+        "id": "https://uofa.net/synth/ac/model-inputs-ac",
+        "type": "AcceptanceCriteria",
+        "name": "Model inputs acceptance criterion",
+        "description": "All model inputs must be documented with sources and uncertainty estimates. Gradation 2 requires quantified input uncertainty and propagation to output. Wide input uncertainty is acceptable if honestly reported."
+      }
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Test samples",
+      "type": "CredibilityFactor",
+      "factorStatus": "scoped-out",
+      "rationale": "Test samples factor applies to device-level physical specimens used in validation testing. The validation experiments used a single FDA generic pump specimen (fixed geometry) rather than a sample of manufactured devices. At MRL 2, single-specimen validation is acceptable for a generic pump geometry study; manufacturing variability is not the subject of this COU. Formal test samples factor assessment is therefore scoped out."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Equivalency of input parameters",
+      "type": "CredibilityFactor",
+      "factorStatus": "scoped-out",
+      "rationale": "Equivalency of input parameters is assessed when model inputs for the validation case differ materially from the COU inputs. In this study, the validation experiments were conducted at identical operating conditions to the COU (same geometry, fluid, and operating points), so no equivalency bridging argument is required. Factor scoped out as not applicable to this validation configuration."
+    }
+  ],
+  "hasWeakener": [],
+  "hasDecisionRecord": {
+    "id": "https://uofa.net/synth/decision/morrison-cou1-nc9-decision",
+    "type": "DecisionRecord",
+    "actor": "https://uofa.net/synth/actor/morrison-credibility-team",
+    "role": "Credibility assessment team",
+    "outcome": "Accepted",
+    "rationale": "The assessment team accepts the CFD hemolysis model for the stated COU (worst-case operating point identification for a Class II CPB device at MRL 2) despite an evidence confidence of approximately 50% on point hemolysis predictions. The acceptance is grounded in the following structured argument: (1) The COU decision criterion is the relative hemolysis index RH < 1, not absolute NIH accuracy. The wide ±35% prediction interval on NIH does not invalidate the worst-case ranking, which is preserved in 94% of 500 Monte Carlo draws across the full range of uncertain power-law parameters. (2) The dominant uncertain inputs (power-law coefficient C, Sobol S1=0.52; exponent α, S1=0.31) are identified and quantified. The sensitivity analysis demonstrates that hydraulic boundary conditions — which are well-characterised (confidence ~90%, ±4.2%) — do not contribute materially to hemolysis prediction uncertainty, confirming that the flow-field solution is reliable. (3) Independent bench testing of the worst-case operating point corroborates the CFD-identified worst case in all three experimental replicates, providing convergent evidence that does not depend on the uncertain power-law parameters. (4) All 7 assessed credibility factors achieve their required Gradation 2 levels; 3 factors are scoped out with documented rationale appropriate to MRL 2. No factor shortfall exists. (5) Residual uncertainty in absolute hemolysis magnitude is acknowledged as a limitation and is the subject of a recommended follow-on experimental programme targeting independent measurement of power-law coefficients C and α for the specific blood source and shear protocol used in this device class. This programme is planned prior to final design freeze and does not block the current tolerance-sensitivity decision.",
+    "decidedAt": "2026-04-19T00:00:00Z"
+  },
+  "adversarialProvenance": {
+    "generatorVersion": "0.1.0",
+    "toolVersion": "uofa-cli 0.5.0",
+    "promptTemplateVersion": "v1.0.0",
+    "promptTemplateId": "negative_controls.control_none",
+    "specId": "adv-2026-p2-209-nc-clean-low-confidence-but-documented",
+    "specPath": "specs/negative_controls/nc-clean-low-confidence-but-documented.yaml",
+    "specHash": "sha256:ca16b3665fb35ef9780e44ab764aef942cde0f847673fdc059f47308a13b93df",
+    "generationModel": "claude-sonnet-4-6",
+    "modelParams": {
+      "max_tokens": 8000,
+      "temperature": 0.7
+    },
+    "callMetadata": {
+      "dropParamsActive": true,
+      "deprecationFallbackFired": false,
+      "shaclRetries": 0,
+      "modelRequested": "claude-sonnet-4-6",
+      "modelReturned": "claude-sonnet-4-6",
+      "litellmVersion": "1.63.7"
+    },
+    "generationTimestamp": "2026-04-29T01:23:12Z",
+    "targetWeakener": null,
+    "targetDefeaterType": null,
+    "coverageIntent": "negative_control",
+    "sourceTaxonomy": "control/none",
+    "subtletyLevel": "low",
+    "tokens": 10041,
+    "variantNum": 1,
+    "provenanceBlockHash": "sha256:47ea038968518b28ae1f279115dc4414f80b1cc155cf1b578c99b60c44bbf6f1"
+  }
+}

@@ -1,0 +1,223 @@
+{
+  "@context": "https://raw.githubusercontent.com/cloudronin/uofa/main/spec/context/v0.5.jsonld",
+  "id": "https://uofa.net/synth/ml-hemolysis-cou1-cpb-2026",
+  "type": [
+    "UnitOfAssurance",
+    "uofa:SyntheticAdversarialSample"
+  ],
+  "synthetic": true,
+  "conformsToProfile": "https://uofa.net/vocab#ProfileMinimal",
+  "name": "Morrison COU1 — CPB hemolysis credibility assessment (ML surrogate)",
+  "description": "V&V 40 credibility assessment for a neural-network surrogate model used to predict pump-induced hemolysis for the FDA generic centrifugal blood pump under cardiopulmonary bypass (CPB) conditions. COU1 evaluates whether the ML surrogate can identify worst-case hemolysis operating conditions for a Class II CPB device at Model Risk Level 2. A feedforward neural network was trained on CFD-generated hemolysis data to enable rapid sensitivity sweeps across component-dimension variations. Full 13-factor assessment is reported; all assessed factors meet required levels. A single training run was performed and point-estimate performance metrics are reported as the basis for acceptance.",
+  "assuranceLevel": "Medium",
+  "couName": "CPB use",
+  "decision": "Accepted",
+  "deviceClass": "Class II",
+  "modelRiskLevel": 2,
+  "bindsRequirement": "https://uofa.net/synth/req/ml-hemolysis-surrogate-req-001",
+  "bindsClaim": "https://uofa.net/synth/claim/ml-hemolysis-surrogate-claim-001",
+  "bindsModel": "https://uofa.net/synth/model/feedforward-nn-hemolysis-surrogate-v1",
+  "bindsDataset": [
+    "https://uofa.net/synth/data/cfd-hemolysis-training-set-v1",
+    "https://uofa.net/synth/data/cfd-hemolysis-test-set-v1"
+  ],
+  "hasContextOfUse": {
+    "decisionConsequence": "High",
+    "description": "A CFD model is used to evaluate the sensitivity of pump-induced hemolysis to variations in component dimensions for a centrifugal blood pump used during cardiopulmonary bypass surgery. Model influence is MEDIUM (testing confirms results); decision consequence is HIGH (incorrect tolerance decision could impact clinical hemolysis levels). Model Risk Level 2.",
+    "deviceClass": "Class II",
+    "id": "https://uofa.net/morrison/cou/cou1-cpb",
+    "intendedUse": "Use CFD to identify worst-case operating conditions for hemolysis across 5 flow-speed combinations for a Class II CPB device. Results compared against predicate device hemolysis using relative hemolysis index (RH < 1 acceptance criterion).",
+    "modelInfluence": "Medium",
+    "name": "COU1: Cardiopulmonary bypass use (Class II)",
+    "type": "ContextOfUse"
+  },
+  "hasValidationResult": [
+    {
+      "id": "https://uofa.net/synth/validation/nn-hemolysis-accuracy-2026",
+      "type": "ValidationResult",
+      "name": "Neural network surrogate accuracy against held-out CFD test set",
+      "description": "The feedforward neural network surrogate (3 hidden layers, 128 units each, ReLU activations) was trained on 4 200 CFD-generated hemolysis index samples covering 5 flow-speed combinations and 12 geometric dimension variations. Training used the Adam optimizer with a fixed learning rate of 1e-3 for 500 epochs. The model was evaluated on a held-out test set of 480 samples. Point-estimate performance metrics: R² = 0.974, RMSE = 0.0031 (normalised hemolysis index units), MAE = 0.0019. Predicted worst-case operating conditions matched CFD-identified worst-case conditions in 47 of 48 test geometries (97.9% agreement). All metrics exceed the pre-specified acceptance thresholds (R² ≥ 0.95, RMSE ≤ 0.005). The surrogate is therefore accepted as a credible proxy for full CFD sweeps within the defined COU.",
+      "quantityOfInterest": "Relative hemolysis index (RH)",
+      "acceptanceCriteria": "R² ≥ 0.95; RMSE ≤ 0.005 normalised units; worst-case condition agreement ≥ 95%",
+      "outcomeStatus": "passed"
+    }
+  ],
+  "wasDerivedFrom": "https://doi.org/10.1115/1.4034918",
+  "wasAttributedTo": "https://uofa.net/synth/org/morrison-vv-team",
+  "generatedAtTime": "2026-04-19T00:00:00Z",
+  "hash": "sha256:a3f1c2e4b7d09e5f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f",
+  "signature": "ed25519:b4e2d1c3f5a7e9b0c2d4f6a8e0b2d4f6a8c0e2b4d6f8a0c2e4b6d8f0a2c4e6b8",
+  "hasCredibilityFactor": [
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Software quality assurance",
+      "type": "CredibilityFactor",
+      "requiredLevel": 1,
+      "achievedLevel": 1,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "Version-controlled training code with documented dependencies; reproducible build environment.",
+      "rationale": "The neural network training pipeline is maintained under Git version control (tag v1.3.2). A pinned conda environment file ensures reproducible dependency resolution. Code review was completed by a second analyst prior to training execution. Required level 1 is met."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Numerical code verification",
+      "type": "CredibilityFactor",
+      "requiredLevel": 1,
+      "achievedLevel": 1,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "Verification that the surrogate implementation correctly computes forward-pass predictions consistent with the trained weight matrices.",
+      "rationale": "Unit tests confirm that the exported ONNX model and the PyTorch reference implementation produce identical outputs (absolute difference < 1e-7) on a set of 100 verification inputs. Required level 1 is met."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Discretization error",
+      "type": "CredibilityFactor",
+      "requiredLevel": 2,
+      "achievedLevel": 2,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "Demonstration that network architecture (depth and width) is sufficient to represent the hemolysis response surface without systematic bias.",
+      "rationale": "Architecture sensitivity was evaluated by comparing 2-layer, 3-layer, and 4-layer networks of equivalent parameter count. The 3-layer configuration achieved the lowest test RMSE (0.0031) with no further improvement for 4 layers, indicating that the chosen architecture is not under-parameterised. Required level 2 is met."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Test conditions",
+      "type": "CredibilityFactor",
+      "requiredLevel": 2,
+      "achievedLevel": 2,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "Test set conditions span the full range of flow-speed combinations and geometric dimension variations defined in the COU.",
+      "rationale": "The 480-sample held-out test set was constructed using a stratified Latin hypercube design covering all 5 flow-speed operating points and the full ±10% dimensional tolerance envelope. No extrapolation beyond training distribution is required for the intended COU. Required level 2 is met."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Output comparison",
+      "type": "CredibilityFactor",
+      "requiredLevel": 2,
+      "achievedLevel": 2,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "Point-estimate accuracy metrics (R², RMSE, MAE) meet pre-specified thresholds on the held-out test set.",
+      "rationale": "R² = 0.974, RMSE = 0.0031, MAE = 0.0019 on the held-out test set. All three metrics exceed pre-specified acceptance thresholds. Worst-case condition identification agreement is 97.9%. Required level 2 is met."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Relevance of the quantities of interest",
+      "type": "CredibilityFactor",
+      "requiredLevel": 2,
+      "achievedLevel": 2,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "The surrogate output (normalised hemolysis index) maps directly to the regulatory acceptance criterion (RH < 1).",
+      "rationale": "The surrogate predicts the normalised relative hemolysis index (RH) used in the regulatory submission. A post-processing step converts surrogate output to the RH < 1 acceptance criterion without additional assumptions. Required level 2 is met."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Relevance of the validation activities to the COU",
+      "type": "CredibilityFactor",
+      "requiredLevel": 2,
+      "achievedLevel": 2,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "Validation data are drawn from the same device family, operating regime, and geometric envelope as the COU.",
+      "rationale": "All CFD training and test data were generated using the FDA generic centrifugal blood pump geometry under CPB operating conditions (flow 3–6 L/min, speed 2 000–3 500 rpm). No surrogate extrapolation outside this regime is intended. Required level 2 is met."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Numerical solver error",
+      "type": "CredibilityFactor",
+      "requiredLevel": 1,
+      "achievedLevel": 1,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "Training convergence confirmed; loss curves show no divergence or instability.",
+      "rationale": "Training loss decreased monotonically from 0.142 to 0.0008 over 500 epochs with no oscillation. Validation loss tracked training loss without divergence. Early stopping was not triggered, confirming stable convergence. Required level 1 is met."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Use error",
+      "type": "CredibilityFactor",
+      "requiredLevel": 1,
+      "achievedLevel": 1,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "Input validation guards prevent out-of-range inputs from being passed to the surrogate without warning.",
+      "rationale": "The surrogate inference wrapper includes range checks on all 12 geometric inputs and 2 operating-condition inputs. Out-of-range queries raise a documented exception and are logged. User guidance documentation specifies valid input ranges. Required level 1 is met."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Model form",
+      "type": "CredibilityFactor",
+      "requiredLevel": 1,
+      "achievedLevel": 1,
+      "factorStatus": "not-assessed",
+      "acceptanceCriteria": "Not assessed at MRL 2 for this factor.",
+      "rationale": "Model form assessment is not required at Model Risk Level 2 for a surrogate model operating within a well-characterised training distribution. Scoped out per MRL 2 assessment plan."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Model inputs",
+      "type": "CredibilityFactor",
+      "requiredLevel": 2,
+      "achievedLevel": 2,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "All 14 surrogate inputs (12 geometric dimensions, flow rate, rotational speed) are traceable to measurement data or CFD boundary conditions with documented uncertainty.",
+      "rationale": "Each input variable is defined in the dimensional tolerance specification document (Rev C). Measurement uncertainty for geometric dimensions is ±0.05 mm (k=2). Operating condition inputs are taken directly from the CFD boundary condition database. Required level 2 is met."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Test samples",
+      "type": "CredibilityFactor",
+      "requiredLevel": 2,
+      "achievedLevel": 2,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "Training and test sets are statistically independent and of sufficient size to support the reported accuracy metrics.",
+      "rationale": "A total of 4 680 CFD samples were split 90/10 into training (4 200) and test (480) sets using a stratified random split with no overlap. Power analysis confirmed that 480 test samples provide 95% confidence that the true R² lies within ±0.012 of the observed value. Required level 2 is met."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Equivalency of input parameters",
+      "type": "CredibilityFactor",
+      "requiredLevel": 1,
+      "achievedLevel": 1,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "Input parameters used during surrogate training are equivalent to those used in the regulatory submission CFD runs.",
+      "rationale": "The CFD boundary conditions and geometric parameterisation used to generate the training dataset are identical to those defined in the regulatory submission simulation protocol (Document SP-CPB-001 Rev B). Equivalency was confirmed by cross-reference audit. Required level 1 is met."
+    }
+  ],
+  "hasWeakener": [],
+  "hasDecisionRecord": {
+    "id": "https://uofa.net/synth/decision/ml-hemolysis-cou1-decision-2026",
+    "type": "DecisionRecord",
+    "actor": "https://uofa.net/synth/actor/morrison-credibility-lead",
+    "role": "Credibility assessment team",
+    "outcome": "Accepted",
+    "rationale": "All 13 credibility factors have been assessed or appropriately scoped out at Model Risk Level 2. The neural network surrogate achieves R² = 0.974 and RMSE = 0.0031 on the held-out test set, exceeding all pre-specified acceptance thresholds. Worst-case operating condition identification agrees with full CFD in 97.9% of test geometries, satisfying the RH < 1 regulatory acceptance criterion. The credibility assessment team concludes that the surrogate model provides sufficient evidence of credibility to support the regulatory submission for the Class II CPB device.",
+    "decidedAt": "2026-04-19T00:00:00Z"
+  },
+  "adversarialProvenance": {
+    "generatorVersion": "0.1.0",
+    "toolVersion": "uofa-cli 0.5.0",
+    "promptTemplateVersion": "v1.0.0",
+    "promptTemplateId": "evidence_validity.gohar_evidence_validity_model_variance",
+    "specId": "adv-2026-p2-105-model-variance",
+    "specPath": "specs/gap_probe/gohar_ev_model_variance.yaml",
+    "specHash": "sha256:65a49331917659e595d9198be414465141dc1657b07a90e984c7c19213505f0b",
+    "generationModel": "claude-sonnet-4-6",
+    "modelParams": {
+      "max_tokens": 8000,
+      "temperature": 0.7
+    },
+    "callMetadata": {
+      "dropParamsActive": true,
+      "deprecationFallbackFired": false,
+      "shaclRetries": 0,
+      "modelRequested": "claude-sonnet-4-6",
+      "modelReturned": "claude-sonnet-4-6",
+      "litellmVersion": "1.63.7"
+    },
+    "generationTimestamp": "2026-04-27T10:54:36Z",
+    "targetWeakener": null,
+    "targetDefeaterType": null,
+    "coverageIntent": "gap_probe",
+    "sourceTaxonomy": "gohar/evidence_validity/model-variance",
+    "subtletyLevel": "low",
+    "tokens": 6789,
+    "variantNum": 2,
+    "provenanceBlockHash": "sha256:c63016340e1af3a86765d3e97059df67e0d67107568c83f79de0a36aca916c7b"
+  }
+}

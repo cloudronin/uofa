@@ -1,0 +1,331 @@
+{
+  "@context": "https://raw.githubusercontent.com/cloudronin/uofa/main/spec/context/v0.5.jsonld",
+  "id": "https://uofa.net/synth/nc8-clean-bounded-envelope-001",
+  "type": [
+    "UnitOfAssurance",
+    "uofa:SyntheticAdversarialSample"
+  ],
+  "synthetic": true,
+  "conformsToProfile": "https://uofa.net/vocab#ProfileMinimal",
+  "name": "Nagaraja COU1 — Non-cannulated pedicle screw compression-bending credibility assessment",
+  "description": "V&V 40 credibility assessment for FEA prediction of ASTM F1717 static compression-bending performance of a non-cannulated 7.5 mm pedicle screw construct. COU1 is the validation activity itself — the FEA model ensemble (FDA, Ansys, DePuy Synthes) is compared against N=11 experimental constructs across two laboratories. All 13 V&V 40 factors assessed; one factor (Test conditions) below required level due to single test condition. Operating envelope is explicitly bounded (axial compressive load 0–3000 N, bending moment 0–25 N·m, screw diameter 7.5 mm ± 0.05 mm, UHMWPE block per ASTM F1717 geometry). Applicability constraint restricts use to non-cannulated designs only. Validation samples cover this envelope sparsely but gaps are honestly documented.",
+  "assuranceLevel": "Medium",
+  "modelRiskLevel": 3,
+  "deviceClass": "Class II",
+  "decision": "Accepted",
+  "couName": "Non-cannulated F1717 compression-bending",
+  "bindsRequirement": "https://uofa.net/nagaraja/req/f1717-compression-bending-noncannulated",
+  "bindsClaim": "https://uofa.net/nagaraja/claim/fea-reproduces-f1717-within-acceptance-bounds",
+  "bindsModel": "https://uofa.net/nagaraja/model/fea-pedicle-screw-ensemble-v2",
+  "bindsDataset": [
+    "https://uofa.net/nagaraja/data/bench-test-lab1-n6",
+    "https://uofa.net/nagaraja/data/bench-test-lab2-n5",
+    "https://uofa.net/nagaraja/data/material-coupon-titanium-alloy",
+    "https://uofa.net/nagaraja/data/geometry-scan-7p5mm-noncannulated"
+  ],
+  "hasContextOfUse": {
+    "id": "https://uofa.net/nagaraja/cou/cou1-noncannulated",
+    "type": "ContextOfUse",
+    "name": "COU1: Non-cannulated construct compression-bending prediction",
+    "description": "FEA predicts construct stiffness, yield force, and force at 40 mm displacement for the non-cannulated 7.5 mm pedicle screw design under ASTM F1717 static compression-bending. Validated by direct comparison to bench testing (N=11 constructs across two laboratories). Model influence MEDIUM (testing confirms results); decision consequence MEDIUM (pedicle screw fracture leads to revision surgery, not death).",
+    "intendedUse": "Demonstrate that the FEA modeling framework reproduces experimental compression-bending behavior of a non-cannulated pedicle screw construct within pre-established acceptance bounds (<10% QoI difference, E/uval < 1.96).",
+    "modelInfluence": "Medium",
+    "decisionConsequence": "Medium",
+    "deviceClass": "Class II",
+    "hasApplicabilityConstraint": {
+      "id": "https://uofa.net/nagaraja/cou/applicability-noncannulated-only",
+      "type": "ApplicabilityConstraint",
+      "name": "Non-cannulated design restriction",
+      "description": "Model applicability is restricted to non-cannulated pedicle screw designs. Cannulated variants introduce internal geometry that alters stress distribution in the screw shank and has not been validated under this COU. Any extension to cannulated designs requires a separate V&V activity.",
+      "constraintExpression": "screwDesign = 'non-cannulated' AND screwDiameter_mm IN [7.4, 7.6]"
+    },
+    "hasOperatingEnvelope": {
+      "id": "https://uofa.net/nagaraja/cou/operating-envelope-f1717",
+      "type": "OperatingEnvelope",
+      "name": "ASTM F1717 static compression-bending operating envelope",
+      "description": "Defines the bounded parameter space within which the FEA model has been validated and is considered applicable. Parameters outside these bounds have not been assessed and the model must not be used without additional validation evidence.",
+      "bounds": [
+        {
+          "parameter": "Axial compressive load",
+          "minimum": 0,
+          "maximum": 3000,
+          "unit": "N",
+          "note": "Loads above 3000 N approach ultimate failure; model is elastic-plastic but plasticity calibration covers only up to 2800 N experimentally. Upper bound set conservatively."
+        },
+        {
+          "parameter": "Bending moment at construct",
+          "minimum": 0,
+          "maximum": 25,
+          "unit": "N·m",
+          "note": "Corresponds to actuator displacement range 0–40 mm per ASTM F1717 fixture geometry."
+        },
+        {
+          "parameter": "Screw outer diameter",
+          "minimum": 7.45,
+          "maximum": 7.55,
+          "unit": "mm",
+          "note": "Manufacturing tolerance band for the 7.5 mm nominal design; validated specimens all fell within this range."
+        },
+        {
+          "parameter": "Test block material",
+          "allowedValues": [
+            "UHMWPE per ASTM F1717 Annex A1"
+          ],
+          "note": "Model material properties calibrated against UHMWPE coupon data. Other block materials not validated."
+        },
+        {
+          "parameter": "Loading rate",
+          "minimum": 1,
+          "maximum": 25,
+          "unit": "mm/min",
+          "note": "Quasi-static regime; rate-dependent effects not modelled. Validation performed at 5 mm/min; sparse coverage at 1 and 25 mm/min acknowledged as gap."
+        }
+      ],
+      "coverageGapStatement": "Validation specimens provide sparse coverage at the extremes of the loading-rate and bending-moment bounds. N=2 constructs tested at 1 mm/min and N=1 at 25 mm/min. All QoI comparisons remain within acceptance bounds at these extremes, but the sparse sample count is documented as a residual uncertainty. The operating envelope bounds are not expanded beyond the tested range."
+    }
+  },
+  "hasValidationResult": [
+    {
+      "id": "https://uofa.net/nagaraja/vr/stiffness-comparison",
+      "type": "ValidationResult",
+      "name": "Construct stiffness FEA vs. experiment",
+      "description": "FEA-predicted construct stiffness compared against N=11 experimental measurements across two laboratories. Mean FEA stiffness 487 N/mm; mean experimental 501 N/mm; relative error 2.8%; E/uval = 0.71 (< 1.96 acceptance threshold).",
+      "quantityOfInterest": "Construct stiffness (N/mm)",
+      "acceptanceCriteria": "https://uofa.net/nagaraja/ac/qoi-10pct-eval-1p96",
+      "comparedAgainst": "https://uofa.net/nagaraja/data/bench-test-combined-n11",
+      "prov:wasGeneratedBy": "https://uofa.net/nagaraja/activity/vv-comparison-stiffness-2024",
+      "hasUncertaintyQuantification": {
+        "id": "https://uofa.net/nagaraja/uq/stiffness-uval",
+        "type": "UncertaintyQuantification",
+        "method": "ASME V&V 40 validation uncertainty (uval) combining experimental measurement uncertainty and model parameter uncertainty via GUM-compliant propagation",
+        "uval": 19.7,
+        "unit": "N/mm",
+        "coverageFactor": 1.96,
+        "note": "Experimental uncertainty dominated by load-cell calibration (±0.5%) and LVDT displacement (±0.1 mm). Model parameter uncertainty from titanium Ti-6Al-4V elastic modulus ±3 GPa (1-sigma)."
+      }
+    },
+    {
+      "id": "https://uofa.net/nagaraja/vr/yield-force-comparison",
+      "type": "ValidationResult",
+      "name": "Yield force FEA vs. experiment",
+      "description": "FEA-predicted yield force (0.2% offset method) compared against N=11 experimental measurements. Mean FEA yield force 1842 N; mean experimental 1891 N; relative error 2.6%; E/uval = 0.83.",
+      "quantityOfInterest": "Yield force (N)",
+      "acceptanceCriteria": "https://uofa.net/nagaraja/ac/qoi-10pct-eval-1p96",
+      "comparedAgainst": "https://uofa.net/nagaraja/data/bench-test-combined-n11",
+      "prov:wasGeneratedBy": "https://uofa.net/nagaraja/activity/vv-comparison-yield-2024",
+      "hasUncertaintyQuantification": {
+        "id": "https://uofa.net/nagaraja/uq/yield-force-uval",
+        "type": "UncertaintyQuantification",
+        "method": "GUM-compliant propagation; experimental uncertainty from load-cell ±0.5% and yield-point identification algorithm ±15 N; model uncertainty from yield strength variability ±18 MPa (1-sigma)",
+        "uval": 58.9,
+        "unit": "N",
+        "coverageFactor": 1.96
+      }
+    },
+    {
+      "id": "https://uofa.net/nagaraja/vr/force-40mm-comparison",
+      "type": "ValidationResult",
+      "name": "Force at 40 mm displacement FEA vs. experiment",
+      "description": "FEA-predicted force at 40 mm actuator displacement compared against N=11 experimental measurements. Mean FEA 2314 N; mean experimental 2287 N; relative error 1.2%; E/uval = 0.44.",
+      "quantityOfInterest": "Force at 40 mm displacement (N)",
+      "acceptanceCriteria": "https://uofa.net/nagaraja/ac/qoi-10pct-eval-1p96",
+      "comparedAgainst": "https://uofa.net/nagaraja/data/bench-test-combined-n11",
+      "prov:wasGeneratedBy": "https://uofa.net/nagaraja/activity/vv-comparison-f40mm-2024",
+      "hasUncertaintyQuantification": {
+        "id": "https://uofa.net/nagaraja/uq/f40mm-uval",
+        "type": "UncertaintyQuantification",
+        "method": "GUM-compliant propagation; experimental uncertainty from load-cell ±0.5% and displacement control ±0.05 mm; model uncertainty from hardening curve extrapolation ±22 MPa (1-sigma)",
+        "uval": 52.3,
+        "unit": "N",
+        "coverageFactor": 1.96
+      }
+    }
+  ],
+  "wasDerivedFrom": "https://doi.org/10.1115/1.4054831",
+  "wasAttributedTo": "https://uofa.net/nagaraja/org/fda-cdrh-osel",
+  "generatedAtTime": "2026-04-19T00:00:00Z",
+  "hash": "sha256:94cdf985fa28e6d8799790305823b8d0b55d7b456bf9c8aee2de486922665ff7",
+  "signature": "ed25519:a83c00d40972912fa90b00f267c3a87e555fc9bc7f4e423a89e7670df843bb722688bd55544a188ec2ab5c6cd3252aa10a5ad7ac02c1b657738957568c71490f",
+  "hasCredibilityFactor": [
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Software quality assurance",
+      "type": "CredibilityFactor",
+      "requiredLevel": 2,
+      "achievedLevel": 3,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "https://uofa.net/nagaraja/ac/sqa-level2",
+      "rationale": "Ansys Mechanical 2023 R1 is a commercially validated finite element solver with documented V&V test suite per ISO 9001 quality management. DePuy Synthes internal FEA tool version 4.2 has been verified against Ansys for all relevant element types (SOLID186, CONTA174). FDA in-house Python post-processing scripts are version-controlled in Git with unit tests covering all QoI extraction functions. Achieved level 3 exceeds the required level 2 for medium model risk."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Numerical code verification",
+      "type": "CredibilityFactor",
+      "requiredLevel": 2,
+      "achievedLevel": 2,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "https://uofa.net/nagaraja/ac/code-verification-level2",
+      "rationale": "Patch tests and manufactured-solution benchmarks confirm correct implementation of large-deformation elastoplastic formulation. Cantilever beam benchmark with known analytical solution reproduced to within 0.3% for linear regime. Contact formulation verified against Hertz contact solution for cylindrical-on-flat geometry representative of screw-block interface. All benchmarks documented in verification report VR-2023-04."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Discretization error",
+      "type": "CredibilityFactor",
+      "requiredLevel": 2,
+      "achievedLevel": 3,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "https://uofa.net/nagaraja/ac/discretization-level2",
+      "rationale": "Richardson extrapolation performed on three systematically refined meshes (coarse: 48k elements, medium: 192k elements, fine: 768k elements). Grid convergence index (GCI) for stiffness QoI = 0.8%; for yield force QoI = 1.1%; for force-at-40mm QoI = 0.6%. All GCI values well below the 5% threshold. Production mesh uses medium refinement (192k elements) providing adequate accuracy with acceptable computational cost. Achieved level 3 due to systematic three-level convergence study."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Numerical solver error",
+      "type": "CredibilityFactor",
+      "requiredLevel": 2,
+      "achievedLevel": 2,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "https://uofa.net/nagaraja/ac/solver-error-level2",
+      "rationale": "Newton-Raphson nonlinear solver with automatic time-stepping; convergence tolerance set to 0.1% force residual norm. All production runs achieve convergence within tolerance; no diverged load steps. Energy balance checked at each increment; energy error < 0.05% for all cases. Iterative linear solver (PCG with incomplete Cholesky preconditioner) residual < 1e-8 for all increments."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Use error",
+      "type": "CredibilityFactor",
+      "requiredLevel": 2,
+      "achievedLevel": 2,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "https://uofa.net/nagaraja/ac/use-error-level2",
+      "rationale": "Standard operating procedure (SOP-FEA-001 Rev C) governs model setup, boundary condition application, material assignment, and post-processing for ASTM F1717 simulations. Independent peer review of model setup performed by a second analyst not involved in original model construction. Checklist-based review covers 47 items including unit consistency, constraint application, and output extraction. No use errors identified in peer review; minor documentation clarification implemented."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Model form",
+      "type": "CredibilityFactor",
+      "requiredLevel": 3,
+      "achievedLevel": 3,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "https://uofa.net/nagaraja/ac/model-form-level3",
+      "rationale": "Continuum elastoplastic model with isotropic hardening (Chaboche parameters calibrated from tensile coupon data for Ti-6Al-4V ELI per ASTM E8). Contact modelled with augmented Lagrangian formulation; friction coefficient μ=0.2 based on tribological literature for titanium-on-UHMWPE. Geometric nonlinearity (large deformation) activated. Model form choices are consistent with the physics of the ASTM F1717 test and with published FEA literature for spinal implant constructs. Sensitivity analysis confirms that ±20% variation in friction coefficient produces <2% change in all three QoIs."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Model inputs",
+      "type": "CredibilityFactor",
+      "requiredLevel": 3,
+      "achievedLevel": 3,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "https://uofa.net/nagaraja/ac/model-inputs-level3",
+      "rationale": "Geometry derived from calibrated CMM measurements of production screws (n=5 screws measured; mean dimensions used; dimensional variability propagated as input uncertainty). Ti-6Al-4V material properties from lot-specific tensile coupon testing (n=6 coupons per lot; E = 114 ± 3 GPa, σ_y = 880 ± 18 MPa). UHMWPE block properties from supplier data sheet with ±10% uncertainty on elastic modulus. All input uncertainties propagated through Monte Carlo sampling (n=500 runs) to compute model parameter contribution to uval. Input uncertainty contribution to total uval < 40% for all three QoIs, confirming model form dominates."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Test samples",
+      "type": "CredibilityFactor",
+      "requiredLevel": 2,
+      "achievedLevel": 2,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "https://uofa.net/nagaraja/ac/test-samples-level2",
+      "rationale": "N=11 non-cannulated 7.5 mm pedicle screw constructs tested: n=6 at Laboratory 1 (FDA CDRH) and n=5 at Laboratory 2 (DePuy Synthes). All specimens from the same production lot, traceable to material certificates. Screws assembled to UHMWPE blocks per ASTM F1717 protocol. Dimensional inspection of all test specimens confirms compliance with operating envelope bounds (diameter 7.48–7.53 mm). Inter-laboratory variability assessed; coefficient of variation for stiffness across labs = 3.1%, confirming reproducibility."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Test conditions",
+      "type": "CredibilityFactor",
+      "requiredLevel": 2,
+      "achievedLevel": 1,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "https://uofa.net/nagaraja/ac/test-conditions-level2",
+      "rationale": "Testing performed under ambient laboratory conditions (22 ± 2°C, no fluid immersion) per ASTM F1717. The standard does not require physiological temperature or wet conditions for this test type. However, all validation testing was conducted at a single nominal loading rate (5 mm/min) with only sparse coverage at 1 mm/min (n=2) and 25 mm/min (n=1). This sparse multi-rate coverage results in achieved level 1, below the required level 2. This shortfall is acknowledged and documented; the operating envelope upper bound on loading rate (25 mm/min) is set at the maximum tested value to prevent extrapolation. The decision team accepted this shortfall given that rate effects in quasi-static titanium testing are well-characterized in literature and the sparse data at rate extremes remain within acceptance bounds.",
+      "id": "https://uofa.net/nagaraja/decision/cou1-accepted-2024/factor/test-conditions"
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Equivalency of input parameters",
+      "type": "CredibilityFactor",
+      "requiredLevel": 2,
+      "achievedLevel": 2,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "https://uofa.net/nagaraja/ac/input-equivalency-level2",
+      "rationale": "FEA model inputs mapped directly to experimental measurements for each of the N=11 specimens: actual measured screw dimensions used per specimen rather than nominal values. Material properties assigned from the same production lot as test specimens. Boundary conditions replicate ASTM F1717 fixture geometry as confirmed by fixture dimensional drawings. No significant uncontrolled parameters identified between simulation and experiment. Equivalency mapping table documented in technical report TR-2024-08, Table 3."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Output comparison",
+      "type": "CredibilityFactor",
+      "requiredLevel": 3,
+      "achievedLevel": 3,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "https://uofa.net/nagaraja/ac/output-comparison-level3",
+      "rationale": "Quantitative comparison performed for all three QoIs using the ASME V&V 40 validation metric E/uval. Acceptance threshold E/uval < 1.96 (95% confidence interval). Results: stiffness E/uval = 0.71, yield force E/uval = 0.83, force-at-40mm E/uval = 0.44. All three QoIs pass acceptance criteria with margin. Individual specimen comparisons also performed; no specimen shows QoI difference exceeding 9.1% (below 10% threshold). Force-displacement curves compared graphically for all 11 specimens; FEA ensemble envelope encompasses experimental scatter across full displacement range."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Relevance of the quantities of interest",
+      "type": "CredibilityFactor",
+      "requiredLevel": 2,
+      "achievedLevel": 3,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "https://uofa.net/nagaraja/ac/qoi-relevance-level2",
+      "rationale": "The three QoIs (construct stiffness, yield force, force at 40 mm displacement) are the primary metrics specified in ASTM F1717 for characterizing spinal implant mechanical performance and are directly linked to the regulatory decision (510(k) substantial equivalence). Stiffness characterizes functional performance under physiological loading; yield force characterizes safety margin against permanent deformation; force at 40 mm characterizes ultimate structural integrity. All three are directly extractable from both FEA output and experimental load-displacement data without intermediate transformation. Relevance traceability documented in QoI justification memo QJ-2023-11."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Relevance of the validation activities to the COU",
+      "type": "CredibilityFactor",
+      "requiredLevel": 3,
+      "achievedLevel": 3,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "https://uofa.net/nagaraja/ac/validation-relevance-level3",
+      "rationale": "Validation activity is a direct replication of the COU: the same FEA model, the same screw design, the same test standard (ASTM F1717), the same QoIs, and the same acceptance bounds are used in both validation and the regulatory submission context. The operating envelope declared in the COU was defined to match the validated parameter space, ensuring no extrapolation in the intended use. The validation activities were designed prospectively with pre-registered acceptance criteria (registered in FDA CDRH internal tracking system prior to data collection), eliminating post-hoc adjustment of thresholds. Relevance assessment documented in validation plan VP-2023-07, Section 4.2."
+    }
+  ],
+  "hasWeakener": [],
+  "hasDecisionRecord": {
+    "id": "https://uofa.net/nagaraja/decision/cou1-accepted-2024",
+    "type": "DecisionRecord",
+    "actor": "https://uofa.net/nagaraja/org/fda-cdrh-osel",
+    "role": "Credibility assessment team",
+    "outcome": "Accepted",
+    "rationale": "The credibility assessment team reviewed all 13 V&V 40 factors for COU1 (non-cannulated pedicle screw compression-bending prediction). Twelve of thirteen factors meet or exceed their required credibility levels. The single shortfall (Test conditions, achieved level 1 vs. required level 2) arises from sparse multi-rate coverage and is mitigated by: (1) restriction of the operating envelope upper bound on loading rate to the maximum tested value (25 mm/min); (2) consistency of sparse multi-rate results with acceptance bounds; and (3) published literature supporting quasi-static rate insensitivity of Ti-6Al-4V in this regime. All three QoIs pass the pre-registered acceptance criterion E/uval < 1.96 with substantial margin (maximum E/uval = 0.83). The operating envelope is explicitly bounded with concrete parameter limits, and an applicability constraint restricts use to non-cannulated designs. Coverage gaps at envelope extremes are honestly documented and do not invalidate the assessment given the conservative bound-setting approach. The provenance chain from raw experimental data through uncertainty quantification to validation metrics is complete and traceable. The decision team accepts the model as credible for its intended use within the declared operating envelope and applicability constraints.",
+    "decidedAt": "2026-04-19T00:00:00Z",
+    "hasOffsetRationale": {
+      "id": "https://uofa.net/nagaraja/decision/cou1-accepted-2024/offset/test-conditions",
+      "type": "OffsetRationale",
+      "refersToFactor": "https://uofa.net/nagaraja/decision/cou1-accepted-2024/factor/test-conditions",
+      "justification": "Placeholder offset rationale (Phase 2.5 v0.5.11 corpus regen) for 'Test conditions' factor shortfall on this Accepted decision. The W-AR-02 rule's intent is to flag Accepted-despite-shortfall findings that are NOT documented; structurally well-formed but not substantively meaningful. Real-world V&V 40 cases (e.g., Nagaraja et al. 2024 §4) record the offsetting evidence here."
+    }
+  },
+  "adversarialProvenance": {
+    "generatorVersion": "0.1.0",
+    "toolVersion": "uofa-cli 0.5.0",
+    "promptTemplateVersion": "v1.0.0",
+    "promptTemplateId": "negative_controls.control_none",
+    "specId": "adv-2026-p2-208-nc-clean-partial-envelope",
+    "specPath": "specs/negative_controls/nc-clean-partial-envelope.yaml",
+    "specHash": "sha256:0b740762501fcc54fb4e3b9da0e3dea70610a88cb738c5429e12c446da148c82",
+    "generationModel": "claude-sonnet-4-6",
+    "modelParams": {
+      "max_tokens": 8000,
+      "temperature": 0.7
+    },
+    "callMetadata": {
+      "dropParamsActive": true,
+      "deprecationFallbackFired": false,
+      "shaclRetries": 0,
+      "modelRequested": "claude-sonnet-4-6",
+      "modelReturned": "claude-sonnet-4-6",
+      "litellmVersion": "1.63.7"
+    },
+    "generationTimestamp": "2026-04-27T12:45:13Z",
+    "targetWeakener": null,
+    "targetDefeaterType": null,
+    "coverageIntent": "negative_control",
+    "sourceTaxonomy": "control/none",
+    "subtletyLevel": "high",
+    "tokens": 9850,
+    "variantNum": 1,
+    "provenanceBlockHash": "sha256:ba6342f5d4cd42e37640519bd8799e6814f379bbd2f0b91b50410649ddce58bf"
+  },
+  "signatureAlg": "ed25519",
+  "canonicalizationAlg": "RDFC-1.0"
+}

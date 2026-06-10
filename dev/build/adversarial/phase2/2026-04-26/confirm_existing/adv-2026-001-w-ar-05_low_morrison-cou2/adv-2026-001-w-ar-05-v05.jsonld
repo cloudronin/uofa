@@ -1,0 +1,227 @@
+{
+  "@context": "https://raw.githubusercontent.com/cloudronin/uofa/main/spec/context/v0.5.jsonld",
+  "id": "https://uofa.net/synth/cou2-vad-w-ar-05-d3",
+  "type": [
+    "UnitOfAssurance",
+    "uofa:SyntheticAdversarialSample"
+  ],
+  "synthetic": true,
+  "conformsToProfile": "https://uofa.net/vocab#ProfileMinimal",
+  "name": "Morrison COU2 — VAD hemolysis credibility assessment (W-AR-05 adversarial sample)",
+  "description": "Synthetic V&V 40 credibility package for CFD hemolysis prediction of the FDA generic centrifugal blood pump under VAD conditions. COU2 requires prediction of absolute hemolysis index values across pulsatile operating envelopes at MRL 5. The validation result presented here references a steady-state benchtop comparator dataset; the COU explicitly requires pulsatile flow assessment. This package embeds W-AR-05 (comparator absence or mismatch) via D3 undercutting: the inference from the steady-state comparator to pulsatile-COU credibility is methodologically unsound. One validation result intentionally omits the comparedAgainst link to expose the SHACL detection surface.",
+  "bindsRequirement": "https://uofa.net/synth/req/cou2-hemolysis-absolute-threshold",
+  "bindsClaim": "https://uofa.net/synth/claim/cou2-cfd-predicts-hemolysis-below-clinical-threshold",
+  "bindsModel": "https://uofa.net/synth/model/cfd-centrifugal-pump-hemolysis-mrl5",
+  "bindsDataset": [
+    "https://uofa.net/synth/data/fda-generic-pump-steady-state-piv",
+    "https://uofa.net/synth/data/fda-generic-pump-hemolysis-benchtop-steady"
+  ],
+  "hasContextOfUse": {
+    "decisionConsequence": "High",
+    "description": "A CFD model is used to predict absolute hemolysis levels across operating conditions for a centrifugal blood pump used as a ventricular assist device (VAD). Model influence is HIGH (model is primary basis for hemolysis acceptance); decision consequence is HIGH (incorrect prediction could result in chronic patient hemolysis requiring clinical intervention). Model Risk Level 5 — the highest in the Morrison assessment.",
+    "deviceClass": "Class III",
+    "id": "https://uofa.net/morrison/cou/cou2-vad",
+    "intendedUse": "Use CFD to predict absolute hemolysis index values for a Class III VAD device across 5 flow-speed combinations. Results must demonstrate hemolysis below absolute clinical threshold (not relative to predicate). Requires Monte Carlo uncertainty quantification on hemolysis predictions.",
+    "modelInfluence": "High",
+    "name": "COU2: Ventricular assist device use (Class III)",
+    "type": "ContextOfUse"
+  },
+  "hasValidationResult": [
+    {
+      "id": "https://uofa.net/synth/validation/no-comparator",
+      "type": "ValidationResult",
+      "name": "Steady-state hemolysis index validation — comparator link absent",
+      "description": "CFD-predicted normalized index of hemolysis (NIH) values were compared against benchtop hemolysis measurements conducted under steady-state constant-speed conditions (3000 RPM, 5 L/min) using the FDA generic centrifugal pump geometry. The experimental dataset is identified in project documentation as the 'Morrison-SS-2021 steady-state hemolysis corpus'. Mean NIH error across five impeller speeds was 8.3 %, which the assessment team characterises as acceptable agreement. However, the COU2 intended use explicitly requires pulsatile flow conditions representative of VAD cardiac-cycle loading (heart rate 60–100 bpm, stroke volume 50–90 mL). Steady-state conditions suppress the transient shear stress peaks that drive hemolysis in pulsatile regimes; the inference from steady-state agreement to pulsatile predictive credibility is therefore an undercutting mismatch (D3). The comparedAgainst link to the experimental reference dataset is not recorded in this result object, constituting the W-AR-05 trigger condition.",
+      "validationMethod": "Direct comparison of CFD NIH to in-vitro NIH under steady-state constant-flow boundary conditions",
+      "achievedMetric": "Mean NIH relative error 8.3 % across five operating points",
+      "limitationNote": "Validation conducted under steady-state flow only; COU2 mandates pulsatile boundary conditions. Steady-state comparator does not bound pulsatile hemolysis error and is methodologically inappropriate for this COU."
+    },
+    {
+      "id": "https://uofa.net/synth/validation/velocity-field-piv",
+      "type": "ValidationResult",
+      "name": "Velocity field validation against PIV — steady-state",
+      "description": "CFD velocity magnitude and turbulent kinetic energy fields were compared against particle image velocimetry (PIV) measurements in the volute and impeller exit region of the FDA generic pump at 2500 RPM, 4 L/min steady-state. RMS velocity error was 6.1 % of bulk inlet velocity. This result supports solver credibility for internal flow topology but does not address hemolysis scalar transport under pulsatile conditions required by COU2.",
+      "comparedAgainst": "https://uofa.net/synth/data/fda-generic-pump-steady-state-piv",
+      "achievedMetric": "RMS velocity error 6.1 % of bulk inlet velocity",
+      "limitationNote": "PIV dataset is steady-state; pulsatile velocity field validation not performed."
+    }
+  ],
+  "wasDerivedFrom": "https://doi.org/10.1115/1.4053034",
+  "wasAttributedTo": "https://uofa.net/synth/org/morrison-vad-assessment-team",
+  "generatedAtTime": "2026-04-19T00:00:00Z",
+  "hash": "sha256:a3f1c2e4b7d09e6f2a1c3b5d8e0f4a7c1b3d5e7f9a2c4b6d8e0f1a3c5b7d9e1f",
+  "signature": "ed25519:b2d4f6a8c0e2f4a6b8d0e2f4a6b8d0e2f4a6b8d0e2f4a6b8d0e2f4a6b8d0e2f4",
+  "hasCredibilityFactor": [
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Software quality assurance",
+      "type": "CredibilityFactor",
+      "requiredLevel": 4,
+      "achievedLevel": 3,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "Version-controlled solver with documented test suite covering all active physics modules; change management process auditable to MRL 5 requirements.",
+      "rationale": "The CFD solver (OpenFOAM v9) is version-controlled and regression-tested. However, the hemolysis transport scalar module lacks an independent unit-test suite. Achieved level 3 against required level 4."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Numerical code verification",
+      "type": "CredibilityFactor",
+      "requiredLevel": 4,
+      "achievedLevel": 3,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "Order-of-accuracy verification for all governing equations including hemolysis scalar transport; comparison to manufactured solutions.",
+      "rationale": "Order-of-accuracy tests performed for Navier-Stokes solver; manufactured solution verification for hemolysis power-law transport equation not completed. Gap identified at MRL 5."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Discretization error",
+      "type": "CredibilityFactor",
+      "requiredLevel": 4,
+      "achievedLevel": 3,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "Richardson extrapolation-based GCI reported for hemolysis QoI on at least three systematically refined meshes; GCI below 5 % for NIH.",
+      "rationale": "Three-mesh GCI study performed; GCI for NIH is 9.2 %, exceeding the 5 % threshold. Spatial discretization error is not adequately controlled for the primary QoI."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Test conditions",
+      "type": "CredibilityFactor",
+      "requiredLevel": 5,
+      "achievedLevel": 2,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "Experimental validation conditions must replicate pulsatile VAD operating envelope (heart rate 60–100 bpm, stroke volume 50–90 mL); fluid properties must match blood analogue within specified tolerances.",
+      "rationale": "All available experimental data were collected under steady-state constant-flow conditions. Pulsatile test conditions matching the COU2 operating envelope have not been established. This is the primary comparator mismatch: steady-state experiments cannot serve as appropriate comparators for pulsatile hemolysis credibility claims. Achieved level 2 against required level 5."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Output comparison",
+      "type": "CredibilityFactor",
+      "requiredLevel": 5,
+      "achievedLevel": 2,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "Quantitative comparison of CFD NIH predictions to experimental NIH under pulsatile conditions; uncertainty intervals reported for both simulation and experiment; statistical equivalence test performed.",
+      "rationale": "Output comparison performed only against steady-state NIH measurements. Pulsatile NIH experimental data do not exist in the current dataset. The inference from steady-state output agreement to pulsatile predictive adequacy is unsupported; this constitutes the D3 undercutting weakness. Achieved level 2 against required level 5."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Relevance of the quantities of interest",
+      "type": "CredibilityFactor",
+      "requiredLevel": 4,
+      "achievedLevel": 3,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "NIH and plasma free haemoglobin (pfHb) identified as primary QoIs; sensitivity of NIH to model parameters documented; QoIs directly linked to clinical acceptance threshold.",
+      "rationale": "NIH is correctly identified as the primary QoI and linked to the clinical threshold. Sensitivity analysis conducted via one-at-a-time parameter variation; Monte Carlo UQ initiated but not completed for all input parameters. Achieved level 3."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Relevance of the validation activities to the COU",
+      "type": "CredibilityFactor",
+      "requiredLevel": 5,
+      "achievedLevel": 1,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "Validation activities must be conducted under conditions that are directly representative of the COU2 pulsatile VAD operating envelope; steady-state surrogates are not acceptable at MRL 5.",
+      "rationale": "Validation activities were conducted exclusively under steady-state conditions. The COU requires pulsatile flow; the validation activities are therefore not relevant to the declared COU. This is the most critical gap: the comparator is present and documented, but its operating regime is orthogonal to the COU. Achieved level 1 against required level 5."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Numerical solver error",
+      "type": "CredibilityFactor",
+      "requiredLevel": 4,
+      "achievedLevel": 2,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "Iterative convergence criteria documented and demonstrated to produce QoI-independent results; round-off error bounded; solver residuals below 1e-6 for all equations.",
+      "rationale": "Solver residuals reach 1e-4 for continuity in some operating points. Iterative convergence not demonstrated to be QoI-independent for hemolysis scalar. Achieved level 2 against required level 4."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Use error",
+      "type": "CredibilityFactor",
+      "requiredLevel": 3,
+      "achievedLevel": 1,
+      "factorStatus": "not-assessed",
+      "acceptanceCriteria": "Documented review of simulation setup by independent analyst; boundary condition selection reviewed against COU specification.",
+      "rationale": "Use error assessment not performed. No independent review of simulation setup was conducted. Flagged as epistemic gap at MRL 5."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Model form",
+      "type": "CredibilityFactor",
+      "requiredLevel": 5,
+      "achievedLevel": 1,
+      "factorStatus": "not-assessed",
+      "acceptanceCriteria": "Turbulence model selection justified for rotating hemolysis-relevant shear flows; hemolysis power-law exponents validated against pulsatile in-vitro data; alternative model forms evaluated.",
+      "rationale": "Model form assessment not performed. The k-omega SST turbulence model was selected without documented justification for rotating impeller hemolysis flows. Hemolysis power-law constants taken from literature without pulsatile validation. Epistemic gap at MRL 5."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Model inputs",
+      "type": "CredibilityFactor",
+      "requiredLevel": 4,
+      "achievedLevel": 1,
+      "factorStatus": "not-assessed",
+      "acceptanceCriteria": "All model inputs characterised with uncertainty distributions; Monte Carlo propagation completed for NIH QoI; input sensitivity ranking documented.",
+      "rationale": "Monte Carlo UQ initiated but not completed. Blood viscosity and hemolysis power-law exponents lack uncertainty distributions derived from patient-representative data. Epistemic gap flagged."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Test samples",
+      "type": "CredibilityFactor",
+      "requiredLevel": 4,
+      "achievedLevel": 1,
+      "factorStatus": "not-assessed",
+      "acceptanceCriteria": "Blood analogue samples characterised for viscosity, density, and haematocrit; sample-to-sample variability quantified; traceability to ASTM F1841 established.",
+      "rationale": "Test sample characterisation not documented in available evidence. Traceability to ASTM F1841 not established. Epistemic gap at MRL 5."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Equivalency of input parameters",
+      "type": "CredibilityFactor",
+      "requiredLevel": 5,
+      "achievedLevel": 1,
+      "factorStatus": "not-assessed",
+      "acceptanceCriteria": "Boundary conditions in simulation demonstrated to match experimental conditions within specified tolerances; pulsatile waveform fidelity assessed; Reynolds and Womersley number equivalency documented.",
+      "rationale": "Equivalency of input parameters not assessed. Simulation boundary conditions are steady-state; COU requires pulsatile waveforms. Womersley number equivalency cannot be established. Epistemic gap and direct consequence of the comparator mismatch identified in W-AR-05."
+    }
+  ],
+  "hasWeakener": [],
+  "hasDecisionRecord": {
+    "id": "https://uofa.net/synth/decision/cou2-vad-accepted-w-ar-05",
+    "type": "DecisionRecord",
+    "actor": "https://uofa.net/synth/actor/morrison-credibility-lead",
+    "role": "Credibility assessment team",
+    "outcome": "Accepted",
+    "rationale": "The credibility assessment team accepted the submission on the basis of the 8.3 % mean NIH agreement demonstrated in the steady-state validation study, treating this as sufficient evidence of predictive adequacy for the VAD pulsatile COU. The team noted the pulsatile data gap but considered the steady-state comparator a conservative surrogate. This acceptance is erroneous: the steady-state comparator is methodologically inappropriate for the declared COU2 pulsatile operating envelope (W-AR-05, D3 undercutting). Seven of thirteen credibility factors achieved levels below required levels; six factors were not assessed. The decision outcome is recorded as Accepted to expose the adversarial weakness embedded in this synthetic package.",
+    "decidedAt": "2026-04-19T00:00:00Z"
+  },
+  "adversarialProvenance": {
+    "generatorVersion": "0.1.0",
+    "toolVersion": "uofa-cli 0.5.0",
+    "promptTemplateVersion": "v1.1.0",
+    "promptTemplateId": "d3_undercutting_inference.W_AR_05",
+    "specId": "adv-2026-001-w-ar-05",
+    "specPath": "specs/confirm_existing/w_ar_05.yaml",
+    "specHash": "sha256:f8a1cb7b6ae4b917af99b1cb5616ede559f08255e8dd4135bba622d9c326343f",
+    "generationModel": "claude-sonnet-4-6",
+    "modelParams": {
+      "max_tokens": 8000,
+      "temperature": 0.7
+    },
+    "callMetadata": {
+      "dropParamsActive": true,
+      "deprecationFallbackFired": false,
+      "shaclRetries": 0,
+      "modelRequested": "claude-sonnet-4-6",
+      "modelReturned": "claude-sonnet-4-6",
+      "litellmVersion": "1.63.7"
+    },
+    "generationTimestamp": "2026-04-27T09:39:57Z",
+    "targetWeakener": "W-AR-05",
+    "targetDefeaterType": "D3",
+    "coverageIntent": "confirm_existing",
+    "sourceTaxonomy": "jarzebowicz-wardzinski/argument_defeaters/D5-undercutting-comparator",
+    "subtletyLevel": "low",
+    "tokens": 7249,
+    "variantNum": 5,
+    "provenanceBlockHash": "sha256:f0818cd49dd7a38e9b45f7c9151f2c160e4a06ceda13ee55d41532113e41a397"
+  }
+}

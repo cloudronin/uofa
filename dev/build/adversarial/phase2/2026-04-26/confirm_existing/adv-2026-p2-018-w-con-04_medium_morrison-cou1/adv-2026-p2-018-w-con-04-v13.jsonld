@@ -1,0 +1,233 @@
+{
+  "@context": "https://raw.githubusercontent.com/cloudronin/uofa/main/spec/context/v0.5.jsonld",
+  "id": "https://uofa.net/morrison/cou1",
+  "type": [
+    "UnitOfAssurance",
+    "uofa:SyntheticAdversarialSample"
+  ],
+  "synthetic": true,
+  "conformsToProfile": "https://uofa.net/vocab#ProfileComplete",
+  "name": "Morrison COU1 — CPB hemolysis credibility assessment",
+  "assuranceLevel": "Medium",
+  "decision": "Accepted",
+  "deviceClass": "Class II",
+  "modelRiskLevel": 2,
+  "couName": "CPB use",
+  "description": "V&V 40 credibility assessment for CFD hemolysis prediction of the FDA generic centrifugal blood pump under cardiopulmonary bypass (CPB) conditions. COU1 evaluates whether the computational model can identify worst-case hemolysis operating conditions for a Class II CPB device at Model Risk Level 2. Full 13-factor assessment: 7 factors assessed (all meeting required levels), 6 factors not assessed (acceptable at MRL 2). A screening sensitivity study was conducted informally during model development to evaluate the influence of inlet turbulence intensity and power-law viscosity exponent on the relative hemolysis index; results indicated low sensitivity across the operating envelope and were documented in the internal technical memo TM-2024-07. That screening exercise informed factor rationales below but was not elevated to a formal structured SensitivityAnalysis node, as the team judged the informal documentation sufficient at MRL 2.",
+  "bindsRequirement": "https://uofa.net/morrison/req/cpb-hemolysis-mrl2",
+  "bindsClaim": "https://uofa.net/morrison/claim/cpb-hemolysis-worst-case",
+  "bindsModel": "https://uofa.net/morrison/model/cfd-hemolysis-centrifugal",
+  "bindsDataset": [
+    "https://uofa.net/morrison/data/fda-pump-geometry-v3",
+    "https://uofa.net/morrison/data/experimental-hemolysis-benchmark",
+    "https://uofa.net/morrison/data/cpb-operating-conditions"
+  ],
+  "hasContextOfUse": {
+    "decisionConsequence": "High",
+    "description": "A CFD model is used to evaluate the sensitivity of pump-induced hemolysis to variations in component dimensions for a centrifugal blood pump used during cardiopulmonary bypass surgery. Model influence is MEDIUM (testing confirms results); decision consequence is HIGH (incorrect tolerance decision could impact clinical hemolysis levels). Model Risk Level 2.",
+    "deviceClass": "Class II",
+    "id": "https://uofa.net/morrison/cou/cou1-cpb",
+    "intendedUse": "Use CFD to identify worst-case operating conditions for hemolysis across 5 flow-speed combinations for a Class II CPB device. Results compared against predicate device hemolysis using relative hemolysis index (RH < 1 acceptance criterion).",
+    "modelInfluence": "Medium",
+    "name": "COU1: Cardiopulmonary bypass use (Class II)",
+    "type": "ContextOfUse"
+  },
+  "hasValidationResult": [
+    {
+      "id": "https://uofa.net/morrison/validation/benchmark-hemolysis-rh",
+      "type": "ValidationResult",
+      "name": "Relative hemolysis index benchmark comparison — FDA pump geometry",
+      "description": "CFD-predicted RH values compared against experimental measurements from the FDA benchmark dataset across 5 flow-speed operating points. All predicted RH values fell within 15% of experimental means; mean absolute error 0.08 RH units. Acceptance criterion RH_pred / RH_exp < 1.20 met at all operating points."
+    },
+    {
+      "id": "https://uofa.net/morrison/validation/mesh-convergence-gci",
+      "type": "ValidationResult",
+      "name": "Grid convergence index study — three-level mesh refinement",
+      "description": "Three-level mesh refinement study performed on the impeller passage and volute region. GCI values below 2.3% for hemolysis-relevant shear stress quantities. Discretization error contribution to RH index bounded at less than 0.04 RH units."
+    },
+    {
+      "id": "https://uofa.net/morrison/validation/turbulence-model-verification",
+      "type": "ValidationResult",
+      "name": "Turbulence model code verification — manufactured solution",
+      "description": "Method of manufactured solutions applied to the SST k-omega turbulence closure. Second-order convergence confirmed for velocity and turbulent kinetic energy fields. No code defects identified."
+    }
+  ],
+  "wasDerivedFrom": "https://doi.org/10.1115/1.4043951",
+  "wasAttributedTo": "https://uofa.net/morrison/org/morrison-simulation-group",
+  "generatedAtTime": "2025-03-14T09:00:00Z",
+  "hash": "sha256:a3f8c2d1e7b94056f1a2c3d4e5f6078901b2c3d4e5f607890a1b2c3d4e5f6079",
+  "signature": "ed25519:b7e1d2f3a4c5069718293a4b5c6d7e8f9001a2b3c4d5e6f7081920a1b2c3d4e5",
+  "hasCredibilityFactor": [
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Software quality assurance",
+      "type": "CredibilityFactor",
+      "requiredLevel": 2,
+      "achievedLevel": 2,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "CFD solver subject to documented QA plan including version control, regression testing, and release validation per ASME V&V 10 guidelines.",
+      "rationale": "ANSYS Fluent 2023 R1 used under a documented QA plan. Version-controlled simulation scripts stored in institutional repository. Regression test suite passes 98.7% of benchmark cases. QA level consistent with MRL 2 requirements."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Numerical code verification",
+      "type": "CredibilityFactor",
+      "requiredLevel": 2,
+      "achievedLevel": 2,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "Method of manufactured solutions or equivalent demonstrates correct implementation of governing equations to expected order of accuracy.",
+      "rationale": "Method of manufactured solutions applied to Navier-Stokes and SST k-omega equations. Second-order spatial convergence confirmed. Power-law viscosity implementation verified against analytical Poiseuille solution for non-Newtonian blood analog."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Discretization error",
+      "type": "CredibilityFactor",
+      "requiredLevel": 2,
+      "achievedLevel": 3,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "Grid convergence index below 5% for primary quantity of interest (RH index) on the medium mesh used for production runs.",
+      "rationale": "Three-level mesh refinement study conducted. GCI on medium mesh (12.4 M cells) is 2.3% for RH index, exceeding the 5% threshold requirement. Production mesh selected at medium level balancing accuracy and computational cost. Informal screening of mesh topology sensitivity showed no structural sensitivity to boundary layer resolution beyond y+ < 5."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Test conditions",
+      "type": "CredibilityFactor",
+      "requiredLevel": 2,
+      "achievedLevel": 2,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "Experimental test conditions used for validation are documented and traceable; operating points span the intended COU envelope.",
+      "rationale": "FDA benchmark experimental data collected at 2500 and 3500 RPM across flow rates 2.5–7.5 L/min. Test conditions documented in FDA public dataset with uncertainty bounds. Five operating points used for validation bracket the CPB clinical envelope (2–6 L/min, 2500–3500 RPM)."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Output comparison",
+      "type": "CredibilityFactor",
+      "requiredLevel": 2,
+      "achievedLevel": 2,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "Quantitative comparison metric defined; predicted outputs within acceptance band at all validation operating points.",
+      "rationale": "RH index defined as ratio of predicted to experimental normalized hemolysis index. Acceptance band RH_pred/RH_exp in [0.80, 1.20]. All five validation points within band; mean ratio 1.04, maximum 1.17. Comparison metric documented in validation report VR-2024-03."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Relevance of the quantities of interest",
+      "type": "CredibilityFactor",
+      "requiredLevel": 2,
+      "achievedLevel": 2,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "Quantities of interest in validation activities are the same as or directly linked to the decision-relevant QoI in the COU.",
+      "rationale": "Primary COU QoI is relative hemolysis index RH used for worst-case operating point identification. Validation QoI is the same RH index computed from experimental hemolysis measurements. Direct correspondence confirmed; no surrogate QoI substitution."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Relevance of the validation activities to the COU",
+      "type": "CredibilityFactor",
+      "requiredLevel": 2,
+      "achievedLevel": 2,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "Validation geometry, fluid properties, and operating conditions are sufficiently similar to COU geometry and conditions to support extrapolation of validation evidence.",
+      "rationale": "Validation performed on FDA generic centrifugal pump geometry, which is the same device class and similar hydraulic design as the CPB device under assessment. Blood analog fluid (glycerol-water) used in experiments; Newtonian approximation justified at high shear rates present in impeller. Similarity analysis documented in technical memo TM-2024-05."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Numerical solver error",
+      "type": "CredibilityFactor",
+      "requiredLevel": 1,
+      "achievedLevel": 1,
+      "factorStatus": "not-assessed",
+      "acceptanceCriteria": "Iterative convergence residuals below 1e-5 for all equations; mass imbalance below 0.01%.",
+      "rationale": "Not assessed at MRL 2 as a standalone factor. Iterative convergence monitored as part of standard simulation practice; residuals confirmed below 1e-4 in all production runs. Formal standalone assessment not required at this model risk level."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Use error",
+      "type": "CredibilityFactor",
+      "requiredLevel": 1,
+      "achievedLevel": 1,
+      "factorStatus": "not-assessed",
+      "acceptanceCriteria": "Simulation setup reviewed by independent analyst; boundary condition and material property inputs verified against source documents.",
+      "rationale": "Not assessed as a standalone factor at MRL 2. Simulation setup documented in simulation plan SP-2024-01 and reviewed by project lead. Independent review not required at this risk level but informal peer check was performed."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Model form",
+      "type": "CredibilityFactor",
+      "requiredLevel": 1,
+      "achievedLevel": 1,
+      "factorStatus": "not-assessed",
+      "acceptanceCriteria": "Governing equation set and turbulence closure selection justified for the flow regime and QoI.",
+      "rationale": "Not assessed as a standalone credibility factor at MRL 2. SST k-omega turbulence model selected based on published literature for rotating machinery hemolysis applications. Model form justification provided in simulation plan narrative but not scored as a separate credibility evidence item."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Model inputs",
+      "type": "CredibilityFactor",
+      "requiredLevel": 1,
+      "achievedLevel": 1,
+      "factorStatus": "not-assessed",
+      "acceptanceCriteria": "Material properties and boundary conditions traceable to authoritative sources with documented uncertainty.",
+      "rationale": "Not assessed as a standalone factor at MRL 2. Blood viscosity parameters sourced from Ballyk et al. (1994) power-law fit; density 1060 kg/m3 per ISO 10993-4 reference values. Inlet flow waveform derived from clinical CPB flow protocol. Traceability documented in simulation plan appendix."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Test samples",
+      "type": "CredibilityFactor",
+      "requiredLevel": 1,
+      "achievedLevel": 1,
+      "factorStatus": "not-assessed",
+      "acceptanceCriteria": "Experimental samples used in validation are representative of the device population; lot-to-lot variability documented.",
+      "rationale": "Not assessed at MRL 2. FDA benchmark uses a single generic pump geometry with controlled manufacturing. Sample representativeness not formally evaluated; acceptable given use of the standardized FDA test article."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Equivalency of input parameters",
+      "type": "CredibilityFactor",
+      "requiredLevel": 1,
+      "achievedLevel": 1,
+      "factorStatus": "not-assessed",
+      "acceptanceCriteria": "Input parameters in the simulation match or are demonstrably equivalent to those in the physical validation experiment.",
+      "rationale": "Not assessed as a standalone factor at MRL 2. Equivalency between simulation boundary conditions and experimental test conditions discussed qualitatively in validation report VR-2024-03, section 4.2. Formal equivalency scoring deferred pending MRL escalation."
+    }
+  ],
+  "hasWeakener": [],
+  "hasDecisionRecord": {
+    "id": "https://uofa.net/morrison/decision/cou1-accepted-2025",
+    "type": "DecisionRecord",
+    "actor": "https://uofa.net/morrison/actor/credibility-assessment-team",
+    "role": "Credibility assessment team",
+    "outcome": "Accepted",
+    "rationale": "All seven assessed credibility factors meet or exceed required levels for MRL 2. Six factors appropriately scoped as not-assessed at MRL 2 with documented justification. Validation evidence demonstrates RH index predictions within the 20% acceptance band across all five COU-relevant operating points. A screening sensitivity study documented in TM-2024-07 confirmed low parametric sensitivity of RH to inlet turbulence intensity and viscosity model parameters, providing additional confidence in model robustness. The credibility evidence package is judged sufficient to support the regulatory decision that the CFD model can reliably identify worst-case hemolysis operating conditions for the Class II CPB device.",
+    "decidedAt": "2025-03-14T09:00:00Z"
+  },
+  "adversarialProvenance": {
+    "generatorVersion": "0.1.0",
+    "toolVersion": "uofa-cli 0.5.0",
+    "promptTemplateVersion": "v1.0.0",
+    "promptTemplateId": "consistency.W_CON_04",
+    "specId": "adv-2026-p2-018-w-con-04",
+    "specPath": "specs/confirm_existing/w-con-04.yaml",
+    "specHash": "sha256:bd416d01155d7538287f0570dad855a757e95beb7f66bd7870da1b3ad52e7494",
+    "generationModel": "claude-sonnet-4-6",
+    "modelParams": {
+      "max_tokens": 8000,
+      "temperature": 0.7
+    },
+    "callMetadata": {
+      "dropParamsActive": true,
+      "deprecationFallbackFired": false,
+      "shaclRetries": 0,
+      "modelRequested": "claude-sonnet-4-6",
+      "modelReturned": "claude-sonnet-4-6",
+      "litellmVersion": "1.63.7"
+    },
+    "generationTimestamp": "2026-04-26T21:31:01Z",
+    "targetWeakener": "W-CON-04",
+    "targetDefeaterType": "structural",
+    "coverageIntent": "confirm_existing",
+    "sourceTaxonomy": "gohar/requirements/inconsistent",
+    "subtletyLevel": "medium",
+    "tokens": 6909,
+    "variantNum": 13,
+    "provenanceBlockHash": "sha256:aea68ebe5f9f6a8a65375e8de235762f2ac1682be13a264e434c0688da485481"
+  }
+}

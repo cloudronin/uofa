@@ -1,0 +1,233 @@
+{
+  "@context": "https://raw.githubusercontent.com/cloudronin/uofa/main/spec/context/v0.5.jsonld",
+  "id": "https://uofa.net/synth/morrison-cou1-cpb-hemolysis-v2",
+  "type": [
+    "UnitOfAssurance",
+    "uofa:SyntheticAdversarialSample"
+  ],
+  "synthetic": true,
+  "conformsToProfile": "https://uofa.net/vocab#ProfileMinimal",
+  "name": "Morrison COU1 — CPB hemolysis credibility assessment",
+  "description": "V&V 40 credibility assessment for CFD hemolysis prediction of the FDA generic centrifugal blood pump under cardiopulmonary bypass (CPB) conditions. COU1 evaluates whether the computational model can identify worst-case hemolysis operating conditions for a Class II CPB device at Model Risk Level 2. Full 13-factor assessment: 7 factors assessed (all meeting required levels), 6 factors not assessed (acceptable at MRL 2). The hemolysis damage accumulation model applies the power-law Giersiepen-Wurzinger (G-W) correlation, which was derived under the theoretical precondition that red blood cell (RBC) damage accumulates linearly with exposure time and that the stress-damage relationship is stationary across the shear-stress range encountered. This linearity precondition is explicitly required for the scalar damage integral formulation used here.",
+  "assuranceLevel": "Medium",
+  "couName": "CPB use",
+  "decision": "Accepted",
+  "deviceClass": "Class II",
+  "modelRiskLevel": 2,
+  "bindsRequirement": "https://uofa.net/synth/req/cpb-hemolysis-mrl2",
+  "bindsClaim": "https://uofa.net/synth/claim/cpb-worst-case-hemolysis-cfd",
+  "bindsModel": "https://uofa.net/synth/model/cfd-gw-hemolysis-centrifugal-pump",
+  "bindsDataset": [
+    "https://uofa.net/synth/data/fda-pump-geometry-v3",
+    "https://uofa.net/synth/data/cpb-operating-conditions-5points",
+    "https://uofa.net/synth/data/rbc-gw-correlation-coefficients"
+  ],
+  "wasDerivedFrom": "https://doi.org/10.1115/1.4034918",
+  "wasAttributedTo": "https://uofa.net/synth/org/morrison-biofluid-lab",
+  "generatedAtTime": "2026-04-19T00:00:00Z",
+  "hash": "sha256:3a7f2c1e9b04d85f6a2e7c3d1b9f0e4a8c6d2b5f1e3a7c9d0b4f8e2a6c1d3b5f",
+  "signature": "ed25519:9c2a4f1e7b3d0a5c8e6f2b4d1a3c7e9f0b2d4a6c8e0f1b3d5a7c9e1f0b2d4a6c",
+  "hasContextOfUse": {
+    "decisionConsequence": "High",
+    "description": "A CFD model is used to evaluate the sensitivity of pump-induced hemolysis to variations in component dimensions for a centrifugal blood pump used during cardiopulmonary bypass surgery. Model influence is MEDIUM (testing confirms results); decision consequence is HIGH (incorrect tolerance decision could impact clinical hemolysis levels). Model Risk Level 2.",
+    "deviceClass": "Class II",
+    "id": "https://uofa.net/morrison/cou/cou1-cpb",
+    "intendedUse": "Use CFD to identify worst-case operating conditions for hemolysis across 5 flow-speed combinations for a Class II CPB device. Results compared against predicate device hemolysis using relative hemolysis index (RH < 1 acceptance criterion).",
+    "modelInfluence": "Medium",
+    "name": "COU1: Cardiopulmonary bypass use (Class II)",
+    "type": "ContextOfUse"
+  },
+  "hasValidationResult": [
+    {
+      "id": "https://uofa.net/synth/validation/gw-correlation-single-point",
+      "type": "ValidationResult",
+      "name": "G-W correlation validation at nominal operating point",
+      "description": "The G-W power-law hemolysis correlation was validated against in-vitro hemolysis data from a Couette viscometer experiment conducted at a single shear stress level of 150 Pa and exposure time of 500 ms, representative of the nominal pump operating point (5 L/min, 3000 RPM). Predicted normalized index of hemolysis (NIH) agreed with measured values within 8%, meeting the acceptance criterion. This single-condition validation confirms model accuracy at the nominal operating point but does not span the full shear-stress and exposure-time space encountered across all five COU flow-speed combinations."
+    },
+    {
+      "id": "https://uofa.net/synth/validation/mesh-independence-study",
+      "type": "ValidationResult",
+      "name": "Mesh independence verification for centrifugal pump CFD",
+      "description": "Three mesh refinement levels (2.1M, 5.8M, 14.2M elements) were evaluated. The Richardson extrapolation-based Grid Convergence Index (GCI) for the hemolysis index QoI was 1.4% between the medium and fine meshes. The fine mesh was selected for production runs. Discretization error is within the required threshold for MRL 2."
+    },
+    {
+      "id": "https://uofa.net/synth/validation/pump-pressure-rise-validation",
+      "type": "ValidationResult",
+      "name": "Pump hydraulic performance validation",
+      "description": "Predicted pump pressure rise (head-flow curve) was compared against published FDA benchmark experimental data across three operating points. Mean relative error was 4.2%, within the 10% acceptance criterion. This confirms that the flow field solution used as input to the hemolysis model is hydraulically accurate at the tested conditions."
+    }
+  ],
+  "hasCredibilityFactor": [
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Software quality assurance",
+      "type": "CredibilityFactor",
+      "requiredLevel": 1,
+      "achievedLevel": 1,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "Commercial CFD solver with documented QA procedures and version control; simulation scripts under version control.",
+      "rationale": "ANSYS Fluent 2022R2 was used; vendor QA documentation is on file. Simulation scripts and case files are stored in a version-controlled repository with commit hashes recorded for each production run."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Numerical code verification",
+      "type": "CredibilityFactor",
+      "requiredLevel": 1,
+      "achievedLevel": 1,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "Solver passes standard benchmark test cases (lid-driven cavity, Poiseuille flow) at required accuracy.",
+      "rationale": "ANSYS Fluent 2022R2 passes the FDA-recommended benchmark verification suite. Solver verification is documented in the vendor's published verification manual and confirmed by independent replication of the lid-driven cavity benchmark at Re=1000."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Discretization error",
+      "type": "CredibilityFactor",
+      "requiredLevel": 2,
+      "achievedLevel": 2,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "GCI < 5% for hemolysis index QoI on fine vs. medium mesh.",
+      "rationale": "Mesh independence study across three refinement levels yielded GCI of 1.4% for the hemolysis index between medium and fine meshes. Richardson extrapolation confirms monotonic convergence. Discretization error is well within the 5% acceptance criterion."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Test conditions",
+      "type": "CredibilityFactor",
+      "requiredLevel": 2,
+      "achievedLevel": 2,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "Validation experiments conducted under controlled conditions representative of at least one COU operating point; boundary conditions documented.",
+      "rationale": "In-vitro Couette viscometer experiments were conducted at controlled temperature (37 ± 0.5 °C), hematocrit (35 ± 1%), and shear stress (150 Pa) matching the nominal COU operating point. Boundary conditions are fully documented in the experimental protocol on file."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Output comparison",
+      "type": "CredibilityFactor",
+      "requiredLevel": 2,
+      "achievedLevel": 2,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "Predicted NIH within 15% of measured NIH at the validation operating point.",
+      "rationale": "Predicted NIH agreed with measured NIH within 8% at the nominal validation point (150 Pa, 500 ms). The acceptance criterion of 15% is met. Note that this comparison is performed at a single operating condition; the broader COU encompasses four additional flow-speed combinations at different shear stress levels."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Relevance of the quantities of interest",
+      "type": "CredibilityFactor",
+      "requiredLevel": 2,
+      "achievedLevel": 2,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "QoIs (hemolysis index, relative hemolysis index RH) are directly linked to the clinical endpoint and acceptance criterion RH < 1.",
+      "rationale": "The primary QoI is the normalized index of hemolysis (NIH) and the derived relative hemolysis index (RH = NIH_device / NIH_predicate). These quantities directly map to the regulatory acceptance criterion RH < 1 and are standard hemolysis metrics in FDA guidance. Relevance is high."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Relevance of the validation activities to the COU",
+      "type": "CredibilityFactor",
+      "requiredLevel": 2,
+      "achievedLevel": 2,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "Validation geometry and flow conditions are sufficiently similar to the COU pump geometry and operating envelope to support extrapolation.",
+      "rationale": "Validation was performed using the FDA generic centrifugal pump geometry under operating conditions overlapping the COU nominal point. The G-W correlation coefficients were derived from Couette flow experiments that share the same fluid (bovine blood, hematocrit 35%) as the COU. Relevance is considered sufficient for MRL 2. The theoretical precondition that the linear damage accumulation integral applies uniformly across the COU operating envelope is assumed to hold based on the nominal-point validation, but no explicit cross-range verification was performed."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Numerical solver error",
+      "type": "CredibilityFactor",
+      "requiredLevel": 1,
+      "achievedLevel": 1,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "Residual convergence to 1e-5 for all equations; mass imbalance < 0.01%.",
+      "rationale": "All production simulations converged to scaled residuals below 1e-5 for continuity, momentum, and turbulence equations. Global mass imbalance was below 0.005% in all cases. Convergence monitors for hemolysis index showed variation below 0.1% over the final 500 iterations."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Use error",
+      "type": "CredibilityFactor",
+      "requiredLevel": 1,
+      "achievedLevel": 1,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "Simulation setup reviewed by independent analyst; boundary conditions and material properties verified against COU specification.",
+      "rationale": "An independent CFD analyst reviewed the simulation setup, boundary conditions, and post-processing scripts prior to production runs. Material properties (blood viscosity, density) and inlet/outlet boundary conditions were verified against the COU specification document. No use errors were identified."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Model form",
+      "type": "CredibilityFactor",
+      "requiredLevel": 2,
+      "achievedLevel": 2,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "Model form selection (turbulence model, hemolysis correlation) is justified by literature and prior validation studies for similar pump geometries and operating conditions.",
+      "rationale": "The SST k-omega turbulence model was selected based on published validation studies for centrifugal blood pumps demonstrating superior near-wall accuracy relative to k-epsilon variants. The Giersiepen-Wurzinger power-law hemolysis correlation is the standard model form for scalar damage integral approaches in FDA submissions. The G-W model is predicated on the assumption that RBC damage accumulates as a linear integral of instantaneous stress-weighted exposure — a theoretical precondition explicitly stated in the original G-W derivation (Giersiepen et al., 1990). The package confirms this assumption at the nominal operating point via the Couette viscometer validation (ValidationResult gw-correlation-single-point), where shear stress is 150 Pa. However, the COU encompasses five flow-speed combinations spanning shear stresses from approximately 80 Pa to 320 Pa, and the linearity precondition has not been independently verified across this full range for the subject pump geometry."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Model inputs",
+      "type": "CredibilityFactor",
+      "requiredLevel": 1,
+      "achievedLevel": 1,
+      "factorStatus": "not-assessed",
+      "acceptanceCriteria": "Not required at MRL 2 for this factor.",
+      "rationale": "Model inputs factor is not required at Model Risk Level 2 for this assessment scope. Nominal input values (geometry, fluid properties, operating conditions) are documented and traceable to manufacturer specifications and FDA benchmark datasets."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Test samples",
+      "type": "CredibilityFactor",
+      "requiredLevel": 1,
+      "achievedLevel": 1,
+      "factorStatus": "not-assessed",
+      "acceptanceCriteria": "Not required at MRL 2 for this factor.",
+      "rationale": "Test samples factor is not required at Model Risk Level 2. The validation dataset was obtained from controlled in-vitro experiments using commercially sourced bovine blood within accepted hematocrit ranges. Sample provenance is documented."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Equivalency of input parameters",
+      "type": "CredibilityFactor",
+      "requiredLevel": 1,
+      "achievedLevel": 1,
+      "factorStatus": "not-assessed",
+      "acceptanceCriteria": "Not required at MRL 2 for this factor.",
+      "rationale": "Equivalency of input parameters factor is not required at Model Risk Level 2. The operating conditions used in validation overlap with the nominal COU point, and differences in fluid source (bovine vs. human blood) are acknowledged as a known modeling convention consistent with FDA guidance for hemolysis prediction submissions."
+    }
+  ],
+  "hasWeakener": [],
+  "hasDecisionRecord": {
+    "id": "https://uofa.net/synth/decision/morrison-cou1-accepted-2026",
+    "type": "DecisionRecord",
+    "actor": "https://uofa.net/synth/actor/morrison-credibility-team",
+    "role": "Credibility assessment team",
+    "outcome": "Accepted",
+    "rationale": "All seven assessed credibility factors meet or exceed the required levels for Model Risk Level 2. The CFD hemolysis model demonstrates adequate credibility for identifying worst-case operating conditions for the Class II CPB device. The G-W correlation was validated at the nominal operating point with NIH prediction error of 8%, within the 15% acceptance criterion. Mesh independence (GCI 1.4%) and solver convergence criteria are satisfied. The relative hemolysis index RH < 1 acceptance criterion is met across all five evaluated flow-speed combinations. The assessment team acknowledges that the G-W linear damage accumulation precondition is formally verified only at the nominal operating point; the broader operating envelope is considered within the scope of MRL 2 engineering judgment given the hydraulic validation results and literature precedent for similar pump geometries.",
+    "decidedAt": "2026-04-19T00:00:00Z"
+  },
+  "adversarialProvenance": {
+    "generatorVersion": "0.1.0",
+    "toolVersion": "uofa-cli 0.5.0",
+    "promptTemplateVersion": "v1.0.0",
+    "promptTemplateId": "clarissa_machinery.clarissa_machinery_workflow_theory_preconditions",
+    "specId": "adv-2026-p2-122-theory-preconditions",
+    "specPath": "specs/gap_probe/clarissa_wf_theory_preconditions.yaml",
+    "specHash": "sha256:889d2e5dc041ab551ebf7774acc49fd7124bf8d62ca0e5d93e7eddc5acc6ccc3",
+    "generationModel": "claude-sonnet-4-6",
+    "modelParams": {
+      "max_tokens": 8000,
+      "temperature": 0.7
+    },
+    "callMetadata": {
+      "dropParamsActive": true,
+      "deprecationFallbackFired": false,
+      "shaclRetries": 3,
+      "modelRequested": "claude-sonnet-4-6",
+      "modelReturned": "claude-sonnet-4-6",
+      "litellmVersion": "1.63.7"
+    },
+    "generationTimestamp": "2026-04-27T10:16:08Z",
+    "targetWeakener": null,
+    "targetDefeaterType": null,
+    "coverageIntent": "gap_probe",
+    "sourceTaxonomy": "clarissa-machinery/workflow/theory-preconditions",
+    "subtletyLevel": "high",
+    "tokens": 7318,
+    "variantNum": 4,
+    "provenanceBlockHash": "sha256:a0295e5fdd96550d1cc202f968baa797b95c74ca88fdc3d299c1e590aa8eae38"
+  }
+}

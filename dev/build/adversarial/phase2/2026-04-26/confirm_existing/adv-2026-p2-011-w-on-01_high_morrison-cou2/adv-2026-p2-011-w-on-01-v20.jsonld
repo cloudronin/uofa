@@ -1,0 +1,215 @@
+{
+  "@context": "https://raw.githubusercontent.com/cloudronin/uofa/main/spec/context/v0.5.jsonld",
+  "id": "https://uofa.net/synth/uoa-vad-cou2-minimal-w-on-01",
+  "type": [
+    "UnitOfAssurance",
+    "uofa:SyntheticAdversarialSample"
+  ],
+  "synthetic": true,
+  "conformsToProfile": "https://uofa.net/vocab#ProfileMinimal",
+  "name": "Morrison COU2 — VAD hemolysis credibility assessment (Minimal profile)",
+  "description": "Credibility evidence package for CFD-based hemolysis prediction of the FDA generic centrifugal blood pump under ventricular assist device (VAD) operating conditions. The simulation model targets absolute hemolysis index (HI) prediction for a Class III VAD at Model Risk Level 5. All 13 ASME V&V 40 credibility factors are addressed: seven formally assessed (achieved levels below required, reflecting MRL-5 stringency) and six flagged as epistemic gaps pending additional experimental data. Monte Carlo uncertainty quantification was applied to boundary conditions and blood rheology parameters. The intended use scope — regulatory submission support for a Class III implantable VAD, patient population adults with end-stage heart failure, operating envelope 3–6 L/min at 2400–3200 RPM — is described fully in the Claim and Requirement nodes bound below. Decision: Accepted conditional on sponsor commitment to close six open credibility factor gaps prior to PMA submission.",
+  "bindsRequirement": "https://uofa.net/synth/req/vad-hemolysis-mrl5-requirement",
+  "bindsClaim": "https://uofa.net/synth/claim/vad-cfd-hemolysis-cou2-claim",
+  "bindsModel": "https://uofa.net/synth/model/fda-centrifugal-pump-cfd-v3",
+  "bindsDataset": [
+    "https://uofa.net/synth/data/fda-pump-piv-experimental-dataset",
+    "https://uofa.net/synth/data/fda-pump-hemolysis-in-vitro-dataset",
+    "https://uofa.net/synth/data/monte-carlo-uncertainty-samples-vad"
+  ],
+  "hasValidationResult": [
+    {
+      "id": "https://uofa.net/synth/validation/vad-hi-comparison-result",
+      "type": "ValidationResult",
+      "name": "Hemolysis index comparison against FDA pump in-vitro measurements"
+    },
+    {
+      "id": "https://uofa.net/synth/validation/vad-velocity-field-piv-result",
+      "type": "ValidationResult",
+      "name": "Velocity field validation against PIV data at 4.5 L/min, 2800 RPM"
+    },
+    {
+      "id": "https://uofa.net/synth/validation/vad-pressure-rise-result",
+      "type": "ValidationResult",
+      "name": "Pump pressure rise validation across operating envelope"
+    }
+  ],
+  "wasDerivedFrom": "https://doi.org/10.1115/1.4043031",
+  "wasAttributedTo": "https://uofa.net/synth/org/morrison-cardiovascular-simulation-lab",
+  "generatedAtTime": "2026-04-19T00:00:00Z",
+  "hash": "sha256:a3f7c2e1d9b04856f2a1cc7e3d8b5f90e4271a6c3b8d2f1e7a0c5b9d4e6f3a2c",
+  "signature": "ed25519:b1e2f3a4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2",
+  "hasCredibilityFactor": [
+    {
+      "type": "CredibilityFactor",
+      "factorType": "Software quality assurance",
+      "factorStandard": "ASME-VV40-2018",
+      "requiredLevel": 4,
+      "achievedLevel": 3,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "Version-controlled solver with documented regression test suite covering all turbulence models used; independent code review completed.",
+      "rationale": "OpenFOAM v8 is version-controlled and regression-tested for standard cases. However, the custom hemolysis damage accumulation subroutine lacks independent third-party review, placing achieved level at 3 against the MRL-5 required level of 4."
+    },
+    {
+      "type": "CredibilityFactor",
+      "factorType": "Numerical code verification",
+      "factorStandard": "ASME-VV40-2018",
+      "requiredLevel": 4,
+      "achievedLevel": 3,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "Method of manufactured solutions (MMS) applied to governing equations including non-Newtonian viscosity model; convergence order confirmed.",
+      "rationale": "MMS verification was performed for the Navier-Stokes solver and confirmed second-order spatial convergence. The Carreau-Yasuda viscosity extension was not subjected to MMS, leaving a gap that constrains the achieved level to 3."
+    },
+    {
+      "type": "CredibilityFactor",
+      "factorType": "Discretization error",
+      "factorStandard": "ASME-VV40-2018",
+      "requiredLevel": 4,
+      "achievedLevel": 3,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "Richardson extrapolation on three systematically refined meshes; GCI reported for HI and pressure rise QoIs; GCI < 5% on finest mesh pair.",
+      "rationale": "Richardson extrapolation was completed on coarse, medium, and fine meshes (4.2M, 12.1M, 31.8M cells). GCI for pressure rise met the 5% threshold; GCI for HI reached 11.3% on the medium-fine pair, indicating unresolved near-wall shear layer sensitivity."
+    },
+    {
+      "type": "CredibilityFactor",
+      "factorType": "Test conditions",
+      "factorStandard": "ASME-VV40-2018",
+      "requiredLevel": 4,
+      "achievedLevel": 2,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "Experimental boundary conditions (inlet velocity profile, fluid temperature, hematocrit) documented with measurement uncertainty and replicated in simulation inputs.",
+      "rationale": "Inlet velocity profiles from PIV are available but hematocrit and temperature were reported only as nominal values without measurement uncertainty bounds. This limits the ability to propagate experimental condition uncertainty into the simulation, yielding achieved level 2."
+    },
+    {
+      "type": "CredibilityFactor",
+      "factorType": "Output comparison",
+      "factorStandard": "ASME-VV40-2018",
+      "requiredLevel": 5,
+      "achievedLevel": 3,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "Quantitative validation metric (e.g., E% or MAPE) computed for HI with uncertainty intervals; statistical equivalence test passed at 95% confidence.",
+      "rationale": "Mean absolute percentage error for HI across five operating points was 28.4%, with simulation systematically underpredicting peak HI near the volute cutwater. Uncertainty intervals from Monte Carlo overlap experimental scatter at 3 of 5 points. Achieved level 3 reflects partial but insufficient quantitative agreement for Class III device submission."
+    },
+    {
+      "type": "CredibilityFactor",
+      "factorType": "Relevance of the quantities of interest",
+      "factorStandard": "ASME-VV40-2018",
+      "requiredLevel": 4,
+      "achievedLevel": 3,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "QoIs (HI, wall shear stress distribution, residence time) directly map to clinical harm endpoints; traceability matrix linking QoIs to device failure modes documented.",
+      "rationale": "HI and pressure rise QoIs are directly relevant to thrombus formation and hemolysis risk. A traceability matrix was produced linking QoIs to ISO 10993-4 biocompatibility endpoints. Residence time distribution was identified as relevant but not yet extracted from the simulation, limiting achieved level to 3."
+    },
+    {
+      "type": "CredibilityFactor",
+      "factorType": "Relevance of the validation activities to the COU",
+      "factorStandard": "ASME-VV40-2018",
+      "requiredLevel": 5,
+      "achievedLevel": 2,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "Validation experiments conducted on the same device geometry, at clinical operating conditions, with human blood or validated analog fluid; gap analysis between validation scenario and COU documented.",
+      "rationale": "Validation used the FDA generic pump geometry (not the sponsor's proprietary VAD geometry) and bovine blood rather than human blood. Operating conditions partially overlap the VAD envelope. The gap between validation scenario and intended clinical COU is large, constraining achieved level to 2 at MRL 5."
+    },
+    {
+      "type": "CredibilityFactor",
+      "factorType": "Numerical solver error",
+      "factorStandard": "ASME-VV40-2018",
+      "requiredLevel": 3,
+      "achievedLevel": 2,
+      "factorStatus": "not-assessed",
+      "acceptanceCriteria": "Iterative convergence demonstrated to residual tolerance < 1e-6 for all equations; round-off error bounded relative to discretization error.",
+      "rationale": "Residual convergence to 1e-5 was achieved for continuity and momentum; energy and scalar transport residuals stalled at 1e-4 for two operating points. Round-off error analysis was not performed. Factor flagged as not-assessed due to incomplete evidence."
+    },
+    {
+      "type": "CredibilityFactor",
+      "factorType": "Use error",
+      "factorStandard": "ASME-VV40-2018",
+      "requiredLevel": 3,
+      "achievedLevel": 1,
+      "factorStatus": "not-assessed",
+      "acceptanceCriteria": "Simulation workflow documented with sufficient detail for independent reproduction; user qualification records available; sensitivity to user-controlled parameters assessed.",
+      "rationale": "No formal user qualification documentation exists for the analysts who configured the hemolysis model. Sensitivity to meshing strategy and turbulence model wall-treatment was not systematically explored. Epistemic gap flagged at MRL 5."
+    },
+    {
+      "type": "CredibilityFactor",
+      "factorType": "Model form",
+      "factorStandard": "ASME-VV40-2018",
+      "requiredLevel": 5,
+      "achievedLevel": 2,
+      "factorStatus": "not-assessed",
+      "acceptanceCriteria": "Physics model selection (turbulence closure, hemolysis power-law exponents) justified against literature and sensitivity analysis; alternative model forms compared.",
+      "rationale": "The Giersiepen-Wurzinger power-law hemolysis model was selected without comparison to alternative formulations (e.g., Arora, Taskin). Turbulence model sensitivity (k-omega SST vs. realizable k-epsilon) was not assessed. Model form uncertainty is the dominant epistemic gap at MRL 5."
+    },
+    {
+      "type": "CredibilityFactor",
+      "factorType": "Model inputs",
+      "factorStandard": "ASME-VV40-2018",
+      "requiredLevel": 4,
+      "achievedLevel": 2,
+      "factorStatus": "not-assessed",
+      "acceptanceCriteria": "All model input parameters assigned probability distributions informed by literature or measurement; Monte Carlo propagation demonstrates QoI sensitivity ranking.",
+      "rationale": "Monte Carlo sampling was applied to inlet velocity and viscosity parameters only. Hemolysis model coefficients (C, alpha, beta in power-law) were treated as fixed nominal values despite known inter-study variability spanning an order of magnitude. Input uncertainty characterization is incomplete."
+    },
+    {
+      "type": "CredibilityFactor",
+      "factorType": "Test samples",
+      "factorStandard": "ASME-VV40-2018",
+      "requiredLevel": 4,
+      "achievedLevel": 1,
+      "factorStatus": "not-assessed",
+      "acceptanceCriteria": "Sample size sufficient for statistical inference; sample provenance and storage conditions documented; inter-sample variability reported.",
+      "rationale": "In-vitro hemolysis measurements were drawn from a single published dataset with n=3 replicates per operating point. Sample provenance (donor demographics, anticoagulant protocol, storage duration) is not reported in the source publication. Insufficient for MRL-5 statistical inference requirements."
+    },
+    {
+      "type": "CredibilityFactor",
+      "factorType": "Equivalency of input parameters",
+      "factorStandard": "ASME-VV40-2018",
+      "requiredLevel": 4,
+      "achievedLevel": 1,
+      "factorStatus": "not-assessed",
+      "acceptanceCriteria": "Simulation input parameters demonstrably equivalent to experimental conditions; any substitutions (e.g., bovine for human blood rheology) quantitatively justified with sensitivity analysis.",
+      "rationale": "Bovine blood rheology parameters were substituted for human blood without sensitivity analysis quantifying the impact on HI predictions. Geometric fidelity between the CAD model and the physical test article was not verified via metrology. Equivalency is undemonstrated, representing the most critical open gap for Class III submission."
+    }
+  ],
+  "hasWeakener": [],
+  "hasDecisionRecord": {
+    "id": "https://uofa.net/synth/decision/vad-cou2-decision-2026",
+    "type": "DecisionRecord",
+    "actor": "https://uofa.net/synth/actor/morrison-vv-review-board",
+    "role": "Credibility assessment team",
+    "outcome": "Accepted",
+    "rationale": "The assessment team accepts the simulation credibility package at this stage on the basis that the seven assessed factors, while all below required levels, collectively establish a documented baseline of simulation capability for the FDA generic centrifugal pump geometry. The six not-assessed factors are acknowledged as open epistemic gaps. Acceptance is conditional: the sponsor must close all six not-assessed factors and raise all seven assessed factors to required levels prior to regulatory submission. The intended use scope — Class III VAD hemolysis prediction for adults at 3–6 L/min, 2400–3200 RPM — is fully articulated in the bound Requirement (bindsRequirement) and Claim (bindsClaim) nodes and is considered understood by all review board members. The absence of a formally structured context-of-use object in this minimal-profile package is noted; scope definition is carried entirely by the Requirement and Claim prose per ProfileMinimal conventions.",
+    "decidedAt": "2026-04-19T00:00:00Z"
+  },
+  "adversarialProvenance": {
+    "generatorVersion": "0.1.0",
+    "toolVersion": "uofa-cli 0.5.0",
+    "promptTemplateVersion": "v1.0.0",
+    "promptTemplateId": "ontological.W_ON_01",
+    "specId": "adv-2026-p2-011-w-on-01",
+    "specPath": "specs/confirm_existing/w-on-01.yaml",
+    "specHash": "sha256:baad15b3d619b2c376de182027eaab4464e1dfd1263a23f7f690cd1cbdd164a1",
+    "generationModel": "claude-sonnet-4-6",
+    "modelParams": {
+      "max_tokens": 8000,
+      "temperature": 0.7
+    },
+    "callMetadata": {
+      "dropParamsActive": true,
+      "deprecationFallbackFired": false,
+      "shaclRetries": 0,
+      "modelRequested": "claude-sonnet-4-6",
+      "modelReturned": "claude-sonnet-4-6",
+      "litellmVersion": "1.63.7"
+    },
+    "generationTimestamp": "2026-04-27T05:01:48Z",
+    "targetWeakener": "W-ON-01",
+    "targetDefeaterType": "structural",
+    "coverageIntent": "confirm_existing",
+    "sourceTaxonomy": "khakzad/ontological/scope-drift",
+    "subtletyLevel": "high",
+    "tokens": 6470,
+    "variantNum": 20,
+    "provenanceBlockHash": "sha256:a1d7432b6e1173f675aebfe865e1e621f429d04892e32aee02be829785b35965"
+  }
+}

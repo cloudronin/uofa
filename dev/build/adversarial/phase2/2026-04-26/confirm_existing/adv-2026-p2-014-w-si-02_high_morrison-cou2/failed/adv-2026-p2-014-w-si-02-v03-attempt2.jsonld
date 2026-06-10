@@ -1,0 +1,239 @@
+{
+  "@context": "https://raw.githubusercontent.com/cloudronin/uofa/main/spec/context/v0.5.jsonld",
+  "id": "https://uofa.net/synth/cou2-vad-minimal-w-si-02",
+  "type": [
+    "UnitOfAssurance",
+    "uofa:SyntheticAdversarialSample"
+  ],
+  "synthetic": true,
+  "conformsToProfile": "https://uofa.net/vocab#ProfileMinimal",
+  "name": "Morrison COU2 — VAD hemolysis credibility assessment",
+  "description": "V&V 40 credibility assessment for CFD hemolysis prediction of the FDA generic centrifugal blood pump under ventricular assist device (VAD) conditions. COU2 evaluates whether the computational model can predict absolute hemolysis levels for a Class III VAD device at Model Risk Level 5. Higher model risk drives stricter credibility requirements; Monte Carlo uncertainty quantification is performed but all credibility factor gaps remain. Full 13-factor assessment: 7 factors assessed (all with achieved levels below required levels), 6 factors not assessed (flagged as epistemic gaps at MRL 5). Decision: Not accepted.",
+  "couName": "VAD use",
+  "assuranceLevel": "Low",
+  "decision": "Not accepted",
+  "deviceClass": "Class III",
+  "modelRiskLevel": 5,
+  "bindsClaim": "https://uofa.net/synth/claim/cou2-vad-hemolysis-claim",
+  "bindsModel": "https://uofa.net/synth/model/cfd-hemolysis-centrifugal-pump",
+  "bindsDataset": [
+    "https://uofa.net/synth/data/fda-pump-experimental-hemolysis",
+    "https://uofa.net/synth/data/monte-carlo-uq-outputs"
+  ],
+  "hasContextOfUse": {
+    "decisionConsequence": "High",
+    "description": "A CFD model is used to predict absolute hemolysis levels across operating conditions for a centrifugal blood pump used as a ventricular assist device (VAD). Model influence is HIGH (model is primary basis for hemolysis acceptance); decision consequence is HIGH (incorrect prediction could result in chronic patient hemolysis requiring clinical intervention). Model Risk Level 5 — the highest in the Morrison assessment.",
+    "deviceClass": "Class III",
+    "id": "https://uofa.net/morrison/cou/cou2-vad",
+    "intendedUse": "Use CFD to predict absolute hemolysis index values for a Class III VAD device across 5 flow-speed combinations. Results must demonstrate hemolysis below absolute clinical threshold (not relative to predicate). Requires Monte Carlo uncertainty quantification on hemolysis predictions.",
+    "modelInfluence": "High",
+    "name": "COU2: Ventricular assist device use (Class III)",
+    "type": "ContextOfUse"
+  },
+  "hasValidationResult": [
+    {
+      "id": "https://uofa.net/synth/validation/cou2-vr-01",
+      "type": "ValidationResult",
+      "name": "Hemolysis index comparison — 5 operating points",
+      "description": "CFD-predicted normalized index of hemolysis (NIH) values compared against in-vitro measurements at 5 flow-speed combinations. Predicted values systematically exceed measured values by 18–34%; Monte Carlo 95% prediction intervals do not consistently bracket experimental data. Validation activity performed on FDA generic pump geometry."
+    },
+    {
+      "id": "https://uofa.net/synth/validation/cou2-vr-02",
+      "type": "ValidationResult",
+      "name": "Grid convergence index assessment",
+      "description": "Richardson extrapolation performed on three mesh refinement levels (3.2M, 8.7M, 22.4M cells). GCI for NIH output: 12.7% on fine mesh. Exceeds MRL 5 threshold of 5%. Discretization error not adequately controlled."
+    },
+    {
+      "id": "https://uofa.net/synth/validation/cou2-vr-03",
+      "type": "ValidationResult",
+      "name": "Monte Carlo uncertainty quantification",
+      "description": "Monte Carlo sampling (n=500) performed over 6 uncertain input parameters including blood viscosity, pump inlet velocity profile, and hemolysis model constants. Total output uncertainty (95% CI) spans ±41% of mean NIH prediction. Requirement for MRL 5 is ±15%. UQ coverage insufficient."
+    }
+  ],
+  "hasCredibilityFactor": [
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Software quality assurance",
+      "type": "CredibilityFactor",
+      "requiredLevel": 4,
+      "achievedLevel": 2,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "MRL 5 requires documented SQA plan with version control, automated regression testing, and independent code review. All defects must be tracked in a formal issue management system.",
+      "rationale": "Version control (Git) and basic regression tests are in place. Independent code review has not been performed. No formal issue tracking system. Achieved level 2 of required 4."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Numerical code verification",
+      "type": "CredibilityFactor",
+      "requiredLevel": 4,
+      "achievedLevel": 2,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "MRL 5 requires manufactured solution verification for all governing equations, including the hemolysis transport equation, with documented order-of-accuracy confirmation.",
+      "rationale": "Method of manufactured solutions applied to Navier-Stokes equations only. Hemolysis scalar transport equation not verified via MMS. Order of accuracy confirmed for velocity field (1.92 vs. expected 2.0) but not for hemolysis scalar. Achieved level 2 of required 4."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Discretization error",
+      "type": "CredibilityFactor",
+      "requiredLevel": 5,
+      "achievedLevel": 2,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "MRL 5 requires GCI below 5% on the primary QoI (NIH) using at least three systematically refined meshes, with confirmation that asymptotic range has been achieved.",
+      "rationale": "GCI computed as 12.7% on fine mesh. Asymptotic convergence ratio is 0.78, indicating approach to asymptotic range but not confirmed. Three mesh levels used. Achieved level 2 of required 5."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Test conditions",
+      "type": "CredibilityFactor",
+      "requiredLevel": 4,
+      "achievedLevel": 3,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "MRL 5 requires that experimental test conditions match COU operating conditions within specified tolerances for all boundary conditions including inlet flow rate, rotational speed, fluid temperature, and hematocrit.",
+      "rationale": "Flow rate and rotational speed matched within 2%. Hematocrit matched nominally (35%). Temperature controlled to ±1°C. However, inlet velocity profile in experiments was not characterized; uniform profile assumed in CFD. Partial match. Achieved level 3 of required 4."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Output comparison",
+      "type": "CredibilityFactor",
+      "requiredLevel": 5,
+      "achievedLevel": 2,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "MRL 5 requires quantitative agreement metric (e.g., MAPE or NRMSE) below 10% across all validation points, with statistical significance testing and consideration of experimental uncertainty.",
+      "rationale": "Mean absolute percentage error across 5 operating points is 24.3%. Predictions systematically overestimate NIH. Experimental uncertainty bars are narrow (±3%) and do not explain the discrepancy. Agreement is insufficient. Achieved level 2 of required 5."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Relevance of the quantities of interest",
+      "type": "CredibilityFactor",
+      "requiredLevel": 4,
+      "achievedLevel": 3,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "MRL 5 requires that validation QoIs directly correspond to the clinical decision QoIs with documented traceability. Surrogate QoIs must be justified with sensitivity analysis.",
+      "rationale": "NIH is directly used as both validation and COU QoI. Traceability documented. However, sub-lethal hemolysis markers (free plasma hemoglobin) not included as secondary QoI despite clinical relevance. Achieved level 3 of required 4."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Relevance of the validation activities to the COU",
+      "type": "CredibilityFactor",
+      "requiredLevel": 4,
+      "achievedLevel": 2,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "MRL 5 requires validation performed on geometry and operating conditions representative of the COU device. Generic pump geometry may be used only if geometric similarity and flow regime similarity are formally demonstrated.",
+      "rationale": "Validation performed on FDA generic centrifugal pump. COU device is a proprietary VAD with different impeller geometry. Geometric similarity not formally demonstrated. Flow regime similarity (Reynolds number matching) partially satisfied at 3 of 5 operating points. Achieved level 2 of required 4."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Numerical solver error",
+      "type": "CredibilityFactor",
+      "requiredLevel": 3,
+      "achievedLevel": 1,
+      "factorStatus": "not-assessed",
+      "acceptanceCriteria": "MRL 5 requires iterative convergence to residual levels below 1e-6 for all equations, with demonstration that residual reduction does not mask solution error. Round-off error analysis required.",
+      "rationale": "Residuals reduced to 1e-4 only. Round-off error analysis not performed. Iterative convergence criterion not met for hemolysis scalar equation. Factor not assessed to required depth; flagged as epistemic gap at MRL 5."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Use error",
+      "type": "CredibilityFactor",
+      "requiredLevel": 3,
+      "achievedLevel": 1,
+      "factorStatus": "not-assessed",
+      "acceptanceCriteria": "MRL 5 requires documented simulation workflow with independent peer review of all user-controlled inputs, boundary condition assignments, and post-processing procedures.",
+      "rationale": "No independent peer review of simulation workflow performed. Boundary condition assignments documented but not independently verified. Post-processing scripts not reviewed. Factor flagged as epistemic gap."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Model form",
+      "type": "CredibilityFactor",
+      "requiredLevel": 5,
+      "achievedLevel": 1,
+      "factorStatus": "not-assessed",
+      "acceptanceCriteria": "MRL 5 requires formal model form uncertainty quantification, including evaluation of alternative hemolysis model formulations (e.g., power-law vs. strain-based) and turbulence model sensitivity.",
+      "rationale": "Single hemolysis model form (Giersiepen-Wurzinger power law) used without comparison to alternatives. Turbulence model sensitivity not evaluated. Model form uncertainty not quantified. Critical epistemic gap at MRL 5."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Model inputs",
+      "type": "CredibilityFactor",
+      "requiredLevel": 4,
+      "achievedLevel": 2,
+      "factorStatus": "not-assessed",
+      "acceptanceCriteria": "MRL 5 requires full characterization of all input parameter uncertainties with documented probability distributions, including blood rheological properties, pump geometry tolerances, and hemolysis model constants.",
+      "rationale": "Monte Carlo sampling performed over 6 parameters, but probability distributions for hemolysis model constants (alpha, beta exponents) assigned from literature without device-specific calibration. Blood viscosity distribution assumed Gaussian without experimental support. Input characterization incomplete."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Test samples",
+      "type": "CredibilityFactor",
+      "requiredLevel": 4,
+      "achievedLevel": 1,
+      "factorStatus": "not-assessed",
+      "acceptanceCriteria": "MRL 5 requires statistically powered experimental sample sizes with at least 3 independent biological replicates per operating condition and formal inter-laboratory reproducibility assessment.",
+      "rationale": "Single laboratory performed all experiments. Two biological replicates per operating point. No inter-laboratory reproducibility data. Sample size insufficient for MRL 5 statistical requirements. Epistemic gap."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Equivalency of input parameters",
+      "type": "CredibilityFactor",
+      "requiredLevel": 4,
+      "achievedLevel": 1,
+      "factorStatus": "not-assessed",
+      "acceptanceCriteria": "MRL 5 requires formal equivalency analysis demonstrating that input parameters used in the validation activity are equivalent to those in the COU, including material properties, geometric fidelity, and operating environment.",
+      "rationale": "No formal equivalency analysis performed between FDA generic pump validation inputs and COU VAD device inputs. Geometric differences between devices not quantified. Fluid properties assumed equivalent without justification. Critical gap for Class III device assessment."
+    }
+  ],
+  "hasDecisionRecord": {
+    "id": "https://uofa.net/synth/decision/cou2-vad-decision-001",
+    "type": "DecisionRecord",
+    "actor": "https://uofa.net/synth/org/morrison-credibility-team",
+    "role": "Credibility assessment team",
+    "outcome": "Accepted",
+    "rationale": "Despite the COU-level decision of Not Accepted for regulatory submission, the credibility assessment package itself is accepted as a complete and valid documentation artifact. The assessment transparently identifies all 13 credibility factor gaps, documents achieved versus required levels for MRL 5, and provides a well-supported evidentiary basis for the Not Accepted regulatory outcome. The package satisfies the documentation requirements for a Minimal profile UnitOfAssurance and is accepted as a credibility evidence record.",
+    "decidedAt": "2026-04-19T00:00:00Z"
+  },
+  "wasDerivedFrom": "https://doi.org/10.1115/1.4054554",
+  "wasAttributedTo": "https://uofa.net/synth/org/morrison-credibility-team",
+  "generatedAtTime": "2026-04-19T00:00:00Z",
+  "hash": "sha256:a3f8c2e1d74b956f0e2c8a1b3d5f7e9c2a4b6d8e0f1c3a5b7d9e1f3a5c7b9d1e3",
+  "signature": "ed25519:b2d4f6a8c0e2b4d6f8a0c2e4b6d8f0a2c4e6b8d0f2a4c6e8b0d2f4a6c8e0b2d4",
+  "hasWeakener": [],
+  "inlineRequirement": {
+    "id": "https://uofa.net/synth/req/cou2-vad-hemolysis-requirement",
+    "type": "Requirement",
+    "name": "Absolute hemolysis prediction requirement for Class III VAD",
+    "description": "The CFD model shall predict absolute normalized index of hemolysis (NIH) values within 10% of experimentally measured values across all 5 specified operating conditions. Monte Carlo uncertainty quantification shall demonstrate 95% prediction intervals within ±15% of mean predicted NIH. Model Risk Level 5 credibility requirements shall be satisfied for all 13 ASME V&V 40 credibility factors prior to regulatory submission.",
+    "requirementSource": "FDA 510(k) submission requirements for Class III ventricular assist devices; ASME V&V 40-2018 Section 6"
+  },
+  "adversarialProvenance": {
+    "generatorVersion": "0.1.0",
+    "toolVersion": "uofa-cli 0.5.0",
+    "promptTemplateVersion": "v1.0.0",
+    "promptTemplateId": "structural.W_SI_02",
+    "specId": "adv-2026-p2-014-w-si-02",
+    "specPath": "specs/confirm_existing/w-si-02.yaml",
+    "specHash": "sha256:7e8fcace0567de5014a24a09fbdaf462f830286baec968e5767960b31d25bc0d",
+    "generationModel": "claude-sonnet-4-6",
+    "modelParams": {
+      "max_tokens": 8000,
+      "temperature": 0.7
+    },
+    "callMetadata": {
+      "dropParamsActive": true,
+      "deprecationFallbackFired": false,
+      "shaclRetries": 1,
+      "modelRequested": "claude-sonnet-4-6",
+      "modelReturned": "claude-sonnet-4-6",
+      "litellmVersion": "1.63.7"
+    },
+    "generationTimestamp": "2026-04-27T09:22:23Z",
+    "targetWeakener": "W-SI-02",
+    "targetDefeaterType": "structural",
+    "coverageIntent": "confirm_existing",
+    "sourceTaxonomy": "khakzad/argumentation/undermining-d1",
+    "subtletyLevel": "high",
+    "tokens": 7219,
+    "variantNum": 3,
+    "provenanceBlockHash": "sha256:9cfc3821c78843e265586807215d16dc78a8f66ef168c30d3c97a24f716c1579"
+  },
+  "bindsRequirement": "https://uofa.net/morrison/req/hemolysis-safety"
+}
