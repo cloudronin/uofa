@@ -50,8 +50,10 @@ from uofa_cli.adversarial.judge.providers.base import (
     Judgment,
 )
 from uofa_cli.adversarial.judge.triage import (
+    DEFAULT_LOW_CONFIDENCE_ROUTE_THRESHOLD,
     TriageBucket,
     align_trios,
+    is_low_confidence_forced,
     triage_corpus,
 )
 from uofa_cli.output import error, info, result_line, warn
@@ -1137,10 +1139,18 @@ def run_triage(args) -> int:
 
     trios = align_trios(judgments_a, judgments_b, judgments_c)
     confidence_floor = float(getattr(args, "confidence_floor", 0.6))
+    low_conf_routing = bool(getattr(args, "low_conf_routing", True))
+    low_conf_threshold = float(
+        getattr(args, "low_conf_threshold", DEFAULT_LOW_CONFIDENCE_ROUTE_THRESHOLD)
+    )
     result = triage_corpus(trios, confidence_floor=confidence_floor)
 
-    # adjudication_queue.csv: DIVERGENT + UNCERTAIN cases for author review.
+    # adjudication_queue.csv: DISAGREEMENT cases for author review. With
+    # --low-conf-routing on (default; spec Part 3.1) we ADDITIONALLY route any
+    # CONVERGENT case in which a judge emitted a forced verdict below
+    # --low-conf-threshold. Existing bucket assignment is untouched.
     queue_path = out_dir / "adjudication_queue.csv"
+    low_conf_routed = 0
     with queue_path.open("w", newline="") as f:
         w = csv.writer(f)
         w.writerow([
@@ -1149,12 +1159,19 @@ def run_triage(args) -> int:
             "confidence_a", "confidence_b", "confidence_c",
         ])
         for entry in result.entries:
+            disagreement_type = entry.disagreement_type
             if entry.bucket == TriageBucket.CONVERGENT:
-                continue
+                if not (
+                    low_conf_routing
+                    and is_low_confidence_forced(entry, threshold=low_conf_threshold)
+                ):
+                    continue
+                disagreement_type = "low_confidence_forced_route"
+                low_conf_routed += 1
             ja, jb, jc = entry.judgments
             w.writerow([
                 entry.case_id, entry.bucket.value, entry.majority_verdict or "",
-                entry.disagreement_type,
+                disagreement_type,
                 ja.verdict, jb.verdict, jc.verdict,
                 f"{ja.confidence:.3f}", f"{jb.confidence:.3f}", f"{jc.confidence:.3f}",
             ])
@@ -1164,6 +1181,7 @@ def run_triage(args) -> int:
     summary_path.write_text(json.dumps({
         "case_count": len(result.entries),
         "bucket_counts": {b.value: c for b, c in result.bucket_counts.items()},
+        "low_confidence_forced_routed": low_conf_routed,
     }, indent=2))
 
     info(f"  triage: {dict((b.value, c) for b, c in result.bucket_counts.items())}")
