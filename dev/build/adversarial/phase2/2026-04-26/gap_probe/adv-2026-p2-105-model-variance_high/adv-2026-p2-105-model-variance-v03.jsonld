@@ -1,0 +1,234 @@
+{
+  "@context": "https://raw.githubusercontent.com/cloudronin/uofa/main/spec/context/v0.5.jsonld",
+  "id": "https://uofa.net/synth/morrison-cou1-ml-hemolysis-v1",
+  "type": [
+    "UnitOfAssurance",
+    "uofa:SyntheticAdversarialSample"
+  ],
+  "synthetic": true,
+  "conformsToProfile": "https://uofa.net/vocab#ProfileMinimal",
+  "name": "Morrison COU1 — CPB hemolysis credibility assessment (ML surrogate)",
+  "description": "V&V 40 credibility assessment for a neural-network surrogate model used to predict pump-induced hemolysis for the FDA generic centrifugal blood pump under cardiopulmonary bypass (CPB) conditions. The surrogate replaces expensive CFD evaluations across the 5 flow-speed operating envelope. COU1 evaluates whether the ML model can identify worst-case hemolysis operating conditions for a Class II CPB device at Model Risk Level 2. A two-seed training comparison was performed and agreement was judged acceptable; no statistical characterisation of seed-to-seed variance is provided.",
+  "assuranceLevel": "Medium",
+  "couName": "CPB use",
+  "decision": "Accepted",
+  "deviceClass": "Class II",
+  "modelRiskLevel": 2,
+  "bindsRequirement": "https://uofa.net/morrison/req/hemolysis-surrogate-mrl2",
+  "bindsClaim": "https://uofa.net/morrison/claim/nn-surrogate-hemolysis-cou1",
+  "bindsModel": "https://uofa.net/morrison/model/feedforward-nn-hemolysis-surrogate-v3",
+  "bindsDataset": [
+    "https://uofa.net/morrison/data/cfd-training-set-n1200",
+    "https://uofa.net/morrison/data/cfd-holdout-set-n300"
+  ],
+  "hasContextOfUse": {
+    "decisionConsequence": "High",
+    "description": "A CFD model is used to evaluate the sensitivity of pump-induced hemolysis to variations in component dimensions for a centrifugal blood pump used during cardiopulmonary bypass surgery. Model influence is MEDIUM (testing confirms results); decision consequence is HIGH (incorrect tolerance decision could impact clinical hemolysis levels). Model Risk Level 2.",
+    "deviceClass": "Class II",
+    "id": "https://uofa.net/morrison/cou/cou1-cpb",
+    "intendedUse": "Use CFD to identify worst-case operating conditions for hemolysis across 5 flow-speed combinations for a Class II CPB device. Results compared against predicate device hemolysis using relative hemolysis index (RH < 1 acceptance criterion).",
+    "modelInfluence": "Medium",
+    "name": "COU1: Cardiopulmonary bypass use (Class II)",
+    "type": "ContextOfUse"
+  },
+  "hasValidationResult": [
+    {
+      "id": "https://uofa.net/morrison/validation/nn-seed-a-performance",
+      "type": "ValidationResult",
+      "name": "Neural network surrogate — seed A holdout performance",
+      "description": "Feedforward neural network (3 hidden layers, 128 units each, ReLU activations) trained on 1200 CFD-derived hemolysis samples. Training run with seed A (seed=42). Holdout RMSE: 0.0031 normalised hemolysis index units. R²: 0.983. Maximum absolute error across 5 operating-point clusters: 4.2 %. Model correctly ranked all 5 flow-speed combinations by hemolysis severity. Performance judged to meet the MRL 2 acceptance threshold of RMSE < 0.005.",
+      "metric": "RMSE",
+      "metricValue": 0.0031,
+      "rSquared": 0.983,
+      "trainingRun": "seed-A"
+    },
+    {
+      "id": "https://uofa.net/morrison/validation/nn-seed-b-performance",
+      "type": "ValidationResult",
+      "name": "Neural network surrogate — seed B repeatability check",
+      "description": "A second training run was performed with seed B (seed=137) to provide a basic repeatability check. Holdout RMSE for seed B: 0.0034 normalised hemolysis index units. R²: 0.979. The two runs are described as showing 'good agreement' and the seed-A model was selected for deployment based on marginally lower RMSE. No statistical characterisation of the inter-seed variance distribution, confidence intervals on predictions, or ensemble uncertainty bounds is provided. The assessment team concluded that the 0.0003 RMSE difference between the two seeds is negligible for the purposes of the MRL 2 decision.",
+      "metric": "RMSE",
+      "metricValue": 0.0034,
+      "rSquared": 0.979,
+      "trainingRun": "seed-B"
+    }
+  ],
+  "wasDerivedFrom": "https://doi.org/10.1115/1.4034306",
+  "wasAttributedTo": "https://uofa.net/synth/org/morrison-cardiovascular-sim-group",
+  "generatedAtTime": "2026-04-19T00:00:00Z",
+  "hash": "sha256:a3f7c2e10d94b856f2a1cc3d7e08b45f9d6a2c1e3b7f04d8e5a9c6b2d1f3e8a7",
+  "signature": "ed25519:b1d4e7a2f9c3058e6d1a4b7c2e5f8a0d3b6c9e2f5a8d1b4e7c0f3a6d9b2e5f8a1",
+  "hasCredibilityFactor": [
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Software quality assurance",
+      "type": "CredibilityFactor",
+      "requiredLevel": 2,
+      "achievedLevel": 2,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "Version-controlled training code with documented dependencies; automated regression tests covering data pipeline and inference path.",
+      "rationale": "The neural network surrogate is implemented in a version-controlled repository (Git tag v3.1.0). Dependency manifest (requirements.txt) is archived. Automated unit tests cover the data normalisation pipeline, model inference, and RMSE reporting functions. SQA level 2 requirements are satisfied."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Numerical code verification",
+      "type": "CredibilityFactor",
+      "requiredLevel": 2,
+      "achievedLevel": 2,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "Training loss convergence confirmed; numerical stability of forward pass verified on reference inputs with known analytical solutions.",
+      "rationale": "Training loss curves show monotonic convergence to < 1e-4 MSE on training set within 500 epochs. Forward-pass numerical stability verified against three analytically tractable hemolysis sub-problems. No NaN or overflow events recorded across 1500 training epochs for both seed runs."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Discretization error",
+      "type": "CredibilityFactor",
+      "requiredLevel": 1,
+      "achievedLevel": 1,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "Network architecture sensitivity study demonstrates that adding additional layers or units does not materially reduce holdout RMSE.",
+      "rationale": "Architecture sweep (2-, 3-, 4-layer networks; 64, 128, 256 units) shows holdout RMSE plateau at the 3-layer 128-unit configuration. Increasing capacity beyond this does not reduce RMSE by more than 0.0002 units, indicating the chosen architecture is not under-resolved."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Test conditions",
+      "type": "CredibilityFactor",
+      "requiredLevel": 2,
+      "achievedLevel": 2,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "Holdout dataset spans the full 5 flow-speed operating envelope; test conditions are independent of training data.",
+      "rationale": "The 300-sample holdout set was partitioned prior to training using stratified sampling across all 5 operating-point clusters. No holdout samples were used during hyperparameter selection. Test conditions cover the full COU operating envelope including the highest-hemolysis corner cases."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Output comparison",
+      "type": "CredibilityFactor",
+      "requiredLevel": 2,
+      "achievedLevel": 2,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "Surrogate predictions of normalised hemolysis index agree with CFD reference within 5 % maximum absolute error across all 5 operating points.",
+      "rationale": "Seed-A model maximum absolute error: 4.2 % across 5 operating-point clusters. Seed-B model maximum absolute error: 4.7 %. Both runs satisfy the 5 % threshold. Predicted rank ordering of operating points by hemolysis severity is preserved in both runs. The two-seed comparison is described as confirming agreement; however, no confidence intervals or variance bounds on the predictions are reported."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Relevance of the quantities of interest",
+      "type": "CredibilityFactor",
+      "requiredLevel": 2,
+      "achievedLevel": 2,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "Model output is the normalised hemolysis index directly used in the RH < 1 acceptance criterion.",
+      "rationale": "The surrogate directly predicts the normalised hemolysis index (NIH) at each operating point. This quantity maps directly to the relative hemolysis index RH used in the COU acceptance criterion. No intermediate transformation is required."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Relevance of the validation activities to the COU",
+      "type": "CredibilityFactor",
+      "requiredLevel": 2,
+      "achievedLevel": 2,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "Validation dataset is derived from CFD simulations of the FDA generic centrifugal blood pump geometry under CPB operating conditions matching the COU.",
+      "rationale": "All 1500 training and holdout samples are generated from CFD simulations of the FDA generic centrifugal blood pump at flow rates 2–6 L/min and rotational speeds 2000–3500 RPM, matching the CPB COU envelope. Blood rheology and boundary conditions are consistent with the COU specification."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Numerical solver error",
+      "type": "CredibilityFactor",
+      "requiredLevel": 1,
+      "achievedLevel": 1,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "Floating-point precision of inference confirmed; deterministic inference output for fixed weights and inputs.",
+      "rationale": "Inference is performed in 64-bit floating point. Deterministic output confirmed by re-running inference on 50 holdout samples with fixed weights; bit-identical results obtained across 10 repeated evaluations. Solver error is negligible relative to the 5 % acceptance threshold."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Use error",
+      "type": "CredibilityFactor",
+      "requiredLevel": 1,
+      "achievedLevel": 1,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "Input normalisation pipeline is automated and validated; out-of-range inputs trigger documented warnings.",
+      "rationale": "Input features are normalised via a fixed scaler fitted on training data and stored alongside model weights. Out-of-range inputs (beyond training envelope) trigger a logged warning and are flagged in the output record. User guide documents the normalisation procedure and range checks."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Model form",
+      "type": "CredibilityFactor",
+      "requiredLevel": 2,
+      "achievedLevel": 2,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "Feedforward neural network architecture is appropriate for smooth regression over the CPB operating envelope; physics-informed constraints applied where tractable.",
+      "rationale": "A fully connected feedforward neural network with ReLU activations is appropriate for the smooth, low-dimensional hemolysis response surface over the 5-dimensional operating-point space. A monotonicity constraint on flow rate was enforced via projected gradient descent, consistent with known hemolysis physics. Architecture selection was guided by cross-validation over the training set."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Model inputs",
+      "type": "CredibilityFactor",
+      "requiredLevel": 2,
+      "achievedLevel": 2,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "All five operating-point input features (flow rate, rotational speed, impeller clearance, volute geometry, blood viscosity) are documented with uncertainty ranges.",
+      "rationale": "Five input features are used: volumetric flow rate (±2 % measurement uncertainty), rotational speed (±10 RPM), impeller tip clearance (±0.05 mm manufacturing tolerance), volute exit angle (±0.5°), and dynamic blood viscosity (±5 % inter-patient variability). Input uncertainty ranges are documented in the model card and propagated through the surrogate via Monte Carlo sampling for the worst-case operating point identification."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Test samples",
+      "type": "CredibilityFactor",
+      "requiredLevel": 1,
+      "achievedLevel": 1,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "Holdout sample size is sufficient for reliable RMSE estimation at the required precision.",
+      "rationale": "The 300-sample holdout set provides a 95 % confidence interval on RMSE of approximately ±0.0003 units based on bootstrap resampling, which is adequate for the MRL 2 decision. Sample size was determined by a power analysis targeting detection of a 10 % degradation in RMSE with 80 % power."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Equivalency of input parameters",
+      "type": "CredibilityFactor",
+      "requiredLevel": 2,
+      "achievedLevel": 2,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "CFD-derived training inputs use the same parametric definitions and units as the COU operating-point specification.",
+      "rationale": "Input parameter definitions, units, and reference frames in the CFD training dataset are verified to be identical to those in the COU specification document (Morrison-COU1-Spec-Rev3). A traceability matrix maps each model input to its COU counterpart. No unit conversion errors were identified during the equivalency review."
+    }
+  ],
+  "hasWeakener": [],
+  "hasDecisionRecord": {
+    "id": "https://uofa.net/morrison/decision/cou1-ml-surrogate-accepted-2026",
+    "type": "DecisionRecord",
+    "actor": "https://uofa.net/synth/actor/morrison-credibility-assessment-team",
+    "role": "Credibility assessment team",
+    "outcome": "Accepted",
+    "rationale": "All seven assessed credibility factors meet or exceed the required level for MRL 2. The neural network surrogate achieves holdout RMSE of 0.0031 (seed A) and 0.0034 (seed B), both below the 0.005 threshold, and correctly ranks all five operating points by hemolysis severity. The two-seed comparison was judged to demonstrate adequate repeatability. The six remaining factors are not assessed, which is acceptable at MRL 2 per the ASME V&V 40 framework. The package is accepted for use in the CPB COU.",
+    "decidedAt": "2026-04-19T00:00:00Z"
+  },
+  "adversarialProvenance": {
+    "generatorVersion": "0.1.0",
+    "toolVersion": "uofa-cli 0.5.0",
+    "promptTemplateVersion": "v1.0.0",
+    "promptTemplateId": "evidence_validity.gohar_evidence_validity_model_variance",
+    "specId": "adv-2026-p2-105-model-variance",
+    "specPath": "specs/gap_probe/gohar_ev_model_variance.yaml",
+    "specHash": "sha256:65a49331917659e595d9198be414465141dc1657b07a90e984c7c19213505f0b",
+    "generationModel": "claude-sonnet-4-6",
+    "modelParams": {
+      "max_tokens": 8000,
+      "temperature": 0.7
+    },
+    "callMetadata": {
+      "dropParamsActive": true,
+      "deprecationFallbackFired": false,
+      "shaclRetries": 0,
+      "modelRequested": "claude-sonnet-4-6",
+      "modelReturned": "claude-sonnet-4-6",
+      "litellmVersion": "1.63.7"
+    },
+    "generationTimestamp": "2026-04-27T11:06:12Z",
+    "targetWeakener": null,
+    "targetDefeaterType": null,
+    "coverageIntent": "gap_probe",
+    "sourceTaxonomy": "gohar/evidence_validity/model-variance",
+    "subtletyLevel": "high",
+    "tokens": 7038,
+    "variantNum": 3,
+    "provenanceBlockHash": "sha256:8a2ad09a553a8fb2cb6e1b1adb1d83e363283239da0ea0fb22d25b6336c87fff"
+  }
+}

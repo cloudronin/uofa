@@ -1,0 +1,255 @@
+{
+  "@context": "https://raw.githubusercontent.com/cloudronin/uofa/main/spec/context/v0.5.jsonld",
+  "id": "https://uofa.net/synth/cou2-vad-w-ar-03",
+  "type": [
+    "UnitOfAssurance",
+    "uofa:SyntheticAdversarialSample"
+  ],
+  "synthetic": true,
+  "conformsToProfile": "https://uofa.net/vocab#ProfileMinimal",
+  "name": "Morrison COU2 — VAD hemolysis credibility assessment (W-AR-03 adversarial)",
+  "description": "V&V 40 credibility assessment for CFD hemolysis prediction of the FDA generic centrifugal blood pump under ventricular assist device (VAD) conditions. COU2 evaluates whether the computational model can predict absolute hemolysis levels for a Class III VAD device at Model Risk Level 5. A governing requirement mandates experimental-validation as the required verification method for hemolysis QoI confirmation; however, the supporting validation activity is a high-fidelity numerical simulation whose results are argued to be functionally equivalent to bench-top experimental data. The narrative frames the simulation as a surrogate experiment, but the structured activityType field records 'numerical-simulation', creating an inference-method mismatch against the requirement's requiredVerificationMethod of 'experimental-validation'.",
+  "assuranceLevel": "Low",
+  "couName": "VAD use",
+  "decision": "Accepted",
+  "deviceClass": "Class III",
+  "modelRiskLevel": 5,
+  "bindsRequirement": "https://uofa.net/synth/req/hemolysis-experimental-validation",
+  "bindsClaim": "https://uofa.net/synth/claim/cou2-hemolysis-acceptability",
+  "bindsModel": "https://uofa.net/synth/model/cfd-hemolysis-vad",
+  "bindsDataset": [
+    "https://uofa.net/synth/data/cou2-mc-uncertainty-results",
+    "https://uofa.net/synth/data/cou2-operating-conditions"
+  ],
+  "hasContextOfUse": {
+    "decisionConsequence": "High",
+    "description": "A CFD model is used to predict absolute hemolysis levels across operating conditions for a centrifugal blood pump used as a ventricular assist device (VAD). Model influence is HIGH (model is primary basis for hemolysis acceptance); decision consequence is HIGH (incorrect prediction could result in chronic patient hemolysis requiring clinical intervention). Model Risk Level 5 — the highest in the Morrison assessment.",
+    "deviceClass": "Class III",
+    "id": "https://uofa.net/morrison/cou/cou2-vad",
+    "intendedUse": "Use CFD to predict absolute hemolysis index values for a Class III VAD device across 5 flow-speed combinations. Results must demonstrate hemolysis below absolute clinical threshold (not relative to predicate). Requires Monte Carlo uncertainty quantification on hemolysis predictions.",
+    "modelInfluence": "High",
+    "name": "COU2: Ventricular assist device use (Class III)",
+    "type": "ContextOfUse"
+  },
+  "hasRequirement": {
+    "id": "https://uofa.net/synth/req/hemolysis-experimental-validation",
+    "type": "Requirement",
+    "name": "Hemolysis QoI experimental confirmation requirement",
+    "description": "At Model Risk Level 5 for a Class III device, the primary quantity of interest (normalized index of hemolysis, NIH) must be confirmed against physical bench measurements. The required verification method is experimental-validation: in-vitro hemolysis measurements using a standardized blood-analogue loop must be compared against CFD predictions at each of the five operating points. Numerical surrogates do not satisfy this requirement unless formally substituted through an equivalency argument accepted by the regulatory authority.",
+    "requiredVerificationMethod": "experimental-validation"
+  },
+  "hasValidationResult": [
+    {
+      "id": "https://uofa.net/synth/validation/hemolysis-nss-comparison",
+      "type": "ValidationResult",
+      "name": "NIH prediction comparison — high-fidelity numerical reference",
+      "description": "Normalized index of hemolysis (NIH) predicted by the production CFD model was compared against NIH values from a validated high-fidelity DNS/LES reference simulation of the FDA generic centrifugal pump. Agreement within 8% across all five operating points was observed. The analysis team notes that the reference simulation incorporates experimentally-calibrated blood damage coefficients and mesh-independent solutions, and argues that its outputs are 'as good as' experimental measurements for the purposes of hemolysis acceptance. Monte Carlo propagation of inlet velocity and viscosity uncertainties yielded a 95th-percentile NIH below the clinical threshold of 0.01 g/100 L at all operating points.",
+      "passFailStatus": "Pass",
+      "quantitativeMetric": "Mean NIH deviation 6.2%; 95th-percentile NIH = 0.0083 g/100L (threshold 0.01 g/100L)",
+      "wasGeneratedBy": {
+        "id": "https://uofa.net/synth/activity/hemolysis-numerical-simulation-study",
+        "type": "Activity",
+        "name": "High-fidelity DNS/LES reference simulation for NIH comparison",
+        "description": "A DNS/LES simulation of the FDA generic centrifugal pump was executed at five flow-speed combinations using experimentally-calibrated Giersiepen-Wurzinger blood damage model coefficients. Mesh independence was confirmed via Richardson extrapolation. Monte Carlo sampling (N=500) was performed on inlet boundary conditions and blood viscosity. Outputs were compared against production RANS CFD predictions to assess hemolysis index agreement. This activity is presented as a functional substitute for bench experimental validation.",
+        "activityType": "numerical-simulation",
+        "startedAtTime": "2025-09-01T00:00:00Z",
+        "endedAtTime": "2025-11-15T00:00:00Z"
+      }
+    },
+    {
+      "id": "https://uofa.net/synth/validation/mc-uncertainty-quantification",
+      "type": "ValidationResult",
+      "name": "Monte Carlo uncertainty quantification on hemolysis index",
+      "description": "Monte Carlo uncertainty quantification was performed with 500 samples across inlet flow rate (±5%), rotational speed (±2%), and blood dynamic viscosity (±10%). The 95th-percentile NIH remained below the clinical threshold at all five operating points, providing statistical confidence in the hemolysis predictions under input variability.",
+      "passFailStatus": "Pass",
+      "quantitativeMetric": "P95 NIH = 0.0083 g/100L across all operating points; threshold = 0.01 g/100L",
+      "wasGeneratedBy": {
+        "id": "https://uofa.net/synth/activity/mc-uq-simulation",
+        "type": "Activity",
+        "name": "Monte Carlo UQ simulation activity",
+        "description": "Parametric Monte Carlo sampling executed on the production CFD model to propagate input uncertainties to NIH output distribution.",
+        "activityType": "numerical-simulation",
+        "startedAtTime": "2025-11-16T00:00:00Z",
+        "endedAtTime": "2025-12-01T00:00:00Z"
+      }
+    }
+  ],
+  "hasCredibilityFactor": [
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Software quality assurance",
+      "type": "CredibilityFactor",
+      "requiredLevel": 4,
+      "achievedLevel": 3,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "Version-controlled solver with documented regression test suite and configuration management covering all simulation inputs.",
+      "rationale": "The CFD solver is version-controlled and regression-tested for standard benchmark cases. However, blood damage model subroutines lack independent unit tests, and configuration management of hemolysis model coefficients is informal. Achieved level 3 falls short of required level 4."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Numerical code verification",
+      "type": "CredibilityFactor",
+      "requiredLevel": 4,
+      "achievedLevel": 3,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "Order-of-accuracy verification for all governing equations including blood damage transport using method of manufactured solutions.",
+      "rationale": "Order-of-accuracy verification was completed for Navier-Stokes equations. The scalar hemolysis transport equation was verified using a simplified manufactured solution but not under rotating-frame conditions representative of the VAD impeller. Achieved level 3."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Discretization error",
+      "type": "CredibilityFactor",
+      "requiredLevel": 4,
+      "achievedLevel": 3,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "Richardson extrapolation-based discretization error estimate below 5% for NIH at all operating points with GCI < 0.05.",
+      "rationale": "Richardson extrapolation performed on three mesh levels (4M, 12M, 36M cells). GCI for velocity was 2.1%; GCI for NIH was 7.3%, exceeding the 5% threshold at the highest flow-speed combination. Achieved level 3."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Test conditions",
+      "type": "CredibilityFactor",
+      "requiredLevel": 4,
+      "achievedLevel": 2,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "Validation test conditions must replicate clinical operating envelope including hematocrit, temperature, and all five flow-speed combinations using physical in-vitro apparatus.",
+      "rationale": "No physical in-vitro test was conducted. The reference simulation used standard blood-analogue fluid properties (hematocrit 40%, T=37°C) but these were not measured in a physical apparatus. Achieved level 2 due to absence of experimental test conditions."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Output comparison",
+      "type": "CredibilityFactor",
+      "requiredLevel": 4,
+      "achievedLevel": 2,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "Quantitative comparison of CFD NIH predictions against experimental measurements with uncertainty bands at each operating point; agreement within combined uncertainty.",
+      "rationale": "Output comparison was performed against a numerical reference, not experimental data. While agreement was within 8%, no experimental uncertainty band was available. Comparison is simulation-to-simulation, not simulation-to-experiment. Achieved level 2."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Relevance of the quantities of interest",
+      "type": "CredibilityFactor",
+      "requiredLevel": 4,
+      "achievedLevel": 3,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "Primary QoI is NIH directly; secondary QoIs include shear stress distribution and residence time. All QoIs must be directly linked to clinical hemolysis endpoint.",
+      "rationale": "NIH is directly computed as the primary QoI. Shear stress and residence time are tracked as secondary QoIs. Linkage to clinical hemolysis threshold is documented. Achieved level 3 due to incomplete uncertainty attribution for residence time distribution."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Relevance of the validation activities to the COU",
+      "type": "CredibilityFactor",
+      "requiredLevel": 4,
+      "achievedLevel": 2,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "Validation activities must directly address the COU geometry, operating conditions, and blood damage mechanisms under VAD-representative conditions using experimental methods.",
+      "rationale": "The validation activity is a numerical simulation of the same geometry at the same operating conditions. While geometrically and kinematically representative, it is not an experimental activity and does not independently validate the blood damage model against physical measurements. Relevance to COU is geometrically high but methodologically insufficient. Achieved level 2."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Numerical solver error",
+      "type": "CredibilityFactor",
+      "requiredLevel": 3,
+      "achievedLevel": 2,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "Iterative convergence to residuals below 1e-6 for all equations; mass imbalance below 0.01%.",
+      "rationale": "Continuity and momentum residuals converged to 1e-5; energy and scalar transport to 1e-4. Mass imbalance was 0.03%, exceeding the threshold. Achieved level 2."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Use error",
+      "type": "CredibilityFactor",
+      "requiredLevel": 3,
+      "achievedLevel": 2,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "Documented simulation workflow with independent review of boundary condition specification and post-processing scripts.",
+      "rationale": "Simulation workflow is documented in a simulation plan. Boundary conditions were reviewed by a second analyst. Post-processing scripts for NIH integration were not independently verified. Achieved level 2."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Model form",
+      "type": "CredibilityFactor",
+      "requiredLevel": 4,
+      "achievedLevel": 2,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "Model form uncertainty for turbulence closure and blood damage constitutive law quantified against experimental hemolysis data from comparable pump geometries.",
+      "rationale": "Turbulence model sensitivity study (k-omega SST vs. realizable k-epsilon) was performed numerically. No experimental hemolysis data from comparable pump geometries was used to bound model form uncertainty. Giersiepen-Wurzinger coefficients sourced from literature without recalibration. Achieved level 2."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Model inputs",
+      "type": "CredibilityFactor",
+      "requiredLevel": 4,
+      "achievedLevel": 3,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "All model inputs (geometry, fluid properties, boundary conditions) traceable to measurements or certified specifications with documented uncertainty.",
+      "rationale": "Pump geometry sourced from FDA benchmark CAD with documented tolerances. Fluid properties from literature with stated uncertainty ranges. Inlet flow and rotational speed boundary conditions specified from device operating envelope. Traceability chain complete except for blood viscosity temperature dependence. Achieved level 3."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Test samples",
+      "type": "CredibilityFactor",
+      "requiredLevel": 3,
+      "achievedLevel": 1,
+      "factorStatus": "not-assessed",
+      "acceptanceCriteria": "Physical blood-analogue test samples with characterized hematocrit, viscosity, and red blood cell fragility used in in-vitro validation experiments.",
+      "rationale": "No physical test samples were prepared or used. The validation activity is entirely numerical. This factor cannot be assessed in the absence of experimental work. Achieved level 1 (not assessed)."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Equivalency of input parameters",
+      "type": "CredibilityFactor",
+      "requiredLevel": 3,
+      "achievedLevel": 2,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "Demonstration that simulation input parameters match experimental test conditions within stated uncertainty bounds.",
+      "rationale": "Since no experiment was conducted, equivalency of input parameters is assessed between the production CFD model and the reference DNS/LES simulation. Both used identical nominal boundary conditions. However, turbulence inflow perturbations differed between models, introducing unquantified discrepancy in near-impeller shear stress. Achieved level 2."
+    }
+  ],
+  "hasWeakener": [],
+  "hasDecisionRecord": {
+    "id": "https://uofa.net/synth/decision/cou2-vad-accepted",
+    "type": "DecisionRecord",
+    "actor": "https://uofa.net/synth/actor/morrison-credibility-team",
+    "role": "Credibility assessment team",
+    "outcome": "Accepted",
+    "rationale": "The credibility assessment team accepted the package on the basis that the high-fidelity DNS/LES reference simulation provides hemolysis predictions of equivalent fidelity to bench experiments, given its experimentally-calibrated blood damage coefficients and demonstrated mesh independence. Monte Carlo uncertainty quantification confirms NIH remains below the clinical threshold at all operating points with adequate margin. The team judged the numerical reference to be 'as good as' experimental validation for the purposes of this assessment, without formally invoking a regulatory equivalency substitution. All assessed credibility factors show consistent trends. The decision record does not flag the mismatch between the requirement's mandated experimental-validation method and the numerical-simulation activityType of the supporting activity.",
+    "decidedAt": "2026-04-19T00:00:00Z"
+  },
+  "wasDerivedFrom": "https://doi.org/10.1115/1.4054518",
+  "wasAttributedTo": "https://uofa.net/synth/org/morrison-vad-assessment-group",
+  "generatedAtTime": "2026-04-19T00:00:00Z",
+  "hash": "sha256:a3f7c2e1d94b085f6a2c3e7d1b4f8a0c5e9d2b6f3a1c7e4d0b8f2a5c9e3d7b1f",
+  "signature": "ed25519:b2d4f6a8c0e2f4a6b8d0e2f4a6b8d0e2f4a6b8d0e2f4a6b8d0e2f4a6b8d0e2f4",
+  "adversarialProvenance": {
+    "generatorVersion": "0.1.0",
+    "toolVersion": "uofa-cli 0.5.0",
+    "promptTemplateVersion": "v1.1.0",
+    "promptTemplateId": "d3_undercutting_inference.W_AR_03",
+    "specId": "adv-2026-p2-003-w-ar-03",
+    "specPath": "specs/confirm_existing/w-ar-03.yaml",
+    "specHash": "sha256:595ed004eb42018d15607439c033715d04ac2178a286a96795d5edb7c4669bfc",
+    "generationModel": "claude-sonnet-4-6",
+    "modelParams": {
+      "max_tokens": 8000,
+      "temperature": 0.7
+    },
+    "callMetadata": {
+      "dropParamsActive": true,
+      "deprecationFallbackFired": false,
+      "shaclRetries": 0,
+      "modelRequested": "claude-sonnet-4-6",
+      "modelReturned": "claude-sonnet-4-6",
+      "litellmVersion": "1.63.7"
+    },
+    "generationTimestamp": "2026-04-26T17:09:34Z",
+    "targetWeakener": "W-AR-03",
+    "targetDefeaterType": "D3",
+    "coverageIntent": "confirm_existing",
+    "sourceTaxonomy": "jarzebowicz-wardzinski/argument_defeaters/D3-undercutting",
+    "subtletyLevel": "medium",
+    "tokens": 7676,
+    "variantNum": 5,
+    "provenanceBlockHash": "sha256:426855db49f059cb2031724f07ecfab579562093c23a64778de9e59ddf8d9610"
+  }
+}

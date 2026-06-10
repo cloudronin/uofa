@@ -1,0 +1,320 @@
+{
+  "@context": "https://raw.githubusercontent.com/cloudronin/uofa/main/spec/context/v0.5.jsonld",
+  "id": "https://uofa.net/synth/nc8-clean-bounded-applicability-001",
+  "type": [
+    "UnitOfAssurance",
+    "uofa:SyntheticAdversarialSample"
+  ],
+  "synthetic": true,
+  "conformsToProfile": "https://uofa.net/vocab#ProfileComplete",
+  "name": "Morrison COU1 — CPB hemolysis credibility assessment (NC-8 clean: bounded operating envelope)",
+  "description": "V&V 40 credibility assessment for CFD hemolysis prediction of the FDA generic centrifugal blood pump under cardiopulmonary bypass (CPB) conditions. COU1 evaluates whether the computational model can identify worst-case hemolysis operating conditions for a Class II CPB device at Model Risk Level 2. Full 13-factor assessment: 7 factors assessed (all meeting required levels), 6 factors scoped-out (acceptable at MRL 2). The ContextOfUse explicitly declares both an applicability constraint and a bounded operating envelope; validation activities span the declared envelope with documented coverage gaps honestly reported.",
+  "assuranceLevel": "Medium",
+  "couName": "CPB use",
+  "decision": "Accepted",
+  "deviceClass": "Class II",
+  "modelRiskLevel": 2,
+  "bindsRequirement": "https://uofa.net/synth/req/cpb-hemolysis-worst-case-req-001",
+  "bindsClaim": "https://uofa.net/synth/claim/cpb-cfd-hemolysis-claim-001",
+  "bindsModel": "https://uofa.net/synth/model/cfd-centrifugal-blood-pump-rans-hemolysis-v2",
+  "bindsDataset": [
+    "https://uofa.net/synth/data/fda-gcbp-experimental-hemolysis-dataset-2021",
+    "https://uofa.net/synth/data/cpb-operating-points-flow-speed-matrix-5pt",
+    "https://uofa.net/synth/data/mesh-convergence-study-gcbp-2022",
+    "https://uofa.net/synth/data/predicate-device-rh-index-baseline-2020"
+  ],
+  "hasContextOfUse": {
+    "id": "https://uofa.net/morrison/cou/cou1-cpb",
+    "type": "ContextOfUse",
+    "name": "COU1: Cardiopulmonary bypass use (Class II)",
+    "description": "A CFD model is used to evaluate the sensitivity of pump-induced hemolysis to variations in component dimensions for a centrifugal blood pump used during cardiopulmonary bypass surgery. Model influence is MEDIUM (testing confirms results); decision consequence is HIGH (incorrect tolerance decision could impact clinical hemolysis levels). Model Risk Level 2.",
+    "deviceClass": "Class II",
+    "intendedUse": "Use CFD to identify worst-case operating conditions for hemolysis across 5 flow-speed combinations for a Class II CPB device. Results compared against predicate device hemolysis using relative hemolysis index (RH < 1 acceptance criterion).",
+    "modelInfluence": "Medium",
+    "decisionConsequence": "High",
+    "hasApplicabilityConstraint": {
+      "id": "https://uofa.net/synth/applicability/cpb-cou1-constraint-001",
+      "type": "ApplicabilityConstraint",
+      "name": "CPB hemolysis model applicability constraint",
+      "description": "Model applicability is restricted to Newtonian blood-analogue fluids at hematocrit 40±5%, pump rotational speeds between 1500 and 3500 RPM, and volumetric flow rates between 2.0 and 6.0 L/min. The hemolysis correlation (power-law Giersiepen-Wurzinger) is valid only within these shear-stress and exposure-time regimes. Extrapolation beyond these bounds is not supported by the validation evidence base.",
+      "fluidModel": "Newtonian blood-analogue, hematocrit 40±5%",
+      "rotationalSpeedRange_RPM": "1500–3500",
+      "flowRateRange_Lmin": "2.0–6.0",
+      "hemolysisCorrelation": "Giersiepen-Wurzinger power-law (valid for shear stress 0–400 Pa, exposure time 1–700 ms)"
+    },
+    "hasOperatingEnvelope": {
+      "id": "https://uofa.net/synth/envelope/cpb-cou1-operating-envelope-001",
+      "type": "OperatingEnvelope",
+      "name": "CPB CFD model operating envelope — bounded",
+      "description": "Concrete numerical bounds defining the operating envelope within which the CFD hemolysis model has been validated and is considered credible for regulatory decision support.",
+      "bounds": [
+        {
+          "parameter": "Volumetric flow rate",
+          "lowerBound": 2.0,
+          "upperBound": 6.0,
+          "unit": "L/min",
+          "validationCoverage": "Five discrete operating points at 2.0, 3.0, 4.0, 5.0, and 6.0 L/min. Coverage is uniform across the envelope; no interpolation gaps larger than 1.0 L/min."
+        },
+        {
+          "parameter": "Pump rotational speed",
+          "lowerBound": 1500,
+          "upperBound": 3500,
+          "unit": "RPM",
+          "validationCoverage": "Three rotational speeds validated experimentally (1500, 2500, 3500 RPM). Coverage gap acknowledged at 2000 and 3000 RPM; sensitivity analysis confirms monotonic hemolysis response between validated points, bounding interpolation uncertainty."
+        },
+        {
+          "parameter": "Blood-analogue hematocrit",
+          "lowerBound": 35,
+          "upperBound": 45,
+          "unit": "%",
+          "validationCoverage": "Validation experiments conducted at 40% hematocrit only. ±5% tolerance based on published viscosity sensitivity analysis (Morrison et al. 2019); extrapolation beyond ±5% is explicitly excluded from this COU."
+        },
+        {
+          "parameter": "Fluid temperature",
+          "lowerBound": 36,
+          "upperBound": 38,
+          "unit": "°C",
+          "validationCoverage": "All validation experiments conducted at 37°C ± 0.5°C. Temperature sensitivity on viscosity and hemolysis rate assessed as negligible within ±1°C per published literature."
+        }
+      ],
+      "coverageGapStatement": "Validation samples are sparse at mid-range rotational speeds (2000 and 3000 RPM). This gap is explicitly acknowledged and bounded by monotonicity arguments and sensitivity analysis. The sparse coverage does not invalidate the envelope but limits confidence to 'adequate' rather than 'high' for interpolated speed points. This limitation is reflected in the achievedLevel for Relevance of validation activities to the COU."
+    }
+  },
+  "hasValidationResult": [
+    {
+      "id": "https://uofa.net/synth/validation/vr-hemolysis-5pt-flow-speed-matrix",
+      "type": "ValidationResult",
+      "name": "Hemolysis validation — 5-point flow/speed operating matrix",
+      "description": "CFD-predicted relative hemolysis index (RHI) compared against experimental measurements from the FDA generic centrifugal blood pump test rig across 5 flow-rate and 3 rotational-speed combinations. All predicted RHI values within ±15% of experimental mean; worst-case RHI prediction conservative (over-predicts hemolysis) at all validated operating points.",
+      "quantityOfInterest": "Relative Hemolysis Index (RHI = HI_device / HI_predicate)",
+      "acceptanceCriterion": "RHI < 1.0 (device hemolysis does not exceed predicate); CFD prediction error < ±20%",
+      "outcome": "Pass — all 5 operating points satisfy RHI < 1.0; maximum prediction error 13.2% (conservative)",
+      "comparedAgainst": "https://uofa.net/synth/data/fda-gcbp-experimental-hemolysis-dataset-2021",
+      "prov:wasGeneratedBy": "https://uofa.net/synth/activity/cfd-hemolysis-simulation-campaign-2023",
+      "hasUncertaintyQuantification": {
+        "id": "https://uofa.net/synth/uq/hemolysis-vr-uq-001",
+        "type": "UncertaintyQuantification",
+        "method": "Monte Carlo propagation of inlet boundary condition uncertainty (±5% flow rate) and material property uncertainty (viscosity ±3%); 500 samples per operating point",
+        "totalUncertaintyBand_percent": "±8.4% (95th percentile, k=2)",
+        "systematicBias": "Consistent over-prediction of 4–8% attributed to Giersiepen-Wurzinger correlation conservatism; bias direction is conservative for regulatory purposes"
+      }
+    },
+    {
+      "id": "https://uofa.net/synth/validation/vr-mesh-convergence-gcbp",
+      "type": "ValidationResult",
+      "name": "Mesh convergence and discretization error assessment — FDA GCBP",
+      "description": "Richardson extrapolation applied to three systematically refined meshes (2.1M, 5.8M, 14.2M cells) for the FDA generic centrifugal blood pump at the nominal operating point (4 L/min, 2500 RPM). Grid Convergence Index (GCI) computed for volume-averaged shear stress and hemolysis index.",
+      "quantityOfInterest": "Volume-averaged shear stress; hemolysis power-law integral",
+      "acceptanceCriterion": "GCI < 5% on fine mesh; asymptotic convergence ratio 0.95–1.05",
+      "outcome": "Pass — GCI_fine = 2.7% for hemolysis integral; convergence ratio 0.98 (asymptotic)",
+      "comparedAgainst": "https://uofa.net/synth/data/mesh-convergence-study-gcbp-2022",
+      "prov:wasGeneratedBy": "https://uofa.net/synth/activity/mesh-refinement-study-2022",
+      "hasUncertaintyQuantification": {
+        "id": "https://uofa.net/synth/uq/mesh-convergence-uq-001",
+        "type": "UncertaintyQuantification",
+        "method": "Richardson extrapolation (Roache GCI method); three-level refinement with refinement ratio r=1.5",
+        "GCI_fine_percent": 2.7,
+        "convergenceRatio": 0.98,
+        "discretizationUncertaintyBound": "±2.7% on hemolysis integral at fine mesh resolution"
+      }
+    },
+    {
+      "id": "https://uofa.net/synth/validation/vr-code-verification-mms",
+      "type": "ValidationResult",
+      "name": "Code verification — Method of Manufactured Solutions for RANS solver",
+      "description": "Method of Manufactured Solutions (MMS) applied to the RANS Navier-Stokes solver (k-omega SST) to verify correct implementation of governing equations, boundary conditions, and spatial discretization scheme. Observed order of accuracy compared against theoretical order.",
+      "quantityOfInterest": "L2 error norm in velocity, pressure, and turbulent kinetic energy fields",
+      "acceptanceCriterion": "Observed order of accuracy within 10% of theoretical order (2nd-order scheme)",
+      "outcome": "Pass — observed order 1.94 (velocity), 1.97 (pressure), 1.88 (TKE); all within 6% of theoretical 2nd-order",
+      "comparedAgainst": "https://uofa.net/synth/data/mms-verification-benchmark-ansys-fluent-2022",
+      "prov:wasGeneratedBy": "https://uofa.net/synth/activity/mms-code-verification-2022",
+      "hasUncertaintyQuantification": {
+        "id": "https://uofa.net/synth/uq/mms-uq-001",
+        "type": "UncertaintyQuantification",
+        "method": "Least-squares regression of log(error) vs log(h) across five mesh refinement levels",
+        "observedOrderVelocity": 1.94,
+        "observedOrderPressure": 1.97,
+        "observedOrderTKE": 1.88,
+        "deviationFromTheoreticalOrder_percent": 6.0
+      }
+    }
+  ],
+  "wasDerivedFrom": "https://doi.org/10.1115/1.4055061",
+  "wasAttributedTo": "https://uofa.net/synth/org/morrison-vv40-credibility-team",
+  "generatedAtTime": "2026-04-19T00:00:00Z",
+  "hash": "sha256:a3f8c2d1e7b049f6523a1d8c4e0b7f9231d5a6c8e4f1b2d7a9c0e3f5b8d2a1c4",
+  "signature": "ed25519:b7e3a1f4d8c2059f6a3b1e7d4c9f2a5b8e0d3c6a1f4b7e2d5c8a0f3b6e9d2c5",
+  "hasCredibilityFactor": [
+    {
+      "type": "CredibilityFactor",
+      "factorType": "Software quality assurance",
+      "factorStandard": "ASME-VV40-2018",
+      "factorStatus": "assessed",
+      "requiredLevel": 1,
+      "achievedLevel": 2,
+      "acceptanceCriteria": "https://uofa.net/synth/criteria/sqa-mrl2-criteria-001",
+      "rationale": "The CFD solver (ANSYS Fluent 2022R2) is a commercially validated, ISO 9001-certified code with documented version control, release notes, and regression test suite. Internal SQA procedures include configuration management of case files, documented solver settings, and independent review of simulation setup. Achieved Level 2 exceeds the MRL 2 requirement of Level 1, confirming adequate software quality assurance for this regulatory submission."
+    },
+    {
+      "type": "CredibilityFactor",
+      "factorType": "Numerical code verification",
+      "factorStandard": "ASME-VV40-2018",
+      "factorStatus": "assessed",
+      "requiredLevel": 2,
+      "achievedLevel": 2,
+      "acceptanceCriteria": "https://uofa.net/synth/criteria/code-verification-mrl2-criteria-001",
+      "rationale": "Method of Manufactured Solutions (MMS) was applied to the RANS k-omega SST solver to verify correct implementation of governing equations. Observed spatial order of accuracy (1.88–1.97) is within 6% of the theoretical 2nd-order scheme across all solution variables. This satisfies the MRL 2 requirement for code verification at Level 2. Evidence is documented in ValidationResult vr-code-verification-mms."
+    },
+    {
+      "type": "CredibilityFactor",
+      "factorType": "Discretization error",
+      "factorStandard": "ASME-VV40-2018",
+      "factorStatus": "assessed",
+      "requiredLevel": 2,
+      "achievedLevel": 3,
+      "acceptanceCriteria": "https://uofa.net/synth/criteria/discretization-error-mrl2-criteria-001",
+      "rationale": "Richardson extrapolation was applied across three systematically refined meshes (refinement ratio 1.5) at the nominal operating point. GCI on the fine mesh is 2.7% for the hemolysis integral, with asymptotic convergence ratio 0.98. The fine mesh (14.2M cells) is used for all production simulations. Achieved Level 3 (GCI < 5%, asymptotic convergence demonstrated) exceeds the MRL 2 requirement of Level 2. Evidence documented in ValidationResult vr-mesh-convergence-gcbp."
+    },
+    {
+      "type": "CredibilityFactor",
+      "factorType": "Test conditions",
+      "factorStandard": "ASME-VV40-2018",
+      "factorStatus": "assessed",
+      "requiredLevel": 2,
+      "achievedLevel": 2,
+      "acceptanceCriteria": "https://uofa.net/synth/criteria/test-conditions-mrl2-criteria-001",
+      "rationale": "Experimental validation was conducted using the FDA generic centrifugal blood pump test rig under controlled laboratory conditions matching the declared operating envelope. Flow rates (2.0–6.0 L/min) and rotational speeds (1500, 2500, 3500 RPM) were measured with calibrated instrumentation (flow: ±1.5%, speed: ±10 RPM). Temperature maintained at 37°C ± 0.5°C. Test conditions are documented in the experimental protocol and traceable to the operating envelope declared in the ContextOfUse. Achieved Level 2 meets the MRL 2 requirement."
+    },
+    {
+      "type": "CredibilityFactor",
+      "factorType": "Output comparison",
+      "factorStandard": "ASME-VV40-2018",
+      "factorStatus": "assessed",
+      "requiredLevel": 2,
+      "achievedLevel": 2,
+      "acceptanceCriteria": "https://uofa.net/synth/criteria/output-comparison-mrl2-criteria-001",
+      "rationale": "CFD-predicted relative hemolysis index (RHI) is compared quantitatively against experimental measurements at all 5 validated operating points. Maximum prediction error is 13.2% (conservative over-prediction), within the ±20% acceptance criterion. Uncertainty bands (±8.4% at k=2) are computed via Monte Carlo propagation and do not overlap zero error, confirming consistent conservative bias. Comparison methodology follows ASME V&V 20 guidelines. Achieved Level 2 meets the MRL 2 requirement."
+    },
+    {
+      "type": "CredibilityFactor",
+      "factorType": "Relevance of the quantities of interest",
+      "factorStandard": "ASME-VV40-2018",
+      "factorStatus": "assessed",
+      "requiredLevel": 2,
+      "achievedLevel": 2,
+      "acceptanceCriteria": "https://uofa.net/synth/criteria/qoi-relevance-mrl2-criteria-001",
+      "rationale": "The primary quantity of interest — the relative hemolysis index (RHI) — directly maps to the regulatory acceptance criterion (RHI < 1.0) and is the same metric used in predicate device comparison. The CFD-derived hemolysis integral (power-law Giersiepen-Wurzinger applied to Lagrangian particle tracking) is a recognized surrogate for NIH-normalized hemolysis index validated in peer-reviewed literature. The QoI is directly relevant to the COU decision (worst-case operating condition identification). Achieved Level 2 meets the MRL 2 requirement."
+    },
+    {
+      "type": "CredibilityFactor",
+      "factorType": "Relevance of the validation activities to the COU",
+      "factorStandard": "ASME-VV40-2018",
+      "factorStatus": "assessed",
+      "requiredLevel": 2,
+      "achievedLevel": 2,
+      "acceptanceCriteria": "https://uofa.net/synth/criteria/validation-relevance-mrl2-criteria-001",
+      "rationale": "Validation activities were conducted on the FDA generic centrifugal blood pump — the same device class and geometry as the COU device — under operating conditions spanning the declared envelope (2.0–6.0 L/min, 1500–3500 RPM). Coverage is sparse at mid-range rotational speeds (2000 and 3000 RPM), as explicitly documented in the operating envelope coverage gap statement. Monotonicity analysis and sensitivity studies bound the interpolation uncertainty at these unvalidated speeds. The coverage gap limits confidence to Level 2 rather than Level 3; however, Level 2 is sufficient for MRL 2. This honest accounting of sparse coverage is consistent with the bounded-applicability declaration."
+    },
+    {
+      "type": "CredibilityFactor",
+      "factorType": "Numerical solver error",
+      "factorStandard": "ASME-VV40-2018",
+      "factorStatus": "scoped-out",
+      "requiredLevel": 1,
+      "achievedLevel": 1,
+      "acceptanceCriteria": "https://uofa.net/synth/criteria/solver-error-scopeout-mrl2",
+      "rationale": "At MRL 2, explicit solver error quantification beyond code verification is not required. The RANS k-omega SST solver is a well-established turbulence model with extensive published validation for rotating machinery flows. Residual convergence criteria (all residuals < 1e-5) and mass balance checks (< 0.01%) are applied to every simulation. Solver error is bounded by the code verification results (MMS, observed order 1.88–1.97) and is not a dominant uncertainty source for the hemolysis QoI at this risk level. Scoped out per MRL 2 assessment plan."
+    },
+    {
+      "type": "CredibilityFactor",
+      "factorType": "Use error",
+      "factorStandard": "ASME-VV40-2018",
+      "factorStatus": "scoped-out",
+      "requiredLevel": 1,
+      "achievedLevel": 1,
+      "acceptanceCriteria": "https://uofa.net/synth/criteria/use-error-scopeout-mrl2",
+      "rationale": "At MRL 2, formal use error analysis is not required. Simulation setup was performed by trained CFD analysts following documented standard operating procedures. Independent peer review of boundary conditions, solver settings, and post-processing scripts was completed prior to production runs. Simulation files are version-controlled and archived. Use error risk is mitigated through procedural controls adequate for MRL 2. Scoped out per MRL 2 assessment plan."
+    },
+    {
+      "type": "CredibilityFactor",
+      "factorType": "Model form",
+      "factorStandard": "ASME-VV40-2018",
+      "factorStatus": "scoped-out",
+      "requiredLevel": 1,
+      "achievedLevel": 1,
+      "acceptanceCriteria": "https://uofa.net/synth/criteria/model-form-scopeout-mrl2",
+      "rationale": "Formal model form uncertainty quantification is not required at MRL 2. The RANS k-omega SST turbulence model is the established standard for centrifugal pump hemolysis CFD per FDA guidance and published literature (Hariharan et al. 2011, Stewart et al. 2012). The Giersiepen-Wurzinger hemolysis correlation is the most widely used and validated power-law model for this device class. Model form adequacy is supported by the validation evidence (13.2% maximum error, conservative bias) within the declared operating envelope. Scoped out per MRL 2 assessment plan."
+    },
+    {
+      "type": "CredibilityFactor",
+      "factorType": "Model inputs",
+      "factorStandard": "ASME-VV40-2018",
+      "factorStatus": "scoped-out",
+      "requiredLevel": 1,
+      "achievedLevel": 1,
+      "acceptanceCriteria": "https://uofa.net/synth/criteria/model-inputs-scopeout-mrl2",
+      "rationale": "Comprehensive model input uncertainty analysis is not required at MRL 2. Key input uncertainties (inlet flow rate ±5%, fluid viscosity ±3%) are propagated via Monte Carlo in the validation uncertainty quantification, establishing a total uncertainty band of ±8.4% (k=2). This partial propagation is adequate for MRL 2. Geometric tolerances (±0.05 mm) were assessed via sensitivity study and found to contribute < 1.5% to hemolysis prediction uncertainty within the declared applicability constraint. Scoped out per MRL 2 assessment plan."
+    },
+    {
+      "type": "CredibilityFactor",
+      "factorType": "Test samples",
+      "factorStandard": "ASME-VV40-2018",
+      "factorStatus": "scoped-out",
+      "requiredLevel": 1,
+      "achievedLevel": 1,
+      "acceptanceCriteria": "https://uofa.net/synth/criteria/test-samples-scopeout-mrl2",
+      "rationale": "Statistical characterization of test sample variability is not required at MRL 2. The FDA generic centrifugal blood pump test rig uses a single physical pump specimen per the FDA benchmark protocol; inter-specimen variability is not assessed. Blood-analogue fluid (glycerol-water mixture) was prepared per ASTM F1841 with batch-verified viscosity. Sample adequacy is consistent with MRL 2 requirements. Scoped out per MRL 2 assessment plan."
+    },
+    {
+      "type": "CredibilityFactor",
+      "factorType": "Equivalency of input parameters",
+      "factorStandard": "ASME-VV40-2018",
+      "factorStatus": "scoped-out",
+      "requiredLevel": 1,
+      "achievedLevel": 1,
+      "acceptanceCriteria": "https://uofa.net/synth/criteria/equivalency-inputs-scopeout-mrl2",
+      "rationale": "Formal equivalency mapping between validation experiment inputs and COU simulation inputs is not required at MRL 2. The validation experiments were conducted at operating conditions directly matching the COU operating envelope (same flow rates, rotational speeds, fluid properties, and geometry). No extrapolation or equivalency transformation is required; the validation domain is congruent with the COU domain as bounded by the declared operating envelope and applicability constraint. Scoped out per MRL 2 assessment plan."
+    }
+  ],
+  "hasWeakener": [],
+  "hasDecisionRecord": {
+    "id": "https://uofa.net/synth/decision/cpb-cou1-accepted-20260419",
+    "type": "DecisionRecord",
+    "actor": "https://uofa.net/synth/actor/morrison-credibility-lead",
+    "role": "Credibility assessment team",
+    "outcome": "Accepted",
+    "rationale": "The credibility assessment for the CFD hemolysis prediction model (COU1, MRL 2) is accepted based on the following structured evidence: (1) All 7 assessed credibility factors meet or exceed their required levels (achievedLevel >= requiredLevel in all cases); (2) 6 factors are appropriately scoped out with documented rationale consistent with MRL 2 requirements; (3) The ContextOfUse explicitly declares a bounded operating envelope (flow rate 2.0–6.0 L/min, speed 1500–3500 RPM, hematocrit 40±5%, temperature 36–38°C) with concrete numerical bounds, and an applicability constraint limiting use to Newtonian blood-analogue fluids within the Giersiepen-Wurzinger correlation validity regime; (4) Validation activities span the declared envelope with honest documentation of sparse coverage at mid-range rotational speeds (2000, 3000 RPM); the coverage gap is bounded by monotonicity analysis and sensitivity studies, and is reflected in the achieved Level 2 (rather than Level 3) for validation relevance — adequate for MRL 2; (5) All validation results have comparedAgainst, prov:wasGeneratedBy, and hasUncertaintyQuantification links; (6) Discretization error is well-controlled (GCI 2.7%, asymptotic convergence) and code verification confirms 2nd-order accuracy; (7) CFD predictions are conservatively biased (over-predict hemolysis by 4–13%), ensuring the RHI < 1.0 acceptance criterion is not falsely satisfied; (8) The provenance chain is complete from raw experimental data through simulation activities to validation results and this decision record. The model is fit for its declared purpose within the bounded operating envelope. Extrapolation beyond the declared bounds is explicitly prohibited.",
+    "decidedAt": "2026-04-19T00:00:00Z"
+  },
+  "adversarialProvenance": {
+    "generatorVersion": "0.1.0",
+    "toolVersion": "uofa-cli 0.5.0",
+    "promptTemplateVersion": "v1.0.0",
+    "promptTemplateId": "negative_controls.control_none",
+    "specId": "adv-2026-p2-208-nc-clean-partial-envelope",
+    "specPath": "specs/negative_controls/nc-clean-partial-envelope.yaml",
+    "specHash": "sha256:0b740762501fcc54fb4e3b9da0e3dea70610a88cb738c5429e12c446da148c82",
+    "generationModel": "claude-sonnet-4-6",
+    "modelParams": {
+      "max_tokens": 8000,
+      "temperature": 0.7
+    },
+    "callMetadata": {
+      "dropParamsActive": true,
+      "deprecationFallbackFired": false,
+      "shaclRetries": 0,
+      "modelRequested": "claude-sonnet-4-6",
+      "modelReturned": "claude-sonnet-4-6",
+      "litellmVersion": "1.63.7"
+    },
+    "generationTimestamp": "2026-04-27T12:43:11Z",
+    "targetWeakener": null,
+    "targetDefeaterType": null,
+    "coverageIntent": "negative_control",
+    "sourceTaxonomy": "control/none",
+    "subtletyLevel": "high",
+    "tokens": 10171,
+    "variantNum": 1,
+    "provenanceBlockHash": "sha256:af703fe903ffb99a59ee7f8621fa3eae98260e5085c5695f3deb56d960ee8d41"
+  }
+}

@@ -1,0 +1,327 @@
+{
+  "@context": "https://raw.githubusercontent.com/cloudronin/uofa/main/spec/context/v0.5.jsonld",
+  "id": "https://uofa.net/synth/morrison-cou1-nc1-complete",
+  "type": [
+    "UnitOfAssurance",
+    "uofa:SyntheticAdversarialSample"
+  ],
+  "synthetic": true,
+  "conformsToProfile": "https://uofa.net/vocab#ProfileComplete",
+  "name": "Morrison COU1 — FDA generic centrifugal pump hemolysis credibility assessment (NC-1 clean)",
+  "description": "V&V 40 credibility assessment for CFD hemolysis prediction of the FDA generic centrifugal blood pump under ventricular assist device (VAD) conditions. All 13 credibility factors assessed with achieved levels meeting or exceeding required levels. Monte Carlo uncertainty quantification performed across all operating points. Decision: Accepted.",
+  "bindsRequirement": "https://uofa.net/synth/req/vad-hemolysis-absolute-threshold",
+  "bindsClaim": "https://uofa.net/synth/claim/cfd-hemolysis-below-clinical-threshold",
+  "bindsModel": "https://uofa.net/synth/model/cfd-centrifugal-pump-hemolysis-v3",
+  "bindsDataset": [
+    "https://uofa.net/synth/data/fda-pump-experimental-hemolysis",
+    "https://uofa.net/synth/data/fda-pump-piv-velocity-fields",
+    "https://uofa.net/synth/data/monte-carlo-uq-ensemble-5000runs"
+  ],
+  "hasSensitivityAnalysis": true,
+  "hasSensitivityAnalysisRecord": {
+    "id": "https://uofa.net/synth/sensitivity/vad-hemolysis-sa-001",
+    "type": "SensitivityAnalysis",
+    "name": "Global sensitivity analysis: hemolysis index response to model inputs",
+    "description": "Sobol first-order and total-effect indices were computed across five input parameters — blood viscosity (±15%), pump rotational speed (±3%), inlet flow rate (±8%), power-law hemolysis model coefficients C and α (±10% each) — using a 5000-sample Monte Carlo ensemble. Hemolysis index was most sensitive to the power-law coefficient α (total-effect index 0.61) and rotational speed (0.28); viscosity and flow rate contributed less than 0.07 each. The sensitivity ranking was stable across all five operating points, confirming that uncertainty in α dominates the hemolysis prediction and that additional experimental characterisation of the power-law exponent would most efficiently reduce overall prediction uncertainty."
+  },
+  "hasContextOfUse": {
+    "id": "https://uofa.net/morrison/cou/cou2-vad",
+    "type": "ContextOfUse",
+    "name": "COU2: Ventricular assist device use (Class III)",
+    "description": "A CFD model is used to predict absolute hemolysis levels across operating conditions for a centrifugal blood pump used as a ventricular assist device (VAD). Model influence is HIGH (model is primary basis for hemolysis acceptance); decision consequence is HIGH (incorrect prediction could result in chronic patient hemolysis requiring clinical intervention). Model Risk Level 5 — the highest in the Morrison assessment.",
+    "intendedUse": "Use CFD to predict absolute hemolysis index values for a Class III VAD device across 5 flow-speed combinations. Results must demonstrate hemolysis below absolute clinical threshold (not relative to predicate). Requires Monte Carlo uncertainty quantification on hemolysis predictions.",
+    "modelInfluence": "High",
+    "decisionConsequence": "High",
+    "deviceClass": "Class III",
+    "hasApplicabilityConstraint": {
+      "id": "https://uofa.net/morrison/cou/cou2-vad/applicability-constraint",
+      "type": "ApplicabilityConstraint",
+      "name": "VAD hemolysis prediction applicability domain",
+      "description": "Model is applicable to centrifugal blood pumps geometrically similar to the FDA generic pump (impeller diameter 52 mm ± 2 mm, volute clearance 0.3–0.5 mm). Blood analogue must satisfy shear-thinning Carreau–Yasuda rheology at 37 °C ± 1 °C. Hemolysis predictions are valid only within the laminar-to-transitional flow regime (Reynolds number 500–4000 at impeller tip). Extrapolation to axial-flow VAD geometries or pulsatile inlet waveforms is explicitly out of scope."
+    },
+    "hasOperatingEnvelope": {
+      "id": "https://uofa.net/morrison/cou/cou2-vad/operating-envelope",
+      "type": "OperatingEnvelope",
+      "name": "VAD operating envelope — flow rate and rotational speed bounds",
+      "description": "Five operating points span: volumetric flow rate 2.5–6.0 L/min (step 0.875 L/min), pump rotational speed 2000–3500 RPM (step 375 RPM), inlet pressure 5–15 mmHg, outlet pressure 80–120 mmHg. Fluid temperature 36–38 °C. Haematocrit 35–45%. All operating points lie within the validated envelope; extrapolation beyond these bounds is not supported by the present evidence package."
+    }
+  },
+  "hasValidationResult": [
+    {
+      "id": "https://uofa.net/synth/validation/hemolysis-index-5op",
+      "type": "ValidationResult",
+      "name": "Hemolysis index validation — 5 operating points",
+      "description": "CFD-predicted normalised index of hemolysis (NIH) compared against in-vitro measurements from the FDA generic pump benchmark dataset across all 5 operating points. Mean absolute error 0.0031 g/100 L; maximum relative error 8.4%. All predictions lie within experimental uncertainty bounds.",
+      "comparedAgainst": "https://uofa.net/synth/data/fda-pump-experimental-hemolysis",
+      "prov:wasGeneratedBy": "https://uofa.net/synth/activity/hemolysis-validation-run-2025-11",
+      "hasUncertaintyQuantification": {
+        "id": "https://uofa.net/synth/uq/mc-hemolysis-5000",
+        "type": "UncertaintyQuantification",
+        "name": "Monte Carlo UQ — hemolysis index 5000-sample ensemble",
+        "description": "5000-sample Monte Carlo propagation of input uncertainties (viscosity, rotational speed, flow rate, power-law coefficients C and α). 95th-percentile prediction interval reported for each operating point. All experimental measurements fall within the 95% PI.",
+        "method": "Monte Carlo",
+        "sampleSize": 5000,
+        "confidenceLevel": 0.95
+      }
+    },
+    {
+      "id": "https://uofa.net/synth/validation/velocity-piv-comparison",
+      "type": "ValidationResult",
+      "name": "Velocity field validation — PIV comparison",
+      "description": "CFD velocity magnitude fields compared against particle image velocimetry (PIV) data at the impeller mid-plane for three operating points. Area-averaged RMS deviation 3.2% of tip speed. Turbulent kinetic energy distribution qualitatively consistent with PIV measurements.",
+      "comparedAgainst": "https://uofa.net/synth/data/fda-pump-piv-velocity-fields",
+      "prov:wasGeneratedBy": "https://uofa.net/synth/activity/piv-validation-run-2025-09",
+      "hasUncertaintyQuantification": {
+        "id": "https://uofa.net/synth/uq/piv-uncertainty-propagation",
+        "type": "UncertaintyQuantification",
+        "name": "PIV measurement uncertainty propagation",
+        "description": "PIV measurement uncertainty (±2.1% tip speed, k=2) propagated through velocity comparison metric. CFD predictions consistent with PIV within combined experimental and numerical uncertainty.",
+        "method": "GUM uncertainty propagation",
+        "confidenceLevel": 0.95
+      }
+    }
+  ],
+  "wasDerivedFrom": "https://doi.org/10.1115/1.4034106",
+  "wasAttributedTo": "https://uofa.net/synth/org/morrison-vv40-assessment-team",
+  "generatedAtTime": "2026-04-19T00:00:00Z",
+  "hash": "sha256:a3f8c2e1d74b905f6c3a1e8d2f0b4c7e9a1d3f5b7c9e2a4d6f8b0c2e4a6d8f0a2",
+  "signature": "ed25519:b1c3e5a7d9f2b4c6e8a0d2f4b6c8e0a2d4f6b8c0e2a4d6f8b0c2e4a6d8f0a2b4c6",
+  "hasCredibilityFactor": [
+    {
+      "factorType": "Software quality assurance",
+      "factorStandard": "ASME-VV40-2018",
+      "type": "CredibilityFactor",
+      "factorStatus": "assessed",
+      "requiredLevel": 3,
+      "achievedLevel": 3,
+      "rationale": "CFD solver (ANSYS Fluent 2023R2) operates under ISO 9001:2015 QMS. Version control via Git with tagged release 23.2.0. Regression test suite of 847 cases executed; all pass within tolerance. Software validation report SQA-2023-047 on file.",
+      "acceptanceCriteria": {
+        "id": "https://uofa.net/synth/ac/sqa-001",
+        "type": "AcceptanceCriteria",
+        "name": "SQA acceptance criteria — Gradation 3",
+        "description": "Solver must operate under documented QMS with version control. Regression test suite must cover hemolysis-relevant flow regimes. All regression tests must pass within ±1% of reference solutions. Documentation must be traceable to release version used in assessment."
+      }
+    },
+    {
+      "factorType": "Numerical code verification",
+      "factorStandard": "ASME-VV40-2018",
+      "type": "CredibilityFactor",
+      "factorStatus": "assessed",
+      "requiredLevel": 3,
+      "achievedLevel": 4,
+      "rationale": "Method of manufactured solutions (MMS) applied to the Navier-Stokes solver and scalar hemolysis transport equation. Observed order of convergence 1.92 (second-order scheme, theoretical 2.0); deviation within acceptable tolerance. Taylor-Green vortex benchmark confirms turbulence model implementation. Code verification report CVR-2024-003.",
+      "acceptanceCriteria": {
+        "id": "https://uofa.net/synth/ac/ncv-001",
+        "type": "AcceptanceCriteria",
+        "name": "Numerical code verification acceptance criteria — Gradation 3",
+        "description": "Observed order of convergence must be within 10% of theoretical order for the discretisation scheme employed. MMS must be applied to all governing equations relevant to the hemolysis QoI. Benchmark results must be documented in a traceable verification report."
+      }
+    },
+    {
+      "factorType": "Discretization error",
+      "factorStandard": "ASME-VV40-2018",
+      "type": "CredibilityFactor",
+      "factorStatus": "assessed",
+      "requiredLevel": 3,
+      "achievedLevel": 3,
+      "rationale": "Grid convergence index (GCI) study performed on three systematically refined meshes (2.1 M, 6.8 M, 18.4 M cells). GCI for NIH at worst-case operating point: 3.1%. Richardson extrapolation applied; asymptotic convergence confirmed (GCI ratio 1.02). Temporal discretisation: fixed time-step Δt = 5×10⁻⁵ s; CFL < 0.8 throughout domain.",
+      "acceptanceCriteria": {
+        "id": "https://uofa.net/synth/ac/disc-001",
+        "type": "AcceptanceCriteria",
+        "name": "Discretization error acceptance criteria — Gradation 3",
+        "description": "GCI must be computed on minimum three systematically refined meshes. GCI for hemolysis QoI must be less than 5% at all operating points. Asymptotic convergence ratio must be within 3% of unity. CFL number must be documented and remain below 1.0 throughout the domain."
+      }
+    },
+    {
+      "factorType": "Test conditions",
+      "factorStandard": "ASME-VV40-2018",
+      "type": "CredibilityFactor",
+      "factorStatus": "assessed",
+      "requiredLevel": 3,
+      "achievedLevel": 3,
+      "rationale": "Experimental test conditions documented in FDA benchmark protocol (CDRH-2012-BP). Temperature controlled to 37 ± 0.5 °C; haematocrit 40 ± 1%; flow rate measured with Coriolis meter (±0.5% FS). Pump speed measured with optical tachometer (±5 RPM). All boundary conditions in CFD model set to measured experimental values with uncertainty bounds propagated through UQ ensemble.",
+      "acceptanceCriteria": {
+        "id": "https://uofa.net/synth/ac/tc-001",
+        "type": "AcceptanceCriteria",
+        "name": "Test conditions acceptance criteria — Gradation 3",
+        "description": "Experimental boundary conditions must be measured with traceable instrumentation. Temperature, haematocrit, flow rate, and rotational speed uncertainties must be quantified and propagated into CFD boundary conditions. Test protocol must be documented and reproducible."
+      }
+    },
+    {
+      "factorType": "Output comparison",
+      "factorStandard": "ASME-VV40-2018",
+      "type": "CredibilityFactor",
+      "factorStatus": "assessed",
+      "requiredLevel": 3,
+      "achievedLevel": 4,
+      "rationale": "NIH predictions compared against experimental measurements at all 5 operating points using area metric (Ferson et al. 2008). Area metric value 0.043 (threshold 0.10). Bland-Altman analysis shows no systematic bias (mean difference −0.0008 g/100 L, 95% LoA ±0.0071 g/100 L). Both NIH and pressure-head compared; agreement documented in validation report VR-2025-011.",
+      "acceptanceCriteria": {
+        "id": "https://uofa.net/synth/ac/oc-001",
+        "type": "AcceptanceCriteria",
+        "name": "Output comparison acceptance criteria — Gradation 3",
+        "description": "Quantitative comparison metric (area metric or equivalent) must be computed for primary QoI at all operating points. Area metric must be below 0.10. Bland-Altman or equivalent bias analysis must be performed. Comparison must cover at minimum the primary hemolysis QoI."
+      }
+    },
+    {
+      "factorType": "Relevance of the quantities of interest",
+      "factorStandard": "ASME-VV40-2018",
+      "type": "CredibilityFactor",
+      "factorStatus": "assessed",
+      "requiredLevel": 3,
+      "achievedLevel": 3,
+      "rationale": "Primary QoI is NIH (g/100 L), which is the direct clinical decision metric for hemolysis acceptance per ISO 10993-4. Secondary QoIs (shear stress distribution, residence time) are mechanistically linked to NIH through the power-law hemolysis model. QoI mapping to regulatory decision documented in QoI traceability matrix QTM-2025-002.",
+      "acceptanceCriteria": {
+        "id": "https://uofa.net/synth/ac/qoi-001",
+        "type": "AcceptanceCriteria",
+        "name": "QoI relevance acceptance criteria — Gradation 3",
+        "description": "Primary QoI must be directly traceable to the regulatory acceptance criterion (NIH below clinical threshold). Mechanistic linkage between all computed QoIs and the clinical decision must be documented. QoI traceability matrix must be on file."
+      }
+    },
+    {
+      "factorType": "Relevance of the validation activities to the COU",
+      "factorStandard": "ASME-VV40-2018",
+      "type": "CredibilityFactor",
+      "factorStatus": "assessed",
+      "requiredLevel": 3,
+      "achievedLevel": 3,
+      "rationale": "Validation experiments performed on the FDA generic centrifugal pump — geometrically identical to the device COU. Operating points in validation set span the full COU operating envelope (2.5–6.0 L/min, 2000–3500 RPM). Blood analogue (glycerol-water, matched viscosity) used in experiments; Soret-effect correction applied for temperature deviation. Validation relevance assessment documented in VRA-2025-005.",
+      "acceptanceCriteria": {
+        "id": "https://uofa.net/synth/ac/vrel-001",
+        "type": "AcceptanceCriteria",
+        "name": "Validation relevance acceptance criteria — Gradation 3",
+        "description": "Validation experiments must use the same device geometry as the COU device or a documented surrogate with justified similarity. Operating conditions in validation must span the COU operating envelope. Fluid properties must match within documented tolerances. Relevance assessment must be on file."
+      }
+    },
+    {
+      "factorType": "Numerical solver error",
+      "factorStandard": "ASME-VV40-2018",
+      "type": "CredibilityFactor",
+      "factorStatus": "assessed",
+      "requiredLevel": 3,
+      "achievedLevel": 3,
+      "rationale": "Iterative convergence monitored via normalised residuals (all < 10⁻⁵) and NIH monitor point stabilisation (< 0.1% change over final 500 iterations). Double-precision arithmetic used throughout. Round-off error estimated via interval arithmetic to be negligible (< 0.01% of NIH). Solver settings documented in simulation configuration file SCF-2025-003.",
+      "acceptanceCriteria": {
+        "id": "https://uofa.net/synth/ac/nse-001",
+        "type": "AcceptanceCriteria",
+        "name": "Numerical solver error acceptance criteria — Gradation 3",
+        "description": "Iterative convergence must be demonstrated via residual monitoring and QoI monitor stabilisation. Residuals must reach at minimum 10⁻⁴; QoI change over final 10% of iterations must be less than 0.5%. Double-precision arithmetic must be used. Solver configuration must be documented and archived."
+      }
+    },
+    {
+      "factorType": "Use error",
+      "factorStandard": "ASME-VV40-2018",
+      "type": "CredibilityFactor",
+      "factorStatus": "assessed",
+      "requiredLevel": 2,
+      "achievedLevel": 3,
+      "rationale": "Simulation setup reviewed by independent CFD analyst (peer review checklist PR-2025-008). Boundary condition assignment, material property inputs, and solver settings verified against documented simulation plan SP-2025-001. Checklist covers 42 setup items; all items confirmed correct. User training records on file for all analysts involved.",
+      "acceptanceCriteria": {
+        "id": "https://uofa.net/synth/ac/ue-001",
+        "type": "AcceptanceCriteria",
+        "name": "Use error acceptance criteria — Gradation 2",
+        "description": "Simulation setup must be reviewed by at least one analyst not involved in the original setup. A documented checklist must cover boundary conditions, material properties, and solver settings. All checklist items must be confirmed correct. Review records must be archived."
+      }
+    },
+    {
+      "factorType": "Model form",
+      "factorStandard": "ASME-VV40-2018",
+      "type": "CredibilityFactor",
+      "factorStatus": "assessed",
+      "requiredLevel": 3,
+      "achievedLevel": 3,
+      "rationale": "RANS k-ω SST turbulence model selected based on literature benchmark performance for confined rotating flows (Hariharan et al. 2011, Stewart et al. 2012). Power-law hemolysis model (Giersiepen et al. 1990) with modified coefficients (Zhang et al. 2011) used. Model form uncertainty estimated via comparison of three turbulence model variants (k-ε realizable, k-ω SST, Spalart-Allmaras); NIH spread across models 6.2%, within UQ envelope. Model form selection rationale documented in MFR-2025-001.",
+      "acceptanceCriteria": {
+        "id": "https://uofa.net/synth/ac/mf-001",
+        "type": "AcceptanceCriteria",
+        "name": "Model form acceptance criteria — Gradation 3",
+        "description": "Turbulence and hemolysis model selection must be justified by reference to published benchmarks for geometrically similar flows. Model form uncertainty must be estimated by comparison of at least two alternative model forms. Model form spread must be within the reported UQ prediction interval. Selection rationale must be documented."
+      }
+    },
+    {
+      "factorType": "Model inputs",
+      "factorStandard": "ASME-VV40-2018",
+      "type": "CredibilityFactor",
+      "factorStatus": "assessed",
+      "requiredLevel": 3,
+      "achievedLevel": 3,
+      "rationale": "All model inputs (fluid density, viscosity, power-law coefficients C and α, pump geometry) sourced from peer-reviewed literature or direct measurement with traceable calibration certificates. Input uncertainty distributions characterised as normal or uniform based on measurement repeatability data. Input uncertainty propagated through 5000-sample Monte Carlo ensemble. Input data sheet IDS-2025-004 on file.",
+      "acceptanceCriteria": {
+        "id": "https://uofa.net/synth/ac/mi-001",
+        "type": "AcceptanceCriteria",
+        "name": "Model inputs acceptance criteria — Gradation 3",
+        "description": "All model inputs must be sourced from traceable measurements or peer-reviewed literature. Uncertainty distributions must be assigned to all inputs contributing to QoI uncertainty. Uncertainty propagation must be performed. Input data sheet must be archived with the assessment package."
+      }
+    },
+    {
+      "factorType": "Test samples",
+      "factorStandard": "ASME-VV40-2018",
+      "type": "CredibilityFactor",
+      "factorStatus": "assessed",
+      "requiredLevel": 2,
+      "achievedLevel": 3,
+      "rationale": "Experimental dataset comprises n=5 independent repeat measurements at each of 5 operating points (25 total observations). Sample-to-sample variability characterised; coefficient of variation in NIH across repeats < 4.5% at all operating points. Sample size sufficient to estimate mean NIH with 95% CI half-width < 8% of mean. Sampling protocol documented in experimental report ER-2024-012.",
+      "acceptanceCriteria": {
+        "id": "https://uofa.net/synth/ac/ts-001",
+        "type": "AcceptanceCriteria",
+        "name": "Test samples acceptance criteria — Gradation 2",
+        "description": "Minimum three independent repeat measurements required at each operating point. Sample variability must be characterised and reported. Sample size must be sufficient to estimate the mean QoI with a documented confidence interval. Sampling protocol must be on file."
+      }
+    },
+    {
+      "factorType": "Equivalency of input parameters",
+      "factorStandard": "ASME-VV40-2018",
+      "type": "CredibilityFactor",
+      "factorStatus": "assessed",
+      "requiredLevel": 3,
+      "achievedLevel": 3,
+      "rationale": "CFD boundary conditions set to experimentally measured values (flow rate, rotational speed, inlet pressure) with uncertainty bounds. Fluid rheology in CFD matched to experimental blood analogue via Carreau-Yasuda fit (R²=0.998). Geometric fidelity confirmed by CMM measurement of physical pump versus CAD model (max deviation 0.08 mm). Equivalency assessment documented in EIA-2025-006.",
+      "acceptanceCriteria": {
+        "id": "https://uofa.net/synth/ac/eip-001",
+        "type": "AcceptanceCriteria",
+        "name": "Equivalency of input parameters acceptance criteria — Gradation 3",
+        "description": "CFD boundary conditions must be demonstrably equivalent to experimental conditions within documented tolerances. Fluid property matching must be quantified. Geometric fidelity between physical device and CFD geometry must be verified by measurement. Equivalency assessment must be documented."
+      }
+    }
+  ],
+  "hasWeakener": [],
+  "hasDecisionRecord": {
+    "id": "https://uofa.net/synth/decision/morrison-cou1-nc1-accepted",
+    "type": "DecisionRecord",
+    "actor": "https://uofa.net/synth/org/morrison-vv40-assessment-team",
+    "role": "Credibility assessment team",
+    "outcome": "Accepted",
+    "rationale": "All 13 ASME V&V 40 credibility factors have been assessed. Achieved credibility levels meet or exceed required levels at every factor: numerical code verification (4≥3), output comparison (4≥3), and use error (3≥2) exceed their requirements; all remaining factors achieve exactly the required level. The Monte Carlo UQ ensemble (5000 samples) demonstrates that the 95th-percentile NIH prediction remains below the clinical acceptance threshold at all 5 operating points. The global sensitivity analysis confirms that the dominant uncertainty source (power-law exponent α) is bounded within the UQ envelope. Validation evidence is directly relevant to the COU device geometry and operating envelope. The provenance chain is complete from raw experimental data through validation results to this decision record. No credibility gaps remain. The model is accepted for use in regulatory submission to support hemolysis claims for the Class III VAD device.",
+    "decidedAt": "2026-04-19T00:00:00Z"
+  },
+  "adversarialProvenance": {
+    "generatorVersion": "0.1.0",
+    "toolVersion": "uofa-cli 0.5.0",
+    "promptTemplateVersion": "v1.0.0",
+    "promptTemplateId": "negative_controls.control_none",
+    "specId": "adv-2026-p2-201-nc-clean-full-morrison-cou1",
+    "specPath": "specs/negative_controls/nc-clean-full-morrison-cou1.yaml",
+    "specHash": "sha256:c9bfd417ccdce596bf81c12c92a846428411f174ec4857e73dfd494421cdd5a8",
+    "generationModel": "claude-sonnet-4-6",
+    "modelParams": {
+      "max_tokens": 10000,
+      "temperature": 0.7
+    },
+    "callMetadata": {
+      "dropParamsActive": true,
+      "deprecationFallbackFired": false,
+      "shaclRetries": 1,
+      "modelRequested": "claude-sonnet-4-6",
+      "modelReturned": "claude-sonnet-4-6",
+      "litellmVersion": "1.63.7"
+    },
+    "generationTimestamp": "2026-04-29T00:34:15Z",
+    "targetWeakener": null,
+    "targetDefeaterType": null,
+    "coverageIntent": "negative_control",
+    "sourceTaxonomy": "control/none",
+    "subtletyLevel": "high",
+    "tokens": 10718,
+    "variantNum": 1,
+    "provenanceBlockHash": "sha256:17464c6e6a952aa7365b2297911e05c659cb697802e16015a0d1e4db1afbd46d"
+  }
+}

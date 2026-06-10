@@ -1,0 +1,224 @@
+{
+  "@context": "https://raw.githubusercontent.com/cloudronin/uofa/main/spec/context/v0.5.jsonld",
+  "id": "https://uofa.net/synth/compound03-cou2-vad-001",
+  "type": [
+    "UnitOfAssurance",
+    "uofa:SyntheticAdversarialSample"
+  ],
+  "synthetic": true,
+  "conformsToProfile": "https://uofa.net/vocab#ProfileMinimal",
+  "assuranceLevel": "Medium",
+  "name": "Morrison COU2 — VAD hemolysis credibility assessment (adversarial: COMPOUND-03)",
+  "description": "V&V 40 credibility assessment for CFD hemolysis prediction of the FDA generic centrifugal blood pump under ventricular assist device (VAD) conditions. COU2 evaluates whether the computational model can predict absolute hemolysis levels for a Class III VAD device at Model Risk Level 5. This package declares assuranceLevel Medium and an Accepted decision outcome; however, multiple credibility factors have achievedLevel strictly below requiredLevel, and the model form factor is critically deficient (achievedLevel 1 against requiredLevel 4), triggering W-AR-02 and rendering the Medium assurance declaration unsupported. The compound weakness COMPOUND-03 is embedded at medium subtlety: the gap is present in the factor data but no hasWeakener annotation is emitted, leaving detection to the automated rule engine.",
+  "couName": "VAD use",
+  "decision": "Accepted",
+  "deviceClass": "Class III",
+  "modelRiskLevel": 5,
+  "bindsRequirement": "https://uofa.net/synth/req/cou2-vad-hemolysis-mrl5",
+  "bindsClaim": "https://uofa.net/synth/claim/cou2-vad-hemolysis-below-threshold",
+  "bindsModel": "https://uofa.net/synth/model/cfd-centrifugal-pump-hemolysis-v3",
+  "bindsDataset": [
+    "https://uofa.net/synth/data/fda-generic-pump-experimental-hemolysis",
+    "https://uofa.net/synth/data/cou2-monte-carlo-uq-runs"
+  ],
+  "hasContextOfUse": {
+    "decisionConsequence": "High",
+    "description": "A CFD model is used to predict absolute hemolysis levels across operating conditions for a centrifugal blood pump used as a ventricular assist device (VAD). Model influence is HIGH (model is primary basis for hemolysis acceptance); decision consequence is HIGH (incorrect prediction could result in chronic patient hemolysis requiring clinical intervention). Model Risk Level 5 — the highest in the Morrison assessment.",
+    "deviceClass": "Class III",
+    "id": "https://uofa.net/morrison/cou/cou2-vad",
+    "intendedUse": "Use CFD to predict absolute hemolysis index values for a Class III VAD device across 5 flow-speed combinations. Results must demonstrate hemolysis below absolute clinical threshold (not relative to predicate). Requires Monte Carlo uncertainty quantification on hemolysis predictions.",
+    "modelInfluence": "High",
+    "name": "COU2: Ventricular assist device use (Class III)",
+    "type": "ContextOfUse"
+  },
+  "hasValidationResult": [
+    {
+      "id": "https://uofa.net/synth/validation/cou2-bench-hemolysis-5pt",
+      "type": "ValidationResult",
+      "name": "Five-point bench hemolysis validation against FDA pump experimental data"
+    },
+    {
+      "id": "https://uofa.net/synth/validation/cou2-uq-monte-carlo-coverage",
+      "type": "ValidationResult",
+      "name": "Monte Carlo uncertainty quantification coverage assessment for absolute HI prediction"
+    }
+  ],
+  "wasDerivedFrom": "https://doi.org/10.1115/1.4034918",
+  "wasAttributedTo": "https://uofa.net/synth/org/morrison-vv40-assessment-team",
+  "generatedAtTime": "2026-04-19T00:00:00Z",
+  "hash": "sha256:4a7f3c91e2b05d68a1f9c3e7b24d06f5a8e1c3d7b09f2e4a6c8d1e3f5a7b9c2d",
+  "signature": "ed25519:9b3e1a7f4c2d8e06b5a3f1c9d7e2b4a6c8f0d2e4b6a8c0e2f4b6d8a0c2e4f6b8",
+  "hasCredibilityFactor": [
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Software quality assurance",
+      "type": "CredibilityFactor",
+      "requiredLevel": 4,
+      "achievedLevel": 3,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "Software must be under formal configuration control with documented test suite covering hemolysis-relevant solver paths; version traceability to submission artifacts required at MRL 5.",
+      "rationale": "Configuration management and version control are documented; however, the solver test suite does not cover all hemolysis model code paths. Regression testing gaps exist for the power-law damage accumulation subroutine. Achieved Gradation 3 against required Gradation 4."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Numerical code verification",
+      "type": "CredibilityFactor",
+      "requiredLevel": 4,
+      "achievedLevel": 3,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "Order-of-accuracy verification via method of manufactured solutions (MMS) required for all governing equations including scalar transport used in hemolysis index calculation.",
+      "rationale": "MMS verification was performed for momentum and continuity equations; MMS for the hemolysis scalar transport equation was not completed. Formal order-of-accuracy confirmation is therefore partial. Achieved Gradation 3 against required Gradation 4."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Discretization error",
+      "type": "CredibilityFactor",
+      "requiredLevel": 4,
+      "achievedLevel": 3,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "Richardson extrapolation-based GCI reported for hemolysis index QoI on at least three systematically refined meshes; GCI < 5% required at MRL 5.",
+      "rationale": "Three-mesh GCI study was conducted; GCI for the hemolysis index reached 8.3%, exceeding the 5% threshold. Mesh refinement was limited by computational budget. Achieved Gradation 3 against required Gradation 4."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Test conditions",
+      "type": "CredibilityFactor",
+      "requiredLevel": 4,
+      "achievedLevel": 3,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "Experimental boundary conditions (inlet velocity profiles, fluid temperature, hematocrit) must be measured and reported with uncertainty; conditions must bracket COU operating envelope.",
+      "rationale": "Inlet velocity profiles were measured via PIV; hematocrit was controlled but temperature variation during long-duration runs was not monitored continuously. Partial bracketing of the COU envelope achieved. Achieved Gradation 3 against required Gradation 4."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Output comparison",
+      "type": "CredibilityFactor",
+      "requiredLevel": 4,
+      "achievedLevel": 3,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "Quantitative comparison metric (e.g., ASME V&V 20 validation uncertainty) must be computed for absolute hemolysis index at all five operating points; comparison must account for experimental and numerical uncertainty.",
+      "rationale": "Validation uncertainty was computed at four of five operating points; one high-speed condition lacked replicate experimental measurements preventing full uncertainty characterization. Agreement within 15% at four points. Achieved Gradation 3 against required Gradation 4."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Relevance of the quantities of interest",
+      "type": "CredibilityFactor",
+      "requiredLevel": 4,
+      "achievedLevel": 3,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "Validation QoI must be the same absolute hemolysis index (HI) used for the regulatory decision; surrogate or relative metrics are insufficient at MRL 5.",
+      "rationale": "Validation was performed against the normalized index of hemolysis (NIH) rather than the power-law hemolysis index (HI) used in the COU decision criterion. A conversion factor was applied but introduces additional model-form uncertainty not formally propagated. Achieved Gradation 3 against required Gradation 4."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Relevance of the validation activities to the COU",
+      "type": "CredibilityFactor",
+      "requiredLevel": 4,
+      "achievedLevel": 3,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "Validation geometry, operating regime, and fluid properties must match or formally bound the COU; any extrapolation must be quantified.",
+      "rationale": "Validation used the FDA generic pump geometry which matches the COU device class but not the specific impeller geometry. Operating regime partially overlaps; extrapolation to the highest-shear VAD condition was not formally bounded. Achieved Gradation 3 against required Gradation 4."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Numerical solver error",
+      "type": "CredibilityFactor",
+      "requiredLevel": 4,
+      "achievedLevel": 2,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "Iterative convergence must be demonstrated to machine-precision-level residuals for all equations; time-step sensitivity study required for transient hemolysis accumulation.",
+      "rationale": "Residual convergence was demonstrated for steady-state RANS equations but the hemolysis scalar equation residuals plateaued at 1e-4, above the required 1e-6 threshold. No time-step sensitivity study was performed for the transient blood damage accumulation path. Achieved Gradation 2 against required Gradation 4."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Use error",
+      "type": "CredibilityFactor",
+      "requiredLevel": 3,
+      "achievedLevel": 2,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "Documented simulation protocol with independent review of boundary condition setup, material property assignment, and post-processing scripts; at least one independent replication of a representative case.",
+      "rationale": "A simulation protocol document exists but independent technical review was not performed by a party outside the modeling team. No independent replication run was executed. Achieved Gradation 2 against required Gradation 3."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Model form",
+      "type": "CredibilityFactor",
+      "requiredLevel": 4,
+      "achievedLevel": 1,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "The hemolysis constitutive model (power-law damage accumulation) must be validated against mechanistic red blood cell damage data across the shear-stress and exposure-time space relevant to the COU; alternative model forms must be evaluated and the selected form justified with quantitative evidence.",
+      "rationale": "The power-law Giersiepen-Wurzinger model was adopted without comparative evaluation of alternative constitutive forms (e.g., Arora, Faghih-Sharp). No mechanistic RBC fragility data were used to calibrate or bound the model coefficients for the specific operating regime. Published coefficient uncertainty ranges span two orders of magnitude and were not propagated. Model form uncertainty is the dominant contributor to total prediction uncertainty but was treated as negligible in the UQ analysis. Achieved Gradation 1 against required Gradation 4."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Model inputs",
+      "type": "CredibilityFactor",
+      "requiredLevel": 4,
+      "achievedLevel": 2,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "All model input parameters must be characterized with probability distributions derived from measurement data; Monte Carlo propagation must cover the full COU input space.",
+      "rationale": "Monte Carlo UQ was performed for geometric tolerances and inlet flow rate; blood viscosity was treated as deterministic using a single literature value. Hemolysis model coefficients (C, alpha, beta) were held fixed at nominal values despite substantial published variability. Input space coverage is therefore incomplete. Achieved Gradation 2 against required Gradation 4."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Test samples",
+      "type": "CredibilityFactor",
+      "requiredLevel": 3,
+      "achievedLevel": 2,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "Blood analog or ovine blood samples used in validation experiments must be characterized for hematocrit, mean corpuscular fragility, and storage age; lot-to-lot variability must be assessed across experimental replicates.",
+      "rationale": "Porcine blood was used for validation experiments; hematocrit was measured but mean corpuscular fragility and storage age were not reported. Only a single blood lot was used across all five operating point experiments, preventing assessment of biological variability. Achieved Gradation 2 against required Gradation 3."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Equivalency of input parameters",
+      "type": "CredibilityFactor",
+      "requiredLevel": 3,
+      "achievedLevel": 2,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "Dimensional analysis or formal similarity argument must demonstrate that validation experiment input parameters (Reynolds number, tip speed, hematocrit) are equivalent or bounding relative to COU operating conditions.",
+      "rationale": "Reynolds number similarity was achieved at three of five operating points; tip speed at the highest VAD operating condition exceeds the validation range by 18% without a formal bounding argument. Hematocrit in experiments (35%) differs from the COU nominal (42%) without demonstrated equivalency. Achieved Gradation 2 against required Gradation 3."
+    }
+  ],
+  "hasWeakener": [],
+  "hasDecisionRecord": {
+    "id": "https://uofa.net/synth/decision/cou2-vad-accepted-2026",
+    "type": "DecisionRecord",
+    "actor": "https://uofa.net/synth/actor/morrison-lead-assessor",
+    "role": "Credibility assessment team",
+    "outcome": "Accepted",
+    "rationale": "The credibility assessment team concluded that the overall body of evidence, including the Monte Carlo UQ analysis and five-point bench validation, provides sufficient confidence to support the regulatory submission. Although individual factor gaps were identified, the team judged that the aggregate evidence supports a Medium assurance level and an Accepted decision for the COU. Conservative safety factors applied to the hemolysis threshold are considered sufficient to compensate for remaining model uncertainty.",
+    "decidedAt": "2026-04-19T00:00:00Z"
+  },
+  "adversarialProvenance": {
+    "generatorVersion": "0.1.0",
+    "toolVersion": "uofa-cli 0.5.0",
+    "promptTemplateVersion": "v1.0.0",
+    "promptTemplateId": "compound.COMPOUND_03",
+    "specId": "adv-2026-p2-022-compound-03",
+    "specPath": "specs/confirm_existing/compound-03.yaml",
+    "specHash": "sha256:a05609c2a22e61c63f06ac8ac3ac3a6778cda4e8ec66140aa5773a71784d8f5f",
+    "generationModel": "claude-sonnet-4-6",
+    "modelParams": {
+      "max_tokens": 8000,
+      "temperature": 0.7
+    },
+    "callMetadata": {
+      "dropParamsActive": true,
+      "deprecationFallbackFired": false,
+      "shaclRetries": 1,
+      "modelRequested": "claude-sonnet-4-6",
+      "modelReturned": "claude-sonnet-4-6",
+      "litellmVersion": "1.63.7"
+    },
+    "generationTimestamp": "2026-04-26T10:16:50Z",
+    "targetWeakener": "COMPOUND-03",
+    "targetDefeaterType": "structural",
+    "coverageIntent": "confirm_existing",
+    "sourceTaxonomy": "khakzad/argumentation/undercutting-d4",
+    "subtletyLevel": "medium",
+    "tokens": 7059,
+    "variantNum": 10,
+    "provenanceBlockHash": "sha256:ac9b8a5440d6aa1ad161ed8d9721d99273756202a1d17ff21fb4729de62d0066"
+  }
+}

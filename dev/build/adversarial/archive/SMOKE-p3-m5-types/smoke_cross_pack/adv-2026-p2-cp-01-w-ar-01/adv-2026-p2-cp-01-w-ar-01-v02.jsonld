@@ -1,0 +1,220 @@
+{
+  "@context": "https://raw.githubusercontent.com/cloudronin/uofa/main/spec/context/v0.5.jsonld",
+  "id": "https://uofa.net/synth/wind-turbine-blade-fatigue-dlc11-cou1",
+  "type": [
+    "UnitOfAssurance",
+    "uofa:SyntheticAdversarialSample"
+  ],
+  "synthetic": true,
+  "conformsToProfile": "https://uofa.net/vocab#ProfileMinimal",
+  "name": "Wind turbine blade fatigue — normal operation COU",
+  "description": "Credibility assessment for an OpenFAST aeroelastic simulation predicting fatigue damage equivalent loads (DELs) on the IEA 15-MW reference wind turbine blade root under DLC 1.1 normal power production. NASA-STD-7009B credibility factors applied.",
+  "bindsRequirement": "https://uofa.net/synth/req/iea15mw-blade-root-del-dlc11",
+  "bindsClaim": "https://uofa.net/synth/claim/openfast-del-prediction-dlc11",
+  "bindsModel": "https://uofa.net/synth/model/openfast-iea15mw-aeroelastic-v3p4",
+  "bindsDataset": [
+    "https://uofa.net/synth/data/iea15mw-blade-properties",
+    "https://uofa.net/synth/data/dlc11-turbulent-wind-seeds",
+    "https://uofa.net/synth/data/blade-root-strain-gauge-campaign-2023"
+  ],
+  "hasContextOfUse": {
+    "id": "https://example.org/wind-turbine/cou/cou1-normal-operation",
+    "intendedUse": "Use OpenFAST aeroelastic simulation to predict 20-year fatigue damage equivalent loads at the blade root under IEC 61400-1 DLC 1.1 normal power production conditions. Results inform blade root laminate sizing and certification margin assessment.",
+    "name": "COU1: Normal power production fatigue assessment (DLC 1.1)",
+    "type": "ContextOfUse"
+  },
+  "hasValidationResult": [
+    {
+      "id": "https://uofa.net/synth/validation/openfast-nrel-5mw-blind-comparison",
+      "type": "ValidationResult",
+      "name": "OpenFAST blind comparison against NREL 5-MW scaled blade root bending moments (Phase VI)"
+    },
+    {
+      "id": "https://uofa.net/synth/validation/iea15mw-del-field-campaign-2023",
+      "type": "ValidationResult",
+      "name": "IEA 15-MW blade root DEL validation against 2023 strain-gauge field campaign data"
+    },
+    {
+      "id": "https://uofa.net/synth/validation/openfast-code-to-code-hawc2",
+      "type": "ValidationResult",
+      "name": "Code-to-code comparison of OpenFAST vs HAWC2 for IEA 15-MW under DLC 1.1 seed ensemble"
+    }
+  ],
+  "wasDerivedFrom": "https://doi.org/10.2172/1603953",
+  "wasAttributedTo": "https://uofa.net/synth/org/nrel-systems-engineering-group",
+  "generatedAtTime": "2026-04-19T00:00:00Z",
+  "hash": "sha256:a3f8c2d17e904b56f1a0823cd74e591b2f36a8d0c9e471b5082f3d6a1c7b4e92",
+  "signature": "ed25519:b1d4e7a20f83c96d5e2a1b4f8c3d07e6a9b2c5f1d8e4a7b0c3f6d9e2a5b8c1f4",
+  "hasCredibilityFactor": [
+    {
+      "type": "CredibilityFactor",
+      "factorType": "Software quality assurance",
+      "factorStandard": "NASA-STD-7009B",
+      "requiredLevel": 3,
+      "achievedLevel": 3,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "OpenFAST must be under a documented version-controlled release with regression test suite coverage >80% of physics modules relevant to aeroelastic fatigue prediction.",
+      "rationale": "OpenFAST v3.4.1 is released under NREL's GitHub repository with full semantic versioning and a continuous integration pipeline executing over 200 regression test cases covering aerodynamics, structural dynamics, and controller coupling. The release is accompanied by a formal software test report. Achieved level 3 is consistent with the certification risk tier for a Class II design decision."
+    },
+    {
+      "type": "CredibilityFactor",
+      "factorType": "Numerical code verification",
+      "factorStandard": "NASA-STD-7009B",
+      "requiredLevel": 3,
+      "achievedLevel": 3,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "Analytical solution comparisons for beam bending and unsteady aerodynamic benchmark cases must demonstrate relative error <1% for all primary QoIs.",
+      "rationale": "OpenFAST BeamDyn module has been verified against Euler–Bernoulli and Timoshenko analytical beam solutions with relative errors below 0.4% for tip deflection and root moment. The AeroDyn module reproduces the Sears function and Theodorsen unsteady lift benchmark within 0.8%. Verification is documented in NREL/TP-2C-83544."
+    },
+    {
+      "type": "CredibilityFactor",
+      "factorType": "Discretization error",
+      "factorStandard": "NASA-STD-7009B",
+      "requiredLevel": 2,
+      "achievedLevel": 3,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "A formal grid/time-step convergence study must demonstrate that DEL QoIs change by less than 2% between the production discretization and a half-step refinement.",
+      "rationale": "A three-level time-step convergence study (dt = 0.0125 s, 0.00625 s, 0.003125 s) was performed over a 600-second DLC 1.1 seed. The blade root flapwise DEL changed by 0.9% between the coarsest and finest level. Richardson extrapolation yields a GCI of 1.1%. Production runs use dt = 0.00625 s. Spatial discretization of the blade into 50 BeamDyn nodes was verified by node-doubling with <0.5% DEL change."
+    },
+    {
+      "type": "CredibilityFactor",
+      "factorType": "Numerical solver error",
+      "factorStandard": "NASA-STD-7009B",
+      "requiredLevel": 2,
+      "achievedLevel": 2,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "Solver residuals must converge to below 1e-6 relative tolerance for all time steps; energy balance error across the 600-second simulation must remain below 0.1%.",
+      "rationale": "The implicit Newmark-beta solver in BeamDyn is configured with relative tolerance 1e-8. Energy balance monitoring across all 36 DLC 1.1 seeds shows maximum drift of 0.04%. No non-convergence events were recorded in the solver log files."
+    },
+    {
+      "type": "CredibilityFactor",
+      "factorType": "Use error",
+      "factorStandard": "NASA-STD-7009B",
+      "requiredLevel": 3,
+      "achievedLevel": 3,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "A documented simulation execution checklist and independent peer review of input decks must be completed prior to production runs; at least two independent analysts must review controller and turbine configuration files.",
+      "rationale": "All OpenFAST input files were prepared using the IEA 15-MW reference repository input deck as the baseline and modified under a controlled change log. Two senior analysts independently reviewed the ElastoDyn, AeroDyn, and ServoDyn input decks against the IEA 15-MW technical report (DTU Wind Energy Report-I-0092). Discrepancies found during review were resolved before production runs commenced. Execution was scripted to prevent manual parameter modification during batch submission."
+    },
+    {
+      "type": "CredibilityFactor",
+      "factorType": "Model form",
+      "factorStandard": "NASA-STD-7009B",
+      "requiredLevel": 4,
+      "achievedLevel": 3,
+      "factorStatus": "assessed",
+      "rationale": "The model form credibility factor addresses the appropriateness of the physics representations embedded in OpenFAST for predicting blade root fatigue DELs under DLC 1.1 conditions. The IEA 15-MW reference turbine operates in the partially nonlinear large-deflection regime at rated and above-rated wind speeds, where geometric nonlinearity in the blade structural response is non-negligible. BeamDyn implements a geometrically exact beam theory (GEBT) formulation capable of capturing these effects, which represents a significant advancement over the modal or multi-body linearization approaches used in legacy codes. The aerodynamic model employs the Blade Element Momentum (BEM) theory with Prandtl tip-loss correction, Glauert high-induction correction, and the Beddoes–Leishman dynamic stall model as implemented in AeroDyn v15. For DLC 1.1 normal power production, the rotor operates predominantly in attached-flow conditions, and the BEM framework with dynamic inflow correction (Øye model) is well-established as the industry-standard approach for fatigue load prediction in this regime. The primary model form limitation is the inability of BEM to capture three-dimensional flow effects near the blade root and tip under yawed inflow, which are present in the turbulent wind field realizations used in DLC 1.1 seeds. Published literature (Madsen et al., 2020; Boorsma et al., 2022) indicates that BEM-based codes systematically underpredict root bending moment standard deviation by 3–7% relative to free-vortex wake methods under turbulent inflow, which translates to a conservative DEL underestimate of approximately 2–5% depending on the Wöhler slope assumed for the laminate material. This bias is in the non-conservative direction for fatigue life estimation and is acknowledged as the principal model form uncertainty. A required level of 4 reflects the certification significance of this decision: blade root laminate sizing directly determines structural mass and fatigue life margin, and a model form deficiency in the non-conservative direction at this magnitude requires explicit treatment. The achieved level of 3 reflects the extensive code-to-code and field validation evidence available for OpenFAST in comparable turbine classes, the well-characterized nature of the BEM bias, and the application of a 1.05 partial safety factor on DEL QoIs to partially compensate for the identified underestimation. The gap between required and achieved level is noted as a residual credibility deficit that is managed through the safety factor application and is consistent with industry practice for IEC 61400-1 certification of utility-scale turbines. The assessment team judges that the achieved level is sufficient for the intended use given the compensating measures in place, but recommends that a free-vortex wake sensitivity study be conducted prior to final certification submission to bound the model form uncertainty quantitatively."
+    },
+    {
+      "type": "CredibilityFactor",
+      "factorType": "Model inputs",
+      "factorStandard": "NASA-STD-7009B",
+      "requiredLevel": 3,
+      "achievedLevel": 3,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "All primary model inputs (blade geometry, structural properties, aerodynamic polars, turbulent wind fields) must be traceable to authoritative sources with documented uncertainty bounds; turbulent wind field generation must comply with IEC 61400-1 Ed.4 spectral requirements.",
+      "rationale": "Blade geometry and structural properties are taken directly from the IEA 15-MW public reference repository (v1.1). Aerodynamic polars for the IEA-aerodynamic profile family were generated using XFOIL with 3D correction applied via Du–Selig method and validated against wind tunnel data from DTU. Turbulent wind fields were generated using TurbSim with Kaimal spectral model per IEC 61400-1 Ed.4 Annex B, using 36 random seeds per mean wind speed bin. Wind shear profile uses the power law exponent of 0.2 per site class B assumption."
+    },
+    {
+      "type": "CredibilityFactor",
+      "factorType": "Test samples",
+      "factorStandard": "NASA-STD-7009B",
+      "requiredLevel": 2,
+      "achievedLevel": 2,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "Validation test samples must span at least three mean wind speed bins within the operational envelope; minimum of 10 minutes of continuous strain-gauge data per bin must be available for DEL comparison.",
+      "rationale": "The 2023 field campaign collected blade root strain-gauge data at 7.0, 9.0, 11.5, 13.0, and 15.0 m/s mean wind speed bins, with between 18 and 42 minutes of valid data per bin after quality filtering. Sensor calibration was performed against a reference load cell with traceability to national standards."
+    },
+    {
+      "type": "CredibilityFactor",
+      "factorType": "Test conditions",
+      "factorStandard": "NASA-STD-7009B",
+      "requiredLevel": 2,
+      "achievedLevel": 2,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "Atmospheric conditions during validation data collection must be documented with turbulence intensity within ±15% of IEC 61400-1 Class B reference turbulence at each wind speed bin.",
+      "rationale": "Met-mast data co-located at hub height confirmed turbulence intensity within 8–12% of Class B reference values across all wind speed bins used in validation. Air density, wind direction scatter, and shear profile were recorded at 1 Hz and used to condition the simulation inputs for like-for-like comparison."
+    },
+    {
+      "type": "CredibilityFactor",
+      "factorType": "Equivalency of input parameters",
+      "factorStandard": "NASA-STD-7009B",
+      "requiredLevel": 2,
+      "achievedLevel": 2,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "Simulation input parameters used for validation runs must be matched to measured field conditions within documented tolerances; any unmatched parameters must be sensitivity-tested.",
+      "rationale": "Wind speed, turbulence intensity, wind direction mean, and air density were matched between field conditions and validation simulation inputs. Blade pitch and rotor speed set points were matched to SCADA records. Sensitivity analysis was performed for ±10% variation in turbulence intensity, showing less than 1.5% change in blade root flapwise DEL."
+    },
+    {
+      "type": "CredibilityFactor",
+      "factorType": "Output comparison",
+      "factorStandard": "NASA-STD-7009B",
+      "requiredLevel": 3,
+      "achievedLevel": 3,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "Predicted blade root flapwise DEL must agree with measured values within ±10% across all wind speed bins; systematic bias must be less than 5% in absolute value.",
+      "rationale": "Comparison of predicted vs measured blade root flapwise DEL across five wind speed bins shows agreement within -4.2% to +6.8%, with a systematic bias of -2.1% (simulation slightly underpredicts, consistent with known BEM model form characteristics). Edgewise DEL comparison shows agreement within ±5%. Validation metrics meet the defined acceptance thresholds."
+    },
+    {
+      "type": "CredibilityFactor",
+      "factorType": "Relevance of the quantities of interest",
+      "factorStandard": "NASA-STD-7009B",
+      "requiredLevel": 3,
+      "achievedLevel": 3,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "The validation QoIs (blade root flapwise and edgewise DEL) must be directly equivalent to the COU QoIs used for laminate sizing; no intermediate transformation that introduces unquantified uncertainty is permissible.",
+      "rationale": "The validation campaign measured blade root bending moments directly via calibrated strain gauges, and DELs were computed using the rainflow counting method with Wöhler slope m=10 consistent with the laminate fatigue analysis. The same post-processing pipeline was applied to both measured and simulated time series, ensuring QoI equivalency."
+    },
+    {
+      "type": "CredibilityFactor",
+      "factorType": "Relevance of the validation activities to the COU",
+      "factorStandard": "NASA-STD-7009B",
+      "requiredLevel": 3,
+      "achievedLevel": 3,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "Validation activities must cover the same turbine model, wind class, and operational regime as the COU; any extrapolation beyond validated conditions must be explicitly bounded.",
+      "rationale": "Validation was performed on the IEA 15-MW reference turbine under Class B normal power production conditions, directly matching the COU specification. The DLC 1.1 wind speed range (3–25 m/s) is fully covered by the validation campaign wind speed bins. No extrapolation beyond the validated envelope is required for the intended use."
+    }
+  ],
+  "hasWeakener": [],
+  "hasDecisionRecord": {
+    "id": "https://uofa.net/synth/decision/wind-turbine-blade-fatigue-dlc11-accepted-2026",
+    "type": "DecisionRecord",
+    "actor": "https://uofa.net/synth/actor/nrel-credibility-assessment-lead",
+    "role": "Credibility assessment team",
+    "outcome": "Accepted",
+    "rationale": "The overall credibility assessment for the OpenFAST DLC 1.1 blade root fatigue simulation is judged Accepted. Twelve of thirteen credibility factors meet or exceed their required levels. The model form factor achieves level 3 against a required level of 4, representing the sole credibility deficit. This gap is managed through application of a 1.05 DEL partial safety factor and is consistent with industry certification practice for BEM-based aeroelastic codes. The validation evidence base is strong, with direct field campaign comparison on the target turbine model confirming DEL prediction accuracy within ±10% across all operational wind speed bins. The assessment team concludes that the simulation evidence is sufficient to inform blade root laminate sizing and certification margin assessment for the intended use under DLC 1.1 normal power production conditions.",
+    "decidedAt": "2026-04-19T00:00:00Z"
+  },
+  "adversarialProvenance": {
+    "generatorVersion": "0.1.0",
+    "toolVersion": "uofa-cli 0.5.0",
+    "promptTemplateVersion": "v1.0.0",
+    "promptTemplateId": "d1_undermining.W_AR_01",
+    "specId": "adv-2026-p2-cp-01-w-ar-01",
+    "specPath": "/tmp/smoke_cross_pack/cp_nasa_w_ar_01.yaml",
+    "specHash": "sha256:f56cf4ed8a63daa68327d212131d42696f23663764e6373bc067e320c3eb7d0e",
+    "generationModel": "claude-sonnet-4-6",
+    "modelParams": {
+      "max_tokens": 8000,
+      "temperature": 0.7
+    },
+    "callMetadata": {
+      "dropParamsActive": true,
+      "deprecationFallbackFired": false,
+      "shaclRetries": 0,
+      "modelRequested": "claude-sonnet-4-6",
+      "modelReturned": "claude-sonnet-4-6",
+      "litellmVersion": "1.63.7"
+    },
+    "generationTimestamp": "2026-04-26T07:01:16Z",
+    "targetWeakener": "W-AR-01",
+    "targetDefeaterType": "D1",
+    "coverageIntent": "confirm_existing",
+    "sourceTaxonomy": "jarzebowicz-wardzinski/argument_defeaters/D1-undermining",
+    "subtletyLevel": "high",
+    "tokens": 7474,
+    "variantNum": 2,
+    "provenanceBlockHash": "sha256:3ddfe4470e89c3ca4e57f760056ff4ee2099bbd45b01390c06fa9e0cafdbc412"
+  }
+}

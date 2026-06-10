@@ -29,16 +29,23 @@ __pycache__/
 tests/oos/test_report.json
 *.egg-info/
 dist/
-# build/ — Python wheel build artifacts (top-level convention).
-build/
-# dev/build/ — UofA pipeline outputs (Phase 2.5 refinement workspace +
-# adversarial corpora). Nested under dev/ in Phase E. Everything
-# regenerable from git-tracked sources.
-dev/build/
-# ...except for the documentation README inside dev/build/phase2_5/ (the
-# Phase 2.5 refinement workspace index), which is force-tracked so
-# contributors see the layout without having to regenerate the dir.
-!dev/build/phase2_5/README.md
+# build/ — Python wheel build artifacts (top-level convention). Anchored to the
+# repo root so it does NOT also match dev/build/ (handled separately below).
+/build/
+# dev/build/ — UofA pipeline outputs. Per-run/regenerable trees stay ignored,
+# EXCEPT the Phase 2/2.5/3 adversarial artifacts (dev/build/adversarial/ +
+# dev/build/phase2_5/), which are force-tracked — large/binary files via Git
+# LFS (see .gitattributes) — to preserve the non-reproducible LLM corpus +
+# judge outputs as a defense audit trail. Decision: 2026-06-09. Other
+# dev/build/* trees (airfrans, …) remain ignored as regenerable.
+dev/build/*
+!dev/build/adversarial/
+!dev/build/phase2_5/
+# Never OS/editor/Python junk, even inside the tracked trees.
+dev/build/**/.DS_Store
+dev/build/**/._*
+dev/build/**/__pycache__/
+dev/build/**/*.py[cod]
 *.egg
 .eggs/
 *.whl
@@ -95,3 +102,8 @@ src/uofa_cli/_engine/*.jar
 src/uofa_cli/_runtime/jre/
 src/uofa_cli/_runtime/PLATFORM
 src/uofa_cli/_runtime/JRE_VERSION
+
+# Phase 2/2.5/3 run logs are tracked artifacts — re-included AFTER the global
+# *.log rule above so they win (preserve the run audit trail). Decision 2026-06-09.
+!dev/build/adversarial/**/*.log
+!dev/build/phase2_5/**/*.log

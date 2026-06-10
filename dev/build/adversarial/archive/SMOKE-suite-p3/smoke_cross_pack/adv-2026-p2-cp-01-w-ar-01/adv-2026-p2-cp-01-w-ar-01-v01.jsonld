@@ -1,0 +1,220 @@
+{
+  "@context": "https://raw.githubusercontent.com/cloudronin/uofa/main/spec/context/v0.5.jsonld",
+  "id": "https://uofa.net/synth/wind-turbine-fatigue-dlc11-cou1",
+  "type": [
+    "UnitOfAssurance",
+    "uofa:SyntheticAdversarialSample"
+  ],
+  "synthetic": true,
+  "conformsToProfile": "https://uofa.net/vocab#ProfileMinimal",
+  "name": "Wind turbine blade fatigue — normal operation COU",
+  "description": "Credibility assessment for an OpenFAST aeroelastic simulation predicting fatigue damage equivalent loads (DELs) on the IEA 15-MW reference wind turbine blade root under DLC 1.1 normal power production. NASA-STD-7009B credibility factors applied.",
+  "bindsRequirement": "https://uofa.net/synth/req/iea15mw-blade-fatigue-dlc11",
+  "bindsClaim": "https://uofa.net/synth/claim/openfast-del-blade-root-dlc11",
+  "bindsModel": "https://uofa.net/synth/model/openfast-iea15mw-aeroelastic-v3p5",
+  "bindsDataset": [
+    "https://uofa.net/synth/data/iea15mw-dlc11-turbulent-inflow-seeds",
+    "https://uofa.net/synth/data/iea15mw-blade-structural-properties",
+    "https://uofa.net/synth/data/iea15mw-aerodynamic-tables"
+  ],
+  "hasContextOfUse": {
+    "id": "https://example.org/wind-turbine/cou/cou1-normal-operation",
+    "intendedUse": "Use OpenFAST aeroelastic simulation to predict 20-year fatigue damage equivalent loads at the blade root under IEC 61400-1 DLC 1.1 normal power production conditions. Results inform blade root laminate sizing and certification margin assessment.",
+    "name": "COU1: Normal power production fatigue assessment (DLC 1.1)",
+    "type": "ContextOfUse"
+  },
+  "hasValidationResult": [
+    {
+      "id": "https://uofa.net/synth/validation/openfast-loads-comparison-nrel-5mw",
+      "type": "ValidationResult",
+      "name": "OpenFAST blade root loads comparison against NREL 5-MW reference turbine experimental data (Micon 65/13 scaled)"
+    },
+    {
+      "id": "https://uofa.net/synth/validation/openfast-iea15mw-code-to-code-hawc2",
+      "type": "ValidationResult",
+      "name": "IEA 15-MW OpenFAST vs HAWC2 code-to-code DEL comparison under DLC 1.1 seed ensemble"
+    },
+    {
+      "id": "https://uofa.net/synth/validation/openfast-modal-frequency-blade-root",
+      "type": "ValidationResult",
+      "name": "Blade natural frequency validation against manufacturer modal test data for IEA 15-MW geometry"
+    }
+  ],
+  "wasDerivedFrom": "https://doi.org/10.2172/1603478",
+  "wasAttributedTo": "https://uofa.net/synth/org/nrel-wind-energy-simulation-group",
+  "generatedAtTime": "2026-04-19T00:00:00Z",
+  "hash": "sha256:3f8a21c7d904e1b56a09f2cc74d83e1b5a7092fc6d4e8b3a1c5f09e27d6b4a82",
+  "signature": "ed25519:9c1e47a3f08b2d56e4c7a19f3b08d2e56c4a19f3b08d2e56c4a19f3b08d2e56",
+  "hasCredibilityFactor": [
+    {
+      "type": "CredibilityFactor",
+      "factorType": "Software quality assurance",
+      "factorStandard": "NASA-STD-7009B",
+      "requiredLevel": 3,
+      "achievedLevel": 3,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "OpenFAST v3.5 must hold an active verification baseline in the NREL software repository with documented regression test suite coverage of all aerodynamic and structural modules used in DLC 1.1 runs. Release notes must confirm no open critical defects affecting blade loads calculations.",
+      "rationale": "OpenFAST v3.5.0 is distributed under an Apache 2.0 open-source licence with full version-controlled source history on GitHub. The NREL software team maintains a continuous integration pipeline executing over 340 regression test cases on each commit. Release v3.5.0 was tagged after all regression tests passed and no severity-1 or severity-2 defect reports were open against aerodynamic or structural modules. The project follows NASA-STD-7009B Gradation 3 SQA practices including change-control board review, documented requirements traceability, and independent code review for safety-relevant modules. These practices satisfy the required level for a certification-supporting simulation."
+    },
+    {
+      "type": "CredibilityFactor",
+      "factorType": "Numerical code verification",
+      "factorStandard": "NASA-STD-7009B",
+      "requiredLevel": 3,
+      "achievedLevel": 3,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "Code verification must demonstrate correct implementation of governing equations via at least one manufactured-solution or analytical benchmark test for each primary physics module (aerodynamics, structural dynamics, wake). Residuals must converge at the theoretically expected rate.",
+      "rationale": "OpenFAST AeroDyn module has been verified against Peters–He dynamic inflow analytical solutions; BeamDyn against Euler–Bernoulli and Timoshenko beam analytical benchmarks. Convergence order matches theoretical expectations (second-order temporal, fourth-order spatial for BeamDyn). Results are published in NREL/TP-5000-60943 and reproduced in the v3.5 release test suite."
+    },
+    {
+      "type": "CredibilityFactor",
+      "factorType": "Discretization error",
+      "factorStandard": "NASA-STD-7009B",
+      "requiredLevel": 2,
+      "achievedLevel": 3,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "A systematic time-step and spatial-node refinement study must show DEL values at the blade root converge to within 1% across at least three refinement levels. The production time step must lie within the convergent regime.",
+      "rationale": "A three-level time-step refinement study was conducted using dt = 0.0125 s, 0.025 s, and 0.05 s over a representative 600-second DLC 1.1 seed. Blade root flapwise DEL varied by less than 0.4% between the two finest levels. The production time step of 0.025 s was adopted. Spatial node count on the blade was increased from 10 to 20 to 40 stations; DEL variation was below 0.6% between 20 and 40 nodes. The 20-node discretisation is used in production runs."
+    },
+    {
+      "type": "CredibilityFactor",
+      "factorType": "Numerical solver error",
+      "factorStandard": "NASA-STD-7009B",
+      "requiredLevel": 2,
+      "achievedLevel": 2,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "Energy balance residuals must remain below 1e-4 per time step averaged over the simulation duration. Solver iteration counts must not exceed the specified maximum in more than 0.01% of steps.",
+      "rationale": "The OpenFAST FAST.Farm implicit solver with default tight-coupling tolerances (1e-5 displacement, 1e-4 force) was applied. Post-processing of all 36 DLC 1.1 seeds confirmed maximum energy residual of 7.2e-5 and no solver iteration limit exceedances. Numerical solver error is therefore bounded at the required level."
+    },
+    {
+      "type": "CredibilityFactor",
+      "factorType": "Use error",
+      "factorStandard": "NASA-STD-7009B",
+      "requiredLevel": 3,
+      "achievedLevel": 3,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "All simulation input decks must be reviewed by a second qualified analyst independent of the simulation author. A documented checklist covering turbulence seed selection, IEC wind class parameters, controller version, and output channel configuration must be completed and archived.",
+      "rationale": "Input decks were prepared by a senior aeroelastic analyst and independently reviewed by a second analyst with IEC 61400-1 certification experience. A 47-item input-deck checklist was completed and archived in the project document management system (DMS ref: WT-SIM-CHK-001 rev B). Turbulence seeds were generated using TurbSim v2.0 with IEC Kaimal spectra, Class IB parameters, and 36 independent seeds per wind speed bin as required by IEC 61400-1 Ed. 4 Annex G."
+    },
+    {
+      "type": "CredibilityFactor",
+      "factorType": "Model form",
+      "factorStandard": "NASA-STD-7009B",
+      "requiredLevel": 4,
+      "achievedLevel": 4,
+      "factorStatus": "assessed",
+      "rationale": "Model form credibility for OpenFAST applied to large offshore wind turbine fatigue assessment under DLC 1.1 is substantiated by an extensive body of peer-reviewed literature and international code-comparison campaigns. The IEA Wind Task 23 and Task 30 OC3/OC4/OC5 offshore code comparison exercises collectively involved more than 20 aeroelastic simulation tools across 15 international research organisations. OpenFAST (formerly FAST) participated in all phases and demonstrated blade root DEL predictions within ±5% of the ensemble mean for normal power production load cases — a level of inter-code agreement recognised by the wind energy standards community as sufficient for certification-class analysis. The blade aerodynamic model employs blade-element momentum theory with Prandtl tip-loss correction, Glauert high-induction correction, Beddoes–Leishman dynamic stall, and tower shadow interference, all of which are validated components for the operating regime encountered in DLC 1.1. The structural model uses a geometrically exact beam formulation (BeamDyn) capable of resolving large-deflection nonlinear effects relevant to the IEA 15-MW 117-metre blade. Soil–structure interaction is not applicable to the land-based reference configuration used here. The Miner's rule fatigue accumulation applied post-simulation is consistent with IEC 61400-1 requirements and GL 2010 guidelines. Collectively, the model form is judged appropriate for the intended use and the required credibility level of 4 is achieved. The assessment team notes that the primary model-form uncertainty arises from the dynamic stall model behaviour at high turbulence intensities near rated wind speed; sensitivity analyses presented in the validation results confirm this contributes less than 3% variation in 20-year DEL estimates, which is within the certification margin reserve."
+    },
+    {
+      "type": "CredibilityFactor",
+      "factorType": "Model inputs",
+      "factorStandard": "NASA-STD-7009B",
+      "requiredLevel": 3,
+      "achievedLevel": 3,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "All primary model inputs (blade structural properties, aerodynamic polars, controller parameters, site wind statistics) must be traceable to authoritative sources with documented uncertainty bounds. Sensitivity of DEL predictions to input uncertainty must be quantified for the three highest-sensitivity parameters.",
+      "rationale": "Blade structural properties were taken from the IEA 15-MW reference turbine public dataset (NREL/TP-5000-75698). Aerodynamic polars were generated with XFOIL and validated against CFD at key sections. Controller parameters are from the ROSCO v2.6 reference implementation. A one-at-a-time sensitivity study identified blade mass distribution, flap stiffness, and aerodynamic polar at 75% span as the top-three DEL-sensitive inputs; combined uncertainty contribution is ±4.1% on 20-year DEL."
+    },
+    {
+      "type": "CredibilityFactor",
+      "factorType": "Test samples",
+      "factorStandard": "NASA-STD-7009B",
+      "requiredLevel": 2,
+      "achievedLevel": 2,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "Validation datasets must include at least one full-scale or geometrically scaled turbine test with instrumented blade root bending moments under turbulent inflow. Sample size must be sufficient to estimate mean DEL to within 10% at 90% confidence.",
+      "rationale": "Validation draws on the NREL Unsteady Aerodynamics Experiment (UAE) Phase VI dataset and the Vestas V27 turbine measurements from the Tjæreborg campaign, both of which include blade root flapwise and edgewise bending moments under turbulent inflow. Statistical sufficiency was confirmed by bootstrap resampling; the 90% confidence interval on mean DEL spans ±7.3%, satisfying the 10% threshold."
+    },
+    {
+      "type": "CredibilityFactor",
+      "factorType": "Test conditions",
+      "factorStandard": "NASA-STD-7009B",
+      "requiredLevel": 2,
+      "achievedLevel": 2,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "Test inflow conditions must be characterised by measured turbulence intensity, wind shear exponent, and mean wind speed with uncertainties documented. Conditions must overlap the DLC 1.1 operational envelope for at least 70% of the wind speed range.",
+      "rationale": "UAE Phase VI tests were conducted at NASA Ames 24.4 m × 36.6 m wind tunnel with controlled inflow; Tjæreborg measurements include met-mast records at hub height. Turbulence intensity, shear, and veer are documented in the respective data reports. Wind speed coverage spans 5–25 m/s, overlapping the DLC 1.1 range of 4–25 m/s at 88% coverage."
+    },
+    {
+      "type": "CredibilityFactor",
+      "factorType": "Equivalency of input parameters",
+      "factorStandard": "NASA-STD-7009B",
+      "requiredLevel": 2,
+      "achievedLevel": 2,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "Simulation input parameters used in validation runs must match test conditions to within documented tolerances. Any scaling or correction applied to reconcile geometric or operational differences must be explicitly justified.",
+      "rationale": "Validation simulations were configured to match documented test conditions for each campaign. Geometric scaling corrections were applied to the UAE Phase VI rotor following the similarity parameters documented in NREL/TP-500-29494. No corrections were applied to Tjæreborg inputs as the turbine geometry and operational parameters were directly replicated in the OpenFAST model."
+    },
+    {
+      "type": "CredibilityFactor",
+      "factorType": "Output comparison",
+      "factorStandard": "NASA-STD-7009B",
+      "requiredLevel": 3,
+      "achievedLevel": 3,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "Simulated blade root flapwise and edgewise DELs must agree with measured values to within ±10% for at least 80% of wind speed bins. Agreement metric must be the relative error on the Wöhler-exponent-weighted DEL computed over the full operational wind speed distribution.",
+      "rationale": "Across 12 wind speed bins from 5 to 25 m/s, simulated flapwise DEL agreed with UAE Phase VI measurements within ±8% in 11 of 12 bins (92%). Edgewise DEL agreement was within ±9% in all 12 bins. Tjæreborg comparison yielded ±7% flapwise and ±11% edgewise agreement; the single edgewise bin outside tolerance at 23 m/s is attributed to documented sensor drift in the original dataset. Overall output comparison satisfies the required level."
+    },
+    {
+      "type": "CredibilityFactor",
+      "factorType": "Relevance of the quantities of interest",
+      "factorStandard": "NASA-STD-7009B",
+      "requiredLevel": 3,
+      "achievedLevel": 3,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "The quantities of interest in validation activities must be the same physical quantities (blade root flapwise and edgewise DEL) used in the certification decision, or must be demonstrably related through a documented and validated post-processing chain.",
+      "rationale": "Validation activities directly target blade root flapwise and edgewise bending moment time histories, from which DELs are computed using the same rainflow-counting and Miner's rule post-processing chain as the production DLC 1.1 runs. No intermediate transformation or surrogate quantity is introduced. The QoI relevance is therefore direct and complete."
+    },
+    {
+      "type": "CredibilityFactor",
+      "factorType": "Relevance of the validation activities to the COU",
+      "factorStandard": "NASA-STD-7009B",
+      "requiredLevel": 3,
+      "achievedLevel": 3,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "Validation activities must cover the primary physics regimes encountered in DLC 1.1 (attached flow, mild dynamic stall, turbulent inflow fatigue loading). Any physics regime present in the COU but absent from validation must be identified and its impact on DEL uncertainty quantified.",
+      "rationale": "The combined UAE Phase VI and Tjæreborg validation campaigns cover attached flow, mild dynamic stall, and turbulent inflow fatigue loading — the three primary regimes in DLC 1.1 normal power production. Deep stall and parked conditions are outside the COU scope and are not assessed here. The validation activities are judged sufficiently relevant to the COU to support the required credibility level."
+    }
+  ],
+  "hasWeakener": [],
+  "hasDecisionRecord": {
+    "id": "https://uofa.net/synth/decision/wind-turbine-fatigue-dlc11-cou1-decision",
+    "type": "DecisionRecord",
+    "actor": "https://uofa.net/synth/actor/nrel-credibility-assessment-team",
+    "role": "Credibility assessment team",
+    "outcome": "Accepted",
+    "rationale": "All thirteen NASA-STD-7009B credibility factors have been assessed. Achieved levels meet or exceed required levels in all cases. The simulation is judged credible for use in IEC 61400-1 DLC 1.1 blade root fatigue assessment supporting certification margin evaluation of the IEA 15-MW reference turbine. The assessment team notes that the Model Form factor rationale is particularly extensive and documents the basis for the Gradation 4 required level through reference to international code-comparison campaigns and peer-reviewed literature.",
+    "decidedAt": "2026-04-19T00:00:00Z"
+  },
+  "adversarialProvenance": {
+    "generatorVersion": "0.1.0",
+    "toolVersion": "uofa-cli 0.5.0",
+    "promptTemplateVersion": "v1.0.0",
+    "promptTemplateId": "d1_undermining.W_AR_01",
+    "specId": "adv-2026-p2-cp-01-w-ar-01",
+    "specPath": "/tmp/smoke_cross_pack/cp_nasa_w_ar_01.yaml",
+    "specHash": "sha256:f56cf4ed8a63daa68327d212131d42696f23663764e6373bc067e320c3eb7d0e",
+    "generationModel": "claude-sonnet-4-6",
+    "modelParams": {
+      "max_tokens": 8000,
+      "temperature": 0.7
+    },
+    "callMetadata": {
+      "dropParamsActive": true,
+      "deprecationFallbackFired": false,
+      "shaclRetries": 0,
+      "modelRequested": "claude-sonnet-4-6",
+      "modelReturned": "claude-sonnet-4-6",
+      "litellmVersion": "1.63.7"
+    },
+    "generationTimestamp": "2026-04-26T07:28:53Z",
+    "targetWeakener": "W-AR-01",
+    "targetDefeaterType": "D1",
+    "coverageIntent": "confirm_existing",
+    "sourceTaxonomy": "jarzebowicz-wardzinski/argument_defeaters/D1-undermining",
+    "subtletyLevel": "high",
+    "tokens": 7574,
+    "variantNum": 1,
+    "provenanceBlockHash": "sha256:4ffbe166ce2a14543399a999e470183b826185747b720792eb7308bae6ceda66"
+  }
+}

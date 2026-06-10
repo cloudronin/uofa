@@ -1,0 +1,220 @@
+{
+  "@context": "https://raw.githubusercontent.com/cloudronin/uofa/main/spec/context/v0.5.jsonld",
+  "id": "https://uofa.net/synth/compound03-vad-hemolysis-001",
+  "type": [
+    "UnitOfAssurance",
+    "uofa:SyntheticAdversarialSample"
+  ],
+  "synthetic": true,
+  "conformsToProfile": "https://uofa.net/vocab#ProfileMinimal",
+  "assuranceLevel": "High",
+  "name": "Morrison COU2 — VAD hemolysis credibility assessment (synthetic adversarial)",
+  "description": "V&V 40 credibility assessment for CFD hemolysis prediction of the FDA generic centrifugal blood pump under ventricular assist device (VAD) conditions. COU2 evaluates whether the computational model can predict absolute hemolysis levels for a Class III VAD device at Model Risk Level 5. Monte Carlo uncertainty quantification is performed. This package declares assuranceLevel High and outcome Accepted; however, multiple credibility factors show achievedLevel below requiredLevel, triggering COMPOUND-03 (assurance-level overstatement).",
+  "bindsRequirement": "https://uofa.net/synth/req/vad-hemolysis-mrl5",
+  "bindsClaim": "https://uofa.net/synth/claim/vad-hemolysis-absolute-threshold",
+  "bindsModel": "https://uofa.net/synth/model/cfd-centrifugal-pump-hemolysis",
+  "bindsDataset": [
+    "https://uofa.net/synth/data/fda-pump-experimental-hemolysis",
+    "https://uofa.net/synth/data/monte-carlo-uncertainty-runs"
+  ],
+  "hasContextOfUse": {
+    "decisionConsequence": "High",
+    "description": "A CFD model is used to predict absolute hemolysis levels across operating conditions for a centrifugal blood pump used as a ventricular assist device (VAD). Model influence is HIGH (model is primary basis for hemolysis acceptance); decision consequence is HIGH (incorrect prediction could result in chronic patient hemolysis requiring clinical intervention). Model Risk Level 5 — the highest in the Morrison assessment.",
+    "deviceClass": "Class III",
+    "id": "https://uofa.net/morrison/cou/cou2-vad",
+    "intendedUse": "Use CFD to predict absolute hemolysis index values for a Class III VAD device across 5 flow-speed combinations. Results must demonstrate hemolysis below absolute clinical threshold (not relative to predicate). Requires Monte Carlo uncertainty quantification on hemolysis predictions.",
+    "modelInfluence": "High",
+    "name": "COU2: Ventricular assist device use (Class III)",
+    "type": "ContextOfUse"
+  },
+  "hasValidationResult": [
+    {
+      "id": "https://uofa.net/synth/validation/vad-hemolysis-bench-001",
+      "type": "ValidationResult",
+      "name": "Bench-scale hemolysis validation against FDA pump experimental data"
+    },
+    {
+      "id": "https://uofa.net/synth/validation/vad-hemolysis-mc-uncertainty-001",
+      "type": "ValidationResult",
+      "name": "Monte Carlo uncertainty quantification on hemolysis index predictions"
+    }
+  ],
+  "wasDerivedFrom": "https://doi.org/10.1115/1.4037888",
+  "wasAttributedTo": "https://uofa.net/synth/org/morrison-vv40-team",
+  "generatedAtTime": "2026-04-19T00:00:00Z",
+  "hash": "sha256:a3f1c2e4b5d6789012345678901234567890abcdef1234567890abcdef123456",
+  "signature": "ed25519:b7e2d4f6a8c0123456789abcdef01234567890abcdef1234567890abcdef1234",
+  "hasCredibilityFactor": [
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Software quality assurance",
+      "type": "CredibilityFactor",
+      "requiredLevel": 4,
+      "achievedLevel": 2,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "At MRL 5, software must be fully version-controlled with automated regression testing and formal change-control procedures documented per FDA software guidance.",
+      "rationale": "Version control is in place but automated regression testing covers only 40% of solver modules. Formal change-control documentation is incomplete. Achieved level 2 falls significantly below the required level 4 for Class III VAD submission."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Numerical code verification",
+      "type": "CredibilityFactor",
+      "requiredLevel": 4,
+      "achievedLevel": 2,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "Order-of-accuracy tests on manufactured solutions must confirm expected convergence rates for all active transport equations including hemolysis damage accumulation.",
+      "rationale": "Order-of-accuracy testing was performed for the flow solver but not for the hemolysis damage integral transport equation. Convergence of the primary QoI is therefore unverified. Achieved level 2 is below the required level 4."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Discretization error",
+      "type": "CredibilityFactor",
+      "requiredLevel": 4,
+      "achievedLevel": 3,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "Richardson extrapolation or equivalent GCI analysis must be reported for hemolysis index on at least three systematically refined meshes at all five operating points.",
+      "rationale": "GCI analysis was completed at three of five operating points on three mesh levels. Remaining two operating points used single-mesh solutions. Achieved level 3 is one grade below the required level 4."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Test conditions",
+      "type": "CredibilityFactor",
+      "requiredLevel": 5,
+      "achievedLevel": 3,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "Experimental test conditions must replicate VAD operating envelope including blood analog rheology, temperature, and all five target flow-speed combinations with full uncertainty characterisation.",
+      "rationale": "Experiments used a glycerol-water blood analog rather than fresh porcine blood, and temperature was held at 22°C rather than 37°C. Only three of five flow-speed combinations were physically tested. Achieved level 3 is substantially below the required level 5."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Output comparison",
+      "type": "CredibilityFactor",
+      "requiredLevel": 5,
+      "achievedLevel": 2,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "Quantitative agreement metric (e.g., E% or validation uncertainty U_val) must be computed for absolute hemolysis index at all operating points, with statistical significance demonstrated.",
+      "rationale": "Comparisons are presented graphically without quantitative agreement metrics. No validation uncertainty interval is reported. Agreement is claimed qualitatively. Achieved level 2 is critically below the required level 5, representing the primary W-AR-02 trigger for COMPOUND-03."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Relevance of the quantities of interest",
+      "type": "CredibilityFactor",
+      "requiredLevel": 4,
+      "achievedLevel": 3,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "The validated QoIs must directly correspond to absolute hemolysis index values used in the regulatory decision, with traceability to clinical thresholds.",
+      "rationale": "The primary QoI is the normalised index of haemolysis (NIH), which is clinically relevant. However, traceability mapping from NIH to the specific absolute clinical threshold used in the acceptance criterion is not formally documented. Achieved level 3 is one grade below required level 4."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Relevance of the validation activities to the COU",
+      "type": "CredibilityFactor",
+      "requiredLevel": 4,
+      "achievedLevel": 2,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "Validation experiments must be conducted on the same pump geometry and at operating conditions representative of the VAD COU, not merely a similar predicate device.",
+      "rationale": "Validation was performed on the FDA generic pump geometry, which differs from the actual VAD device in impeller blade count and volute geometry. Operating conditions overlap only partially with the VAD COU envelope. Achieved level 2 is substantially below the required level 4."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Numerical solver error",
+      "type": "CredibilityFactor",
+      "requiredLevel": 3,
+      "achievedLevel": 1,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "Iterative convergence must be demonstrated to at least four orders of magnitude reduction in residuals for all equations, with solution independence from initial conditions confirmed.",
+      "rationale": "Residual convergence was reported at three orders of magnitude for momentum equations but only two orders for the scalar hemolysis transport equation. Initial-condition sensitivity was not assessed. Achieved level 1 is critically below the required level 3."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Use error",
+      "type": "CredibilityFactor",
+      "requiredLevel": 3,
+      "achievedLevel": 1,
+      "factorStatus": "not-assessed",
+      "acceptanceCriteria": "A formal use-error analysis must document analyst-dependent modelling choices (turbulence model selection, boundary condition specification, hemolysis model constants) and their sensitivity on predictions.",
+      "rationale": "No formal use-error analysis was performed. Analyst choices for turbulence model (SST k-omega) and hemolysis power-law constants were not subjected to sensitivity analysis. Factor flagged as not-assessed at MRL 5; achieved level 1 assigned by default."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Model form",
+      "type": "CredibilityFactor",
+      "requiredLevel": 5,
+      "achievedLevel": 2,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "The hemolysis power-law model form must be justified against mechanistic red blood cell damage models and validated across the shear-stress and exposure-time space relevant to the VAD COU.",
+      "rationale": "The Giersiepen-Wurzinger power-law model is used without justification of its applicability to the high-shear, short-exposure-time regime characteristic of centrifugal VAD operation. No mechanistic comparison was performed. Achieved level 2 is critically below the required level 5."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Model inputs",
+      "type": "CredibilityFactor",
+      "requiredLevel": 4,
+      "achievedLevel": 2,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "All model input parameters must have documented sources, uncertainty bounds, and sensitivity rankings. Monte Carlo propagation must cover all epistemic and aleatory input uncertainties.",
+      "rationale": "Monte Carlo analysis was performed but covered only geometric tolerances and inlet flow rate. Blood viscosity, density, and hemolysis model exponents were treated as deterministic despite known inter-sample variability. Achieved level 2 is below the required level 4."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Test samples",
+      "type": "CredibilityFactor",
+      "requiredLevel": 4,
+      "achievedLevel": 1,
+      "factorStatus": "not-assessed",
+      "acceptanceCriteria": "Biological variability across blood samples must be characterised; sufficient replicate experiments must be conducted to establish statistically meaningful validation data for hemolysis index.",
+      "rationale": "Experimental hemolysis data were drawn from a single published dataset with no information on donor variability or replicate sample count. Factor is effectively not-assessed for biological sample adequacy. Achieved level 1 assigned; required level 4 for MRL 5."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Equivalency of input parameters",
+      "type": "CredibilityFactor",
+      "requiredLevel": 4,
+      "achievedLevel": 2,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "A formal mapping must demonstrate that validation experiment input parameters are equivalent or conservative relative to COU input parameters, with documented justification for any deviations.",
+      "rationale": "Validation experiments used a blood analog with viscosity matched at 37°C but experiments were run at 22°C, introducing an unquantified viscosity bias. No formal equivalency mapping document was produced. Achieved level 2 is below the required level 4."
+    }
+  ],
+  "hasWeakener": [],
+  "hasDecisionRecord": {
+    "id": "https://uofa.net/synth/decision/vad-hemolysis-compound03-001",
+    "type": "DecisionRecord",
+    "actor": "https://uofa.net/synth/actor/morrison-credibility-lead",
+    "role": "Credibility assessment team",
+    "outcome": "Accepted",
+    "rationale": "The credibility assessment team concludes that the CFD hemolysis model provides High assurance for the VAD COU based on completion of Monte Carlo uncertainty quantification and demonstration of qualitative agreement with experimental data across the operating envelope. The assessment is accepted for regulatory submission.",
+    "decidedAt": "2026-04-19T00:00:00Z"
+  },
+  "adversarialProvenance": {
+    "generatorVersion": "0.1.0",
+    "toolVersion": "uofa-cli 0.5.0",
+    "promptTemplateVersion": "v1.0.0",
+    "promptTemplateId": "compound.COMPOUND_03",
+    "specId": "adv-2026-p2-022-compound-03",
+    "specPath": "specs/confirm_existing/compound-03.yaml",
+    "specHash": "sha256:a05609c2a22e61c63f06ac8ac3ac3a6778cda4e8ec66140aa5773a71784d8f5f",
+    "generationModel": "claude-sonnet-4-6",
+    "modelParams": {
+      "max_tokens": 8000,
+      "temperature": 0.7
+    },
+    "callMetadata": {
+      "dropParamsActive": true,
+      "deprecationFallbackFired": false,
+      "shaclRetries": 0,
+      "modelRequested": "claude-sonnet-4-6",
+      "modelReturned": "claude-sonnet-4-6",
+      "litellmVersion": "1.63.7"
+    },
+    "generationTimestamp": "2026-04-26T09:51:34Z",
+    "targetWeakener": "COMPOUND-03",
+    "targetDefeaterType": "structural",
+    "coverageIntent": "confirm_existing",
+    "sourceTaxonomy": "khakzad/argumentation/undercutting-d4",
+    "subtletyLevel": "low",
+    "tokens": 6546,
+    "variantNum": 15,
+    "provenanceBlockHash": "sha256:cd63532c809059e35d11a2a6fcd1c049ff823cbdc961e62e07ab1f4c0b41b0db"
+  }
+}

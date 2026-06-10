@@ -1,0 +1,238 @@
+{
+  "@context": "https://raw.githubusercontent.com/cloudronin/uofa/main/spec/context/v0.5.jsonld",
+  "id": "https://uofa.net/synth/morrison-cou1-cpb-hemolysis-v2",
+  "type": [
+    "UnitOfAssurance",
+    "uofa:SyntheticAdversarialSample"
+  ],
+  "synthetic": true,
+  "conformsToProfile": "https://uofa.net/vocab#ProfileMinimal",
+  "name": "Morrison COU1 — CPB hemolysis credibility assessment",
+  "description": "V&V 40 credibility assessment for CFD hemolysis prediction of the FDA generic centrifugal blood pump under cardiopulmonary bypass (CPB) conditions. COU1 evaluates whether the computational model can identify worst-case hemolysis operating conditions for a Class II CPB device at Model Risk Level 2. Full 13-factor assessment: 7 factors assessed (all meeting required levels), 6 factors not assessed (acceptable at MRL 2). The hemolysis model employs the power-law damage accumulation integral (Giersiepen-Wurzinger formulation), whose derivation assumes a linear superposition of sub-lethal shear exposures — i.e., cumulative damage accumulates additively and independently across fluid pathlines. This linearity precondition is explicitly invoked to justify aggregation of exposure histories across the impeller passage. Validation against a single steady-state operating point (4 L/min, 3000 RPM) confirmed acceptable agreement at that condition; however, the COU spans five flow-speed combinations including transient ramp-up regimes where non-linear erythrocyte memory effects may invalidate the linearity assumption.",
+  "assuranceLevel": "Medium",
+  "couName": "CPB use",
+  "decision": "Accepted",
+  "deviceClass": "Class II",
+  "modelRiskLevel": 2,
+  "bindsRequirement": "https://uofa.net/synth/req/morrison-cou1-hemolysis-req",
+  "bindsClaim": "https://uofa.net/synth/claim/morrison-cou1-hemolysis-claim",
+  "bindsModel": "https://uofa.net/synth/model/giersiepen-wurzinger-powerlaw-cfd",
+  "bindsDataset": [
+    "https://uofa.net/synth/data/fda-pump-experimental-hemolysis-dataset",
+    "https://uofa.net/synth/data/morrison-cfd-mesh-convergence-data"
+  ],
+  "hasContextOfUse": {
+    "decisionConsequence": "High",
+    "description": "A CFD model is used to evaluate the sensitivity of pump-induced hemolysis to variations in component dimensions for a centrifugal blood pump used during cardiopulmonary bypass surgery. Model influence is MEDIUM (testing confirms results); decision consequence is HIGH (incorrect tolerance decision could impact clinical hemolysis levels). Model Risk Level 2.",
+    "deviceClass": "Class II",
+    "id": "https://uofa.net/morrison/cou/cou1-cpb",
+    "intendedUse": "Use CFD to identify worst-case operating conditions for hemolysis across 5 flow-speed combinations for a Class II CPB device. Results compared against predicate device hemolysis using relative hemolysis index (RH < 1 acceptance criterion).",
+    "modelInfluence": "Medium",
+    "name": "COU1: Cardiopulmonary bypass use (Class II)",
+    "type": "ContextOfUse"
+  },
+  "hasValidationResult": [
+    {
+      "id": "https://uofa.net/synth/validation/morrison-steady-state-4lpm-3000rpm",
+      "type": "ValidationResult",
+      "name": "Steady-state hemolysis validation at 4 L/min, 3000 RPM",
+      "description": "CFD-predicted normalized index of hemolysis (NIH) compared against in-vitro measurements from the FDA benchmark dataset at the nominal operating point (4 L/min, 3000 RPM). Predicted NIH = 0.0041 mg/100 L versus measured NIH = 0.0044 mg/100 L; relative error 6.8%, within the 15% acceptance threshold. This single-point validation confirms model fidelity under steady laminar-dominated flow but does not probe the linearity assumption of the damage accumulation integral across the broader COU operating envelope.",
+      "passedCriteria": true,
+      "quantitativeResult": "NIH relative error = 6.8% < 15% acceptance threshold at nominal operating point"
+    },
+    {
+      "id": "https://uofa.net/synth/validation/morrison-mesh-convergence",
+      "type": "ValidationResult",
+      "name": "Mesh convergence study — discretization error quantification",
+      "description": "Grid convergence index (GCI) computed across three mesh refinement levels (2.1M, 6.8M, 18.4M hexahedral cells). GCI for NIH quantity of interest: 3.2% on the fine grid, satisfying the MRL 2 requirement of GCI < 5%. Discretization error is therefore acceptable.",
+      "passedCriteria": true,
+      "quantitativeResult": "GCI = 3.2% on 18.4M-cell mesh; threshold 5%"
+    },
+    {
+      "id": "https://uofa.net/synth/validation/morrison-code-verification-mms",
+      "type": "ValidationResult",
+      "name": "Numerical code verification via method of manufactured solutions",
+      "description": "Navier-Stokes solver verified using MMS for second-order spatial accuracy. Observed order of convergence p = 1.97, consistent with nominal second-order scheme. Hemolysis scalar transport equation verified independently; observed order p = 1.94.",
+      "passedCriteria": true,
+      "quantitativeResult": "Observed order of convergence p = 1.97 (NS), 1.94 (scalar); expected 2.0"
+    }
+  ],
+  "wasDerivedFrom": "https://doi.org/10.1115/1.4037497",
+  "wasAttributedTo": "https://uofa.net/synth/org/morrison-cfd-lab",
+  "generatedAtTime": "2026-04-19T00:00:00Z",
+  "hash": "sha256:3a7f2c1d9e4b08f5a6c3d2e1f0a9b8c7d6e5f4a3b2c1d0e9f8a7b6c5d4e3f2a1",
+  "signature": "ed25519:4b8e1f3a2c7d9e0f5a6b3c2d1e0f9a8b7c6d5e4f3a2b1c0d9e8f7a6b5c4d3e2f",
+  "hasCredibilityFactor": [
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Software quality assurance",
+      "type": "CredibilityFactor",
+      "requiredLevel": 1,
+      "achievedLevel": 2,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "CFD solver must operate under documented version control and have a traceable release history.",
+      "rationale": "ANSYS Fluent 2022R2 used under institutional license with version-locked configuration files stored in Git repository. Release notes and known-issue log reviewed; no relevant defects identified for rotating machinery hemolysis simulations."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Numerical code verification",
+      "type": "CredibilityFactor",
+      "requiredLevel": 2,
+      "achievedLevel": 2,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "Observed order of convergence within 10% of nominal scheme order via MMS.",
+      "rationale": "MMS verification confirms second-order spatial accuracy for both momentum and hemolysis scalar transport equations. Observed orders 1.97 and 1.94 respectively, both within 3% of nominal order 2.0."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Discretization error",
+      "type": "CredibilityFactor",
+      "requiredLevel": 2,
+      "achievedLevel": 2,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "GCI on fine mesh < 5% for NIH quantity of interest.",
+      "rationale": "Three-level mesh refinement study yields GCI = 3.2% on the 18.4M-cell mesh. Richardson extrapolation applied; asymptotic range confirmed. Discretization error contribution to NIH is within acceptable bounds for MRL 2."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Test conditions",
+      "type": "CredibilityFactor",
+      "requiredLevel": 2,
+      "achievedLevel": 2,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "Experimental test conditions documented and traceable to FDA benchmark protocol; key boundary conditions (flow rate, rotational speed, fluid temperature) within ±5% of CFD inputs.",
+      "rationale": "FDA benchmark experimental data used for validation. Flow rate controlled to ±2%, rotational speed to ±0.5%, blood analog viscosity characterized at test temperature. Boundary condition fidelity confirmed."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Output comparison",
+      "type": "CredibilityFactor",
+      "requiredLevel": 2,
+      "achievedLevel": 2,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "Relative error between predicted and measured NIH < 15% at validation operating point.",
+      "rationale": "NIH relative error of 6.8% at 4 L/min, 3000 RPM satisfies the 15% threshold. Validation is performed at a single steady-state operating point representative of the nominal COU condition. The linearity assumption of the Giersiepen-Wurzinger model is implicitly satisfied at this single point because exposure history is monotonically increasing; however, no validation result examines whether linear superposition holds across the full five-point COU envelope, particularly at off-nominal transient ramp conditions."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Relevance of the quantities of interest",
+      "type": "CredibilityFactor",
+      "requiredLevel": 2,
+      "achievedLevel": 2,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "QoI (NIH and relative hemolysis index RH) must be directly linked to the clinical decision criterion.",
+      "rationale": "NIH is the primary FDA-recognized hemolysis metric for blood-contacting devices. RH < 1 acceptance criterion directly maps to the regulatory decision of non-inferiority relative to predicate device. Both QoIs are standard outputs of the Giersiepen-Wurzinger power-law model integrated along Lagrangian pathlines."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Relevance of the validation activities to the COU",
+      "type": "CredibilityFactor",
+      "requiredLevel": 2,
+      "achievedLevel": 2,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "Validation geometry, fluid, and operating conditions must be sufficiently similar to COU to support extrapolation of credibility evidence.",
+      "rationale": "Validation uses the FDA generic centrifugal pump geometry identical to the COU device. Blood analog fluid (glycerol-water) matches COU viscosity within 4%. Validation operating point (4 L/min, 3000 RPM) falls within the COU envelope. Note: validation covers only one of five COU operating points; the power-law linearity assumption that enables interpolation across all five points is stated but not independently verified."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Numerical solver error",
+      "type": "CredibilityFactor",
+      "requiredLevel": 1,
+      "achievedLevel": 1,
+      "factorStatus": "not-assessed",
+      "acceptanceCriteria": "Not required at MRL 2 for this factor.",
+      "rationale": "Per ASME V&V 40 Table 3, numerical solver error beyond code verification is not required at MRL 2. Scoped out of this assessment."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Use error",
+      "type": "CredibilityFactor",
+      "requiredLevel": 1,
+      "achievedLevel": 1,
+      "factorStatus": "not-assessed",
+      "acceptanceCriteria": "Not required at MRL 2.",
+      "rationale": "Use error assessment is not required at MRL 2. The simulation team follows internal SOPs for boundary condition setup and post-processing, providing informal protection against use error without formal assessment."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Model form",
+      "type": "CredibilityFactor",
+      "requiredLevel": 2,
+      "achievedLevel": 2,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "Model form selection justified by literature precedent and scope of intended use; turbulence model appropriate for rotating machinery hemolysis prediction.",
+      "rationale": "SST k-omega turbulence closure selected based on published benchmark studies for centrifugal blood pumps demonstrating superior near-wall shear stress accuracy relative to k-epsilon variants. Giersiepen-Wurzinger power-law hemolysis model selected as the industry-standard formulation for regulatory submissions. The model derivation explicitly assumes that cumulative red blood cell damage is a linear function of shear stress exposure time integrated along individual pathlines — i.e., damage contributions are independently additive. This assumption is stated as a theoretical precondition for valid model application. The package does not include a validation result or sensitivity analysis confirming that this linear superposition condition is satisfied across all five COU operating points, particularly the higher-speed, higher-shear conditions at 5000 RPM where erythrocyte viscoelastic memory effects may introduce non-linear damage accumulation."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Model inputs",
+      "type": "CredibilityFactor",
+      "requiredLevel": 2,
+      "achievedLevel": 2,
+      "factorStatus": "assessed",
+      "acceptanceCriteria": "All material properties and boundary conditions documented with uncertainty ranges; sensitivity of NIH to input variability quantified.",
+      "rationale": "Blood analog density (1056 kg/m³ ± 0.5%), dynamic viscosity (0.0035 Pa·s ± 3%), and inlet flow waveform characterized. One-at-a-time sensitivity study shows NIH sensitivity to viscosity is 0.8 (NIH changes 0.8% per 1% viscosity change), confirming low parametric sensitivity. Rotational speed uncertainty ±0.5% contributes NIH uncertainty of ±1.2%."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Test samples",
+      "type": "CredibilityFactor",
+      "requiredLevel": 1,
+      "achievedLevel": 1,
+      "factorStatus": "not-assessed",
+      "acceptanceCriteria": "Not required at MRL 2.",
+      "rationale": "Formal test sample characterization beyond what is documented in the FDA benchmark protocol is not required at MRL 2. FDA benchmark data provides sufficient sample documentation for this assessment level."
+    },
+    {
+      "factorStandard": "ASME-VV40-2018",
+      "factorType": "Equivalency of input parameters",
+      "type": "CredibilityFactor",
+      "requiredLevel": 1,
+      "achievedLevel": 1,
+      "factorStatus": "not-assessed",
+      "acceptanceCriteria": "Not required at MRL 2.",
+      "rationale": "Equivalency of input parameters between validation and COU conditions is not formally required at MRL 2. Qualitative similarity has been noted in the relevance of validation activities assessment above."
+    }
+  ],
+  "hasWeakener": [],
+  "hasDecisionRecord": {
+    "id": "https://uofa.net/synth/decision/morrison-cou1-accepted-2026",
+    "type": "DecisionRecord",
+    "actor": "https://uofa.net/synth/actor/morrison-credibility-team",
+    "role": "Credibility assessment team",
+    "outcome": "Accepted",
+    "rationale": "All seven assessed credibility factors meet or exceed required levels for MRL 2. Six factors are not assessed, consistent with MRL 2 requirements per ASME V&V 40 Table 3. The CFD model demonstrates acceptable fidelity at the nominal validation operating point (NIH error 6.8%). The Giersiepen-Wurzinger power-law model with linear damage superposition is accepted as the regulatory standard formulation. The assessment team concludes that the model is credible for identifying worst-case hemolysis operating conditions across the five COU flow-speed combinations, with RH < 1 confirmed at all five points. The overall credibility evidence is judged sufficient to support the Class II device submission decision.",
+    "decidedAt": "2026-04-19T00:00:00Z"
+  },
+  "adversarialProvenance": {
+    "generatorVersion": "0.1.0",
+    "toolVersion": "uofa-cli 0.5.0",
+    "promptTemplateVersion": "v1.0.0",
+    "promptTemplateId": "clarissa_machinery.clarissa_machinery_workflow_theory_preconditions",
+    "specId": "adv-2026-p2-122-theory-preconditions",
+    "specPath": "/tmp/holdout_specs/gp/clarissa_wf_theory_preconditions.yaml",
+    "specHash": "sha256:889d2e5dc041ab551ebf7774acc49fd7124bf8d62ca0e5d93e7eddc5acc6ccc3",
+    "generationModel": "claude-sonnet-4-6",
+    "modelParams": {
+      "max_tokens": 8000,
+      "temperature": 0.7
+    },
+    "callMetadata": {
+      "dropParamsActive": true,
+      "deprecationFallbackFired": false,
+      "shaclRetries": 1,
+      "modelRequested": "claude-sonnet-4-6",
+      "modelReturned": "claude-sonnet-4-6",
+      "litellmVersion": "1.63.7"
+    },
+    "generationTimestamp": "2026-04-29T05:51:59Z",
+    "targetWeakener": null,
+    "targetDefeaterType": null,
+    "coverageIntent": "gap_probe",
+    "sourceTaxonomy": "clarissa-machinery/workflow/theory-preconditions",
+    "subtletyLevel": "high",
+    "tokens": 7418,
+    "variantNum": 1,
+    "provenanceBlockHash": "sha256:d34daacb9ed5dc92012a9373f20da40b526f161d94e233b8a77321e9e48b982e"
+  }
+}
