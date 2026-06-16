@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PhysMAP, a credibility guardrail for surrogate models</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');
+
+:root{
+  --ink:#14233B;
+  --ink-soft:#3C4B64;
+  --steel:#74839A;
+  --line:#DBE1EA;
+  --paper:#FAFBFC;
+  --signal:#C2410C;
+  --ok:#0E766E;
+  --panel:#0E1B2A;
+  --panel-line:#2A3B51;
+  --panel-dim:#8FA1B8;
+  --panel-light:#E7EDF4;
+}
+
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  background:#E9ECEF;
+  font-family:'IBM Plex Sans',system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  color:var(--ink);
+  -webkit-font-smoothing:antialiased;
+}
+
+.sheet{
+  width:8.5in;
+  min-height:11in;
+  margin:24px auto;
+  background:var(--paper);
+  padding:0.5in 0.55in 0.42in;
+  box-shadow:0 10px 44px rgba(20,35,59,.20);
+  position:relative;
+}
+
+.banner{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:8.5px;
+  letter-spacing:.17em;
+  color:var(--steel);
+  text-transform:uppercase;
+  border-bottom:1px solid var(--line);
+  padding-bottom:8px;
+  display:flex;
+  flex-wrap:wrap;
+  gap:5px 13px;
+}
+.banner b{color:var(--signal);font-weight:600;}
+
+.head{padding:13px 0 11px;border-bottom:1px solid var(--line);}
+.mark{
+  font-weight:700;
+  font-size:44px;
+  letter-spacing:-.02em;
+  line-height:.95;
+  color:var(--ink);
+}
+.mark span{color:var(--signal);}
+.tag{
+  font-size:12px;
+  font-weight:600;
+  color:var(--ink-soft);
+  margin-top:6px;
+}
+.def{
+  font-size:11.5px;
+  line-height:1.45;
+  color:var(--ink-soft);
+  margin-top:7px;
+  max-width:6.7in;
+}
+.def b{color:var(--ink);font-weight:600;}
+.byline{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:9px;
+  letter-spacing:.04em;
+  color:var(--steel);
+  margin-top:9px;
+}
+
+.eyebrow{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:8.5px;
+  letter-spacing:.2em;
+  text-transform:uppercase;
+  color:var(--signal);
+  margin-bottom:6px;
+}
+.eyebrow.muted{color:var(--steel);}
+
+.problem{padding:11px 0;border-bottom:1px solid var(--line);}
+.problem p{
+  margin:0;
+  font-size:12.5px;
+  line-height:1.46;
+  color:var(--ink);
+  max-width:7.1in;
+}
+.problem b{font-weight:600;}
+
+.pillars{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:18px;
+  padding:11px 0;
+  border-bottom:1px solid var(--line);
+}
+.pill .lbl{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:8.5px;
+  letter-spacing:.07em;
+  color:var(--steel);
+  margin-bottom:5px;
+}
+.pill .lbl em{color:var(--ink);font-style:normal;font-weight:600;}
+.pill h3{
+  margin:0 0 5px;
+  font-size:11.5px;
+  font-weight:600;
+  color:var(--ink);
+}
+.pill p{
+  margin:0;
+  font-size:10.5px;
+  line-height:1.4;
+  color:var(--ink-soft);
+}
+
+.sig{padding:11px 0;border-bottom:1px solid var(--line);}
+.sig-grid{display:grid;grid-template-columns:1.5fr 1fr;gap:16px;align-items:center;}
+
+.figwrap{display:flex;flex-direction:column;justify-content:center;}
+.benchfig{width:100%;height:auto;border:1px solid var(--line);border-radius:6px;display:block;background:#fff;}
+.fig-note{font-size:9.3px;line-height:1.38;color:var(--ink-soft);margin-top:7px;}
+.fig-note b{color:var(--ink);font-weight:600;}
+
+.console{
+  background:var(--panel);
+  border-radius:6px;
+  padding:12px 14px;
+  font-family:'IBM Plex Mono',monospace;
+  font-size:9.6px;
+  line-height:1.5;
+  color:var(--panel-light);
+}
+.console .call{color:#9FE7DF;font-weight:500;}
+.console .op{color:var(--panel-dim);margin-top:2px;}
+.console .row{display:flex;gap:8px;margin-top:5px;}
+.console .k{color:var(--panel-dim);width:70px;flex:none;}
+.console .quiet{color:#A7B6C9;}
+.console .reject{color:#FB923C;font-weight:600;letter-spacing:.04em;}
+.console .ub{color:#FB923C;font-weight:600;}
+.console hr{border:none;border-top:1px solid var(--panel-line);margin:8px 0;}
+.console .rat{color:#C7D3E1;display:block;font-size:9px;}
+.console .rat b{color:#FB923C;font-weight:600;}
+
+.why{padding:10px 0;border-bottom:1px solid var(--line);}
+.why p{margin:0;font-size:11px;line-height:1.46;color:var(--ink-soft);max-width:7.1in;}
+.why b{color:var(--ink);font-weight:600;}
+
+.access{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;padding:11px 0 10px;}
+.acc .lbl{
+  font-family:'IBM Plex Mono',monospace;font-size:8.5px;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--signal);margin-bottom:5px;
+}
+.acc h4{margin:0 0 4px;font-size:10.5px;font-weight:600;color:var(--ink);}
+.acc p{margin:0;font-size:9.7px;line-height:1.4;color:var(--ink-soft);}
+.acc code{font-family:'IBM Plex Mono',monospace;font-size:9.3px;color:var(--ink-soft);}
+
+.foot{
+  border-top:1px solid var(--line);
+  padding-top:8px;
+  font-family:'IBM Plex Mono',monospace;
+  font-size:8.7px;letter-spacing:.03em;color:var(--steel);
+  display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;
+}
+.foot b{color:var(--ink);font-weight:600;}
+
+@media print{
+  body{background:#fff;}
+  .sheet{margin:0;box-shadow:none;width:auto;min-height:auto;}
+  @page{size:Letter;margin:0;}
+}
+</style>
+</head>
+<body>
+<div class="sheet">
+
+  <div class="banner">
+    <span>NASA-STD-7009B</span><span>ASME V&amp;V 40</span><span>DETERMINISTIC · NO LLM</span><span>BUILT ON <b>UofA</b></span><span>OPEN SOURCE</span>
+  </div>
+
+  <div class="head">
+    <div class="mark">Phys<span>MAP</span></div>
+    <div class="tag">A credibility guardrail for engineering surrogate models.</div>
+    <div class="def">It tells you when a learned surrogate is being trusted <b>outside the physics it was validated for</b>, the failure a distance-to-training check can't see.</div>
+    <div class="byline">Vishnu Vettrivel · Doctoral Candidate, Systems Engineering, George Washington University</div>
+  </div>
+
+  <div class="problem">
+    <div class="eyebrow">The problem</div>
+    <p>A surrogate doesn't fail where you're watching. It fails on a physics variable it <b>never took as input</b>. Distance-to-training and uncertainty checks watch the input space, so when the model is pushed past the validity bound of a variable it doesn't even read, they stay quiet. That quiet zone is where deployed surrogates go wrong.</p>
+  </div>
+
+  <div class="pillars">
+    <div class="pill">
+      <div class="lbl">P1 · <em>KNOWS THE BOUNDS</em></div>
+      <h3>A curated closure corpus</h3>
+      <p>53 published physics correlations, each with its validity bound, bound status, provenance, and geometry class. Hand-curated and literature-cited, so it can't be derived from your input statistics.</p>
+    </div>
+    <div class="pill">
+      <div class="lbl">P2 · <em>SEES THE BLIND SPOT</em></div>
+      <h3>Observability-weighted detection</h3>
+      <p>Each validity variable is classed as observable or unobservable to the surrogate's inputs. An unobservable breach is weighted higher, because that's the one your baseline structurally can't catch.</p>
+    </div>
+    <div class="pill">
+      <div class="lbl">P3 · <em>RENDERS A VERDICT</em></div>
+      <h3>Deterministic, no LLM</h3>
+      <p>Every operating point gets a verdict (TRUSTWORTHY, WARN, REJECT, UNCERTAIN) with a plain rationale and no threshold tuning. Auditable, and it pins in CI.</p>
+    </div>
+  </div>
+
+  <div class="sig">
+    <div class="eyebrow muted">The proof</div>
+    <div class="sig-grid">
+      <div class="figwrap">
+        <img class="benchfig" src="physmap-bench.png" alt="PhysMAP benchmark: corpus advantage tracks observability position">
+        <div class="fig-note">Clean-lift rate is high where the failure driver is invisible to the surrogate's inputs and collapses to zero where the driver is an input. Both domains interleave along the axis. <b>7 vehicles, n=219.</b></div>
+      </div>
+      <div class="console">
+        <div class="call">g = CredibilityGuardrail.fit(surrogate)</div>
+        <div class="call">g.assess(op)</div>
+        <div class="op"># op: Re=4.2e4 Pr=0.71 x/D=5</div>
+        <hr>
+        <div class="row"><span class="k">matched</span><span>gnielinski-1976</span></div>
+        <div class="row"><span class="k">breach</span><span>x/D &#8805; 10 (deploy 5)</span></div>
+        <div class="row"><span class="k">observ.</span><span>x/D <span class="ub">UNOBSERVABLE</span></span></div>
+        <div class="row"><span class="k">baseline</span><span class="quiet">QUIET</span></div>
+        <div class="row"><span class="k">PhysMAP</span><span class="reject">REJECT</span></div>
+        <hr>
+        <span class="rat">relies on gnielinski-1976 beyond its x/D &#8805; 10 bound; x/D is not an input, so input-space checks can't see it.</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="why">
+    <div class="eyebrow muted">Why it might fit you</div>
+    <p>Works on any learned surrogate that maps inputs to a physical quantity. <b>Demonstrated on a 7-vehicle benchmark</b> across thermal-fluids, aerospace, and hemodynamics, on real measured data, where the corpus localizes the failures a steelman statistical baseline stays silent on. Verdicts are emitted as <b>machine-verifiable credibility evidence in the UofA vocabulary</b>, with a NASA-STD-7009B pack for aerospace. It sits beside your UQ and out-of-distribution checks; it catches what they can't see, it doesn't replace them.</p>
+  </div>
+
+  <div class="access">
+    <div class="acc">
+      <div class="lbl">Built on UofA</div>
+      <h4>Verdicts as signed evidence</h4>
+      <p><code>uofa.net</code><br><code>github.com/cloudronin/uofa</code></p>
+    </div>
+    <div class="acc">
+      <div class="lbl">See it run</div>
+      <h4>Live walkthrough on request</h4>
+      <p>Email <code>physmap@uofa.net</code> for a short session on the benchmark, baseline quiet versus corpus fires.</p>
+    </div>
+    <div class="acc">
+      <div class="lbl">The ask</div>
+      <h4>Bring one of your own</h4>
+      <p>Send one surrogate you deploy and the operating point you use it at. I'll show you whether your current checks would have flagged it, and whether PhysMAP would.</p>
+    </div>
+  </div>
+
+  <div class="foot">
+    <span>PhysMAP builds on the Unit of Assurance (UofA).</span>
+    <span><b>Vishnu Vettrivel</b> · physmap@uofa.net · uofa.net</span>
+  </div>
+
+</div>
+</body>
+</html>
