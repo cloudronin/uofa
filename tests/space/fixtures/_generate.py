@@ -4,7 +4,12 @@ Run:  python tests/space/fixtures/_generate.py
 
 What is source-exact (deterministic, from packs/vv40/examples/morrison/cou{1,2}):
   - the weakener firings (pattern ids, severities, hits, descriptions, the
-    factor IRIs each targets) - straight from the rule engine on the real bundle;
+    factor IRIs each targets) - straight from the rule engine on the real bundle.
+    summary.compute additionally attaches each firing's *semantic* factor focus
+    (summary._PATTERN_FACTOR_FOCUS) so a validation/COU-scoped concern demotes
+    the credibility factor it implicates - e.g. W-AR-05/W-PROV-01 (absent or
+    unprovenanced comparator data) -> "Output comparison"; W-ON-02 (undocumented
+    COU envelope) -> "Relevance of the validation activities to the COU";
   - the COU name/description (from the bundle);
   - structural conformance (from SHACL on the real bundle).
 

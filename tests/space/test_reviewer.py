@@ -105,20 +105,32 @@ def test_cou2_no_longer_self_contradicts():
     # The Build B case: must NOT show 100%/all-evidenced next to High concerns.
     html = _html("cou2")
     assert "<dt>Completeness</dt><dd>100%</dd>" not in html
-    assert "<dt>Completeness</dt><dd>54%</dd>" in html
-    assert "54% of all factors evidenced" in html
-    assert "6 factors required at Level 5 still need evidence" in html
-    assert "Not stated" in html                       # the W-EP-04 factors, demoted/unassessed
+    assert "<dt>Completeness</dt><dd>38%</dd>" in html
+    assert "38% of all factors evidenced" in html
+    assert "8 factors required at Level 5 still need evidence" in html
+    assert "Not stated" in html                       # W-EP-04 unassessed + provenance/COU demotions
 
 
 def test_cou1_high_completeness_reframed_not_all_clear():
     # The reframing path: high factor-completeness, but concerns keep it from
     # reading "all accounted for".
     html = _html("cou1")
-    assert "85% of all factors evidenced" in html
+    assert "69% of all factors evidenced" in html
     assert "high-severity concerns remain open before this is review-ready" in html
     assert "all factors required at Level 2 are accounted for" not in html
     assert "Not applicable" in html                   # the scoped-out factors
+
+
+def test_validation_scoped_concern_demotes_its_semantic_factor():
+    # The engine-layer fix: a validation/COU-scoped concern that targets no
+    # factor IRI still demotes the factor it implicates, via summary's
+    # _PATTERN_FACTOR_FOCUS. W-PROV-01 (provenance) -> "Output comparison".
+    from space.reviewer_state import Status, build_reviewer_state
+    state = build_reviewer_state(_payload("cou2"), GLOSS)
+    oc = next(f for f in state.factors if f.name == "Output comparison")
+    assert oc.status is Status.NOT_STATED
+    assert "W-PROV-01" in oc.targeting_weakeners
+    assert "Relates to: Output comparison" in _html("cou2")
 
 
 @pytest.mark.parametrize("cou", ["cou1", "cou2"])
