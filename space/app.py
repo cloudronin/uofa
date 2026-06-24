@@ -42,34 +42,73 @@ COLD_START_NOTE = (
 # default white, since there's no dark parent behind it inside the frame). A
 # neutral gray hue sits closer to the site's near-black than gradio's slate.
 # Block borders/shadows are zeroed to avoid stray divider rules.
+# Match uofa.net exactly (tokens from site/src/styles/custom.css): flat black
+# #0c0d0e everywhere, only inputs elevated to #131418 so the actionable areas
+# read as interactive. Body = IBM Plex Sans, mono = IBM Plex Mono (headings use
+# Fraunces via CSS below). Text #e8e6e1 / muted #9a988f, border #25262c. The app
+# is forced dark via ?__theme=dark in the embed, so the _dark variants render.
 THEME = gr.themes.Base(
     primary_hue=gr.themes.colors.orange,
     neutral_hue=gr.themes.colors.gray,
+    font=[gr.themes.GoogleFont("IBM Plex Sans"), "ui-sans-serif", "system-ui", "sans-serif"],
+    font_mono=[gr.themes.GoogleFont("IBM Plex Mono"), "ui-monospace", "monospace"],
 ).set(
+    body_background_fill="#0c0d0e",
+    body_background_fill_dark="#0c0d0e",
+    background_fill_primary_dark="#0c0d0e",
+    background_fill_secondary_dark="#0c0d0e",
+    block_background_fill_dark="#0c0d0e",
     block_border_width="0px",
     block_shadow="none",
     panel_border_width="0px",
+    border_color_primary_dark="#25262c",
+    body_text_color_dark="#e8e6e1",
+    body_text_color_subdued_dark="#9a988f",
+    input_background_fill_dark="#131418",   # actionable inputs stay elevated
+    input_border_color_dark="#25262c",
 )
 
 CSS = """
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500&display=swap');
+
 .gradio-container { max-width: 900px !important; margin: 0 auto !important;
-  font-family: var(--sl-font, Inter, system-ui, sans-serif); }
-/* Long headlines must wrap, not clip, at narrow widths. */
+  font-family: 'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif;
+  font-size: 16px; line-height: 1.65; color: #e8e6e1; background: #0c0d0e; }
+
+/* Headings: Fraunces serif at uofa.net sizes/weights. */
 .gradio-container h1, .gradio-container h2, .gradio-container h3 {
-  overflow-wrap: anywhere; word-break: break-word; white-space: normal;
-  font-size: clamp(1.1rem, 4vw, 1.6rem); line-height: 1.3; }
+  font-family: 'Fraunces', ui-serif, Georgia, serif; color: #e8e6e1;
+  letter-spacing: -0.02em; line-height: 1.15;
+  overflow-wrap: anywhere; word-break: break-word; white-space: normal; }
+.gradio-container h1 { font-size: clamp(2.2rem, 5vw, 3.2rem); font-weight: 400; }
+.gradio-container h2 { font-size: 1.875rem; font-weight: 500; }
+.gradio-container h3 { font-size: 1.375rem; font-weight: 500; }
+
+/* Inline emphasis + code, like the site (italic -> brass accent). */
+.gradio-container em { color: #d4a35a; font-style: italic; }
+.gradio-container strong { color: #e8e6e1; font-weight: 500; }
+.gradio-container code { font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  background: #131418; border: 1px solid #25262c; color: #d4a35a;
+  padding: 1px 6px; border-radius: 4px; }
+
+/* Flatten text containers (groups/blocks) to the page black; inputs/buttons
+   keep their elevation via the theme tokens. */
+.gradio-container .block, .gradio-container .form,
+.gradio-container .gr-group, .gradio-container .panel,
+.gradio-container .gap { background: #0c0d0e !important; }
+
 /* Hide the default Gradio footer (Use via API / Built with Gradio / Settings). */
 footer { display: none !important; }
 /* Empty/placeholder markdown blocks must not render as stray rules. */
 .prose:empty, .md:empty { display: none !important; margin: 0 !important;
   padding: 0 !important; border: 0 !important; }
-/* Themed focus ring (replaces the browser-default blue). */
-*:focus-visible { outline: 2px solid var(--sl-color-accent, #f97316) !important;
+/* Focus ring in the site's brass accent. */
+*:focus-visible { outline: 2px solid #d4a35a !important;
   outline-offset: 2px; border-radius: 4px; }
 /* Lightweight step header. */
 .step-tag { font-size: 0.8rem; letter-spacing: 0.04em; text-transform: uppercase;
-  opacity: 0.7; margin-bottom: 0.25rem; }
-.factor-levels { opacity: 0.6; font-size: 0.85em; }
+  color: #9a988f; margin-bottom: 0.25rem; }
+.factor-levels { color: #9a988f; font-size: 0.85em; }
 """
 
 
