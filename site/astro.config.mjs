@@ -60,7 +60,8 @@ export default defineConfig({
           label: 'Get Started',
           items: [
             { label: 'Overview', link: '/start/' },
-            { label: 'Live demo (Morrison)', link: '/demo/' },
+            { label: 'Live demo (Gap-Finder)', link: '/demo/' },
+            { label: 'NAFEMS reproduction', link: '/demo/nafems/' },
             { label: 'Install', link: '/start/install/' },
             { label: 'Your first UofA', link: '/start/first-uofa/' },
             { label: 'Authoring on-ramp', link: '/start/from-excel/' },

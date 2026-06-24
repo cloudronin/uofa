@@ -1,0 +1,32 @@
+---
+// Embeds the HuggingFace Gap-Finder Space via the Gradio web component.
+// The web component auto-resizes as the multi-step wizard changes height,
+// which a fixed-height iframe cannot do. Pinned to dark for v1 (the app is
+// dark-only today); revisit light/auto support later.
+//
+// Set the Space host via the PUBLIC_GAPFINDER_SPACE_URL env var at build time,
+// or pass `src` explicitly. Until the Space is deployed this falls back to a
+// clearly-marked placeholder.
+const GRADIO_VERSION = "6.19.0"; // keep in sync with the Space's gradio version
+const {
+  src = import.meta.env.PUBLIC_GAPFINDER_SPACE_URL ??
+    "https://REPLACE-WITH-SPACE-HOST.hf.space",
+} = Astro.props;
+const themed = src.includes("__theme=")
+  ? src
+  : `${src}${src.includes("?") ? "&" : "?"}__theme=dark`;
+const gradioJs = `https://gradio.s3-us-west-2.amazonaws.com/${GRADIO_VERSION}/gradio.js`;
+const isPlaceholder = themed.includes("REPLACE-WITH-SPACE-HOST");
+---
+
+{
+  isPlaceholder && (
+    <p style="border:1px solid var(--sl-color-orange); padding:0.75rem 1rem; border-radius:0.5rem;">
+      <strong>Embed not yet configured.</strong> Set <code>PUBLIC_GAPFINDER_SPACE_URL</code>{" "}
+      to the deployed HuggingFace Space host to activate the interactive Gap-Finder here.
+    </p>
+  )
+}
+
+<script is:inline type="module" src={gradioJs}></script>
+<gradio-app src={themed}></gradio-app>

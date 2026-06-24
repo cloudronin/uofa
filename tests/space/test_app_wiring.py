@@ -1,0 +1,98 @@
+"""S2 app-wiring tests — handler output arity must match each `outputs` list.
+
+A Gradio handler that returns the wrong number of values silently misaligns
+component updates at runtime (not at build). These tests pin the arities and
+drive the handlers with the mock model so the wiring is exercised end to end
+without launching a browser.
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+import pytest
+
+pytest.importorskip("gradio")
+
+from space import app, wizard
+
+# Declared outputs arity for each handler (kept in lockstep with build()).
+N_PREPARE = 12
+N_EXTRACT = 8
+N_FINALIZE = 7
+N_START_OVER = 11
+
+
+@pytest.fixture(autouse=True)
+def _mock_model(monkeypatch):
+    monkeypatch.setattr(app, "_MODEL", "mock")
+
+
+def _src(tmp_path: Path, text="ASME V&V 40 context of use, model risk.") -> Path:
+    d = tmp_path / "src"
+    d.mkdir(exist_ok=True)
+    (d / "evidence.txt").write_text(text, encoding="utf-8")
+    return d
+
+
+def test_detect_empty_yields_prepare_arity():
+    outs = list(app._detect_from_upload([]))
+    assert outs and all(len(o) == N_PREPARE for o in outs)
+
+
+def test_stream_prepare_arity_and_reveals_route(tmp_path):
+    outs = list(app._stream_prepare([_src(tmp_path)], "upload"))
+    assert all(len(o) == N_PREPARE for o in outs)
+    # Final tuple reveals the route group (index 2 visible=True).
+    final = outs[-1]
+    assert final[2]["visible"] is True
+
+
+def test_run_extract_arity_and_reveals_confirm(tmp_path):
+    prep = wizard.prepare([_src(tmp_path)])
+    corpus = prep.payload["corpus"]
+    outs = list(app._run_extract(corpus, "vv40"))
+    assert all(len(o) == N_EXTRACT for o in outs)
+    final = outs[-1]
+    assert final[2]["visible"] is True  # confirm_group shown
+    assert isinstance(final[6], dict) and final[6]  # status_state seeded
+
+
+def test_finalize_arity_success_and_failure(tmp_path):
+    prep = wizard.prepare([_src(tmp_path)])
+    ext = wizard.extract(prep.payload["corpus"], "vv40", model="mock")
+    result = ext.payload["result"]
+
+    ok = app._finalize(result, "vv40", {"Use error": "not-assessed"}, [], "upload")
+    assert len(ok) == N_FINALIZE
+    assert ok[1]["visible"] is True  # summary_group shown
+    assert "12 of 13" in ok[5]["value"]                       # completeness now in the tail panel
+    assert isinstance(ok[6], dict) and ok[6]["completeness"]["n_assessed"] == 12  # summary_state
+    # Gap-Finder ordering: the weakeners/not-assessed panel (index 4) precedes the
+    # completeness panel (index 5) in the summary group.
+    assert "Weakeners" in ok[4]["value"] or "Not assessed" in ok[4]["value"]
+    assert "Completeness" in ok[5]["value"]
+
+    # None result -> finalize fails gracefully, still correct arity.
+    bad = app._finalize(None, "vv40", {}, [], "upload")
+    assert len(bad) == N_FINALIZE
+    assert bad[2]["visible"] is True  # error_md shown
+    assert bad[6] is None  # no summary on failure
+
+
+def test_capture_glue(monkeypatch):
+    from space.leadcapture import CaptureResult
+
+    monkeypatch.setattr(app.leadcapture, "capture_lead",
+                        lambda *a, **k: CaptureResult(False, "invalid", "bad"))
+    assert "valid" in app._capture("nope", "vv40", None)["value"].lower()
+
+    monkeypatch.setattr(app.leadcapture, "capture_lead",
+                        lambda *a, **k: CaptureResult(True, "dataset", "stored"))
+    good = app._capture("user@org.com", "vv40", {"completeness": {}})
+    assert good["visible"] is True
+    assert "not stored" in good["value"].lower()  # evidence-privacy reassurance
+
+
+def test_start_over_arity():
+    assert len(app._start_over()) == N_START_OVER
