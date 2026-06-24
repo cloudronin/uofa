@@ -78,9 +78,10 @@ WORKDIR /home/user/app
 # pull at run time.
 RUN set -eu; \
     ollama serve >/tmp/ollama-build.log 2>&1 & \
+    SERVE_PID=$!; \
     for _ in $(seq 1 60); do curl -sf http://127.0.0.1:11434/api/version >/dev/null 2>&1 && break; sleep 1; done; \
     ollama pull qwen3.5:4b; \
-    pkill -f "ollama serve" || true
+    kill "$SERVE_PID" 2>/dev/null || true
 
 EXPOSE 7860
 ENTRYPOINT ["bash", "space/start.sh"]

@@ -6,7 +6,7 @@ colorTo: indigo
 sdk: docker
 app_port: 7860
 pinned: false
-short_description: Find credibility-evidence gaps against ASME V&V 40 / NASA-STD-7009B
+short_description: Find credibility-evidence gaps vs V&V 40 or NASA-7009B
 ---
 
 # UofA Gap-Finder
