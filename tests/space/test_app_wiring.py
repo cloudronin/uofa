@@ -19,8 +19,8 @@ from space import app, wizard
 # Declared outputs arity for each handler (kept in lockstep with build()).
 N_PREPARE = 12
 N_EXTRACT = 8
-N_FINALIZE = 8       # +reviewer_html
-N_START_OVER = 14    # +view_toggle, author_panel, reviewer_panel
+N_FINALIZE = 11      # +reviewer_html, +view_toggle/author_panel/reviewer_panel (this handler owns the view)
+N_START_OVER = 25    # groups + read/extract progress + cleared content surfaces + states + view
 
 
 @pytest.fixture(autouse=True)
@@ -114,3 +114,14 @@ def test_capture_glue(monkeypatch):
 
 def test_start_over_arity():
     assert len(app._start_over()) == N_START_OVER
+
+
+def test_start_over_blanks_content_not_just_groups():
+    # Start over must clear the result surfaces (reviewer HTML, author markdowns,
+    # picked file), not only hide the step groups — otherwise a stale report
+    # shows through. Asserts every gr.update among the returns that carries a
+    # value sets it to empty/None (no leftover text).
+    outs = app._start_over()
+    cleared = [o for o in outs if isinstance(o, dict) and "value" in o and o.get("value")]
+    # The only non-empty value Start over sets is the view toggle default.
+    assert all(o.get("value") == "Reviewer" for o in cleared), cleared

@@ -281,7 +281,8 @@ def _finalize(result, pack, status_state, warnings, source_name):
     )
     if not outcome.ok:
         return (_show(), _hide(), gr.update(value=f"⚠️ {outcome.user_message}", visible=True),
-                gr.update(), gr.update(), gr.update(), None, gr.update())
+                gr.update(), gr.update(), gr.update(), None, gr.update(),
+                gr.update(), gr.update(), gr.update())  # view_toggle, author_panel, reviewer_panel (no-op)
 
     p = outcome.payload
     c = p["completeness"]
@@ -340,6 +341,11 @@ def _finalize(result, pack, status_state, warnings, source_name):
         gr.update(value=tail_md),             # structural_md (author: completeness + structural)
         p,                                    # summary_state (for lead capture)
         gr.update(value=reviewer_html),       # reviewer_html (reviewer view)
+        # This handler owns showing the result: default to the Reviewer view so a
+        # run always opens on it, regardless of the toggle's prior position.
+        gr.update(value="Reviewer"),          # view_toggle
+        _hide(),                              # author_panel
+        _show(),                              # reviewer_panel
     )
 
 
@@ -363,12 +369,33 @@ def _switch_view(choice):
 
 
 def _start_over():
+    """Full reset to step 1. Hiding the step groups is not enough: the result
+    components (reviewer HTML, the author markdowns, the picked file) keep their
+    last values, so a stale report shows through if a group ever fails to
+    collapse. Blank every content surface as well as resetting the states, so
+    Start over always lands on a clean upload step."""
     return (
+        # step groups
         _show(), _hide(), _hide(), _hide(), _hide(),   # upload, route, extract, confirm, summary
+        _hide(), _hide(),                              # read_progress, extract_progress
+        # content surfaces (cleared, not just hidden)
         gr.update(value="", visible=False),            # error_md
-        None, None, None, {}, None,                    # corpus, decision, result, status, warnings
-        gr.update(value="Reviewer"),                   # view_toggle (back to default)
-        _hide(), _show(),                              # author_panel, reviewer_panel
+        gr.update(value=""),                           # confirm_intro
+        gr.update(value=""),                           # reviewer_html
+        gr.update(value=""),                           # summary_md
+        gr.update(value=""),                           # weakeners_md
+        gr.update(value=""),                           # structural_md
+        gr.update(value="", visible=False),            # capture_msg
+        gr.update(value=""),                           # email_box
+        gr.update(value=None),                         # file_input
+        # states
+        None, None, None, {}, None, None,              # corpus, decision, result, status, warnings, summary
+        # view: reset the toggle to its default and hide BOTH panels. A panel must
+        # never be shown while its parent summary_group is hidden: Gradio renders
+        # the visible child and drags the hidden parent back into view. _finalize
+        # (which actually shows summary_group) owns re-showing the reviewer panel.
+        gr.update(value="Reviewer"),                   # view_toggle
+        _hide(), _hide(),                              # author_panel, reviewer_panel
     )
 
 
@@ -502,11 +529,16 @@ def build() -> gr.Blocks:
             _finalize,
             inputs=[result_state, pack_radio, status_state, warnings_state, source_name_state],
             outputs=[confirm_group, summary_group, error_md, summary_md, weakeners_md,
-                     structural_md, summary_state, reviewer_html],
+                     structural_md, summary_state, reviewer_html,
+                     view_toggle, author_panel, reviewer_panel],
         )
 
-        view_toggle.change(_switch_view, inputs=[view_toggle],
-                           outputs=[author_panel, reviewer_panel])
+        # `.input` (user-interaction only), NOT `.change`: a programmatic reset of
+        # the toggle (Start over sets it back to "Reviewer") must not re-fire
+        # _switch_view, which would re-show reviewer_panel and drag its hidden
+        # parent (summary_group) back into view, leaving a stray panel after reset.
+        view_toggle.input(_switch_view, inputs=[view_toggle],
+                          outputs=[author_panel, reviewer_panel])
 
         pdf_btn.click(None, js=_PRINT_JS)  # client-side print, no pipeline work
 
@@ -516,8 +548,12 @@ def build() -> gr.Blocks:
             _start_over,
             inputs=None,
             outputs=[upload_group, route_group, extract_group, confirm_group, summary_group,
-                     error_md, corpus_state, decision_state, result_state, status_state,
-                     warnings_state, view_toggle, author_panel, reviewer_panel],
+                     read_progress, extract_progress,
+                     error_md, confirm_intro, reviewer_html, summary_md, weakeners_md,
+                     structural_md, capture_msg, email_box, file_input,
+                     corpus_state, decision_state, result_state, status_state,
+                     warnings_state, summary_state,
+                     view_toggle, author_panel, reviewer_panel],
         )
 
     return demo
