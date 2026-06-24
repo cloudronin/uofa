@@ -78,7 +78,8 @@ def test_factors_table_lists_every_expected_factor():
         assert gloss[name]["plain_name"] in html
 
 
-def test_print_button_present_for_pdf():
+def test_reviewer_host_is_the_print_target():
+    # The content is wrapped in #ri-reviewer-host; app.py's Save-as-PDF button
+    # (a gradio Button with js=) clones this host into a clean print window.
     html = render_reviewer_html(_analysis(), load_gloss())
-    assert 'onclick="window.print()"' in html
-    assert 'id="ri-reviewer-host"' in html  # the @media print isolation target
+    assert 'id="ri-reviewer-host"' in html

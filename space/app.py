@@ -121,16 +121,27 @@ footer { display: none !important; }
 .step-tag { font-size: 0.8rem; letter-spacing: 0.04em; text-transform: uppercase;
   color: #9a988f; margin-bottom: 0.25rem; }
 .factor-levels { color: #9a988f; font-size: 0.85em; }
+"""
 
-/* Save-as-PDF: isolate the reviewer panel and print it ink-friendly. The
-   reviewer HTML wraps its content in #ri-reviewer-host. */
-@media print {
-  body * { visibility: hidden !important; }
-  #ri-reviewer-host, #ri-reviewer-host * { visibility: visible !important; }
-  #ri-reviewer-host { position: absolute; left: 0; top: 0; width: 100%; }
-  #ri-reviewer-host .ri-reviewer { color: #000 !important; background: #fff !important; }
-  #ri-reviewer-host .ri-reviewer h2 { color: #000 !important; }
-  #ri-reviewer-host .ri-pdf-btn { display: none !important; }
+# Save-as-PDF: clone the reviewer content (#ri-reviewer-host) into a clean
+# white-background window and print that. Runs as a gradio Button js= handler
+# (gr.HTML may strip inline onclick; a global @media print gets mangled by
+# gradio's CSS scoping). Falls back to window.print() if a popup is blocked.
+_PRINT_JS = """
+() => {
+  const s = document.getElementById('ri-reviewer-host');
+  const w = window.open('', '_blank', 'width=840,height=1100');
+  if (!w) { window.print(); return; }
+  w.document.write('<!doctype html><meta charset=utf-8><title>Credibility Inspector</title>'
+    + '<style>body{font-family:Georgia,serif;color:#111;margin:2.5rem;line-height:1.55}'
+    + 'h2{margin:1.3rem 0 .4rem}.ri-lead{font-size:1.1rem}'
+    + 'table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:6px 8px;'
+    + 'border-bottom:1px solid #ccc;vertical-align:top}th{font-size:.75rem;text-transform:uppercase;color:#555}'
+    + 'dl{display:grid;grid-template-columns:1fr 1fr;gap:8px}dt{color:#555;font-size:.72rem;text-transform:uppercase}dd{margin:0}'
+    + 'pre{background:#f2f2f2;padding:8px;border-radius:4px}.ri-note{color:#555}</style>'
+    + (s ? s.innerHTML : document.body.innerHTML));
+  w.document.close(); w.focus();
+  setTimeout(() => w.print(), 300);
 }
 """
 
@@ -442,6 +453,7 @@ def build() -> gr.Blocks:
             # Reviewer is the default; Author is one toggle away.
             with gr.Group(visible=True) as reviewer_panel:
                 reviewer_html = gr.HTML()
+                pdf_btn = gr.Button("Save as PDF", size="sm")
             with gr.Group(visible=False) as author_panel:
                 summary_md = gr.Markdown()      # headline (gaps-led) + indicative line
                 weakeners_md = gr.Markdown()    # weakeners + not-assessed (the gaps)
@@ -481,6 +493,8 @@ def build() -> gr.Blocks:
 
         view_toggle.change(_switch_view, inputs=[view_toggle],
                            outputs=[author_panel, reviewer_panel])
+
+        pdf_btn.click(None, js=_PRINT_JS)  # client-side print, no pipeline work
 
         capture_btn.click(_capture, inputs=[email_box, pack_radio, summary_state], outputs=[capture_msg])
 

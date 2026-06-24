@@ -224,7 +224,12 @@ _STYLE = """
 
 
 def render_reviewer_html(analysis: dict, gloss: dict | None = None) -> str:
-    """Render the shared analysis object as the reviewer verdict panel."""
+    """Render the shared analysis object as the reviewer verdict panel.
+
+    The content is wrapped in #ri-reviewer-host; the Save-as-PDF button lives in
+    app.py as a gradio Button with a js= handler that clones this host into a
+    clean white print window (gradio may strip inline onclick from gr.HTML, and
+    a global @media print rule gets mangled by gradio's CSS scoping)."""
     ctx = analysis.get("context", {}) or {}
     return (
         _STYLE
@@ -235,6 +240,5 @@ def render_reviewer_html(analysis: dict, gloss: dict | None = None) -> str:
         + _section_concerns(analysis, gloss)
         + _section_missing(analysis, gloss)
         + _section_authenticity(analysis)
-        + '<button class="ri-pdf-btn" onclick="window.print()">Save as PDF</button>'
         + "</div></div>"
     )

@@ -83,6 +83,13 @@ def test_finalize_arity_success_and_failure(tmp_path):
     assert bad[6] is None  # no summary on failure
 
 
+def test_pdf_print_js_targets_reviewer_host():
+    # Save-as-PDF clones #ri-reviewer-host into a standalone white print window.
+    assert "ri-reviewer-host" in app._PRINT_JS
+    assert "window.open(" in app._PRINT_JS
+    assert "color:#111" in app._PRINT_JS  # ink-friendly
+
+
 def test_switch_view_flips_visibility_only():
     # Reviewer default: author hidden, reviewer shown. No pipeline work.
     author, reviewer = app._switch_view("Reviewer")
