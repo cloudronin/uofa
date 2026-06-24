@@ -331,7 +331,7 @@ def _issue_phrase(n: int) -> str:
 
 
 def build() -> gr.Blocks:
-    with gr.Blocks(title="UofA Gap-Finder", analytics_enabled=False) as demo:
+    with gr.Blocks(title="UofA Gap-Finder", analytics_enabled=False, fill_width=True) as demo:
         gr.Markdown("# UofA Gap-Finder\nSee where your model-credibility evidence has "
                     "gaps, against ASME V&V 40 or NASA-STD-7009B.")
 
