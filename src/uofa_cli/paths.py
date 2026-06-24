@@ -156,8 +156,10 @@ def detection_config(manifest: dict) -> dict:
                 "oos": payload.get("oos"),
                 "derivations": payload.get("derivations"),
                 "patternIds": payload.get("patternIds"),
+                "factorFocus": payload.get("factorFocus"),
             }
-    return {"shapes": None, "rules": None, "oos": None, "derivations": None, "patternIds": None}
+    return {"shapes": None, "rules": None, "oos": None, "derivations": None,
+            "patternIds": None, "factorFocus": None}
 
 
 @functools.lru_cache(maxsize=4)
@@ -189,6 +191,50 @@ def patternid_pack_index(root: Path = None) -> dict[str, str]:
     except FileNotFoundError:
         return {}
     return dict(_patternid_pack_index_cached(str(root)))
+
+
+@functools.lru_cache(maxsize=16)
+def _factor_focus_index_cached(root_str: str, packs_key: str) -> tuple[tuple[str, tuple[str, ...]], ...]:
+    root = Path(root_str)
+    merged: dict[str, list[str]] = {}
+    for name in packs_key.split(","):
+        try:
+            manifest = pack_manifest(name, root=root)
+        except FileNotFoundError:
+            continue
+        focus = detection_config(manifest).get("factorFocus") or {}
+        for pid, names in focus.items():
+            bucket = merged.setdefault(pid, [])
+            for fac in names or []:
+                if fac not in bucket:  # union across packs, order-preserving
+                    bucket.append(fac)
+    return tuple((pid, tuple(names)) for pid, names in merged.items())
+
+
+def factor_focus_index(packs: list[str] = None, root: Path = None) -> dict[str, list[str]]:
+    """``{patternId: [credibility factor name, ...]}`` merged from manifests.
+
+    The semantic weakener→factor map (declared in each detection payload's
+    ``factorFocus``): which credibility factor(s) a weakener implicates when its
+    ``affectedNode`` is a validation-result/COU node rather than a factor IRI, so
+    a concern can demote the factor it bears on. Merged over ``core`` + the active
+    packs (union, order-preserving), so a pack augments core (e.g. NASA adds
+    ``Data pedigree`` to core's ``W-PROV-01`` focus). Callers filter the result to
+    factors expected for the bundle's pack. Returns ``{}`` if root can't resolve.
+    """
+    try:
+        root = root or find_repo_root()
+    except FileNotFoundError:
+        return {}
+    active = packs or ["vv40"]
+    # core first so it owns the base mapping; dedup while preserving order.
+    ordered = ["core"] + [p for p in active if p != "core"]
+    seen, packs_norm = set(), []
+    for p in ordered:
+        if p not in seen:
+            seen.add(p)
+            packs_norm.append(p)
+    return {pid: list(names) for pid, names in _factor_focus_index_cached(str(root), ",".join(packs_norm))}
 
 
 def list_packs(root: Path = None) -> list[str]:

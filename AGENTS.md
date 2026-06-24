@@ -74,6 +74,16 @@ recommending a function name from memory without grepping.
   **Why:** Packs are pluggable. Anything tied to a single framework (V&V 40, NASA,
   ISO 42001) inside `src/` breaks that pluggability and tangles the CLI with one domain.
 
+- **Rule:** Don't hardcode pack-derived data (weakener pattern IDs, pattern→factor
+  mappings, factor names, severities) in `src/` or the Space. Declare it in the owning
+  pack's manifest (`packs/<name>/pack.json`, detection-capability `payload` — extra keys
+  are allowed) and load it dynamically via `paths.detection_config` / a cached index like
+  `paths.patternid_pack_index` / `paths.factor_focus_index`. Core patterns live in
+  `packs/core`; pack-specific additions/overrides live in that pack.
+  **Why:** Packs are the unit of change. A hardcoded map silently goes stale or wrong the
+  moment a pack adds, renames, or removes a pattern. The loaders already resolve
+  patternIds/shapes/rules from manifests; new pack-derived data must ride the same path.
+
 - **Rule:** New JSON-LD examples reference the v0.5 context at
   `https://raw.githubusercontent.com/cloudronin/uofa/main/spec/context/v0.5.jsonld`.
   Pin to the v0.5 tag if you need stability across `main` churn.
