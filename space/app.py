@@ -37,18 +37,15 @@ COLD_START_NOTE = (
     "a few minutes while the model loads."
 )
 
-# Theme tuned for embedding under the Starlight site: transparent body (sits on
-# the page surface), no block borders/shadows (kills the stray divider rules),
-# orange CTA accent. font-family aligns to the Starlight token when embedded and
-# falls back to a neutral stack standalone.
+# Dark theme to match uofa.net. The Space is embedded via an <iframe>, so the
+# body needs a SOLID dark background (a transparent body would show the iframe's
+# default white, since there's no dark parent behind it inside the frame). A
+# neutral gray hue sits closer to the site's near-black than gradio's slate.
+# Block borders/shadows are zeroed to avoid stray divider rules.
 THEME = gr.themes.Base(
     primary_hue=gr.themes.colors.orange,
-    neutral_hue=gr.themes.colors.slate,
+    neutral_hue=gr.themes.colors.gray,
 ).set(
-    body_background_fill="transparent",
-    body_background_fill_dark="transparent",
-    block_background_fill="transparent",
-    block_background_fill_dark="transparent",
     block_border_width="0px",
     block_shadow="none",
     panel_border_width="0px",
