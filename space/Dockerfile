@@ -70,18 +70,21 @@ RUN pip install --no-cache-dir --retries 5 --timeout 60 "$(echo /wheels/uofa-*.w
 # HF Spaces run as a non-root user (UID 1000); the baked model must live in a
 # dir that user owns, so create the user and pull the model as that user.
 RUN useradd -m -u 1000 user
-COPY --chown=user:user space/ /home/user/app/space/
 USER user
 WORKDIR /home/user/app
 
-# Bake the ship-target model (LAST heavy layer; ~3 GB). Air-gap-faithful — no
-# pull at run time.
+# Bake the ship-target model (~3 GB) BEFORE copying the app code, so this heavy
+# layer caches across app/theme changes (only the cheap COPY below re-runs).
+# Air-gap-faithful — no pull at run time.
 RUN set -eu; \
     ollama serve >/tmp/ollama-build.log 2>&1 & \
     SERVE_PID=$!; \
     for _ in $(seq 1 60); do curl -sf http://127.0.0.1:11434/api/version >/dev/null 2>&1 && break; sleep 1; done; \
     ollama pull qwen3.5:4b; \
     kill "$SERVE_PID" 2>/dev/null || true
+
+# App code last — changes here re-run only this cheap COPY, not the model bake.
+COPY --chown=user:user space/ /home/user/app/space/
 
 EXPOSE 7860
 ENTRYPOINT ["bash", "space/start.sh"]
