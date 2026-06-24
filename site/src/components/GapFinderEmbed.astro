@@ -1,45 +1,45 @@
 ---
-// Embeds the HuggingFace Gap-Finder Space via the Gradio web component.
+// Embeds the HuggingFace Gap-Finder Space.
 //
-// Use the `space="user/name"` shorthand (NOT src="https://...hf.space"): the
-// shorthand is HF-aware, so gradio.js queries the right Space-status endpoint.
-// With a raw src URL it reverse-maps the subdomain to an id, which is ambiguous
-// when the name contains dashes (cloudronin-uofa-demo) and yields the blunt
-// "could not get space status" error.
+// We use a plain <iframe>, NOT the <gradio-app> web component. The web
+// component fetches the Space's /config from the parent page with
+// credentials:"include"; on a custom domain (uofa.net) the cross-origin
+// credentialed preflight needs Access-Control-Allow-Credentials:true, which
+// HF's edge proxy does not return for third-party origins -> "could not get
+// space status". An iframe loads the Space in its own *.hf.space browsing
+// context, so gradio fetches /config same-origin (no CORS at all), and a
+// sleeping Space shows HF's native "Building/Starting" screen inside the frame.
 //
-// The Space runs on a GPU that auto-sleeps when idle, so a cold visit can take
-// up to a minute. We set expectations, nudge it awake on load, and give a
-// one-click link to wake it directly.
-const GRADIO_VERSION = "6.19.0"; // keep in sync with the Space's gradio version
+// Trade-off vs. the web component: no parent-driven auto-resize, so we give the
+// frame a generous height and let the wizard scroll internally.
 const SPACE = import.meta.env.PUBLIC_GAPFINDER_SPACE_ID ?? "cloudronin/uofa-demo";
 const host = `https://${SPACE.replace("/", "-")}.hf.space`;
 const spacePage = `https://huggingface.co/spaces/${SPACE}`;
-const gradioJs = `https://gradio.s3-us-west-2.amazonaws.com/${GRADIO_VERSION}/gradio.js`;
+const embedSrc = `${host}/?__theme=dark`;
 ---
 
 <aside class="gapfinder-note">
   ⏳ <strong>First load can take up to a minute.</strong> The demo runs on a GPU
-  that sleeps when idle to keep costs down. If the panel below shows a
-  <em>"could not get space status"</em> message, it is just waking up. Wait
-  ~30 to 60 seconds and reload, or
-  <a href={spacePage} target="_blank" rel="noopener">open the demo directly to wake it</a>
-  and come back.
+  that sleeps when idle to keep costs down. On a cold start you may see a
+  "Building" or "Starting" screen below while it wakes, then the app appears.
+  You can also
+  <a href={spacePage} target="_blank" rel="noopener">open the demo in its own tab</a>.
 </aside>
 
-<script is:inline type="module" src={gradioJs}></script>
-<gradio-app space={SPACE} theme_mode="dark" eager="true"></gradio-app>
-
-<script define:vars={{ host }}>
-  // Nudge a sleeping Space awake as soon as the page loads, so it is starting
-  // by the time the embed initializes. Fire-and-forget; no-cors surfaces no error.
-  try {
-    fetch(host, { mode: "no-cors", cache: "no-store" });
-  } catch (e) {
-    /* best-effort wake */
-  }
-</script>
+<iframe
+  src={embedSrc}
+  title="UofA Gap-Finder"
+  class="gapfinder-frame"
+  allow="clipboard-write"
+></iframe>
 
 <style>
+  .gapfinder-frame {
+    width: 100%;
+    height: 880px;
+    border: 1px solid var(--sl-color-hairline, #3a3a3a);
+    border-radius: 0.5rem;
+  }
   .gapfinder-note {
     border: 1px solid var(--sl-color-hairline, #3a3a3a);
     border-left: 3px solid var(--sl-color-accent, #f97316);
