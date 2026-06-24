@@ -16,12 +16,17 @@ from pathlib import Path
 
 import gradio as gr
 
-from space import leadcapture, pipeline, wizard
+from space import leadcapture, pipeline, reviewer, wizard
+from space.gloss import gloss_for, load_gloss
 from uofa_cli import paths
 
 PACK_LABELS = {"vv40": "ASME V&V 40", "nasa-7009b": "NASA-STD-7009B"}
 PACK_CHOICES = [(label, pid) for pid, label in PACK_LABELS.items()]
 STATUS_CHOICES = ["assessed", "not-assessed", "scoped-out", "not-applicable"]
+
+# Plain-language gloss, loaded once; shared by the reviewer render and the
+# author confirm accordion (one lookup, never duplicated).
+_GLOSS = load_gloss()
 
 _MODEL = os.environ.get("UOFA_SPACE_MODEL") or None  # None -> bundled qwen3.5:4b
 # In-container the wheel bundles packs/ under uofa_cli/_data/repo; an env var lets
@@ -116,6 +121,17 @@ footer { display: none !important; }
 .step-tag { font-size: 0.8rem; letter-spacing: 0.04em; text-transform: uppercase;
   color: #9a988f; margin-bottom: 0.25rem; }
 .factor-levels { color: #9a988f; font-size: 0.85em; }
+
+/* Save-as-PDF: isolate the reviewer panel and print it ink-friendly. The
+   reviewer HTML wraps its content in #ri-reviewer-host. */
+@media print {
+  body * { visibility: hidden !important; }
+  #ri-reviewer-host, #ri-reviewer-host * { visibility: visible !important; }
+  #ri-reviewer-host { position: absolute; left: 0; top: 0; width: 100%; }
+  #ri-reviewer-host .ri-reviewer { color: #000 !important; background: #fff !important; }
+  #ri-reviewer-host .ri-reviewer h2 { color: #000 !important; }
+  #ri-reviewer-host .ri-pdf-btn { display: none !important; }
+}
 """
 
 
@@ -253,7 +269,7 @@ def _finalize(result, pack, status_state, warnings, source_name):
     )
     if not outcome.ok:
         return (_show(), _hide(), gr.update(value=f"⚠️ {outcome.user_message}", visible=True),
-                gr.update(), gr.update(), gr.update(), None)
+                gr.update(), gr.update(), gr.update(), None, gr.update())
 
     p = outcome.payload
     c = p["completeness"]
@@ -288,14 +304,17 @@ def _finalize(result, pack, status_state, warnings, source_name):
         tail.append(f"**Structural validity:** {_issue_phrase(struct['n'])}.")
     tail_md = "\n\n".join(tail)
 
+    reviewer_html = reviewer.render_reviewer_html(p, _GLOSS)
+
     return (
         _hide(),                              # confirm_group
         _show(),                              # summary_group
         gr.update(value="", visible=False),   # error_md
-        gr.update(value=head),                # summary_md (headline, gaps-led)
-        gr.update(value=gaps_md),             # weakeners_md (gaps first)
-        gr.update(value=tail_md),             # structural_md (completeness + structural)
+        gr.update(value=head),                # summary_md (author: headline, gaps-led)
+        gr.update(value=gaps_md),             # weakeners_md (author: gaps first)
+        gr.update(value=tail_md),             # structural_md (author: completeness + structural)
         p,                                    # summary_state (for lead capture)
+        gr.update(value=reviewer_html),       # reviewer_html (reviewer view)
     )
 
 
@@ -311,11 +330,20 @@ def _capture(email, pack, summary):
     )
 
 
+def _switch_view(choice):
+    """Pure client-side view flip; touches no state and re-runs nothing."""
+    reviewer_first = (choice == "Reviewer")
+    return (gr.update(visible=not reviewer_first),  # author_panel
+            gr.update(visible=reviewer_first))      # reviewer_panel
+
+
 def _start_over():
     return (
         _show(), _hide(), _hide(), _hide(), _hide(),   # upload, route, extract, confirm, summary
         gr.update(value="", visible=False),            # error_md
         None, None, None, {}, None,                    # corpus, decision, result, status, warnings
+        gr.update(value="Reviewer"),                   # view_toggle (back to default)
+        _hide(), _show(),                              # author_panel, reviewer_panel
     )
 
 
@@ -336,9 +364,10 @@ def _issue_phrase(n: int) -> str:
 
 
 def build() -> gr.Blocks:
-    with gr.Blocks(title="UofA Gap-Finder", analytics_enabled=False, fill_width=True) as demo:
-        gr.Markdown("# UofA Gap-Finder\nSee where your model-credibility evidence has "
-                    "gaps, against ASME V&V 40 or NASA-STD-7009B.")
+    with gr.Blocks(title="Credibility Inspector", analytics_enabled=False, fill_width=True) as demo:
+        gr.Markdown("# Credibility Inspector\nInspect model-credibility evidence "
+                    "against ASME V&V 40 or NASA-STD-7009B, for the reviewer judging a "
+                    "package or the engineer assembling one.")
 
         corpus_state = gr.State(None)
         decision_state = gr.State(None)
@@ -388,8 +417,11 @@ def build() -> gr.Blocks:
                                    label=_factor_label(row))
                     # The factor name is already in the radio label above, so the
                     # accordion just says "what we read" (no redundant name echo).
+                    # Lead with the shared gloss so a non-expert understands the factor.
+                    g = gloss_for(row["factor_type"], _GLOSS)
+                    meaning = f"**{g['plain_name']}.** {g['what_it_means']}\n\n" if g.get("what_it_means") else ""
                     with gr.Accordion("what we read", open=False):
-                        gr.Markdown(str(row.get("rationale") or "No rationale captured."))
+                        gr.Markdown(meaning + str(row.get("rationale") or "No rationale captured."))
 
                     def _upd(val, st, _ft=row["factor_type"]):
                         st = dict(st or {})
@@ -400,17 +432,28 @@ def build() -> gr.Blocks:
 
             gaps_btn = gr.Button("See my gaps →", variant="primary")
 
-        # ── Step 5: summary + capture ────────────────────────
+        # ── Step 5: results, two views off one analysis ──────
         with gr.Group(visible=False) as summary_group:
-            summary_md = gr.Markdown()      # headline (gaps-led) + indicative line
-            weakeners_md = gr.Markdown()    # weakeners + not-assessed (the gaps)
-            structural_md = gr.Markdown()   # completeness + structural (second)
-            gr.Markdown("---\n### Want the full write-up?\n"
-                        "Leave your email for the detailed per-factor report or a consult. "
-                        "**Your evidence is not stored.**")
-            email_box = gr.Textbox(label="Email", placeholder="you@org.com")
-            capture_btn = gr.Button("Send me the full write-up", variant="primary")
-            capture_msg = gr.Markdown(visible=False)
+            view_toggle = gr.Radio(
+                ["Reviewer", "Author (Gap-Finder)"], value="Reviewer", label="View",
+                info="Reviewer: plain-language verdict for someone judging this package. "
+                     "Author: the gap list for whoever is assembling the evidence.",
+            )
+            # Reviewer is the default; Author is one toggle away.
+            with gr.Group(visible=True) as reviewer_panel:
+                reviewer_html = gr.HTML()
+            with gr.Group(visible=False) as author_panel:
+                summary_md = gr.Markdown()      # headline (gaps-led) + indicative line
+                weakeners_md = gr.Markdown()    # weakeners + not-assessed (the gaps)
+                structural_md = gr.Markdown()   # completeness + structural (second)
+            # Optional consult footer, shared by both views. Never a wall.
+            with gr.Group() as capture_footer:
+                gr.Markdown("---\n### Want a per-factor consult?\n"
+                            "Leave your email for a detailed write-up or a consult. "
+                            "**Your evidence is not stored.**")
+                email_box = gr.Textbox(label="Email", placeholder="you@org.com")
+                capture_btn = gr.Button("Request a consult", variant="primary")
+                capture_msg = gr.Markdown(visible=False)
 
         start_over_btn = gr.Button("↺ Start over")
 
@@ -433,8 +476,11 @@ def build() -> gr.Blocks:
             _finalize,
             inputs=[result_state, pack_radio, status_state, warnings_state, source_name_state],
             outputs=[confirm_group, summary_group, error_md, summary_md, weakeners_md,
-                     structural_md, summary_state],
+                     structural_md, summary_state, reviewer_html],
         )
+
+        view_toggle.change(_switch_view, inputs=[view_toggle],
+                           outputs=[author_panel, reviewer_panel])
 
         capture_btn.click(_capture, inputs=[email_box, pack_radio, summary_state], outputs=[capture_msg])
 
@@ -443,7 +489,7 @@ def build() -> gr.Blocks:
             inputs=None,
             outputs=[upload_group, route_group, extract_group, confirm_group, summary_group,
                      error_md, corpus_state, decision_state, result_state, status_state,
-                     warnings_state],
+                     warnings_state, view_toggle, author_panel, reviewer_panel],
         )
 
     return demo

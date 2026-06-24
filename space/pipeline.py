@@ -355,11 +355,49 @@ def _assign_factor_ids(doc: dict) -> None:
             fac["id"] = f"{base}/factor/{slugify(fac['factorType'])}"
 
 
+_PACK_DISPLAY = {"vv40": "ASME V&V 40", "nasa-7009b": "NASA-STD-7009B"}
+
+
+def _authenticity_block() -> dict:
+    """The public demo reads evidence live and never signs the bundle, so be
+    honest about it. A formally issued package would populate hash/signer and
+    flip these booleans; the reviewer view branches on them."""
+    return {
+        "signed": False,
+        "integrity_checked": False,
+        "package_hash": None,
+        "signer": None,
+        "statement": (
+            "This evidence was assessed in an unsigned demo, so identity and "
+            "tamper-evidence were not verified. A formally issued assurance "
+            "package would carry a content hash and a cryptographic signature, "
+            "shown here for a reviewer (or a technical colleague) to re-verify."
+        ),
+    }
+
+
+def _build_context(summary: dict, pack: str) -> dict:
+    """Reviewer-facing context, re-projected from already-extracted fields."""
+    return {
+        "project_name": summary.get("project_name"),
+        "cou_name": summary.get("cou_name"),
+        "cou_description": summary.get("cou_description"),
+        "standard": _PACK_DISPLAY.get(pack, pack),
+        "pack": pack,
+        "model_risk_level": summary.get("model_risk_level"),
+        "device_class": summary.get("device_class"),
+        "assurance_level": summary.get("assurance_level"),
+        "standards_reference": summary.get("standards_reference"),
+        "authenticity": _authenticity_block(),
+    }
+
+
 def _build_payload(pack, data, shacl_conforms, shacl_violations, firings, warnings) -> dict:
     statuses = {f["factor_type"]: f["status"] for f in data["factors"]}
     payload = summary_mod.compute(
         pack, statuses, {"conforms": shacl_conforms, "violations": shacl_violations}, firings
     )
+    payload["context"] = _build_context(data["summary"], pack)
     payload["warnings"] = warnings
     return payload
 

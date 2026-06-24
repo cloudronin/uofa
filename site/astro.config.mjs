@@ -60,7 +60,7 @@ export default defineConfig({
           label: 'Get Started',
           items: [
             { label: 'Overview', link: '/start/' },
-            { label: 'Live demo (Gap-Finder)', link: '/demo/' },
+            { label: 'Credibility Inspector', link: '/demo/' },
             { label: 'NAFEMS reproduction', link: '/demo/nafems/' },
             { label: 'Install', link: '/start/install/' },
             { label: 'Your first UofA', link: '/start/first-uofa/' },

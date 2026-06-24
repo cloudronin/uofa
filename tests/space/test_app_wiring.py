@@ -19,8 +19,8 @@ from space import app, wizard
 # Declared outputs arity for each handler (kept in lockstep with build()).
 N_PREPARE = 12
 N_EXTRACT = 8
-N_FINALIZE = 7
-N_START_OVER = 11
+N_FINALIZE = 8       # +reviewer_html
+N_START_OVER = 14    # +view_toggle, author_panel, reviewer_panel
 
 
 @pytest.fixture(autouse=True)
@@ -66,18 +66,29 @@ def test_finalize_arity_success_and_failure(tmp_path):
     ok = app._finalize(result, "vv40", {"Use error": "not-assessed"}, [], "upload")
     assert len(ok) == N_FINALIZE
     assert ok[1]["visible"] is True  # summary_group shown
-    assert "12 of 13" in ok[5]["value"]                       # completeness now in the tail panel
+    # Author panels unchanged (engine/author regression): completeness in the tail
+    # panel, weakeners/not-assessed before it.
+    assert "12 of 13" in ok[5]["value"]
     assert isinstance(ok[6], dict) and ok[6]["completeness"]["n_assessed"] == 12  # summary_state
-    # Gap-Finder ordering: the weakeners/not-assessed panel (index 4) precedes the
-    # completeness panel (index 5) in the summary group.
+    assert ok[6]["context"]["authenticity"]["signed"] is False  # context attached, unsigned demo
     assert "Weakeners" in ok[4]["value"] or "Not assessed" in ok[4]["value"]
     assert "Completeness" in ok[5]["value"]
+    # New reviewer view rendered off the same payload (index 7).
+    assert "ri-reviewer" in ok[7]["value"] and "At a glance" in ok[7]["value"]
 
     # None result -> finalize fails gracefully, still correct arity.
     bad = app._finalize(None, "vv40", {}, [], "upload")
     assert len(bad) == N_FINALIZE
     assert bad[2]["visible"] is True  # error_md shown
     assert bad[6] is None  # no summary on failure
+
+
+def test_switch_view_flips_visibility_only():
+    # Reviewer default: author hidden, reviewer shown. No pipeline work.
+    author, reviewer = app._switch_view("Reviewer")
+    assert author["visible"] is False and reviewer["visible"] is True
+    author, reviewer = app._switch_view("Author (Gap-Finder)")
+    assert author["visible"] is True and reviewer["visible"] is False
 
 
 def test_capture_glue(monkeypatch):
