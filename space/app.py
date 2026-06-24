@@ -71,7 +71,9 @@ THEME = gr.themes.Base(
 CSS = """
 @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500&display=swap');
 
-.gradio-container { max-width: 900px !important; margin: 0 auto !important;
+/* Left-aligned and full-width so it flows with the (left-aligned) page column,
+   not centered inside the iframe. */
+.gradio-container { max-width: 100% !important; margin: 0 !important;
   font-family: 'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif;
   font-size: 16px; line-height: 1.65; color: #e8e6e1; background: #0c0d0e; }
 
