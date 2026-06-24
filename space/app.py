@@ -9,6 +9,7 @@ Set UOFA_SPACE_MODEL=mock to drive the UI locally without Ollama.
 
 from __future__ import annotations
 
+import html as html_mod
 import os
 import queue
 import threading
@@ -315,7 +316,20 @@ def _finalize(result, pack, status_state, warnings, source_name):
         tail.append(f"**Structural validity:** {_issue_phrase(struct['n'])}.")
     tail_md = "\n\n".join(tail)
 
-    reviewer_html = reviewer.render_reviewer_html(p, _GLOSS)
+    # build_reviewer_state derives an invariant-satisfying state by construction,
+    # so this never trips in practice; we still refuse to emit a misleading page
+    # if a future payload shape ever violates an invariant.
+    try:
+        reviewer_html = reviewer.render_reviewer_html(p, _GLOSS)
+    except reviewer.ReviewerInvariantError as exc:
+        reviewer_html = (
+            '<div id="ri-reviewer-host"><div class="ri-reviewer">'
+            "<h2>Reviewer summary unavailable</h2>"
+            "<p>This evidence produced an internally inconsistent assessment that we "
+            "will not summarize for a reviewer. See the Author view for the raw findings.</p>"
+            f"<p class='ri-note'>{html_mod.escape(str(exc))}</p>"
+            "</div></div>"
+        )
 
     return (
         _hide(),                              # confirm_group

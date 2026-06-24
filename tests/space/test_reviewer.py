@@ -1,28 +1,38 @@
-"""Reviewer-view render tests against the deterministic Morrison COU2 fixture."""
+"""Reviewer render: reads only from ReviewerState, golden snapshots for both
+Morrison COUs, and the contradictions the protocol now makes impossible.
+
+Fixtures are source-grounded (firings/COU text/conformance from the real
+JSON-LD; see fixtures/_generate.py). Regenerate with that script - never
+hand-edit a golden."""
 
 from __future__ import annotations
 
 import json
 from pathlib import Path
 
+import pytest
+
 from space.gloss import load_gloss
 from space.reviewer import render_reviewer_html
+from space.summary import expected_factors
 
-_FIXTURES = Path(__file__).with_name("fixtures")
-_FIXTURE = _FIXTURES / "morrison_analysis.json"
-_GOLDEN = _FIXTURES / "morrison_reviewer.html"
-
-
-def _analysis() -> dict:
-    return json.loads(_FIXTURE.read_text(encoding="utf-8"))
+_FIX = Path(__file__).with_name("fixtures")
+GLOSS = load_gloss()
 
 
-def _html() -> str:
-    return render_reviewer_html(_analysis(), load_gloss())
+def _payload(cou):
+    return json.loads((_FIX / f"morrison_{cou}_state.json").read_text(encoding="utf-8"))
 
 
-def test_all_six_sections_render_in_order():
-    html = _html()
+def _html(cou):
+    return render_reviewer_html(_payload(cou), GLOSS)
+
+
+# ── structure ──
+
+@pytest.mark.parametrize("cou", ["cou1", "cou2"])
+def test_all_six_sections_render_in_order(cou):
+    html = _html(cou)
     headings = [
         "<h2>What this model was used for</h2>",
         "<h2>At a glance</h2>",
@@ -31,84 +41,96 @@ def test_all_six_sections_render_in_order():
         "<h2>What is still missing</h2>",
         "<h2>Authenticity</h2>",
     ]
-    positions = [html.find(h) for h in headings]
-    assert all(p != -1 for p in positions), positions
-    assert positions == sorted(positions)  # in order
+    pos = [html.find(h) for h in headings]
+    assert all(p != -1 for p in pos), pos
+    assert pos == sorted(pos)
 
 
-def test_plain_language_not_raw_ids():
-    html = _html()
-    assert "Is the model built right for this use" in html      # gloss for "Model form"
-    assert "Ventricular assist device support" in html          # COU2 in plain words
-    assert "ASME V&amp;V 40" in html                            # standard shown (HTML-escaped &)
+@pytest.mark.parametrize("cou", ["cou1", "cou2"])
+def test_reviewer_host_is_the_print_target(cou):
+    assert 'id="ri-reviewer-host"' in _html(cou)
 
 
-def test_at_a_glance_five_values():
-    html = _html()
-    assert "Completeness" in html and "55%" in html             # 6/11 in-scope -> 55%
-    assert "6 of 13" in html                                     # factors evidenced (of all)
-    assert "1 Critical, 1 High, 1 Moderate" in html             # weakeners by severity
-    assert "Authenticity verified" in html and "No (unsigned demo)" in html
-    assert "Gate checks passed" in html and "2 of 2" in html     # structural + completeness pass
+@pytest.mark.parametrize("cou", ["cou1", "cou2"])
+def test_plain_language_not_raw_ids(cou):
+    html = _html(cou)
+    assert "Is the model built right for this use" in html   # gloss for "Model form"
+    assert "ASME V&amp;V 40" in html
+    for name in expected_factors("vv40"):
+        assert GLOSS[name]["plain_name"] in html
 
 
-def test_completeness_and_missing_no_longer_contradict():
-    # Fix 1: the % is over all factors; the reconcile clause ties it to the same
-    # "required" data the missing-line uses, so they read as one story.
-    html = _html()
-    assert "55% of all factors evidenced" in html
-    assert "all factors required at Level 5 are accounted for" in html
-    assert "Nothing required is missing" in html  # missing-line, same source (missing == [])
-
-
-def test_scoped_out_renders_not_applicable_not_omission():
-    # Fix 2: scoped-out factors are a decision, not an omission.
-    html = _html()
-    assert "Not applicable" in html              # the new label for excluded factors
-    assert "Scoped out / N/A" not in html        # old label gone
-    # Genuinely-unaddressed (absent) factors still read "Not stated".
-    assert "Not stated" in html
-
-
-def test_severity_word_single_source():
-    # Fix 3: at-a-glance count and concern lines use ONE word for medium severity.
-    html = _html()
-    assert "1 Moderate" in html        # at-a-glance count
-    assert "Moderate concern" in html  # concern line
-    assert "Medium" not in html        # never the raw key
-
-
-def test_no_holistic_verdict_but_keeps_indicative_line():
-    html = _html()
+@pytest.mark.parametrize("cou", ["cou1", "cou2"])
+def test_no_holistic_verdict(cou):
+    html = _html(cou)
     assert "Indicative summary, not a formal acceptance decision." in html
-    assert "Accepted" not in html and "Not accepted" not in html
     assert "trustworthy" not in html.lower()
+    assert ">Accepted</" not in html and ">Not accepted</" not in html
 
 
-def test_concern_why_line_present():
-    html = _html()
-    assert "limited relevance to the long-duration context of use" in html
+# ── the contradictions the protocol makes impossible ──
+
+@pytest.mark.parametrize("cou", ["cou1", "cou2"])
+def test_severity_word_single_source(cou):
+    # at-a-glance count word == concern-line word; raw "Medium" never surfaces.
+    html = _html(cou)
+    assert "Moderate" in html
+    assert "Medium" not in html
 
 
-def test_authenticity_is_honest_about_unsigned_demo():
-    html = _html()
+@pytest.mark.parametrize("cou", ["cou1", "cou2"])
+def test_no_evidenced_factor_is_an_open_high_weakener_target(cou):
+    # Invariant 1, observed at the render level: a factor disputed by a High/
+    # Moderate concern never reads "Evidenced".
+    payload = _payload(cou)
+    from space.reviewer_state import build_reviewer_state, Status, _DEMOTING
+    state = build_reviewer_state(payload, GLOSS)
+    targeted = {f for c in state.concerns if c.severity in _DEMOTING for f in c.factors}
+    for f in state.factors:
+        if f.name in targeted:
+            assert f.status is not Status.EVIDENCED
+
+
+@pytest.mark.parametrize("cou", ["cou1", "cou2"])
+def test_completeness_100_cannot_coexist_with_all_accounted_and_high(cou):
+    # Invariant 2: the page never claims "all required accounted for" while a
+    # High concern is open. (build + assert already enforce this; assert here.)
+    from space.reviewer_state import build_reviewer_state
+    state = build_reviewer_state(_payload(cou), GLOSS)
+    if state.has_high_weakener:
+        assert state.required_all_accounted is False
+
+
+def test_cou2_no_longer_self_contradicts():
+    # The Build B case: must NOT show 100%/all-evidenced next to High concerns.
+    html = _html("cou2")
+    assert "<dt>Completeness</dt><dd>100%</dd>" not in html
+    assert "<dt>Completeness</dt><dd>54%</dd>" in html
+    assert "54% of all factors evidenced" in html
+    assert "6 factors required at Level 5 still need evidence" in html
+    assert "Not stated" in html                       # the W-EP-04 factors, demoted/unassessed
+
+
+def test_cou1_high_completeness_reframed_not_all_clear():
+    # The reframing path: high factor-completeness, but concerns keep it from
+    # reading "all accounted for".
+    html = _html("cou1")
+    assert "85% of all factors evidenced" in html
+    assert "high-severity concerns remain open before this is review-ready" in html
+    assert "all factors required at Level 2 are accounted for" not in html
+    assert "Not applicable" in html                   # the scoped-out factors
+
+
+@pytest.mark.parametrize("cou", ["cou1", "cou2"])
+def test_authenticity_is_honest_about_unsigned_demo(cou):
+    html = _html(cou)
     assert "Unverified (demo)" in html
     assert "uofa check" in html
 
 
-def test_factors_table_lists_every_expected_factor():
-    from space.summary import expected_factors
+# ── golden snapshots (regenerate via fixtures/_generate.py) ──
 
-    html = _html()
-    gloss = load_gloss()
-    for name in expected_factors("vv40"):
-        assert gloss[name]["plain_name"] in html
-
-
-def test_reviewer_host_is_the_print_target():
-    assert 'id="ri-reviewer-host"' in _html()
-
-
-def test_golden_snapshot_matches():
-    # Regenerate with: render the fixture and write tests/space/fixtures/morrison_reviewer.html
-    assert _html().strip() == _GOLDEN.read_text(encoding="utf-8").strip()
+@pytest.mark.parametrize("cou", ["cou1", "cou2"])
+def test_golden_snapshot_matches(cou):
+    golden = (_FIX / f"morrison_{cou}_reviewer.html").read_text(encoding="utf-8")
+    assert _html(cou) == golden

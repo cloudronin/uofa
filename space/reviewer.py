@@ -6,38 +6,41 @@ Gradio. The six sections are plain semantic HTML wrapped in
 `#ri-reviewer-host .ri-reviewer`; the app's @media print rule isolates that
 subtree for Save-as-PDF. Trust is presented as computable gate pass/fail plus
 plain signals, never a holistic "trustworthy: yes/no" verdict.
+
+This file does NO interpretation of the payload: it calls build_reviewer_state
+once, asserts the invariants, and renders purely from that single ReviewerState
+(see space/reviewer_state.py). No panel computes its own counts, statuses, or
+completeness, so the panels cannot drift into a contradictory page.
 """
 
 from __future__ import annotations
 
 import html
 
-from space.gloss import gloss_for
-from space.summary import expected_factors
+from space.reviewer_state import (
+    ReviewerInvariantError,
+    ReviewerState,
+    Status,
+    assert_reviewer_invariants,
+    build_reviewer_state,
+    sev_label,
+)
 
-# Single source for the severity word, used by BOTH the at-a-glance count and the
-# concern lines so the same item never reads "Medium" in one and "Moderate" in
-# the other.
-_SEV_LABEL = {"Critical": "Critical", "High": "High", "Medium": "Moderate", "Low": "Low"}
-_SEV_RANK = {"Critical": 0, "High": 1, "Medium": 2, "Low": 3}
-
-
-def _sev_label(sev) -> str:
-    return _SEV_LABEL.get(sev, sev or "")
+__all__ = ["render_reviewer_html", "ReviewerInvariantError"]
 
 INDICATIVE = "Indicative summary, not a formal acceptance decision."
+
+# status -> (sort rank, css class). Gaps first, scoped-out last.
+_STATUS_RANK = {Status.NOT_STATED: 0, Status.EVIDENCED: 1, Status.NOT_APPLICABLE: 2}
+_STATUS_CLASS = {Status.NOT_STATED: "ri-no", Status.EVIDENCED: "ri-yes", Status.NOT_APPLICABLE: "ri-na"}
 
 
 def _e(value) -> str:
     return html.escape(str(value)) if value is not None else ""
 
 
-def _gates(analysis: dict) -> dict:
-    """Two computable checks (not a verdict)."""
-    structural_ok = bool(analysis.get("structural", {}).get("conforms"))
-    completeness_ok = not analysis.get("completeness", {}).get("missing")
-    return {"structural": structural_ok, "completeness": completeness_ok,
-            "passed": int(structural_ok) + int(completeness_ok), "total": 2}
+def _plural(n: int, singular: str, plural: str) -> str:
+    return singular if n == 1 else plural
 
 
 def _risk_phrase(mrl) -> str:
@@ -46,95 +49,72 @@ def _risk_phrase(mrl) -> str:
     return f"Level {mrl} (higher levels require stronger evidence)"
 
 
-def _section_context(ctx: dict) -> str:
-    cou = ctx.get("cou_name") or "Not stated"
-    desc = (ctx.get("cou_description") or "").strip()
-    standard = ctx.get("standard") or ctx.get("pack") or "Not stated"
-    risk = _risk_phrase(ctx.get("model_risk_level"))
-    device = ctx.get("device_class")
-    body = f"<p>{_e(desc)}</p>" if desc else "<p>The evidence did not state a context of use in plain terms.</p>"
-    device_line = f"<li><b>Device class:</b> {_e(device)}</li>" if device else ""
+def _section_context(s: ReviewerState) -> str:
+    body = (f"<p>{_e(s.cou_description)}</p>" if s.cou_description
+            else "<p>The evidence did not state a context of use in plain terms.</p>")
+    device_line = f"<li><b>Device class:</b> {_e(s.device_class)}</li>" if s.device_class else ""
     return f"""
     <section>
       <h2>What this model was used for</h2>
-      <p class="ri-lead">{_e(cou)}</p>
+      <p class="ri-lead">{_e(s.cou_name)}</p>
       {body}
       <ul class="ri-meta">
-        <li><b>Assessed against:</b> {_e(standard)}</li>
-        <li><b>Risk tier:</b> {_e(risk)}</li>
+        <li><b>Assessed against:</b> {_e(s.standard)}</li>
+        <li><b>Risk tier:</b> {_e(_risk_phrase(s.risk_level))}</li>
         {device_line}
       </ul>
     </section>"""
 
 
-def _section_glance(analysis: dict) -> str:
-    c = analysis.get("completeness", {})
-    n_assessed, denom = c.get("n_assessed", 0), c.get("denom", 0) or 0
-    n_expected = c.get("n_expected", 0)
-    pct = round(100 * n_assessed / denom) if denom else 0
-    sev = analysis.get("weakener_severity", {}) or {}
-    sev_txt = ", ".join(
-        f"{sev[s]} {_sev_label(s)}" for s in ("Critical", "High", "Medium", "Low") if sev.get(s)
-    ) or "none"
-    auth = analysis.get("context", {}).get("authenticity", {})
-    auth_txt = "Yes" if auth.get("signed") else "No (unsigned demo)"
-    g = _gates(analysis)
-
-    # Reconcile the two numbers that read as a contradiction to a lay reader: the
-    # completeness % is over ALL factors, while "what is still missing" is over the
-    # factors required at this risk level. Pull "required" from the SAME missing
-    # list the missing-section uses, so the panels tell one story.
-    missing = c.get("missing") or []
-    mrl = analysis.get("context", {}).get("model_risk_level")
-    level = f" at Level {mrl}" if mrl is not None else ""
-    if missing:
-        n = len(missing)
-        required_clause = f"{n} factor{'s' if n != 1 else ''} required{level} still need evidence (listed below)"
+def _reconcile_clause(s: ReviewerState) -> str:
+    """One sentence that ties the completeness % to the same required/concern
+    data the rest of the page uses, so the panels read as one story."""
+    level = f" at Level {s.risk_level}" if s.risk_level is not None else ""
+    if s.required_all_accounted:
+        tail = f"all factors required{level} are accounted for."
     else:
-        required_clause = f"all factors required{level} are accounted for"
-    reconcile = f"{pct}% of all factors evidenced; {required_clause}."
+        bits = []
+        if s.missing:
+            k = len(s.missing)
+            bits.append(f"{k} {_plural(k, 'factor', 'factors')} required{level} still "
+                        f"{_plural(k, 'needs', 'need')} evidence (listed below)")
+        if s.open_high_count:
+            m = s.open_high_count
+            bits.append(f"{m} high-severity {_plural(m, 'concern', 'concerns')} "
+                        f"{_plural(m, 'remains', 'remain')} open")
+        tail = "; ".join(bits) + " before this is review-ready."
+    return f"{s.completeness_pct}% of all factors evidenced; {tail}"
 
+
+def _section_glance(s: ReviewerState) -> str:
+    sev_txt = ", ".join(
+        f"{s.severity_counts[k]} {sev_label(k)}"
+        for k in ("Critical", "High", "Medium", "Low") if s.severity_counts.get(k)
+    ) or "none"
+    auth_txt = "Yes" if s.authenticity.get("signed") else "No (unsigned demo)"
     return f"""
     <section>
       <h2>At a glance</h2>
       <dl class="ri-glance">
-        <div><dt>Completeness</dt><dd>{pct}%</dd></div>
-        <div><dt>Factors evidenced</dt><dd>{n_assessed} of {n_expected}</dd></div>
+        <div><dt>Completeness</dt><dd>{s.completeness_pct}%</dd></div>
+        <div><dt>Factors evidenced</dt><dd>{s.n_evidenced} of {s.n_expected}</dd></div>
         <div><dt>Concerns (weakeners)</dt><dd>{_e(sev_txt)}</dd></div>
         <div><dt>Authenticity verified</dt><dd>{auth_txt}</dd></div>
-        <div><dt>Gate checks passed</dt><dd>{g['passed']} of {g['total']}</dd></div>
+        <div><dt>Gate checks passed</dt><dd>{s.gates['passed']} of {s.gates['total']}</dd></div>
       </dl>
-      <p class="ri-note">{reconcile}</p>
+      <p class="ri-note">{_e(_reconcile_clause(s))}</p>
       <p class="ri-note">{INDICATIVE} Gate checks below are structural validity and
       completeness; they are not a judgment of whether to accept the model.</p>
     </section>"""
 
 
-def _factor_status(name: str, c: dict) -> tuple[int, str, str]:
-    """(sort_rank, label, css_class). Missing first, then assessed, excluded last."""
-    if name in (c.get("missing") or []):
-        return 0, "Not evidenced", "ri-no"
-    if name in (c.get("excluded") or []):
-        return 2, "Not applicable", "ri-na"          # scoped out: a decision, not an omission
-    if name in (c.get("assessed") or []):
-        return 1, "Evidenced", "ri-yes"
-    return 1, "Not stated", "ri-na"                   # genuinely unaddressed (and not scoped out)
-
-
-def _section_factors(analysis: dict, gloss: dict) -> str:
-    pack = analysis.get("pack", "vv40")
-    c = analysis.get("completeness", {})
-    rows = []
-    for name in expected_factors(pack):
-        rank, label, cls = _factor_status(name, c)
-        g = gloss_for(name, gloss)
-        rows.append((rank, name, g, label, cls))
-    rows.sort(key=lambda r: (r[0], r[1]))
+def _section_factors(s: ReviewerState) -> str:
+    rows = sorted(s.factors, key=lambda f: (_STATUS_RANK[f.status], f.name))
     body = "".join(
-        f"<tr class='{cls}'><td>{_e(g['plain_name'])}</td>"
-        f"<td>{_e(g['what_it_means'])}</td>"
-        f"<td class='ri-stat'>{_e(label)}</td></tr>"
-        for _rank, _name, g, label, cls in rows
+        f"<tr class='{_STATUS_CLASS[f.status]}'><td>{_e(f.plain_name)}</td>"
+        f"<td>{_e(f.what_it_means)}</td>"
+        f"<td class='ri-stat'>{_e(f.status.value)}</td></tr>"
+        for f in rows
     )
     return f"""
     <section>
@@ -146,26 +126,18 @@ def _section_factors(analysis: dict, gloss: dict) -> str:
     </section>"""
 
 
-def _section_concerns(analysis: dict, gloss: dict) -> str:
-    weak = sorted(analysis.get("weakeners", []) or [],
-                  key=lambda w: _SEV_RANK.get(w.get("severity"), 9))
-    if not weak:
+def _section_concerns(s: ReviewerState) -> str:
+    if not s.concerns:
         return """
     <section>
       <h2>Concerns found</h2>
       <p>No concerns were flagged against this evidence.</p>
     </section>"""
     items = []
-    for w in weak:
-        sev = f"{_sev_label(w.get('severity'))} concern"  # same word as the at-a-glance count
-        why = (w.get("description") or "").strip()
-        facs = w.get("factors") or []
-        if not why and facs:
-            why = gloss_for(facs[0], gloss).get("what_it_means", "")
-        where = f" Relates to: {_e(', '.join(facs))}." if facs else ""
-        hits = w.get("hits")
-        hits_txt = f" (seen {hits} times)" if isinstance(hits, int) and hits > 1 else ""
-        items.append(f"<li><b>{_e(sev)}{hits_txt}.</b> {_e(why)}{where}</li>")
+    for conc in s.concerns:
+        hits_txt = f" (seen {conc.hits} times)" if conc.hits > 1 else ""
+        where = f" Relates to: {_e(', '.join(conc.factors))}." if conc.factors else ""
+        items.append(f"<li><b>{_e(conc.label)} concern{hits_txt}.</b> {_e(conc.description)}{where}</li>")
     return f"""
     <section>
       <h2>Concerns found</h2>
@@ -173,18 +145,17 @@ def _section_concerns(analysis: dict, gloss: dict) -> str:
     </section>"""
 
 
-def _section_missing(analysis: dict, gloss: dict) -> str:
-    missing = analysis.get("completeness", {}).get("missing") or []
-    if not missing:
+def _section_missing(s: ReviewerState) -> str:
+    if not s.missing:
         return """
     <section>
       <h2>What is still missing</h2>
-      <p>Nothing required is missing: every expected factor was assessed or scoped out.</p>
+      <p>Nothing required is missing: every required factor was evidenced or scoped out.</p>
     </section>"""
+    by_name = {f.name: f for f in s.factors}
     items = "".join(
-        f"<li><b>{_e(gloss_for(n, gloss)['plain_name'])}.</b> "
-        f"{_e(gloss_for(n, gloss)['what_it_means'])}</li>"
-        for n in missing
+        f"<li><b>{_e(by_name[n].plain_name)}.</b> {_e(by_name[n].what_it_means)}</li>"
+        for n in s.missing
     )
     return f"""
     <section>
@@ -194,8 +165,8 @@ def _section_missing(analysis: dict, gloss: dict) -> str:
     </section>"""
 
 
-def _section_authenticity(analysis: dict) -> str:
-    auth = analysis.get("context", {}).get("authenticity", {})
+def _section_authenticity(s: ReviewerState) -> str:
+    auth = s.authenticity
     if auth.get("signed"):
         verdict = "Verified"
         detail = (f"<li><b>Signed by:</b> {_e(auth.get('signer'))}</li>"
@@ -246,19 +217,20 @@ _STYLE = """
 def render_reviewer_html(analysis: dict, gloss: dict | None = None) -> str:
     """Render the shared analysis object as the reviewer verdict panel.
 
-    The content is wrapped in #ri-reviewer-host; the Save-as-PDF button lives in
-    app.py as a gradio Button with a js= handler that clones this host into a
-    clean white print window (gradio may strip inline onclick from gr.HTML, and
-    a global @media print rule gets mangled by gradio's CSS scoping)."""
-    ctx = analysis.get("context", {}) or {}
+    Derives one ReviewerState, asserts the frozen invariants, then renders every
+    section from that state. The content is wrapped in #ri-reviewer-host; the
+    Save-as-PDF button lives in app.py as a gradio Button with a js= handler that
+    clones this host into a clean white print window."""
+    state = build_reviewer_state(analysis, gloss)
+    assert_reviewer_invariants(state)
     return (
         _STYLE
         + '<div id="ri-reviewer-host"><div class="ri-reviewer">'
-        + _section_context(ctx)
-        + _section_glance(analysis)
-        + _section_factors(analysis, gloss)
-        + _section_concerns(analysis, gloss)
-        + _section_missing(analysis, gloss)
-        + _section_authenticity(analysis)
+        + _section_context(state)
+        + _section_glance(state)
+        + _section_factors(state)
+        + _section_concerns(state)
+        + _section_missing(state)
+        + _section_authenticity(state)
         + "</div></div>"
     )
