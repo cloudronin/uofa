@@ -7,15 +7,17 @@
 // credentialed preflight needs Access-Control-Allow-Credentials:true, which
 // HF's edge proxy does not return for third-party origins -> "could not get
 // space status". An iframe loads the Space in its own *.hf.space browsing
-// context, so gradio fetches /config same-origin (no CORS at all), and a
-// sleeping Space shows HF's native "Building/Starting" screen inside the frame.
+// context, so gradio fetches /config same-origin (no CORS at all).
 //
-// Trade-off vs. the web component: no parent-driven auto-resize, so we give the
-// frame a generous height and let the wizard scroll internally.
+// The Space sleeps after 15 min idle. If that happens while someone is on the
+// page the iframe goes dead with no signal, so we poll the Space runtime API
+// (CORS-allowed for this origin) to show status + a one-click wake/reload, and
+// auto-refresh the iframe once the Space wakes.
 const SPACE = import.meta.env.PUBLIC_GAPFINDER_SPACE_ID ?? "cloudronin/uofa-demo";
 const host = `https://${SPACE.replace("/", "-")}.hf.space`;
 const spacePage = `https://huggingface.co/spaces/${SPACE}`;
 const embedSrc = `${host}/?__theme=dark`;
+const runtimeUrl = `https://huggingface.co/api/spaces/${SPACE}/runtime`;
 ---
 
 <aside class="gapfinder-note">
@@ -26,14 +28,78 @@ const embedSrc = `${host}/?__theme=dark`;
   <a href={spacePage} target="_blank" rel="noopener">open the demo in its own tab</a>.
 </aside>
 
+<div class="gapfinder-bar">
+  <button id="gf-reload" type="button">&#x21bb; Reload the demo</button>
+  <span id="gf-status" class="gapfinder-status" hidden></span>
+</div>
+
 <iframe
+  id="gf-frame"
   src={embedSrc}
   title="Credibility Inspector"
   class="gapfinder-frame"
   allow="clipboard-write"
 ></iframe>
 
+<script define:vars={{ embedSrc, runtimeUrl }}>
+  const iframe = document.getElementById("gf-frame");
+  const statusEl = document.getElementById("gf-status");
+  const reloadBtn = document.getElementById("gf-reload");
+  let last = null;
+
+  function show(msg) { statusEl.textContent = msg; statusEl.hidden = false; }
+  function hide() { statusEl.hidden = true; statusEl.textContent = ""; }
+
+  function reload() {
+    // Loading the host wakes a sleeping Space and shows HF's restart screen.
+    try { fetch(embedSrc, { mode: "no-cors", cache: "no-store" }); } catch (e) {}
+    iframe.src = embedSrc;
+    last = "STARTING";  // suppress a redundant auto-reload on the next RUNNING
+    show("Starting the demo, this can take about a minute...");
+  }
+  reloadBtn.addEventListener("click", reload);
+
+  async function poll() {
+    if (document.hidden) return;  // don't poll a backgrounded tab
+    let stage = null;
+    try {
+      const r = await fetch(runtimeUrl, { cache: "no-store" });
+      stage = (await r.json()).stage;
+    } catch (e) { return; }       // transient: leave the UI as-is
+    if (stage === "RUNNING") {
+      // Woke up on its own (not via our reload): refresh the dead iframe.
+      if (last === "SLEEPING" || last === "PAUSED") iframe.src = embedSrc;
+      hide();
+    } else if (stage === "SLEEPING" || stage === "PAUSED") {
+      show('The demo went to sleep to save GPU cost. Click "Reload the demo" to wake it (about a minute).');
+    } else {
+      show("The demo is starting, this can take about a minute...");
+    }
+    last = stage;
+  }
+  poll();
+  setInterval(poll, 30000);
+</script>
+
 <style>
+  .gapfinder-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    margin: 0 0 0.5rem;
+  }
+  .gapfinder-bar button {
+    background: var(--sl-color-bg, #0c0d0e);
+    color: var(--sl-color-text, #e8e6e1);
+    border: 1px solid var(--sl-color-accent, #d4a35a);
+    border-radius: 0.4rem;
+    padding: 0.35rem 0.8rem;
+    font-size: 0.85rem;
+    cursor: pointer;
+  }
+  .gapfinder-bar button:hover { border-color: var(--sl-color-text, #e8e6e1); }
+  .gapfinder-status { font-size: 0.85rem; color: var(--sl-color-accent, #d4a35a); }
   .gapfinder-frame {
     width: 100%;
     height: 880px;
