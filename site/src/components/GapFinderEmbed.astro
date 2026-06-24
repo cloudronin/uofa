@@ -1,35 +1,21 @@
 ---
 // Embeds the HuggingFace Gap-Finder Space via the Gradio web component.
-// The web component auto-resizes as the multi-step wizard changes height,
-// which a fixed-height iframe cannot do. Pinned to dark for v1.
 //
-// The Space runs on a GPU that auto-sleeps when idle (to cap cost), so a cold
-// visit can show Gradio's blunt "could not get space status" error while it
-// wakes. We soften that: set expectations, nudge the Space awake on load, and
-// give a one-click link to wake it directly.
+// Use the `space="user/name"` shorthand (NOT src="https://...hf.space"): the
+// shorthand is HF-aware, so gradio.js queries the right Space-status endpoint.
+// With a raw src URL it reverse-maps the subdomain to an id, which is ambiguous
+// when the name contains dashes (cloudronin-uofa-demo) and yields the blunt
+// "could not get space status" error.
 //
-// Set the Space host via PUBLIC_GAPFINDER_SPACE_URL at build time, or pass `src`.
+// The Space runs on a GPU that auto-sleeps when idle, so a cold visit can take
+// up to a minute. We set expectations, nudge it awake on load, and give a
+// one-click link to wake it directly.
 const GRADIO_VERSION = "6.19.0"; // keep in sync with the Space's gradio version
-const {
-  src = import.meta.env.PUBLIC_GAPFINDER_SPACE_URL ??
-    "https://cloudronin-uofa-demo.hf.space",
-} = Astro.props;
-const themed = src.includes("__theme=")
-  ? src
-  : `${src}${src.includes("?") ? "&" : "?"}__theme=dark`;
+const SPACE = import.meta.env.PUBLIC_GAPFINDER_SPACE_ID ?? "cloudronin/uofa-demo";
+const host = `https://${SPACE.replace("/", "-")}.hf.space`;
+const spacePage = `https://huggingface.co/spaces/${SPACE}`;
 const gradioJs = `https://gradio.s3-us-west-2.amazonaws.com/${GRADIO_VERSION}/gradio.js`;
-const spacePage = "https://huggingface.co/spaces/cloudronin/uofa-demo";
-const isPlaceholder = themed.includes("REPLACE-WITH-SPACE-HOST");
 ---
-
-{
-  isPlaceholder && (
-    <p style="border:1px solid var(--sl-color-orange); padding:0.75rem 1rem; border-radius:0.5rem;">
-      <strong>Embed not yet configured.</strong> Set <code>PUBLIC_GAPFINDER_SPACE_URL</code>{" "}
-      to the deployed HuggingFace Space host to activate the interactive Gap-Finder here.
-    </p>
-  )
-}
 
 <aside class="gapfinder-note">
   ⏳ <strong>First load can take up to a minute.</strong> The demo runs on a GPU
@@ -41,9 +27,9 @@ const isPlaceholder = themed.includes("REPLACE-WITH-SPACE-HOST");
 </aside>
 
 <script is:inline type="module" src={gradioJs}></script>
-<gradio-app src={themed} eager="true"></gradio-app>
+<gradio-app space={SPACE} theme_mode="dark" eager="true"></gradio-app>
 
-<script define:vars={{ host: src }}>
+<script define:vars={{ host }}>
   // Nudge a sleeping Space awake as soon as the page loads, so it is starting
   // by the time the embed initializes. Fire-and-forget; no-cors surfaces no error.
   try {
