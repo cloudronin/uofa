@@ -1,4 +1,4 @@
-"""Reviewer-view render tests against the deterministic Morrison fixture."""
+"""Reviewer-view render tests against the deterministic Morrison COU2 fixture."""
 
 from __future__ import annotations
 
@@ -8,15 +8,21 @@ from pathlib import Path
 from space.gloss import load_gloss
 from space.reviewer import render_reviewer_html
 
-_FIXTURE = Path(__file__).with_name("fixtures") / "morrison_analysis.json"
+_FIXTURES = Path(__file__).with_name("fixtures")
+_FIXTURE = _FIXTURES / "morrison_analysis.json"
+_GOLDEN = _FIXTURES / "morrison_reviewer.html"
 
 
 def _analysis() -> dict:
     return json.loads(_FIXTURE.read_text(encoding="utf-8"))
 
 
+def _html() -> str:
+    return render_reviewer_html(_analysis(), load_gloss())
+
+
 def test_all_six_sections_render_in_order():
-    html = render_reviewer_html(_analysis(), load_gloss())
+    html = _html()
     headings = [
         "<h2>What this model was used for</h2>",
         "<h2>At a glance</h2>",
@@ -31,55 +37,78 @@ def test_all_six_sections_render_in_order():
 
 
 def test_plain_language_not_raw_ids():
-    html = render_reviewer_html(_analysis(), load_gloss())
-    # The gloss plain_name appears; the COU lead carries no jargon code.
+    html = _html()
     assert "Is the model built right for this use" in html      # gloss for "Model form"
-    assert "Cardiopulmonary bypass support" in html             # COU in plain words
+    assert "Ventricular assist device support" in html          # COU2 in plain words
     assert "ASME V&amp;V 40" in html                            # standard shown (HTML-escaped &)
 
 
 def test_at_a_glance_five_values():
-    html = render_reviewer_html(_analysis(), load_gloss())
-    assert "Completeness" in html and "85%" in html            # 11/13 in-scope -> 85%
-    assert "11 of 13" in html                                   # factors evidenced
-    assert "1 High" in html and "1 Medium" in html              # weakeners by severity
+    html = _html()
+    assert "Completeness" in html and "55%" in html             # 6/11 in-scope -> 55%
+    assert "6 of 13" in html                                     # factors evidenced (of all)
+    assert "1 Critical, 1 High, 1 Moderate" in html             # weakeners by severity
     assert "Authenticity verified" in html and "No (unsigned demo)" in html
-    assert "Gate checks passed" in html
+    assert "Gate checks passed" in html and "2 of 2" in html     # structural + completeness pass
+
+
+def test_completeness_and_missing_no_longer_contradict():
+    # Fix 1: the % is over all factors; the reconcile clause ties it to the same
+    # "required" data the missing-line uses, so they read as one story.
+    html = _html()
+    assert "55% of all factors evidenced" in html
+    assert "all factors required at Level 5 are accounted for" in html
+    assert "Nothing required is missing" in html  # missing-line, same source (missing == [])
+
+
+def test_scoped_out_renders_not_applicable_not_omission():
+    # Fix 2: scoped-out factors are a decision, not an omission.
+    html = _html()
+    assert "Not applicable" in html              # the new label for excluded factors
+    assert "Scoped out / N/A" not in html        # old label gone
+    # Genuinely-unaddressed (absent) factors still read "Not stated".
+    assert "Not stated" in html
+
+
+def test_severity_word_single_source():
+    # Fix 3: at-a-glance count and concern lines use ONE word for medium severity.
+    html = _html()
+    assert "1 Moderate" in html        # at-a-glance count
+    assert "Moderate concern" in html  # concern line
+    assert "Medium" not in html        # never the raw key
 
 
 def test_no_holistic_verdict_but_keeps_indicative_line():
-    html = render_reviewer_html(_analysis(), load_gloss())
+    html = _html()
     assert "Indicative summary, not a formal acceptance decision." in html
-    # No accept/reject stamp.
     assert "Accepted" not in html and "Not accepted" not in html
     assert "trustworthy" not in html.lower()
 
 
-def test_missing_and_concerns_populated():
-    html = render_reviewer_html(_analysis(), load_gloss())
-    # "Use error" is missing -> its gloss plain_name shows in the missing list.
-    assert "Was the tool used correctly" in html
-    # The High weakener's plain "why" line shows.
-    assert "limited relevance to the stated context of use" in html
+def test_concern_why_line_present():
+    html = _html()
+    assert "limited relevance to the long-duration context of use" in html
 
 
 def test_authenticity_is_honest_about_unsigned_demo():
-    html = render_reviewer_html(_analysis(), load_gloss())
+    html = _html()
     assert "Unverified (demo)" in html
-    assert "uofa check" in html  # how a real package is re-verified
+    assert "uofa check" in html
 
 
 def test_factors_table_lists_every_expected_factor():
     from space.summary import expected_factors
 
-    html = render_reviewer_html(_analysis(), load_gloss())
+    html = _html()
     gloss = load_gloss()
     for name in expected_factors("vv40"):
         assert gloss[name]["plain_name"] in html
 
 
 def test_reviewer_host_is_the_print_target():
-    # The content is wrapped in #ri-reviewer-host; app.py's Save-as-PDF button
-    # (a gradio Button with js=) clones this host into a clean print window.
-    html = render_reviewer_html(_analysis(), load_gloss())
-    assert 'id="ri-reviewer-host"' in html
+    assert 'id="ri-reviewer-host"' in _html()
+
+
+def test_golden_snapshot_matches():
+    # Regenerate with: render the fixture and write tests/space/fixtures/morrison_reviewer.html
+    assert _html().strip() == _GOLDEN.read_text(encoding="utf-8").strip()

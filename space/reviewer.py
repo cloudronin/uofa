@@ -15,13 +15,15 @@ import html
 from space.gloss import gloss_for
 from space.summary import expected_factors
 
-_SEV_WORD = {
-    "Critical": "Critical concern",
-    "High": "High concern",
-    "Medium": "Moderate concern",
-    "Low": "Low concern",
-}
+# Single source for the severity word, used by BOTH the at-a-glance count and the
+# concern lines so the same item never reads "Medium" in one and "Moderate" in
+# the other.
+_SEV_LABEL = {"Critical": "Critical", "High": "High", "Medium": "Moderate", "Low": "Low"}
 _SEV_RANK = {"Critical": 0, "High": 1, "Medium": 2, "Low": 3}
+
+
+def _sev_label(sev) -> str:
+    return _SEV_LABEL.get(sev, sev or "")
 
 INDICATIVE = "Indicative summary, not a formal acceptance decision."
 
@@ -71,10 +73,27 @@ def _section_glance(analysis: dict) -> str:
     n_expected = c.get("n_expected", 0)
     pct = round(100 * n_assessed / denom) if denom else 0
     sev = analysis.get("weakener_severity", {}) or {}
-    sev_txt = ", ".join(f"{sev[s]} {s}" for s in ("Critical", "High", "Medium", "Low") if sev.get(s)) or "none"
+    sev_txt = ", ".join(
+        f"{sev[s]} {_sev_label(s)}" for s in ("Critical", "High", "Medium", "Low") if sev.get(s)
+    ) or "none"
     auth = analysis.get("context", {}).get("authenticity", {})
     auth_txt = "Yes" if auth.get("signed") else "No (unsigned demo)"
     g = _gates(analysis)
+
+    # Reconcile the two numbers that read as a contradiction to a lay reader: the
+    # completeness % is over ALL factors, while "what is still missing" is over the
+    # factors required at this risk level. Pull "required" from the SAME missing
+    # list the missing-section uses, so the panels tell one story.
+    missing = c.get("missing") or []
+    mrl = analysis.get("context", {}).get("model_risk_level")
+    level = f" at Level {mrl}" if mrl is not None else ""
+    if missing:
+        n = len(missing)
+        required_clause = f"{n} factor{'s' if n != 1 else ''} required{level} still need evidence (listed below)"
+    else:
+        required_clause = f"all factors required{level} are accounted for"
+    reconcile = f"{pct}% of all factors evidenced; {required_clause}."
+
     return f"""
     <section>
       <h2>At a glance</h2>
@@ -85,6 +104,7 @@ def _section_glance(analysis: dict) -> str:
         <div><dt>Authenticity verified</dt><dd>{auth_txt}</dd></div>
         <div><dt>Gate checks passed</dt><dd>{g['passed']} of {g['total']}</dd></div>
       </dl>
+      <p class="ri-note">{reconcile}</p>
       <p class="ri-note">{INDICATIVE} Gate checks below are structural validity and
       completeness; they are not a judgment of whether to accept the model.</p>
     </section>"""
@@ -95,10 +115,10 @@ def _factor_status(name: str, c: dict) -> tuple[int, str, str]:
     if name in (c.get("missing") or []):
         return 0, "Not evidenced", "ri-no"
     if name in (c.get("excluded") or []):
-        return 2, "Scoped out / N/A", "ri-na"
+        return 2, "Not applicable", "ri-na"          # scoped out: a decision, not an omission
     if name in (c.get("assessed") or []):
         return 1, "Evidenced", "ri-yes"
-    return 1, "Not stated", "ri-na"
+    return 1, "Not stated", "ri-na"                   # genuinely unaddressed (and not scoped out)
 
 
 def _section_factors(analysis: dict, gloss: dict) -> str:
@@ -137,7 +157,7 @@ def _section_concerns(analysis: dict, gloss: dict) -> str:
     </section>"""
     items = []
     for w in weak:
-        sev = _SEV_WORD.get(w.get("severity"), w.get("severity") or "Concern")
+        sev = f"{_sev_label(w.get('severity'))} concern"  # same word as the at-a-glance count
         why = (w.get("description") or "").strip()
         facs = w.get("factors") or []
         if not why and facs:
