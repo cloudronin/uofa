@@ -205,6 +205,12 @@ class ReportState:
     # "present" normally; "none" when the source ships no assessable card, so the
     # readout leads with a no-card notice instead of a hollow all-weakeners page.
     documentation_status: str = "present"
+    # True when sufficiency (weakener) analysis was actually run. False for the
+    # heuristic README scan and the no-card case, which can honestly report
+    # completeness but cannot derive sufficiency-level weakeners — the readout then
+    # declines that section instead of asserting it. Default True keeps a vetted
+    # bundle off disk (and vv40/nasa) byte-identical.
+    sufficiency_assessed: bool = True
 
     @property
     def has_high_weakener(self) -> bool:
@@ -319,6 +325,7 @@ def build_report_state(analysis: dict, gloss: dict | None = None) -> ReportState
         risk_assumption=ctx.get("risk_assumption") or "",
         extraction_provenance=ctx.get("extraction_provenance") or "",
         documentation_status=ctx.get("documentation_status") or "present",
+        sufficiency_assessed=ctx.get("sufficiency_assessed", True),
     )
 
 

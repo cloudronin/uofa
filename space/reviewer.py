@@ -87,8 +87,8 @@ def _section_banner(s: ReviewerState) -> str:
     <section class="ri-banner">
       <h2>No model card published</h2>
       <p>This repository publishes no model card, so there is no documentation to
-      assess. Every factor below is unassessed as a consequence, and the concerns are
-      the mechanical result of an absent card - not findings about a real one.</p>
+      assess. Sufficiency analysis is not applicable; only the (empty) completeness is
+      shown below.</p>
     </section>"""
 
 
@@ -113,10 +113,10 @@ def _reconcile_clause(s: ReviewerState) -> str:
 
 
 def _section_glance(s: ReviewerState) -> str:
-    sev_txt = ", ".join(
+    sev_txt = (", ".join(
         f"{s.severity_counts[k]} {sev_label(k)}"
         for k in ("Critical", "High", "Medium", "Low") if s.severity_counts.get(k)
-    ) or "none"
+    ) or "none") if s.sufficiency_assessed else "Not assessed (heuristic mode)"
     auth_txt = "Yes" if s.authenticity.get("signed") else "No (unsigned demo)"
     return f"""
     <section>
@@ -153,6 +153,14 @@ def _section_factors(s: ReviewerState) -> str:
 
 
 def _section_concerns(s: ReviewerState) -> str:
+    if not s.sufficiency_assessed:
+        return """
+    <section>
+      <h2>Concerns found</h2>
+      <p class="ri-note">Sufficiency (weakener) analysis was not assessed in heuristic mode.
+      Only documentation completeness is reported here; run with an LLM backend for the
+      weakener analysis.</p>
+    </section>"""
     if not s.concerns:
         return """
     <section>

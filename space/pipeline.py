@@ -410,11 +410,14 @@ def factor_rows(result) -> list[dict]:
     return rows
 
 
-def finalize(result, pack, factor_edits, work_dir, *, source_name="upload", warnings=None) -> dict:
-    """Adapt -> map -> SHACL -> weakeners -> summary. Returns the payload, or
-    raises _StageError(VALIDATE_ERROR) / WeakenerEngineError."""
+def finalize_from_data(data, pack, work_dir, *, source_name="upload", warnings=None,
+                       assess_sufficiency=True) -> dict:
+    """map -> SHACL -> (weakeners or skip) -> summary, from an import `data` dict.
+
+    When `assess_sufficiency` is False the weakener engine is skipped (firings `[]`,
+    no demotion) and the payload context is flagged so the readout reports completeness
+    only and declines the sufficiency section -- the heuristic/no-card honesty rule."""
     try:
-        data = result_to_import_dict(result, pack, factor_edits)
         doc = map_to_jsonld(data, packs=[pack], source_path=Path(source_name))
         _assign_factor_ids(doc)
         jsonld_path = Path(work_dir) / "uofa.jsonld"
@@ -425,8 +428,18 @@ def finalize(result, pack, factor_edits, work_dir, *, source_name="upload", warn
     except Exception as exc:
         raise _StageError(FailureKind.VALIDATE_ERROR) from exc
 
-    firings = _run_weakeners(jsonld_path, pack)  # may raise WeakenerEngineError
-    return _build_payload(pack, data, shacl_conforms, shacl_violations, firings, warnings or [])
+    firings = _run_weakeners(jsonld_path, pack) if assess_sufficiency else []
+    payload = _build_payload(pack, data, shacl_conforms, shacl_violations, firings, warnings or [])
+    if not assess_sufficiency:
+        payload["context"]["sufficiency_assessed"] = False
+    return payload
+
+
+def finalize(result, pack, factor_edits, work_dir, *, source_name="upload", warnings=None) -> dict:
+    """Adapt -> map -> SHACL -> weakeners -> summary. Returns the payload, or
+    raises _StageError(VALIDATE_ERROR) / WeakenerEngineError."""
+    data = result_to_import_dict(result, pack, factor_edits)
+    return finalize_from_data(data, pack, work_dir, source_name=source_name, warnings=warnings)
 
 
 # ── Orchestration spine (all-in-one; used by the sample + spike) ──
@@ -460,6 +473,89 @@ def analyze(
         source_name = str(sources[0]) if sources else "upload"
         payload = finalize(result, pack, factor_edits, work_dir,
                             source_name=source_name, warnings=warnings)
+        return PipelineOutcome.success(payload)
+    except _StageError as exc:
+        return PipelineOutcome.failure(exc.kind, exc.message)
+    except WeakenerEngineError:
+        return PipelineOutcome.failure(FailureKind.WEAKENER_ERROR)
+    except Exception:
+        return PipelineOutcome.failure(FailureKind.INTERNAL)
+    finally:
+        DEBUG_RESPONSE_FILE.unlink(missing_ok=True)
+        if owns_work_dir:
+            shutil.rmtree(work_dir, ignore_errors=True)
+
+
+# ── Card spine (live id path: fetch + extract + report, no confirm step) ──
+
+
+def _card_extract(text, model_id, source_url, work_dir, *, model, deterministic,
+                  on_progress, extract_timeout):
+    """(import_dict, provenance, sufficiency_assessed) for a fetched card. LLM-first via
+    run_extract_stage (subprocess isolation + timeout); on failure, or when
+    `deterministic`, falls back to the README scan (which declines sufficiency)."""
+    from uofa_cli import card_bundle
+
+    if not deterministic:
+        try:
+            (Path(work_dir) / "card.md").write_text(text, encoding="utf-8")
+            corpus = read_corpus([Path(work_dir) / "card.md"])
+            result = run_extract_stage(corpus, "mrm-nist", model=model,
+                                       extract_timeout=extract_timeout, on_progress=on_progress)
+            data = result_to_import_dict(result, "mrm-nist")
+            data["summary"]["model_risk_level"] = card_bundle.MRM_NIST_ASSUMED_MRL
+            data["summary"].setdefault("standards_reference", "NIST-AI-RMF-1.0")
+            return data, f"{card_bundle.PROV_LLM} - {model or BUNDLED_MODEL}", True
+        except _StageError:
+            data = card_bundle.deterministic_import_dict(text, "mrm-nist", model_id, source_url)
+            return data, card_bundle.PROV_HEURISTIC_FALLBACK, False
+    data = card_bundle.deterministic_import_dict(text, "mrm-nist", model_id, source_url)
+    return data, card_bundle.PROV_HEURISTIC, False
+
+
+def card_report(
+    model_id: str,
+    *,
+    revision: str | None = None,
+    model: str | None = None,
+    deterministic: bool = False,
+    on_progress: Callable[[str], None] | None = None,
+    extract_timeout: int = DEFAULT_EXTRACT_TIMEOUT,
+    work_dir: Path | None = None,
+) -> PipelineOutcome:
+    """Live id path for the mrm-nist pack: fetch the HF model card, extract factor
+    statuses (LLM subprocess-isolated with a deterministic fallback), and produce a
+    report payload. A gated/absent card yields an honest no-card payload (declining
+    sufficiency) rather than failing. Always tears down its temp dir."""
+    from uofa_cli import card_bundle, hf_card
+
+    progress = on_progress or (lambda _m: None)
+    owns_work_dir = work_dir is None
+    work_dir = work_dir or Path(tempfile.mkdtemp(prefix="uofa-card-"))
+    source_url = f"https://huggingface.co/{model_id}"
+
+    try:
+        progress("Fetching the public model card...")
+        fetched = hf_card.fetch_card(model_id, revision)
+        if fetched.status in ("gated", "error"):
+            return PipelineOutcome.failure(
+                FailureKind.READ_ERROR,
+                fetched.detail or f"Could not fetch a model card for {model_id}.")
+
+        if fetched.status in ("notfound", "empty"):
+            data = card_bundle.deterministic_import_dict("", "mrm-nist", model_id, source_url)
+            provenance, doc_status, assess = "", "none", False
+        else:
+            data, provenance, assess = _card_extract(
+                fetched.text, model_id, source_url, work_dir,
+                model=model, deterministic=deterministic, on_progress=progress,
+                extract_timeout=extract_timeout)
+            doc_status = "present"
+
+        payload = finalize_from_data(data, "mrm-nist", work_dir, source_name=model_id,
+                                     warnings=[], assess_sufficiency=assess)
+        payload["context"]["extraction_provenance"] = provenance
+        payload["context"]["documentation_status"] = doc_status
         return PipelineOutcome.success(payload)
     except _StageError as exc:
         return PipelineOutcome.failure(exc.kind, exc.message)

@@ -29,12 +29,6 @@ STATUS_CHOICES = ["assessed", "not-assessed", "scoped-out", "not-applicable"]
 # author confirm accordion (one lookup, never duplicated).
 _GLOSS = load_gloss()
 
-# Worked-examples gallery: committed MRM-NIST curated readouts, pre-rendered once
-# with the shared reviewer renderer. Strictly static - no runtime engine, LLM, or
-# network. An empty list (examples not generated) simply omits the gallery.
-_CURATED = curated.load_curated()
-_CURATED_HTML = {it["key"]: reviewer.render_reviewer_html(it["payload"], _GLOSS) for it in _CURATED}
-
 _MODEL = os.environ.get("UOFA_SPACE_MODEL") or None  # None -> bundled qwen3.5:4b
 # In-container the wheel bundles packs/ under uofa_cli/_data/repo; an env var lets
 # a deployment point elsewhere without code changes.
@@ -281,27 +275,25 @@ def _run_extract(corpus, pack):
     )
 
 
-def _finalize(result, pack, status_state, warnings, source_name):
-    outcome = wizard.finalize(
-        result, pack, status_state or {}, source_name=source_name, warnings=warnings
-    )
-    if not outcome.ok:
-        return (_show(), _hide(), gr.update(value=f"⚠️ {outcome.user_message}", visible=True),
-                gr.update(), gr.update(), gr.update(), None, gr.update(),
-                gr.update(), gr.update(), gr.update())  # view_toggle, author_panel, reviewer_panel (no-op)
-
-    p = outcome.payload
+def _render_results(p):
+    """Build the Step-5 result surfaces (author headline/gaps/tail markdown + reviewer
+    HTML) from a finalize/card payload. Shared by the upload path (_finalize) and the
+    card path (_run_card) so both render an identical results view. The author 'gaps'
+    view, like the reviewer panel, declines sufficiency in heuristic mode rather than
+    reporting 'none fired'."""
     c = p["completeness"]
+    assessed = (p.get("context") or {}).get("sufficiency_assessed", True)
 
-    # Headline (gaps-led) + honest indicative line.
     head = (
         f"{_step_tag(4, 'Your gaps')}\n\n## {p['headline']}\n\n"
         "*Indicative summary, not a formal acceptance decision.*"
     )
 
-    # Gaps first: weakeners, then unassessed factors.
     gaps = []
-    if p["weakeners"]:
+    if not assessed:
+        gaps.append("**Sufficiency (weakener) analysis:** not assessed in heuristic mode - "
+                    "run with an LLM backend for the weakener findings.")
+    elif p["weakeners"]:
         gaps.append("**Weakeners fired:**")
         for w in p["weakeners"]:
             fac = f", {', '.join(w['factors'])}" if w.get("factors") else ""
@@ -312,7 +304,6 @@ def _finalize(result, pack, status_state, warnings, source_name):
         gaps.append("\n**Not assessed:** " + ", ".join(c["missing"]))
     gaps_md = "\n".join(gaps)
 
-    # Completeness + structural, second.
     tail = [f"**Completeness:** {c['n_assessed']} of {c['n_expected']} factors assessed."]
     if c["excluded"]:
         tail.append("**Excluded (scoped-out / N/A):** " + ", ".join(c["excluded"]))
@@ -337,7 +328,20 @@ def _finalize(result, pack, status_state, warnings, source_name):
             f"<p class='ri-note'>{html_mod.escape(str(exc))}</p>"
             "</div></div>"
         )
+    return head, gaps_md, tail_md, reviewer_html
 
+
+def _finalize(result, pack, status_state, warnings, source_name):
+    outcome = wizard.finalize(
+        result, pack, status_state or {}, source_name=source_name, warnings=warnings
+    )
+    if not outcome.ok:
+        return (_show(), _hide(), gr.update(value=f"⚠️ {outcome.user_message}", visible=True),
+                gr.update(), gr.update(), gr.update(), None, gr.update(),
+                gr.update(), gr.update(), gr.update())  # view_toggle, author_panel, reviewer_panel (no-op)
+
+    p = outcome.payload
+    head, gaps_md, tail_md, reviewer_html = _render_results(p)
     return (
         _hide(),                              # confirm_group
         _show(),                              # summary_group
@@ -353,6 +357,48 @@ def _finalize(result, pack, status_state, warnings, source_name):
         _hide(),                              # author_panel
         _show(),                              # reviewer_panel
     )
+
+
+# Outputs for the card path (_run_card): step groups + card_progress + the Step-5
+# result surfaces. See the build() wiring for the exact component list.
+
+
+def _run_card(model_id):
+    """Card path: fetch an HF model card and report, skipping route/extract/confirm.
+    Generator: yields a working state, then the result (or an error). Hard-routes
+    mrm-nist; the readout discloses extraction provenance + the MRL assumption."""
+    model_id = (model_id or "").strip()
+    if not model_id:
+        yield (_show(), _hide(), _hide(), _hide(), _hide(), gr.update(visible=False),
+               gr.update(value="⚠️ Paste a model id (owner/model) or a model URL first.", visible=True),
+               gr.update(), gr.update(), gr.update(), None, gr.update(),
+               gr.update(), gr.update(), gr.update())
+        return
+
+    yield (_hide(), _hide(), _hide(), _hide(), _hide(),
+           gr.update(value=f"Fetching the public model card for **{model_id}** and analyzing it. "
+                           "This can take a few minutes the first time...", visible=True),
+           gr.update(value="", visible=False),
+           gr.update(), gr.update(), gr.update(), None, gr.update(),
+           gr.update(), gr.update(), gr.update())
+
+    outcome = wizard.card_report(model_id, model=_MODEL)
+    if not outcome.ok:
+        yield (_show(), _hide(), _hide(), _hide(), _hide(), gr.update(visible=False),
+               gr.update(value=f"⚠️ {outcome.user_message}", visible=True),
+               gr.update(), gr.update(), gr.update(), None, gr.update(),
+               gr.update(), gr.update(), gr.update())
+        return
+
+    p = outcome.payload
+    head, gaps_md, tail_md, reviewer_html = _render_results(p)
+    yield (_hide(), _hide(), _hide(), _hide(), _show(),     # upload, route, extract, confirm, summary
+           gr.update(visible=False),                         # card_progress
+           gr.update(value="", visible=False),               # error_md
+           gr.update(value=head), gr.update(value=gaps_md), gr.update(value=tail_md),
+           p,                                                 # summary_state
+           gr.update(value=reviewer_html),
+           gr.update(value="Reviewer"), _hide(), _show())    # view_toggle, author_panel, reviewer_panel
 
 
 def _capture(email, pack, summary):
@@ -383,7 +429,7 @@ def _start_over():
     return (
         # step groups
         _show(), _hide(), _hide(), _hide(), _hide(),   # upload, route, extract, confirm, summary
-        _hide(), _hide(),                              # read_progress, extract_progress
+        _hide(), _hide(), _hide(),                     # read_progress, extract_progress, card_progress
         # content surfaces (cleared, not just hidden)
         gr.update(value="", visible=False),            # error_md
         gr.update(value=""),                           # confirm_intro
@@ -394,6 +440,7 @@ def _start_over():
         gr.update(value="", visible=False),            # capture_msg
         gr.update(value=""),                           # email_box
         gr.update(value=None),                         # file_input
+        gr.update(value=""),                           # card_input
         # states
         None, None, None, {}, None, None,              # corpus, decision, result, status, warnings, summary
         # view: reset the toggle to its default and hide BOTH panels. A panel must
@@ -427,30 +474,6 @@ def build() -> gr.Blocks:
                     "against ASME V&V 40 or NASA-STD-7009B, for the reviewer judging a "
                     "package or the engineer assembling one.")
 
-        # Worked-examples gallery (read-only): the same defeater engine run against
-        # the NIST AI RMF documentation factor set on three real open-model cards.
-        # Pure static render of committed payloads - no upload, no engine, no LLM.
-        if _CURATED:
-            with gr.Accordion("Worked examples - open model cards (NIST AI RMF)", open=False):
-                gr.Markdown(
-                    "The same defeater engine, run against the **NIST AI RMF** documentation "
-                    "factor set on three real open model cards. *Read completeness first* - how "
-                    "much of the documentation argument is present - then the typed concerns that "
-                    "explain the gaps. EQTY Lab attests that an artifact is authentic; this is the "
-                    "layer above: whether the documented credibility argument is *sufficient*. "
-                    "Each card is assessed against a disclosed moderate-risk assumption (MRL 3), "
-                    "stated in the readout."
-                )
-                curated_pick = gr.Radio(
-                    choices=[(f"{it['model_id']} - {it['role']}", it["key"]) for it in _CURATED],
-                    value=_CURATED[0]["key"], label="Example card",
-                )
-                curated_view = gr.HTML(value=_CURATED_HTML[_CURATED[0]["key"]])
-                curated_pick.change(
-                    lambda k: gr.update(value=_CURATED_HTML.get(k, "")),
-                    inputs=[curated_pick], outputs=[curated_view],
-                )
-
         corpus_state = gr.State(None)
         decision_state = gr.State(None)
         result_state = gr.State(None)
@@ -461,16 +484,28 @@ def build() -> gr.Blocks:
 
         error_md = gr.Markdown(visible=False)
 
-        # ── Step 1: upload ───────────────────────────────────
+        # ── Step 1: start - a model card (live), or upload evidence ──
         with gr.Group(visible=True) as upload_group:
-            gr.Markdown(_step_tag(1, "Upload") + "\n\n" + COLD_START_NOTE)
-            gr.Markdown("Drop your **evidence documents** here (PDF, DOCX, XLSX, CSV, "
-                        "TXT). You can add several files.")
+            gr.Markdown(_step_tag(1, "Start") + "\n\n" + COLD_START_NOTE)
+            gr.Markdown("### Report on a model card\nPaste a HuggingFace **model id** "
+                        "(`owner/model`) or model URL to fetch its card and get a live "
+                        "weakener report against the NIST AI RMF documentation factors.")
+            card_input = gr.Textbox(label="HuggingFace model id or URL",
+                                    placeholder="allenai/OLMo-2-1124-13B-Instruct")
+            card_btn = gr.Button("Get weakener report →", variant="primary")
+            gr.Markdown("Or try a suggested example:")
+            with gr.Row():
+                example_btns = [gr.Button(mid.split("/")[-1], size="sm")
+                                for mid, _role in curated.EXAMPLE_MODELS]
+            gr.Markdown("---\n### Or inspect an evidence bundle\nDrop **evidence documents** "
+                        "(PDF, DOCX, XLSX, CSV, TXT) for ASME V&V 40 or NASA-STD-7009B. "
+                        "You can add several files.")
             file_input = gr.File(label="Evidence documents", file_count="multiple")
             with gr.Row():
                 detect_btn = gr.Button("Detect standard →", variant="primary")
                 sample_btn = gr.Button("Try a sample evidence set")
         read_progress = gr.Markdown(visible=False)
+        card_progress = gr.Markdown(visible=False)
 
         # ── Step 2: route ────────────────────────────────────
         with gr.Group(visible=False) as route_group:
@@ -546,6 +581,19 @@ def build() -> gr.Blocks:
         ]
         detect_btn.click(_detect_from_upload, inputs=[file_input], outputs=prepare_outputs)
         sample_btn.click(_detect_from_sample, inputs=None, outputs=prepare_outputs)
+
+        # Card path: the id/URL box and the suggested-example buttons both run the same
+        # live pathway (fetch + extract + report), skipping route/extract/confirm.
+        card_outputs = [
+            upload_group, route_group, extract_group, confirm_group, summary_group,
+            card_progress, error_md, summary_md, weakeners_md, structural_md,
+            summary_state, reviewer_html, view_toggle, author_panel, reviewer_panel,
+        ]
+        card_btn.click(_run_card, inputs=[card_input], outputs=card_outputs)
+        for _ex_btn, (_ex_mid, _ex_role) in zip(example_btns, curated.EXAMPLE_MODELS):
+            _ex_btn.click(lambda _m=_ex_mid: _m, inputs=None, outputs=[card_input]).then(
+                _run_card, inputs=[card_input], outputs=card_outputs)
+
         pack_radio.change(_enable_analyze, inputs=None, outputs=[analyze_btn])
 
         analyze_btn.click(
@@ -578,9 +626,9 @@ def build() -> gr.Blocks:
             _start_over,
             inputs=None,
             outputs=[upload_group, route_group, extract_group, confirm_group, summary_group,
-                     read_progress, extract_progress,
+                     read_progress, extract_progress, card_progress,
                      error_md, confirm_intro, reviewer_html, summary_md, weakeners_md,
-                     structural_md, capture_msg, email_box, file_input,
+                     structural_md, capture_msg, email_box, file_input, card_input,
                      corpus_state, decision_state, result_state, status_state,
                      warnings_state, summary_state,
                      view_toggle, author_panel, reviewer_panel],

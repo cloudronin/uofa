@@ -26,18 +26,23 @@ maps to a bundle, and runs the same report. Honesty guardrails:
   <backend>/<model>` when a backend is configured (`--extract-backend anthropic`
   …, reusing the `uofa extract` flags), or `Heuristic - … approximate` for the
   no-model README scan (the default when no backend is set, or `--deterministic`).
-  A keyword scan is never presented as the tool's judgment.
-- **No card → an honest no-card readout**, not a hollow all-weakeners page: a
-  gated (403) card is a hard failure; a missing/empty card (404) renders 0/N under
-  a prominent "no model card published" notice — the same framing the committed
-  `chemberta-77m-mtr` example uses.
-- **The generated bundle is saved by default** (`./<owner>__<model>.mrm-nist.jsonld`)
-  as the auditable, re-runnable source; `--save-bundle PATH` / `--no-save-bundle`
-  control it. Re-running `uofa report <saved-bundle>` reproduces the readout,
-  provenance line included.
+- **The heuristic path reports completeness only and DECLINES sufficiency.** A
+  keyword/heading scan can support documentation completeness but not
+  sufficiency-level weakeners, so it skips the weakener engine and shows
+  *"Sufficiency (weakener) analysis not assessed in heuristic mode — run with an LLM
+  backend"* in place of the concerns section. A keyword scan is never presented as
+  the tool's verdict.
+- **No card → an honest no-card readout**, not a hollow all-weakeners page: a gated
+  (403) card is a hard failure; a missing/empty card (404) renders 0/N under a
+  prominent "no model card published" notice (sufficiency not applicable).
+- **The generated bundle is kept by default in a temp cache** (printed, e.g.
+  `<tmpdir>/uofa-report-bundles/<owner>__<model>.mrm-nist.jsonld`) as the auditable,
+  re-runnable source — not dropped into the working directory. `--save-bundle PATH`
+  writes where asked; `--no-save-bundle` discards. Re-running `uofa report
+  <saved-bundle>` reproduces the readout, provenance line included.
 
-The deterministic scan is coarse by design; its divergence from LLM/curated
-statuses is tracked in `tests/test_report_card.py`, not left to surface live.
+The deterministic scan is coarse by design; its divergence from the curated baseline
+is bounded and tracked in `tests/test_report_card.py`, not left to surface live.
 
 ## Factor set (17 factors, grouped by RMF function)
 
@@ -121,23 +126,23 @@ A model card declares no deployment context or risk tier, so the profile assesse
 every card against one **disclosed assumption: a moderate-risk deployment, MRL 3**.
 `W-EP-04` therefore fires against a *stated* assumption, surfaced in the readout's
 "What this model was used for" section — not a hidden input. (Single source:
-`space.pipeline.MRM_NIST_RISK_ASSUMPTION`.)
+`uofa_cli.card_bundle.MRM_NIST_RISK_ASSUMPTION`.)
 
-## Worked examples
+## Worked examples (suggested, run live)
 
-`examples/_generate.py` fetches each card's live README via `huggingface_hub`, runs
-the engine through the shared report pipeline, and writes `card.md` + `state.json` +
-`reviewer.html` per example. Per-factor statuses are a committed human reading of the
-real card text (provenance in `examples/curated_cards.py`).
+The demo Space offers three suggested examples; clicking one runs the **same live
+pathway** as pasting the id (fetch → extract → report), not a static render. The
+curated factor-status reading lives in `examples/curated_cards.py` as the baseline for
+the LLM-vs-deterministic divergence test; `examples/_generate.py` refreshes the
+committed `card.md` snapshots that test reads.
 
-| Example | Card | Readout |
+| Example | Card | What it shows |
 |---|---|---|
-| `olmo2-13b-instruct` | `allenai/OLMo-2-1124-13B-Instruct` | Well-documented: 11/14 in-scope factors, few concerns |
-| `twitter-roberta-sentiment` | `cardiffnlp/twitter-roberta-base-sentiment` | Popular but holey: 4/12, no license, metrics by reference |
-| `chemberta-77m-mtr` | `DeepChem/ChemBERTa-77M-MTR` | Ships no README: 0/12 — the published chirality limitation is absent because the card is |
+| `allenai/OLMo-2-1124-13B-Instruct` | Frontier, well-documented | Most factors documented, few gaps |
+| `cardiffnlp/twitter-roberta-base-sentiment` | Popular but holey | No license stated, metrics by reference |
+| `DeepChem/ChemBERTa-77M-MTR` | Ships no README | The no-card readout (0 documented); the published chirality limitation is absent because the card is |
 
-Regenerate: `python packs/mrm-nist/examples/_generate.py` (needs the built engine JAR
-and `huggingface_hub`).
+Refresh the committed card snapshots: `python packs/mrm-nist/examples/_generate.py`.
 
 ## Scope
 

@@ -219,6 +219,14 @@ def _statuses_to_import_dict(statuses: dict[str, str], pack: str, model_id: str,
                          "rationale": "Documentation-completeness assessment only."}}
 
 
+def deterministic_import_dict(text: str, pack: str, model_id: str,
+                              source_url: str | None = None) -> dict:
+    """The deterministic README scan as an import dict (no-LLM and no-card paths).
+    Public so the Space's live card path can reuse it for its fallback/no-card cases."""
+    return _statuses_to_import_dict(deterministic_factor_statuses(text, pack), pack,
+                                    model_id, source_url)
+
+
 def _prompt_path_for(pack: str) -> Path:
     pdir = paths.pack_dir(pack)
     manifest = json.loads((pdir / "pack.json").read_text(encoding="utf-8"))
@@ -245,18 +253,22 @@ def _llm_import_dict(text: str, pack: str, model: str | None, llm_config) -> dic
 
 def card_to_bundle(text: str, pack: str, *, model_id: str, source_url: str | None = None,
                    model: str | None = None, llm_config=None,
-                   allow_llm: bool = True) -> tuple[dict, str]:
+                   allow_llm: bool = True) -> tuple[dict, str, bool]:
     """Turn fetched card text into a UofA JSON-LD bundle. Returns (bundle,
-    provenance_label). Uses the LLM extractor when allowed and a model/llm_config is
-    available; otherwise (or if the extractor errors) falls back to the deterministic
-    parser. The provenance label is surfaced verbatim in the rendered readout."""
+    provenance_label, sufficiency_assessed). Uses the LLM extractor when allowed and a
+    model/llm_config is available; otherwise (or if the extractor errors) falls back to
+    the deterministic README scan. `sufficiency_assessed` is True ONLY for a successful
+    LLM extraction: the keyword scan can support completeness but not sufficiency-level
+    weakeners, so the caller declines that section rather than asserting it."""
     data = None
     provenance = PROV_HEURISTIC
+    sufficiency_assessed = False
     if allow_llm and (model or llm_config is not None):
         try:
             data = _llm_import_dict(text, pack, model, llm_config)
             backend = model or (f"{llm_config.backend}/{llm_config.model}" if llm_config else "model")
             provenance = f"{PROV_LLM} - {backend}"
+            sufficiency_assessed = True
         except Exception:
             data = None
             provenance = PROV_HEURISTIC_FALLBACK
@@ -266,4 +278,4 @@ def card_to_bundle(text: str, pack: str, *, model_id: str, source_url: str | Non
 
     bundle = map_to_jsonld(data, packs=[pack], source_path=Path(model_id))
     assign_factor_ids(bundle)
-    return bundle, provenance
+    return bundle, provenance, sufficiency_assessed

@@ -10,7 +10,6 @@ assertions are skipped when the Jena JAR is not built.
 from __future__ import annotations
 
 import argparse
-import json
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -67,12 +66,13 @@ def _card_text() -> str:
     return (_EX / "twitter-roberta-sentiment" / "card.md").read_text(encoding="utf-8")
 
 
-def test_deterministic_path_labels_itself_approximate():
-    bundle, prov = card_bundle.card_to_bundle(
+def test_deterministic_path_labels_itself_approximate_and_declines_sufficiency():
+    bundle, prov, sufficiency = card_bundle.card_to_bundle(
         _card_text(), "mrm-nist", model_id="cardiffnlp/twitter-roberta-base-sentiment",
         allow_llm=False)
     assert prov == card_bundle.PROV_HEURISTIC
     assert "approximate" in prov
+    assert sufficiency is False                              # keyword scan declines sufficiency
     factors = bundle["hasCredibilityFactor"]
     assert len(factors) == 17
     assert all(f["factorStandard"] == "NIST-AI-RMF-1.0" for f in factors)  # the gotcha fix
@@ -91,9 +91,10 @@ def _fake_extract_result():
 
 def test_llm_path_labels_the_model(monkeypatch):
     monkeypatch.setattr("uofa_cli.llm_extractor.extract", lambda *a, **k: _fake_extract_result())
-    bundle, prov = card_bundle.card_to_bundle(
+    bundle, prov, sufficiency = card_bundle.card_to_bundle(
         _card_text(), "mrm-nist", model_id="acme/widget", model="testbackend/m1", allow_llm=True)
     assert prov == "LLM extraction - testbackend/m1"
+    assert sufficiency is True                              # LLM path assesses sufficiency
     # the disclosed posture is forced regardless of what the model returned
     assert bundle["modelRiskLevel"] == card_bundle.MRM_NIST_ASSUMED_MRL
 
@@ -102,26 +103,20 @@ def test_llm_failure_falls_back_to_heuristic_with_an_honest_label(monkeypatch):
     def _boom(*a, **k):
         raise RuntimeError("backend unreachable")
     monkeypatch.setattr("uofa_cli.llm_extractor.extract", _boom)
-    _bundle, prov = card_bundle.card_to_bundle(
+    _bundle, prov, sufficiency = card_bundle.card_to_bundle(
         _card_text(), "mrm-nist", model_id="acme/widget", model="testbackend/m1", allow_llm=True)
     assert prov == card_bundle.PROV_HEURISTIC_FALLBACK
     assert "fell back" in prov and "approximate" in prov
+    assert sufficiency is False                            # fallback declines sufficiency too
 
 
-# ── no-card: one consistent framing, live and committed ──────────────────────
+# ── no-card: an empty card yields zero assessed (live path renders the notice;
+#    see test_run_id_mode_no_card_leads_with_notice) ──────────────────────────
 
 def test_empty_card_yields_zero_assessed():
-    bundle, _ = card_bundle.card_to_bundle("", "mrm-nist", model_id="x/y", allow_llm=False)
+    bundle, _prov, _suff = card_bundle.card_to_bundle("", "mrm-nist", model_id="x/y", allow_llm=False)
     statuses = {f["factorType"]: f["factorStatus"] for f in bundle["hasCredibilityFactor"]}
     assert not any(s == "assessed" for s in statuses.values())
-
-
-def test_committed_chemberta_carries_the_no_card_framing():
-    # the committed gallery example must tell the same story a live no-card run does
-    state = json.loads((_EX / "chemberta-77m-mtr" / "state.json").read_text(encoding="utf-8"))
-    assert state["context"]["documentation_status"] == "none"
-    html = (_EX / "chemberta-77m-mtr" / "reviewer.html").read_text(encoding="utf-8")
-    assert "No model card published" in html
 
 
 # ── the LLM-vs-deterministic divergence is tracked, not discovered live ───────
@@ -136,9 +131,12 @@ def test_deterministic_vs_curated_divergence_is_the_known_gap():
     curated.update({n: "scoped-out" for n in CARDIFF.scoped_out})
     det = card_bundle.deterministic_factor_statuses(_card_text(), "mrm-nist")
     diverged = {n for n in curated if det[n] != curated[n]}
-    assert diverged == {"Evaluation metrics", "Intended use"}, (
-        f"deterministic parser drifted from the curated baseline: {sorted(diverged)} "
-        "(update the recorded gap intentionally, or fix the parser)")
+    # Bound, not equality: the gap may shrink (parser improves), but no NEW factor may
+    # silently start diverging. Catches regressions without firing on benign tweaks.
+    known_gap = {"Evaluation metrics", "Intended use"}
+    assert diverged <= known_gap, (
+        f"deterministic parser drift introduced NEW divergence: {sorted(diverged - known_gap)} "
+        "(fix the parser, or widen the recorded gap intentionally)")
 
 
 # ── id mode end to end (needs the engine) ────────────────────────────────────
@@ -162,6 +160,7 @@ def test_run_id_mode_renders_with_provenance(monkeypatch, capsys, tmp_path):
     out = capsys.readouterr().out
     assert "Heuristic" in out and "approximate" in out      # provenance disclosed
     assert "Risk posture" in out and "MRL 3" in out          # MRL assumption disclosed
+    assert "not assessed in heuristic mode" in out           # sufficiency declined (thinner readout)
     assert (tmp_path / "b.jsonld").exists()                   # bundle saved (auditable source)
 
 

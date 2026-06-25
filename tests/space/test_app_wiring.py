@@ -20,7 +20,8 @@ from space import app, wizard
 N_PREPARE = 12
 N_EXTRACT = 8
 N_FINALIZE = 11      # +reviewer_html, +view_toggle/author_panel/reviewer_panel (this handler owns the view)
-N_START_OVER = 25    # groups + read/extract progress + cleared content surfaces + states + view
+N_CARD = 15          # card path: step groups + card_progress + the Step-5 result surfaces
+N_START_OVER = 27    # groups + read/extract/card progress + cleared surfaces (incl. card_input) + states + view
 
 
 @pytest.fixture(autouse=True)
@@ -125,3 +126,54 @@ def test_start_over_blanks_content_not_just_groups():
     cleared = [o for o in outs if isinstance(o, dict) and "value" in o and o.get("value")]
     # The only non-empty value Start over sets is the view toggle default.
     assert all(o.get("value") == "Reviewer" for o in cleared), cleared
+
+
+# ── card path (live id/URL -> report, no confirm step) ──
+
+def _card_payload():
+    """A valid analysis payload (heuristic, no firings) for the cardiff example card —
+    deterministic, no network/engine — so the card-path wiring is exercised end to end."""
+    from uofa_cli.card_bundle import deterministic_factor_statuses
+    from uofa_cli.report_state import compute_findings
+    txt = (Path(__file__).resolve().parents[2]
+           / "packs/mrm-nist/examples/twitter-roberta-sentiment/card.md").read_text(encoding="utf-8")
+    statuses = deterministic_factor_statuses(txt, "mrm-nist")
+    payload = compute_findings("mrm-nist", statuses, {"conforms": True, "violations": []}, [])
+    payload["context"] = {
+        "pack": "mrm-nist", "standard": "NIST AI RMF", "cou_name": "Sentiment", "cou_description": "",
+        "model_risk_level": 3, "device_class": None, "authenticity": {},
+        "risk_assumption": "Evaluated as if bound for a moderate-risk deployment (assumed MRL 3).",
+        "extraction_provenance": "Heuristic - approximate", "documentation_status": "present",
+        "sufficiency_assessed": False,
+    }
+    return payload
+
+
+def test_run_card_empty_input_shows_error():
+    outs = list(app._run_card("   "))
+    assert outs and all(len(o) == N_CARD for o in outs)
+    final = outs[-1]
+    assert final[0]["visible"] is True   # stayed on the start step
+    assert final[6]["visible"] is True   # error_md shown
+
+
+def test_run_card_success_reveals_results(monkeypatch):
+    from space.pipeline import PipelineOutcome
+    monkeypatch.setattr("space.wizard.card_report",
+                        lambda *a, **k: PipelineOutcome.success(_card_payload()))
+    outs = list(app._run_card("cardiffnlp/twitter-roberta-base-sentiment"))
+    assert all(len(o) == N_CARD for o in outs)
+    final = outs[-1]
+    assert final[4]["visible"] is True            # summary_group revealed (skipped confirm)
+    assert "ri-reviewer" in final[11]["value"]    # reviewer HTML rendered
+    assert isinstance(final[10], dict) and final[10]["completeness"]  # summary_state set
+
+
+def test_run_card_failure_returns_to_start(monkeypatch):
+    from space.pipeline import FailureKind, PipelineOutcome
+    monkeypatch.setattr("space.wizard.card_report",
+                        lambda *a, **k: PipelineOutcome.failure(FailureKind.READ_ERROR, "gated (403)."))
+    final = list(app._run_card("acme/private"))[-1]
+    assert len(final) == N_CARD
+    assert final[0]["visible"] is True   # back to the start step
+    assert final[6]["visible"] is True   # error_md shown

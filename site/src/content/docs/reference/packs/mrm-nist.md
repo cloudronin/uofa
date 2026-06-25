@@ -69,15 +69,17 @@ A model card declares no risk tier, so the profile assesses every card against a
 model was used for" section — `W-EP-04` fires against a stated assumption, not a hidden
 input.
 
-## Worked examples
+## Worked examples (suggested, run live)
 
-Three real open-model cards, fetched live and run through the same engine:
+The [live demo](/demo/) offers three suggested examples; clicking one runs the same
+live pathway as pasting any model id — fetch the card, extract, report:
 
-| Card | Readout |
+| Card | What it shows |
 |---|---|
 | `allenai/OLMo-2-1124-13B-Instruct` | Well-documented — most factors evidenced, few concerns |
 | `cardiffnlp/twitter-roberta-base-sentiment` | Popular but holey — no license stated, metrics by reference only |
-| `DeepChem/ChemBERTa-77M-MTR` | Ships no README — nothing documented; the published chirality limitation is absent because the card is |
+| `DeepChem/ChemBERTa-77M-MTR` | Ships no README — the no-card readout; the published chirality limitation is absent because the card is |
 
-The contrast is carried by **completeness first**; the typed weakeners explain the
-gaps. See the [live demo](/demo/) for the interactive Credibility Inspector.
+The contrast is carried by **completeness first**; with an LLM backend the typed
+weakeners explain the gaps, while the no-model heuristic path reports completeness and
+declines sufficiency. The readout always states which path produced it.

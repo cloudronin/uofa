@@ -42,6 +42,15 @@ HELP = "render a credibility report for a bundle, or for an HF model id/URL (fet
 
 _PACK_DISPLAY = {"vv40": "ASME V&V 40", "nasa-7009b": "NASA-STD-7009B", "mrm-nist": "NIST AI RMF"}
 
+# Shown in place of the concerns section when sufficiency was not assessed (the
+# heuristic README scan / no-card case). A keyword scan can support completeness
+# but not sufficiency-level weakeners, so the readout declines them rather than
+# asserting a verdict it cannot back.
+_SUFFICIENCY_DECLINED = (
+    "Sufficiency (weakener) analysis not assessed in heuristic mode - run with an "
+    "LLM backend (--extract-backend ...) for sufficiency analysis."
+)
+
 # A pubkey path that does not exist, so SHACL/check runs without attempting
 # signature verification on a possibly-unsigned bundle (report never signs).
 _NO_PUBKEY = Path("/nonexistent/uofa-report-unsigned.pub")
@@ -128,6 +137,7 @@ def _context(bundle: dict, pack: str) -> dict:
         "risk_assumption": MRM_NIST_RISK_ASSUMPTION if pack == "mrm-nist" else "",
         "extraction_provenance": bundle.get("_extractionProvenance", ""),
         "documentation_status": bundle.get("_documentationStatus", "present"),
+        "sufficiency_assessed": bool(bundle.get("_sufficiencyAssessed", True)),
     }
 
 
@@ -214,10 +224,11 @@ def _render_text(state) -> str:
     if state.device_class:
         L.append(f"Device class     : {state.device_class}")
     L.append("")
+    concerns_glance = _glance_severities(state) if state.sufficiency_assessed else "not assessed (heuristic mode)"
     L.append("AT A GLANCE")
     L.append(f"  Completeness      : {state.completeness_pct}%")
     L.append(f"  Factors evidenced : {state.n_evidenced} of {state.n_expected}")
-    L.append(f"  Concerns          : {_glance_severities(state)}")
+    L.append(f"  Concerns          : {concerns_glance}")
     L.append(f"  Gate checks passed: {state.gates['passed']} of {state.gates['total']}")
     L.append(f"  {_reconcile(state)}")
     L.append("")
@@ -227,7 +238,9 @@ def _render_text(state) -> str:
         L.append(f"  [{f.status.value:<14}] {f.name}")
     L.append("")
     L.append("CONCERNS FOUND")
-    if not state.concerns:
+    if not state.sufficiency_assessed:
+        L.append(f"  {_SUFFICIENCY_DECLINED}")
+    elif not state.concerns:
         L.append("  None flagged.")
     for c in state.concerns:
         hits = f" (seen {c.hits}x)" if c.hits > 1 else ""
@@ -261,8 +274,9 @@ def _render_markdown(state) -> str:
     L.append("\n## At a glance\n")
     L.append(f"| Completeness | Factors evidenced | Concerns | Gate checks |")
     L.append("|---|---|---|---|")
+    concerns_cell = _glance_severities(state) if state.sufficiency_assessed else "not assessed (heuristic)"
     L.append(f"| {state.completeness_pct}% | {state.n_evidenced} of {state.n_expected} "
-             f"| {_glance_severities(state)} | {state.gates['passed']} of {state.gates['total']} |")
+             f"| {concerns_cell} | {state.gates['passed']} of {state.gates['total']} |")
     L.append(f"\n_{_reconcile(state)}_\n")
     L.append("## Credibility factors\n")
     L.append("| Factor | Status |")
@@ -271,7 +285,9 @@ def _render_markdown(state) -> str:
     for f in sorted(state.factors, key=lambda f: (rank[f.status], f.name)):
         L.append(f"| {f.name} | {f.status.value} |")
     L.append("\n## Concerns found\n")
-    if not state.concerns:
+    if not state.sufficiency_assessed:
+        L.append(f"_{_SUFFICIENCY_DECLINED}_")
+    elif not state.concerns:
         L.append("No concerns were flagged.")
     for c in state.concerns:
         hits = f" (seen {c.hits}×)" if c.hits > 1 else ""
@@ -294,6 +310,7 @@ def _render_json(state) -> str:
         "device_class": state.device_class,
         "documentation_status": state.documentation_status,
         "extraction_provenance": state.extraction_provenance,
+        "sufficiency_assessed": state.sufficiency_assessed,
         "completeness_pct": state.completeness_pct,
         "n_evidenced": state.n_evidenced,
         "n_expected": state.n_expected,
@@ -362,15 +379,17 @@ def _resolve_extract_llm(args):
 
 
 def _bundle_out_path(model_id: str, args) -> tuple[Path, bool]:
-    """(path, kept). The generated bundle is the auditable, re-runnable source, so
-    id mode saves it by default; --save-bundle PATH overrides, --no-save-bundle
-    discards to a temp file."""
+    """(path, kept). The generated bundle is the auditable, re-runnable source, so id
+    mode keeps it by default -- but in a temp cache, NOT the working directory (a
+    read-style command shouldn't litter cwd). --save-bundle PATH writes where asked;
+    --no-save-bundle discards."""
+    import tempfile
     if args.save_bundle:
         return args.save_bundle, True
     if args.no_save_bundle:
-        import tempfile
         return Path(tempfile.mkdtemp(prefix="uofa-report-")) / "bundle.jsonld", False
-    return Path(f"{model_id.replace('/', '__')}.mrm-nist.jsonld"), True
+    base = Path(tempfile.gettempdir()) / "uofa-report-bundles"
+    return base / f"{model_id.replace('/', '__')}.mrm-nist.jsonld", True
 
 
 def _build_card_bundle(model_id: str, pack: str, args) -> Path | None:
@@ -389,12 +408,13 @@ def _build_card_bundle(model_id: str, pack: str, args) -> Path | None:
     if fetched.status in ("notfound", "empty"):
         # No assessable card -> the honest no-card readout (every in-scope factor
         # unassessed) under a leading notice, never a hollow authoritative page.
-        bundle, _ = card_bundle.card_to_bundle("", pack, model_id=model_id,
-                                               source_url=source_url, allow_llm=False)
-        provenance, doc_status = "", "none"
+        # Sufficiency is not assessed: there is nothing to weaken.
+        bundle, _prov, _suff = card_bundle.card_to_bundle("", pack, model_id=model_id,
+                                                          source_url=source_url, allow_llm=False)
+        provenance, doc_status, sufficiency = "", "none", False
     else:
         model, llm_config = _resolve_extract_llm(args)
-        bundle, provenance = card_bundle.card_to_bundle(
+        bundle, provenance, sufficiency = card_bundle.card_to_bundle(
             fetched.text, pack, model_id=model_id, source_url=source_url,
             model=model, llm_config=llm_config,
             allow_llm=not getattr(args, "deterministic", False),
@@ -403,6 +423,7 @@ def _build_card_bundle(model_id: str, pack: str, args) -> Path | None:
 
     bundle["_extractionProvenance"] = provenance
     bundle["_documentationStatus"] = doc_status
+    bundle["_sufficiencyAssessed"] = sufficiency
     if fetched.sha:
         bundle["_cardRevision"] = fetched.sha
 
@@ -410,7 +431,8 @@ def _build_card_bundle(model_id: str, pack: str, args) -> Path | None:
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(json.dumps(bundle, indent=2) + "\n", encoding="utf-8")
     if kept:
-        info(f"Wrote bundle to {out_path}")
+        info(f"Saved the generated bundle to {out_path}")
+        info(f"  re-run deterministically with: uofa report {out_path} --pack {pack}")
     return out_path
 
 
@@ -443,7 +465,10 @@ def run(args) -> int:
         )
 
     shacl = _shacl(bundle_path, pack)
-    firings = _firings(bundle_path, pack)
+    # Heuristic / no-card bundles decline sufficiency: skip the weakener engine so the
+    # readout reports completeness only (the renderers show the declined notice).
+    assess = bool(bundle.get("_sufficiencyAssessed", True))
+    firings = _firings(bundle_path, pack) if assess else []
     analysis = compute_findings(pack, statuses, shacl, firings)
     analysis["context"] = _context(bundle, pack)
 

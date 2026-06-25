@@ -71,3 +71,11 @@ def finalize(result, pack, factor_edits, *, source_name="upload", warnings=None)
     finally:
         pipeline.DEBUG_RESPONSE_FILE.unlink(missing_ok=True)
         shutil.rmtree(work_dir, ignore_errors=True)
+
+
+def card_report(model_id, *, model=None, deterministic=False, on_progress=None) -> PipelineOutcome:
+    """Live card path (no confirm step): fetch an HF model card and report. Delegates
+    to pipeline.card_report, which owns its temp work dir + debug-file teardown and
+    never raises past the boundary (gated/absent cards become typed outcomes)."""
+    return pipeline.card_report(model_id, model=model, deterministic=deterministic,
+                                on_progress=on_progress)
