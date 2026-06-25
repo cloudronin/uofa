@@ -1,0 +1,50 @@
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix uofa: <https://uofa.net/vocab#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# MRM-NIST factor taxonomy — NIST AI RMF documentation factors for the model-card
+# unit (17 factors, grouped by the four RMF functions). This is a *presence-only*
+# completeness profile: it validates the factor-name enum only. There is NO
+# requiredLevel/achievedLevel range shape — the pack has no 1-5 levels and no risk
+# tiers (a documentation category is present, absent, or out-of-scope-at-card).
+#
+# Scope guard: the shape only constrains factors tagged factorStandard
+# "NIST-AI-RMF-1.0" (the stamp excel_mapper._map_factor applies). vv40/nasa
+# factors carry a different standard, so this shape stays silent on them, and
+# their name shapes (guarded on their own standard) stay silent on these. A
+# factor with no factorStandard at all is not matched here (the triple is
+# required, not OPTIONAL), leaving the core/legacy path to the vv40 !BOUND clause.
+uofa:MrmNistCredibilityFactorShape a sh:NodeShape ;
+    sh:targetClass uofa:CredibilityFactor ;
+    sh:sparql [
+        sh:message "factorType must be one of the 17 MRM-NIST (NIST AI RMF) documentation factor names." ;
+        sh:select """
+            SELECT $this
+            WHERE {
+                $this uofa:factorType ?ft .
+                $this uofa:factorStandard ?fs .
+                FILTER (
+                    ?fs = "NIST-AI-RMF-1.0"
+                    && ?ft NOT IN (
+                        "Ownership and accountability",
+                        "Intended use",
+                        "License and usage terms",
+                        "Out-of-scope use",
+                        "Task and domain context",
+                        "Deployment setting",
+                        "Known limitations",
+                        "Affected populations",
+                        "Evaluation metrics",
+                        "Evaluation methodology",
+                        "Bias and fairness analysis",
+                        "Robustness and safety testing",
+                        "Test and evaluation data",
+                        "Mitigations and safeguards",
+                        "Residual risk",
+                        "Monitoring and feedback",
+                        "Versioning and update policy"
+                    )
+                )
+            }
+        """ ;
+    ] .

@@ -192,6 +192,11 @@ class ReportState:
     severity_counts: dict        # raw severity key -> count, single source for at-a-glance
     gates: dict
     authenticity: dict
+    # Optional disclosed risk-tier assumption (mrm-nist model cards declare no risk
+    # tier, so that profile assesses against an assumed MRL; surfacing it makes
+    # W-EP-04 fire against a STATED assumption, not a hidden input). Empty for
+    # vv40/nasa, whose risk level is derived from a real context of use.
+    risk_assumption: str = ""
 
     @property
     def has_high_weakener(self) -> bool:
@@ -303,6 +308,7 @@ def build_report_state(analysis: dict, gloss: dict | None = None) -> ReportState
         severity_counts=severity_counts,
         gates=gates,
         authenticity=ctx.get("authenticity", {}) or {},
+        risk_assumption=ctx.get("risk_assumption") or "",
     )
 
 

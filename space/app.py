@@ -17,7 +17,7 @@ from pathlib import Path
 
 import gradio as gr
 
-from space import leadcapture, pipeline, reviewer, wizard
+from space import curated, leadcapture, pipeline, reviewer, wizard
 from space.gloss import gloss_for, load_gloss
 from uofa_cli import paths
 
@@ -28,6 +28,12 @@ STATUS_CHOICES = ["assessed", "not-assessed", "scoped-out", "not-applicable"]
 # Plain-language gloss, loaded once; shared by the reviewer render and the
 # author confirm accordion (one lookup, never duplicated).
 _GLOSS = load_gloss()
+
+# Worked-examples gallery: committed MRM-NIST curated readouts, pre-rendered once
+# with the shared reviewer renderer. Strictly static - no runtime engine, LLM, or
+# network. An empty list (examples not generated) simply omits the gallery.
+_CURATED = curated.load_curated()
+_CURATED_HTML = {it["key"]: reviewer.render_reviewer_html(it["payload"], _GLOSS) for it in _CURATED}
 
 _MODEL = os.environ.get("UOFA_SPACE_MODEL") or None  # None -> bundled qwen3.5:4b
 # In-container the wheel bundles packs/ under uofa_cli/_data/repo; an env var lets
@@ -420,6 +426,30 @@ def build() -> gr.Blocks:
         gr.Markdown("# Credibility Inspector\nInspect model-credibility evidence "
                     "against ASME V&V 40 or NASA-STD-7009B, for the reviewer judging a "
                     "package or the engineer assembling one.")
+
+        # Worked-examples gallery (read-only): the same defeater engine run against
+        # the NIST AI RMF documentation factor set on three real open-model cards.
+        # Pure static render of committed payloads - no upload, no engine, no LLM.
+        if _CURATED:
+            with gr.Accordion("Worked examples - open model cards (NIST AI RMF)", open=False):
+                gr.Markdown(
+                    "The same defeater engine, run against the **NIST AI RMF** documentation "
+                    "factor set on three real open model cards. *Read completeness first* - how "
+                    "much of the documentation argument is present - then the typed concerns that "
+                    "explain the gaps. EQTY Lab attests that an artifact is authentic; this is the "
+                    "layer above: whether the documented credibility argument is *sufficient*. "
+                    "Each card is assessed against a disclosed moderate-risk assumption (MRL 3), "
+                    "stated in the readout."
+                )
+                curated_pick = gr.Radio(
+                    choices=[(f"{it['model_id']} - {it['role']}", it["key"]) for it in _CURATED],
+                    value=_CURATED[0]["key"], label="Example card",
+                )
+                curated_view = gr.HTML(value=_CURATED_HTML[_CURATED[0]["key"]])
+                curated_pick.change(
+                    lambda k: gr.update(value=_CURATED_HTML.get(k, "")),
+                    inputs=[curated_pick], outputs=[curated_view],
+                )
 
         corpus_state = gr.State(None)
         decision_state = gr.State(None)

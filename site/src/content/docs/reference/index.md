@@ -8,6 +8,7 @@ Reference material for the UofA CLI and data model.
 | Page | Contents |
 |---|---|
 | [CLI commands](/reference/cli/) | All `uofa` subcommands with flags and examples |
+| [MRM-NIST pack](/reference/packs/mrm-nist/) | NIST AI RMF documentation factor set + SHACL profile for the model-card unit |
 
 Additional reference material (full weakener catalog with detailed pattern specifications, JSON-LD context reference, SHACL profile reference, and per-pack documentation) will land in v1.5 of this site. For now, those references live alongside the source in the GitHub repository.
 

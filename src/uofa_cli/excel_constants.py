@@ -149,7 +149,74 @@ NASA_ONLY_FACTOR_CATEGORIES: list[tuple[str, str]] = [
     ("Use history", "NASA — Capability"),
 ]
 
-ALL_FACTOR_CATEGORIES: list[tuple[str, str]] = VV40_FACTOR_CATEGORIES + NASA_ONLY_FACTOR_CATEGORIES
+# ── MRM-NIST (hand-maintained; mirrors packs/mrm-nist/shapes/mrm_nist_shapes.ttl) ──
+# NIST AI RMF documentation factor set for the model-card unit. Presence-only
+# (status assessed / not-assessed / scoped-out); no 1-5 levels and no risk tiers,
+# per the pack spec. Grouped by the four RMF functions. NOT emitted by
+# `uofa schema --emit python` (which only knows core/vv40/nasa), so keep this in
+# sync with the pack shapes file by hand.
+MRM_NIST_FACTOR_NAMES: list[str] = [
+    # GOVERN — Governance & accountability
+    "Ownership and accountability",
+    "Intended use",
+    "License and usage terms",
+    "Out-of-scope use",
+    # MAP — Context & risk framing
+    "Task and domain context",
+    "Deployment setting",
+    "Known limitations",
+    "Affected populations",
+    # MEASURE — Evaluation & analysis
+    "Evaluation metrics",
+    "Evaluation methodology",
+    "Bias and fairness analysis",
+    "Robustness and safety testing",
+    "Test and evaluation data",
+    # MANAGE — Risk response & monitoring
+    "Mitigations and safeguards",
+    "Residual risk",
+    "Monitoring and feedback",
+    "Versioning and update policy",
+]
+
+MRM_NIST_FACTOR_CATEGORIES: list[tuple[str, str]] = [
+    ("Ownership and accountability", "GOVERN — Governance & accountability"),
+    ("Intended use", "GOVERN — Governance & accountability"),
+    ("License and usage terms", "GOVERN — Governance & accountability"),
+    ("Out-of-scope use", "GOVERN — Governance & accountability"),
+    ("Task and domain context", "MAP — Context & risk framing"),
+    ("Deployment setting", "MAP — Context & risk framing"),
+    ("Known limitations", "MAP — Context & risk framing"),
+    ("Affected populations", "MAP — Context & risk framing"),
+    ("Evaluation metrics", "MEASURE — Evaluation & analysis"),
+    ("Evaluation methodology", "MEASURE — Evaluation & analysis"),
+    ("Bias and fairness analysis", "MEASURE — Evaluation & analysis"),
+    ("Robustness and safety testing", "MEASURE — Evaluation & analysis"),
+    ("Test and evaluation data", "MEASURE — Evaluation & analysis"),
+    ("Mitigations and safeguards", "MANAGE — Risk response & monitoring"),
+    ("Residual risk", "MANAGE — Risk response & monitoring"),
+    ("Monitoring and feedback", "MANAGE — Risk response & monitoring"),
+    ("Versioning and update policy", "MANAGE — Risk response & monitoring"),
+]
+
+# GOVERN/MANAGE subcategories that a static model card rarely documents as an
+# organizational act. Marked scoped-out (out-of-scope-at-card-level) by default
+# rather than not-assessed, so a genuine documentation omission is not conflated
+# with an organizational artifact the card was never meant to carry. The S0
+# curate step flips one to assessed when a card actually documents it (e.g. OLMo
+# states a versioning/update policy). This is the v0.8 §8 open question resolved
+# the honest way for the demo.
+MRM_NIST_DEFAULT_OUT_OF_SCOPE: frozenset[str] = frozenset({
+    "Ownership and accountability",
+    "Mitigations and safeguards",
+    "Residual risk",
+    "Monitoring and feedback",
+    "Versioning and update policy",
+})
+
+ALL_FACTOR_CATEGORIES: list[tuple[str, str]] = (
+    VV40_FACTOR_CATEGORIES + NASA_ONLY_FACTOR_CATEGORIES + MRM_NIST_FACTOR_CATEGORIES
+)
 
 # NASA category -> assessmentPhase mapping
 NASA_PHASE_MAP: dict[str, str] = {
@@ -166,6 +233,7 @@ PROFILE_URIS: dict[str, str] = {
 # Factor standard assignment
 FACTOR_STANDARD_VV40 = "ASME-VV40-2018"
 FACTOR_STANDARD_NASA = "NASA-STD-7009B"
+FACTOR_STANDARD_MRM_NIST = "NIST-AI-RMF-1.0"
 
 CONTEXT_URL = "https://raw.githubusercontent.com/cloudronin/uofa/main/spec/context/v0.5.jsonld"
 BASE_URI = "https://uofa.net/instances"

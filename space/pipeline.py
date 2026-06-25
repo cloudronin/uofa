@@ -355,7 +355,18 @@ def _assign_factor_ids(doc: dict) -> None:
             fac["id"] = f"{base}/factor/{slugify(fac['factorType'])}"
 
 
-_PACK_DISPLAY = {"vv40": "ASME V&V 40", "nasa-7009b": "NASA-STD-7009B"}
+_PACK_DISPLAY = {"vv40": "ASME V&V 40", "nasa-7009b": "NASA-STD-7009B", "mrm-nist": "NIST AI RMF"}
+
+# A model card declares no deployment context or risk tier, so the mrm-nist profile
+# assesses every card against one disclosed assumption (surfaced in the reviewer
+# context so W-EP-04 fires against a STATED input, not a hidden one). Single source
+# of truth, shared by the live path (_build_context) and the curated build-time run
+# (packs/mrm-nist/examples/curated_cards.py).
+MRM_NIST_ASSUMED_MRL = 3
+MRM_NIST_RISK_ASSUMPTION = (
+    "Evaluated as if bound for a moderate-risk deployment (assumed MRL 3); "
+    "the source card declares no context of use or risk tier."
+)
 
 
 def _authenticity_block() -> dict:
@@ -378,7 +389,7 @@ def _authenticity_block() -> dict:
 
 def _build_context(summary: dict, pack: str) -> dict:
     """Reviewer-facing context, re-projected from already-extracted fields."""
-    return {
+    ctx = {
         "project_name": summary.get("project_name"),
         "cou_name": summary.get("cou_name"),
         "cou_description": summary.get("cou_description"),
@@ -390,6 +401,9 @@ def _build_context(summary: dict, pack: str) -> dict:
         "standards_reference": summary.get("standards_reference"),
         "authenticity": _authenticity_block(),
     }
+    if pack == "mrm-nist":
+        ctx["risk_assumption"] = MRM_NIST_RISK_ASSUMPTION
+    return ctx
 
 
 def _build_payload(pack, data, shacl_conforms, shacl_violations, firings, warnings) -> dict:

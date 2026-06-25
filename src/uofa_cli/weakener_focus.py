@@ -22,13 +22,20 @@ Pure read-side interpretation of engine output: the rule engine, shapes, and
 from __future__ import annotations
 
 from uofa_cli import paths
-from uofa_cli.excel_constants import NASA_ALL_FACTOR_NAMES, VV40_FACTOR_NAMES
+from uofa_cli.excel_constants import (
+    MRM_NIST_FACTOR_NAMES, NASA_ALL_FACTOR_NAMES, VV40_FACTOR_NAMES,
+)
 from uofa_cli.excel_mapper import slugify
 
 
 def expected_factors(pack: str) -> list[str]:
     """Canonical credibility-factor names for a pack (the factor universe)."""
-    return NASA_ALL_FACTOR_NAMES if "nasa" in (pack or "").lower() else VV40_FACTOR_NAMES
+    p = (pack or "").lower()
+    if "mrm-nist" in p or "mrm_nist" in p:
+        return MRM_NIST_FACTOR_NAMES
+    if "nasa" in p:
+        return NASA_ALL_FACTOR_NAMES
+    return VV40_FACTOR_NAMES
 
 
 def resolve_factor_names(affected_nodes, slug_to_name: dict[str, str]) -> list[str]:
