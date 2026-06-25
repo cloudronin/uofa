@@ -10,9 +10,34 @@ factor taxonomy, a presence-only completeness profile (SHACL), and a per-pack
 weakener→factor focus map. The core engine, shapes, and `.rules` files are untouched.
 
 ```
-uofa check  <card-derived>.jsonld --pack mrm-nist     # C1/C2/C3
-uofa report <card-derived>.jsonld --pack mrm-nist     # deterministic readout (text/markdown/json)
+uofa report owner/model --pack mrm-nist                          # fetch the card + extract + report
+uofa report https://huggingface.co/owner/model --pack mrm-nist   # same, from a model URL
+uofa report bundle.jsonld --pack mrm-nist                        # a saved/curated bundle (deterministic)
+uofa check  bundle.jsonld --pack mrm-nist                        # C1/C2/C3 on a bundle
 ```
+
+## Reporting on a live model card
+
+`uofa report` accepts an HF model id (`owner/model`) or model URL as well as a
+`.jsonld` bundle. For an id/URL it fetches the card, extracts the factor statuses,
+maps to a bundle, and runs the same report. Honesty guardrails:
+
+- **Extraction provenance is always stated in the readout** — `LLM extraction -
+  <backend>/<model>` when a backend is configured (`--extract-backend anthropic`
+  …, reusing the `uofa extract` flags), or `Heuristic - … approximate` for the
+  no-model README scan (the default when no backend is set, or `--deterministic`).
+  A keyword scan is never presented as the tool's judgment.
+- **No card → an honest no-card readout**, not a hollow all-weakeners page: a
+  gated (403) card is a hard failure; a missing/empty card (404) renders 0/N under
+  a prominent "no model card published" notice — the same framing the committed
+  `chemberta-77m-mtr` example uses.
+- **The generated bundle is saved by default** (`./<owner>__<model>.mrm-nist.jsonld`)
+  as the auditable, re-runnable source; `--save-bundle PATH` / `--no-save-bundle`
+  control it. Re-running `uofa report <saved-bundle>` reproduces the readout,
+  provenance line included.
+
+The deterministic scan is coarse by design; its divergence from LLM/curated
+statuses is tracked in `tests/test_report_card.py`, not left to surface live.
 
 ## Factor set (17 factors, grouped by RMF function)
 

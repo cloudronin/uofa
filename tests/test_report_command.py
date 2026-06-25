@@ -25,8 +25,13 @@ _COU = {c: _ROOT / f"packs/vv40/examples/morrison/{c}/uofa-morrison-{c}.jsonld"
 
 
 def _args(file, fmt="text", output=None, pack="vv40"):
-    return argparse.Namespace(file=file, format=fmt, output=output,
-                              active_packs=[pack], pack=[pack], repo_root=None)
+    # `report` now takes a positional `source` (a bundle path, an HF id, or a URL)
+    # plus the id-mode flags; a .jsonld path routes to the unchanged file mode.
+    return argparse.Namespace(source=str(file), format=fmt, output=output,
+                              active_packs=[pack], pack=[pack], repo_root=None,
+                              deterministic=False, revision=None, save_bundle=None,
+                              no_save_bundle=False, extract_backend=None,
+                              extract_model=None, extract_base_url=None)
 
 
 def _state(cou):

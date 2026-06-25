@@ -27,9 +27,15 @@ from pathlib import Path
 from typing import Callable
 
 from uofa_cli import paths
+from uofa_cli.card_bundle import (
+    MRM_NIST_RISK_ASSUMPTION,
+    assign_factor_ids as _assign_factor_ids,
+    result_to_import_dict,
+    unwrap_fields as _unwrap,
+    unwrap_value as _v,
+)
 from uofa_cli.document_reader import ExtractionCorpus, discover_files, read_corpus
-from uofa_cli.excel_constants import ALL_FACTOR_CATEGORIES
-from uofa_cli.excel_mapper import map_to_jsonld, slugify
+from uofa_cli.excel_mapper import map_to_jsonld
 from uofa_cli.llm.config import BUNDLED_MODEL
 from uofa_cli.llm_extractor import extract as _real_extract
 
@@ -46,8 +52,6 @@ DEFAULT_EXTRACT_TIMEOUT = 720
 # (the public Space never signs). Using the repo's real key would make
 # run_structured attempt signature verification on an unsigned doc.
 _NO_PUBKEY = Path("/nonexistent/uofa-space-unsigned.pub")
-
-_CATEGORY_BY_FACTOR = dict(ALL_FACTOR_CATEGORIES)
 
 
 # ── Typed outcome ─────────────────────────────────────────────
@@ -118,89 +122,6 @@ class PipelineOutcome:
             kind=kind,
             user_message=message or _USER_MESSAGES.get(kind, _USER_MESSAGES[FailureKind.INTERNAL]),
         )
-
-
-# ── Adapter: ExtractionResult -> import dict ─────────────────
-
-
-def _v(obj):
-    """Unwrap a FieldExtraction to its .value (or pass a plain value through)."""
-    return getattr(obj, "value", obj)
-
-
-def _unwrap(d: dict) -> dict:
-    return {k: _v(v) for k, v in d.items()}
-
-
-def _parse_mrl(value) -> int | None:
-    """Coerce a model-risk-level value ("MRL 2", "2", 2) to an int, mirroring
-    excel_reader._read_summary so modelRiskLevel serializes as a valid xsd:integer
-    (a bare string aborts the Jena engine with a DatatypeFormatException)."""
-    if value is None:
-        return None
-    if isinstance(value, int):
-        return value
-    try:
-        return int(str(value).upper().replace("MRL", "").strip())
-    except (ValueError, TypeError):
-        return None
-
-
-def result_to_import_dict(result, pack: str, factor_edits: dict[str, str] | None = None) -> dict:
-    """Map an ExtractionResult to the dict shape `map_to_jsonld` expects.
-
-    `factor_edits` (factor_type -> status) overrides the extracted status for
-    confirmed factors - the only user-mutable field in the confirm step.
-    Profile is forced to "Complete" so all factors map and the rule engine can
-    see unassessed gaps. A `decision.outcome` is synthesized because
-    map_to_jsonld requires one; it is NEVER surfaced in the UI.
-    """
-    factor_edits = factor_edits or {}
-    s = _unwrap(result.assessment_summary)
-    summary = {
-        "project_name": s.get("project_name") or "Uploaded evidence",
-        "cou_name": s.get("cou_name") or "Context of use",
-        "cou_description": s.get("cou_description"),
-        "profile": "Complete",
-        "device_class": s.get("device_class"),
-        "model_risk_level": _parse_mrl(s.get("model_risk_level")),
-        "assurance_level": s.get("assurance_level"),
-        "standards_reference": s.get("standards_reference"),
-        "assessor_name": s.get("assessor_name"),
-        "source_document": s.get("source_document"),
-        "has_uq": s.get("has_uq", "No"),
-    }
-
-    entities = [e for e in (_unwrap(ent) for ent in result.model_and_data) if e.get("entity_type")]
-    validation_results = [_unwrap(vr) for vr in result.validation_results]
-
-    factors = []
-    for raw in result.credibility_factors:
-        f = _unwrap(raw)
-        ftype = f.get("factor_type")
-        if not ftype:
-            continue
-        factors.append({
-            "factor_type": ftype,
-            "category": _CATEGORY_BY_FACTOR.get(ftype),
-            "required_level": f.get("required_level"),
-            "achieved_level": f.get("achieved_level"),
-            "acceptance_criteria": f.get("acceptance_criteria"),
-            "rationale": f.get("rationale"),
-            "status": factor_edits.get(ftype, f.get("status") or "not-assessed"),
-            "linked_evidence": f.get("linked_evidence"),
-        })
-
-    d = _unwrap(result.decision)
-    decision = {"outcome": "Not accepted", "rationale": d.get("rationale")}  # synthetic, never shown
-
-    return {
-        "summary": summary,
-        "entities": entities,
-        "validation_results": validation_results,
-        "factors": factors,
-        "decision": decision,
-    }
 
 
 # ── Subprocess-isolated extraction with a hard timeout ───────
@@ -346,27 +267,7 @@ def _run_weakeners(jsonld_path: Path, pack: str) -> list[dict]:
     return rules_mod.parse_firings_jsonld(stdout)
 
 
-def _assign_factor_ids(doc: dict) -> None:
-    """Give each credibility factor a stable IRI so weakener affectedNode IRIs
-    resolve to factor names (without an @id they serialize as blank nodes)."""
-    base = doc.get("id", "")
-    for fac in doc.get("hasCredibilityFactor", []):
-        if "id" not in fac and fac.get("factorType"):
-            fac["id"] = f"{base}/factor/{slugify(fac['factorType'])}"
-
-
 _PACK_DISPLAY = {"vv40": "ASME V&V 40", "nasa-7009b": "NASA-STD-7009B", "mrm-nist": "NIST AI RMF"}
-
-# A model card declares no deployment context or risk tier, so the mrm-nist profile
-# assesses every card against one disclosed assumption (surfaced in the reviewer
-# context so W-EP-04 fires against a STATED input, not a hidden one). Single source
-# of truth, shared by the live path (_build_context) and the curated build-time run
-# (packs/mrm-nist/examples/curated_cards.py).
-MRM_NIST_ASSUMED_MRL = 3
-MRM_NIST_RISK_ASSUMPTION = (
-    "Evaluated as if bound for a moderate-risk deployment (assumed MRL 3); "
-    "the source card declares no context of use or risk tier."
-)
 
 
 def _authenticity_block() -> dict:

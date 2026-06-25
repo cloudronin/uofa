@@ -70,6 +70,8 @@ def build_payload(card) -> dict:
         "mrm-nist", statuses, {"conforms": conforms, "violations": violations}, firings
     )
     payload["context"] = pipeline._build_context(data["summary"], "mrm-nist")
+    payload["context"]["extraction_provenance"] = card.extraction_provenance
+    payload["context"]["documentation_status"] = card.documentation_status
     payload["warnings"] = []
     payload["_curated"] = {
         "key": card.key,

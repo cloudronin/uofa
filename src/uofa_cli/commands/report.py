@@ -1,18 +1,24 @@
-"""uofa report — a deterministic credibility report for an evidence bundle.
+"""uofa report — a credibility report for a bundle, or for a live model card.
 
-Reads a `.jsonld` UofA package and renders one consistent report: completeness
-(from the bundle's confirmed `factorStatus`), the weakener concerns the rule
-engine fires (each attributed to the credibility factor it implicates, via the
-pack-declared focus map), and the structural SHACL result. The same
-`uofa_cli.report_state` logic and the six frozen invariants back the demo Space
-reviewer view, so the CLI and the Space tell one story.
+Two source modes share one rendering path (the `uofa_cli.report_state` logic and
+the six frozen invariants that also back the demo Space reviewer view, so every
+surface tells one story):
 
-Pack-aware: pass `--pack nasa-7009b` for a NASA bundle so the factor universe
-and focus map match. Fully deterministic — no LLM, no extraction.
+  * a `.jsonld` bundle — deterministic, no LLM, no extraction (unchanged): reads
+    the bundle's confirmed `factorStatus`, runs SHACL + the rule engine, and
+    renders completeness + the weakener concerns (each attributed to the factor it
+    implicates via the pack-declared focus map) + the structural result.
 
-    uofa report package.jsonld
-    uofa report package.jsonld --format markdown
-    uofa report package.jsonld --format json --output report.json
+  * an HF model id (`owner/model`) or model URL — fetches the card and extracts
+    factor statuses (LLM when a backend is configured, else a deterministic
+    README scan), maps to a bundle, then runs the same report. The readout always
+    states its extraction provenance, and a gated/absent card renders an honest
+    no-card notice rather than a hollow all-weakeners page. The generated bundle
+    is saved by default as the auditable, re-runnable source.
+
+    uofa report package.jsonld --pack mrm-nist
+    uofa report allenai/OLMo-2-1124-13B-Instruct --pack mrm-nist
+    uofa report https://huggingface.co/owner/model --pack mrm-nist --deterministic
 """
 
 from __future__ import annotations
@@ -22,6 +28,7 @@ import json
 from pathlib import Path
 
 from uofa_cli import paths
+from uofa_cli.card_bundle import MRM_NIST_RISK_ASSUMPTION
 from uofa_cli.output import error, info
 from uofa_cli.report_state import (
     Status,
@@ -31,9 +38,9 @@ from uofa_cli.report_state import (
     sev_label,
 )
 
-HELP = "render a deterministic credibility report for a bundle (completeness + concerns)"
+HELP = "render a credibility report for a bundle, or for an HF model id/URL (fetch + extract)"
 
-_PACK_DISPLAY = {"vv40": "ASME V&V 40", "nasa-7009b": "NASA-STD-7009B"}
+_PACK_DISPLAY = {"vv40": "ASME V&V 40", "nasa-7009b": "NASA-STD-7009B", "mrm-nist": "NIST AI RMF"}
 
 # A pubkey path that does not exist, so SHACL/check runs without attempting
 # signature verification on a possibly-unsigned bundle (report never signs).
@@ -41,12 +48,32 @@ _NO_PUBKEY = Path("/nonexistent/uofa-report-unsigned.pub")
 
 
 def add_arguments(parser):
-    parser.add_argument("file", type=Path, help="UofA evidence bundle (.jsonld)")
+    parser.add_argument("source",
+                        help="a UofA bundle (.jsonld), an HF model id (owner/model), "
+                             "or an HF model URL")
     parser.add_argument("--format", default="text",
                         choices=["text", "markdown", "json"],
                         help="output format (default: text)")
     parser.add_argument("--output", type=Path, default=None,
-                        help="write to FILE instead of stdout")
+                        help="write the report to FILE instead of stdout")
+    # ── id/URL mode: fetch + extract ──
+    parser.add_argument("--deterministic", action="store_true",
+                        help="id mode: skip the LLM and map the card with the README "
+                             "section/keyword scan (approximate; needs no model)")
+    parser.add_argument("--revision", default=None,
+                        help="id mode: model-card git revision (default: latest)")
+    parser.add_argument("--save-bundle", metavar="PATH", type=Path, default=None,
+                        help="id mode: write the generated bundle to PATH "
+                             "(default: ./<owner>__<model>.mrm-nist.jsonld)")
+    parser.add_argument("--no-save-bundle", action="store_true",
+                        help="id mode: do not keep the generated bundle")
+    parser.add_argument("--extract-backend", default=None,
+                        choices=["ollama", "anthropic", "openai", "openai-compatible", "bundled", "mock"],
+                        help="id mode: LLM backend for extraction (else README scan)")
+    parser.add_argument("--extract-model", default=None,
+                        help="id mode: model name on the chosen backend")
+    parser.add_argument("--extract-base-url", default=None,
+                        help="id mode: base URL for openai-compatible backends")
 
 
 # ── bundle → analysis payload ───────────────────────────────────────────────
@@ -95,6 +122,12 @@ def _context(bundle: dict, pack: str) -> dict:
         # A bundle read off disk is not re-verified here; report makes no
         # authenticity claim (the reviewer panel branches on this being absent).
         "authenticity": {},
+        # mrm-nist discloses its assumed risk posture; id-mode bundles carry their
+        # own extraction provenance + documentation status so a saved bundle
+        # re-runs to the identical readout. Absent on a vetted vv40/nasa bundle.
+        "risk_assumption": MRM_NIST_RISK_ASSUMPTION if pack == "mrm-nist" else "",
+        "extraction_provenance": bundle.get("_extractionProvenance", ""),
+        "documentation_status": bundle.get("_documentationStatus", "present"),
     }
 
 
@@ -164,10 +197,20 @@ def _reconcile(state) -> str:
 
 def _render_text(state) -> str:
     L = []
+    if state.documentation_status == "none":
+        L.append("! NO MODEL CARD PUBLISHED — there is no documentation to assess.")
+        L.append("  Every factor below is unassessed as a consequence; the concerns are the")
+        L.append("  mechanical result of an absent card, not findings about a real one.")
+        L.append("")
     L.append(f"CREDIBILITY REPORT — {state.cou_name}")
     L.append("=" * 60)
     L.append(f"Assessed against : {state.standard}")
-    L.append(f"Risk tier        : {state.risk_level if state.risk_level is not None else 'Not stated'}")
+    if state.risk_assumption:
+        L.append(f"Risk posture     : {state.risk_assumption}")
+    else:
+        L.append(f"Risk tier        : {state.risk_level if state.risk_level is not None else 'Not stated'}")
+    if state.extraction_provenance:
+        L.append(f"Extraction       : {state.extraction_provenance}")
     if state.device_class:
         L.append(f"Device class     : {state.device_class}")
     L.append("")
@@ -201,9 +244,18 @@ def _render_text(state) -> str:
 
 def _render_markdown(state) -> str:
     L = []
+    if state.documentation_status == "none":
+        L.append("> **No model card published — there is no documentation to assess.** "
+                 "Every factor below is unassessed as a consequence; the concerns are the "
+                 "mechanical result of an absent card, not findings about a real one.\n")
     L.append(f"# Credibility report — {state.cou_name}\n")
     L.append(f"- **Assessed against:** {state.standard}")
-    L.append(f"- **Risk tier:** {state.risk_level if state.risk_level is not None else 'Not stated'}")
+    if state.risk_assumption:
+        L.append(f"- **Risk posture:** {state.risk_assumption}")
+    else:
+        L.append(f"- **Risk tier:** {state.risk_level if state.risk_level is not None else 'Not stated'}")
+    if state.extraction_provenance:
+        L.append(f"- **Extraction:** {state.extraction_provenance}")
     if state.device_class:
         L.append(f"- **Device class:** {state.device_class}")
     L.append("\n## At a glance\n")
@@ -238,7 +290,10 @@ def _render_json(state) -> str:
         "cou_name": state.cou_name,
         "standard": state.standard,
         "risk_level": state.risk_level,
+        "risk_assumption": state.risk_assumption,
         "device_class": state.device_class,
+        "documentation_status": state.documentation_status,
+        "extraction_provenance": state.extraction_provenance,
         "completeness_pct": state.completeness_pct,
         "n_evidenced": state.n_evidenced,
         "n_expected": state.n_expected,
@@ -265,26 +320,130 @@ def _render_json(state) -> str:
 _RENDERERS = {"text": _render_text, "markdown": _render_markdown, "json": _render_json}
 
 
+# ── id mode: fetch + extract -> bundle ───────────────────────────────────────
+
+
+def _configured_model_or_none() -> str | None:
+    """The model the user has already configured (project uofa.toml or `uofa
+    setup`), or None. Lets `uofa report owner/model` prefer the LLM when one is set
+    up and fall back to the deterministic scan when none is."""
+    try:
+        from uofa_cli import setup_state
+        proj = paths.find_project_root()
+        cfg = paths.load_project_config(proj) if proj else {}
+        if cfg.get("model"):
+            return cfg["model"]
+        s = setup_state.load_config()
+        return s.model_tag if s else None
+    except Exception:
+        return None
+
+
+def _resolve_extract_llm(args):
+    """(model, llm_config) for the extractor. --deterministic -> (None, None) forces
+    the README scan; explicit --extract-* -> a resolved llm_config; else a configured
+    default model if one exists, otherwise (None, None) -> deterministic."""
+    if getattr(args, "deterministic", False):
+        return None, None
+    if args.extract_backend or args.extract_model or args.extract_base_url:
+        from uofa_cli.llm import resolve_llm_config
+        ov: dict = {}
+        if args.extract_backend:
+            ov["backend"] = args.extract_backend
+        if args.extract_model:
+            ov["model"] = args.extract_model
+        if args.extract_base_url:
+            ov["base_url"] = args.extract_base_url
+        if ov.get("backend") in ("anthropic", "openai"):
+            ov.setdefault("api_key_env",
+                          {"anthropic": "ANTHROPIC_API_KEY", "openai": "OPENAI_API_KEY"}[ov["backend"]])
+        return None, resolve_llm_config(cli_overrides=ov)
+    return _configured_model_or_none(), None
+
+
+def _bundle_out_path(model_id: str, args) -> tuple[Path, bool]:
+    """(path, kept). The generated bundle is the auditable, re-runnable source, so
+    id mode saves it by default; --save-bundle PATH overrides, --no-save-bundle
+    discards to a temp file."""
+    if args.save_bundle:
+        return args.save_bundle, True
+    if args.no_save_bundle:
+        import tempfile
+        return Path(tempfile.mkdtemp(prefix="uofa-report-")) / "bundle.jsonld", False
+    return Path(f"{model_id.replace('/', '__')}.mrm-nist.jsonld"), True
+
+
+def _build_card_bundle(model_id: str, pack: str, args) -> Path | None:
+    """Fetch the card and build + save a UofA bundle. Returns the bundle path, or
+    None on a hard failure (gated/error). A missing/empty card is NOT a hard
+    failure: it yields an honest no-card bundle (documentation_status=none)."""
+    from uofa_cli import card_bundle
+    from uofa_cli.hf_card import fetch_card
+
+    fetched = fetch_card(model_id, getattr(args, "revision", None))
+    if fetched.status in ("gated", "error"):
+        error(fetched.detail or f"could not fetch a model card for {model_id}")
+        return None
+
+    source_url = f"https://huggingface.co/{model_id}"
+    if fetched.status in ("notfound", "empty"):
+        # No assessable card -> the honest no-card readout (every in-scope factor
+        # unassessed) under a leading notice, never a hollow authoritative page.
+        bundle, _ = card_bundle.card_to_bundle("", pack, model_id=model_id,
+                                               source_url=source_url, allow_llm=False)
+        provenance, doc_status = "", "none"
+    else:
+        model, llm_config = _resolve_extract_llm(args)
+        bundle, provenance = card_bundle.card_to_bundle(
+            fetched.text, pack, model_id=model_id, source_url=source_url,
+            model=model, llm_config=llm_config,
+            allow_llm=not getattr(args, "deterministic", False),
+        )
+        doc_status = "present"
+
+    bundle["_extractionProvenance"] = provenance
+    bundle["_documentationStatus"] = doc_status
+    if fetched.sha:
+        bundle["_cardRevision"] = fetched.sha
+
+    out_path, kept = _bundle_out_path(model_id, args)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(json.dumps(bundle, indent=2) + "\n", encoding="utf-8")
+    if kept:
+        info(f"Wrote bundle to {out_path}")
+    return out_path
+
+
 # ── entry point ─────────────────────────────────────────────────────────────
 
 
 def run(args) -> int:
-    if not args.file.exists():
-        raise FileNotFoundError(f"File not found: {args.file}")
+    from uofa_cli.hf_card import resolve_source
 
     pack = (paths.resolve_active_packs(args) or ["vv40"])[0]
-    bundle = json.loads(args.file.read_text(encoding="utf-8"))
+    kind, value = resolve_source(args.source)
+    if kind == "error":
+        raise ValueError(value)
+    if kind == "id":
+        bundle_path = _build_card_bundle(value, pack, args)
+        if bundle_path is None:
+            return 1
+    else:
+        bundle_path = Path(value)
+        if not bundle_path.exists():
+            raise FileNotFoundError(f"File not found: {bundle_path}")
 
+    bundle = json.loads(bundle_path.read_text(encoding="utf-8"))
     statuses = _factor_statuses(bundle)
     if not statuses:
         raise ValueError(
-            f"No credibility factors found in {args.file} — is this a UofA evidence "
+            f"No credibility factors found in {bundle_path} — is this a UofA evidence "
             "bundle? (report needs the inlined or compact-@graph form, not an "
             "expanded reasoned-output dump.)"
         )
 
-    shacl = _shacl(args.file, pack)
-    firings = _firings(args.file, pack)
+    shacl = _shacl(bundle_path, pack)
+    firings = _firings(bundle_path, pack)
     analysis = compute_findings(pack, statuses, shacl, firings)
     analysis["context"] = _context(bundle, pack)
 

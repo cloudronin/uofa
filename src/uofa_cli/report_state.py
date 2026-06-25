@@ -197,6 +197,14 @@ class ReportState:
     # W-EP-04 fire against a STATED assumption, not a hidden input). Empty for
     # vv40/nasa, whose risk level is derived from a real context of use.
     risk_assumption: str = ""
+    # How the factor statuses were derived, surfaced in the readout so a heuristic
+    # scan is never mistaken for the tool's judgment: "" (a vetted bundle off disk),
+    # "Curated - ...", "LLM extraction - <backend>/<model>", or
+    # "Heuristic - ... approximate". Empty renders no provenance line.
+    extraction_provenance: str = ""
+    # "present" normally; "none" when the source ships no assessable card, so the
+    # readout leads with a no-card notice instead of a hollow all-weakeners page.
+    documentation_status: str = "present"
 
     @property
     def has_high_weakener(self) -> bool:
@@ -309,6 +317,8 @@ def build_report_state(analysis: dict, gloss: dict | None = None) -> ReportState
         gates=gates,
         authenticity=ctx.get("authenticity", {}) or {},
         risk_assumption=ctx.get("risk_assumption") or "",
+        extraction_provenance=ctx.get("extraction_provenance") or "",
+        documentation_status=ctx.get("documentation_status") or "present",
     )
 
 

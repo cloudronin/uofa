@@ -25,8 +25,9 @@ from dataclasses import dataclass, field
 from uofa_cli.excel_constants import MRM_NIST_FACTOR_NAMES
 
 # Disclosed assessment posture, shared by every card — single source of truth in
-# space.pipeline so the live path and this curated run cannot drift.
-from space.pipeline import (
+# uofa_cli.card_bundle so the live path, the `uofa report` id path, and this
+# curated run cannot drift.
+from uofa_cli.card_bundle import (
     MRM_NIST_ASSUMED_MRL as ASSUMED_MRL,
     MRM_NIST_RISK_ASSUMPTION as RISK_ASSUMPTION,
 )
@@ -48,6 +49,11 @@ class Card:
     entities: tuple[dict, ...] = ()
     has_uq: str = "No"
     provenance: str = ""
+    # Rendered honesty fields (surfaced in the readout, like a live `uofa report`):
+    documentation_status: str = "present"
+    extraction_provenance: str = (
+        "Curated - factor statuses are a human reading of the fetched card text"
+    )
 
 
 # ── OLMo-2-1124-13B-Instruct — frontier, well-documented ─────────────────────
@@ -204,6 +210,8 @@ CHEMBERTA = Card(
     ),
     provenance="No README.md in the repo (HF API, sha 66b895cab8...); the published "
                "chirality-tokenizer limitation is absent because the card is absent.",
+    documentation_status="none",
+    extraction_provenance="Curated - the repository publishes no model card (confirmed via the HF API)",
 )
 
 CARDS: tuple[Card, ...] = (OLMO, CARDIFF, CHEMBERTA)

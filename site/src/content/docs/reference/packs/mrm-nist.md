@@ -14,9 +14,17 @@ factor taxonomy, a presence-only completeness profile (SHACL), and a per-pack
 weakener→factor focus map. The core engine, shapes, and rules are untouched.
 
 ```bash
-uofa check  card-derived.jsonld --pack mrm-nist     # integrity + SHACL + weakeners
-uofa report card-derived.jsonld --pack mrm-nist     # deterministic readout (text / markdown / json)
+uofa report owner/model --pack mrm-nist                          # fetch card + extract + report
+uofa report https://huggingface.co/owner/model --pack mrm-nist   # same, from a model URL
+uofa report bundle.jsonld --pack mrm-nist                        # a saved/curated bundle (deterministic)
 ```
+
+Given an HF model id or URL, `uofa report` fetches the card, extracts factor
+statuses, and runs the same report as on a bundle. The readout always states its
+**extraction provenance** (an LLM backend when configured, else an *approximate*
+README keyword scan), a gated/absent card renders an honest **no-card notice**
+rather than a hollow all-weakeners page, and the generated bundle is saved by
+default as the auditable, re-runnable source.
 
 ## Factor set
 

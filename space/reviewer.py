@@ -60,6 +60,10 @@ def _section_context(s: ReviewerState) -> str:
         risk_line = f"<li><b>Risk tier (assumed):</b> {_e(s.risk_assumption)}</li>"
     else:
         risk_line = f"<li><b>Risk tier:</b> {_e(_risk_phrase(s.risk_level))}</li>"
+    # How the factor statuses were derived, so a heuristic scan is never mistaken
+    # for the tool's judgment. Empty (and emits no line) for a vetted bundle off disk.
+    prov_line = (f"\n        <li><b>How assessed:</b> {_e(s.extraction_provenance)}</li>"
+                 if s.extraction_provenance else "")
     return f"""
     <section>
       <h2>What this model was used for</h2>
@@ -67,9 +71,24 @@ def _section_context(s: ReviewerState) -> str:
       {body}
       <ul class="ri-meta">
         <li><b>Assessed against:</b> {_e(s.standard)}</li>
-        {risk_line}
+        {risk_line}{prov_line}
         {device_line}
       </ul>
+    </section>"""
+
+
+def _section_banner(s: ReviewerState) -> str:
+    """A leading notice when the source ships no assessable card, so the 0% and the
+    weakeners read as the consequence of an absent card, not findings about a real
+    one. Same framing the CLI report and the committed gallery example use."""
+    if s.documentation_status != "none":
+        return ""
+    return """
+    <section class="ri-banner">
+      <h2>No model card published</h2>
+      <p>This repository publishes no model card, so there is no documentation to
+      assess. Every factor below is unassessed as a consequence, and the concerns are
+      the mechanical result of an absent card - not findings about a real one.</p>
     </section>"""
 
 
@@ -199,6 +218,9 @@ _STYLE = """
   font-size: 1.375rem; margin: 1.6rem 0 0.5rem; }
 .ri-reviewer .ri-lead { font-size: 1.1rem; }
 .ri-reviewer .ri-note { color: #9a988f; font-size: 0.9rem; }
+.ri-reviewer .ri-banner { border-left: 3px solid #c97864; padding: 0.1rem 0 0.1rem 0.9rem;
+  margin: 0.25rem 0 1rem; }
+.ri-reviewer .ri-banner h2 { margin-top: 0.4rem; color: #e0a89a; }
 .ri-reviewer ul, .ri-reviewer dl { margin: 0.5rem 0; }
 .ri-reviewer .ri-glance { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: 0.75rem; }
@@ -233,6 +255,7 @@ def render_reviewer_html(analysis: dict, gloss: dict | None = None) -> str:
     return (
         _STYLE
         + '<div id="ri-reviewer-host"><div class="ri-reviewer">'
+        + _section_banner(state)
         + _section_context(state)
         + _section_glance(state)
         + _section_factors(state)
