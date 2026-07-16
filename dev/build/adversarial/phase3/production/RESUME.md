@@ -1,23 +1,23 @@
 # Stage 2 production run — status + cross-machine resume
 
 **Decision:** gate-7 RELAX → prompt **v1.1.0** (see [`../GATE7_DECISION.md`](../GATE7_DECISION.md)).
-**Panel:** A `openai/gpt-5.4`, B `gemini/gemini-2.5-pro`, C `hf-llama/Llama-4-Maverick` (SambaNova); arbiter E `mistral-large-2411` (Stage 3b).
+**Panel:** A `openai/gpt-5.4`, B `gemini/gemini-2.5-pro`, C `Llama-4-Maverick` **via OpenRouter** (re-routed 2026-07-16 after SambaNova deprecated the model; the first ~1,180 C judgments were on SambaNova); arbiter E `mistral-large-2411` (Stage 3b).
 **Budget:** ~$262 envelope, `--max-cost 400` hard stop.
 **Corpus:** 4,556 packages (`../../phase2/2026-04-26/judge_ready_bundle.tgz`).
 
-## Progress (snapshot — check live counts after pulling)
+## Progress (snapshot 2026-07-16 — check live counts after pulling)
 
-| Judge | done / 4,556 |
+| Judge | unique / 4,556 |
 |---|---:|
-| A (openai) | ~1,251 |
-| **B (gemini, ~950/UTC-day cap)** | **~969** ← bottleneck |
-| C (hf-llama) | ~1,180 |
+| A (openai) | **4,556 — complete** |
+| **B (gemini, ~950/UTC-day cap)** | **1,946** ← bottleneck, ~2,610 left |
+| C (llama / OpenRouter) | 4,524 |
 
-Live: `wc -l run-1/judgments_*.jsonl`. Gemini paces the run at ~950/UTC-day; A and C are uncapped and run ahead.
+1,937 cases fully judged by all three. Live unique counts: `for f in run-1/judgments_*.jsonl; do jq -r .case_id "$f" | sort -u | wc -l; done`. Gemini paces the run at ~950/UTC-day; A and C are uncapped and run ahead. (Raw line counts are higher — see the duplicates note below.)
 
 ## How resume works
 
-The per-judge JSONL in `run-1/` **is** the resume state. `--resume` skips any `case_id` already present; a case is re-judged only if missing from **any** judge, so duplicates never occur (verified). Pulling these files onto another clone lets it continue exactly where this one left off — no re-judging, no double spend.
+The per-judge JSONL in `run-1/` **is** the resume state. `--resume` skips any case already complete across **all** judges; a case missing from any judge is re-judged for all judges. When judges are unevenly complete (as during the Judge C outage) this leaves **duplicate rows** in the already-complete judges — harmless, since triage dedups by `case_id`, but it inflates raw line counts and spend. Pulling these files onto another clone lets it continue exactly where this one left off.
 
 ## Move the run to a different computer
 
@@ -33,7 +33,7 @@ launchctl unload ~/Library/LaunchAgents/com.uofa.judge-daily.plist
 ```
 git pull
 ```
-- **Credentials** (never in git): `cp dev/tools/scripts/judge.env.example ~/.uofa/judge.env`, fill the 4 keys (incl. `SAMBANOVA_API_KEY`), `chmod 600 ~/.uofa/judge.env`.
+- **Credentials** (never in git): `cp dev/tools/scripts/judge.env.example ~/.uofa/judge.env`, fill the 4 keys — `OPENAI_API_KEY`, `GEMINI_API_KEY`, **`OPENROUTER_API_KEY`** (Judge C), `MISTRAL_API_KEY` — then `chmod 600 ~/.uofa/judge.env`.
 - **Python env**: a Python ≥3.10 with this repo installed (`pip install -e '.[judge]'`). Note its `python` and `uofa` paths.
 - **Keep awake**: `sudo pmset -a sleep 0 disablesleep 1`.
 

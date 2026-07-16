@@ -40,13 +40,13 @@ if ! ( set -o noclobber; printf '%s\n' "$$" > "$LOCK" ) 2>/dev/null; then
 fi
 trap 'rm -f "$LOCK"' EXIT
 
-# 1. Credentials. chmod-600 file; Judge C (SambaNova) needs SAMBANOVA_API_KEY,
-#    NOT HF_TOKEN — the provider does not fall back to HF_TOKEN.
+# 1. Credentials. chmod-600 file; Judge C (Llama-4-Maverick via OpenRouter,
+#    re-routed 2026-07-16 after SambaNova deprecated the model) needs OPENROUTER_API_KEY.
 if [ ! -f "$ENV_FILE" ]; then
   echo "$(stamp) FATAL missing_env_file $ENV_FILE" >> "$STATUS_LOG"; exit 78
 fi
 set -a; . "$ENV_FILE"; set +a
-for v in OPENAI_API_KEY GEMINI_API_KEY SAMBANOVA_API_KEY MISTRAL_API_KEY; do
+for v in OPENAI_API_KEY GEMINI_API_KEY OPENROUTER_API_KEY MISTRAL_API_KEY; do
   if [ -z "${!v:-}" ]; then
     echo "$(stamp) FATAL unset_key $v" >> "$STATUS_LOG"; exit 78
   fi
