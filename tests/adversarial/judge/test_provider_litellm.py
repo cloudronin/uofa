@@ -81,12 +81,12 @@ class TestCapabilities:
         assert litellm_model_string("openai", "gpt-4o-mini") == "openai/gpt-4o-mini"
         assert litellm_model_string("anthropic") == "anthropic/claude-sonnet-4-6"
         assert litellm_model_string("mistral", "mistral-medium-3") == "mistral/mistral-medium-3"
-        # HF Llama 4 routes through HF Router on an OpenAI-compatible
-        # surface (capability litellm_model_prefix is "openai/" with
-        # a non-default api_base). Verify the prefix wiring.
+        # HF Llama 4 re-routed to OpenRouter 2026-07-16 (SambaNova
+        # deprecated the model). Still an OpenAI-compatible surface
+        # (capability litellm_model_prefix "openai/" + OpenRouter api_base).
         s = litellm_model_string("hf-llama")
         assert s.startswith("openai/")
-        assert "Llama-4-Maverick" in s
+        assert "llama-4-maverick" in s.lower()
         # Mistral default reverted to Large 2 (`mistral-large-2411`)
         # 2026-05-05 for higher TPM (600K vs Large 3's 50K) + monthly
         # token cap (200B vs 4B). Operational viability beats version
