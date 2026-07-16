@@ -103,7 +103,7 @@ class TestEstimateCallCost:
 
     def test_capability_override_takes_precedence_for_hf_llama(self) -> None:
         # hf-llama has explicit input/output rates in the capability
-        # table because litellm 1.63 doesn't have the HF-Router-routed
+        # table because litellm doesn't carry the OpenRouter-routed
         # Llama 4 Maverick id in its price table. The override path
         # should NOT call litellm.cost_per_token at all.
         with patch("litellm.cost_per_token") as mock_cpt:
@@ -111,8 +111,8 @@ class TestEstimateCallCost:
                 "hf-llama", None,
                 input_tokens=1_000_000, output_tokens=1_000_000,
             )
-            # Sambanova rate: $0.10/M input + $0.30/M output = $0.40 total.
-            assert usd == pytest.approx(0.40)
+            # OpenRouter rate: $0.20/M input + $0.80/M output = $1.00 total.
+            assert usd == pytest.approx(1.00)
             mock_cpt.assert_not_called()
 
     def test_capability_override_scales_per_token(self) -> None:
@@ -120,8 +120,8 @@ class TestEstimateCallCost:
             "hf-llama", None,
             input_tokens=10_000, output_tokens=5_000,
         )
-        # 10000/1M * 0.10 + 5000/1M * 0.30 = 0.001 + 0.0015 = 0.0025
-        assert usd == pytest.approx(0.0025)
+        # 10000/1M * 0.20 + 5000/1M * 0.80 = 0.002 + 0.004 = 0.006
+        assert usd == pytest.approx(0.006)
 
 
 class TestEstimateBundleCost:

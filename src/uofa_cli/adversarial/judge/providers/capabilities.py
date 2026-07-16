@@ -189,19 +189,25 @@ CAPABILITIES: dict[str, ProviderCapabilities] = {
         # as `hf-llama` for backwards compat with run manifests + tests
         # even though we no longer touch HF Router.
         litellm_model_prefix="openai/",
-        default_model="Llama-4-Maverick-17B-128E-Instruct",
-        litellm_api_base="https://api.sambanova.ai/v1",
-        auth_env_var="SAMBANOVA_API_KEY",
+        # Re-routed to OpenRouter 2026-07-16: SambaNova Cloud deprecated
+        # Llama-4-Maverick-17B-128E-Instruct during the Stage 2 run gap
+        # ("model not available"). OpenRouter serves the same Meta model
+        # (slug meta-llama/llama-4-maverick) over an OpenAI-compatible
+        # endpoint — same model, different serving backend. Token name
+        # `hf-llama` retained for run-manifest/test back-compat.
+        default_model="meta-llama/llama-4-maverick",
+        litellm_api_base="https://openrouter.ai/api/v1",
+        auth_env_var="OPENROUTER_API_KEY",
         supports_strict_schema=False,  # JSON-mode only; tolerant parser fallback
         schema_keyword_blocklist=(),  # not applicable; schema not sent to vendor
         supports_batch_api=False,
         supports_prompt_caching=False,
         thinking_kwargs=(),
-        # Sambanova Cloud rate card for Llama-4-Maverick-17B-128E-Instruct,
-        # checked 2026-05-05: $0.10/M input, $0.30/M output. Verify
-        # periodically against https://cloud.sambanova.ai/pricing.
-        input_cost_per_1m_usd=0.10,
-        output_cost_per_1m_usd=0.30,
+        # OpenRouter rate card for meta-llama/llama-4-maverick, checked
+        # 2026-07-16: $0.20/M input, $0.80/M output. Verify periodically
+        # against https://openrouter.ai/models.
+        input_cost_per_1m_usd=0.20,
+        output_cost_per_1m_usd=0.80,
     ),
     "anthropic": ProviderCapabilities(
         family="Claude",
