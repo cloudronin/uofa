@@ -827,24 +827,39 @@ async def _judge_bundle(
         cases = cases[:5]
 
     total_count = len(cases)
+    # Per-judge done sets: empty on a fresh run, populated by --resume. A judge
+    # that already holds a verdict for a case is skipped at dispatch below, so
+    # revisiting a case never duplicates its row or re-spends on a judge that
+    # is already complete.
+    done_per_judge: dict[str, set[str]] = {pos: set() for pos in positions}
     # Resume gate: drop already-done cases.
     if resume:
-        done_per_judge: dict[str, set[str]] = {
+        done_per_judge = {
             pos: load_done_case_ids(out_dir / f"judgments_{pos}.jsonl")
             for pos in positions
         }
         case_ids = [c.case_id for c in cases]
         remaining_ids = set(compute_remaining_cases(case_ids, done_per_judge))
         cases = [c for c in cases if c.case_id in remaining_ids]
+        pending_calls = sum(
+            1
+            for c in cases
+            for pos in positions
+            if c.case_id not in done_per_judge[pos]
+        )
         info(
             f"resume: {len(cases)}/{total_count} cases remaining "
-            f"(skipped {total_count - len(cases)})"
+            f"(skipped {total_count - len(cases)}); "
+            f"{pending_calls} judge-calls pending "
+            f"({len(cases) * len(positions) - pending_calls} already-judged pairs skipped)"
         )
 
-    # Collect verdicts in memory so the calibration summary doesn't have
-    # to re-read partially-written JSONL files (the handles below are
-    # buffered; reading them mid-loop returns nothing).
-    verdicts_by_pos: dict[str, list[str]] = {pos: [] for pos in positions}
+    # Collect this run's verdicts in memory so the calibration summary doesn't
+    # have to re-read partially-written JSONL files (the handles below are
+    # buffered; reading them mid-loop returns nothing). Keyed by case_id rather
+    # than append order: the concurrent path completes out of order, and
+    # --resume can skip a judge for a case, so the per-judge sets need not match.
+    verdicts_by_case: dict[str, dict[str, str]] = {pos: {} for pos in positions}
 
     # Resume mode opens in append; fresh runs truncate.
     open_mode = "a" if resume else "w"
@@ -917,6 +932,10 @@ async def _judge_bundle(
             for entry in cases:
                 case = _build_case(entry)
                 for pos, token, provider in zip(positions, tokens, providers):
+                    # This judge already holds a verdict for this case (resume):
+                    # re-judging would duplicate the row and re-spend.
+                    if entry.case_id in done_per_judge[pos]:
+                        continue
                     if tracker is not None and tracker.over_budget:
                         halted_early = True
                         break
@@ -928,7 +947,7 @@ async def _judge_bundle(
                         await tpm_tracker.sleep_until_authorized(token, projected)
                     judgment = await provider.judge(case)
                     handles[pos].write(json.dumps(_judgment_to_dict(judgment)) + "\n")
-                    verdicts_by_pos[pos].append(judgment.verdict)
+                    verdicts_by_case[pos][judgment.case_id] = judgment.verdict
                     if request_tracker is not None:
                         request_tracker.record(token)
                     if tpm_tracker is not None:
@@ -969,6 +988,9 @@ async def _judge_bundle(
                 _judge_one(entry, pos, token, provider)
                 for entry in cases
                 for pos, token, provider in zip(positions, tokens, providers)
+                # Skip (case, judge) pairs this judge already holds (resume):
+                # re-judging would duplicate the row and re-spend.
+                if entry.case_id not in done_per_judge[pos]
             ]
             for coro in asyncio.as_completed(tasks):
                 pos, _case_id, judgment = await coro
@@ -976,7 +998,7 @@ async def _judge_bundle(
                     continue
                 handles[pos].write(json.dumps(_judgment_to_dict(judgment)) + "\n")
                 handles[pos].flush()
-                verdicts_by_pos[pos].append(judgment.verdict)
+                verdicts_by_case[pos][judgment.case_id] = judgment.verdict
             if tracker is not None and tracker.over_budget:
                 halted_early = True
     finally:
@@ -1028,19 +1050,45 @@ async def _judge_bundle(
                 "correct_count": cal_result.correct_count,
             }, indent=2))
 
-        stats = compute_agreement(
-            verdicts_by_pos["A"], verdicts_by_pos["B"], verdicts_by_pos["C"]
+        # Align by case_id over the cases all three judged in THIS run. With
+        # --resume, a judge already holding a case is skipped, so the per-judge
+        # verdict sets can differ; index-alignment would silently pair up
+        # different cases (the concurrent path also completes out of order).
+        common = sorted(
+            set(verdicts_by_case["A"])
+            & set(verdicts_by_case["B"])
+            & set(verdicts_by_case["C"])
         )
         # JSON doesn't have a NaN literal; substitute null (matches §12.2 convention).
         def _nan_to_none(x: float) -> float | None:
             return None if isinstance(x, float) and x != x else x
-        (out_dir / "calibration_results_summary.json").write_text(json.dumps({
-            "case_count": stats.case_count,
-            "pairwise_kappa_AB": _nan_to_none(stats.cohen_kappa_AB),
-            "pairwise_kappa_AC": _nan_to_none(stats.cohen_kappa_AC),
-            "pairwise_kappa_BC": _nan_to_none(stats.cohen_kappa_BC),
-            "fleiss_kappa": _nan_to_none(stats.fleiss_kappa),
-        }, indent=2))
+        if common:
+            stats = compute_agreement(
+                [verdicts_by_case["A"][c] for c in common],
+                [verdicts_by_case["B"][c] for c in common],
+                [verdicts_by_case["C"][c] for c in common],
+            )
+            summary = {
+                "case_count": stats.case_count,
+                "pairwise_kappa_AB": _nan_to_none(stats.cohen_kappa_AB),
+                "pairwise_kappa_AC": _nan_to_none(stats.cohen_kappa_AC),
+                "pairwise_kappa_BC": _nan_to_none(stats.cohen_kappa_BC),
+                "fleiss_kappa": _nan_to_none(stats.fleiss_kappa),
+            }
+        else:
+            # No case was judged by all three this run (e.g. a resume that only
+            # topped up one judge). Corpus-wide agreement comes from
+            # `uofa adversarial adjudicate`, which aligns the JSONL by case_id.
+            summary = {
+                "case_count": 0,
+                "pairwise_kappa_AB": None,
+                "pairwise_kappa_AC": None,
+                "pairwise_kappa_BC": None,
+                "fleiss_kappa": None,
+            }
+        (out_dir / "calibration_results_summary.json").write_text(
+            json.dumps(summary, indent=2)
+        )
 
 
 def _judgment_to_dict(j: Judgment) -> dict[str, Any]:
