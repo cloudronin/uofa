@@ -5,15 +5,15 @@
 **Budget:** ~$262 envelope, `--max-cost 400` hard stop.
 **Corpus:** 4,556 packages (`../../phase2/2026-04-26/judge_ready_bundle.tgz`).
 
-## Progress (snapshot 2026-07-16 — check live counts after pulling)
+## Progress (snapshot 2026-07-17 — check live counts after pulling)
 
 | Judge | unique / 4,556 |
 |---|---:|
 | A (openai) | **4,556 — complete** |
-| **B (gemini, ~950/UTC-day cap)** | **1,946** ← bottleneck, ~2,610 left |
-| C (llama / OpenRouter) | 4,524 |
+| **B (gemini, ~950/UTC-day cap)** | **2,915** ← bottleneck, ~1,641 left (~2 more passes) |
+| C (llama / OpenRouter) | 4,554 |
 
-1,937 cases fully judged by all three. Live unique counts: `for f in run-1/judgments_*.jsonl; do jq -r .case_id "$f" | sort -u | wc -l; done`. Gemini paces the run at ~950/UTC-day; A and C are uncapped and run ahead. (Raw line counts are higher — see the duplicates note below.)
+**2,914 cases fully judged by all three.** Live unique counts: `for f in run-1/judgments_*.jsonl; do jq -r .case_id "$f" | sort -u | wc -l; done`. Gemini paces the run at ~950/UTC-day. Since the per-judge resume fix (2026-07-17) a pass judges only the cases each judge is individually missing, so a pass costs ~$14 (Gemini plus any C gap) instead of ~$100; spend to date is ~$151. (Raw line counts are higher — see the duplicates note below.)
 
 ## How resume works
 
