@@ -146,6 +146,47 @@ class TestRunJudge:
             assert summary[k] is not None
             assert 0.3 <= summary[k] <= 0.75
 
+    @_skip_no_sklearn
+    @pytest.mark.parametrize("concurrency", [1, 3], ids=["serial", "concurrent"])
+    def test_resume_skips_judges_that_already_have_the_case(
+        self, tmp_path: Path, concurrency: int
+    ) -> None:
+        """On resume, only the judges actually missing a case re-judge it.
+
+        The resume gate revisits any case missing from ANY judge. Without a
+        per-judge skip at dispatch, the judges that already hold that case are
+        re-judged too — duplicating their rows and re-spending on judges that
+        are already complete. Guards both dispatch paths.
+        """
+        bundle = self._bundle_path(tmp_path)
+        out = tmp_path / "judge_out"
+        base = dict(
+            in_bundle=bundle, out=out, judges="mock_a,mock_b,mock_c",
+            parallel=1, calibration_only=True, allow_same_family_judge=False,
+            concurrency=concurrency,
+        )
+        _reset_mock_ledger()
+        assert run_judge(_args(**base, resume=False)) == 0
+        before = {p: (out / f"judgments_{p}.jsonl").read_text().splitlines() for p in "ABC"}
+        n = len(before["A"])
+        assert n >= 2 and all(len(v) == n for v in before.values())
+
+        # Simulate judge C losing its verdict for one case; A and B still hold it.
+        dropped = json.loads(before["C"][-1])["case_id"]
+        (out / "judgments_C.jsonl").write_text("\n".join(before["C"][:-1]) + "\n")
+
+        _reset_mock_ledger()
+        assert run_judge(_args(**base, resume=True)) == 0
+
+        after = {p: (out / f"judgments_{p}.jsonl").read_text().splitlines() for p in "ABC"}
+        assert len(after["C"]) == n, "C should have re-judged exactly the dropped case"
+        assert len(after["A"]) == n, "A was re-judged despite already holding the case"
+        assert len(after["B"]) == n, "B was re-judged despite already holding the case"
+        for p in "ABC":
+            ids = [json.loads(line)["case_id"] for line in after[p]]
+            assert len(ids) == len(set(ids)), f"judge {p} has duplicate rows"
+        assert dropped in [json.loads(line)["case_id"] for line in after["C"]]
+
     def test_invalid_judges_returns_2(self, tmp_path: Path) -> None:
         bundle = self._bundle_path(tmp_path)
         args = _args(

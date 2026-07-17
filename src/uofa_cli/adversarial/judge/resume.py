@@ -5,7 +5,9 @@ object per case. On rerun with `--resume`, we:
 
   1. Read existing JSONL files for each judge to build a set of done
      case_ids.
-  2. Skip cases already present in ALL active judges' files.
+  2. Skip cases already present in ALL active judges' files, and within a
+     revisited case skip the individual judges that already hold it (so an
+     already-complete judge is never re-run, and rows are never duplicated).
   3. Open the JSONL files in append mode so the resumed run continues
      where the previous one stopped.
   4. Tolerate corrupted trailing lines: a partial write at SIGTERM time
@@ -60,9 +62,14 @@ def compute_remaining_cases(
     """Return case_ids that still need at least one judge's verdict.
 
     A case is 'done' only when every active judge has produced a verdict
-    for it. Any case missing from any judge is re-judged across ALL
-    judges so the per-case row count stays consistent (downstream triage
-    requires aligned trios).
+    for it; a case missing from at least one judge is returned here so the
+    run revisits it.
+
+    The runner then judges only the (case, judge) pairs that are actually
+    missing — a judge already holding a verdict for the case is skipped.
+    Revisiting a case therefore neither duplicates rows nor re-spends on
+    judges that are already complete. Downstream triage aligns trios by
+    case_id, so per-judge row counts need not match.
     """
     if not done_per_judge:
         return list(all_case_ids)
