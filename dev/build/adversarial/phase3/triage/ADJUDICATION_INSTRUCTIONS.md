@@ -1,9 +1,29 @@
 # Stage 4 adjudication — instructions
 
-**Worksheet:** `adjudication_worksheet.csv` — 21 cases, 35 columns.
-**Scope:** the DISAGREEMENT queue from Stage 3 triage, every case where the production trio failed to reach a 2-of-3 verdict. 15 are `all_three_disagree`, 6 are `two_disagree_one_uncertain`.
+**Worksheet:** `adjudication_worksheet.csv` — 71 cases, 35 columns.
 
-The worksheet contains **the case evidence only**. The judges' verdicts and reasoning are deliberately not in it, so your verdict is independent by construction and the author-versus-judge agreement statistic stays interpretable. Their verdicts are in `adjudication_queue.csv` if you want to compare afterwards, but read that only once you have recorded your own.
+The worksheet holds two queues, deliberately mixed together:
+
+- **21 DISAGREEMENT cases** — every case where the production trio failed to reach a 2-of-3 verdict (15 `all_three_disagree`, 6 `two_disagree_one_uncertain`). This is the required Stage 4 queue.
+- **50 CONVERGENT spot-check cases** — a stratified sample of cases the trio agreed on, to measure how often you would overturn the ensemble where it was confident. The spec targets an override rate at or below 0.10.
+
+**You cannot tell which is which, and that is intentional.** The rows are shuffled (seed 20260720) and carry no queue label. If you could see that a case was one the judges agreed on, you would unconsciously treat it as already settled, which is precisely the bias the spot-check exists to detect. The mapping lives in `adjudication_sample_key.csv`. **Do not open that file until you have finished.**
+
+For the same reason the worksheet contains **case evidence only**: no judge verdicts, no judge reasoning. Your verdict is therefore independent by construction, which is what makes both the author-versus-judge agreement statistic and the override rate interpretable. Judge verdicts for the 21 disagreements are in `adjudication_queue.csv`, again for afterwards only.
+
+Because the order is random, any prefix of the sheet is a valid random subset of both queues. If you want to split the work, doing rows 1 to 35 today and the rest later costs you nothing statistically.
+
+### How the sample was drawn
+
+Stratified by the ensemble's majority verdict, not proportional. A proportional 50-case sample would have contained about 3 REAL-GAP cases, too few to say anything about the Tier-1 claim, so REAL-GAP is deliberately over-weighted. Per-stratum override rates are therefore the primary readout, and `adjudication_sample_key.csv` carries each stratum's population and weight so a population-level estimate can be recovered by reweighting.
+
+| Stratum | Sampled | Population | Weight |
+|---|---:|---:|---:|
+| CORRECT-DETECTION | 15 | 2,677 | 0.5903 |
+| EXISTING-RULE-MISBEHAVIOR | 12 | 1,161 | 0.2560 |
+| GENERATOR-ARTIFACT | 8 | 398 | 0.0878 |
+| REAL-GAP | 12 | 289 | 0.0637 |
+| OUT-OF-SCOPE | 3 | 10 | 0.0022 |
 
 ## The question you are answering
 
@@ -72,4 +92,16 @@ uofa adversarial adjudicate \
 
 That yields the three pairwise Cohen's kappa values, Fleiss' kappa, and per-pair confusion matrices.
 
-**Still outstanding beyond this queue.** The spec also expects a blinded spot-check of CONVERGENT cases, to measure how often you would overturn the ensemble where it agreed, against a target override rate at or below 0.10. That sample is not in this worksheet and can be drawn separately. Adjudicating only the disagreements measures where the judges disagreed with each other, which is not the same as measuring whether the ensemble was right.
+Then open `adjudication_sample_key.csv` and join on `case_id` to get two readouts.
+
+**Author versus judge agreement**, over the 21 disagreement cases: how your verdict relates to each judge's, which is what the disagreement queue was for.
+
+**Spot-check override rate**, over the 50 convergent cases: the share where your verdict differs from `ensemble_majority_verdict`. Compute it per stratum, since the sample is stratified rather than proportional. For a population estimate, reweight by the `stratum_weight` column:
+
+```
+override_rate = Σ (stratum_weight × per-stratum override rate)
+```
+
+The spec target is 0.10 or lower. Note the precision honestly: 12 REAL-GAP cases can distinguish "rare" from "common" but cannot pin a rate to two decimal places, and with 3 of 10 OUT-OF-SCOPE cases that stratum is indicative only.
+
+The REAL-GAP stratum is the one to read closely. Those 12 cases are the direct check on whether the 289 REAL-GAP verdicts underpinning the 6-of-6 Tier-1 result hold up under author review. If you overturn a meaningful share of them, that is a finding about the Tier-1 claim, not just about the ensemble.
