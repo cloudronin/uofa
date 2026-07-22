@@ -31,10 +31,19 @@ logged.
 
 ## Build & run (local)
 
-Build from the **repo root** (the image needs `src/`, `packs/`, `spec/`, and the
-weakener engine):
+The image is split so HF's builder stays under its 30-min limit:
+`space/Dockerfile.base` carries the heavy layers (JAR, wheel, JRE, Ollama
+runtime, baked ~3 GB model) and is prebuilt in CI → GHCR; `space/Dockerfile` is
+the thin `FROM <base> + COPY space/` that HF actually builds.
+
+For a self-contained **local** build, build the base first (from the **repo
+root** — it needs `src/`, `packs/`, `spec/`, and the weakener engine), then the
+thin app image on top of it:
 
 ```bash
+# 1. heavy base (JAR + wheel + Ollama + ~3 GB model) — tagged so step 2 finds it
+docker build -f space/Dockerfile.base -t ghcr.io/cloudronin/uofa-demo-base:latest .
+# 2. thin app image on top, then run
 docker build -f space/Dockerfile -t uofa-space .
 docker run --rm -p 7860:7860 uofa-space            # CPU (extraction is slow)
 docker run --rm --gpus all -p 7860:7860 uofa-space # GPU (Ollama auto-detects)

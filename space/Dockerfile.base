@@ -1,0 +1,100 @@
+# syntax=docker/dockerfile:1
+#
+# UofA Gap-Finder — prebuilt BASE image for the HuggingFace Docker Space.
+#
+# This image carries every heavy, slow-changing layer: the Jena rule-engine JAR,
+# the uofa wheel (open core + vv40 + nasa-7009b, with packs/spec/specs
+# force-included), JRE 17 for C3 weakeners, the pinned Ollama runtime, and the
+# ~3 GB qwen3.5:4b extract model baked in. It is built ONCE by CI
+# (.github/workflows/deploy-space.yml, `base` job) and pushed to GHCR. The
+# Space's thin Dockerfile then does only `FROM this + COPY space/`, so HF's
+# builder never re-does this work and the 30-minute build budget is never at
+# risk (baking the 3 GB model on HF's builder is what tipped cold builds past
+# the timeout — "Build error: Job timeout").
+#
+# Build from the REPO ROOT (needs src/, packs/, spec/, specs/, build-config/):
+#     docker build -f space/Dockerfile.base \
+#       -t ghcr.io/cloudronin/uofa-demo-base:latest .
+#
+# LAYER ORDER — the 3 GB model bake sits ABOVE the wheel install, so a change to
+# src/ (which rebuilds the wheel) re-runs only the cheap wheel + pip layers and
+# the model layer stays cached. (The old single-stage Dockerfile had this
+# inverted: the model bake was below the wheel COPY, so every src/ change
+# re-pulled 3 GB — the direct cause of the HF build timeout.)
+
+# ── Stage 1: build the Jena rule-engine JAR ──────────────────────────────────
+FROM maven:3-eclipse-temurin-17 AS jar
+WORKDIR /build
+COPY src/weakener-engine/ ./src/weakener-engine/
+RUN cd src/weakener-engine && mvn -q -DskipTests package
+
+# ── Stage 2: build the wheel with the JAR + packs/spec force-included ─────────
+FROM python:3.11-slim-bookworm AS wheel
+WORKDIR /build
+COPY . .
+COPY --from=jar /build/src/weakener-engine/target/uofa-weakener-engine-0.1.0.jar \
+     src/weakener-engine/target/uofa-weakener-engine-0.1.0.jar
+RUN pip install --no-cache-dir hatchling \
+ && UOFA_BUNDLE_JAR=1 pip wheel --no-deps -w /wheels .
+
+# ── Stage 3: runtime base ────────────────────────────────────────────────────
+FROM python:3.11-slim-bookworm
+
+ENV PYTHONUNBUFFERED=1 \
+    HOME=/home/user \
+    OLLAMA_HOST=127.0.0.1:11434 \
+    OLLAMA_MODELS=/home/user/.ollama/models \
+    UOFA_SPACE_MODEL=qwen3.5:4b \
+    GRADIO_SERVER_NAME=0.0.0.0 \
+    GRADIO_SERVER_PORT=7860
+
+# JRE 17 for the rule engine (C3) + curl/zstd to fetch the pinned Ollama runtime.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        openjdk-17-jre-headless curl ca-certificates zstd procps \
+ && rm -rf /var/lib/apt/lists/*
+
+# Ollama runtime, pinned + arch-aware (matches Dockerfile.appliance).
+ARG TARGETARCH
+RUN set -eu; \
+    case "${TARGETARCH:-amd64}" in \
+      amd64) OLLAMA_ARCH=amd64 ;; \
+      arm64) OLLAMA_ARCH=arm64 ;; \
+      *) echo "unsupported TARGETARCH=${TARGETARCH}" >&2; exit 1 ;; \
+    esac; \
+    curl -fsSL "https://github.com/ollama/ollama/releases/download/v0.21.2/ollama-linux-${OLLAMA_ARCH}.tar.zst" \
+        -o /tmp/ollama.tar.zst \
+ && tar -I zstd -xf /tmp/ollama.tar.zst -C /usr/local \
+ && rm /tmp/ollama.tar.zst \
+ && ollama --version
+
+# HF Spaces run as a non-root user (UID 1000); the baked model must live in a
+# dir that user owns, so create the user and pull the model as that user.
+RUN useradd -m -u 1000 user
+
+# ── Model bake (~3 GB) ────────────────────────────────────────────────────────
+# Kept ABOVE the wheel/app-dependency layers so it caches across every src/ and
+# app change — only the cheap layers below re-run on a rebuild. Air-gap-faithful:
+# no pull at run time.
+USER user
+WORKDIR /home/user/app
+RUN set -eu; \
+    ollama serve >/tmp/ollama-build.log 2>&1 & \
+    SERVE_PID=$!; \
+    for _ in $(seq 1 60); do curl -sf http://127.0.0.1:11434/api/version >/dev/null 2>&1 && break; sleep 1; done; \
+    ollama pull qwen3.5:4b; \
+    kill "$SERVE_PID" 2>/dev/null || true
+
+# ── App dependencies: uofa[extract] (from the wheel) + Gradio + lead-capture ──
+# Installed AFTER the model bake so a wheel rebuild (any src/ change) never
+# invalidates the 3 GB model layer above.
+USER root
+COPY --from=wheel /wheels/ /wheels/
+COPY space/requirements.txt /tmp/space-requirements.txt
+RUN pip install --no-cache-dir --retries 5 --timeout 60 "$(echo /wheels/uofa-*.whl)[extract]" \
+ && pip install --no-cache-dir -r /tmp/space-requirements.txt \
+ && rm -rf /wheels
+
+# Ready-to-run base: the Space's thin Dockerfile adds only `COPY space/`.
+USER user
+WORKDIR /home/user/app
+EXPOSE 7860

@@ -5,9 +5,12 @@ The Gap-Finder is a Gradio app that runs as a **HuggingFace Docker Space**
 is embedded at **uofa.net/demo**.
 
 Key fact: a HF Docker Space **builds the image itself** from the source you push
-to the Space repo. You do not push a prebuilt image — you push the `Dockerfile`
-+ build context, and HF's builder compiles it (its network reaches Maven Central,
-PyPI, the Ollama registry, etc.).
+to the Space repo. Baking the ~3 GB model on HF's builder overran HF's
+**30-minute build limit** ("Build error: Job timeout"), so the heavy image is
+now **prebuilt in CI and pushed to GHCR** (`space/Dockerfile.base` →
+`ghcr.io/cloudronin/uofa-demo-base`). What HF builds is a **thin** Dockerfile
+(`FROM <base> + COPY space/`) that pulls the base and copies the app code —
+finishing in ~2 minutes, comfortably inside the limit.
 
 ---
 
@@ -17,13 +20,25 @@ PyPI, the Ollama registry, etc.).
 touches `space/`, `src/`, `packs/`, `spec/`, `specs/`, `build-config/`,
 `pyproject.toml`, or `keys/research.pub` (and on manual **Run workflow**).
 
-It (1) runs `pytest tests/space`, then (2) syncs the Space layout to
-`cloudronin/uofa-demo` in one commit, which triggers HF's rebuild.
+It runs three jobs in order: (1) `pytest tests/space`; (2) **base** — build
+`space/Dockerfile.base` and push `ghcr.io/cloudronin/uofa-demo-base:latest`
+(registry-cached, so unchanged layers — including the 3 GB model — are restored,
+not rebuilt); (3) **deploy** — sync the thin Space layout to `cloudronin/uofa-demo`
+in one commit, which triggers HF's fast rebuild on the fresh base.
 
-**Auth is keyless** — no `HF_TOKEN` secret in GitHub. The job mints a GitHub
-OIDC token (`permissions: id-token: write`) and exchanges it at
+**Auth is keyless** — no `HF_TOKEN` secret in GitHub. The deploy job mints a
+GitHub OIDC token (`permissions: id-token: write`) and exchanges it at
 `https://huggingface.co/oauth/token` for a short-lived, repo-scoped HF token
-(RFC 8693 token exchange).
+(RFC 8693 token exchange). The base job pushes to GHCR with the built-in
+`GITHUB_TOKEN` (`permissions: packages: write`) — also no extra secret.
+
+### One-time: make the GHCR base image public
+
+HF's builder pulls `ghcr.io/cloudronin/uofa-demo-base` **anonymously**, so after
+the first `base` job pushes it, flip the package to public once: **GitHub →
+Packages → `uofa-demo-base` → Package settings → Change visibility → Public**.
+Until then, HF's build fails with `denied` / `failed to authorize` while pulling
+the base — fix the visibility and re-run the Space build (**Factory rebuild**).
 
 ### One-time trusted-publisher setup (on the Space)
 
@@ -129,8 +144,13 @@ directly, and run **Try a sample evidence set** end to end.
 2. **`pkill -f "ollama serve"` self-terminates the build** — the build shell's
    own argv contains that string, so it SIGTERMs itself (exit 143). Kill the
    daemon by **captured PID** instead (see the Dockerfile).
-3. **Model bake ordering:** the `ollama pull` layer sits **before** `COPY space/`
-   so app/theme changes don't re-pull the 3 GB model (only the cheap COPY re-runs).
+3. **Model bake ordering (in `Dockerfile.base`):** the `ollama pull` layer sits
+   **above** the wheel/pip layers, so a `src/` change (which rebuilds the wheel)
+   re-runs only the cheap layers — the 3 GB model stays cached. The original
+   single Dockerfile had this inverted (the bake sat *below* the wheel `COPY`), so
+   every `src/` deploy re-pulled 3 GB and eventually overran HF's 30-min build
+   limit → **Job timeout**. That's the whole reason the heavy build moved to CI +
+   GHCR and the Space now builds only a thin `FROM <base>` image.
 4. **Embed must be an `<iframe>`, not `<gradio-app>`.** The web component fetches
    `/config` from the parent page with `credentials:'include'`; HF's edge proxy
    omits `Access-Control-Allow-Credentials: true` on the cross-origin preflight

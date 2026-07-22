@@ -1,16 +1,18 @@
 """Sync the Gap-Finder Space layout to the HF Docker Space in one commit.
 
-HF Docker Spaces build the image themselves from the pushed source, so "deploy"
-means: assemble the Space repo layout (root Dockerfile + HF README + the
-build context the Dockerfile needs) and commit it. HF then rebuilds.
+HF Docker Spaces build the image themselves from the pushed source. The heavy
+image is prebuilt in CI and pushed to GHCR (see space/Dockerfile.base), so the
+Space's Dockerfile is thin (`FROM <base> + COPY space/`). "Deploy" therefore
+means: assemble the thin Space layout (root Dockerfile + HF README + the space/
+app tree) and commit it. HF then rebuilds the thin image on the fresh base.
 
 Auth: reads HF_TOKEN from the environment. In CI this is the short-lived
 OIDC-exchanged token (see .github/workflows/deploy-space.yml); locally you can
 export a normal write token to redeploy by hand.
 
-Secrets safety: only `keys/research.pub` is shipped (the wheel force-includes
-it); `keys/*.key`, build artifacts, caches, and the local-only build scaffold
-are never uploaded.
+Secrets safety: `keys/*.key` is never uploaded (the base image already bundles
+the public research key via the wheel); build artifacts, caches, and the
+local-only build scaffold are excluded too.
 """
 
 from __future__ import annotations
@@ -27,14 +29,15 @@ ROOT = Path(__file__).resolve().parents[1]
 ROOT_FILES = {
     "space/Dockerfile": "Dockerfile",
     "space/README.md": "README.md",
-    "pyproject.toml": "pyproject.toml",
-    "keys/research.pub": "keys/research.pub",
     "LICENSE": "LICENSE",
     "NOTICE": "NOTICE",
 }
 
-# Directory trees the wheel build needs (mirrored at the same path in the Space).
-TREES = ["src", "packs", "spec", "specs", "space", "build-config"]
+# The thin Space Dockerfile builds `FROM <prebuilt base> + COPY space/`, so the
+# Space repo needs only the app tree — the base image (built in CI, see
+# space/Dockerfile.base) already carries src/, packs/, spec/, specs/,
+# build-config/, the wheel, and the baked model.
+TREES = ["space"]
 
 # Substring matches that must never be uploaded (artifacts, caches, secrets, scaffold).
 DENY = (
@@ -47,6 +50,7 @@ DENY = (
     "src/uofa_cli/_data",           # wheel-generated bundle
     "space/_prebuilt.jar",          # local-only build scaffold
     "space/Dockerfile.local",
+    "space/Dockerfile.base",        # built in CI -> GHCR, not by HF
     ".key",                         # never ship private keys
 )
 

@@ -16,13 +16,25 @@ def test_bundled_model_matches_cli():
     assert BUNDLED_MODEL == MODEL  # if the CLI default changes, update the image
 
 
-def test_dockerfile_bakes_model_and_exposes_port():
-    df = (_SPACE / "Dockerfile").read_text()
+def test_base_dockerfile_bakes_model_and_deps():
+    # The heavy layers (model, JRE, non-root user) live in the prebuilt base
+    # image that CI pushes to GHCR — NOT in the thin Space Dockerfile.
+    df = (_SPACE / "Dockerfile.base").read_text()
     assert f"ollama pull {MODEL}" in df
     assert "openjdk-17-jre-headless" in df          # C3 weakeners need Java
+    assert "useradd -m -u 1000 user" in df          # HF runs as UID 1000
+
+
+def test_space_dockerfile_is_thin_and_from_base():
+    # HF builds this one; it must only pull the base + copy the app so the build
+    # stays well inside HF's 30-min limit (baking the 3 GB model here times out).
+    df = (_SPACE / "Dockerfile").read_text()
+    assert "FROM ghcr.io/cloudronin/uofa-demo-base:" in df
+    assert "COPY --chown=user:user space/" in df
     assert "EXPOSE 7860" in df
     assert 'ENTRYPOINT ["bash", "space/start.sh"]' in df
-    assert "useradd -m -u 1000 user" in df          # HF runs as UID 1000
+    # The thin image must NOT redo the base's heavy work.
+    assert "ollama pull" not in df
 
 
 def test_start_sh_brings_up_ollama_then_app():
