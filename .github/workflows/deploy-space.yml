@@ -1,13 +1,23 @@
 name: Deploy Gap-Finder to HF Space
 
 # Deploys the Gradio Gap-Finder to the HF Docker Space cloudronin/uofa-demo.
-# HF builds the image itself from the pushed source, so this workflow syncs the
-# Space layout and HF rebuilds. Auth is keyless via a Trusted Publisher: the
-# GitHub OIDC token is exchanged for a short-lived, repo-scoped HF token.
 #
-# Trusted-publisher setup (one time, on the Space):
-#   spaces/cloudronin/uofa-demo -> Settings -> Trusted Publishers -> GitHub Actions
-#   claims: repository = <owner>/<repo>, branch = main, workflow = deploy-space.yml
+# The heavy image (Jena JAR + uofa wheel + JRE + Ollama runtime + the ~3 GB
+# qwen3.5:4b model) is built HERE, once, and pushed to GHCR as the prebuilt
+# `base` image. HF then builds only a thin `FROM base + COPY space/` Dockerfile,
+# which finishes in a couple of minutes — well inside HF's 30-minute build limit.
+# (Baking the model on HF's own builder is what caused "Build error: Job
+# timeout".)
+#
+# Jobs run in order: test -> base (build+push GHCR) -> deploy (sync -> HF rebuild).
+#
+# One-time setup:
+#   * Make the GHCR package `uofa-demo-base` PUBLIC so HF's anonymous builder can
+#     pull it (GitHub -> Packages -> uofa-demo-base -> Package settings ->
+#     Change visibility -> Public). See space/DEPLOY.md §1.
+#   * Trusted publisher on the Space (Settings -> Trusted Publishers -> GitHub
+#     Actions): repository = cloudronin/uofa, branch = main,
+#     workflow = deploy-space.yml.
 
 on:
   push:
@@ -39,8 +49,46 @@ jobs:
       - name: Run Space tests (Jena-dependent tests skip without the jar)
         run: pytest tests/space -q
 
-  deploy:
+  base:
     needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write   # push the prebuilt base image to GHCR
+    steps:
+      - uses: actions/checkout@v4
+      - name: Free up runner disk for the image build
+        # ubuntu-latest ships ~14 GB free; this image is ~6 GB + a 3.4 GB model,
+        # so drop the preinstalled toolchains we don't use (~25 GB reclaimed)
+        # before building — otherwise `ollama pull` dies with "no space left".
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup \
+                      /usr/local/lib/android /opt/hostedtoolcache/CodeQL
+          df -h /
+      - uses: docker/setup-buildx-action@v3
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build & push the prebuilt base image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: space/Dockerfile.base
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/uofa-demo-base:latest
+            ghcr.io/${{ github.repository_owner }}/uofa-demo-base:${{ github.sha }}
+          # Registry-backed layer cache: unchanged layers (incl. the 3 GB model)
+          # are restored instead of rebuilt, so most runs finish in ~2-3 min.
+          cache-from: type=registry,ref=ghcr.io/${{ github.repository_owner }}/uofa-demo-base:buildcache
+          cache-to: type=registry,ref=ghcr.io/${{ github.repository_owner }}/uofa-demo-base:buildcache,mode=max
+
+  deploy:
+    needs: base
     runs-on: ubuntu-latest
     permissions:
       id-token: write   # mint the GitHub OIDC token
@@ -66,7 +114,7 @@ jobs:
           echo "::add-mask::$HF_TOKEN"
           echo "HF_TOKEN=$HF_TOKEN" >> "$GITHUB_ENV"
 
-      - name: Sync to the HF Space (HF rebuilds the image)
+      - name: Sync to the HF Space (HF rebuilds the thin image on the fresh base)
         env:
           HF_SPACE_REPO: cloudronin/uofa-demo
         run: python space/deploy_to_hf.py
