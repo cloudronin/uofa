@@ -34,7 +34,7 @@ ROOT_FILES = {
 }
 
 # The thin Space Dockerfile builds `FROM <prebuilt base> + COPY space/`, so the
-# Space repo needs only the app tree — the base image (built in CI, see
+# Space repo needs only the app tree; the base image (built in CI, see
 # space/Dockerfile.base) already carries src/, packs/, spec/, specs/,
 # build-config/, the wheel, and the baked model.
 TREES = ["space"]
