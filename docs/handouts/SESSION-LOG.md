@@ -93,9 +93,26 @@ Plex Mono, letter portrait at the same margins, the card, terminal, band and
 footer idioms, the `?theme=light` switch, the dark plus light PDF pair, and the
 headless Chrome generator.
 
-Changed: section order and page count. Two pages rather than one, printable as
-the two sides of a single sheet. The type scale is reduced a little against the
-precedent so the evidence tables fit without clipping.
+Changed: section order and page count. Three pages rather than one. The type
+scale is reduced a little against the precedent so the evidence tables fit
+without clipping, except the terminal block, which is back at the precedent's
+7.6pt.
+
+**Page 1 grounds the reader on UofA before the case begins**, added after review
+so the document works for a reader who has not met the tool. It reuses the
+precedent's own sections: the masthead, "The problem", the C1/C2/C3 cards, "Why
+it might fit you", the try-it band, and the ask. Two sections are new. "What a
+package binds" lists the eight top-level bindings with counts read from this
+record, so the grounding page cannot disagree with the case pages. "What follows"
+says what pages 2 and 3 contain and states plainly that the document reports what
+the record contains rather than assessing the modeling work.
+
+Three changes were made to the borrowed copy. The C3 card said "Two contexts of
+use, side by side", which does not describe a single-COU record, so it now
+describes scoring two published records under one catalog version, which is what
+page 3 actually does. The tagline drops "for simulations and AI systems" because
+this document is a V&V 40 case. Colon-chain and em dash constructions in the
+borrowed prose were rewritten to meet S4.
 
 The COU count also differs. The precedent shows Morrison with two COUs; Nagaraja
 encodes one. There is no second COU to place beside it, so the layout carries a
@@ -106,7 +123,8 @@ a side-by-side diff.
 
 | Handout section | Source | S3 item |
 |---|---|---|
-| Masthead, eyebrow carries catalog version | S0.4 | versions on page |
+| **Page 1**, grounding | precedent handout plus package bindings | not an S3 item, added after review |
+| **Page 2** masthead, eyebrow carries catalog version | S0.4 | versions on page |
 | Source record | S0.5 | citation and DOI |
 | Context of use, as encoded | package `hasContextOfUse` | COU statement |
 | Model risk, as encoded | package | risk determination and drivers |
@@ -131,8 +149,9 @@ states or implies a regulatory position.
 No factor is unassessed in this record, so the not-reported wording did not arise.
 The generator still emits a `not reported` row if a future record omits a factor.
 
-Authored prose contains no em dashes, verified programmatically over the rendered
-DOM by separating authored text from quoted evidence. Two em dashes remain inside
+Authored prose contains no em dashes across all three pages, verified
+programmatically over the rendered DOM by separating authored text from quoted
+evidence. Two em dashes remain inside
 the offset rationale, which is reproduced verbatim from the encoded record and is
 shown as a quotation with its source URI. Editing quoted evidence to satisfy a
 style rule would misrepresent the record. The same reasoning applies to the
@@ -154,8 +173,8 @@ uncertainty work.
 | 5.1 | Every number traces to `build/` | Pass. 25 of 25 claims machine-checked by `build/verify_claims.py` |
 | 5.2 | Printed catalog version matches every run | Pass. `core@0.5.0 + vv40@0.5.0` printed in the eyebrow and the footer, read from pack metadata by the generator |
 | 5.3 | Reproduction command executed from a clean checkout | Pass, after a correction. See below |
-| 5.4 | Page count and section order match the precedent | Adapted and reported above. Two pages rather than one |
-| 5.5 | Renders correctly, no clipped tables, no overflow | Pass. Both pages report 0px overflow, terminal block 0px on both axes |
+| 5.4 | Page count and section order match the precedent | Adapted and reported above. Three pages rather than one |
+| 5.5 | Renders correctly, no clipped tables, no overflow | Pass. All three pages report 0px overflow, and no nested element overflows |
 | 5.6 | Source committed alongside the PDF | Pass. HTML source and generator committed |
 
 ### 5.3, the correction
