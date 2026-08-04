@@ -203,6 +203,47 @@ await checkSurface('S6 identifier index', '/reference/identifiers/', [
   ['distinguishes referenced-only entries', (b) => /referenced only/.test(b)],
 ]);
 
+// S7 — vocabulary and contexts. https://uofa.net/vocab# is the @vocab of every
+// package the project has produced, so it returning 404 was a more fundamental
+// gap than any single instance identifier.
+await checkSurface('S7 core vocabulary', '/vocab/', [
+  ['declares its namespace IRI', (b) => b.includes('https://uofa.net/vocab#')],
+  ['anchors a term (hasWeakener)', (b) => /id="hasWeakener"/.test(b)],
+  ['anchors a term (hash)', (b) => /id="hash"/.test(b)],
+  ['admits the namespace is largely undocumented', (b) => /largely undocumented/i.test(b)],
+  ['says so per-term where nothing exists', (b) => /No definition, constraint, or schema description/.test(b)],
+  ['surfaces SHACL constraints as derived metadata', (b) => /hexdigest/.test(b)],
+  ['is search-indexable', (b) => b.includes('data-pagefind-body')],
+]);
+
+await checkSurface('S7 aims vocabulary', '/vocab/aims/', [
+  ['declares its namespace IRI', (b) => b.includes('https://uofa.net/vocab/aims#')],
+  ['carries authored labels', (b) => /AI Policy/.test(b)],
+  ['carries authored descriptions', (b) => /clause 5\.2/.test(b)],
+  ['does not claim to be undocumented', (b) => !/largely undocumented/i.test(b)],
+]);
+
+await checkSurface('S7 surrogate vocabulary', '/vocab/surrogate/', [
+  ['declares its namespace IRI', (b) => b.includes('https://uofa.net/vocab/surrogate#')],
+  ['carries authored labels', (b) => /rdfs|label|Surrogate/i.test(b)],
+]);
+
+await checkJson('S7 vocabulary twin', '/vocab.json', [
+  ['is an RDF graph', (j) => Array.isArray(j['@graph'])],
+  ['covers the core namespace', (j) => j['@graph'].every((t) => t['@id'].startsWith('https://uofa.net/vocab#'))],
+  ['has terms', (j) => j['@graph'].length > 100],
+]);
+
+await checkSurface('S7 contexts index', '/context/', [
+  ['lists the context versions', (b) => /v0\.5/.test(b) && /v0\.6/.test(b)],
+  ['warns against retargeting shipped packages', (b) => /invalidate every signature/i.test(b)],
+]);
+
+await checkJson('S7 context document', '/context/v0.5.json', [
+  ['declares @vocab', (j) => j['@context']['@vocab'] === 'https://uofa.net/vocab#'],
+  ['carries terms', (j) => Object.keys(j['@context']).length > 100],
+]);
+
 await checkSurface('extra /cite', '/cite/', [
   ['BibTeX entry present', (b) => /vettrivel_uofa_2026/.test(b)],
   ['NAFEMS conference reference', (b) => /NAFEMS Americas Conference/.test(b)],
