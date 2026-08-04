@@ -101,7 +101,6 @@ Every comment must cover:
 | What it is | The thing itself, in the reader's vocabulary, not the schema's |
 | Why a record carries it | What a reviewer learns from it being present |
 | For properties, what it connects | The subject and object in plain terms |
-| Where it comes from | Name the standard clause when one governs it, e.g. ASME V&V 40 Table 5-1 |
 
 Explicitly out of scope for a comment:
 
@@ -110,10 +109,56 @@ Explicitly out of scope for a comment:
 - Explaining JSON-LD or RDF mechanics
 - Worked examples, which belong in `docs/` or the concept pages
 
+### Core is standard-agnostic. This is a hard rule.
+
+**No core definition may cite a standard, clause, or table.** Not ASME V&V 40,
+not NASA-STD-7009B, not ISO 42001. Write core terms in terms of the UofA model
+alone.
+
+This is not a stylistic preference. `uofa:factorType`, `uofa:achievedLevel`,
+`uofa:requiredLevel` and `uofa:factorStandard` are each constrained by four
+different shape files: `core`, `vv40`, `nasa-7009b` and `mrm-nist`. One term,
+four standards. A definition that says "the V&V 40 Table 5-1 factor name" is
+wrong the moment a NASA package uses it, and packages already do.
+
+The clinching evidence is `uofa:factorStandard` itself. Its existence means the
+governing standard is **data carried on the factor**, not something baked into
+the vocabulary. Writing the standard into the definition would contradict the
+one term whose whole job is to record which standard applies.
+
+Several core terms sound like they belong to V&V 40 because that is where the
+vocabulary was first exercised. Gradation language in particular
+(`achievedLevel`, `requiredLevel`) reads as V&V 40 house style. Resist it.
+
+```turtle
+# Wrong. Narrows a four-standard term to one, and duplicates factorStandard.
+uofa:requiredLevel a rdf:Property ;
+    rdfs:label "Required level" ;
+    rdfs:comment "The ASME V&V 40 Table 5-1 gradation this factor must reach." .
+
+# Right. True whichever standard governs the assessment.
+uofa:requiredLevel a rdf:Property ;
+    rdfs:label "Required level" ;
+    rdfs:comment "The rigour this factor has to reach for the assessment to stand, set before the evidence is gathered. The standard that fixes the scale is recorded separately on the factor." .
+```
+
+The test to apply to any core definition: swap the package's `factorStandard`
+from `ASME-VV40-2018` to `NASA-STD-7009B`. If the definition becomes false, it
+is too narrow.
+
+Where a term genuinely has no meaning outside one standard, that is a signal it
+belongs in that standard's pack namespace rather than in core. Say so in review
+instead of writing a narrow definition into a wide namespace.
+
+**The pack namespaces are the opposite case.** `vocab/aims#` terms map one to
+one onto ISO 42001 clauses and their existing comments cite them, correctly.
+Keep doing that for `aims` and `surrogate`.
+
 ### Voice
 
-Follow the existing `iso42001_shapes.ttl` comments, which are the house style.
-They are short, declarative, and cite their clause.
+Follow the existing `iso42001_shapes.ttl` comments for length and register. They
+are short and declarative. Take the form, not the clause citations, which belong
+only to the pack namespaces.
 
 - No em dashes.
 - No tripartite lists.
@@ -255,7 +300,12 @@ should be revisited rather than left to degrade gracefully.
    the Excel importer mints identifiers in a domain they do not control, for
    private data that can never resolve there. Not a writing task, but it belongs
    in the same conversation about what the uofa.net namespace is for.
-3. **Whether the core namespace should carry clause citations at all.** The aims
-   terms cite ISO 42001 clauses because they map one to one. Core terms are
-   standard-agnostic by design, so a V&V 40 citation on `CredibilityFactor` may
-   be misleading given the same term serves the NASA and ISO packs.
+## 8. Decisions already taken
+
+**Core is standard-agnostic** (2026-08-04). No core definition cites a standard,
+clause or table. See the rule in §3, which carries the reasoning and the
+evidence. The pack namespaces keep their clause citations.
+
+A consequence worth watching during review: if a proposed core definition cannot
+be written without naming a standard, that is evidence the term belongs in a
+pack namespace instead. Raise it rather than narrowing the definition to fit.
