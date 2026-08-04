@@ -111,6 +111,17 @@ NAMES = {
 }
 
 
+def node_id(uri):
+    """Render a JSON-LD node IRI as an identifier, not as a link.
+
+    These IRIs name nodes in the package graph. uofa.net does not dereference
+    them, so a full https:// string on a printed page promises a destination
+    that is not there. Strip the scheme and host and label it as an id; the
+    node is findable in the package file named by the reproduction command.
+    """
+    return uri.replace("https://uofa.net/", "")
+
+
 def short(uri):
     return uri.rsplit("/", 1)[-1]
 
@@ -448,6 +459,10 @@ blockquote {{
   border-left: 2px solid var(--accent); border-radius: 6px;
   font-size: 9pt; line-height: 1.38; color: var(--text);
 }}
+blockquote .src .idlbl {{
+  letter-spacing: 0.11em; text-transform: uppercase;
+  color: var(--text-faint); opacity: 0.75; margin-right: 7px;
+}}
 blockquote .src {{
   display: block; margin-top: 4px;
   font-family: var(--font-mono); font-size: 7.6pt;
@@ -664,7 +679,7 @@ td.mono-sm {{ font-family: var(--font-mono); font-size: 7.5pt; color: var(--text
     <p class="section-eyebrow">Context of use, as encoded</p>
     <blockquote>
       {html.escape(COU["description"])}
-      <span class="src">{html.escape(COU["id"])}</span>
+      <span class="src"><span class="idlbl">Package node</span> {html.escape(node_id(COU["id"]))}</span>
     </blockquote>
   </section>
 
@@ -739,7 +754,7 @@ td.mono-sm {{ font-family: var(--font-mono); font-size: 7.5pt; color: var(--text
     <p class="section-eyebrow" style="margin-top:9px">Offset rationale, {html.escape(short(OFFSET["refersToFactor"]).replace("-", " "))}</p>
     <blockquote>
       {html.escape(OFFSET["justification"])}
-      <span class="src">{html.escape(OFFSET["id"])}</span>
+      <span class="src"><span class="idlbl">Package node</span> {html.escape(node_id(OFFSET["id"]))}</span>
     </blockquote>
   </section>
 
