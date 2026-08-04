@@ -82,6 +82,7 @@ export default defineConfig({
             { label: 'Overview', link: '/reference/' },
             { label: 'CLI commands', link: '/reference/cli/' },
             { label: 'Weakener catalog', link: '/reference/catalog/' },
+            { label: 'Published identifiers', link: '/reference/identifiers/' },
           ],
         },
         {

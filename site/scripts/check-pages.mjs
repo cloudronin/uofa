@@ -118,6 +118,91 @@ await checkSurface('S5 nafems-2026', '/research/nafems-2026/', [
   ['11 + 18 weakener call-outs', (b) => /11 weakeners across 5 patterns/.test(b) && /18 weakeners across 6 patterns/.test(b)],
 ]);
 
+// S6 — identifier resolution. Sampled rather than exhaustive: 172 pages is too
+// many to fetch on every run, so this covers one of each shape that could break
+// independently. `node scripts/gen-iri-pages.mjs --check` is the exhaustive
+// guard, and it runs at build time.
+async function checkJson(label, path, checks) {
+  console.log(`\n${label} — ${BASE}${path}`);
+  const r = await fetchPage(path);
+  if (!r.ok) return record(false, 'fetch', r.error);
+  record(r.status === 200, 'HTTP 200', `got ${r.status}`);
+  if (r.status !== 200) return;
+  let parsed;
+  try {
+    parsed = JSON.parse(r.body);
+    record(true, 'parses as JSON');
+  } catch (err) {
+    return record(false, 'parses as JSON', err.message);
+  }
+  for (const [l, p] of checks) record(p(parsed), l);
+}
+
+// The bare IRI is what a reader actually pastes. GitHub Pages answers it with a
+// 301 to the trailing-slash form; assert that rather than only the canonical URL.
+async function checkBareIri(path) {
+  console.log(`\nS6 bare IRI — ${BASE}${path}`);
+  try {
+    const res = await fetch(`${BASE}${path}`, { redirect: 'manual' });
+    record(res.status === 301 || res.status === 200, 'resolves without a trailing slash', `got ${res.status}`);
+  } catch (err) {
+    record(false, 'fetch', err.message);
+  }
+}
+
+const IRI_HTML = [
+  ['S6 described node (vv40 convention)', '/nagaraja/cou/cou1-noncannulated/',
+    'https://uofa.net/nagaraja/cou/cou1-noncannulated'],
+  ['S6 nested node', '/morrison/cou1/factor/model-form/',
+    'https://uofa.net/morrison/cou1/factor/model-form'],
+  ['S6 flat convention (iso42001)', '/iso42001/hybrid/cou2/',
+    'https://uofa.net/iso42001/hybrid/cou2'],
+  ['S6 cross-file node', '/morrison/validation/mesh-convergence/',
+    'https://uofa.net/morrison/validation/mesh-convergence'],
+];
+
+for (const [label, path, iri] of IRI_HTML) {
+  await checkSurface(label, path, [
+    ['prints its own IRI', (b) => b.includes(iri)],
+    ['carries inline JSON-LD', (b) => /<script type="application\/ld\+json">/.test(b)],
+    ['inline JSON-LD parses and matches the IRI', (b) => {
+      const m = b.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/);
+      if (!m) return false;
+      try {
+        const j = JSON.parse(m[1]);
+        return (j.id ?? j['@id']) === iri;
+      } catch { return false; }
+    }],
+    ['links its machine-readable twin', (b) => /<link rel="alternate" type="application\/ld\+json"/.test(b)],
+    ['is search-indexable', (b) => b.includes('data-pagefind-body')],
+    ['links back to the defining record on GitHub', (b) => /github\.com\/cloudronin\/uofa\/blob\/main\/packs\//.test(b)],
+  ]);
+}
+
+await checkSurface('S6 referenced-only stub', '/nagaraja/validation/mesh-convergence/', [
+  ['marked referenced but not described', (b) => /Referenced but not described/.test(b)],
+  ['names the referring record', (b) => b.includes('https://uofa.net/nagaraja/cou1')],
+  ['does not claim to describe the thing', (b) => !/Described in/.test(b)],
+]);
+
+await checkJson('S6 twin (described)', '/nagaraja/cou/cou1-noncannulated.json', [
+  ['@id matches the IRI', (j) => (j.id ?? j['@id']) === 'https://uofa.net/nagaraja/cou/cou1-noncannulated'],
+]);
+
+await checkJson('S6 twin (stub)', '/nagaraja/validation/mesh-convergence.json', [
+  ['status is referenced-only', (j) => j['uofa:descriptionStatus'] === 'referenced-only'],
+  ['uses @reverse', (j) => typeof j['@reverse'] === 'object'],
+  ['invents no name for the thing', (j) =>
+    !('name' in j) && !('schema:name' in j) && !('label' in j) && !('rdfs:label' in j)],
+]);
+
+await checkBareIri('/nagaraja/cou/cou1-noncannulated');
+
+await checkSurface('S6 identifier index', '/reference/identifiers/', [
+  ['lists the Nagaraja COU', (b) => b.includes('https://uofa.net/nagaraja/cou/cou1-noncannulated')],
+  ['distinguishes referenced-only entries', (b) => /referenced only/.test(b)],
+]);
+
 await checkSurface('extra /cite', '/cite/', [
   ['BibTeX entry present', (b) => /vettrivel_uofa_2026/.test(b)],
   ['NAFEMS conference reference', (b) => /NAFEMS Americas Conference/.test(b)],
