@@ -225,7 +225,7 @@ TEMPLATE = f"""<!doctype html>
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Nagaraja pedicle screw case &mdash; UofA credibility record</title>
+<title>Nagaraja pedicle screw case, UofA credibility record</title>
 <meta name="description" content="The Nagaraja et al. (2024) pedicle screw FEA credibility assessment, encoded as a signed Unit of Assurance package and scored by the weakener rule engine." />
 
 <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -548,7 +548,7 @@ td.mono-sm {{ font-family: var(--font-mono); font-size: 7.5pt; color: var(--text
 </head>
 <body>
 
-<!-- ══════════════ PAGE 1 — what UofA is ══════════════ -->
+<!-- ══════════════ PAGE 1, what UofA is ══════════════ -->
 <div class="page page-0">
 
   <header class="header">
@@ -584,7 +584,7 @@ td.mono-sm {{ font-family: var(--font-mono); font-size: 7.5pt; color: var(--text
     <div class="card">
       <p class="tag">C3 &middot; COMPARES</p>
       <h3>Records, side by side</h3>
-      <p>Score two published records under one catalog version and see exactly which evidence each one carries. Page 3 does this.</p>
+      <p>Score two published records under one catalog version and compare what evidence each one carries. Page 3 does this.</p>
     </div>
   </section>
 
@@ -593,7 +593,7 @@ td.mono-sm {{ font-family: var(--font-mono); font-size: 7.5pt; color: var(--text
     <div class="chips">
 {anatomy_chips}
     </div>
-    <p class="what" style="margin-top:8px">One signed object carries the whole chain, from the requirement through to the decision and who made it. The counts above are this record's. Page 2 shows them in full.</p>
+    <p class="what" style="margin-top:8px">A package binds all of these in one signed object. The counts above are this record's, and page 2 sets them out in full.</p>
   </section>
 
   <section class="orient">
@@ -607,7 +607,7 @@ td.mono-sm {{ font-family: var(--font-mono); font-size: 7.5pt; color: var(--text
 
   <section class="why">
     <p class="section-eyebrow">Why it might fit you</p>
-    <p>Works in <strong>medical device</strong> (ASME V&amp;V 40), <strong>aerospace</strong> (NASA-STD-7009B), and <strong>AI management systems</strong> (ISO 42001) today. Runs locally, so evidence never leaves your environment. Sits alongside your PLM, SPDM, or model registry, and does not replace them.</p>
+    <p>Works in <strong>medical device</strong> (ASME V&amp;V 40), <strong>aerospace</strong> (NASA-STD-7009B), and <strong>AI management systems</strong> (ISO 42001) today. Runs locally, so evidence never leaves your environment. Sits alongside your PLM, SPDM, or model registry, and it doesn't replace them.</p>
   </section>
 
   <section class="try">
@@ -628,7 +628,7 @@ td.mono-sm {{ font-family: var(--font-mono); font-size: 7.5pt; color: var(--text
   </section>
 
   <footer class="footer">
-    <p class="ask"><strong>The ask:</strong> Run it on one of your own models, even a small one. Email me what breaks or what is missing.</p>
+    <p class="ask"><strong>The ask:</strong> Run it on one of your own models, even a small one. Email me what breaks or what's missing.</p>
     <div class="contact">
       <div class="name">Vishnu Vettrivel</div>
       <div><a href="mailto:support@uofa.net">support@uofa.net</a></div>
@@ -638,7 +638,7 @@ td.mono-sm {{ font-family: var(--font-mono); font-size: 7.5pt; color: var(--text
 
 </div>
 
-<!-- ══════════════ PAGE 2 — the record ══════════════ -->
+<!-- ══════════════ PAGE 2, the record ══════════════ -->
 <div class="page page-1">
 
   <header class="header case">
@@ -713,7 +713,7 @@ td.mono-sm {{ font-family: var(--font-mono); font-size: 7.5pt; color: var(--text
 
 </div>
 
-<!-- ══════════════ PAGE 3 — the findings ══════════════ -->
+<!-- ══════════════ PAGE 3, the findings ══════════════ -->
 <div class="page page-2">
 
   <section>
