@@ -216,29 +216,96 @@ is a starting point, not a definition, and must not be pasted in as one.
 
 ### Tier 3, the 53 terms with no derived text at all
 
-`activityType`, `addresses`, `agreementMakesNonDispositive`,
-`analyzesConfiguration`, `assessmentPhase`, `attestedAt`, `attestedBy`,
-`commit`, `consideredAlternative`, `deployedIn`, `deploymentContext`,
-`deploymentDate`, `deploymentOutcome`, `environment`, `exercised`,
-`factorConstraintWarrants`, `frameworkTransfers`, `hasApplicabilityConstraint`,
-`hasDiscrepancy`, `hasFactorOffset`, `hasJustification`, `hasParameter`,
-`hasVerificationActivity`, `knownLimitation`, `offsettingEvidence`,
-`pedigreeLevel`, `processType`, `referencesIdentifier`,
-`requiredVerificationMethod`, `residualRiskJustification`, `reviewDate`,
-`reviewFindings`, `reviewScope`, `reviewType`, `supports`,
-`sustainedDefeaterJustified`, `thresholdDistanceModulates`, `tool`,
-`transformationDescription`, `validForModelVersion`, `version`,
-plus the classes `ApplicabilityConstraint`, `Dataset`, `DeploymentRecord`,
-`InputPedigreeLink`, `Model`, `ModelConfiguration`, `OperatingEnvelope`,
-`ProcessAttestation`, `ProfileDisposition`, `Requirement`, `ReviewActivity`,
-`SensitivityAnalysis`
+**Decision (2026-08-04): all 53 get definitions.** Nothing is deprecated and
+nothing is removed. The earlier framing of this as define-or-retire is closed.
 
-**Tier 3 needs a decision before it needs prose.** A term defined in the context
-but used by nothing, constrained by nothing, and described by nothing may be
-vocabulary that was designed and never adopted. For each, decide: define it,
-mark it deprecated, or remove it from the context. Writing a definition for a
-term that should be retired is worse than leaving it blank, because it makes
-dead vocabulary look load-bearing.
+A caveat that survives the decision, and belongs in review rather than in the
+prose: a definition on an unadopted term makes it look load-bearing. Where a
+term is deliberately not in use, say so in the definition itself. The staged
+group below is the clearest case.
+
+These terms have no label, comment, SHACL constraint or schema description, so
+the writer needs a source. The repo has more than it looks like, unevenly
+distributed. Groups are ordered by how much material exists.
+
+#### 3a. Staged vocabulary, 3 terms
+
+`consideredAlternative`, `knownLimitation`, `residualRiskJustification`
+
+**These are unused on purpose and must not be described as abandoned.**
+`CHANGELOG.md` records them as "Staged CLARISSA vocabulary for v0.6
+W-AR-06/W-AR-07", and
+`src/uofa_cli/adversarial/prompts/clarissa_machinery.py` actively enforces
+non-emission, because the calibration probes target their *absence* as the
+defeater condition. A generator that emitted them would break the probes.
+
+Each definition should say what the property will record and note that it is
+reserved for the W-AR-06/W-AR-07 patterns and not yet expected in packages.
+
+#### 3b. Excel importer vocabulary, 9 terms
+
+`attestedBy`, `deployedIn`, `deploymentOutcome`, `processType`, `reviewType`,
+and the classes `DeploymentRecord`, `InputPedigreeLink`, `ProcessAttestation`,
+`ReviewActivity`
+
+Source: `src/uofa_cli/excel_mapper.py` and `src/uofa_cli/excel_constants.py`.
+The importer maps spreadsheet columns onto these, so the column headings and the
+mapping code carry the intended meaning. `packs/core/shapes/uofa_shacl.ttl`
+constrains several of them as well.
+
+#### 3c. Weakener-rule vocabulary, 11 terms
+
+`activityType`, `assessmentPhase`, `hasApplicabilityConstraint`,
+`hasFactorOffset`, `hasVerificationActivity`, `offsettingEvidence`,
+`requiredVerificationMethod`, and the classes `ApplicabilityConstraint`,
+`ModelConfiguration`, `OperatingEnvelope`, `SensitivityAnalysis`
+
+Source: the pattern descriptions in `CHANGELOG.md` (W-ON-02 is defined as a COU
+lacking both `hasApplicabilityConstraint` and `hasOperatingEnvelope`, W-AR-03
+compares `requiredVerificationMethod` against `activityType`, W-AR-04 compares
+`ModelConfiguration.modelVersion` against `currentModelVersion`), plus
+`packs/core/rules/uofa_weakener.rules` and the positive and negative fixture
+pairs under `tests/fixtures/weakeners/`. A fixture pair shows exactly what the
+presence and absence of a term mean, which is the strongest evidence available
+for any of these terms.
+
+#### 3d. Structural terms with wide usage elsewhere, 8 terms
+
+`commit`, `referencesIdentifier`, `supports`, `tool`, `version`, and the classes
+`Dataset`, `Model`, `Requirement`
+
+These are used across `src/`, `specs/` and the calibration corpus, but under
+names common enough that a plain search is noisy. Read the JSON Schema and the
+SHACL shape that constrains each before writing, and beware of matching
+unrelated English.
+
+#### 3e. No source anywhere in the repository, 22 terms
+
+`addresses`, `agreementMakesNonDispositive`, `analyzesConfiguration`,
+`attestedAt`, `deploymentContext`, `deploymentDate`, `environment`, `exercised`,
+`factorConstraintWarrants`, `frameworkTransfers`, `hasDiscrepancy`,
+`hasJustification`, `hasParameter`, `reviewDate`, `reviewFindings`,
+`reviewScope`, `sustainedDefeaterJustified`, `thresholdDistanceModulates`,
+`transformationDescription`, `validForModelVersion`, plus `ProfileDisposition`
+and `pedigreeLevel`
+
+Searched: `docs/`, `specs/`, `src/`, `tests/`, `packs/`, `spec/`, `CHANGELOG.md`
+and the archived architecture notes. These appear in the JSON-LD context files
+and nowhere else. There is no code that reads them, no shape that constrains
+them, no fixture that exercises them, and no prose that mentions them.
+
+**Only the author can write these.** They cannot be reconstructed by reading the
+repository, and a definition invented from the identifier would be a guess
+published at an authoritative URL. Seven of them
+(`agreementMakesNonDispositive`, `factorConstraintWarrants`,
+`frameworkTransfers`, `hasDiscrepancy`, `ProfileDisposition`,
+`sustainedDefeaterJustified`, `thresholdDistanceModulates`) arrived together in
+context v0.6 alongside the disposition work, so
+`packs/disposition/shapes/disposition_shapes.ttl` shows the register their
+neighbours use even though it does not define them.
+
+If a term in this group turns out to have no recoverable intent, that is worth
+knowing and worth recording as such, rather than dressing it up.
 
 ### Tiers 4 and 5, the other two namespaces
 
@@ -291,16 +358,21 @@ should be revisited rather than left to degrade gracefully.
 
 ## 7. Open questions for whoever writes this
 
-1. **Tier 3 disposition.** 53 terms are defined in the context but used,
-   constrained and described by nothing. How many are live design and how many
-   are abandoned? This is the only question that blocks work, and it only blocks
-   Tier 3.
+1. **The 22 terms in group 3e.** They exist in the context files and nowhere
+   else in the repository. Only the author can supply their intent; no amount of
+   reading recovers it. This does not block the other 177 items.
 2. **`instances/` namespace.** `src/uofa_cli/excel_constants.py` sets
    `BASE_URI = "https://uofa.net/instances"`, so every package a user creates via
    the Excel importer mints identifiers in a domain they do not control, for
    private data that can never resolve there. Not a writing task, but it belongs
    in the same conversation about what the uofa.net namespace is for.
 ## 8. Decisions already taken
+
+**All 53 Tier 3 terms get definitions** (2026-08-04). Nothing is deprecated and
+nothing is removed. Where a term is deliberately not in use, the definition says
+so rather than implying the term is expected in packages. Group 3a is the worked
+case: those three are staged for W-AR-06/W-AR-07 and the calibration probes
+depend on their absence.
 
 **Core is standard-agnostic** (2026-08-04). No core definition cites a standard,
 clause or table. See the rule in §3, which carries the reasoning and the
