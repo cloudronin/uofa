@@ -157,6 +157,17 @@ export function walkPackage({ doc, ctx, sourceFile, index }) {
     if (isUofaIri(term) && term.includes('#')) vocabRefs[term] = (vocabRefs[term] ?? 0) + 1;
   };
 
+  // Class names appear as compact `type` values ("UnitOfAssurance"), which
+  // JSON-LD resolves against @vocab. Counting only expanded IRIs reported zero
+  // usage for every core class, including CredibilityFactor at 39 occurrences,
+  // which is exactly backwards for judging which terms matter most.
+  const noteTypeUse = (value) => {
+    if (typeof value !== 'string') return;
+    if (value.includes('//') || value.includes(':')) return noteVocabUse(value);
+    const vocab = ctx?.['@vocab'];
+    if (typeof vocab === 'string') noteVocabUse(vocab + value);
+  };
+
   const visit = (node, subjectId, viaPredicate) => {
     if (Array.isArray(node)) {
       for (const item of node) visit(item, subjectId, viaPredicate);
@@ -198,6 +209,10 @@ export function walkPackage({ doc, ctx, sourceFile, index }) {
     const parentId = own ?? blank ?? subjectId;
     for (const [key, value] of Object.entries(node)) {
       if (key === 'id' || key === '@id' || key === '@context') continue;
+      if (key === 'type' || key === '@type') {
+        (Array.isArray(value) ? value : [value]).forEach(noteTypeUse);
+        continue;
+      }
       const predicate = resolveTerm(key, ctx);
       noteVocabUse(predicate);
 
