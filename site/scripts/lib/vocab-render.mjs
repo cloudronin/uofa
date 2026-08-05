@@ -82,18 +82,33 @@ export function renderVocabPage({ namespace, terms, versions }) {
   // Say plainly how well documented this namespace is. A reader arriving from a
   // @vocab lookup deserves to know whether they are reading definitions or
   // derived metadata.
-  const banner = isCore ? `
+  // Driven by the counts, not by which namespace this is. The earlier version
+  // keyed on isCore alone, so it would have kept calling the namespace
+  // undocumented at full coverage. Three states, because "most terms defined
+  // but not all" is the situation core is actually in and it deserves saying.
+  const pct = c.total ? c.labelled / c.total : 0;
+  const source = terms.find((t) => t.definedIn)?.definedIn ?? '';
+  const sourceLink = source
+    ? ` Definitions live in <a href="${REPO_BLOB}/${esc(source)}"><code>${esc(source)}</code></a>.`
+    : '';
+
+  const banner = pct === 1 ? `
+  <div class="v-banner v-banner-ok">
+    <p>All ${c.total} terms in this namespace carry an authored label, and
+    ${c.commented} carry a description.${sourceLink}</p>
+  </div>` : pct >= 0.25 ? `
+  <div class="v-banner v-banner-ok">
+    <p><strong>${c.labelled} of ${c.total} terms are defined.</strong> The rest
+    show only what can be derived from the JSON-LD context, the SHACL shapes and
+    the JSON Schema, and ${c.bare} have none of those either. Derived metadata
+    says how a term is constrained, not what it means.${sourceLink}</p>
+  </div>` : `
   <div class="v-banner">
     <p><strong>This namespace is largely undocumented.</strong> Of its
     ${c.total} terms, ${c.labelled} carry an authored definition. Everything
     else below is derived from the JSON-LD context, the SHACL shapes, and the
     JSON Schema, and ${c.bare} terms have none of those either. Derived metadata
     describes how a term is constrained, not what it means.</p>
-  </div>` : `
-  <div class="v-banner v-banner-ok">
-    <p>All ${c.total} terms in this namespace carry an authored label, and
-    ${c.commented} carry a description. Definitions live in
-    <a href="${REPO_BLOB}/${esc(terms.find((t) => t.definedIn)?.definedIn ?? '')}"><code>${esc(terms.find((t) => t.definedIn)?.definedIn ?? '')}</code></a>.</p>
   </div>`;
 
   const jsonld = JSON.stringify({
