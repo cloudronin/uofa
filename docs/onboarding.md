@@ -181,7 +181,7 @@ On top of Minimal, Complete requires:
 | `wasDerivedFrom` | URI of the source document (report, DOI, prior UofA) |
 | `wasAttributedTo` | URI of the responsible person or organization |
 | `hasCredibilityFactor` | Array of factor assessments (factorType + requiredLevel + achievedLevel). Factor types depend on the active pack. |
-| `factorStandard` | URI of the standard that defines the factor types (e.g., `https://uofa.net/standards/ASME-VV40-2018`) |
+| `factorStandard` | Identifier of the standard that defines the factor types, as a plain string (e.g., `"ASME-VV40-2018"`). Not a URI. The criteria set the assessment was graded against is a separate field, `criteriaSet`, which *is* a URI. |
 | `assessmentPhase` | Phase of the assessment lifecycle (e.g., `"Planning"`, `"Execution"`, `"Review"`) |
 | `hasEvidence` | URI(s) linking to supporting evidence artifacts |
 | `assuranceLevel` | `"Low"`, `"Medium"`, or `"High"` |

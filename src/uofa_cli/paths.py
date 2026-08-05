@@ -612,6 +612,9 @@ def load_project_config(project_root: Path) -> dict:
         "name": project.get("name", project_root.name),
         "pack": project.get("pack", "vv40"),
         "profile": project.get("profile", "complete"),
+        # Namespace for identifiers minted by `uofa import`. None means fall
+        # back to the placeholder default; uofa.net is refused downstream.
+        "base_uri": project.get("base_uri"),
         "output": project_root / paths_section.get("output", "."),
         "evidence": project_root / paths_section.get("evidence", "evidence"),
         "template": project_root / paths_section.get("template", "uofa-template.xlsx"),

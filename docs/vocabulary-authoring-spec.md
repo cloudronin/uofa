@@ -361,12 +361,18 @@ should be revisited rather than left to degrade gracefully.
 1. **The 22 terms in group 3e.** They exist in the context files and nowhere
    else in the repository. Only the author can supply their intent; no amount of
    reading recovers it. This does not block the other 177 items.
-2. **`instances/` namespace.** `src/uofa_cli/excel_constants.py` sets
-   `BASE_URI = "https://uofa.net/instances"`, so every package a user creates via
-   the Excel importer mints identifiers in a domain they do not control, for
-   private data that can never resolve there. Not a writing task, but it belongs
-   in the same conversation about what the uofa.net namespace is for.
+2. *(Resolved 2026-08-04, see below.)*
 ## 8. Decisions already taken
+
+**`uofa.net/instances/` is this project's own example namespace only**
+(2026-08-04). `uofa import` previously minted every user's identifiers there,
+under a domain they do not control. It now defaults to the `example.org`
+placeholder, matching what `uofa init` already scaffolded, and takes a namespace
+the author controls via `--base-uri` or `[project] base_uri` in `uofa.toml`.
+uofa.net is refused outright. This mattered because the id is inside the
+canonicalised content the hash and signature cover, so the mistake became
+permanent on signing, and because two organisations sharing a project name minted
+colliding identifiers.
 
 **All 53 Tier 3 terms get definitions** (2026-08-04). Nothing is deprecated and
 nothing is removed. Where a term is deliberately not in use, the definition says

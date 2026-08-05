@@ -589,7 +589,11 @@ def _generate_python_constants(shacl_paths: list[Path]) -> str:
     lines.append('FACTOR_STANDARD_NASA = "NASA-STD-7009B"')
     lines.append("")
     lines.append('CONTEXT_URL = "https://raw.githubusercontent.com/cloudronin/uofa/main/spec/context/v0.5.jsonld"')
-    lines.append('BASE_URI = "https://uofa.net/instances"')
+    # Placeholder namespace, not uofa.net: generated constants must not lead an
+    # importer to mint user data under a domain the user does not control.
+    lines.append('DEFAULT_BASE_URI = "https://example.org"')
+    lines.append('BASE_URI = DEFAULT_BASE_URI')
+    lines.append('RESERVED_BASE_URIS = ("https://uofa.net", "http://uofa.net")')
     lines.append("")
 
     return "\n".join(lines)

@@ -165,6 +165,14 @@ def _generate_toml(name, pack, profile, template, provider, model):
         f'pack = "{pack}"\n'
         f'profile = "{profile}"\n'
         "\n"
+        "# Namespace your package identifiers are minted under. Change this to a\n"
+        "# domain you control before signing anything you intend to share. The id\n"
+        "# is covered by the package hash and signature, so it cannot be corrected\n"
+        "# afterwards without invalidating them. example.org is a reserved\n"
+        "# placeholder; https://uofa.net is reserved for the UofA project's own\n"
+        "# published examples and is refused here.\n"
+        f'base_uri = "https://example.org/{name}"\n'
+        "\n"
         "[paths]\n"
         'output = "."\n'
         'evidence = "evidence"\n'

@@ -523,7 +523,10 @@ SPECS = {
         "expected_profile": "Complete",
         "expected_factor_count": 13,
         "expected_vr_count": 1,
-        "expected_id": "https://uofa.net/instances/my-test-project/thermal-analysis-cou",
+        # Imports mint under the example.org placeholder, never under uofa.net.
+        # uofa.net is reserved for this project's own published examples, and an
+        # id cannot be corrected after signing because the hash covers it.
+        "expected_id": "https://example.org/my-test-project/thermal-analysis-cou",
         "expected_weakeners": None,
     },
 

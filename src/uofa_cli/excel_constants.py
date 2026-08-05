@@ -236,7 +236,61 @@ FACTOR_STANDARD_NASA = "NASA-STD-7009B"
 FACTOR_STANDARD_MRM_NIST = "NIST-AI-RMF-1.0"
 
 CONTEXT_URL = "https://raw.githubusercontent.com/cloudronin/uofa/main/spec/context/v0.5.jsonld"
-BASE_URI = "https://uofa.net/instances"
+# Default namespace for identifiers minted by `uofa import`.
+#
+# example.org is reserved by RFC 2606 for exactly this purpose, so it is visibly
+# a placeholder and prompts the author to substitute a namespace they control.
+# `uofa init` already scaffolds ids under example.org; this keeps the importer
+# consistent with it.
+#
+# This deliberately does NOT default to uofa.net. Minting there would put a
+# user's private evidence under a domain they cannot serve, and because the id
+# is inside the canonicalised content that the hash and signature cover, the
+# mistake becomes permanent the moment the package is signed. Two organisations
+# with the same project name would also mint colliding identifiers, which in RDF
+# asserts that their unrelated evidence is the same thing.
+#
+# https://uofa.net/instances/ is reserved for this project's own published
+# examples and must not be used as a default for anyone else's packages.
+DEFAULT_BASE_URI = "https://example.org"
+
+# Retained under the old name so external callers keep working.
+BASE_URI = DEFAULT_BASE_URI
+
+# Namespace reserved for the project's own shipped examples. Refused as a
+# minting base so an importer run can never squat on it.
+RESERVED_BASE_URIS = ("https://uofa.net", "http://uofa.net")
+
+# ── Criteria sets ────────────────────────────────────────────
+#
+# A criteria set names the rubric an assessment was graded against. Published
+# standards are shared concepts rather than anyone's private data, so they get a
+# stable project-controlled identifier, the same reasoning that puts the
+# vocabulary under uofa.net. Anything the project does not recognise is the
+# author's own rubric and is minted in the author's namespace instead.
+#
+# Note the split is by *what the identifier names*, not by who ran the import.
+# "ASME V&V 40" means the same document for everyone; "our internal rubric v3"
+# does not.
+CRITERIA_BASE = "https://uofa.net/criteria"
+
+# Aliases are matched after stripping everything but letters and digits and
+# upper-casing, so "ASME V&V 40", "asme-vv40-2018" and "ASME_VV40_2018" all land
+# on the same canonical identifier. This is what stopped
+# criteria/nasa-std-7009b and criteria/NASA-STD-7009B being two different things.
+KNOWN_CRITERIA_SETS = {
+    "ASMEVV402018": FACTOR_STANDARD_VV40,
+    "ASMEVV40": FACTOR_STANDARD_VV40,
+    "VV402018": FACTOR_STANDARD_VV40,
+    "VV40": FACTOR_STANDARD_VV40,
+    "NASASTD7009B": FACTOR_STANDARD_NASA,
+    "NASASTD7009": FACTOR_STANDARD_NASA,
+    "NASA7009B": FACTOR_STANDARD_NASA,
+    "NASA7009": FACTOR_STANDARD_NASA,
+    "NISTAIRMF10": FACTOR_STANDARD_MRM_NIST,
+    "NISTAIRMF1": FACTOR_STANDARD_MRM_NIST,
+    "NISTAIRMF": FACTOR_STANDARD_MRM_NIST,
+}
 
 
 # ── Hand-maintained normalizers ───────────────────────────────

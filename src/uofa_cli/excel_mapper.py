@@ -13,7 +13,8 @@ from uofa_cli.excel_constants import (
     VV40_FACTOR_NAMES, NASA_ONLY_FACTOR_NAMES, MRM_NIST_FACTOR_NAMES,
     ALL_FACTOR_CATEGORIES, NASA_PHASE_MAP,
     FACTOR_STANDARD_VV40, FACTOR_STANDARD_NASA, FACTOR_STANDARD_MRM_NIST,
-    PROFILE_URIS, CONTEXT_URL, BASE_URI,
+    PROFILE_URIS, CONTEXT_URL, DEFAULT_BASE_URI, RESERVED_BASE_URIS,
+    CRITERIA_BASE, KNOWN_CRITERIA_SETS,
 )
 from uofa_cli import __version__
 from uofa_cli.integrity import CANONICALIZATION_ALG
@@ -28,13 +29,59 @@ def slugify(text: str) -> str:
     return s.strip('-')
 
 
-def map_to_jsonld(data: dict, packs: list[str], source_path: Path) -> dict:
+def resolve_base_uri(base_uri: str | None) -> str:
+    """Normalise a minting namespace, refusing the project's reserved one.
+
+    uofa.net is where this project publishes its own examples. A package
+    imported from someone's spreadsheet must never be minted there: the id sits
+    inside the canonicalised content covered by the hash and signature, so it
+    cannot be corrected after signing without destroying the provenance chain.
+    """
+    candidate = (base_uri or DEFAULT_BASE_URI).strip().rstrip("/")
+    if not candidate:
+        raise ValueError("base_uri cannot be empty")
+    for reserved in RESERVED_BASE_URIS:
+        if candidate == reserved or candidate.startswith(reserved + "/"):
+            raise ValueError(
+                f"{candidate!r} is reserved for this project's published examples. "
+                f"Use a namespace you control, or leave it unset to mint under "
+                f"{DEFAULT_BASE_URI} as a placeholder."
+            )
+    return candidate
+
+
+def resolve_criteria_set(standards_reference: str, base_uri: str) -> str:
+    """Identifier for the rubric an assessment was graded against.
+
+    A recognised published standard is a shared concept, so it gets the stable
+    project-controlled identifier under CRITERIA_BASE. Anything else is the
+    author's own rubric and is minted in the author's namespace, because the
+    project cannot speak for a criteria set it has never seen.
+
+    Aliases are folded so that "ASME V&V 40", "asme-vv40-2018" and
+    "ASME_VV40_2018" resolve to one identifier rather than three.
+    """
+    normalized = re.sub(r"[^A-Z0-9]", "", (standards_reference or "").upper())
+    canonical = KNOWN_CRITERIA_SETS.get(normalized)
+    if canonical:
+        return f"{CRITERIA_BASE}/{canonical}"
+    # Org-level, not under the COU: a rubric is shared across an author's
+    # assessments, so burying it beneath one context of use would be wrong.
+    return f"{base_uri}/criteria/{slugify(standards_reference)}"
+
+
+def map_to_jsonld(
+    data: dict, packs: list[str], source_path: Path, base_uri: str | None = None
+) -> dict:
     """Transform intermediate dict into a UofA JSON-LD document.
 
     Args:
         data: Intermediate dict from excel_reader.read_workbook().
         packs: Active pack names (e.g., ["vv40"], ["nasa-7009b"]).
         source_path: Path to the original Excel file (for provenance).
+        base_uri: Namespace to mint identifiers under. Defaults to
+            DEFAULT_BASE_URI, a reserved placeholder domain the author is
+            expected to replace with one they control.
 
     Returns:
         A dict ready for json.dumps() as JSON-LD.
@@ -48,7 +95,8 @@ def map_to_jsonld(data: dict, packs: list[str], source_path: Path) -> dict:
     profile = summary["profile"]
     project_slug = slugify(summary["project_name"] or "unnamed")
     cou_slug = slugify(summary["cou_name"] or "unnamed")
-    base = f"{BASE_URI}/{project_slug}/{cou_slug}"
+    root = resolve_base_uri(base_uri)
+    base = f"{root}/{project_slug}/{cou_slug}"
     now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     # ── Build the document ───────────────────────────────────
@@ -130,7 +178,9 @@ def map_to_jsonld(data: dict, packs: list[str], source_path: Path) -> dict:
         if summary.get("assurance_level"):
             doc["assuranceLevel"] = summary["assurance_level"]
         if summary.get("standards_reference"):
-            doc["criteriaSet"] = f"https://uofa.net/criteria/{slugify(summary['standards_reference'])}"
+            doc["criteriaSet"] = resolve_criteria_set(
+                summary["standards_reference"], root
+            )
 
         # Credibility metrics — placeholder values
         doc["credibilityIndex"] = {"@value": "0.00", "@type": "xsd:decimal"}

@@ -24,6 +24,10 @@ def add_arguments(parser):
                         help="run all quality gates on the output")
     parser.add_argument("--profile", choices=["minimal", "complete"],
                         help="override profile auto-detection")
+    parser.add_argument("--base-uri",
+                        help="namespace to mint identifiers under, e.g. https://acme.example/uofa. "
+                             "Overrides [project] base_uri in uofa.toml. Defaults to a reserved "
+                             "example.org placeholder; uofa.net is refused.")
     parser.add_argument("--sip-pubkey", type=Path,
                         help="SIP measurement public key for verifying a SIP-bundle input (default: keys/research.pub)")
     parser.add_argument("--decision-pubkey", type=Path,
@@ -35,6 +39,16 @@ def run(args) -> int:
     project_root = paths.find_project_root()
     config = paths.load_project_config(project_root) if project_root else {}
 
+    # Validate the minting namespace before doing any work. Reading and
+    # extracting a workbook is slow, and a rejected --base-uri should not cost
+    # the user that wait before telling them the flag is wrong.
+    from uofa_cli.excel_mapper import resolve_base_uri
+    try:
+        resolve_base_uri(getattr(args, "base_uri", None) or config.get("base_uri"))
+    except ValueError as exc:
+        error(str(exc))
+        return 1
+
     # ── v2 native SIP-bundle path (SIP §7.3 v2) ──────────────
     # A SIP evidence bundle (.json) maps directly to surrogate-pack JSON-LD via
     # the native reader, skipping the xlsx/LLM on-ramp for measured fields.
@@ -43,6 +57,7 @@ def run(args) -> int:
 
     from uofa_cli.excel_reader import read_workbook, ImportError as ExcelImportError
     from uofa_cli.excel_mapper import map_to_jsonld
+    from uofa_cli.excel_constants import DEFAULT_BASE_URI
 
     # Resolve input file: CLI > uofa.toml template > error
     xlsx = args.file
@@ -89,7 +104,19 @@ def run(args) -> int:
         data["summary"]["profile"] = args.profile.capitalize()
 
     # ── Map to JSON-LD ───────────────────────────────────────
-    doc = map_to_jsonld(data, packs, xlsx.resolve())
+    # Precedence: --base-uri > uofa.toml [project] base_uri > placeholder default.
+    # The id lands inside the canonicalised content that the hash and signature
+    # cover, so getting this wrong is unfixable once the package is signed.
+    base_uri = args.base_uri or config.get("base_uri")
+    doc = map_to_jsonld(data, packs, xlsx.resolve(), base_uri=base_uri)
+
+    if not base_uri:
+        warn(
+            f"Identifiers minted under {DEFAULT_BASE_URI}, a placeholder domain. "
+            f"Set [project] base_uri in uofa.toml, or pass --base-uri, to use a "
+            f"namespace you control. The id is covered by the signature, so this "
+            f"cannot be changed after signing."
+        )
 
     # ── Write output ─────────────────────────────────────────
     output = args.output
