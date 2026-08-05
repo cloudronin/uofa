@@ -1,4 +1,9 @@
-# UofA Vocabulary Authoring Spec v0.1
+# UofA Vocabulary Authoring Spec v0.2
+
+*v0.2 (2026-08-04): core standard-agnostic rule promoted to §3 with its evidence;
+Tier 3 resolved as define-all and split into five sourced groups; criteria set
+decision added; shape-file counts corrected. All counts re-verified against the
+repo at this revision.*
 
 **Deliverable:** `rdfs:label` and `rdfs:comment` for the UofA vocabulary terms
 that currently have none, written into the pack shape files.
@@ -115,11 +120,12 @@ Explicitly out of scope for a comment:
 not NASA-STD-7009B, not ISO 42001. Write core terms in terms of the UofA model
 alone.
 
-This is not a stylistic preference. `uofa:factorType`, `uofa:achievedLevel`,
-`uofa:requiredLevel` and `uofa:factorStandard` are each constrained by four
-different shape files: `core`, `vv40`, `nasa-7009b` and `mrm-nist`. One term,
-four standards. A definition that says "the V&V 40 Table 5-1 factor name" is
-wrong the moment a NASA package uses it, and packages already do.
+This is not a stylistic preference. `uofa:factorType` and
+`uofa:factorStandard` are each constrained by four different shape files
+(`core`, `vv40`, `nasa-7009b`, `mrm-nist`); `uofa:achievedLevel` and
+`uofa:requiredLevel` by three (`core`, `vv40`, `nasa-7009b`). One term, several
+standards. A definition that says "the V&V 40 Table 5-1 factor name" is wrong
+the moment a NASA package uses it, and packages already do.
 
 The clinching evidence is `uofa:factorStandard` itself. Its existence means the
 governing standard is **data carried on the factor**, not something baked into
@@ -358,10 +364,15 @@ should be revisited rather than left to degrade gracefully.
 
 ## 7. Open questions for whoever writes this
 
-1. **The 22 terms in group 3e.** They exist in the context files and nowhere
-   else in the repository. Only the author can supply their intent; no amount of
-   reading recovers it. This does not block the other 177 items.
-2. *(Resolved 2026-08-04, see below.)*
+**The 22 terms in group 3e**, and nothing else. They exist in the context files
+and nowhere else in the repository. Only the author can supply their intent; no
+amount of reading recovers it. This does not block the other 177 items, so the
+writing can start without an answer.
+
+Every other question this spec opened has since been decided. See §8.
+
+---
+
 ## 8. Decisions already taken
 
 **`uofa.net/instances/` is this project's own example namespace only**
@@ -373,6 +384,19 @@ uofa.net is refused outright. This mattered because the id is inside the
 canonicalised content the hash and signature cover, so the mistake became
 permanent on signing, and because two organisations sharing a project name minted
 colliding identifiers.
+
+**Criteria set identifiers split by what they name** (2026-08-04). A recognised
+published standard keeps a project-controlled identifier under
+`https://uofa.net/criteria/`, because it means the same document for everyone.
+An unrecognised rubric is minted in the author's namespace, because the project
+cannot vouch for a criteria set it has never seen. Aliases fold, so
+`ASME-VV40-2018`, `asme-vv40-2018` and `ASME V&V 40` are one identifier rather
+than three.
+
+This bears directly on two Tier 1 terms. `criteriaSet` should be defined as the
+rubric an assessment was graded against, not as "the standard", since an author's
+own rubric is equally valid there. `AcceptanceCriteria` is the class, and its
+definition should not imply the criteria are always published or external.
 
 **All 53 Tier 3 terms get definitions** (2026-08-04). Nothing is deprecated and
 nothing is removed. Where a term is deliberately not in use, the definition says
