@@ -4,6 +4,79 @@
 @prefix uofa: <https://uofa.net/vocab#> .
 @prefix dct:  <http://purl.org/dc/terms/> .
 @prefix schema: <https://schema.org/> .
+@prefix rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+
+################################################################
+# §A — embedded vocabulary (RDFS)
+#
+# Mirrors the iso42001, surrogate and disposition packs: no separate
+# vocab.ttl, no external ontology file. The existing pyshacl loader reads
+# this file already, and site/scripts/lib/vocab-extract.mjs harvests these
+# declarations to render https://uofa.net/vocab#.
+#
+# These triples are inert to validation. shacl_friendly.py calls pyshacl
+# with no ont_graph and no inference, so nothing here can affect sh:class
+# or sh:targetClass resolution. It is documentation that happens to live
+# next to the shapes it documents.
+#
+# Two rules, both from docs/vocabulary-authoring-spec.md:
+#
+#   1. Core is standard-agnostic. No definition here cites ASME V&V 40,
+#      NASA-STD-7009B or ISO 42001. uofa:factorType and uofa:factorStandard
+#      are each constrained by four different packs, so naming one standard
+#      makes the definition false for the others. uofa:factorStandard exists
+#      precisely because the governing standard is data on the factor.
+#   2. Labels follow the corpus: classes Title Case, properties lowercase.
+#
+# Do NOT declare uofa:Disposition or uofa:Discrepancy here. They are defined
+# in packs/disposition/shapes/disposition_shapes.ttl, and the site harvester
+# merges packs with Object.assign, so a duplicate would silently overwrite
+# rather than conflict.
+################################################################
+
+# §A.1 — the structural spine.
+#
+# These nine classes name the model every other term hangs off. Sourced from
+# site/src/content/docs/concepts/uofa.md, the concepts/weakeners page, the node
+# shapes below, and the shipped example packages.
+
+uofa:UnitOfAssurance a rdfs:Class ;
+    rdfs:label "Unit of Assurance" ;
+    rdfs:comment "The smallest independently verifiable package of credibility evidence. One package covers one context of use, and its signature lets a reviewer check the decision without access to the original tooling." .
+
+uofa:ContextOfUse a rdfs:Class ;
+    rdfs:label "Context of Use" ;
+    rdfs:comment "The specific use a model is being trusted for, and the decision that rides on it. Credibility is assessed against this rather than against the model in general." .
+
+uofa:CredibilityFactor a rdfs:Class ;
+    rdfs:label "Credibility Factor" ;
+    rdfs:comment "One dimension of credibility assessed for a context of use. Records the rigor required against the rigor achieved, and states plainly when a dimension was not assessed." .
+
+uofa:ValidationResult a rdfs:Class ;
+    rdfs:label "Validation Result" ;
+    rdfs:comment "A recorded comparison between what the model predicted and what was measured, offered as evidence for the claim the package makes." .
+
+uofa:AssuranceClaim a rdfs:Class ;
+    rdfs:label "Assurance Claim" ;
+    rdfs:comment "The proposition the evidence is offered in support of. Naming it separately is what lets a reviewer ask whether the evidence actually supports it." .
+
+uofa:AcceptanceCriteria a rdfs:Class ;
+    rdfs:label "Acceptance Criteria" ;
+    rdfs:comment "The rubric an assessment is graded against, whether a published standard or one an organization devised for itself. Recorded so a reader knows what bar was applied." .
+
+uofa:DecisionRecord a rdfs:Class ;
+    rdfs:label "Decision Record" ;
+    rdfs:comment "The judgement reached on a context of use, naming who reached it and why. A package states its decision here rather than leaving it to be inferred from the evidence." .
+
+uofa:OffsetRationale a rdfs:Class ;
+    rdfs:label "Offset Rationale" ;
+    rdfs:comment "A stated reason for accepting a credibility factor that fell short of its required level, pointing at the factor and at whatever compensates for the gap." .
+
+uofa:WeakenerAnnotation a rdfs:Class ;
+    rdfs:label "Weakener Annotation" ;
+    rdfs:comment "A condition under which the stated evidence does not support the claim it is offered for. It describes the record as published, not a defect in the modeling work." .
+
 
 ################################################################
 # Dispatcher: pick Minimal vs Complete constraints by profile

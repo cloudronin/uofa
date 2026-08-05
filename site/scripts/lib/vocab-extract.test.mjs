@@ -75,7 +75,10 @@ test('namespace coverage matches what the repo actually contains', () => {
   const surr = coverage(vocab.byNamespace.surrogate);
 
   assert.equal(core.total, 136);
-  assert.equal(core.labelled, 2, 'core is almost entirely unlabelled');
+  // Batch A: the nine structural classes, plus Disposition and Discrepancy
+  // which the disposition pack already carried. Bump this deliberately per
+  // batch so coverage stays a reviewed number rather than silent drift.
+  assert.equal(core.labelled, 11, 'core spine plus the disposition pack');
   assert.equal(aims.total, 127);
   assert.equal(aims.labelled, 127, 'every aims term is labelled');
   assert.equal(surr.total, 39);

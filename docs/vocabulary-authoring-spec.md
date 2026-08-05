@@ -1,4 +1,8 @@
-# UofA Vocabulary Authoring Spec v0.2
+# UofA Vocabulary Authoring Spec v0.3
+
+*v0.3 (2026-08-04): label casing corrected, classes Title Case and
+properties lowercase, matching all 166 existing labels; group 3e cut from 22 to
+19 after git archaeology; the pinned-count claim in §5 corrected.*
 
 *v0.2 (2026-08-04): core standard-agnostic rule promoted to §3 with its evidence;
 Tier 3 resolved as define-all and split into five sourced groups; criteria set
@@ -68,7 +72,7 @@ uofa:ContextOfUse a rdfs:Class ;
     rdfs:comment "The specific question the model is being used to answer, and the decision that rides on the answer." .
 
 uofa:hasWeakener a rdf:Property ;
-    rdfs:label "Has weakener" ;
+    rdfs:label "has weakener" ;
     rdfs:comment "Links a package to a condition under which its stated evidence does not support the claim it is offered for." .
 ```
 
@@ -89,8 +93,19 @@ Constraints the extractor enforces, and will fail the build over:
 
 ### `rdfs:label`
 
-Title case, no trailing period, expands the identifier rather than restating it.
-`hasValidationResult` becomes "Has validation result", not "hasValidationResult".
+Expands the identifier into words rather than restating it, with no trailing
+period. **Casing depends on whether the term is a class or a property**, and the
+166 labels already in the repo are unanimous on this:
+
+| | Casing | Example |
+|---|---|---|
+| Classes | Title Case | `uofa:ContextOfUse` becomes `"Context of Use"` |
+| Properties | lowercase | `uofa:hasValidationResult` becomes `"has validation result"` |
+
+*(Corrected in v0.3. Earlier revisions said Title case for everything and used
+`"Has weakener"` as a worked example, which no existing label in the repo
+matches. 83 of 83 classes are Title Case and 83 of 83 properties are lowercase,
+across both the aims and surrogate namespaces.)*
 
 ### `rdfs:comment`
 
@@ -139,12 +154,12 @@ vocabulary was first exercised. Gradation language in particular
 ```turtle
 # Wrong. Narrows a four-standard term to one, and duplicates factorStandard.
 uofa:requiredLevel a rdf:Property ;
-    rdfs:label "Required level" ;
+    rdfs:label "required level" ;
     rdfs:comment "The ASME V&V 40 Table 5-1 gradation this factor must reach." .
 
 # Right. True whichever standard governs the assessment.
 uofa:requiredLevel a rdf:Property ;
-    rdfs:label "Required level" ;
+    rdfs:label "required level" ;
     rdfs:comment "The rigour this factor has to reach for the assessment to stand, set before the evidence is gathered. The standard that fixes the scale is recorded separately on the factor." .
 ```
 
@@ -335,19 +350,26 @@ Per tier, not for all 199 at once. A tier is done when:
    cannot ship.
 2. `cd site && npm test` passes. The coverage assertions in
    `site/scripts/lib/vocab-extract.test.mjs` pin the current counts, so they
-   **must be updated deliberately** as part of the same change. That is the
-   intended friction: it makes coverage a reviewed number rather than a silent
-   drift.
+   **must be updated deliberately** as part of the same change, which makes
+   coverage a reviewed number rather than silent drift.
+
+   **Run this by hand. No workflow does.** The only test command in
+   `.github/workflows/` is `pytest tests/space -q` in `deploy-space.yml`, so the
+   pinned counts gate nothing in CI today. Either add `npm test` to
+   `deploy-site.yml` or accept that a reviewer checks it each batch. Note also
+   that only `labelled` is pinned, not `commented`, so the aims and surrogate
+   comment batches do not touch this file at all.
 3. `uofa shacl packs/vv40/examples/nagaraja/cou1/uofa-nagaraja-cou1.jsonld`
    still conforms. Adding RDFS to a shapes file must not change validation.
 4. The rendered page at `/vocab/` shows the new definitions and the honesty
    banner count has gone down.
 5. No term has a comment that only restates its datatype or its name.
 
-When core reaches full label coverage, remove the "largely undocumented" banner
-logic from `site/scripts/lib/vocab-render.mjs`. It is driven by the counts, so it
-will soften on its own, but the wording is written for a namespace at 1% and
-should be revisited rather than left to degrade gracefully.
+The "largely undocumented" banner in `site/scripts/lib/vocab-render.mjs` is
+**not** count-driven, contrary to what an earlier revision of this spec said. It
+renders whenever the namespace is core, so it will keep claiming the namespace is
+undocumented at full coverage. Rewrite that logic once core labels land rather
+than leaving it to soften on its own, because it will not.
 
 ---
 
