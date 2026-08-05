@@ -57,7 +57,7 @@ def run(args) -> int:
     if doc is not None and is_sip_bundle(doc):
         return _verify_sip(args, doc, pubkey)
 
-    ctx = args.context or paths.context_file()
+    ctx = args.context
     step_header("C1: Integrity verification (hash + signature)")
 
     hash_ok, sig_ok = verify_file(args.file, pubkey, ctx)

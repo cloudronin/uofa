@@ -24,8 +24,49 @@ INTEGRITY_FIELDS = {"hash", "signature", "signatureAlg", "canonicalizationAlg"}
 CANONICALIZATION_ALG = "json-sortkeys/v1"
 
 
+def _local_context_for_url(url: str) -> Path | None:
+    """Map a published context URL back to the file in this checkout.
+
+    Packages in the wild reference the raw.githubusercontent URL rather than a
+    relative path. Without this they cannot be resolved offline at all, and the
+    only thing that made them hash correctly was falling back to whatever
+    context the toolchain happened to point at -- which is the coupling this
+    function exists to remove.
+    """
+    marker = "/spec/context/"
+    if not url.startswith("http") or marker not in url:
+        return None
+    name = url.rsplit("/", 1)[-1]
+    if not name.endswith(".jsonld"):
+        return None
+    try:
+        from uofa_cli import paths
+        candidate = paths.find_repo_root() / "spec" / "context" / name
+    except Exception:
+        return None
+    return candidate if candidate.exists() else None
+
+
 def resolve_context(doc: dict, jsonld_path: Path, context_path: Path = None) -> dict:
     """Resolve external @context reference to inline object.
+
+    **The document's own @context wins.** The inlined context is part of what
+    gets canonicalized and hashed, so whichever file is chosen here decides the
+    package's hash and therefore whether its signature verifies. Preferring the
+    caller's context over the document's made a package's hash a property of
+    the tool that happened to read it rather than of the document: moving the
+    toolchain's default context re-hashed every package that had been signed
+    against a different one, and 5 of the shipped examples failed verification
+    on exactly that.
+
+    Order, most specific first:
+
+    1. ``context_path`` when the caller passed one **explicitly** (``--context``
+       is a deliberate override and still wins),
+    2. the document's own reference, as a path relative to the document,
+    3. the document's own reference, when it is a published context URL that
+       maps to a file in this checkout,
+    4. ``context_path`` as a fallback for documents that name no context.
 
     Forces UTF-8 decoding of the @context file: JSON-LD documents are
     UTF-8 by spec, but Python's bare ``open(p, "r")`` uses the locale
@@ -40,18 +81,42 @@ def resolve_context(doc: dict, jsonld_path: Path, context_path: Path = None) -> 
     if isinstance(ctx_ref, dict):
         return doc
 
-    if isinstance(ctx_ref, str):
-        candidates = []
-        if context_path:
-            candidates.append(context_path)
-        candidates.append(jsonld_path.parent / ctx_ref)
+    # A document that names no context has nothing to resolve, and inlining one
+    # anyway would change its hash. Two shipped nasa-7009b packages are signed
+    # in exactly that state.
+    if not isinstance(ctx_ref, str):
+        return doc
 
-        for p in candidates:
-            if p.exists():
-                with open(p, "r", encoding="utf-8") as f:
-                    ctx_doc = json.load(f)
-                doc["@context"] = ctx_doc.get("@context", ctx_doc)
-                return doc
+    candidates: list[Path] = []
+    if context_path is not None:
+        # An explicit --context. Callers must pass None when the user did not
+        # give one, or this collapses back into "the tool decides", which is
+        # the bug this ordering exists to fix.
+        candidates.append(Path(context_path))
+    candidates.append(jsonld_path.parent / ctx_ref)
+    mapped = _local_context_for_url(ctx_ref)
+    if mapped is not None:
+        candidates.append(mapped)
+    if context_path is None:
+        # Last resort for a reference this checkout cannot resolve at all.
+        try:
+            from uofa_cli import paths
+            candidates.append(paths.context_file())
+        except Exception:
+            pass
+
+    for p in candidates:
+        try:
+            if not p.exists():
+                continue
+        except OSError:
+            # A long or malformed relative reference can raise rather than
+            # return False; treat it as simply not resolvable.
+            continue
+        with open(p, "r", encoding="utf-8") as f:
+            ctx_doc = json.load(f)
+        doc["@context"] = ctx_doc.get("@context", ctx_doc)
+        return doc
 
     return doc
 

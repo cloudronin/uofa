@@ -210,8 +210,9 @@ def _sign_and_check(args, output: Path, packs, project_root) -> int:
         signing_key = key
 
         from uofa_cli.integrity import sign_file
-        ctx = paths.context_file()
-        sha256_hex, sig_hex = sign_file(output, key, ctx)
+        # None: the package just written names its own context, and that is
+        # what it must be hashed against.
+        sha256_hex, sig_hex = sign_file(output, key, None)
         result_line("Signed", True)
         info(f"  SHA-256: {sha256_hex[:16]}...")
 

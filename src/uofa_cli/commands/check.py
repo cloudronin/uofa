@@ -128,7 +128,7 @@ def run_structured(args) -> CheckResult:
     if not args.file.exists():
         raise FileNotFoundError(f"File not found: {args.file}")
 
-    ctx = args.context or paths.context_file()
+    ctx = args.context
 
     # ── C2: SHACL ─────────────────────────────────────────────
     shacl_paths = paths.all_shacl_schemas(active=paths.resolve_active_packs(args))

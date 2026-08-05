@@ -81,7 +81,9 @@ def run(args) -> int:
             result_line("Public key not found", False, str(pubkey))
             return 1
 
-        ctx = paths.context_file()
+        # None: let each package resolve its own @context, so a package
+        # signed against one context still verifies under another default.
+        ctx = None
         v_passed = 0
         v_failed = 0
 

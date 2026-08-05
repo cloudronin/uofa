@@ -39,7 +39,9 @@ def run(args) -> int:
         )
         return 2
 
-    ctx = args.context or paths.context_file()
+    # Explicit override only: resolve_context prefers the package's own
+    # @context when the user did not name one.
+    ctx = args.context
     step_header(f"Signing {args.file.name}")
 
     sha256_hex, sig_hex = sign_file(args.file, args.key, ctx, args.output)
