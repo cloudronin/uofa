@@ -66,7 +66,7 @@ def _run():
     sub = parser.add_subparsers(dest="command", title="commands")
 
     # ── Register subcommands ──────────────────────────────────
-    from uofa_cli.commands import keygen, sign, verify, shacl, rules, check, validate, init, diff, schema, packs, migrate, import_excel, extract_cmd, adversarial, catalog, setup, demo, interrogate, decision, report
+    from uofa_cli.commands import keygen, sign, verify, shacl, rules, check, validate, init, diff, schema, packs, migrate, import_excel, extract_cmd, adversarial, catalog, setup, demo, interrogate, decision, report, define
     from uofa_cli.commands import explain as explain_cmd
     from uofa_cli.commands import guardrail as guardrail_cmd
 
@@ -93,6 +93,8 @@ def _run():
         "demo":        demo,
         "interrogate": interrogate,
         "decision":    decision,
+        "define":      define,
+        "vocab":       define,
         "guardrail":   guardrail_cmd,
     }
 

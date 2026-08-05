@@ -23,6 +23,49 @@ _PROFILE_BODY_SHAPES = {
     str(UOFA.ProfileMinimal):  str(UOFA.UnitOfAssurance_MinimalBody),
 }
 
+# ── What a term means, and what to do about it ───────────────
+#
+# Two different registers, both wanted in the output. The definition says what
+# the field IS; the fix says what to DO. A user who does not know what
+# hasContextOfUse is cannot act on "add at least one" -- and core definitions
+# are standard-agnostic by authoring rule, so they can never carry the
+# pack-specific instruction a fix string carries.
+#
+# Definitions are read from the shapes via uofa_cli.vocab. They are NOT
+# duplicated here: _FIX_SUGGESTIONS below is a hand-written map, and the whole
+# point of the vocab module is that it is the only one.
+
+
+def _means(path_iri: str, shapes_graph=None) -> str:
+    """The definition of a property, or "" when the repository has none.
+
+    Resolution is delegated to ``uofa_cli.vocab``: an authored rdfs:comment,
+    then the gloss for terms UofA does not own, then nothing. Never sh:message,
+    which states the constraint and already renders as Required.
+
+    Reads the shapes graph the caller already loaded when there is one. Building
+    a fresh index instead costs a re-parse of every active pack, which more than
+    doubled the runtime of ``uofa shacl``.
+
+    Returning "" is the honest answer for the 29 pack terms that have no
+    definition yet; a name-derived guess is forbidden by the authoring spec.
+    Failures are swallowed because a missing definition must never break
+    validation output -- the user is already looking at an error.
+    """
+    if not path_iri:
+        return ""
+    try:
+        from uofa_cli import vocab
+        found = (vocab.definition_in(shapes_graph, path_iri) if shapes_graph is not None
+                 else vocab.definition(path_iri, all_packs=True))
+    except Exception:
+        return ""
+    if not found:
+        return ""
+    text, attribution = found
+    return f"({attribution}) {text}" if attribution else text
+
+
 # ── Fix suggestions keyed on the property path IRI ───────────
 
 _FIX_SUGGESTIONS = {
@@ -281,6 +324,8 @@ def _check_property_shape(focus, prop_shape, shapes_g: Graph, data_g: Graph,
     def viol(requirement: str, actual: str, component: str) -> dict:
         return {
             "path": path_label,
+            "path_iri": path_iri,
+            "means": _means(path_iri, shapes_g),
             "requirement": requirement,
             "actual": actual,
             "fix": _smart_fix(path_iri, component, actual),
@@ -491,6 +536,8 @@ def _collect_violations(data_g: Graph, results_graph: Graph,
 
         violations.append({
             "path": path_label,
+            "path_iri": path_str,
+            "means": _means(path_str, shacl_graph),
             "message": message,
             "fix": fix,
             "severity": severity,
@@ -526,12 +573,37 @@ def format_drilled_violations_text(violations: list[dict]) -> str:
         lines.append("")
     for v in drilled:
         lines.append(f"[{v['severity']}] {v['path']}")
+        # Meaning before constraint: a reader who does not know what the field
+        # is cannot evaluate Required or Actual.
+        for line in _wrap_means(v.get("means"), "    Means:    ", 4 + 10):
+            lines.append(line)
         lines.append(f"    Required: {v['requirement']}")
         lines.append(f"    Actual:   {v['actual']}")
         if v.get("fix"):
             lines.append(f"    Fix:      {v['fix']}")
         lines.append("")
     return "\n".join(lines)
+
+
+def _wrap_means(means: str, prefix: str, indent: int) -> list[str]:
+    """Wrap a definition to terminal width, or return [] when there is none.
+
+    Definitions are full sentences and routinely exceed a line; left unwrapped
+    they push Required and Actual off the right edge, which is the opposite of
+    the point.
+    """
+    if not means:
+        return []
+    import textwrap
+    body = textwrap.wrap(means, width=max(40, 78 - indent)) or [means]
+    pad = " " * len(prefix)
+    return [prefix + body[0]] + [pad + line for line in body[1:]]
+
+
+def _print_means(means: str):
+    for i, line in enumerate(_wrap_means(means, "         Means:    ", 19)):
+        # Colour only the label, on the first line.
+        print(line.replace("Means:   ", color("Means:   ", "dim"), 1) if i == 0 else line)
 
 
 def print_violations(violations: list[dict]):
@@ -556,6 +628,7 @@ def print_violations(violations: list[dict]):
         # New (drilled-in) format: requirement + actual + fix.
         if "requirement" in v:
             print(f"  {badge} {path}")
+            _print_means(v.get("means"))
             print(f"         {color('Required:', 'dim')} {v['requirement']}")
             print(f"         {color('Actual:  ', 'dim')} {v['actual']}")
             if v.get("fix"):
@@ -563,6 +636,7 @@ def print_violations(violations: list[dict]):
         else:
             # Legacy single-line format for non-drill-in violations.
             print(f"  {badge} {path}: {v.get('message', '')}")
+            _print_means(v.get("means"))
             if v.get("fix"):
                 print(f"         {color('Fix:', 'cyan')} {v['fix']}")
 

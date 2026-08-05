@@ -154,8 +154,12 @@ def _shacl(file: Path, pack: str) -> dict:
     cr = check_cmd.run_structured(args)
     return {
         "conforms": cr.shacl.conforms,
+        # `means` is a sibling of `message`, not a replacement: one says what
+        # the field is, the other what rule it broke. A downstream consumer
+        # that wants to explain a failure needs both.
         "violations": [
             {"path": getattr(v, "path", None) or (v.get("path") if isinstance(v, dict) else None),
+             "means": getattr(v, "means", None) or (v.get("means") if isinstance(v, dict) else None),
              "message": getattr(v, "message", None) or (v.get("message") if isinstance(v, dict) else None),
              "severity": getattr(v, "severity", None) or (v.get("severity") if isinstance(v, dict) else None)}
             for v in cr.shacl.violations
