@@ -39,6 +39,46 @@ uofa-aims:AIMSObjectiveStatement a rdfs:Class ;
   );
 });
 
+test('owl:deprecated is read, and only when it is true', () => {
+  const ttl = `
+uofa:gone a rdf:Property ;
+    rdfs:label "gone" ;
+    owl:deprecated true .
+
+uofa:here a rdf:Property ;
+    rdfs:label "here" ;
+    owl:deprecated false .
+
+uofa:silent a rdf:Property ;
+    rdfs:label "silent" .
+`;
+  const terms = extractTtlTerms(ttl, 'test.ttl');
+  assert.equal(terms['https://uofa.net/vocab#gone'].deprecated, true);
+  // false is the RDF default and carries no information, so it must not
+  // register as a distinct state the renderer then has to interpret.
+  assert.equal(terms['https://uofa.net/vocab#here'].deprecated, undefined);
+  assert.equal(terms['https://uofa.net/vocab#silent'].deprecated, undefined);
+});
+
+test('a deprecated term declared the compact way would vanish, so it is not', () => {
+  // SUBJECT_LINE wants ';' or '.' straight after rdf:Property. The idiomatic
+  // Turtle below is the shape that silently drops a term from the published
+  // vocabulary rather than erroring, which is why §A.19 does not use it.
+  const compact = `
+uofa:gone a rdf:Property, owl:DeprecatedProperty ;
+    rdfs:label "gone" .
+`;
+  assert.equal(Object.keys(extractTtlTerms(compact, 'test.ttl')).length, 0);
+
+  // And the form §A.19 actually uses survives.
+  const spelled = `
+uofa:gone a rdf:Property ;
+    rdfs:label "gone" ;
+    owl:deprecated true .
+`;
+  assert.equal(Object.keys(extractTtlTerms(spelled, 'test.ttl')).length, 1);
+});
+
 test('refuses to guess at a term line it cannot parse', () => {
   // A multi-line literal is exactly the case a regex would silently mangle.
   const ttl = `
@@ -75,10 +115,12 @@ test('namespace coverage matches what the repo actually contains', () => {
   const surr = coverage(vocab.byNamespace.surrogate);
 
   assert.equal(core.total, 136);
-  // Batches A to D. The 19 still unlabelled are group 3e, which exist in the
-  // context files and nowhere else, so only the author can define them. Bump
-  // this deliberately per batch so coverage stays a reviewed number, not drift.
-  assert.equal(core.labelled, 117, 'everything but the 19 author-only terms');
+  // Batches A to D, plus the five v0.6 reasoning relations picked up in §A.19.
+  // The 14 still unlabelled are group 3e, which exist in the context files and
+  // nowhere else, so only the author can define them. Bump this deliberately
+  // per batch so coverage stays a reviewed number, not drift.
+  assert.equal(core.labelled, 122, 'everything but the 14 author-only terms');
+  assert.equal(core.deprecated, 5, 'the v0.6 reasoning relations, used by nothing');
   assert.equal(aims.total, 127);
   assert.equal(aims.labelled, 127, 'every aims term is labelled');
   assert.equal(surr.total, 39);

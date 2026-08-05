@@ -19,6 +19,7 @@ function coverage(terms) {
     constrained: terms.filter((t) => t.constraints.length).length,
     described: terms.filter((t) => t.schemaDescription).length,
     used: terms.filter((t) => t.usage > 0).length,
+    deprecated: terms.filter((t) => t.deprecated).length,
     bare: terms.filter((t) => !t.label && !t.comment && !t.constraints.length && !t.schemaDescription).length,
   };
 }
@@ -47,6 +48,7 @@ function renderConstraints(constraints) {
 function renderTerm(t) {
   const meta = [];
   if (t.kind) meta.push(esc(t.kind));
+  if (t.deprecated) meta.push('<strong class="v-dep">deprecated</strong>');
   if (t.jsonKey) meta.push(`JSON key <code>${esc(t.jsonKey)}</code>`);
   if (t.idTyped) meta.push('value is an IRI reference');
   if (t.since) meta.push(`since <code>${esc(t.since)}</code>`);
@@ -66,7 +68,7 @@ function renderTerm(t) {
   ].filter(Boolean).join('\n      ');
 
   return `
-    <div class="v-term" id="${esc(t.name)}">
+    <div class="v-term${t.deprecated ? ' v-term-dep' : ''}" id="${esc(t.name)}">
       <h3><a href="#${esc(t.name)}">${esc(t.label ?? t.name)}</a>
         ${t.label ? `<span class="v-name"><code>${esc(t.name)}</code></span>` : ''}</h3>
       <p class="v-iri"><code>${esc(t.iri)}</code></p>
@@ -92,16 +94,22 @@ export function renderVocabPage({ namespace, terms, versions }) {
     ? ` Definitions live in <a href="${REPO_BLOB}/${esc(source)}"><code>${esc(source)}</code></a>.`
     : '';
 
+  // A deprecated term is defined, but it is not a term anyone should reach for.
+  // Counting the two together would let "122 of 136 defined" quietly imply 122
+  // usable terms, so the banner states them separately wherever any exist.
+  const depNote = c.deprecated ? ` ${c.deprecated} of those are deprecated and
+    should not be used in new packages.` : '';
+
   const banner = pct === 1 ? `
   <div class="v-banner v-banner-ok">
     <p>All ${c.total} terms in this namespace carry an authored label, and
-    ${c.commented} carry a description.${sourceLink}</p>
+    ${c.commented} carry a description.${depNote}${sourceLink}</p>
   </div>` : pct >= 0.25 ? `
   <div class="v-banner v-banner-ok">
-    <p><strong>${c.labelled} of ${c.total} terms are defined.</strong> The rest
-    show only what can be derived from the JSON-LD context, the SHACL shapes and
-    the JSON Schema, and ${c.bare} have none of those either. Derived metadata
-    says how a term is constrained, not what it means.${sourceLink}</p>
+    <p><strong>${c.labelled} of ${c.total} terms are defined.</strong>${depNote}
+    The rest show only what can be derived from the JSON-LD context, the SHACL
+    shapes and the JSON Schema, and ${c.bare} have none of those either. Derived
+    metadata says how a term is constrained, not what it means.${sourceLink}</p>
   </div>` : `
   <div class="v-banner">
     <p><strong>This namespace is largely undocumented.</strong> Of its
@@ -112,13 +120,17 @@ export function renderVocabPage({ namespace, terms, versions }) {
   </div>`;
 
   const jsonld = JSON.stringify({
-    '@context': { rdfs: 'http://www.w3.org/2000/01/rdf-schema#' },
+    '@context': {
+      rdfs: 'http://www.w3.org/2000/01/rdf-schema#',
+      owl: 'http://www.w3.org/2002/07/owl#',
+    },
     '@graph': terms.map((t) => ({
       '@id': t.iri,
       ...(t.kind ? { '@type': t.kind === 'Class' ? 'rdfs:Class' : 'rdf:Property' } : {}),
       ...(t.label ? { 'rdfs:label': t.label } : {}),
       ...(t.comment ? { 'rdfs:comment': t.comment } : {}),
       ...(t.subClassOf ? { 'rdfs:subClassOf': { '@id': t.subClassOf } } : {}),
+      ...(t.deprecated ? { 'owl:deprecated': true } : {}),
     })),
   }, null, 2);
 
@@ -183,6 +195,7 @@ export function vocabTwin(namespace, terms) {
     '@context': {
       rdfs: 'http://www.w3.org/2000/01/rdf-schema#',
       rdf: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#',
+      owl: 'http://www.w3.org/2002/07/owl#',
     },
     '@id': namespace.iri.replace(/#$/, ''),
     '@graph': terms.map((t) => ({
@@ -191,6 +204,7 @@ export function vocabTwin(namespace, terms) {
       ...(t.label ? { 'rdfs:label': t.label } : {}),
       ...(t.comment ? { 'rdfs:comment': t.comment } : {}),
       ...(t.subClassOf ? { 'rdfs:subClassOf': { '@id': t.subClassOf } } : {}),
+      ...(t.deprecated ? { 'owl:deprecated': true } : {}),
       ...(t.since ? { 'uofa:sinceContextVersion': t.since } : {}),
     })),
   };

@@ -36,7 +36,8 @@ const PREFIX_TO_NS = {
 };
 
 /**
- * Pull rdfs:label / rdfs:comment / rdfs:subClassOf out of a shapes file.
+ * Pull rdfs:label / rdfs:comment / rdfs:subClassOf / owl:deprecated out of a
+ * shapes file.
  * Deliberately narrow: it only reads the vocabulary declaration blocks, and
  * throws on any label or comment line it cannot parse.
  */
@@ -76,6 +77,11 @@ export function extractTtlTerms(ttl, sourceFile) {
 
     const sub = /^\s*rdfs:subClassOf\s+(uofa|uofa-aims|uofa-surr):([A-Za-z0-9_]+)\s*[;.]/.exec(line);
     if (sub && current) terms[current].subClassOf = `${PREFIX_TO_NS[sub[1]]}${sub[2]}`;
+
+    // Only `owl:deprecated true` marks a term. `false` is the RDF default and
+    // says nothing, so treat it as absent rather than as a second state.
+    const dep = /^\s*owl:deprecated\s+(true|false)\s*[;.]/.exec(line);
+    if (dep && current && dep[1] === 'true') terms[current].deprecated = true;
   }
   return terms;
 }
@@ -225,6 +231,7 @@ export function buildVocabulary(repoRoot, usage = {}) {
       label: t.label ?? null,
       comment: t.comment ?? null,
       subClassOf: t.subClassOf ?? null,
+      deprecated: t.deprecated ?? false,
       definedIn: t.sourceFile ?? null,
       jsonKey: ctx?.term ?? null,
       idTyped: ctx?.idTyped ?? false,
