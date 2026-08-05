@@ -24,6 +24,7 @@ from uofa_cli import paths
 
 rdflib = pytest.importorskip("rdflib")
 from rdflib import Graph, Namespace  # noqa: E402
+from rdflib.collection import Collection  # noqa: E402
 
 SH = Namespace("http://www.w3.org/ns/shacl#")
 UOFA = Namespace("https://uofa.net/vocab#")
@@ -111,4 +112,50 @@ def test_derived_json_schema_pattern_in_sync_with_shacl():
     assert derived == _c2_pattern(), (
         "uofa.schema.json patternId pattern is stale vs the SHACL — "
         "regenerate with `uofa schema`"
+    )
+
+
+def test_json_schema_profile_enum_is_a_subset_of_the_shacl():
+    """The schema may lag the SHACL on profiles, but must never lead it.
+
+    v0.6 added ProfileDisposition to `sh:in` and deliberately left the JSON
+    Schema at v0.5 ("SHACL is authoritative for the disposition profile",
+    1f89dc81), so the two legitimately differ. What must not happen is the
+    schema offering a profile the shapes would reject — that is a package the
+    schema calls valid and `uofa shacl` refuses.
+
+    The narrower patternId guard above did not cover this, which is how
+    excel_constants.py drifted unnoticed for a release.
+    """
+    schema = json.loads(
+        (paths.find_repo_root() / "spec" / "schemas" / "uofa.schema.json").read_text(encoding="utf-8")
+    )
+    g = Graph().parse(str(paths.shacl_schema()), format="turtle")
+    shacl_profiles = set()
+    for prop in g.objects(UOFA.UnitOfAssurance_ProfileShape, SH.property):
+        if g.value(prop, SH.path) != UOFA.conformsToProfile:
+            continue
+        head = g.value(prop, SH["in"])
+        if head is not None:
+            shacl_profiles = {str(v) for v in Collection(g, head)}
+    assert shacl_profiles, "conformsToProfile declares no sh:in"
+
+    found = set()
+    def walk(node):
+        if isinstance(node, list):
+            for item in node:
+                walk(item)
+        elif isinstance(node, dict):
+            prof = node.get("properties", {}).get("conformsToProfile", {})
+            if isinstance(prof, dict):
+                found.update(prof.get("enum", []))
+                if "const" in prof:
+                    found.add(prof["const"])
+            for value in node.values():
+                walk(value)
+    walk(schema)
+
+    assert found, "the JSON Schema constrains conformsToProfile nowhere"
+    assert found <= shacl_profiles, (
+        f"uofa.schema.json accepts profiles the SHACL rejects: {sorted(found - shacl_profiles)}"
     )

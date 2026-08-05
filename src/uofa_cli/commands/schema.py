@@ -456,10 +456,17 @@ def _generate_python_constants(shacl_paths: list[Path]) -> str:
     """Generate Python constants module from SHACL shapes."""
     g = Graph()
     source_files = []
+    # Repo-relative, so the committed file does not record whose machine or
+    # which worktree generated it. The paths it carried before named a
+    # developer's home directory and a worktree that no longer exists.
+    repo_root = paths.find_repo_root().resolve()
     for p in shacl_paths:
         if p.exists():
             g.parse(str(p), format="turtle")
-            source_files.append(str(p))
+            try:
+                source_files.append(p.resolve().relative_to(repo_root).as_posix())
+            except ValueError:
+                source_files.append(p.name)
 
     # ── Core shape extractions ───────────────────────────────
     factor_statuses = _extract_sh_in_values(g, UOFA.CredibilityFactorShape, UOFA.factorStatus)
@@ -471,9 +478,18 @@ def _generate_python_constants(shacl_paths: list[Path]) -> str:
     mrl_range = _extract_sh_range(g, UOFA.UnitOfAssurance_CompleteBody, UOFA.modelRiskLevel)
     evidence_types = _extract_evidence_types(g)
 
-    # Profile URIs from sh:in on conformsToProfile
+    # Profile URIs from sh:in on conformsToProfile.
+    #
+    # VALID_PROFILES and PROFILE_URIS are emitted from this one list. They used
+    # to disagree: PROFILE_URIS was hand-written into the generator and stayed
+    # at two entries while sh:in grew to three, so excel_mapper's
+    # PROFILE_URIS.get(profile, ...Minimal) would have relabelled a Disposition
+    # row as Minimal with no error the moment anyone regenerated.
     profile_uris = _extract_sh_in_values(g, UOFA.UnitOfAssurance_ProfileShape, UOFA.conformsToProfile)
-    profiles = [u.rsplit("#Profile", 1)[-1] for u in profile_uris if "#Profile" in u]
+    profile_map = {
+        u.rsplit("#Profile", 1)[-1]: u for u in profile_uris if "#Profile" in u
+    }
+    profiles = list(profile_map)
 
     # ── VV40 pack extractions ────────────────────────────────
     vv40_factors = _extract_sparql_not_in(g, UOFA.VV40CredibilityFactorShape)
@@ -499,6 +515,15 @@ def _generate_python_constants(shacl_paths: list[Path]) -> str:
         lines.append("]")
         return "\n".join(lines)
 
+    def _fmt_dict(mapping, indent=4):
+        if not mapping:
+            return "{}"
+        lines = ["{"]
+        for key, value in mapping.items():
+            lines.append(f'{" " * indent}"{key}": "{value}",')
+        lines.append("}")
+        return "\n".join(lines)
+
     def _fmt_tuple_list(pairs, indent=4):
         """Format list of (name, category) tuples."""
         if not pairs:
@@ -516,6 +541,12 @@ def _generate_python_constants(shacl_paths: list[Path]) -> str:
     lines.append("")
     lines.append("DO NOT EDIT the SHACL-derived section below. Regenerate with:")
     lines.append("    uofa schema --emit python -o src/uofa_cli/excel_constants.py")
+    lines.append("")
+    lines.append("That command writes a WHOLE FILE and this one is a hybrid: the")
+    lines.append("MRM-NIST factor set and the base-URI constants are hand-maintained")
+    lines.append("and are not emitted here. Merge the derived section in rather than")
+    lines.append("replacing the file, or those constants are silently lost.")
+    lines.append("tests/test_excel_constants_derived.py fails if they go missing.")
     lines.append("")
     lines.append("Source shapes:")
     for s in source_files:
@@ -547,6 +578,10 @@ def _generate_python_constants(shacl_paths: list[Path]) -> str:
     lines.append("")
     lines.append(f"VALID_PROFILES: list[str] = {_fmt_list(profiles)}")
     lines.append("")
+    lines.append("# Profile name -> JSON-LD URI. Same sh:in list as VALID_PROFILES,")
+    lines.append("# so the two cannot drift apart.")
+    lines.append(f"PROFILE_URIS: dict[str, str] = {_fmt_dict(profile_map)}")
+    lines.append("")
     lines.append(f"EVIDENCE_TYPES: list[str] = {_fmt_list(evidence_types)}")
     lines.append("")
     lines.append("")
@@ -576,12 +611,6 @@ def _generate_python_constants(shacl_paths: list[Path]) -> str:
     lines.append('NASA_PHASE_MAP: dict[str, str] = {')
     lines.append('    "NASA \\u2014 Capability": "capability",')
     lines.append('    "NASA \\u2014 Results": "results",')
-    lines.append("}")
-    lines.append("")
-    lines.append("# Profile name -> JSON-LD URI")
-    lines.append('PROFILE_URIS: dict[str, str] = {')
-    lines.append('    "Minimal": "https://uofa.net/vocab#ProfileMinimal",')
-    lines.append('    "Complete": "https://uofa.net/vocab#ProfileComplete",')
     lines.append("}")
     lines.append("")
     lines.append("# Factor standard assignment")
@@ -692,7 +721,7 @@ def _run_json(args) -> int:
     n_defs = len(schema.get("$defs", {}))
 
     result_line("Schema generated", True, str(output))
-    info(f"  {n_props} properties across 2 profiles, {n_defs} definitions")
+    info(f"  {n_props} properties across {len(schema['oneOf'])} profiles, {n_defs} definitions")
     info(f"  Source: {shacl}")
     info(f"  Add to your editor: set \"$schema\" in your .jsonld files")
 

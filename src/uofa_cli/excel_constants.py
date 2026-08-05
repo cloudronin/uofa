@@ -3,10 +3,16 @@
 DO NOT EDIT the SHACL-derived section below. Regenerate with:
     uofa schema --emit python -o src/uofa_cli/excel_constants.py
 
+That command writes a WHOLE FILE and this one is a hybrid: the
+MRM-NIST factor set and the base-URI constants are hand-maintained
+and are not emitted here. Merge the derived section in rather than
+replacing the file, or those constants are silently lost.
+tests/test_excel_constants_derived.py fails if they go missing.
+
 Source shapes:
-    /Users/vishnu/Library/CloudStorage/Dropbox/SystemsEngineering/Praxis/uofa_github/.claude/worktrees/musing-nash/packs/core/shapes/uofa_shacl.ttl
-    /Users/vishnu/Library/CloudStorage/Dropbox/SystemsEngineering/Praxis/uofa_github/.claude/worktrees/musing-nash/packs/vv40/shapes/vv40_shapes.ttl
-    /Users/vishnu/Library/CloudStorage/Dropbox/SystemsEngineering/Praxis/uofa_github/.claude/worktrees/musing-nash/packs/nasa-7009b/shapes/nasa_7009b_shapes.ttl
+    packs/core/shapes/uofa_shacl.ttl
+    packs/vv40/shapes/vv40_shapes.ttl
+    packs/nasa-7009b/shapes/nasa_7009b_shapes.ttl
 """
 
 from __future__ import annotations
@@ -97,7 +103,16 @@ VALID_ASSURANCE_LEVELS: list[str] = [
 VALID_PROFILES: list[str] = [
     "Minimal",
     "Complete",
+    "Disposition",
 ]
+
+# Profile name -> JSON-LD URI. Same sh:in list as VALID_PROFILES,
+# so the two cannot drift apart.
+PROFILE_URIS: dict[str, str] = {
+    "Minimal": "https://uofa.net/vocab#ProfileMinimal",
+    "Complete": "https://uofa.net/vocab#ProfileComplete",
+    "Disposition": "https://uofa.net/vocab#ProfileDisposition",
+}
 
 EVIDENCE_TYPES: list[str] = [
     "ValidationResult",
@@ -222,12 +237,6 @@ ALL_FACTOR_CATEGORIES: list[tuple[str, str]] = (
 NASA_PHASE_MAP: dict[str, str] = {
     "NASA \u2014 Capability": "capability",
     "NASA \u2014 Results": "results",
-}
-
-# Profile name -> JSON-LD URI
-PROFILE_URIS: dict[str, str] = {
-    "Minimal": "https://uofa.net/vocab#ProfileMinimal",
-    "Complete": "https://uofa.net/vocab#ProfileComplete",
 }
 
 # Factor standard assignment
