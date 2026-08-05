@@ -20,6 +20,7 @@ function coverage(terms) {
     described: terms.filter((t) => t.schemaDescription).length,
     used: terms.filter((t) => t.usage > 0).length,
     deprecated: terms.filter((t) => t.deprecated).length,
+    domained: terms.filter((t) => t.domain).length,
     bare: terms.filter((t) => !t.label && !t.comment && !t.constraints.length && !t.schemaDescription).length,
   };
 }
@@ -45,7 +46,29 @@ function renderConstraints(constraints) {
   return rows.length ? `<ul class="v-constraints">${rows.join('')}\n      </ul>` : '';
 }
 
-function renderTerm(t) {
+// A cross-namespace term has no anchor on this page, so it is shown as plain
+// text. Only same-namespace targets get a link.
+function termRef(iri, namespaceIri) {
+  if (!iri.startsWith('http')) return `<code>${esc(iri)}</code>`;
+  const local = iri.split('#')[1] ?? iri;
+  return iri.startsWith(namespaceIri)
+    ? `<a href="#${esc(local)}"><code>${esc(local)}</code></a>`
+    : `<code>${esc(local)}</code>`;
+}
+
+// "which class is this a property of" was the question the pages could not
+// answer. Domain says it; range says what the value is. Absent means the
+// repository has no evidence for one, not that the property is unconstrained --
+// several are deliberately omitted because they are carried by more than one
+// class and rdfs:domain would assert a false equivalence.
+function renderSignature(t, namespaceIri) {
+  const bits = [];
+  if (t.domain) bits.push(`on ${termRef(t.domain, namespaceIri)}`);
+  if (t.range) bits.push(`value ${termRef(t.range, namespaceIri)}`);
+  return bits.length ? `<p class="v-sig">${bits.join(' &middot; ')}</p>` : '';
+}
+
+function renderTerm(t, namespaceIri) {
   const meta = [];
   if (t.kind) meta.push(esc(t.kind));
   if (t.deprecated) meta.push('<strong class="v-dep">deprecated</strong>');
@@ -60,8 +83,13 @@ function renderTerm(t) {
     !t.comment && t.schemaDescription
       ? `<p class="v-comment">${esc(t.schemaDescription)}
          <span class="v-provenance">from the JSON Schema</span></p>` : '',
+    // Through termRef, because a parent is often in another namespace: the aims
+    // and surrogate packs subclass core's ValidationResult, AssuranceClaim and
+    // ProcessAttestation. Linking those to a same-page anchor produced seven
+    // dead links across the two pack pages.
     t.subClassOf
-      ? `<p class="v-sub">Subclass of <a href="#${esc(t.subClassOf.split('#')[1])}"><code>${esc(t.subClassOf.split('#')[1])}</code></a></p>` : '',
+      ? `<p class="v-sub">Subclass of ${termRef(t.subClassOf, namespaceIri)}</p>` : '',
+    renderSignature(t, namespaceIri),
     renderConstraints(t.constraints),
     derived && !t.schemaDescription && !t.constraints.length
       ? `<p class="v-none">No definition, constraint, or schema description exists for this term in the repository.</p>` : '',
@@ -130,6 +158,10 @@ export function renderVocabPage({ namespace, terms, versions }) {
       ...(t.label ? { 'rdfs:label': t.label } : {}),
       ...(t.comment ? { 'rdfs:comment': t.comment } : {}),
       ...(t.subClassOf ? { 'rdfs:subClassOf': { '@id': t.subClassOf } } : {}),
+      ...(t.domain ? { 'rdfs:domain': { '@id': t.domain } } : {}),
+      ...(t.range ? { 'rdfs:range': t.range.startsWith('xsd:')
+        ? { '@id': t.range.replace('xsd:', 'http://www.w3.org/2001/XMLSchema#') }
+        : { '@id': t.range } } : {}),
       ...(t.deprecated ? { 'owl:deprecated': true } : {}),
     })),
   }, null, 2);
@@ -170,7 +202,7 @@ ${banner}
     </p>
   </section>
   <section>
-${terms.map(renderTerm).join('\n')}
+${terms.map((t) => renderTerm(t, namespace.iri)).join('\n')}
   </section>
   <section>
     <h2>Provenance</h2>
@@ -178,7 +210,12 @@ ${terms.map(renderTerm).join('\n')}
     (${versions.join(', ')}), the SHACL shapes under <code>packs/*/shapes/</code>,
     and the JSON Schema. Term coverage: ${c.labelled} labelled,
     ${c.commented} with a description, ${c.constrained} carrying SHACL
-    constraints, ${c.used} used by the shipped example packages.</p>
+    constraints, ${c.used} used by the shipped example packages,
+    ${c.domained} declaring the class they belong to.</p>
+    <p class="iri-note">A property with no declared class is one the repository
+    has no single answer for: either nothing uses it yet, or it is carried by
+    several classes at once and <code>rdfs:domain</code> would assert that every
+    carrier is the same kind of thing.</p>
   </section>
 </main>
 <footer class="iri-foot">
@@ -204,6 +241,10 @@ export function vocabTwin(namespace, terms) {
       ...(t.label ? { 'rdfs:label': t.label } : {}),
       ...(t.comment ? { 'rdfs:comment': t.comment } : {}),
       ...(t.subClassOf ? { 'rdfs:subClassOf': { '@id': t.subClassOf } } : {}),
+      ...(t.domain ? { 'rdfs:domain': { '@id': t.domain } } : {}),
+      ...(t.range ? { 'rdfs:range': t.range.startsWith('xsd:')
+        ? { '@id': t.range.replace('xsd:', 'http://www.w3.org/2001/XMLSchema#') }
+        : { '@id': t.range } } : {}),
       ...(t.deprecated ? { 'owl:deprecated': true } : {}),
       ...(t.since ? { 'uofa:sinceContextVersion': t.since } : {}),
     })),

@@ -73,6 +73,7 @@ uofa:ContextOfUse a rdfs:Class ;
 
 uofa:hasWeakener a rdf:Property ;
     rdfs:label "has weakener" ;
+    rdfs:domain uofa:UnitOfAssurance ;
     rdfs:comment "Links a package to a condition under which its stated evidence does not support the claim it is offered for." .
 ```
 
@@ -86,6 +87,65 @@ Constraints the extractor enforces, and will fail the build over:
 - `rdfs:subClassOf` where a genuine hierarchy exists. Optional.
 - Terms use the `uofa:`, `uofa-aims:`, `uofa-surr:` prefixes already declared in
   each file.
+
+The type line must end at `;` or `.`. Writing
+`a rdf:Property, owl:DeprecatedProperty ;` drops the term from the published
+vocabulary **without erroring**, so put any extra type or flag on its own line.
+
+### `rdfs:domain` and `rdfs:range`
+
+Order is label, then domain, then range, then comment.
+
+**`rdfs:domain` is not "may only appear on".** It entails that anything carrying
+the property *is* an instance of that class. So declare it only when a single
+class is true of **every** carrier, and omit it otherwise — the definition says
+in prose which classes carry the term instead.
+
+Deciding, in order:
+
+1. If the shipped examples carry the property, the domain is the class every
+   carrying node has. Nodes hold several types at once (four packages are typed
+   `["UnitOfAssurance", "CredibilityEvidencePackage"]`), so intersect the type
+   sets rather than collecting them.
+2. If nothing uses it yet, take the `sh:targetClass` of the node shape whose
+   `sh:path` is the property, where exactly one shape claims it.
+3. Otherwise declare nothing.
+
+**Omit whenever the answer is not in the term's own namespace.** A `uofa:`
+property with `rdfs:domain uofa-aims:DataResourceProvenance` makes core depend
+on a pack and inverts the layering. `documentReference`, `sourceReference` and
+`hasOperatingEnvelope` are the three that tempt it; a test enforces this.
+
+Range follows `sh:datatype` where a property shape gives one, `sh:class` next,
+and the type of the referenced node otherwise. Where usage points at several
+classes that share a superclass in the right namespace, name the superclass:
+`bindsClaim` reaches eight aims claim classes, all of which subclass
+`uofa:AssuranceClaim`.
+
+These triples are documentation. No validator reads them: pyshacl is called
+with no `ont_graph` and no inference at all three call sites, and the Jena
+engine never loads the shapes. Declaring a domain cannot change what validates.
+
+### `owl:deprecated`
+
+For a term that was published and should no longer be used:
+
+```turtle
+uofa:frameworkTransfers a rdf:Property ;
+    rdfs:label "framework transfers" ;
+    rdfs:comment "Declared in context v0.6 and not used by any package or shape." ;
+    owl:deprecated true .
+```
+
+Mark, never delete. The IRI stays resolvable for anyone who already wrote it
+down; removing it turns a published identifier into a 404.
+
+Write only `true` — `false` is the RDF default and says nothing, so the
+extractor ignores it rather than treating it as a second state.
+
+State the checkable fact, not the intent. "not used by any package or shape" is
+something a reader can verify; "abandoned" is a claim about what someone meant,
+and the repository is usually not the place that knows.
 
 ---
 

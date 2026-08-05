@@ -13,7 +13,7 @@ import {
   buildVocabulary, collectContextTerms, collectShaclConstraints,
   extractTtlTerms, NAMESPACES,
 } from './vocab-extract.mjs';
-import { coverage } from './vocab-render.mjs';
+import { coverage, renderVocabPage } from './vocab-render.mjs';
 import { buildIndex } from './iri-walk.mjs';
 
 const REPO_ROOT = resolve(fileURLToPath(new URL('.', import.meta.url)), '../../..');
@@ -37,6 +37,90 @@ uofa-aims:AIMSObjectiveStatement a rdfs:Class ;
     terms['https://uofa.net/vocab/aims#AIMSObjectiveStatement'].subClassOf,
     'https://uofa.net/vocab/aims#AIMSObjective',
   );
+});
+
+test('domain and range are read, including xsd datatype ranges', () => {
+  const ttl = `
+uofa:achievedLevel a rdf:Property ;
+    rdfs:label "achieved level" ;
+    rdfs:domain uofa:CredibilityFactor ;
+    rdfs:range xsd:integer ;
+    rdfs:comment "The level reached." .
+
+uofa:hasContextOfUse a rdf:Property ;
+    rdfs:label "has context of use" ;
+    rdfs:domain uofa:UnitOfAssurance ;
+    rdfs:range uofa:ContextOfUse .
+
+uofa:rationale a rdf:Property ;
+    rdfs:label "rationale" ;
+    rdfs:comment "Carried by more than one class, so no domain." .
+`;
+  const terms = extractTtlTerms(ttl, 'test.ttl');
+  const achieved = terms['https://uofa.net/vocab#achievedLevel'];
+  assert.equal(achieved.domain, 'https://uofa.net/vocab#CredibilityFactor');
+  // A datatype range is not an IRI in these namespaces; it stays prefixed.
+  assert.equal(achieved.range, 'xsd:integer');
+  assert.equal(
+    terms['https://uofa.net/vocab#hasContextOfUse'].range,
+    'https://uofa.net/vocab#ContextOfUse',
+  );
+  // Omission is meaningful: it is how a multi-class property is recorded.
+  assert.equal(terms['https://uofa.net/vocab#rationale'].domain, undefined);
+});
+
+test('no core property claims a domain outside the core namespace', () => {
+  // A core term pointing at uofa-aims: or uofa-surr: would make core depend on
+  // a pack. documentReference and sourceReference are the two that tempt it.
+  const vocab = buildVocabulary(REPO_ROOT, {});
+  for (const t of vocab.byNamespace.core) {
+    for (const key of ['domain', 'range']) {
+      const v = t[key];
+      if (!v || !v.startsWith('http')) continue;   // xsd:, schema:, ... are external
+      assert.ok(
+        v.startsWith('https://uofa.net/vocab#'),
+        `core term ${t.name} declares ${key} ${v}, which inverts pack layering`,
+      );
+    }
+  }
+});
+
+test('every declared domain and range names a term that exists', () => {
+  // The renderer turns a same-namespace domain/range into an anchor link. A
+  // typo, or a class that was never declared, becomes a dead link on the
+  // published page rather than an error here.
+  const vocab = buildVocabulary(REPO_ROOT, {});
+  for (const ns of NAMESPACES) {
+    const declared = new Set(vocab.byNamespace[ns.key].map((t) => t.iri));
+    for (const t of vocab.byNamespace[ns.key]) {
+      for (const key of ['domain', 'range', 'subClassOf']) {
+        const v = t[key];
+        if (!v || !v.startsWith('http')) continue;   // xsd:, schema:, ... are external
+        // A cross-namespace target is fine and is rendered as plain text; what
+        // must never happen is an anchor link to a term that has no anchor.
+        if (!v.startsWith(ns.iri)) continue;
+        assert.ok(
+          declared.has(v),
+          `${t.name} declares ${key} ${v}, which is not a declared term`,
+        );
+      }
+    }
+  }
+});
+
+test('every in-page anchor on a rendered vocabulary page resolves', () => {
+  // The extractor cannot see this: it is a rendering bug. Linking a parent or a
+  // domain to "#Name" is only correct when that term is on the same page, and
+  // the pack pages subclass core terms that are not. This caught seven dead
+  // links to ValidationResult, AssuranceClaim, ProcessAttestation and Model.
+  const { byNamespace, versions } = buildVocabulary(REPO_ROOT, {});
+  for (const namespace of NAMESPACES) {
+    const html = renderVocabPage({ namespace, terms: byNamespace[namespace.key], versions });
+    const ids = new Set([...html.matchAll(/ id="([^"]+)"/g)].map((m) => m[1]));
+    const hrefs = [...html.matchAll(/href="#([^"]+)"/g)].map((m) => m[1]);
+    const dead = [...new Set(hrefs.filter((h) => !ids.has(h)))];
+    assert.deepEqual(dead, [], `${namespace.key} page links to missing anchors`);
+  }
 });
 
 test('owl:deprecated is read, and only when it is true', () => {

@@ -36,8 +36,8 @@ const PREFIX_TO_NS = {
 };
 
 /**
- * Pull rdfs:label / rdfs:comment / rdfs:subClassOf / owl:deprecated out of a
- * shapes file.
+ * Pull rdfs:label / rdfs:comment / rdfs:subClassOf / rdfs:domain / rdfs:range /
+ * owl:deprecated out of a shapes file.
  * Deliberately narrow: it only reads the vocabulary declaration blocks, and
  * throws on any label or comment line it cannot parse.
  */
@@ -82,6 +82,22 @@ export function extractTtlTerms(ttl, sourceFile) {
     // says nothing, so treat it as absent rather than as a second state.
     const dep = /^\s*owl:deprecated\s+(true|false)\s*[;.]/.exec(line);
     if (dep && current && dep[1] === 'true') terms[current].deprecated = true;
+
+    // A domain is always a class in one of the three namespaces; a range is
+    // either that or an xsd datatype, so it needs the wider pattern.
+    const dom = /^\s*rdfs:domain\s+(uofa|uofa-aims|uofa-surr):([A-Za-z0-9_]+)\s*[;.]/.exec(line);
+    if (dom && current) terms[current].domain = `${PREFIX_TO_NS[dom[1]]}${dom[2]}`;
+
+    // A range may be a class in these namespaces, an xsd datatype, or a term
+    // from an external vocabulary (schema:Person). Only the first expands to a
+    // full IRI; the rest stay prefixed, which is also how they are displayed,
+    // since there is no page on this site to link them to.
+    const rng = /^\s*rdfs:range\s+([A-Za-z0-9-]+):([A-Za-z0-9_]+)\s*[;.]/.exec(line);
+    if (rng && current) {
+      terms[current].range = PREFIX_TO_NS[rng[1]]
+        ? `${PREFIX_TO_NS[rng[1]]}${rng[2]}`
+        : `${rng[1]}:${rng[2]}`;
+    }
   }
   return terms;
 }
@@ -231,6 +247,8 @@ export function buildVocabulary(repoRoot, usage = {}) {
       label: t.label ?? null,
       comment: t.comment ?? null,
       subClassOf: t.subClassOf ?? null,
+      domain: t.domain ?? null,
+      range: t.range ?? null,
       deprecated: t.deprecated ?? false,
       definedIn: t.sourceFile ?? null,
       jsonKey: ctx?.term ?? null,
