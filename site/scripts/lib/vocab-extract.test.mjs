@@ -75,10 +75,10 @@ test('namespace coverage matches what the repo actually contains', () => {
   const surr = coverage(vocab.byNamespace.surrogate);
 
   assert.equal(core.total, 136);
-  // Batches A and B: every core term the shipped examples actually use, plus
-  // Disposition and Discrepancy from the disposition pack. Bump this
-  // deliberately per batch so coverage stays a reviewed number, not silent drift.
-  assert.equal(core.labelled, 66, 'core Tier 1 complete plus the disposition pack');
+  // Batches A to D. The 19 still unlabelled are group 3e, which exist in the
+  // context files and nowhere else, so only the author can define them. Bump
+  // this deliberately per batch so coverage stays a reviewed number, not drift.
+  assert.equal(core.labelled, 117, 'everything but the 19 author-only terms');
   assert.equal(aims.total, 127);
   assert.equal(aims.labelled, 127, 'every aims term is labelled');
   assert.equal(surr.total, 39);
