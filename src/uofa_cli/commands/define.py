@@ -28,6 +28,8 @@ HELP = "look up what a vocabulary term means"
 def add_arguments(parser):
     parser.add_argument("term", nargs="?",
                         help="term to define: local name, full IRI, or JSON key")
+    parser.add_argument("--site", action="store_true",
+                        help="emit the namespace-grouped payload the site build consumes")
     parser.add_argument("--search", metavar="TEXT",
                         help="search labels and definitions for TEXT")
     parser.add_argument("--list", action="store_true", dest="list_terms",
@@ -42,6 +44,8 @@ def run(args) -> int:
     active = paths.resolve_active_packs(args)
     all_packs = bool(getattr(args, "all_packs", False))
 
+    if getattr(args, "site", False):
+        return _site_payload()
     if getattr(args, "search", None):
         return _search(args.search, active, all_packs, args.format)
     if getattr(args, "list_terms", False) or not args.term:
@@ -70,6 +74,44 @@ def _as_dict(t: vocab.Term) -> dict:
         "packs": list(t.packs),
         "constraints": list(t.messages),
     }
+
+
+def _site_payload() -> int:
+    """The vocabulary, grouped by namespace, for the site generator.
+
+    Field names are the site's, not this module's, because the renderer is the
+    consumer and renaming there would churn every template. `usage` is absent on
+    purpose: it comes from the instance-corpus walk the site already runs for
+    the identifier pages, and duplicating that in Python would be a second
+    reader of exactly the kind this replaces.
+    """
+    terms = vocab.index(all_packs=True)
+    _, versions = vocab._context_terms(paths.find_repo_root())
+
+    grouped: dict[str, list] = {"core": [], "aims": [], "surrogate": []}
+    for t in sorted(terms.values(), key=lambda x: x.name):
+        if t.namespace not in grouped:
+            continue
+        grouped[t.namespace].append({
+            "iri": t.iri,
+            "name": t.name,
+            "kind": t.kind,
+            "label": t.label,
+            "comment": t.comment,
+            "subClassOf": t.subclass_of[0] if t.subclass_of else None,
+            "domain": t.domain,
+            "range": t.range,
+            "lastVersion": t.dropped_in and _previous_version(t),
+            "deprecated": t.deprecated,
+            "definedIn": t.defined_in,
+            "jsonKey": t.json_key,
+            "idTyped": t.id_typed,
+            "since": t.since,
+            "schemaDescription": t.schema_description,
+            "constraints": [dict(c) for c in t.constraints],
+        })
+    print(json.dumps({"byNamespace": grouped, "versions": versions}, indent=2))
+    return 0
 
 
 def _short(iri: str | None) -> str | None:

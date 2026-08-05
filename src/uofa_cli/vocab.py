@@ -88,10 +88,14 @@ class Term:
     subclass_of: tuple[str, ...]
     deprecated: bool
     json_key: str | None
+    id_typed: bool          # context declares "@type": "@id"
     since: str | None       # first context version carrying it
     dropped_in: str | None  # newest context version, when this term is absent from it
     packs: tuple[str, ...]  # packs whose shapes put this term on an sh:path
     messages: tuple[str, ...]
+    defined_in: str | None  # repo-relative shapes file carrying the definition
+    schema_description: str | None   # description from the generated JSON Schema
+    constraints: tuple[dict, ...]    # sh:datatype / minCount / maxCount / pattern / message
 
     @property
     def external(self) -> bool:
@@ -104,6 +108,94 @@ class Term:
             entry = EXTERNAL_GLOSS.get(self.iri)
             return entry[0] if entry else None
         return None
+
+
+# The prefixes the shapes files declare, so a CURIE round-trips to the form an
+# author would recognise from the Turtle.
+_CURIE_PREFIXES = {
+    "http://www.w3.org/2001/XMLSchema#": "xsd",
+    "https://schema.org/": "schema",
+    "http://www.w3.org/ns/prov#": "prov",
+    "http://purl.org/dc/terms/": "dct",
+    CORE_NS: "uofa",
+    AIMS_NS: "uofa-aims",
+    SURR_NS: "uofa-surr",
+}
+
+
+def _curie(node) -> str | None:
+    """Shorten a datatype IRI the way the shapes file writes it (``xsd:string``)."""
+    if node is None:
+        return None
+    text = str(node)
+    for base, prefix in _CURIE_PREFIXES.items():
+        if text.startswith(base):
+            return f"{prefix}:{text[len(base):]}"
+    return text
+
+
+def _plain(node) -> str | None:
+    return None if node is None else str(node)
+
+
+def _range_form(node) -> str | None:
+    """A range as the site expects it.
+
+    UofA classes stay full IRIs so the renderer can link them to their anchor;
+    anything else stays a CURIE (``xsd:integer``, ``schema:Person``) because
+    there is no page on the site to link it to. The renderer distinguishes the
+    two by whether the value starts with ``http``.
+    """
+    if node is None:
+        return None
+    text = str(node)
+    if any(text.startswith(b) for b in _NAMESPACES):
+        return text
+    return _curie(node)
+
+
+def _datatype_of(graph, prop_shape) -> str | None:
+    """The datatype a property shape allows, including an ``sh:or`` alternation.
+
+    ``uofa:credibilityIndex`` is declared ``sh:or ([sh:datatype xsd:decimal]
+    [sh:datatype xsd:double])``. The regex reader this replaced matched the
+    first ``sh:datatype`` anywhere in the block and reported ``xsd:decimal``
+    alone, which reads as a single permitted type rather than one of two.
+    """
+    from rdflib.collection import Collection
+    from rdflib.namespace import SH
+
+    direct = graph.value(prop_shape, SH.datatype)
+    if direct is not None:
+        return _curie(direct)
+
+    head = graph.value(prop_shape, SH["or"])
+    if head is None:
+        return None
+    alternatives = []
+    try:
+        for member in Collection(graph, head):
+            dt = graph.value(member, SH.datatype)
+            if dt is not None:
+                alternatives.append(_curie(dt))
+    except Exception:
+        return None
+    return " or ".join(dict.fromkeys(alternatives)) or None
+
+
+def _enum_of(graph, prop_shape) -> str | None:
+    """``sh:in`` rendered as the reader would say it: "Low, Medium, High"."""
+    from rdflib.collection import Collection
+    from rdflib.namespace import SH
+
+    head = graph.value(prop_shape, SH["in"])
+    if head is None:
+        return None
+    try:
+        members = [str(v).rsplit("#", 1)[-1] for v in Collection(graph, head)]
+    except Exception:
+        return None
+    return ", ".join(members) or None
 
 
 def _namespace_of(iri: str) -> str:
@@ -156,7 +248,40 @@ def _context_terms(root: Path) -> tuple[dict[str, dict], list[str]]:
             entry = out.setdefault(iri, {"term": term, "since": version})
             entry["term"] = term
             entry["latest"] = version
+            entry["id_typed"] = isinstance(value, dict) and value.get("@type") == "@id"
     return out, [f.stem for f in files]
+
+
+def _schema_descriptions(root: Path) -> dict[str, str]:
+    """Term descriptions from the generated JSON Schema.
+
+    Keyed on the JSON property name, not the IRI, because that is what the
+    schema carries. Nested under oneOf/allOf, so the whole document is walked.
+    """
+    out: dict[str, str] = {}
+    schema_path = root / "spec" / "schemas" / "uofa.schema.json"
+    try:
+        schema = json.loads(schema_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return out
+
+    def walk(node):
+        if isinstance(node, list):
+            for item in node:
+                walk(item)
+            return
+        if not isinstance(node, dict):
+            return
+        props = node.get("properties")
+        if isinstance(props, dict):
+            for term, spec in props.items():
+                if isinstance(spec, dict) and isinstance(spec.get("description"), str):
+                    out.setdefault(term, spec["description"])
+        for value in node.values():
+            walk(value)
+
+    walk(schema)
+    return out
 
 
 @lru_cache(maxsize=8)
@@ -181,11 +306,19 @@ def _build(root: Path, files: tuple[Path, ...]) -> dict[str, Term]:
 
     graph = Graph()
     pack_of_path: dict[str, set[str]] = {}
+    declared_in: dict[str, str] = {}
 
     for f in files:
         per_file = Graph()
         per_file.parse(str(f), format="turtle")
         graph += per_file
+        try:
+            rel = f.resolve().relative_to(root.resolve()).as_posix()
+        except ValueError:
+            rel = f.name
+        for subj in per_file.subjects(RDFS.label, None):
+            if isinstance(subj, URIRef):
+                declared_in.setdefault(str(subj), rel)
         # packs/<name>/shapes/<file>.ttl -> <name>
         try:
             pack = f.resolve().relative_to(root.resolve() / "packs").parts[0]
@@ -197,15 +330,48 @@ def _build(root: Path, files: tuple[Path, ...]) -> dict[str, Term]:
 
     ctx, versions = _context_terms(root)
     current = versions[-1] if versions else None
+    schema_desc = _schema_descriptions(root)
 
+    # Structured constraints, read from the parsed graph. The JS extractor did
+    # this with a regex over the Turtle and had to cut each property shape at a
+    # line that is only a closing bracket, because stopping at the first "]"
+    # truncated inside uofa:hash's [a-f0-9] character class and silently
+    # swallowed both the pattern and the message. rdflib has no such problem.
     messages: dict[str, list[str]] = {}
+    constraints: dict[str, list[dict]] = {}
     for prop_shape in graph.subjects(SH.path, None):
         path = graph.value(prop_shape, SH.path)
         if not isinstance(path, URIRef):
             continue
+        key = str(path)
         msg = graph.value(prop_shape, SH.message)
         if msg is not None:
-            messages.setdefault(str(path), []).append(str(msg))
+            messages.setdefault(key, []).append(str(msg))
+        entry = {
+            "datatype": _datatype_of(graph, prop_shape),
+            "minCount": _plain(graph.value(prop_shape, SH.minCount)),
+            "maxCount": _plain(graph.value(prop_shape, SH.maxCount)),
+            "pattern": _plain(graph.value(prop_shape, SH.pattern)),
+            # An enumeration is the most directly useful thing a page can say
+            # about a property -- "must be Low, Medium or High" answers the
+            # question outright. The regex reader counted these terms as
+            # constrained but captured nothing to show, so the site reported 66
+            # constrained terms while rendering constraints for 57.
+            "in": _enum_of(graph, prop_shape),
+            "message": str(msg) if msg is not None else None,
+        }
+        if any(v is not None for v in entry.values()):
+            constraints.setdefault(key, []).append(entry)
+
+    # Deterministic order. The order these come out of the graph is rdflib's
+    # internal one, and the order the previous regex reader produced was the
+    # order the files happened to sit in on disk -- neither is meaningful and
+    # neither is stable across machines. Sorting makes the rendered page
+    # reproducible, which is what a generated artifact needs.
+    for rows in constraints.values():
+        rows.sort(key=lambda c: (c["message"] or "", c["datatype"] or "",
+                                 c["pattern"] or "", c["in"] or "",
+                                 c["minCount"] or ""))
 
     iris: set[str] = set(pack_of_path) | set(ctx) | set(EXTERNAL_GLOSS)
     for subject in set(graph.subjects(RDF.type, RDFS.Class)) | set(
@@ -215,6 +381,11 @@ def _build(root: Path, files: tuple[Path, ...]) -> dict[str, Term]:
 
     terms: dict[str, Term] = {}
     for iri in sorted(iris):
+        # The bare namespace IRI ("...vocab#") and any sub-path are not terms.
+        # A context that maps a prefix produces the former.
+        local = _local_name(iri)
+        if not local or "/" in local:
+            continue
         node = URIRef(iri)
         kind = None
         if (node, RDF.type, RDFS.Class) in graph:
@@ -241,16 +412,22 @@ def _build(root: Path, files: tuple[Path, ...]) -> dict[str, Term]:
             label=str(label) if label is not None else None,
             comment=comment,
             domain=str(domain) if domain is not None else None,
-            range=str(rng) if rng is not None else None,
+            range=_range_form(rng),
             subclass_of=tuple(sorted(str(o) for o in graph.objects(node, RDFS.subClassOf))),
             deprecated=bool(graph.value(node, OWL_DEPRECATED)),
             json_key=entry.get("term") if entry else None,
+            id_typed=bool(entry.get("id_typed")) if entry else False,
             since=entry.get("since") if entry else None,
             dropped_in=(
                 current if entry and current and entry.get("latest") != current else None
             ),
             packs=tuple(sorted(pack_of_path.get(iri, ()))),
             messages=tuple(messages.get(iri, ())),
+            defined_in=declared_in.get(iri),
+            schema_description=(
+                schema_desc.get(entry["term"]) if entry else None
+            ) or schema_desc.get(_local_name(iri)),
+            constraints=tuple(constraints.get(iri, ())),
         )
     return terms
 

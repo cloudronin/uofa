@@ -17,7 +17,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { buildIndex } from './lib/iri-walk.mjs';
-import { buildVocabulary, NAMESPACES } from './lib/vocab-extract.mjs';
+import { buildVocabulary, NAMESPACES } from './lib/vocab-source.mjs';
 import { coverage, renderVocabPage, vocabTwin } from './lib/vocab-render.mjs';
 import { esc } from './lib/iri-render.mjs';
 

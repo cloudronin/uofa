@@ -37,6 +37,9 @@ function renderConstraints(constraints) {
     if (c.minCount) bits.push(`min ${esc(c.minCount)}`);
     if (c.maxCount) bits.push(`max ${esc(c.maxCount)}`);
     if (c.pattern) bits.push(`pattern <code>${esc(c.pattern)}</code>`);
+    // An enumeration answers the reader's question outright, so it is worth
+    // more than any other constraint kind on the page.
+    if (c.in) bits.push(`one of <code>${esc(c.in)}</code>`);
     const key = bits.join('|') + (c.message ?? '');
     if (!bits.length && !c.message) continue;
     if (seen.has(key)) continue;

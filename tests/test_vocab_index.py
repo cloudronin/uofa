@@ -188,6 +188,62 @@ def test_dropped_and_deprecated_terms_are_marked():
     }
 
 
+def test_owl_deprecated_false_does_not_mark_a_term():
+    """`false` is the RDF default and says nothing.
+
+    Carried over from the Node extractor's test suite when that reader was
+    removed. rdflib returns a typed Literal here, and a naive truthiness check
+    on the node would mark every term that explicitly says it is *not*
+    deprecated.
+    """
+    from rdflib import Graph as G
+
+    g = G()
+    g.parse(data="""
+        @prefix uofa: <https://uofa.net/vocab#> .
+        @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+        @prefix owl: <http://www.w3.org/2002/07/owl#> .
+        uofa:gone a rdf:Property ; owl:deprecated true .
+        uofa:here a rdf:Property ; owl:deprecated false .
+    """, format="turtle")
+    owl_dep = URIRef("http://www.w3.org/2002/07/owl#deprecated")
+    assert bool(g.value(URIRef("https://uofa.net/vocab#gone"), owl_dep)) is True
+    assert bool(g.value(URIRef("https://uofa.net/vocab#here"), owl_dep)) is False
+
+
+def test_a_pattern_containing_a_character_class_survives():
+    """uofa:hash's sh:pattern contains [a-f0-9].
+
+    The regex reader this replaced had to stop each property shape at a line
+    that is only a closing bracket, because cutting at the first "]" truncated
+    inside that character class and silently dropped both the pattern and the
+    message. Kept as a regression test now that rdflib does the parsing.
+    """
+    term = vocab.lookup("hash", all_packs=True)
+    patterns = [c["pattern"] for c in term.constraints if c.get("pattern")]
+    assert patterns, "uofa:hash should carry a pattern constraint"
+    assert any("a-f0-9" in p for p in patterns)
+    assert any("hexdigest" in (c.get("message") or "") for c in term.constraints)
+
+
+def test_enumerations_are_captured():
+    """sh:in is the most directly useful thing a page can show.
+
+    The regex reader counted terms with an sh:in as constrained but captured
+    nothing to render, so the site reported more constrained terms than it
+    displayed constraints for.
+    """
+    assert any(c.get("in") == "Low, Medium, High"
+               for c in vocab.lookup("assuranceLevel", all_packs=True).constraints)
+
+
+def test_an_sh_or_datatype_reports_both_alternatives():
+    """credibilityIndex is decimal OR double, and must not read as just one."""
+    dts = [c["datatype"] for c in vocab.lookup("credibilityIndex", all_packs=True).constraints
+           if c.get("datatype")]
+    assert dts and all("or" in d for d in dts), dts
+
+
 def test_lookup_resolves_names_iris_and_json_keys():
     assert vocab.lookup("https://uofa.net/vocab#hasContextOfUse", all_packs=True)
     assert vocab.lookup("hasContextOfUse", all_packs=True)
