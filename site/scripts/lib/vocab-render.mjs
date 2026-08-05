@@ -20,6 +20,7 @@ function coverage(terms) {
     described: terms.filter((t) => t.schemaDescription).length,
     used: terms.filter((t) => t.usage > 0).length,
     deprecated: terms.filter((t) => t.deprecated).length,
+    dropped: terms.filter((t) => t.lastVersion).length,
     domained: terms.filter((t) => t.domain).length,
     bare: terms.filter((t) => !t.label && !t.comment && !t.constraints.length && !t.schemaDescription).length,
   };
@@ -72,9 +73,14 @@ function renderTerm(t, namespaceIri) {
   const meta = [];
   if (t.kind) meta.push(esc(t.kind));
   if (t.deprecated) meta.push('<strong class="v-dep">deprecated</strong>');
+  if (t.lastVersion) meta.push(`<strong class="v-dep">not in the current context</strong>`);
   if (t.jsonKey) meta.push(`JSON key <code>${esc(t.jsonKey)}</code>`);
   if (t.idTyped) meta.push('value is an IRI reference');
-  if (t.since) meta.push(`since <code>${esc(t.since)}</code>`);
+  if (t.since) {
+    meta.push(t.lastVersion
+      ? `<code>${esc(t.since)}</code> to <code>${esc(t.lastVersion)}</code>`
+      : `since <code>${esc(t.since)}</code>`);
+  }
   if (t.usage) meta.push(`used ${t.usage}&times; in the shipped examples`);
 
   const derived = !t.label && !t.comment;
@@ -96,7 +102,7 @@ function renderTerm(t, namespaceIri) {
   ].filter(Boolean).join('\n      ');
 
   return `
-    <div class="v-term${t.deprecated ? ' v-term-dep' : ''}" id="${esc(t.name)}">
+    <div class="v-term${t.deprecated || t.lastVersion ? ' v-term-dep' : ''}" id="${esc(t.name)}">
       <h3><a href="#${esc(t.name)}">${esc(t.label ?? t.name)}</a>
         ${t.label ? `<span class="v-name"><code>${esc(t.name)}</code></span>` : ''}</h3>
       <p class="v-iri"><code>${esc(t.iri)}</code></p>
@@ -128,23 +134,32 @@ export function renderVocabPage({ namespace, terms, versions }) {
   const depNote = c.deprecated ? ` ${c.deprecated} of those are deprecated and
     should not be used in new packages.` : '';
 
+  // Terms the newest context dropped are still listed, because their IRIs still
+  // resolve and packages written against an older context still use them. The
+  // page has to say they are no longer current rather than quietly omit them.
+  const dropNote = c.dropped ? `
+    <p>${c.dropped} terms below were removed in the current context release.
+    They stay documented because their IRIs still resolve and packages pinned to
+    an earlier context remain valid; they are simply not part of the vocabulary
+    a new package should draw on.</p>` : '';
+
   const banner = pct === 1 ? `
   <div class="v-banner v-banner-ok">
     <p>All ${c.total} terms in this namespace carry an authored label, and
-    ${c.commented} carry a description.${depNote}${sourceLink}</p>
+    ${c.commented} carry a description.${depNote}${sourceLink}</p>${dropNote}
   </div>` : pct >= 0.25 ? `
   <div class="v-banner v-banner-ok">
     <p><strong>${c.labelled} of ${c.total} terms are defined.</strong>${depNote}
     The rest show only what can be derived from the JSON-LD context, the SHACL
     shapes and the JSON Schema, and ${c.bare} have none of those either. Derived
-    metadata says how a term is constrained, not what it means.${sourceLink}</p>
+    metadata says how a term is constrained, not what it means.${sourceLink}</p>${dropNote}
   </div>` : `
   <div class="v-banner">
     <p><strong>This namespace is largely undocumented.</strong> Of its
     ${c.total} terms, ${c.labelled} carry an authored definition. Everything
     else below is derived from the JSON-LD context, the SHACL shapes, and the
     JSON Schema, and ${c.bare} terms have none of those either. Derived metadata
-    describes how a term is constrained, not what it means.</p>
+    describes how a term is constrained, not what it means.</p>${dropNote}
   </div>`;
 
   const jsonld = JSON.stringify({

@@ -193,7 +193,17 @@ export function collectSchemaDescriptions(repoRoot) {
  */
 export function collectContextTerms(repoRoot) {
   const dir = join(repoRoot, 'spec/context');
-  const versions = readdirSync(dir).filter((f) => /^v\d+\.\d+\.jsonld$/.test(f)).sort();
+  // Sort on the numbers, not the string: a lexicographic sort puts v0.10 before
+  // v0.2, which would backdate every term's "since" and misidentify the current
+  // version. Not reachable yet at v0.7, but silent and total when it is.
+  const versions = readdirSync(dir)
+    .filter((f) => /^v\d+\.\d+\.jsonld$/.test(f))
+    .sort((a, b) => {
+      const n = (s) => s.match(/^v(\d+)\.(\d+)/).slice(1, 3).map(Number);
+      const [aMaj, aMin] = n(a);
+      const [bMaj, bMin] = n(b);
+      return aMaj - bMaj || aMin - bMin;
+    });
   const mapping = {};
   const since = {};
   for (const file of versions) {
@@ -229,6 +239,7 @@ export function buildVocabulary(repoRoot, usage = {}) {
   const shacl = collectShaclConstraints(repoRoot);
   const schemaDesc = collectSchemaDescriptions(repoRoot);
   const { mapping, since, versions } = collectContextTerms(repoRoot);
+  const currentVersion = versions[versions.length - 1];
 
   const byNamespace = Object.fromEntries(NAMESPACES.map((n) => [n.key, []]));
   const iris = new Set([...Object.keys(ttl), ...Object.keys(mapping), ...Object.keys(shacl)]);
@@ -249,6 +260,11 @@ export function buildVocabulary(repoRoot, usage = {}) {
       subClassOf: t.subClassOf ?? null,
       domain: t.domain ?? null,
       range: t.range ?? null,
+      // A term the newest context no longer carries. Its IRI still resolves and
+      // packages on an older context are still valid; it just is not part of
+      // the current vocabulary. Derived from the contexts, so a cleanup release
+      // needs no hand-marking.
+      lastVersion: ctx && ctx.latestVersion !== currentVersion ? ctx.latestVersion : null,
       deprecated: t.deprecated ?? false,
       definedIn: t.sourceFile ?? null,
       jsonKey: ctx?.term ?? null,

@@ -185,11 +185,46 @@ test('a property shape ending inside a regex character class is not truncated', 
 
 test('context extraction records the version a term first appeared in', () => {
   const { mapping, since, versions } = collectContextTerms(REPO_ROOT);
-  assert.deepEqual(versions, ['v0.1', 'v0.2', 'v0.3', 'v0.4', 'v0.5', 'v0.6']);
+  assert.deepEqual(versions, ['v0.1', 'v0.2', 'v0.3', 'v0.4', 'v0.5', 'v0.6', 'v0.7']);
   assert.equal(since['https://uofa.net/vocab#hash'], 'v0.1');
   assert.equal(mapping['https://uofa.net/vocab#hasWeakener'].idTyped, true);
   // A later addition should not be backdated to v0.1.
   assert.notEqual(since['https://uofa.net/vocab#hasOffsetRationale'], 'v0.1');
+});
+
+test('terms the current context dropped are marked, not deleted', () => {
+  // The v0.7 cleanup removed 19 terms that nothing referenced. They must stay
+  // listed: their IRIs resolve on uofa.net, and a package pinned to v0.5 still
+  // uses them. Marking is derived from the contexts, so no hand-maintained list
+  // can go stale.
+  const vocab = buildVocabulary(REPO_ROOT, {});
+  const core = vocab.byNamespace.core;
+  const dropped = core.filter((t) => t.lastVersion);
+
+  assert.equal(dropped.length, 19, 'the v0.7 cleanup dropped 19 core terms');
+  for (const t of dropped) {
+    assert.equal(t.lastVersion, 'v0.6', `${t.name} should last appear in v0.6`);
+  }
+  // Every one of them is still addressable.
+  assert.ok(dropped.every((t) => t.iri.startsWith('https://uofa.net/vocab#')));
+
+  // A term still in the newest context must never be marked.
+  const live = core.find((t) => t.name === 'hasContextOfUse');
+  assert.equal(live.lastVersion, null);
+});
+
+test('context versions sort numerically, not lexicographically', () => {
+  // v0.10 sorts before v0.2 as a string, which would backdate every term's
+  // "since" and pick the wrong current version. Not reachable at v0.7, but
+  // silent and total once a minor version reaches double digits.
+  const { versions } = collectContextTerms(REPO_ROOT);
+  const nums = versions.map((v) => v.slice(1).split('.').map(Number));
+  for (let i = 1; i < nums.length; i += 1) {
+    const [aMaj, aMin] = nums[i - 1];
+    const [bMaj, bMin] = nums[i];
+    assert.ok(bMaj > aMaj || (bMaj === aMaj && bMin > aMin),
+      `${versions[i - 1]} should sort before ${versions[i]}`);
+  }
 });
 
 test('namespace coverage matches what the repo actually contains', () => {
