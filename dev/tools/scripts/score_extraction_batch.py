@@ -55,6 +55,7 @@ from groundedness import (  # noqa: E402
     score_factor_rationales,
 )
 from score_extraction import (  # noqa: E402
+    LAST_RUN_COST,
     _ROOT,
     parse_extracted_xlsx,
     resolve_bundle,
@@ -66,7 +67,8 @@ from score_extraction import (  # noqa: E402
 # are recomputed from the totals rather than averaged over bundles: a bundle
 # contributing two claims should not weigh the same as one contributing thirty.
 _GROUNDEDNESS_COUNTERS = ("factors_total", "factors_with_rationale",
-                          "rationales_with_claims", "claims_total", "claims_grounded")
+                          "rationales_with_claims", "claims_total", "claims_grounded",
+                          "factors_distinct")
 
 
 # Pattern that disqualifies a prompt version from running against the test set.
@@ -199,6 +201,10 @@ def score_bundle(
                 record["error"] = "extraction failed (see stderr)"
                 return record
             tmp_xlsx.replace(xlsx_path)
+            # run_extraction fills this per call and it is overwritten by the
+            # next bundle, so it has to be copied out here or the run reports
+            # accuracy with no idea what it cost -- which is half a result.
+            record["extraction_cost"] = dict(LAST_RUN_COST)
     elif not xlsx_path.exists():
         record["crashed"] = True
         record["error"] = f"--skip-extract set but {xlsx_path} missing"
@@ -296,6 +302,18 @@ def aggregate(per_bundle: list[dict], factor_names: list[str]) -> dict:
         for (m, ft), c in mode_counter.most_common(20)
     ]
 
+    costs = [r["extraction_cost"] for r in scored if r.get("extraction_cost")]
+    cost_summary = {}
+    if costs:
+        wall = [c.get("wall_clock_s", 0) for c in costs]
+        cost_summary = {
+            "bundles_timed": len(costs),
+            "wall_clock_total_s": round(sum(wall), 1),
+            "wall_clock_mean_s": round(sum(wall) / len(wall), 1),
+            "peak_rss_mb": max(c.get("peak_rss_mb", 0) for c in costs),
+            "model": costs[0].get("model"),
+        }
+
     schema = SchemaCoverage()
     for r in scored:
         cov = r.get("schema_coverage") or {}
@@ -334,6 +352,7 @@ def aggregate(per_bundle: list[dict], factor_names: list[str]) -> dict:
         "groundedness": grounded.as_dict(),
         "ungrounded": grounded.ungrounded,
         "schema": schema.as_dict(),
+        "extraction_cost": cost_summary,
         "min_overall_f1": min(bundle_f1) if bundle_f1 else None,
         "max_overall_f1": max(bundle_f1) if bundle_f1 else None,
         "per_factor": per_factor,
@@ -403,6 +422,10 @@ def write_markdown_summary(out_path: Path, header: dict, agg: dict) -> None:
                      f"{g['rationales_with_claims']}/{g['factors_with_rationale']} carry a checkable claim |")
         lines.append(f"| Groundedness | **{g['groundedness']:.3f}** | "
                      f"{g['claims_grounded']}/{g['claims_total']} claims trace to source |")
+        if "distinctness" in g:
+            lines.append(f"| Distinctness | **{g['distinctness']:.3f}** | "
+                         f"{g['factors_distinct']}/{g['factors_with_rationale']} "
+                         f"rationales do not restate another |")
         lines.append("")
         lines.append(f"Ungrounded rationales: **{len(agg.get('ungrounded', []))}**. "
                      "Read all three together — coverage 0 means the method wrote nothing, "
@@ -411,6 +434,24 @@ def write_markdown_summary(out_path: Path, header: dict, agg: dict) -> None:
         lines.append("")
         lines.append("Measures **fabrication, not attribution**: a real figure cited under the "
                      "wrong factor scores as grounded. Sign is not checked.")
+        lines.append("")
+        lines.append("Distinctness is a fourth number, not implied by the other three: a control "
+                     "quoting one sentence of the source for every factor scores coverage 1.000, "
+                     "density 1.000 **and** groundedness 1.000, and only distinctness (0.000) "
+                     "separates it from real work.")
+        lines.append("")
+
+    c = agg.get("extraction_cost") or {}
+    if c:
+        lines.append("## What it cost")
+        lines.append("")
+        lines.append(f"- Model: `{c['model']}`")
+        lines.append(f"- Wall clock: **{c['wall_clock_total_s']/60:.1f} min** total, "
+                     f"{c['wall_clock_mean_s']:.0f}s per bundle over {c['bundles_timed']} bundles")
+        lines.append(f"- Peak RSS: {c['peak_rss_mb']} MB")
+        lines.append("")
+        lines.append("Accuracy without cost is half a result — a candidate that matches on "
+                     "F1 at a tenth of the weight and latency is a different proposition.")
         lines.append("")
     lines.append("## Per-factor detection rate")
     lines.append("")
