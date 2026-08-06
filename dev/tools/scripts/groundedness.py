@@ -401,6 +401,71 @@ def score_factor_rationales(factors: list[dict], source_text: str,
     return res
 
 
+def score_attribution(factors: list[dict], ground_truth: dict) -> tuple[int, int]:
+    """Is each rationale about the factor it was filed under?
+
+    The fifth number, and the only one that sees *which* factor a piece of
+    evidence was assigned to. This module's own docstring disclaims it --
+    "a real figure cited under the wrong factor scores as grounded" -- and for
+    a long time that was the right call, because there was no reference to
+    check attribution against without a gold rationale.
+
+    There is one: `evidence_keywords` are verbatim source spans, and a
+    rationale filed under factor F is correctly attributed when it contains one
+    of F's keywords.
+
+    Measured in the keyless pipeline, this is the difference between a detector
+    and no detector. A constant router that walks the document in order scores
+    coverage 1.000, density 0.586, groundedness 1.000 and distinctness 1.000 --
+    and attribution **0.058**. The other four cannot tell it apart from a real
+    router; this one separates it by 11x.
+
+    ## Paraphrase must count, or the metric only measures quoting
+
+    An exact-substring test is biased toward extractive methods by
+    construction. Measured: **98% of sonnet's rationales are written rather
+    than quoted**, so a verbatim check scored it 0.422 against K6's 0.645 --
+    and reading that as "a TF-IDF classifier attributes better than sonnet"
+    would have been wrong. It says the classifier quotes and the model
+    paraphrases.
+
+    So a rationale counts as attributed when it either contains a keyword
+    outright or shares at least half that keyword's content tokens. The
+    threshold is deliberately loose: the question is which *factor* the
+    evidence belongs to, not how closely it was reworded.
+
+    ## The rule that makes it legitimate
+
+    Using `evidence_keywords` as an evaluation reference is sound. Using them
+    to *seed a matcher* is not, and neither is scoring a method on bundles it
+    was trained on. Both would be measuring the answer against itself. Callers
+    that train anything must pass held-out bundles only.
+    """
+    if not ground_truth:
+        return 0, 0
+    want = {f.get("factor_type"): [" ".join(str(k).split()).lower()
+                                   for k in (f.get("evidence_keywords") or [])]
+            for f in ground_truth.get("expected_factors", [])}
+    right = scored = 0
+    for f in factors:
+        rationale = f.get("rationale")
+        kws = [k for k in (want.get(f.get("factor_type")) or []) if len(k) >= 4]
+        if not isinstance(rationale, str) or not rationale.strip() or not kws:
+            continue
+        scored += 1
+        low = " ".join(rationale.split()).lower()
+        toks = set(re.findall(r"[a-z0-9.%-]{3,}", low))
+        for k in kws:
+            if k in low:                                  # quoted outright
+                right += 1
+                break
+            ktok = set(re.findall(r"[a-z0-9.%-]{3,}", k))
+            if ktok and len(ktok & toks) / len(ktok) >= 0.5:   # paraphrased
+                right += 1
+                break
+    return right, scored
+
+
 def read_source_text(bundle_dir: Path) -> str:
     """Concatenate a bundle's source documents. This is the grounding reference."""
     src = Path(bundle_dir) / "source"

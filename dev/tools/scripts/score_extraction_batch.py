@@ -51,6 +51,7 @@ from schema_coverage import (  # noqa: E402
 )
 from groundedness import (  # noqa: E402
     GroundednessResult,
+    score_attribution,
     read_source_text,
     score_factor_rationales,
 )
@@ -251,6 +252,10 @@ def score_bundle(
             extracted.get("credibility_factors", []), read_source_text(bundle_dir))
         record["groundedness"] = grounded.as_dict()
         record["ungrounded"] = grounded.ungrounded
+        # The only metric that sees which factor evidence was filed under.
+        ar, asc = score_attribution(extracted.get("credibility_factors", []),
+                                    ground_truth)
+        record["attribution"] = {"correct": ar, "scored": asc}
     except SystemExit as exc:
         record["groundedness_error"] = str(exc)
     return record
@@ -335,6 +340,9 @@ def aggregate(per_bundle: list[dict], factor_names: list[str]) -> dict:
         for f in findings:
             schema.violations[f] = schema.violations.get(f, 0) + 1
 
+    att_ok = sum((r.get("attribution") or {}).get("correct", 0) for r in scored)
+    att_n = sum((r.get("attribution") or {}).get("scored", 0) for r in scored)
+
     grounded = GroundednessResult()
     for r in scored:
         g = r.get("groundedness")
@@ -352,6 +360,8 @@ def aggregate(per_bundle: list[dict], factor_names: list[str]) -> dict:
         "groundedness": grounded.as_dict(),
         "ungrounded": grounded.ungrounded,
         "schema": schema.as_dict(),
+        "attribution": {"correct": att_ok, "scored": att_n,
+                        "rate": att_ok / att_n if att_n else None},
         "extraction_cost": cost_summary,
         "min_overall_f1": min(bundle_f1) if bundle_f1 else None,
         "max_overall_f1": max(bundle_f1) if bundle_f1 else None,
@@ -422,6 +432,11 @@ def write_markdown_summary(out_path: Path, header: dict, agg: dict) -> None:
                      f"{g['rationales_with_claims']}/{g['factors_with_rationale']} carry a checkable claim |")
         lines.append(f"| Groundedness | **{g['groundedness']:.3f}** | "
                      f"{g['claims_grounded']}/{g['claims_total']} claims trace to source |")
+        a = agg.get("attribution") or {}
+        if a.get("rate") is not None:
+            lines.append(f"| Attribution | **{a['rate']:.3f}** | "
+                         f"{a['correct']}/{a['scored']} rationales cite evidence "
+                         f"belonging to that factor |")
         if "distinctness" in g:
             lines.append(f"| Distinctness | **{g['distinctness']:.3f}** | "
                          f"{g['factors_distinct']}/{g['factors_with_rationale']} "
