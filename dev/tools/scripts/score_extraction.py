@@ -109,8 +109,19 @@ def _uofa_env() -> dict:
     return env
 
 
+# Filled by run_extraction on every call. The investigation this harness serves
+# exists because the current path costs ~5 GB of model weight and 170-202 s per
+# bundle, so a candidate's accuracy is only half its result -- a comparison
+# without cost is not a comparison.
+LAST_RUN_COST: dict = {}
+
+
 def run_extraction(model: str, evidence_dir: Path, output_xlsx: Path, pack: str = "vv40") -> bool:
-    """Run uofa extract and return success status."""
+    """Run uofa extract and return success status.
+
+    Records wall clock and peak RSS of the extraction subprocess into
+    LAST_RUN_COST, so the caller can report accuracy beside what it cost.
+    """
     # NOTE: --pack must follow the subcommand — argparse with parents+action=append
     # drops the top-level value otherwise.
     cmd = [
@@ -121,7 +132,20 @@ def run_extraction(model: str, evidence_dir: Path, output_xlsx: Path, pack: str 
         "-o", str(output_xlsx),
         "--verbose",
     ]
+    import resource
+    import time
+    _t0 = time.perf_counter()
+    _rss0 = resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss
     result = subprocess.run(cmd, capture_output=True, text=True, cwd=str(_ROOT), env=_uofa_env())
+    _rss1 = resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss
+    # ru_maxrss is bytes on macOS, kilobytes on Linux.
+    _scale = 1024 * 1024 if sys.platform == "darwin" else 1024
+    LAST_RUN_COST.clear()
+    LAST_RUN_COST.update({
+        "model": model,
+        "wall_clock_s": round(time.perf_counter() - _t0, 2),
+        "peak_rss_mb": round(max(_rss1, _rss0) / _scale, 1),
+    })
     print(result.stdout)
     if result.returncode != 0:
         print(f"EXTRACT FAILED: {result.stderr}", file=sys.stderr)
@@ -256,6 +280,14 @@ def score_factors(extracted_factors: list, ground_truth_factors: list) -> dict:
         "factors_found": 0,
         "factors_correct_type": 0,
         "factors_correct_level": 0,
+        "factors_correct_level_exact": 0,
+        "level_abs_errors": [],
+        # Same errors restricted to rows the ground truth marks `assessed`.
+        # The 60 not_applicable rows carry expected_level 1, so scoring level
+        # on them mixes "did you assign the right rigour" with "did you notice
+        # this factor does not apply" -- two different sub-tasks. Both slices
+        # are reported; assessed-only is the one that answers sub-task C.
+        "level_abs_errors_assessed": [],
         "factors_correct_status": 0,
         "factors_correct_source": 0,
         "per_factor": {},
@@ -292,7 +324,18 @@ def score_factors(extracted_factors: list, ground_truth_factors: list) -> dict:
                     ext_level = None
 
             if gt_level is not None and ext_level is not None:
-                if abs(gt_level - ext_level) <= tolerance:
+                # Three statistics, not one. +/-1 is unfalsifiable against a
+                # corpus whose assessed levels are only ever 1, 2 or 3 -- the
+                # constant 2 scores 1.000 on it. Exact match and MAE are what
+                # can actually separate two methods, so all three are reported
+                # and none replaces the others.
+                err = abs(gt_level - ext_level)
+                results["level_abs_errors"].append(err)
+                if gt.get("expected_status") == "assessed":
+                    results["level_abs_errors_assessed"].append(err)
+                if err == 0:
+                    results["factors_correct_level_exact"] += 1
+                if err <= tolerance:
                     results["factors_correct_level"] += 1
                     factor_result["level_match"] = True
                 else:
@@ -316,10 +359,75 @@ def score_factors(extracted_factors: list, ground_truth_factors: list) -> dict:
     n = results["total_factors"]
     results["detection_rate"] = results["factors_found"] / n if n else 0
     results["level_accuracy"] = results["factors_correct_level"] / results["factors_found"] if results["factors_found"] else 0
+    errs = results["level_abs_errors"]
+    results["level_exact_accuracy"] = results["factors_correct_level_exact"] / len(errs) if errs else 0
+    results["level_mae"] = sum(errs) / len(errs) if errs else 0.0
+    ea = results["level_abs_errors_assessed"]
+    results["level_exact_accuracy_assessed"] = (
+        sum(1 for e in ea if e == 0) / len(ea) if ea else 0)
+    results["level_mae_assessed"] = sum(ea) / len(ea) if ea else 0.0
     results["status_accuracy"] = results["factors_correct_status"] / n if n else 0
     results["overall_f1"] = _compute_f1(results, extracted_by_type, ground_truth_factors)
 
     return results
+
+
+# ── Null-model controls ──────────────────────────────────────
+#
+# Two constant functions saturate the metrics this script reports. On the
+# shipped 50-bundle corpus, 740 of 800 factor rows are `assessed` and every
+# assessed level is 1, 2 or 3 -- never 4, never 5. So:
+#
+#   emitting the pack's fixed checklist  -> detection F1 0.960
+#   predicting the constant 2            -> level accuracy 1.000 at +/-1
+#
+# Neither reads a single word of the input. A candidate that does not beat
+# these has demonstrated nothing, and the F1 >= 0.70 gate below passes for all
+# of them. Report every candidate as a delta against these, never as a bare F1.
+#
+# Each control is scored through score_factors() -- the same function that
+# scores a real extraction -- so a control and a candidate can never diverge
+# because of how they were measured.
+
+CONTROL_NAMES = (
+    "control_constant_list",
+    "control_constant_level",
+    "control_majority_status",
+    "control_empty",
+)
+
+
+def control_predictions(name: str, pack: str) -> list[dict]:
+    """What a given null model emits, having read no input at all.
+
+    Takes the pack, not the bundle: that is the point. The only information
+    these are allowed is what is known at compile time.
+    """
+    if name == "control_empty":
+        return []
+
+    from uofa_cli import excel_constants  # noqa: WPS433 (deferred import)
+    symbol = _PACK_FACTOR_SYMBOLS.get(pack)
+    if symbol is None:
+        raise SystemExit(f"No factor list known for pack {pack!r}")
+    factors = getattr(excel_constants, symbol)
+
+    if name == "control_constant_list":
+        # Detection only: no level, no status, so the other metrics stay honest.
+        return [{"factor_type": f} for f in factors]
+    if name == "control_constant_level":
+        return [{"factor_type": f, "achieved_level": 2} for f in factors]
+    if name == "control_majority_status":
+        return [{"factor_type": f, "status": "assessed"} for f in factors]
+    raise SystemExit(f"Unknown control {name!r}. Known: {list(CONTROL_NAMES)}")
+
+
+def score_controls(pack: str, ground_truth_factors: list) -> dict[str, dict]:
+    """Score every null model against the same ground truth, one report row each."""
+    return {
+        name: score_factors(control_predictions(name, pack), ground_truth_factors)
+        for name in CONTROL_NAMES
+    }
 
 
 def _compute_f1(results, extracted_by_type, ground_truth_factors):
@@ -338,16 +446,50 @@ def _compute_f1(results, extracted_by_type, ground_truth_factors):
     return f1
 
 
+# Fields that are written rather than looked up. `cou_name` is the only one in
+# the schema: it is a synthesised sentence, it is `hasContextOfUse` with
+# minCount 1 in the ontology, and no keyless method produces it. It is scored
+# separately and reported on its own line, because averaging it into seven enum
+# and structural fields hides the one result that discriminates.
+GENERATIVE_SUMMARY_FIELDS = frozenset({"cou_name", "cou_description"})
+
+# A generated sentence counts as correct at or above this token-level F1. The
+# rule it replaces accepted substring containment in either direction for any
+# expected value over 10 characters, so a cou_name sharing one clause with the
+# truth passed outright.
+GENERATIVE_MATCH_THRESHOLD = 0.60
+
+
+def _token_f1(expected: str, actual: str) -> float:
+    """Bag-of-words F1 between two strings, case- and punctuation-insensitive."""
+    import re as _re
+    tok = lambda s: [w for w in _re.split(r"[^a-z0-9]+", s.lower()) if w]  # noqa: E731
+    e, a = Counter(tok(expected)), Counter(tok(actual))
+    if not e or not a:
+        return 0.0
+    overlap = sum((e & a).values())
+    if not overlap:
+        return 0.0
+    p, r = overlap / sum(a.values()), overlap / sum(e.values())
+    return 2 * p * r / (p + r)
+
+
 def score_summary(extracted_summary: dict, ground_truth_summary: dict) -> dict:
     """Score assessment summary field extraction."""
-    results = {"total_fields": 0, "correct_fields": 0, "per_field": {}}
+    results = {"total_fields": 0, "correct_fields": 0, "per_field": {},
+               "generative": {}}
 
     for field, expected in ground_truth_summary.items():
         results["total_fields"] += 1
         extracted_val = extracted_summary.get(field)
 
         if expected and extracted_val:
-            if isinstance(expected, str) and isinstance(extracted_val, str):
+            if field in GENERATIVE_SUMMARY_FIELDS and isinstance(expected, str) \
+                    and isinstance(extracted_val, str):
+                score = _token_f1(expected, extracted_val)
+                results["generative"][field] = score
+                match = score >= GENERATIVE_MATCH_THRESHOLD
+            elif isinstance(expected, str) and isinstance(extracted_val, str):
                 match = expected.lower().strip() == extracted_val.lower().strip()
                 if not match and len(expected) > 10:
                     match = expected.lower() in extracted_val.lower() or extracted_val.lower() in expected.lower()
@@ -356,7 +498,14 @@ def score_summary(extracted_summary: dict, ground_truth_summary: dict) -> dict:
 
             if match:
                 results["correct_fields"] += 1
-                results["per_field"][field] = "MATCH"
+                if field in results["generative"]:
+                    results["per_field"][field] = f"MATCH (token F1 {results['generative'][field]:.2f})"
+                else:
+                    results["per_field"][field] = "MATCH"
+            elif field in results["generative"]:
+                results["per_field"][field] = (
+                    f"MISMATCH (token F1 {results['generative'][field]:.2f} "
+                    f"< {GENERATIVE_MATCH_THRESHOLD}): expected '{expected}', got '{extracted_val}'")
             else:
                 results["per_field"][field] = f"MISMATCH: expected '{expected}', got '{extracted_val}'"
         elif expected is None and extracted_val is None:
@@ -573,7 +722,32 @@ def print_weakener_report(w_scores: dict, expected: dict) -> None:
         print(f"    {'+' if ok else 'x'} {label}")
 
 
-def print_report(factor_scores, summary_scores, decision_scores, model, prompt_version):
+def print_controls(controls: dict, factor_scores: dict | None = None):
+    """Print the null models, and the candidate's margin over each.
+
+    Never suppressed. A bare F1 on this corpus is not interpretable: the
+    checklist control reaches 0.960 without reading the input.
+    """
+    print(f"\n  NULL-MODEL CONTROLS")
+    print(f"  {'─' * 62}")
+    print(f"  {'control':<26s} {'F1':>7s} {'detect':>8s} {'level':>8s} {'status':>8s}")
+    for name, s in controls.items():
+        print(f"  {name:<26s} {s['overall_f1']:>7.3f} {s['detection_rate']:>8.0%}"
+              f" {s['level_accuracy']:>8.0%} {s['status_accuracy']:>8.0%}")
+
+    if factor_scores is None:
+        return
+    best = max(controls.values(), key=lambda s: s["overall_f1"])
+    delta = factor_scores["overall_f1"] - best["overall_f1"]
+    verdict = "beats every control" if delta > 0 else "DOES NOT BEAT the best control"
+    print(f"  {'─' * 62}")
+    print(f"  candidate F1 {factor_scores['overall_f1']:.3f}"
+          f"  best control {best['overall_f1']:.3f}"
+          f"  delta {delta:+.3f}  -> {verdict}")
+
+
+def print_report(factor_scores, summary_scores, decision_scores, model, prompt_version,
+                 controls: dict | None = None):
     """Print a formatted accuracy report."""
     print("\n" + "=" * 70)
     print(f"  EXTRACTION ACCURACY REPORT")
@@ -584,7 +758,12 @@ def print_report(factor_scores, summary_scores, decision_scores, model, prompt_v
     print(f"\n  CREDIBILITY FACTORS ({factor_scores['total_factors']} total)")
     print(f"  {'─' * 50}")
     print(f"  Detection rate:    {factor_scores['detection_rate']:.0%} ({factor_scores['factors_found']}/{factor_scores['total_factors']})")
-    print(f"  Level accuracy:    {factor_scores['level_accuracy']:.0%} ({factor_scores['factors_correct_level']}/{factor_scores['factors_found']})")
+    print(f"  Level accuracy:    {factor_scores['level_accuracy']:.0%} (±{1} tolerance, {factor_scores['factors_correct_level']}/{factor_scores['factors_found']})")
+    print(f"  Level exact match: {factor_scores['level_exact_accuracy']:.0%} ({factor_scores['factors_correct_level_exact']}/{len(factor_scores['level_abs_errors'])})")
+    print(f"  Level MAE:         {factor_scores['level_mae']:.3f}")
+    print(f"  Level (assessed):  exact {factor_scores['level_exact_accuracy_assessed']:.0%}"
+          f"  MAE {factor_scores['level_mae_assessed']:.3f}"
+          f"  (n={len(factor_scores['level_abs_errors_assessed'])}, excludes not_applicable rows)")
     print(f"  Status accuracy:   {factor_scores['status_accuracy']:.0%}")
     print(f"  Factor F1:         {factor_scores['overall_f1']:.2f}")
 
@@ -602,6 +781,12 @@ def print_report(factor_scores, summary_scores, decision_scores, model, prompt_v
     print(f"\n  ASSESSMENT SUMMARY ({summary_scores['total_fields']} fields)")
     print(f"  {'─' * 50}")
     print(f"  Accuracy: {summary_scores['accuracy']:.0%} ({summary_scores['correct_fields']}/{summary_scores['total_fields']})")
+    # The only generative field, called out because averaging it into seven
+    # enum/structural fields hides the one result that discriminates methods.
+    for gf, gscore in summary_scores.get("generative", {}).items():
+        verdict = "PASS" if gscore >= GENERATIVE_MATCH_THRESHOLD else "FAIL"
+        print(f"  {gf} (generative): token F1 {gscore:.2f} -> {verdict}"
+              f"  [threshold {GENERATIVE_MATCH_THRESHOLD}]")
     for field, result in summary_scores["per_field"].items():
         icon = "+" if "MATCH" in result else "x"
         print(f"    {icon} {field}: {result}")
@@ -611,10 +796,25 @@ def print_report(factor_scores, summary_scores, decision_scores, model, prompt_v
     print(f"  Outcome match:      {'+ yes' if decision_scores['outcome_match'] else 'x no'}")
     print(f"  Rationale coverage: {decision_scores['rationale_coverage']:.0%}")
 
+    if LAST_RUN_COST:
+        print(f"\n  COST")
+        print(f"  {'─' * 50}")
+        print(f"  Wall clock:  {LAST_RUN_COST['wall_clock_s']}s")
+        print(f"  Peak RSS:    {LAST_RUN_COST['peak_rss_mb']} MB")
+
+    if controls:
+        print_controls(controls, factor_scores)
+
     gate_f1 = factor_scores["overall_f1"]
     gate_pass = gate_f1 >= 0.70
     print(f"\n  {'=' * 50}")
     print(f"  GATE: F1 = {gate_f1:.2f} {'+ PASS (>=0.70)' if gate_pass else 'x FAIL (<0.70)'}")
+    if controls:
+        # The absolute gate is not evidence on this corpus: the checklist
+        # control clears it without reading the input. Say so where it is read.
+        beaten = [n for n, s in controls.items() if s["overall_f1"] >= 0.70]
+        if beaten:
+            print(f"  NOTE: {', '.join(beaten)} also clear this gate, having read no input.")
     print(f"  {'=' * 50}")
 
     return gate_pass
@@ -698,6 +898,8 @@ def main():
         extracted["credibility_factors"],
         gt["expected_factors"],
     )
+    # Scored every run: a bare F1 on this corpus is not interpretable.
+    controls = score_controls(args.pack, gt["expected_factors"])
     summary_scores = score_summary(
         extracted["assessment_summary"],
         gt["assessment_summary"],
@@ -709,7 +911,7 @@ def main():
 
     gate_pass = print_report(
         factor_scores, summary_scores, decision_scores,
-        args.model, args.prompt_version,
+        args.model, args.prompt_version, controls=controls,
     )
 
     # ── Weakener pipeline (if ground truth declares expected_weakeners) ──
