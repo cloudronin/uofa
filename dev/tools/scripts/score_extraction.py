@@ -446,6 +446,130 @@ def _compute_f1(results, extracted_by_type, ground_truth_factors):
     return f1
 
 
+def score_per_factor_fields(extracted_factors: list, ground_truth_factors: list) -> dict:
+    """The two columns the parser reads and the scorer used to throw away.
+
+    Per factor the pipeline carries eight columns, the parser reads six and the
+    scorer checked three. `required_level` and `acceptance_criteria` are both
+    filled on 98.5% of rows, and neither was scored.
+
+    They are not template echo -- verified: the blank template leaves both
+    columns empty, `required_level` spans 1 to 4 across bundles, and 738 of the
+    corpus's acceptance criteria strings are distinct at a mean of 73
+    characters ("GCI below 1.5% on key outputs and asymptotic convergence
+    regime (p~2)").
+
+    ## The shortfall is the number a reviewer reads first
+
+    `achieved - required` is what a V&V 40 reviewer looks at before anything
+    else: it says whether the evidence reaches the rigour the model's risk
+    demands. On the synthetic corpus 223 of 800 rows (27.9%) fall short. On the
+    transcribed real reports it is most of them -- real models routinely ship
+    under-credentialed against their own published thresholds.
+
+    ## Where accuracy can be scored, and where it cannot
+
+    The synthetic corpus carries no `expected_required_level`, so there it is
+    reported as coverage and distribution only. The Tier 1 real bundles
+    transcribe it from published "Sufficiency Threshold" columns, so there it
+    can be scored for accuracy. Reporting a distribution as if it were accuracy
+    is exactly the confusion this whole exercise exists to stop, so the two are
+    kept in separate keys and the report prints which one it has.
+
+    `acceptance_criteria` has no ground truth in either corpus and gets
+    coverage and distinctness only. Distinctness is the one that matters: a
+    backend emitting the same sentence for every factor scores full coverage,
+    and only the distinct count exposes it -- the same hole `claim_density`
+    closes for rationale.
+    """
+    gt_required = {f.get("factor_type"): f.get("expected_required_level")
+                   for f in ground_truth_factors}
+    has_gt = any(v is not None for v in gt_required.values())
+
+    res = {
+        "rows": len(extracted_factors),
+        "required_level_present": 0,
+        "required_level_distribution": Counter(),
+        "acceptance_criteria_present": 0,
+        "acceptance_criteria_texts": [],
+        "shortfall_distribution": Counter(),
+        "rows_below_required": 0,
+        "rows_with_shortfall": 0,
+        # Only populated when the ground truth actually carries thresholds.
+        "required_level_scored": has_gt,
+        "required_level_exact": 0,
+        "required_level_comparable": 0,
+    }
+
+    for f in extracted_factors:
+        req, ach = f.get("required_level"), f.get("achieved_level")
+        crit = f.get("acceptance_criteria")
+
+        if isinstance(req, (int, float)):
+            res["required_level_present"] += 1
+            res["required_level_distribution"][req] += 1
+            if isinstance(ach, (int, float)):
+                # Rounded because this is a histogram key. Real reports publish
+                # scores like 2.3, and 2.3 - 3.0 is -0.7000000000000002, which
+                # would bucket separately from the -0.7 produced by 1.3 - 2.0 and
+                # silently fragment the distribution into singleton bins.
+                gap = round(ach - req, 4)
+                res["rows_with_shortfall"] += 1
+                res["shortfall_distribution"][gap] += 1
+                if gap < 0:
+                    res["rows_below_required"] += 1
+
+        if isinstance(crit, str) and crit.strip():
+            res["acceptance_criteria_present"] += 1
+            res["acceptance_criteria_texts"].append(crit.strip())
+
+        want = gt_required.get(f.get("factor_type"))
+        if has_gt and isinstance(want, (int, float)) and isinstance(req, (int, float)):
+            res["required_level_comparable"] += 1
+            if req == want:
+                res["required_level_exact"] += 1
+
+    texts = res.pop("acceptance_criteria_texts")
+    res["acceptance_criteria_distinct"] = len(set(texts))
+    res["acceptance_criteria_mean_len"] = (
+        sum(map(len, texts)) // len(texts) if texts else 0)
+    return res
+
+
+def print_per_factor_fields(s: dict) -> None:
+    n = s["rows"] or 1
+    print(f"\n  PER-FACTOR FIELDS (parsed, previously discarded)")
+    print(f"  {'─' * 62}")
+    print(f"  required_level:      {s['required_level_present']}/{s['rows']} "
+          f"({s['required_level_present']/n:.0%})  "
+          f"dist {dict(sorted(s['required_level_distribution'].items()))}")
+    print(f"  acceptance_criteria: {s['acceptance_criteria_present']}/{s['rows']} "
+          f"({s['acceptance_criteria_present']/n:.0%})  "
+          f"{s['acceptance_criteria_distinct']} distinct, "
+          f"mean {s['acceptance_criteria_mean_len']} chars")
+    if s["acceptance_criteria_present"] and (
+            s["acceptance_criteria_distinct"] <= 1 < s["acceptance_criteria_present"]):
+        print("    WARNING: one criterion repeated on every row -- full coverage,")
+        print("    no information. Coverage alone would have reported this as fine.")
+
+    if s["rows_with_shortfall"]:
+        m = s["rows_with_shortfall"]
+        print(f"\n  Credibility shortfall (achieved - required), {m} comparable rows")
+        for gap in sorted(s["shortfall_distribution"]):
+            c = s["shortfall_distribution"][gap]
+            print(f"    {gap:+g}  {c:4d}  {'*' * min(c * 40 // m, 40)}")
+        print(f"  {s['rows_below_required']}/{m} "
+              f"({s['rows_below_required']/m:.0%}) below their required level")
+
+    if s["required_level_scored"] and s["required_level_comparable"]:
+        k, t = s["required_level_exact"], s["required_level_comparable"]
+        print(f"\n  required_level accuracy: {k}/{t} ({k/t:.0%}) exact")
+        print("  (ground truth transcribed from a published sufficiency threshold)")
+    else:
+        print("\n  required_level: distribution only -- this corpus has no")
+        print("  expected_required_level, so accuracy is not computable here.")
+
+
 # Fields that are written rather than looked up. `cou_name` is the only one in
 # the schema: it is a synthesised sentence, it is `hasContextOfUse` with
 # minCount 1 in the ontology, and no keyless method produces it. It is scored
@@ -747,7 +871,7 @@ def print_controls(controls: dict, factor_scores: dict | None = None):
 
 
 def print_report(factor_scores, summary_scores, decision_scores, model, prompt_version,
-                 controls: dict | None = None):
+                 controls: dict | None = None, per_factor_fields: dict | None = None):
     """Print a formatted accuracy report."""
     print("\n" + "=" * 70)
     print(f"  EXTRACTION ACCURACY REPORT")
@@ -801,6 +925,9 @@ def print_report(factor_scores, summary_scores, decision_scores, model, prompt_v
         print(f"  {'─' * 50}")
         print(f"  Wall clock:  {LAST_RUN_COST['wall_clock_s']}s")
         print(f"  Peak RSS:    {LAST_RUN_COST['peak_rss_mb']} MB")
+
+    if per_factor_fields:
+        print_per_factor_fields(per_factor_fields)
 
     if controls:
         print_controls(controls, factor_scores)
@@ -909,9 +1036,16 @@ def main():
         gt["expected_decision"],
     )
 
+    # Scored every run: these two columns are filled on 98.5% of rows and were
+    # parsed and discarded. The shortfall they imply is the first thing a
+    # reviewer looks at.
+    per_factor_fields = score_per_factor_fields(
+        extracted["credibility_factors"], gt["expected_factors"])
+
     gate_pass = print_report(
         factor_scores, summary_scores, decision_scores,
         args.model, args.prompt_version, controls=controls,
+        per_factor_fields=per_factor_fields,
     )
 
     # ── Weakener pipeline (if ground truth declares expected_weakeners) ──

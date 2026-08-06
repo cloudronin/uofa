@@ -50,7 +50,7 @@ from pathlib import Path
 
 from uofa_cli import __version__
 from uofa_cli.adversarial.generator import GENERATOR_VERSION, run_generate
-from uofa_cli.adversarial.model_costs import estimate_cost
+from uofa_cli.adversarial.model_costs import assert_priced, estimate_cost
 from uofa_cli.adversarial.spec_loader import (
     SourceTaxonomyError,
     SpecValidationError,
@@ -486,6 +486,16 @@ def run_batch(args) -> int:
         return _run_cost_preview(
             expanded, model=getattr(args, "model", None) or "claude-sonnet-4-6"
         )
+
+    # --max-cost halts once accumulated_cost reaches the ceiling, and that
+    # accumulator is built from estimate_cost, which reports 0.0 for a model it
+    # has no rate for. An unpriced model would sit at $0 all run and the ceiling
+    # would never be reached, so check every model that will actually be billed
+    # before the first call rather than discovering it in an invoice.
+    if getattr(args, "max_cost", None) is not None:
+        default_model = getattr(args, "model", None) or "claude-sonnet-4-6"
+        for cell in expanded:
+            assert_priced(cell.model_override or default_model)
 
     out_root.mkdir(parents=True, exist_ok=True)
 

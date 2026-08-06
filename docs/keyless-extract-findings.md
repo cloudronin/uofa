@@ -174,6 +174,99 @@ metric cannot separate *derived-and-slightly-wrong* from *fabricated* — the 83
 row is the example, since 20/23 is 87% — so a nonzero ungrounded count is a
 prompt to look, not a hallucination count.
 
+## Real documents do not rescue the detection metric
+
+13 Tier 1 bundles, transcribed from published Credibility Assessment Scale
+tables in three NTRS reports. The plan's hope was that real documents would
+carry many more `not_applicable` factors than the synthetic 7.5%, dropping
+`control_constant_list` below 0.960 and making detection a real task.
+
+Measured, with the control rolled up to published granularity:
+
+| | control F1 | recall |
+|---|---|---|
+| synthetic, 50 bundles | 0.960 | 1.000 |
+| **real, complete profiles (8)** | **0.971** | 1.000 |
+| real, partial profiles (5) | 0.783 | 1.000 |
+
+**The constant does better on real documents.** A published CAS is a *complete
+profile* — 0 means "Insufficient Evidence", a score the assessors assigned, not
+an omitted row — so recall stays exactly 1.000 and there is nothing for a
+detector to be right about. Detection is not a learnable task on this corpus
+either.
+
+The five partial profiles are the only thing that dents it, and for a reason
+neither the plan nor the first pass predicted: those tables list *elevation
+strategies*, so they print only the factors needing improvement. The constant
+emits rows the authors deliberately omitted and loses precision. That is a
+property of how those particular papers report, not of real documents in
+general — a corpus transcribed from complete tables would put the constant
+straight back at 0.97.
+
+**One correction to my own first measurement.** It initially read 0.757, which
+would have been a much more encouraging result. That number was an artefact of
+the mapping file: I had added `Code verification`, `Solution verification` and
+`Conceptual/referent validation` as vocabulary keys on the theory that the paper
+family printed both granularities. No transcribed table uses any of them. Since
+the vocabulary is the denominator when a rolled-up prediction is scored, three
+unused keys depressed the control's precision on every decomposed bundle — an
+error in the direction of making the null model look weaker than it is, which is
+precisely what this harness exists to prevent. A test now fails any vocabulary
+key no transcribed table prints.
+
+## The scored slice was also too narrow
+
+Per factor the pipeline carries eight columns. The parser reads six. The scorer
+checked three.
+
+| Column | Filled | Scored before | Scored now |
+|---|---|---|---|
+| Factor Type / Achieved Level / Factor Status | 100 / 100 / 80% | yes | yes |
+| **Required Level** | **98.5%** | parsed, discarded | distribution + shortfall |
+| **Acceptance Criteria** | **98.5%** | parsed, discarded | coverage + distinctness |
+| **Rationale** | **99%** | parsed, discarded | groundedness (above) |
+| Linked Evidence | 11% | not parsed | not parsed |
+
+Neither discarded column is template echo. The blank template leaves both empty,
+`required_level` spans 0–4 across bundles, and 738 of the corpus's acceptance
+criteria are distinct at a mean of 73 characters — *"GCI below 1.5% on key
+outputs and asymptotic convergence regime (p≈2)"*.
+
+**The shortfall is the number a reviewer reads first.** `achieved − required`
+says whether the evidence reaches the rigour the model's risk demands, and it was
+invisible to every figure this harness reported:
+
+```
+  -3     1
+  -2    31    *
+  -1   191    *********
+  +0   423    *********************
+  +1   131    ******
+  +2    11
+```
+
+**223 of 788 comparable rows (28%) fall short.** In the transcribed real reports
+it is 11 of 16 — real models routinely ship under-credentialed against their own
+published thresholds, and a corpus where they mostly comply is not describing the
+same world.
+
+**Distribution is not accuracy, and the two are kept apart.** The synthetic
+corpus has no `expected_required_level`, so there only a distribution can be
+reported. The Tier 1 real bundles transcribe it from published "Sufficiency
+Threshold" columns, so there it is scored for accuracy. Reporting the first as if
+it were the second is exactly the confusion that made the detection F1
+meaningless, so the report prints which one it has.
+
+`acceptance_criteria` has no ground truth in either corpus and gets coverage and
+**distinctness**. Distinctness is the one that matters: a backend emitting one
+sentence for every factor scores full coverage, and only the distinct count
+exposes it — the same hole `claim_density` closes for rationale.
+
+One bug found in the process: `2.3 − 3.0` is `-0.7000000000000002`, which buckets
+separately from the `-0.7` that `1.3 − 2.0` produces. Unrounded, the histogram
+fragments into singletons that look like a spread. Only real reports publish
+fractional scores, so the synthetic corpus would never have surfaced it.
+
 ## Corrections made while measuring
 
 Recorded because each would have produced a wrong number, and two were mine.

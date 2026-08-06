@@ -224,6 +224,82 @@ def test_real_models_fall_short_far_more_often_than_synthetic_ones():
 
 # ── the rollup, which is the only judgment in the pipeline ───
 
+def _control_f1(bundle: Path) -> float:
+    """`control_constant_list`, rolled up: it emits the whole vocabulary."""
+    gt = _gt(bundle)
+    variant = gt["cas_variant"]
+    control = {canonical(k, variant) for k in VARIANTS[variant]}
+    want = {canonical(f["factor_type"], variant) for f in gt["expected_factors"]}
+    tp, fp, fn = len(control & want), len(control - want), len(want - control)
+    p = tp / (tp + fp) if tp + fp else 0.0
+    r = tp / (tp + fn) if tp + fn else 0.0
+    return 2 * p * r / (p + r) if p + r else 0.0
+
+
+def test_real_documents_do_not_rescue_the_detection_metric():
+    """The plan hoped real bundles would break `control_constant_list`. They do not.
+
+    Measured: the constant scores **0.971** on the eight complete profiles,
+    *higher* than the 0.960 it scores on the fifty synthetic bundles. A published
+    CAS is a complete profile -- 0 means Insufficient Evidence, a score, not an
+    omitted row -- so recall stays exactly 1.000 and there is nothing for a
+    detector to be right about.
+
+    Detection is not a learnable task on this corpus either. Discrimination has
+    to come from level and from groundedness.
+    """
+    complete = [b for b in BUNDLES
+                if _gt(b)["_provenance"].get("profile_completeness", "complete") == "complete"]
+    assert complete
+    f1s = [_control_f1(b) for b in complete]
+    assert sum(f1s) / len(f1s) > 0.95, "the constant stopped being unbeatable; re-read why"
+    assert all(_control_f1(b) > 0.9 for b in complete)
+
+
+def test_partial_profiles_are_the_only_thing_that_dents_the_constant():
+    """And for a reason neither the plan nor the first analysis predicted.
+
+    It is not `not_applicable` factors -- there are none. It is that
+    elevation-strategy tables print only the factors needing improvement, so the
+    constant emits rows the document deliberately omitted and loses precision.
+    Recall is still 1.000 everywhere; only precision moves.
+
+    Worth stating because it is a property of how those papers report, not a
+    property of real documents in general. A different real corpus, transcribed
+    from complete tables, would put the constant straight back at 0.97.
+    """
+    partial = [b for b in BUNDLES
+               if _gt(b)["_provenance"].get("profile_completeness") == "partial"]
+    complete = [b for b in BUNDLES
+                if _gt(b)["_provenance"].get("profile_completeness", "complete") == "complete"]
+    assert partial and complete
+    mean_partial = sum(_control_f1(b) for b in partial) / len(partial)
+    mean_complete = sum(_control_f1(b) for b in complete) / len(complete)
+    assert mean_partial < mean_complete - 0.10
+
+
+def test_the_vocabulary_contains_only_factors_some_table_printed():
+    """A speculative key is not free: the vocabulary is the control's denominator.
+
+    An earlier mapping carried "Code verification", "Solution verification" and
+    "Conceptual/referent validation" on the theory that the paper family printed
+    both granularities. No bundle uses any of them, and their only effect was to
+    depress the constant's precision on every decomposed bundle -- making the
+    control look weaker on real documents than it is, which is the exact
+    direction of error this harness exists to prevent.
+    """
+    for variant, mapping in VARIANTS.items():
+        used = {canonical(f["factor_type"], variant)
+                for b in BUNDLES if _gt(b)["cas_variant"] == variant
+                for f in _gt(b)["expected_factors"]}
+        if not used:
+            continue      # 7009B: no sampled report uses it yet
+        unused = set(mapping) - used
+        assert not unused, (
+            f"{variant}: keys no transcribed table prints: {sorted(unused)}. "
+            "Add a key when a table prints it, not before.")
+
+
 def test_rollup_takes_the_weakest_constituent():
     levels = {"Numerical code verification": 3, "Discretization error": 1,
               "Numerical solver error": 4, "Software quality assurance": 2}

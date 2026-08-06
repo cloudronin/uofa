@@ -81,35 +81,32 @@ ROLLUP_7009A: dict[str, list[str]] = {
 # Much closer to 1:1, which makes these the better Tier 1 sources despite being
 # the newer papers.
 #
-# The same paper family prints these at two granularities -- "Code verification"
-# and "Solution verification" as separate rows in one table, "Code/solution
-# verification" as one row in another -- so both spellings are keys here. That is
-# not redundancy to tidy up: a bundle transcribes the rows its table printed, and
-# collapsing the two forms would mean transcribing a row the document did not
-# contain.
+# Exactly the seven rows the sampled papers print -- verified against all eleven
+# decomposed bundles, which use these and nothing else, differing only in
+# capitalisation (resolved by `canonical`).
+#
+# An earlier version also carried "Code verification" and "Solution verification"
+# as separate keys, and "Conceptual/referent validation" as a combined one,
+# on the theory that the family printed both granularities. No bundle uses any of
+# them. They were speculative, and they were not harmless: a vocabulary is the
+# denominator when a rolled-up prediction is scored, so three unused keys
+# depressed `control_constant_list` precision on every decomposed bundle and made
+# the control look weaker on real documents than it is.
+#
+# Add a key when a transcribed table prints it, not before.
 DECOMPOSED_7009A: dict[str, list[str]] = {
     "Data pedigree": ["Data pedigree"],
     "Input pedigree": ["Model inputs"],
-
-    "Code verification": ["Numerical code verification"],
-    "Solution verification": ["Discretization error", "Numerical solver error"],
     "Code/solution verification": [
         "Numerical code verification",
         "Discretization error",
         "Numerical solver error",
     ],
-
     "Conceptual validation": ["Model form"],
     "Referent validation": [
         "Output comparison",
         "Relevance of the validation activities to the COU",
     ],
-    "Conceptual/referent validation": [
-        "Model form",
-        "Output comparison",
-        "Relevance of the validation activities to the COU",
-    ],
-
     "Results uncertainty": ["Results uncertainty"],
     "Results robustness": ["Results robustness"],
 }

@@ -50,7 +50,10 @@ _REPO_ROOT = _THIS_DIR.parent.parent.parent
 sys.path.insert(0, str(_REPO_ROOT / "src"))
 
 from uofa_cli import excel_constants  # noqa: E402
-from uofa_cli.adversarial.model_costs import estimate_cost  # noqa: E402
+from uofa_cli.adversarial.model_costs import (  # noqa: E402
+    assert_priced,
+    estimate_cost,
+)
 from uofa_cli.llm.backend import GenerationOptions  # noqa: E402
 from uofa_cli.llm.litellm_backend import LiteLLMBackend  # noqa: E402
 
@@ -535,6 +538,11 @@ def main() -> int:
             print(f"  {b['id']:30s} {b['standard']:12s} {b['domain']:5s} "
                   f"{b['quality']:10s} {b['format']:12s}{mark}")
         return 0
+
+    # --max-cost is the only bound on this run's bill, and it is computed from
+    # estimate_cost, which returns 0.0 for a model it has no rate for. An
+    # unpriced model would therefore accumulate $0 and never reach the ceiling.
+    assert_priced(args.model)
 
     backend = _make_backend(args.model)
     args.output_root.mkdir(parents=True, exist_ok=True)
