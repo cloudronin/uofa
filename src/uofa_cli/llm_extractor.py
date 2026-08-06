@@ -86,7 +86,8 @@ Return your extraction as a single JSON object with this exact structure:
     "assurance_level": {"value": "Low/Medium/High", "confidence": 0.0-1.0, "source_file": "...", "source_page": null},
     "standards_reference": {"value": "...", "confidence": 0.0-1.0, "source_file": "...", "source_page": null},
     "assessor_name": {"value": "...", "confidence": 0.0-1.0, "source_file": "...", "source_page": null},
-    "has_uq": {"value": "Yes or No", "confidence": 0.0-1.0, "source_file": null, "source_page": null}
+    "has_uq": {"value": "Yes or No", "confidence": 0.0-1.0, "source_file": null, "source_page": null},
+    "source_document": {"value": "filename, DOI or report number of the document this was derived from", "confidence": 0.0-1.0, "source_file": "...", "source_page": null}
   },
   "model_and_data": [
     {

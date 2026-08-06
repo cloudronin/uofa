@@ -136,6 +136,9 @@ def _write_summary_sheet(ws, summary: dict[str, FieldExtraction]) -> None:
         "assurance_level": 7,
         "standards_reference": 8,
         "assessor_name": 9,
+        # Column 10 (Assessment Date) is left to the human -- the extractor has
+        # no business inventing when an assessment was signed off.
+        "source_document": 11,
         "has_uq": 12,
     }
 
