@@ -288,6 +288,12 @@ Include ONE entry per canonical factor. expected_factors length must equal {n_fa
 3. `evidence_keywords` should be 3-6 phrases that appear LITERALLY in
    the source documents and would help a human reviewer find the
    relevant passage. Don't invent keywords — pull them from the source.
+
+   Copy an unbroken span exactly as written. Do NOT elide with "..." and
+   do not stitch two distant phrases together: a keyword containing an
+   ellipsis can never match the document verbatim, so it is dead on
+   arrival as an anchor. If the useful span is long, pick a shorter
+   contiguous piece of it instead.
 4. `source_file` should match the actual filename of the source document
    the evidence appears in.
 5. For `quality=ambiguous` bundles, the ground truth should reflect what
