@@ -311,10 +311,28 @@ Include ONE entry per canonical factor. expected_factors length must equal {n_fa
 
 7. `expected_required_level` is the rigour the model's RISK demands, which
    is independent of what the evidence achieved. A high-risk context of use
-   requires level 4 whether or not the documentation reaches it. Set it from
-   the stated model risk level and criticality, never by copying
+   requires level 4 whether or not the documentation reaches it. Never copy
    `expected_level` — the gap between the two is the single most useful
    number a reviewer reads, and copying makes it identically zero.
+
+   **It MUST vary across factors within this bundle.** Assigning the same
+   required level to all of them is wrong and is the most common way this
+   field gets filled in uselessly. V&V 40 sets a credibility goal per
+   factor from two things together: the model risk, which is shared across
+   the bundle, AND how much that particular factor influences the decision,
+   which is not.
+
+   So a factor whose evidence the decision rests on is required at a higher
+   level than one that merely has to be present. Worked example from a real
+   published assessment (NASA IMM, eight factors):
+
+       Verification 4   Validation 3   Input Pedigree 3
+       Results Uncertainty 3   Results Robustness 3   Use History 3
+       M&S Management 2   People Qualification 4
+
+   Three distinct values across eight factors. Aim for at least three
+   distinct values across your factor set, and be prepared to justify each
+   from the COU: which factors does this decision actually depend on?
 8. Always include `"level_tolerance": 1` in each factor entry (the eval
    uses this to score within ±1 of expected_level as correct).
 9. Do not output any text outside the JSON object.
@@ -364,6 +382,20 @@ def _validate_full_schema(gt: dict) -> None:
             f"expected_decision.outcome is {outcome!r}; the shape allows only "
             f"{_DECISION_OUTCOMES}. An acceptance carrying conditions is "
             f"'Accepted' with the conditions in the rationale.")
+
+    # required_level must discriminate across factors. Measured on the first
+    # v2 run: only 6 of 97 bundles carried more than one distinct value, which
+    # means a control predicting the bundle's modal required_level would score
+    # near 100% -- the same saturation that made detection F1 meaningless,
+    # arriving in a new field. Two distinct values is a floor, not a target.
+    reqs = {f.get("expected_required_level") for f in gt["expected_factors"]
+            if isinstance(f.get("expected_required_level"), int)}
+    if len(gt["expected_factors"]) >= 6 and len(reqs) < 2:
+        raise ValueError(
+            f"expected_required_level is {reqs} for every factor. It must vary: "
+            f"V&V 40 sets the goal per factor from model risk AND how much that "
+            f"factor influences the decision. A uniform column is saturated by a "
+            f"constant and measures nothing.")
 
     for f in gt["expected_factors"]:
         status, level = f.get("expected_status"), f.get("expected_level")
@@ -514,6 +546,7 @@ def generate_one_bundle(
     output_root: Path,
     pack_to_factors: dict[str, list[str]],
     raw_dir: Path | None = None,
+    reground: bool = False,
 ) -> dict:
     """Generate (or skip) one bundle. Returns a per-bundle generation report.
 
@@ -528,7 +561,17 @@ def generate_one_bundle(
     md_path = bundle_dir / "metadata.json"
 
     started = datetime.now(timezone.utc)
-    if src_dir.is_dir() and gt_path.exists() and md_path.exists():
+    complete = src_dir.is_dir() and gt_path.exists() and md_path.exists()
+
+    # Reground: re-run Step B against the source documents already on disk and
+    # rewrite only ground_truth.json.
+    #
+    # This exists because ground truth and evidence have different lifetimes. A
+    # defect in the ground-truth prompt -- required_level uniform across every
+    # factor, say -- does not make the documents wrong, and regenerating them
+    # would invalidate every extraction already paid for against them. Step B is
+    # also the cheaper half.
+    if complete and not reground:
         return {
             "bundle_id": bundle_id, "status": "skipped",
             "tokens_in": 0, "tokens_out": 0, "cost_estimate_usd": 0.0,
@@ -541,25 +584,34 @@ def generate_one_bundle(
     fmt = bundle_spec["format"]
     factor_names = pack_to_factors[standard]
 
-    # ----- Step A: source generation -----
-    step_a_prompt = SOURCE_GENERATION_PROMPT.format(
-        standard=standard, domain=domain, quality=quality, format=fmt,
-    )
-    options_a = GenerationOptions(temperature=0.7, max_tokens=8192)
-    try:
-        step_a_response = backend.generate(step_a_prompt, options_a)
-    except Exception as exc:  # noqa: BLE001
-        return _failed(bundle_id, started, f"step-A backend error: {exc}")
+    if reground:
+        if not src_dir.is_dir() or not any(src_dir.iterdir()):
+            return _failed(bundle_id, started, "reground: no source/ to reground against")
+        files = [{"name": f.name, "content": f.read_text(errors="ignore")}
+                 for f in sorted(src_dir.glob("*")) if f.is_file()]
+        step_a_prompt = ""
+        step_a_response = ""
+        step_a_data = {}
+    else:
+        # ----- Step A: source generation -----
+        step_a_prompt = SOURCE_GENERATION_PROMPT.format(
+            standard=standard, domain=domain, quality=quality, format=fmt,
+        )
+        options_a = GenerationOptions(temperature=0.7, max_tokens=8192)
+        try:
+            step_a_response = backend.generate(step_a_prompt, options_a)
+        except Exception as exc:  # noqa: BLE001
+            return _failed(bundle_id, started, f"step-A backend error: {exc}")
 
-    if raw_dir is not None:
-        raw_dir.mkdir(parents=True, exist_ok=True)
-        (raw_dir / f"{bundle_id}_step_a.txt").write_text(step_a_response)
+        if raw_dir is not None:
+            raw_dir.mkdir(parents=True, exist_ok=True)
+            (raw_dir / f"{bundle_id}_step_a.txt").write_text(step_a_response)
 
-    try:
-        step_a_data = _parse_step_a_response(step_a_response)
-        files = step_a_data["files"]
-    except Exception as exc:  # noqa: BLE001
-        return _failed(bundle_id, started, f"step-A parse error: {exc}")
+        try:
+            step_a_data = _parse_step_a_response(step_a_response)
+            files = step_a_data["files"]
+        except Exception as exc:  # noqa: BLE001
+            return _failed(bundle_id, started, f"step-A parse error: {exc}")
 
     # ----- Step B: ground-truth extraction -----
     step_b_prompt = GROUND_TRUTH_EXTRACTION_PROMPT.format(
@@ -596,17 +648,24 @@ def generate_one_bundle(
         return _failed(bundle_id, started, f"step-B parse error: {exc}")
 
     # ----- Write artifacts -----
-    src_dir.mkdir(parents=True, exist_ok=True)
-    for f in files:
-        (src_dir / f["name"]).write_text(f["content"])
-    gt_path.write_text(json.dumps(ground_truth, indent=2))
-    md_path.write_text(json.dumps({
-        **bundle_spec,
-        "generated_at": started.isoformat(),
-        "model": backend.model_name,
-        "domain_hint": step_a_data.get("domain_hint"),
-        "ambiguity_notes": step_a_data.get("ambiguity_notes", ""),
-    }, indent=2))
+    if reground:
+        # Only the ground truth is rewritten. The documents are what every
+        # extraction already paid for was run against, and metadata records when
+        # they were produced -- rewriting either would silently invalidate work
+        # that is still perfectly good.
+        gt_path.write_text(json.dumps(ground_truth, indent=2))
+    else:
+        src_dir.mkdir(parents=True, exist_ok=True)
+        for f in files:
+            (src_dir / f["name"]).write_text(f["content"])
+        gt_path.write_text(json.dumps(ground_truth, indent=2))
+        md_path.write_text(json.dumps({
+            **bundle_spec,
+            "generated_at": started.isoformat(),
+            "model": backend.model_name,
+            "domain_hint": step_a_data.get("domain_hint"),
+            "ambiguity_notes": step_a_data.get("ambiguity_notes", ""),
+        }, indent=2))
 
     elapsed = (datetime.now(timezone.utc) - started).total_seconds()
     tokens_in = _approx_tokens(step_a_prompt) + _approx_tokens(step_b_prompt)
@@ -645,6 +704,9 @@ def main() -> int:
                         help="Path to write a JSON generation report")
     parser.add_argument("--save-raw", type=Path, default=None,
                         help="Directory to dump raw Step A/B responses for debugging")
+    parser.add_argument("--reground", action="store_true",
+                        help="re-run Step B against existing source/ and rewrite "
+                             "only ground_truth.json, leaving documents untouched")
     parser.add_argument("--dry-run", action="store_true",
                         help="Print the bundle plan without making API calls")
     args = parser.parse_args()
@@ -689,6 +751,7 @@ def main() -> int:
         futures = {
             executor.submit(
                 generate_one_bundle, b, backend, args.output_root, pack_to_factors, args.save_raw,
+                args.reground,
             ): b
             for b in bundles
         }
