@@ -15,6 +15,36 @@ rather than omitting the row. Any eval built on detection ranks a null model at
 the top, and three candidates (K1, K4, K6) failed against it while telling us
 nothing.
 
+**The sparse campaign is abandoned, and the reason is the finding.** C1 aimed to
+push the corpus to 30-60% `not_applicable` so the checklist constant would stop
+being unbeatable. Measured, on the only real data we have:
+
+| corpus | bundles | N/A rate | constant precision |
+|---|---|---|---|
+| **real NTRS (Tier 1)** | 13 | **0.0%** | **1.000** |
+| synthetic v2 dev | 54 | 12.8% | 0.872 |
+| synthetic v2 test | 33 | 10.5% | 0.895 |
+
+Zero N/A across 78 real factor rows. The synthetic corpus is *already* more
+adversarial to the constant than reality is, and driving it to 45% would
+manufacture a property real documents do not have — a detection score that looks
+discriminating and transfers to nothing. That is the failure this plan exists to
+stop, so the campaign stops instead.
+
+Caveat, stated because it cuts both ways: Tier 1 bundles were *selected* for
+publishing a filled CAS table, so 0% is the property of documents that publish a
+complete assessment, not of engineering documents generally. The real rate for
+unselected documents is unknown. That makes 12.8% a guess — and 45% a bigger one.
+
+**Ground truth over-credits, so 12.8% is itself an upper bound on N/A.** Step B
+marks a factor `assessed` from general context. On 1389 rows, 313 (22.5%) have no
+content word of the factor name anywhere in the source, and **218 of those are
+marked `assessed` anyway**. Lexical absence is a weak proxy — a document may
+address a factor purely in paraphrase — so 218 bounds the over-crediting rather
+than counting it. Hand-checked on one bundle where the writer genuinely dropped
+three factors, Step B marked one. Consequence: recall figures against this ground
+truth are optimistic by an unmeasured margin, and only V1 closes it.
+
 **Attribution is the metric that works.** Which factor the evidence belongs to,
 scored against `evidence_keywords` on held-out bundles:
 
@@ -60,9 +90,27 @@ of coefficients, seconds to train, offline.
 
 | | | |
 |---|---|---|
-| **C1** | Finish sparse convergence | running, 78/97, ~$1 |
+| ~~**C1**~~ | ~~Finish sparse convergence~~ | **abandoned** — see above; real N/A is 0% |
 | **C2** | Re-extract regenerated bundles, re-score | ~$3 |
 | **C3** | Fix 20 colliding bundle ids between dev and test manifests | free, ~30 min |
+
+C1 stopped at 54 dev / 33 test bundles (26 sparse specs ungenerated). Two
+mechanisms were tried and both are recorded in the generator rather than
+deleted, because the second one works and is the right way to build a sparse
+corpus if one is ever wanted:
+
+* *Instructed omission* — "at least 40% of the factors must be missing".
+  Produced 8-21% across five rounds of escalating wording. Step A is never given
+  the factor list, so this asks a writer to subtract a fraction from a set it
+  holds only in its head.
+* *Structural omission* (`sparse_scope`) — name the ~55% subset the document may
+  cover and withhold the rest. Guarantees 46% withheld by construction,
+  deterministic per bundle, every factor still covered somewhere. Compliance is
+  partial: one dry-run bundle dropped its out-of-scope factors cleanly, another
+  covered everything anyway.
+
+The mechanism is retained and tested (`tests/test_sparse_scope.py`); the
+campaign it was built for is not worth running.
 
 C3 is a bug I introduced numbering both splits from index 9. No content leaked
 (0 of the 20 have identical documents) but an id-keyed split is unverifiable,
@@ -85,7 +133,17 @@ Both are extractors, so both need their own correctness measure: groundedness
 cannot see a *selection* error, where the wrong model or the wrong decision is
 lifted verbatim.
 
-### External validity, ~2h, free — the highest-value item left
+### External validity, ~2h, free — DEFERRED by decision
+
+**Status: deferred.** Sequencing decision taken 2026-08-06: K3 and K5 run
+first. The argument for doing V1 first was made and not accepted, which is a
+legitimate call — it trades earlier candidate coverage against later validation.
+
+**The consequence, recorded so it is not lost:** until V1 runs, every figure in
+this plan is synthetic-only. By this plan's own rule that puts all of them in
+the middle band — *"continue, but re-label every synthetic figure as
+real-document transfer unverified"* — including K3's and K5's when they land.
+That label belongs on the numbers in any write-up, not just in this paragraph.
 
 **V1. Hand-annotate 2-3 real NTRS bundles** at sentence level.
 

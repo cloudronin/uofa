@@ -40,6 +40,7 @@ import argparse
 import concurrent.futures
 import json
 import os
+import random
 import re
 import sys
 from datetime import datetime, timezone
@@ -75,7 +76,7 @@ the right concepts in real-language documents.
 ## Bundle parameters
 
 - **Standard:** {standard} (the framework whose factors should be discoverable)
-- **Domain:** {domain}
+{scope_block}- **Domain:** {domain}
 - **Quality:** {quality}
 - **Format:** {format}
 
@@ -84,27 +85,26 @@ the right concepts in real-language documents.
 - `complete`: every factor in {standard} has clear, well-supported evidence
   in the document(s). A diligent human reviewer should be able to assign
   a defensible level (1-4) to each factor.
-- `sparse`: **AT LEAST 40% of the factors in {standard} must be missing
-  entirely.** That is 6 of 13 for vv40, 8 of 19 for nasa-7009b — count
-  them before you write, and count them again after.
+- `sparse`: the document covers only PART of the standard. The **Topics in
+  scope** list above is exhaustive: write about those and nothing else.
 
-  An earlier version of this instruction said "roughly half" in one
-  breath and "4-7 factors" in the next, which for a 19-factor pack are
-  different numbers. It produced 18% omission against a 30-60% target,
-  and the consequence is precise: `control_constant_list` — a function
-  that prints the standard's checklist and reads nothing — scores
-  precision 1 minus the omission rate. At 18% it scores 0.92 and beats
-  most real extractors. The corpus was making detection unmeasurable.
+  Do not mention, list, allude to, or apologise for any aspect of
+  {standard} outside that list — not in passing, not in a table of
+  contents, not as "not covered here". Write as though the topics in
+  scope are simply what this assessment is about. Engineers leave things
+  out for reasons (out of scope for this phase, vendor data unavailable,
+  deferred to the next milestone), and such a document reads as a
+  complete treatment of a narrower remit, not as a document with holes.
 
-  The omitted factors must be OMITTED ENTIRELY — do not mention them at
-  all, not even in passing, not in a table of contents, not as "not
-  covered here". Engineers
-  leave things out for reasons: out of scope for this phase, vendor data
-  not available, deferred to next milestone, no time before review,
-  competing priorities. The goal is for the GROUND-TRUTH extractor (you,
-  in Step B) to mark those omitted factors `not_applicable`. If you only
-  shorten descriptions but mention every factor, that's NOT sparse —
-  that's just a shorter complete bundle.
+  This used to be phrased as "omit at least 40% of the factors", which
+  asked you to subtract a fraction from a list you were never given. It
+  produced 8-21% omission across five rounds of increasingly emphatic
+  wording, because a writer covers what it knows about. Naming the
+  included set instead makes the omission structural, and the consequence
+  is precise: `control_constant_list` — a function that prints the
+  standard's checklist and reads nothing — scores precision 1 minus the
+  omission rate. At 18% it scores 0.92 and beats most real extractors,
+  which is what made detection unmeasurable.
 - `ambiguous`: at least 3-4 factors have CONTRADICTORY or MISLEADING
   evidence (e.g., the document says one thing in §2 and another in §5;
   or the methodology described doesn't match the rigour level claimed).
@@ -495,6 +495,36 @@ def _format_factor_list(factor_names: list[str]) -> str:
     return "\n".join(f"- {name}" for name in factor_names)
 
 
+# Fraction of the checklist a sparse document is allowed to discuss. The guard
+# downstream requires >=30% genuinely absent; 0.55 leaves 45% withheld, so a
+# writer that drifts and mentions one extra topic still clears it.
+_SPARSE_COVERAGE = 0.55
+
+
+def sparse_scope(factor_names: list[str], bundle_id: str) -> list[str]:
+    """The factors a sparse document may discuss. Deterministic per bundle.
+
+    Omission was previously requested in the prompt -- "at least 40% of the
+    factors must be missing" -- and the model complied at 8-21% however the
+    instruction was worded. The reason is that Step A is never given the factor
+    list: it is told the standard's name and asked to subtract a fraction of a
+    set it is holding in its head. Naming the *included* subset instead makes
+    the omission structural rather than instructed.
+
+    Seeded on bundle_id so the withheld set varies across bundles -- a fixed
+    subset would leave the same factors unrepresented corpus-wide -- while
+    staying reproducible for anyone regenerating a single bundle.
+
+    Step B is deliberately NOT told which factors were withheld. It reads the
+    document and judges, so ground truth records what is on the page rather
+    than what was intended, and the >=30%-absent guard stays a real check on
+    whether this mechanism worked.
+    """
+    rng = random.Random(f"sparse:{bundle_id}")
+    n = max(1, round(len(factor_names) * _SPARSE_COVERAGE))
+    return sorted(rng.sample(list(factor_names), n))
+
+
 def _format_source_documents(files: list[dict]) -> str:
     parts = []
     for f in files:
@@ -670,8 +700,18 @@ def generate_one_bundle(
         step_a_data = {}
     else:
         # ----- Step A: source generation -----
+        scope_block = ""
+        if quality == "sparse":
+            scope = sparse_scope(factor_names, bundle_id)
+            scope_block = (
+                "- **Topics in scope (EXHAUSTIVE — write about these and "
+                "nothing else):**\n"
+                + "\n".join(f"    - {s}" for s in scope)
+                + "\n  Paraphrase these; do not use the wording above verbatim.\n"
+            )
         step_a_prompt = SOURCE_GENERATION_PROMPT.format(
             standard=standard, domain=domain, quality=quality, format=fmt,
+            scope_block=scope_block,
         )
         options_a = GenerationOptions(temperature=0.7, max_tokens=8192)
         try:
