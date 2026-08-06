@@ -5,14 +5,28 @@
 **Spec:** [`Product Requirements/UofA_Extract_Prompt_Iteration_Spec_v1.md`](../Product%20Requirements/UofA_Extract_Prompt_Iteration_Spec_v1.md)
 **Status:** Complete — prompt frozen at v4-kv
 
-> **Read the detection figures below with the null-model controls beside them.**
-> Added Aug 5, 2026. The numbers in this report are correct as run and are left
-> exactly as reported. What has changed is what they mean: emitting the pack's
-> fixed checklist — a function with zero parameters that reads none of the input
-> — scores **F1 0.960** on this corpus, because ground truth lists the full
-> checklist and marks 92.5% of rows `assessed`. So the 0.964 headline sits
-> **0.004** above a constant, not 0.114 above the 0.85 target, and the ±1 level
-> tolerance is saturated by predicting the constant 2.
+> **This report scores one of the thirteen properties the schema requires.**
+> Added Aug 5, 2026. The numbers below are correct as run and are left exactly
+> as reported. What has changed is what they describe.
+>
+> `UnitOfAssurance_CompleteBody` requires 13 properties at `minCount ≥ 1`.
+> `score_bundle` scored `hasCredibilityFactor` and stopped, so every figure in
+> this report describes that one property. Twelve were scored nowhere, and the
+> project's own SHACL validator had never been run over the extractor's output
+> — when finally run, **37 of 45 packages failed it** while this report says
+> PASS.
+>
+> Measured since: schema coverage `bindsRequirement` 54%, `bindsDataset` 80%,
+> `bindsModel` 82%; SHACL conformance 13/45; packages that conform *and* meet
+> every requirement with real content rather than template help text, **0/45**.
+>
+> **Second, and smaller:** the detection metric is saturated. Emitting the pack's
+> fixed checklist — zero parameters, reads none of the input — scores **F1
+> 0.960**, because ground truth lists the full checklist and marks 92.5% of rows
+> `assessed`. The 0.964 headline sits **0.004** above that constant, not 0.114
+> above the 0.85 target, and the ±1 level tolerance is saturated by predicting
+> the constant 2. That same constant **cannot produce a package at all** — its
+> output fails `uofa import` on the Minimal profile's requirements.
 >
 > The per-factor level figures are affected too: the 0.55 on *Numerical solver
 > error* reads as the model failing, but it is the model predicting levels 4 and

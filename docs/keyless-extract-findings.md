@@ -6,6 +6,67 @@ candidate, including the ones that failed, with what each cost.
 Companion to `keyless-extract-investigation-spec.md`. Measured against the
 50-bundle corpus in `tests/fixtures/extract_corpus/`.
 
+## The eval scored one of the thirteen properties the schema requires
+
+This is the finding to read first. Everything below about detection F1 is real,
+and it is the smaller problem.
+
+`UnitOfAssurance_CompleteBody` requires **13 properties** at `minCount ≥ 1`.
+`score_bundle` called `score_factors` and stopped. `score_summary` and
+`score_decision` existed but only ever ran against two regression fixtures, never
+the 50-bundle corpus. So the reported `mean overall F1 0.964` described
+`hasCredibilityFactor` and nothing else, and **twelve required properties were
+scored nowhere**.
+
+Nobody had run the project's own validator over the extractor's output either.
+When finally run: **37 of 45 packages failed SHACL** while the eval reported
+PASS.
+
+Even a perfect detector on a perfect corpus would still have been describing
+one-thirteenth of the deliverable. An earlier draft of this document led with
+the 0.004 headroom and put this in a supporting table; that was the wrong way
+round.
+
+### The constant does not produce a package at all
+
+| Variant | Detection F1 | Schema coverage | Importable | SHACL |
+|---|---:|---:|---|---|
+| `control_empty` | 0.000 | **0/9** | **no** | — |
+| `control_constant_list` | **0.960** | **1/9** | **no** | — |
+| LLM (v4-kv) | 0.964 | **8/9** | yes | 13/45 conform · **0/45** of substance |
+
+`control_constant_list` scores within 0.004 of the model on the metric this eval
+reported, and fails `uofa import` on the **Minimal** profile's requirements —
+missing Project Name, COU Name, Decision Outcome — three sheets before
+ProfileComplete is considered. It is not a deficient credibility package. It is
+not a package.
+
+The new metrics do not replace detection F1: detection is what correctly
+separates `control_empty` from `control_constant_list`, which schema coverage
+cannot, since neither imports. Each bounds a different failure, and a candidate
+now has to clear import, populate the schema, **and** beat the constant on
+detection. Pinned in `tests/test_control_produces_no_package.py`.
+
+### The schema was rewarding fabrication
+
+Three cases, each one where a required property is satisfied by a value carrying
+no information, all invisible to every number the eval reported:
+
+| | Mechanism | Scale |
+|---|---|---|
+| `deviceClass` | Core imposed FDA classes on every pack. Packages inventing "Class II" for a turbomachinery model **passed**; ones honestly writing "Turbomachinery (Centrifugal Pump)" **failed** | 14 fabricated, 25 failing |
+| `decision` | Both prompts instructed "conditionally accepted"; the shape allowed only Accepted / Not accepted | 26 packages |
+| `wasDerivedFrom` | Satisfied by the template's own help text, "DOI, report number, or URI" — JSON-LD coerces it to a `file://` URI meeting `nodeKind sh:IRI` | **27 of 27** |
+
+The third is the sharpest: a required property met, in every package, by the
+instructions for meeting it. Root cause was that only the `mrm-nist` prompt ever
+asked for `source_document`; `vv40` and `nasa-7009b` never did, so the template
+placeholder survived into every package.
+
+All three are fixed. `deviceClass` is pack-scoped with `N/A` allowed, both
+prompts stop offering "conditionally accepted", and both now ask for the real
+source document.
+
 ## The measurement was broken, and repairing it is the first finding
 
 Two constant functions saturate the metrics this eval reports. Neither reads a
