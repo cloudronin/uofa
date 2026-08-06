@@ -84,10 +84,21 @@ the right concepts in real-language documents.
 - `complete`: every factor in {standard} has clear, well-supported evidence
   in the document(s). A diligent human reviewer should be able to assign
   a defensible level (1-4) to each factor.
-- `sparse`: roughly half the factors in {standard} have explicit evidence.
-  The rest you must OMIT ENTIRELY from the source documents — do not
-  mention them at all, not even in passing. Pick a realistic subset of
-  4-7 factors to leave out (more for NASA-7009B's 19 factors). Engineers
+- `sparse`: **AT LEAST 40% of the factors in {standard} must be missing
+  entirely.** That is 6 of 13 for vv40, 8 of 19 for nasa-7009b — count
+  them before you write, and count them again after.
+
+  An earlier version of this instruction said "roughly half" in one
+  breath and "4-7 factors" in the next, which for a 19-factor pack are
+  different numbers. It produced 18% omission against a 30-60% target,
+  and the consequence is precise: `control_constant_list` — a function
+  that prints the standard's checklist and reads nothing — scores
+  precision 1 minus the omission rate. At 18% it scores 0.92 and beats
+  most real extractors. The corpus was making detection unmeasurable.
+
+  The omitted factors must be OMITTED ENTIRELY — do not mention them at
+  all, not even in passing, not in a table of contents, not as "not
+  covered here". Engineers
   leave things out for reasons: out of scope for this phase, vendor data
   not available, deferred to next milestone, no time before review,
   competing priorities. The goal is for the GROUND-TRUTH extractor (you,
@@ -366,7 +377,7 @@ _REQUIRED_GT_SECTIONS = (
 _DECISION_OUTCOMES = ("Accepted", "Not accepted")
 
 
-def _validate_full_schema(gt: dict) -> None:
+def _validate_full_schema(gt: dict, quality: str | None = None) -> None:
     """Reject a generated ground truth that would repeat a known corpus defect.
 
     Checked here, before the bundle is written and before the next one is paid
@@ -396,6 +407,22 @@ def _validate_full_schema(gt: dict) -> None:
             f"V&V 40 sets the goal per factor from model risk AND how much that "
             f"factor influences the decision. A uniform column is saturated by a "
             f"constant and measures nothing.")
+
+    # A sparse bundle that is not actually sparse is worse than no sparse
+    # bundle: it inflates the share of `assessed` rows, and the checklist
+    # control's precision is exactly 1 minus the omission rate. Verified here
+    # rather than trusted to the prompt, because the prompt asked for this and
+    # was quietly ignored -- 18% delivered against a 30-60% target.
+    if quality == "sparse":
+        n = len(gt["expected_factors"])
+        na = sum(1 for f in gt["expected_factors"]
+                 if f.get("expected_status") == "not_applicable")
+        if n and na / n < 0.30:
+            raise ValueError(
+                f"sparse bundle omits only {na}/{n} ({na/n:.0%}) of factors; "
+                f"at least 30% must be absent from the source. A sparse bundle "
+                f"that mentions everything is a shorter complete bundle, and it "
+                f"is what keeps the checklist control unbeatable.")
 
     for f in gt["expected_factors"]:
         status, level = f.get("expected_status"), f.get("expected_level")
@@ -643,7 +670,7 @@ def generate_one_bundle(
                 f"expected_factors length {gt_factor_count} != "
                 f"{len(factor_names)} canonical factors for {standard}"
             )
-        _validate_full_schema(ground_truth)
+        _validate_full_schema(ground_truth, quality)
     except Exception as exc:  # noqa: BLE001
         return _failed(bundle_id, started, f"step-B parse error: {exc}")
 
