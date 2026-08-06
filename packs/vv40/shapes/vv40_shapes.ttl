@@ -67,3 +67,32 @@ uofa:VV40LevelRangeShape a sh:NodeShape ;
             }
         """ ;
     ] .
+
+
+# deviceClass: the FDA classification, constrained here rather than in core.
+#
+# ASME V&V 40 is "Assessing Credibility of Computational Modeling through
+# Verification and Validation: Application to Medical Devices", so the FDA risk
+# class is meaningful under this pack and meaningless under nasa-7009b. Core
+# used to impose the enum on every package, which produced the inverse of a
+# constraint: aerospace packages that invented "Class II" for a turbomachinery
+# model passed, and packages that honestly wrote "Turbomachinery (Centrifugal
+# Pump)" failed.
+#
+# "N/A" is allowed, and is the point. Both extract prompts already offer it, and
+# a V&V 40 assessment of something that is not a regulated device needs a way to
+# say so without either fabricating a class or failing validation.
+#
+# Attached to the core body shape by RDF merge rather than declared as a
+# separate NodeShape. That is load-bearing: shacl_friendly.py drills into the
+# body shape the document declares and walks its sh:property list by hand to
+# build the field-level report. A standalone shape still fires, but reports
+# without the requirement/actual/fix detail -- which is exactly the opaque
+# rollup the drill-in exists to replace.
+uofa:UnitOfAssurance_CompleteBody
+    sh:property [
+        sh:path uofa:deviceClass ;
+        sh:maxCount 1 ;
+        sh:in ( "Class I" "Class II" "Class III" "N/A" ) ;
+        sh:message "deviceClass must be Class I, Class II, Class III (FDA classification), or N/A when the context of use is not a regulated device." ;
+    ] .

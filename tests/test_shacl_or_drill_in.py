@@ -46,9 +46,17 @@ MORRISON_COU1 = (Path(__file__).parent.parent / "packs" / "vv40"
                     reason=f"missing fixture: {FAILING_XLSX}")
 class TestOrDrillInOnAeroCou1:
     """The pinned aero-cou1 file declares ProfileComplete but is missing
-    bindsModel + bindsDataset and has an off-enum deviceClass. The drill-in
-    must surface exactly those three field-level violations — not the
-    legacy single 'Profile' rollup.
+    bindsModel + bindsDataset. The drill-in must surface those field-level
+    violations — not the legacy single 'Profile' rollup.
+
+    It also carries an off-enum deviceClass ('Class II (safety-critical
+    propulsion)'), which used to be a third violation here. It no longer fires
+    under nasa-7009b: the FDA enum moved out of core into
+    packs/vv40/shapes/vv40_shapes.ttl, because imposing medical device classes
+    on aerospace packages inverted the constraint -- turbomachinery models that
+    invented "Class II" passed while ones that honestly wrote "Turbomachinery
+    (Centrifugal Pump)" failed. The enum drill-in is still covered, against the
+    pack that still declares it: see TestEnumDrillInUnderVv40 below.
     """
 
     @pytest.fixture(scope="class")
@@ -67,19 +75,19 @@ class TestOrDrillInOnAeroCou1:
         )
 
     def test_violations_count(self, violations):
-        # 3 known failures: bindsModel missing, bindsDataset missing,
-        # deviceClass off-enum. (bindsRequirement and wasDerivedFrom
-        # appear to satisfy nodeKind sh:IRI after JSON-LD coerces
-        # their string values to file:// URIs — separate concern,
-        # not in scope for this fix.)
-        assert len(violations) == 3, (
+        # 2 known failures: bindsModel missing, bindsDataset missing.
+        # deviceClass was a third until the FDA enum became pack-scoped.
+        # (bindsRequirement and wasDerivedFrom appear to satisfy nodeKind
+        # sh:IRI after JSON-LD coerces their string values to file:// URIs —
+        # separate concern, not in scope for this fix.)
+        assert len(violations) == 2, (
             f"expected 3 violations on the pinned fixture; got {len(violations)}: "
             f"{[v.get('path') for v in violations]}"
         )
 
     def test_each_violation_names_the_failing_field(self, violations):
         paths_failed = {v["path"] for v in violations}
-        assert paths_failed == {"bindsModel", "bindsDataset", "deviceClass"}, (
+        assert paths_failed == {"bindsModel", "bindsDataset"}, (
             f"unexpected violations: {paths_failed}"
         )
 
@@ -102,14 +110,14 @@ class TestOrDrillInOnAeroCou1:
             assert v["actual"] == "MISSING", f"{v['path']}: actual should be MISSING"
             assert "minCount" in v["requirement"]
 
-    def test_enum_violation_names_the_allowed_set(self, violations):
-        # deviceClass has 'Class II (safety-critical propulsion)' which
-        # isn't in {Class I, Class II, Class III}. The user should see
-        # the allowed set in the requirement text and the actual value
-        # they emitted (with its extra suffix) in the actual field.
-        dc = next(v for v in violations if v["path"] == "deviceClass")
-        assert "Class I" in dc["requirement"] and "Class II" in dc["requirement"]
-        assert "safety-critical propulsion" in dc["actual"]
+    def test_deviceclass_no_longer_fires_under_a_non_medical_pack(self, violations):
+        """The pack-scoping, asserted where it would otherwise look like a loss.
+
+        The fixture still carries an off-enum deviceClass. Under nasa-7009b that
+        is no longer a violation, because the FDA classification is a property
+        of the medical regulatory regime rather than of every package.
+        """
+        assert "deviceClass" not in {v["path"] for v in violations}
 
     def test_fix_suggestions_are_actionable(self, violations):
         # Each fix string must be concrete (not the legacy generic
@@ -120,6 +128,49 @@ class TestOrDrillInOnAeroCou1:
                 f"{v['path']}: fix shouldn't refer back to --raw; that was "
                 f"the dead-end the drill-in replaces"
             )
+
+
+@pytest.mark.skipif(not FAILING_XLSX.exists(),
+                    reason=f"missing fixture: {FAILING_XLSX}")
+class TestEnumDrillInUnderVv40:
+    """The enum drill-in, moved to the pack that still declares the enum.
+
+    `deviceClass` used to exercise this under nasa-7009b. The FDA classification
+    is now scoped to vv40, where V&V 40's medical-device remit makes it
+    meaningful, so the same fixture and the same off-enum value test the same
+    reporting path under the pack that constrains it.
+
+    What must survive is the property the original bug was about: an enum
+    violation has to name the allowed set and echo what the user actually wrote,
+    rather than collapsing into the opaque 'Profile' rollup.
+    """
+
+    @pytest.fixture(scope="class")
+    def violations(self):
+        shapes = paths.all_shacl_schemas(active=["vv40"])
+        conforms, violations = run_shacl_multi(FAILING_XLSX, shapes)
+        assert conforms is False
+        return violations
+
+    def test_enum_violation_names_the_allowed_set(self, violations):
+        dc = next((v for v in violations if v["path"] == "deviceClass"), None)
+        assert dc is not None, (
+            "deviceClass should still be constrained under vv40; if this fails "
+            "the enum was dropped rather than moved. Violations: "
+            f"{[v.get('path') for v in violations]}")
+        assert "Class I" in dc["requirement"] and "Class II" in dc["requirement"]
+        assert "safety-critical propulsion" in dc["actual"]
+
+    def test_na_is_allowed_so_a_non_device_can_say_so(self, violations):
+        """The reason the enum gained N/A rather than staying strict.
+
+        A V&V 40 assessment of something that is not a regulated device needs a
+        way to record that without either inventing a class or failing
+        validation. Before this, 14 turbomachinery packages passed by claiming
+        "Class II".
+        """
+        dc = next(v for v in violations if v["path"] == "deviceClass")
+        assert "N/A" in dc["requirement"]
 
 
 @pytest.mark.skipif(not MORRISON_COU1.exists(),

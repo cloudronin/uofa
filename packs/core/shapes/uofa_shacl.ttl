@@ -874,11 +874,25 @@ uofa:UnitOfAssurance_CompleteBody
     sh:maxInclusive 5 ;
     sh:message "Complete: modelRiskLevel is required (integer 1–5, per V&V 40 risk matrix)." ;
   ] ;
+  # deviceClass carries no enum in core, deliberately.
+  #
+  # The FDA classification is a property of the *regulatory regime* the COU sits
+  # in, not of every package. Constraining it here applied Class I/II/III to
+  # aerospace and thermal packages, and the effect was the opposite of what a
+  # constraint is for: of 50 corpus packages, the 18 that passed included 14
+  # turbomachinery models labelled "Class II" -- a fabricated medical device
+  # class for a CFD simulation -- while packages that honestly wrote
+  # "Turbomachinery (Centrifugal Pump)" failed. The shape was rewarding
+  # invention and punishing accuracy.
+  #
+  # The enum lives in packs/vv40/shapes/vv40_shapes.ttl, where V&V 40's
+  # medical-device scope actually applies. Domains with their own regime
+  # constrain it in their own pack; domains with none leave it unconstrained.
   sh:property [
     sh:path uofa:deviceClass ;
     sh:maxCount 1 ;
-    sh:in ( "Class I" "Class II" "Class III" ) ;
-    sh:message "Complete: deviceClass must be Class I, Class II, or Class III (FDA classification)." ;
+    sh:datatype xsd:string ;
+    sh:message "Complete: deviceClass must be a single string, if present." ;
   ] ;
   sh:property [
     sh:path uofa:couName ;
