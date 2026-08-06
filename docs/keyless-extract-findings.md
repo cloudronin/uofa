@@ -6,10 +6,54 @@ candidate, including the ones that failed, with what each cost.
 Companion to `keyless-extract-investigation-spec.md`. Measured against the
 50-bundle corpus in `tests/fixtures/extract_corpus/`.
 
+## The tool was shipping invalid packages and nothing noticed
+
+Read this first. It is not a finding about an eval.
+
+`uofa` produces credibility packages. It has a schema — `UnitOfAssurance_CompleteBody`,
+thirteen properties at `minCount >= 1` — and a validator, `uofa shacl`, that
+checks a package against it.
+
+**Nobody had ever run the validator over the extractor's output.** When it was
+finally run: **37 of 45 packages failed**, while the eval reported
+`mean overall F1 0.964 — PASS`.
+
+Two of the three causes were contradictions inside the product, not model
+errors:
+
+| | | |
+|---|---|---|
+| `decision` | 26 | Both extract prompts instruct *"accepted, not accepted, or **conditionally accepted**"*. The shape allows only `Accepted` / `Not accepted`. **The prompt told the extractor to emit a value the schema forbids.** |
+| `deviceClass` | 25 | Core imposed FDA medical classes on every pack. **The packages that passed were the ones that lied** — 14 turbomachinery models labelled "Class II" — while packages honestly writing "Turbomachinery (Centrifugal Pump)" failed. The constraint rewarded fabrication and punished accuracy. |
+| `wasDerivedFrom` | 27/27, then 59/59 | Satisfied by the template's own help text, `"DOI, report number, or URI"`. JSON-LD coerces the string to a `file://` URI, which satisfies `nodeKind sh:IRI`. **A required property met by the instructions for meeting it.** |
+
+None of this was visible in any number the project reported. The eval scored one
+property of thirteen and never validated anything, so a package could be
+malformed, self-contradictory, or filled with boilerplate and still be recorded
+as a pass.
+
+### Why this belongs in the praxis, not just the changelog
+
+The thesis of this tool is that model credibility should be *evidenced and
+checkable* rather than asserted. The tool asserted its own correctness for a
+year and was wrong 82% of the time — and the failure was invisible precisely
+because nothing independent was checking.
+
+That is the argument for the product, made against the product. A credibility
+artefact nobody validates is a claim, not evidence. The fixes are one commit;
+the lesson is that **the check has to be run, by something that does not share
+the producer's assumptions, or it does not exist.**
+
+Fixed: `deviceClass` is pack-scoped with `N/A` allowed, the prompts stop
+offering a forbidden value, `source_document` is asked for and written, and
+schema coverage plus SHACL validity now run on **every** batch — with null
+models for each, because a coverage number a constant can saturate is how this
+happened in the first place.
+
 ## The eval scored one of the thirteen properties the schema requires
 
-This is the finding to read first. Everything below about detection F1 is real,
-and it is the smaller problem.
+Why nothing caught the above. Everything below about detection F1 is real, and
+it is the smaller problem again.
 
 `UnitOfAssurance_CompleteBody` requires **13 properties** at `minCount ≥ 1`.
 `score_bundle` called `score_factors` and stopped. `score_summary` and
@@ -17,10 +61,6 @@ and it is the smaller problem.
 the 50-bundle corpus. So the reported `mean overall F1 0.964` described
 `hasCredibilityFactor` and nothing else, and **twelve required properties were
 scored nowhere**.
-
-Nobody had run the project's own validator over the extractor's output either.
-When finally run: **37 of 45 packages failed SHACL** while the eval reported
-PASS.
 
 Even a perfect detector on a perfect corpus would still have been describing
 one-thirteenth of the deliverable. An earlier draft of this document led with
@@ -46,26 +86,6 @@ separates `control_empty` from `control_constant_list`, which schema coverage
 cannot, since neither imports. Each bounds a different failure, and a candidate
 now has to clear import, populate the schema, **and** beat the constant on
 detection. Pinned in `tests/test_control_produces_no_package.py`.
-
-### The schema was rewarding fabrication
-
-Three cases, each one where a required property is satisfied by a value carrying
-no information, all invisible to every number the eval reported:
-
-| | Mechanism | Scale |
-|---|---|---|
-| `deviceClass` | Core imposed FDA classes on every pack. Packages inventing "Class II" for a turbomachinery model **passed**; ones honestly writing "Turbomachinery (Centrifugal Pump)" **failed** | 14 fabricated, 25 failing |
-| `decision` | Both prompts instructed "conditionally accepted"; the shape allowed only Accepted / Not accepted | 26 packages |
-| `wasDerivedFrom` | Satisfied by the template's own help text, "DOI, report number, or URI" — JSON-LD coerces it to a `file://` URI meeting `nodeKind sh:IRI` | **27 of 27** |
-
-The third is the sharpest: a required property met, in every package, by the
-instructions for meeting it. Root cause was that only the `mrm-nist` prompt ever
-asked for `source_document`; `vv40` and `nasa-7009b` never did, so the template
-placeholder survived into every package.
-
-All three are fixed. `deviceClass` is pack-scoped with `N/A` allowed, both
-prompts stop offering "conditionally accepted", and both now ask for the real
-source document.
 
 ## The measurement was broken, and repairing it is the first finding
 

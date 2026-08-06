@@ -97,6 +97,39 @@ sentence evidences which factor.
 Until this exists, every attribution number means "agrees with a model consensus
 about a generated document". After it, they mean something about extraction.
 
+#### V1 is asymmetric, and the plan must say so
+
+Two or three bundles is **30-50 judgments**. That sample is large enough to
+falsify and far too small to confirm:
+
+* **A bad result is conclusive.** If attribution on real documents collapses --
+  say below 0.30 for the pipeline that scores 0.606 on synthetic ones -- then
+  the synthetic labels do not transfer, and every number in this plan describes
+  a closed loop. That kills the line, and 40 judgments are enough to know it.
+* **A good result proves very little.** 0.60 on three hand-annotated bundles is
+  three documents, one annotator, no confidence interval worth quoting. It
+  licenses continuing; it does not license claiming the method works on real
+  reports.
+
+The asymmetry is the reason to do it, not a reason to discount it. It is the
+cheapest possible falsification of the most load-bearing assumption, and it is
+the only item here that can invalidate everything above it.
+
+**Kill criterion — the only one in this plan that stops the whole line, not one
+candidate:**
+
+> Annotate 3 real bundles. If pipeline attribution on them is **< 0.30**, stop
+> the keyless investigation and report that the synthetic corpus does not
+> transfer. Between 0.30 and 0.60, continue but re-label every synthetic figure
+> in the write-up as "synthetic only, real-document transfer unverified".
+> Above 0.60, continue and say the sample is 3 bundles every time the number is
+> quoted.
+
+The stopping rule exists because this is the item most likely to be quietly
+skipped: it is unglamorous, it is manual, and a bad answer is expensive to have
+found. Those are the conditions under which work does not get done, so it gets
+a written threshold rather than an intention.
+
 ## The deliverable
 
 The **hybrid ceiling**, reported as a named table, never a fraction — nine of
