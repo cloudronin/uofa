@@ -52,6 +52,7 @@ from schema_coverage import (  # noqa: E402
 from groundedness import (  # noqa: E402
     GroundednessResult,
     score_attribution,
+    field_score,
     score_field,
     read_source_text,
     score_factor_rationales,
@@ -491,6 +492,16 @@ def write_markdown_summary(out_path: Path, header: dict, agg: dict) -> None:
                      f"accuracy metric reports")
         lines.append(f"- Genuine extraction: **{gc/n:.3f}** — supported by the document")
         lines.append(f"- Lucky guesses: **{uc/n:.3f}** — correct, but the source says nothing")
+        fs = field_score(d)
+        lines.append(f"- **Harmonic (accuracy × groundedness): {fs['harmonic']:.3f}** "
+                     f"— accuracy {fs['accuracy']:.3f}, groundedness {fs['groundedness']:.3f}")
+        lines.append("")
+        lines.append("The harmonic mean is the number to quote. A function that ignores the "
+                     "document and answers \"Accepted\" scores 0.914 on accuracy and **0.000** "
+                     "here. Combining the two rates the way F1 combines precision and recall "
+                     "means a method cannot be excused one by excelling at the other — and a "
+                     "harmonic mean over the four verdict categories would not work, since "
+                     "they partition the total and the ideal outcome would score zero.")
         lines.append("")
         lines.append("An extractor that **abstains** where the document is silent should be "
                      "ranked above one that guesses correctly. A recorded decision nobody "

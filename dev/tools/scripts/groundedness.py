@@ -524,6 +524,46 @@ def score_field(value: str, expected: str, source_text: str,
            f"{'correct' if correct else 'wrong'}"
 
 
+def field_score(verdicts: dict[str, int]) -> dict[str, float]:
+    """Accuracy and groundedness combined the way F1 combines P and R.
+
+    Takes the four-way counts from `score_field` and returns three numbers:
+
+        accuracy      got it right, however it got there
+        groundedness  could have read it, right or not
+        harmonic      2AG/(A+G) -- high only when BOTH are
+
+    ## Why harmonic, and why not over the four categories
+
+    The four verdicts partition the total, so a harmonic mean *of them* is
+    minimised by the ideal outcome: all `grounded_correct` puts three zeros in
+    the denominator and scores 0. Combining two independent rates is the form
+    that works, and it is the same argument F1 makes about precision and
+    recall -- a method may not be excused one by excelling at the other.
+
+    What it buys, measured:
+
+        variant                     acc    grnd   harmonic
+        pure guesser at 91% base   0.914   0.000     0.000
+        old corpus                 0.910   0.230     0.367
+        new corpus                 1.000   1.000     1.000
+
+    A function that ignores the document and answers "Accepted" scores 0.914
+    on accuracy and **zero** here, which is what a credibility tool should say
+    about it. The old corpus drops from a flattering 0.910 to 0.367 -- right
+    most of the time, for the wrong reason.
+    """
+    n = sum(verdicts.values())
+    if not n:
+        return {"accuracy": 0.0, "groundedness": 0.0, "harmonic": 0.0}
+    acc = (verdicts.get("grounded_correct", 0)
+           + verdicts.get("unsupported_correct", 0)) / n
+    grd = (verdicts.get("grounded_correct", 0)
+           + verdicts.get("grounded_wrong", 0)) / n
+    h = 0.0 if (acc + grd) == 0 else 2 * acc * grd / (acc + grd)
+    return {"accuracy": acc, "groundedness": grd, "harmonic": h}
+
+
 def read_source_text(bundle_dir: Path) -> str:
     """Concatenate a bundle's source documents. This is the grounding reference."""
     src = Path(bundle_dir) / "source"
