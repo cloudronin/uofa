@@ -1,53 +1,49 @@
-To:    Priya Nair, Avionics Thermal IPT Lead
-From:  Daniel Cortez, CHT Analyst
-Date:  2026-08-06
-Subj:  CHT model status — electronics module with dual 40 mm blowers (Rev C)
+To:     LTV Avionics Thermal IPT Lead
+From:   R. Santos, CHT Analysis
+Date:   2026-08-06
+Subj:   Snapshot of CHT model credibility — rover avionics cold plate with Li-ion pack
 
-Quick summary
-We’ve reached a stable point on the conjugate thermal-fluid model for the 120 W processor module. Results are consistent with the bench rig within ~1–2% on key observables, and the analysis setup is repeatable from a clean checkout. Remaining risk is dominated by contact conductance and power mapping on the die footprint.
+Summary
+We ran a coupled thermal–fluid model of the avionics bay cold plate that pulls 650 W steady from the battery pack and motor controller during high-rate comm passes. At nominal loop conditions (35% PGW, 22 °C inlet, 0.48 kg/s commanded flow), the model predicts:
+- Peak cell can temperature: 46.1 °C
+- Controller heat sink base: 58.4 °C
+- Coolant outlet: 28.7 °C
 
-What we modeled
-- Geometry: full heat sink (32 mm pins, 2.0 mm dia, 8 rows), housing lid and base, PCB stackup (homogenized 10-layer), die + lid + TIM2, and both 40 mm radial blowers. No cable harnesses; screw bosses included where they intrude into the flow.
-- Physics: steady RANS with k-omega SST in the air; conjugate conduction in all solids with temperature-dependent k(T); surface-to-surface radiation (view factors precomputed on the housing cavity). Fan performance from the manufacturer curve applied as a pressure jump vs. flow rate.
-- Coupling: segregated CHT with 10 outer loops per solve; energy URF 0.9, momentum 0.7. Interface heat-balance mismatch is under 0.3% at stop.
+On balance, the model reproduces the bench rig within a few degrees on average, with localized hotspots not fully captured. Key drivers appear to be contact conductance and bypass leakage at two O-ring grooves.
 
-Numerics and grid
-- Mesh: poly-hybrid; near-wall y+ mostly 30–60 on heat sink pins, wall functions used; prism layers 8 deep.
-- Mesh refinement: 2.1M (coarse), 4.5M (medium), 9.8M (fine) cells. Max die temperature changed - by medium vs. fine: 1.8 C (2.2%); coarse vs. medium: 3.9 C (4.7%). We are using the fine grid for production numbers.
-- Convergence: residuals below 1e-5 (energy) and 5e-4 (flow), with flat line heat rate and pressure drop over the last 500 iterations.
+Geometry and physics choices
+- Solid: full-fidelity cold plate with 0.9 mm serpentine passages; battery module simplified to homogenized blocks per sub-pack with embedded heat sources mapped from the electrical team’s power trace.
+- Fluid: incompressible coolant, temperature-dependent viscosity and Cp. Turbulence initially planned as k–ω SST with low-Re wall treatment (target y+ < 1); wall conjugation across copper, TIM, aluminum.
+- Thermal joints: nominal bondline 65 µm; initial thermal contact resistance set to 2.5e-4 m²·K/W based on coupon data. No tuning to match test data was performed.
+- Boundary conditions: inlet mass flow fixed at 0.48 kg/s and inlet total temperature 22 ± 0.5 °C; outlet treated as fixed static pressure at 0 barg tied to the vented reservoir.
 
-Comparison to lab data (Rev B hardware, heater block stand-in)
-- Setup: 100.0 W ±0.5% DC into a copper heater the size of the die lid; 8 K-type thermocouples on baseplate and lid; pitot rake at outlet; ambient 24.3 ±0.2 C.
-- Temperatures: measured lid centerline 78.2 C; model predicts 79.1 C (+0.9 C, 1.1%). Baseplate near screw boss: measured 63.5 C; model 62.6 C (-0.9 C).
-- Flow/pressure: measured module Δp 142 ±7 Pa; model 135 Pa (-4.9%). Outlet bulk temperature rise matches within 0.3 C.
-- Note: radiation turned on in both model and in the chamber (low-speed airflow, painted interior, estimated ε ~0.8 on housing).
+Discretization and solver behavior
+- Mesh: 6.1M poly elements (solids + fluid) with five prism layers in the channels. Two refinement passes were executed: 3.2M → 6.1M → 11.8M cells. Between the last two, peak cell-can temperature shifted by 0.7 °C (≈1.5%), coolant ΔT by 0.03 °C. Wall y+ was < 1 over 92% of wetted length; a narrow entry region reached y+ ≈ 3.
+- Convergence: steady segregated solver; energy residuals to 1e-8, momentum to 2e-5. Area-averaged outlet temperature flat over last 400 iterations.
+- Turbulence model actually used for the final run was realizable k–ε with enhanced wall treatment to mitigate intermittent divergence in the serpentine elbows.
 
-Input data pedigree
-- Materials: 6061-T6, copper lid, FR-4 effective k through-thickness fitted from IPC-2152; all k(T) from ASM Digital Library. TIM2 nominal 1.5 W/m-K (Parker Chomerics).
-- Contact: heat sink-to-lid contact conductance set to 8,000 W/m^2-K derived from 1.2 N·m bolt torque using Mikic correlation; sensitivity explored below.
-- Fans: Delta BFB0412 series, curve digitized from datasheet and curve-fit (R^2=0.998). Ambient density correction applied for 24–50 C.
-- Power map: 70% central 10x10 mm, 30% in surrounding 18x18 mm. Based on FPGA team’s estimate.
+Bench test correlation
+- Instrumentation: 14 T-type thermocouples on cell cans, 6 on the controller base, 2 in coolant (in/out), IR snapshots through the viewport (emissivity 0.85 used).
+- At 650 W, test showed peak cell-can 47.5 °C, controller base 66.2 °C, coolant outlet 29.1 °C. Model-to-test differences: -1.4 °C, -7.8 °C, and -0.4 °C respectively.
+- Hotspot at the controller corner (TC-B4) ran 9.7 °C above model; elsewhere mean absolute error across all TCs was 3.1 °C.
 
-Sensitivity highlights (single-parameter sweeps on the fine mesh)
-- Contact conductance 4,000–12,000 W/m^2-K: T_die shifts +4.3/-1.7 C relative to nominal.
-- Emissivity 0.1–0.9 on housing interior: T_die shifts up to 0.8 C.
-- Fan curve ±10% flow: T_die changes ~1.1 C; module Δp tracks proportionally.
-- Total power ±5%: T_die changes ~3.0 C; linear within this range.
+Inputs and boundary realism
+- The pump map (Micropump GJ-N23) indicates 0.46–0.49 kg/s across the expected loop head for 40% PGW at 24 °C; we imposed a total pressure inlet consistent with the map and set outlet mass flow to 0.48 kg/s to match the setpoint.
+- Power deposition used the electrical team’s Phase B trace averaged over 180 s; heater back-calculation from coolant ΔT matches within 2.2% of commanded.
 
-Range we consider covered
-- Airside Reynolds number (pin-fin hydraulic diameter) 2.2e4–3.8e4 over the expected operating flow; model closures remain in their intended regime.
-- Component temperatures 30–90 C; material properties and radiation model applied over that span.
-- Ambient 20–50 C and sea level to 5 km; density correction implemented for the blowers.
+Sensitivity and uncertainty snapshot
+- One-at-a-time sweeps show controller base temperature changes by +5.4 °C per +1e-4 m²·K/W increase in its TIM resistance; cell-can peak moves +2.1 °C per -10% drop in flow.
+- A short Latin hypercube (N=60) varying TIM (±40%), flow (±15%), inlet T (±1 °C) yields a 95% band of [44.2, 49.6] °C for peak cell-can temperature; Sobol-like screening puts TIM at ~0.58 importance, flow at ~0.31.
+- We claim the mesh is effectively independent on targets of interest (<1% change run-to-run), and remaining spread is dominated by joint conductance uncertainty.
 
-Reproducibility and QA notes
-- Tools: Ansys Fluent 2023 R1, ICEM 2022 R2 for meshing; post via PyFluent + Paraview 5.11.
-- Case and scripts under GitLab tag avx-cht-revC-2026-07-29 (commit 0f3c9c2). README includes run steps and machine file.
-- Runs repeated on JSC “Merope” (32 AMD EPYC cores, Intel MPI) and local 16-core workstation; T_die agreement within 0.2 C.
-- Independent check: J. Park recreated the medium mesh from the checklist and matched our 100 W case within 0.3 C on T_die and 6 Pa on Δp.
+Credibility readout and caveats
+- The model captures bulk coolant behavior and average component temps reasonably. The controller corner miss suggests either a local gap not represented or anisotropy in the heat sink base not included.
+- The choice of turbulence model is serviceable for the Reynolds number (~3,800 at 22 °C), but the intended low-Re k–ω SST would better honor the y+ distribution we achieved; we did not observe material differences in coolant ΔT between the two.
+- Contact resistances were set from independent metrology; however, a trial with 3.5e-4 m²·K/W reduces the controller base error to ~3 °C, hinting at possible assembly variation in the rig.
 
-Recommendations before freezing Rev C
-- Lock in a conservative band for contact conductance in the spec; current design margin absorbs +5 C headroom at 100 W if we hold 8,000 W/m^2-K or better.
-- Get the FPGA team’s updated hotspot distribution; reshaping the power map had a 1.6 C effect in a quick trial.
-- If time permits, confirm the fan curve at elevated inlet temperature (45–50 C) on the bench; the datasheet correction looks benign, but it’s a cheap check.
+Next steps before design freeze
+- Re-run with transition-capable k–ω SST and the same mesh to bound any model-form effect on wall heat transfer.
+- Add a narrow-slot leak path at the suspect O-ring to test the bypass hypothesis.
+- Acquire clamp load data for the controller fasteners and re-center the TIM resistance prior for the uncertainty sweep.
 
-I can brief through the case tree and sensitivity scripts at tomorrow’s stand-up; total runtime per fine-grid case is ~3.9 h on 32 cores, so we can turn two what-ifs by EOD.
+Please advise if you want this model released for preliminary hardware sizing now, or held until the turbulence and leak-path checks are in hand. Turnaround for the two checks is ~3 days CPU plus 1 day analysis.

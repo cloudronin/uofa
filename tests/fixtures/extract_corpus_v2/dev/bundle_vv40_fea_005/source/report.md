@@ -1,156 +1,189 @@
-# Credibility Assessment Report
-Project: Static stress evaluation of eVTOL avionics bracket  
-Analyst: D. Rao, Structures Group  
-Date: 2026-08-05  
-Tool: Ansys Mechanical 2024 R1 (build 24.0.3), double precision
+Title: Credibility Review — Finite-Element Simulation of a Mandibular Fracture Plate Under Unilateral Bite Loading
 
-## 1. Background and Objectives
-This document records the technical basis used to judge whether the finite-element predictions for the eVTOL avionics L-bracket are reliable for preliminary release. The bracket fastens to a rib in the forward fuselage and supports a 6.5 kg radar altimeter located approximately 120 mm off the rib face. The governing design event for this phase is a quasi-static limit load representing a vertical 15 g inertia case with the aircraft parked on ground (no concurrent thermal, acoustic, or vibratory input).
+Prepared by: Structural Simulation Group, OrthoMechanica Inc.
+Date: 2026-08-06
+Software: Abaqus/Standard 2022; meshing with HyperMesh 2021.2; visualization in ParaView 5.11
 
-Scope of this report:
-- Model setup decisions that most strongly impact predicted maximum stress and tip deflection.
-- Evidence that the stress hot spot at the web–flange fillet is adequately resolved by the mesh and element formulation.
-- Sanity checks against simplified closed-form estimates for bending and fastener load sharing.
-- Selected robustness checks for contact modeling and bolt pretension.
+1. Background
 
-Items outside the present scope include fatigue assessment and acoustic response; those are being handled by separate tasks.
+1.1 Purpose and decision context
+This document summarizes the evidence supporting the use of a finite-element model to inform a design decision for the Rev C 2.0 mm low-profile mandibular fracture plate assembly. The analysis addresses a specific question: for a representative unilateral bite event, does the plate’s localized stress at geometric features of interest remain below material yield by a suitable margin to support a design freeze?
 
-## 2. Geometry and Idealization Decisions
-- Source CAD: Bracket model v7 exported from Siemens NX (filename BRKT-ALT-ASSY-001_v7.prt). Key dimensions: flange width 60 mm, nominal thickness 6 mm, web height 120 mm, inner fillet radius 6 mm.
-- Removed features: Thread forms, small chamfers (<0.5 mm), and etched ID marks were suppressed. Fastener holes retained at nominal size (7 mm for M6 bolts).
-- Symmetry was not used; the mounted unit’s center of gravity is offset in both in-plane directions.
-- The avionics unit was not meshed; its mass is represented via a distributed remote force and moment couple applied at its CG located 120 mm from the bracket web and 20 mm above the flange mid-plane.
+The plate is a four-hole, limited-contact style device intended to bridge an oblique angle fracture. The simulated configuration includes the plate, four self-tapping screws, and adjacent cortical/cancellous bone blocks representing the mandible regions proximal and distal to the fracture plane. The primary results of interest are:
+- Maximum von Mises stress in the plate at fillets around the screw holes and at the midspan relief features.
+- Peak principal strain in the cortical segment immediately beneath the nearest screw.
+- Global plate deflection relative to the bone blocks under the prescribed bite force.
 
-Rationale: Thread details and sub-millimeter chamfers have negligible influence on the global stiffness and only localize stress around features that are not controlling for the bracket’s first yield in this load case. The fillet blending the web and flange is known to control peak stress; its radius and adjacent thickness transitions were preserved.
+The analysis takes a conservative, static view of a unilateral molar load and aims to support internal sign-off for proceeding to the next iterative build.
 
-## 3. Materials and Constitutive Choices
-- Bracket material: 7075-T6 aluminum (AMS 4045). Elastic modulus 71.7 GPa, Poisson’s ratio 0.33, density 2810 kg/m^3.
-- Strength data for comparison: yield strength 503 MPa and tensile strength 572 MPa based on MMPDS-17 A-basis room-temperature values.
-- Behavior modeled as linear elastic, small strain.
-- Fasteners represented as linear elastic steel (E = 200 GPa) for stiffness effects only; no explicit failure checks were performed here.
+1.2 Geometry and product pedigree
+The CAD model of the Rev C plate (P/N OM-PLT-2004) was provided by Mechanical Design (Vault version OM-PLT-2004-RC-064). The four self-tapping screws are modeled per P/N OM-SCR-20-08 (Ø2.0 mm, 8 mm long). Bone geometry is generic, assembled from two CT-derived mandible segments scaled to match average male mandible dimensions in the angle region (mediolateral cortical thickness ~2.2 mm, cancellous core thickness ~10 mm). For this analysis, the focus is on stress in the plate and qualitative strain distribution in adjacent cortical bone; thread-level features are abstracted as described in Section 2.2.
 
-Rationale: At the expected stress levels, the bracket should remain below first yield for limit load. Plasticity would only be relevant if deflection or stress margins approached allowable limits, which is not indicated by the results summarized below.
+1.3 Computing environment
+All runs were executed on a Linux workstation (AMD Threadripper PRO 5965WX, 24 cores, 128 GB RAM). Abaqus/Standard 2022 build 6.14-2 was used in double precision with default solver and memory settings unless otherwise noted. Job logs and input decks are stored under //sim/FEA/plates/mandible/RevC/ULoad/2026-06-18.
 
-## 4. Loads, Restraints, and Contact Interfaces
-- Inertial load: 6.5 kg × 9.81 m/s^2 × 15 g = 956 N vertical downward load applied at the avionics CG via a remote force connected to a node set on the bracket’s mounting plane. The load is distributed to the six M5 mounting holes through rigid surface-based MPCs replicating the unit’s baseplate stiffness.
-- Bracket-to-rib attachment: Four M6 bolts modeled as pretensioned beam connectors tying the bracket flange to rigid points on the rib surface. Pretension in each fastener: 8 kN (delivered clamp load). The rib is considered rigid for this phase; its compliance is captured in a separate model used to justify this idealization (Ref. RIB-STIF-Note-03).
-- Contact: Surface-to-surface contact between bracket flange underside and rib interface surface with µ = 0.2 friction coefficient; augmented Lagrange normal enforcement, default contact stiffness factor.
+2. Methodology
 
-Assumptions: Preload is sufficient to prevent joint separation at limit load; limited micro-slip can occur depending on friction assumptions but does not dominate bracket stress near the fillet.
+2.1 Model setup overview
+- Domain: Assembly includes plate, four screws, two bone blocks representing proximal and distal mandible segments separated by a 2 mm fracture gap. The occlusal surface is represented by a 6 mm × 12 mm rectangular patch on the distal segment’s superior surface.
+- Loading: A downward resultant of 650 N is applied as a uniformly distributed traction on the occlusal patch, located 18 mm from the fracture plane. This magnitude is within the mid-to-upper range for unilateral molar bite forces in the literature for healthy adults.
+- Constraints: The inferior surface of the proximal bone block is fixed in all translational directions to approximate support from surrounding anatomy. The distal bone block is otherwise unconstrained except through its connection to the plate and screws.
+- Contact and fasteners: Plate-to-bone contact is frictional (coefficient 0.3), small-sliding with penalty enforcement; screw-to-plate is tied (idealized engagement), and screw-to-bone is modeled as bonded to a cylindrical “equivalent thread” envelope of 2.3 mm diameter to reflect the mechanical interlock without explicitly resolving thread geometry. No preload is applied.
 
-## 5. Finite-Element Model and Solver Settings
-- Element type: Quadratic tetrahedra (10-node) for solid regions; BEAM188 for bolt shanks; CONTA174/TARGE170 for contact.
-- Mesh controls: Hex-dominant swept mesh not feasible due to intersecting fillets; tet-dominant mesh with local size control in the fillet and around bolt holes.
-- Nominal element sizing:
-  - Fillet hot-spot region: element edge 0.9 mm on the “fine” mesh, 1.2 mm on the “medium,” and 1.6 mm on the “coarse.”
-  - Away from hot spots: growth factor 1.3; max edge up to 5 mm.
-- Quality: Min Jacobian ratio > 0.6; skewness < 0.8 in hot region.
-- Solver: Sparse direct solver; force convergence tolerance 1e-6 of reference norm; contact penetration target < 1% of local element size with auto-adjust during the first five substeps. Single load step with 10 automatic substeps for contact stabilization.
+2.2 Materials and constitutive descriptions
+- Plate and screws (Ti-6Al-4V ELI, ASTM F136): Elastic, isotropic, E = 110 GPa, ν = 0.34. Inelastic behavior is not included for this decision; yield reference for comparison is 795 MPa from material certification lot TD-ELI-2025-04.
+- Cortical bone: Linear elastic, E = 17 GPa, ν = 0.30, density 1800 kg/m³. No orthotropy is introduced in this phase.
+- Cancellous bone: Linear elastic, E = 1.2 GPa, ν = 0.25, density 1100 kg/m³.
 
-Run environment: RHEL 8.8, 8 physical cores @ 3.1 GHz, 64 GB RAM. Medium mesh run time ~21 min; contact active after substep 2.
+2.3 Discretization and element selection
+- Plate: 10-node quadratic tetrahedra (C3D10) with local refinement to 0.20 mm nominal edge length at the fillet radii around screw holes and midspan relief features; 0.80 mm background size elsewhere.
+- Screws: C3D10 with a 0.25 mm nominal edge length in the shank region, blended to 0.60 mm near the head.
+- Bone blocks: 4-node linear tetrahedra (C3D4) with 0.90 mm typical size in cortical regions and 1.50 mm in cancellous core. A transition layer of 0.60–0.80 mm elements is used beneath the plate footprint.
 
-## 6. Mesh Refinement Study
-Objective: Demonstrate that the reported maximum von Mises stress at the web–flange fillet and the tip deflection are not materially affected by further refining the mesh.
+Mesh quality metrics (from HyperMesh report):
+- Minimum Jacobian (C3D10): 0.61; average 0.88.
+- Skewness (C3D10): average 0.17; maximum 0.39.
+- Aspect ratio 95th percentile: 3.2 in the plate’s refined region.
 
-Three systematically refined meshes were analyzed:
+2.4 Solver controls and convergence behavior
+Abaqus/Standard, Static General step with NLGEOM=ON due to contact nonlinearity and anticipated local rotations. Default automatic time incrementation with initial increment 0.05, maximum 40 increments. Convergence tolerances: force residual target at 0.5% of average external load; displacement convergence monitored on nodal set at the occlusal patch. Line search enabled; friction regularization set to 0.001 to stabilize early contact.
 
-- Coarse: 0.28 M solid elements, 0.41 M nodes
-- Medium: 0.51 M solid elements, 0.73 M nodes
-- Fine: 0.92 M solid elements, 1.34 M nodes
+In the production (fine) mesh, the job converged in 19 increments with no severe contact oscillations. Peak iterations per increment were 18 in the interval where the plate initially engaged the bone surface under load.
 
-Results summary (hot-spot von Mises and tip deflection at the avionics CG):
-- Max stress (MPa): 352 (coarse), 364 (medium), 370 (fine)
-- Tip deflection (mm): 0.66 (coarse), 0.64 (medium), 0.63 (fine)
+2.5 Resolution study
+To quantify sensitivity to mesh density near geometric hotspots, three nested meshes were studied:
 
-Using Richardson-style extrapolation based on the medium-to-fine trend, the apparent asymptotic stress is ~377 MPa. The estimated relative difference between the fine mesh and the asymptotic value is about 1.9%. For deflection, the corresponding estimate is below 1%. Based on this, the medium mesh is sufficient for most parametric studies; the fine mesh is preferred for final reporting. All stress results refer to the fine mesh unless otherwise noted.
+- Coarse: ~248k DOF, plate hotspot element size 0.40 mm.
+- Medium: ~511k DOF, plate hotspot element size 0.28 mm.
+- Fine: ~1.12M DOF, plate hotspot element size 0.20 mm.
 
-Local convergence check: Stress contours in the fillet region show smooth isostress patterns with no abrupt element-to-element jumps. Path plots along the fillet midline are nearly indistinguishable between the medium and fine meshes except within 0.5 mm of the geometric corner, where numerical gradients are expected.
+Metrics recorded:
+- M1: Peak von Mises stress in the plate (evaluated with nodal averaging off; element centroid values queried and the maximum reported).
+- M2: Maximum first principal strain in a 2 mm × 2 mm cortical region under the screw nearest the fracture.
+- M3: Vertical deflection at the centroid of the occlusal patch.
 
-## 7. Element Formulation and Alternative Discretizations
-To reduce the risk that results are an artifact of element choice, one additional model was constructed:
+Results summary:
+- M1 (MPa): Coarse 586; Medium 603; Fine 612.
+- M2 (microstrain): Coarse 1290; Medium 1385; Fine 1422.
+- M3 (mm): Coarse 0.39; Medium 0.41; Fine 0.42.
 
-- Hex-dominant mesh in the fillet block using 20-node bricks (SOLID186) with mapped meshing feasible after introducing a small partition around the fillet. The remainder of the volume remained tet-dominant with transition elements.
+Relative change Medium→Fine:
+- M1: +1.5%.
+- M2: +2.7%.
+- M3: +2.4%.
 
-Outcome: The alternative mesh produced a peak stress of 361 MPa and deflection of 0.65 mm for equivalent local sizing (approximately similar computational cost to the medium tetra mesh). The difference relative to the fine tet mesh was 2.4% for stress and 3.2% for deflection, which is within the expected variation considering that brick elements tend to be slightly more diffusive around curved fillets at comparable sizing. This offers confidence that the identified hot spot is not mesh-type dependent.
+Given the small change between the two densest meshes and the cost differential (1.7× runtime), the Medium mesh is considered adequate for design decision-making in this phase. Unless otherwise noted, reported field plots and numeric values below correspond to the Medium mesh.
 
-## 8. Contact and Fastener Modeling Sensitivity
-Two parameters were perturbed to test robustness:
+2.6 Self-consistency and benchmark checks
+Two simple checks were performed to guard against gross setup errors:
 
-- Contact normal stiffness factor varied by ×0.5 and ×3 from the default. Peak stress changed by −1.1% and +1.8%, respectively. Slip at the outer bolt pair changed by less than 0.02 mm.
-- Friction coefficient varied between 0.15 and 0.3. Peak stress changed by +0.7% and −1.6%, respectively. Contact status remained fully engaged; no gross separation occurred in any case.
+- Elastic strip comparison (sanity check): A 2 mm × 8 mm × 50 mm titanium strip with a 100 N end load was modeled using the same element types and solver controls. The tip deflection differed from the Euler–Bernoulli beam prediction by 2.1% with the Medium mesh density used in the plate analysis. This is consistent with expectations for quadratic tetrahedral elements and provides assurance that the material assignment and solver options are functioning as intended.
 
-A separate run removed pretension (bolts free, no clamp). In that artificially conservative configuration, the joint opened under the 15 g load, and bracket stress rose by ~8%, confirming the importance of capturing preload in the model for realism.
+- Symmetry response: The mandible assembly was mirrored and loaded bilaterally with 325 N per side (total 650 N). Reaction forces at the supports on both sides matched within 0.8% and displacement fields were mirror-symmetric to within 1.1% in the L2 norm. This check was used solely to confirm that constraints and contacts were not introducing a spurious bias.
 
-## 9. Solver Convergence and Numerical Health
-- Equilibrium iterations stabilized within 6–8 iterations per substep once contact settled; final force residual below 5e-7 of the reference external load.
-- No negative pivot warnings or hourglassing were reported.
-- Energy balance showed internal-to-external work ratio within 0.2% at the end of the step.
-- Contact penetration under 5 µm in the fillet-adjacent flange region on the fine mesh.
+3. Results
 
-These indicators suggest the solution is numerically well-behaved.
+3.1 Stress distribution in the plate
+Peak stresses concentrate at the fillet root adjacent to the screw hole immediately proximal to the fracture gap. In the Medium mesh:
+- Maximum von Mises stress: 603 MPa at the root of the inner fillet of the proximal screw hole, on the tensile side of the plate.
+- Secondary hotspot: 458 MPa at the midspan relief feature on the distal side, associated with local bending between the two inner screws.
 
-## 10. Bench Checks Against Simplified Calculations
-A back-of-the-envelope bending estimate treated the bracket as a rectangular cantilever (width 60 mm, thickness 6 mm) with a tip load of 956 N at L = 120 mm. Using σ = Mc/I with c = t/2 and I = b t^3 / 12, the nominal bending stress at the fixed end is approximately 317 MPa. The fine-mesh FEA peak was 370 MPa located slightly offset into the fillet throat. The ~17% elevation from the simplistic beam estimate is consistent with a 3D stress concentration from the curved geometry and local load paths into the joint. The corresponding deflection estimate using δ = FL^3/(3EI) gives ~0.61 mm; the FEA value (0.63 mm) aligns closely, lending confidence to the global stiffness representation.
+The stress gradient around the primary hotspot is steep; over a 0.4 mm radial distance, the von Mises stress drops to ~420 MPa. Field plots indicate that the high stress arises from combined bending across the fracture gap and localized load transfer through the nearest screw pair.
 
-Fastener shear load sharing, estimated via a rigid-base approximation, predicts outer bolts taking ~27% more shear than inner bolts. Connector force output from the FEA showed a 24–29% spread depending on friction, which is consistent with expectation and suggests the joint idealization is reasonable for bracket stress purposes.
+3.2 Strain in adjacent cortical bone
+A 2 mm × 2 mm region of interest (ROI) was defined at the cortical surface beneath the proximal screw nearest the fracture. The maximum first principal strain in this ROI was 1385 microstrain, aligned primarily with the plate’s longitudinal axis. The distribution is consistent with load sharing from the plate into the cortex via the screw shank/engagement zone. The strain field is smooth with no evident numerical artifacts.
 
-## 11. Results and Interpretation
-- Peak von Mises stress: 370 MPa (fine mesh), occurring in the web–flange internal fillet on the tension side.
-- Secondary hot spots: Mild stress risers (~290–310 MPa) by the bolt hole edges nearest to the load application point; these do not govern.
-- Tip deflection at avionics CG: 0.63 mm downward.
-- Contact state: No separation under the pretensioned case; micro-slip limited to <0.03 mm near the outer bolt pair.
-- Fastener axial forces: Pretension maintained; incremental axial load increases <2% of preload.
+3.3 Global displacements
+The vertical deflection at the occlusal patch centroid was 0.41 mm (downward). Relative sliding between plate and bone is negligible under the 0.3 friction model; the maximum relative tangential displacement at the plate–bone interface is 0.03 mm.
 
-Interpretation: For the specified limit event, the bracket remains in the linear elastic regime with a comfortable margin to first yield using 7075-T6 A-basis data. The critical region is well understood geometrically (inner fillet), and mesh refinement indicates remaining numerical uncertainty on the peak stress is below ~2–3%. Predicted deflection is small relative to allowable avionics connector misalignments.
+3.4 Reaction balance and contact behavior
+- Total reaction force at the fixed inferior surface of the proximal bone block is 650.5 N (within 0.1% of applied load when accounting for roundoff).
+- Contact pressure beneath the plate peaks at 37 MPa near the proximal inner screw and decays toward the distal span.
+- No loss of contact was observed at the plate–bone interface under the present load.
 
-## 12. Data Traceability and Reproducibility
-- Master model archive: //fs/Projects/EVTOL/AVL-BRKT/FEA/2026-08-05/BRKT_ALT_v7_Mech24R1.zip (contains .mechdb, solver input, and post-state).
-- Randomized features: None. Contact stabilization was deterministic given fixed seed; default stabilization settings used.
-- Postprocessing workflow: APDL path plots and nodal averaging disabled near the hot spot to avoid artificial smoothing; results exported as CSV with node IDs preserved.
+4. Credibility Assessment
 
-A readme.txt in the archive lists the parameter values for each named run (“coarse,” “medium,” “fine,” and sensitivity variants), aiding replication.
+4.1 Suitability of modeling approach for the decision in view
+The goal is to support a design freeze call based on stress in the plate remaining below yield with a comfortable margin, for a conservative bite scenario. The following points are relevant:
 
-## 13. Peer Review
-A two-person internal review was conducted focusing on:
-- Adequacy of local mesh density in the controlling fillet.
-- Justification of using linear elastic material behavior for limit load.
-- Reasonableness of the bolt pretension value relative to M6 torque recommendations.
+- Numerical stability and discretization independence: The three-level mesh study shows minimal change from Medium to Fine for the key metrics (≤2.7%). This supports confidence that the geometric stress concentration is adequately resolved for decision use. The choice to report Medium mesh results is justified by both the small deltas and practical turnaround constraints for iterative design.
 
-Action items addressed:
-- Increased fillet mesh density by 20% compared to the initial setup.
-- Confirmed pretension selection corresponds to ~75% of proof for typical property class 10.9 M6, which is conservative for aluminum joint seating.
+- Reasonableness checks against textbook behavior: The elastic strip test and bilateral symmetry run reduce the risk of mis-specified boundary conditions or gross solver misbehavior. They do not replace more sophisticated checks but serve as a backstop to basic setup errors.
 
-## 14. Credibility Synthesis
-Drawing together the items above:
+- Material property sources: Titanium properties reflect typical values for Ti-6Al-4V ELI and match the lot certification used in current builds. While elastic-only behavior is assumed in the solver, comparison of peak stress (603 MPa) to the 795 MPa yield threshold indicates a tensile safety margin of ~31% at the hotspot. In the unlikely event that local plasticity were to occur at the tiny fillet region under substantially higher load, the effect would likely be localized with limited impact on overall load transfer—however, that scenario is outside the immediate decision frame.
 
-- The modeled physics are aligned with the design event of interest (single, quasi-static 15 g vertical loading). Key load paths and restraint conditions are represented explicitly (bolt clamp, frictional interface, realistic CG offset).
-- The discretization has been shown to be sufficiently fine in the hot region, with a convergent trend and two alternative element topologies returning stress within ±3%.
-- Simplified analytical estimates for both stress and displacement bracket the FEA predictions as expected; the difference for stress is rationalized by 3D concentration.
-- Perturbations to contact and friction parameters produced small changes to governing stress and deflection, indicating result stability to reasonable modeling choices.
-- Solver health metrics were within tight bounds; no red flags from convergence or contact penetration.
+- Contact and fastener representation: Simplifying the thread engagement as a bonded cylindrical envelope increases stiffness in the screw–bone load path relative to a fully detailed thread. The effect is to slightly over-transfer load through the nearest screws and reduce plate bending compared with a more compliant thread model. This bias is toward underpredicting plate stress. Counterbalancing that is the conservative choice of a relatively high unilateral bite force (650 N) applied at a short lever arm (18 mm). Taken together, the simplifications are not expected to produce non-conservative stress underestimates beyond a few percent for the plate hotspot.
 
-Given the above, the structural predictions for the specified context are fit for preliminary release and for use in downstream tasks such as bracket topology cleanup and rib compliance assessment. The numerical uncertainty on the reported peak stress is judged to be small relative to material strength variability at this stage.
+4.2 Margins and through-thickness effects
+- Peak von Mises stress margin: (795 − 603) / 795 ≈ 24.2% headroom if treated as allowable versus maximum, or ~1.32 safety factor in a classic ratio sense. Considering the small Medium→Fine change (+1.5%), the stress at the resolved fillet is not an artifact of coarse meshing.
+- Hotspot localization: The maximum stress occurs in a volume of approximately 0.03 mm³. Away from the root by 0.4 mm, stress is down by 30%. For metallic components, very localized maxima at curvature transitions are common; they may not govern component durability without cyclic load considerations. The present decision explicitly focuses on monotonic yield risk rather than long-term fatigue.
 
-## 15. Limitations and Next Steps
-- The analysis is limited to room-temperature, static loading in the vertical direction with the avionics modeled as a rigidly attached mass. It does not encompass coupled thermal effects, dynamic response, or spectrum loading.
-- Fastener threads and local bearing stresses within the rib substrate were not resolved; a separate joint-level model is recommended if those become design drivers.
-- The rib was treated as rigid; a forthcoming coupled model with the rib substructure will re-check bracket stress if significant flexibility is present.
-- Nonlinear material behavior was not included. If later load cases require excursions near or above first yield, a bilinear hardening law and, if necessary, local plastic strain limits will be introduced.
+4.3 Repeat runs and consistency
+Two identical Medium-mesh runs were executed 48 hours apart after a clean solver restart; peak stresses agreed within 0.2 MPa and displacements within 0.001 mm. Minor differences reflect floating-point roundoff and slightly different increment histories.
 
-Planned follow-up:
-- Integrate the bracket and rib into a single assembly model with measured rib stiffness to confirm joint load flow.
-- Explore a slight increase in fillet radius from 6 mm to 8 mm to reduce the hot-spot stress and improve manufacturability.
+4.4 Traceability
+Input files, meshes, and postprocessed results are archived with timestamps. Model comments in the .inp files identify all material assignments and contact pairs. A configuration note is embedded at the top of each input deck documenting software version and key toggles. The plate CAD rev is recorded in the input deck header, and the meshing script includes the mesher seed values for reproducibility.
 
-## 16. Summary of Key Numbers
-- Limit load: 956 N at 120 mm offset
-- Peak von Mises stress (fine mesh): 370 MPa at web–flange fillet
-- Estimated remaining mesh-induced error on peak stress: ~1.9%
-- Tip deflection at avionics CG: 0.63 mm
-- Sensitivity to contact stiffness and friction: ≤2% on governing stress
-- Brick vs tet mesh stress difference: 2.4%
+5. Discussion
 
-Prepared by:  
-/s/ D. Rao, Lead FEA Engineer
+5.1 Interpretation of outcomes relative to design targets
+The analysis suggests the Rev C plate carries the unilateral bite load without approaching the onset of yield in the titanium. The highest stress is at a well-understood geometric transition near the screw hole, which is standard for this class of hardware. The selection of 650 N at an 18 mm lever arm represents a relatively demanding case; weaker bites or a longer lever arm would reduce bending on the plate.
 
-Reviewed by:  
-/s/ A. Nguyen, Senior Structures Analyst
+The measured strain in the cortical region under the proximal screw remains in a physiologically sensible range (order of 10⁻³), with no red flags indicative of grossly unrealistic stiffness pathways. Displacements are moderate. Qualitative field patterns (e.g., contact pressure lobes, bending curvature) match expectations from conventional plate–bone mechanics.
+
+5.2 Sensitivity to idealizations in the joint representation
+- No pretension in screws: Omitting pretension reduces initial clamping and allows a bit more micro-slip before friction develops fully. For monotonic loading, pretension typically raises contact pressure near the screws and marginally reduces plate bending; its exclusion here is slightly conservative for plate stresses under downward occlusal load because it allows more rotation at the fracture.
+- Friction coefficient at plate–bone: Setting μ = 0.3 is aligned with published ranges for stainless against cortical bone; titanium pairs are generally similar or slightly lower. Lowering μ would permit additional micro-slip and shift load paths, which could increase plate bending; however, the effect on peak plate stress in the hotspot is secondary relative to geometry and bending span. Qualitative spot checks at μ = 0.2 changed peak stress by +3.4% in the Medium mesh.
+
+5.3 What this model is not intended to answer
+- It does not address endurance under repeated cycles, fretting wear, or long-term screw stability.
+- It does not account for mandible heterogeneity, defects, or patient-specific bone quality variation.
+- It does not include temperature effects, manufacturing tolerances, or surface roughness.
+
+The present model is scoped narrowly to a monotonic structural question that informs a go/no-go decision for a specific design revision and a representative loading scenario.
+
+6. Limitations and caveats
+
+6.1 Geometric abstractions
+- Threads are not resolved; the equivalent cylindrical bond for screw–bone engagement stiffens the connection. While a more accurate representation could redistribute stress slightly, past experience suggests that, for gross bending questions, the plate hotspot stress is typically only modestly affected.
+- The bone blocks are simplified to prismatic cutouts from a generic mandible shape. Curvature of the real mandible and local anatomical features are not captured beyond cortical thickness and cancellous core size approximations.
+
+6.2 Materials and constitutive behavior
+- Linearity is assumed across all materials. The metallic plate could, under more severe loading than simulated here, enter small-scale plasticity at the hotspot fillet; this regime is not investigated. Likewise, the absence of orthotropy for cortical bone ignores directional stiffness differences.
+
+6.3 Boundary conditions
+- The unilateral bite is applied as a static, uniformly distributed pressure on a rectangular occlusal patch, rather than a dynamic, muscle-force-driven equilibrium. The chosen representation is a practical proxy for worst-case bending but does not capture the myriad force vectors active in true mastication.
+- The proximal support condition (fixed inferior surface) is a stand-in for multi-contact constraints provided by the rest of the mandible and soft tissues.
+
+6.4 Numerical considerations
+- While mesh refinement shows good stability of results, it does not resolve the fillet to the limit of geometric curvature; further refinement to 0.15 mm elements at the hotspot would likely change the reported peak by 1–2% based on observed trends, at significantly higher runtime.
+
+7. Conclusions
+
+Based on the analyses performed, the Rev C 2.0 mm mandibular fracture plate, fastened with four Ø2.0 × 8 mm screws to generic cortical/cancellous bone blocks, experiences a peak von Mises stress of approximately 603 MPa at the critical fillet near the inner proximal screw when subjected to a conservative unilateral 650 N occlusal load at an 18 mm lever arm. This is comfortably below the 795 MPa material yield marker for Ti-6Al-4V ELI, with an indicative margin of ~31%.
+
+A targeted refinement study indicates low sensitivity of key results to further mesh densification beyond the Medium mesh used for reporting. Sanity checks against simple elastic benchmarks and bilaterally symmetric loading confirm basic soundness of the setup. Contact settings, friction assumptions, and the simplified fastener modeling tend to bias stresses slightly on the low side; this is, to an extent, counteracted by the chosen load magnitude and short lever arm.
+
+Within the limits outlined, the model’s predictions are considered sufficient to support the immediate design decision to proceed with the Rev C plate geometry without changes to fillet sizing or screw hole spacing.
+
+8. Recommendations
+
+- For subsequent phases, consider targeted local radius increase at the screw-hole fillet where the hotspot occurs to further ease the stress gradient; a 0.1 mm increment typically reduces peak by 5–8% based on heuristic rules-of-thumb for bending-dominated fillets.
+- If the design path anticipates high-cycle service environments, plan a separate study addressing cyclic durability and local plastic accommodation using an elastic–plastic metal model and a more explicit joint representation.
+- Maintain current mesh seeding scripts and contact setup templates; these provided stable results with acceptable runtimes and can be reused for follow-on variants.
+
+Appendix A — Run catalog (abridged)
+- UL_RevC_MedMesh_650N_18mm: Medium mesh production run; 603 MPa peak, 0.41 mm deflection; walltime 2 h 12 min.
+- UL_RevC_FineMesh_650N_18mm: Fine mesh; 612 MPa peak, 0.42 mm deflection; walltime 3 h 50 min.
+- UL_RevC_Coarse_650N_18mm: Coarse mesh check; 586 MPa peak, 0.39 mm deflection; walltime 54 min.
+- UL_Strip_Elastic_100N: Elastic strip verification; 2.1% deviation from closed-form.
+- UL_Bilat_325N_each: Bilateral symmetry check; reactions matched within 0.8%.
+
+Appendix B — Notes on postprocessing
+- Peak stresses were read from element centroid values to limit artificial peak smoothing; no nodal averaging performed. For visualization, standard Abaqus von Mises contouring with default smoothing was used, but all decision metrics were taken from raw centroid values at the hotspot region of interest.
+- The cortical ROI under the proximal screw was defined via a geometric query in HyperMesh; maximum principal strain was extracted via field output E, averaged at integration points and then queried for the maximum value in the named set.
+
+Appendix C — Data availability
+- Input decks (.inp), meshes (.hm), and postprocessing scripts (.py) reside at //sim/FEA/plates/mandible/RevC/ULoad/2026-06-18 and are tagged with job IDs referenced above. Access is restricted to the Structural Simulation Group.
+
+End of report.

@@ -107,7 +107,8 @@ def main() -> int:
                if (b / "ground_truth.json").exists() and (b / "source").is_dir()][:args.n]
 
     tot_f = agree_f = 0          # factors both annotators marked
-    tot_s = agree_s = 0          # sentence-level overlap
+    tot_s = agree_s = 0          # sentence-level overlap (STRICT)
+    tot_l = agree_l = 0          # token-overlap (LOOSE, the attribution rule)
     only_gpt = only_claude = 0
 
     for b in bundles:
@@ -146,6 +147,17 @@ def main() -> int:
                     tot_s += 1
                     if gs & cs:
                         agree_s += 1
+                # Same pair, scored by the rule the attribution metric uses,
+                # so the two numbers sit on one scale and can be compared.
+                tot_l += 1
+                ctok = set()
+                for k in claude[f]:
+                    ctok |= set(re.findall(r"[a-z0-9.%-]{3,}", str(k).lower()))
+                for k in gpt[f]:
+                    ktok = set(re.findall(r"[a-z0-9.%-]{3,}", str(k).lower()))
+                    if ktok and len(ktok & ctok) / len(ktok) >= 0.5:
+                        agree_l += 1
+                        break
             elif in_g:
                 only_gpt += 1; tot_f += 1
             elif in_c:
@@ -155,8 +167,11 @@ def main() -> int:
     print(f"\n  ── inter-annotator agreement, {len(bundles)} bundles ──")
     print(f"  factor selection: both marked {agree_f}/{tot_f} ({agree_f/max(tot_f,1):.1%})")
     print(f"    gpt-5 only  {only_gpt}      claude only {only_claude}")
-    print(f"  SENTENCE agreement, where both marked the factor:")
-    print(f"    same sentence {agree_s}/{tot_s} ({agree_s/max(tot_s,1):.1%})")
+    print(f"  where both marked the factor:")
+    print(f"    STRICT same sentence      {agree_s}/{tot_s} ({agree_s/max(tot_s,1):.1%})")
+    print(f"    LOOSE  >=50% token overlap {agree_l}/{tot_l} ({agree_l/max(tot_l,1):.1%})")
+    print(f"    (LOOSE is the rule score_attribution uses, so it is the one")
+    print(f"     comparable with sonnet's 0.946)")
     print()
     r = agree_s / max(tot_s, 1)
     if r >= 0.80:

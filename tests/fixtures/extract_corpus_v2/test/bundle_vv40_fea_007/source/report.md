@@ -1,41 +1,38 @@
-To: Priya Shah, Spine Program Lead
-From: M. Ortega, Simulation Team
-Subject: Status check — Cage FEA credibility for design freeze gate
+To: L. Parsons, Mechanical Lead
+From: S. Chao, Simulation
+Date: 2026-08-06
+Subject: Status check — plate-screw construct FEA vs. bench results (Rev D) 
 
-Quick recap of how we intend to use the model
-- The current finite-element model is meant to answer a narrow question: does reducing the inner pocket radius from 1.0 mm to 0.6 mm on the L4–L5 PEEK interbody cage jeopardize static compressive performance per our internal acceptance metric? It is not being used to make claims about torsion, fatigue, or subsidence into bone analogs; those are separate workstreams.
+Short take
+- The current nonlinear static model of the L4–L5 lateral plate with 5.5 mm screws is behaving predictably and is close enough to the lab numbers to support design screening and setting a preliminary proof load. Stiffness tracks within 7% of the 4‑point bend fixture data; stress at the screw head fillet is 10–15% below the strain-gage inference. Known gaps are mostly around how we represent screw seating and assembly variability.
 
-Model setup and main assumptions
-- Geometry: Rev H CAD, pockets and serrations retained; thread features suppressed below 0.25 mm to keep element distortion in check around the fillets of interest.
-- Material: Unfilled PEEK per Invibio datasheet; E = 3.6 GPa, ν = 0.36, linear elastic. We are staying in the small-strain regime for the load levels considered here.
-- Contacts and loading: Compression between polished stainless platens (ASTM F2077-like). Surface-to-surface contact with a 0.2 friction coefficient; tie constraints at the cage–disc interfaces are not used. Load applied as 0–6 kN ramp, displacement-controlled for robustness.
-- Solver and elements: Abaqus 2022, nonlinear static step with automatic stabilization (dissipation ratio target 0.0002). Quadratic tets (C3D10) in fillets and web regions; linear tets for the bulk where gradients are mild.
+What we built
+- Geometry: Rev D plate and 28 mm screws from CAD; threads retained on the first five pitches near the head for stress capture, shank threads replaced by an equivalent cylinder. Countersink and head undercut modeled as-designed. No bone blocks or cages in this model; we’re focused on the construct piece-part response in the fixture.
+- Materials: Ti‑6Al‑4V ELI (AMS 4930) with E = 114 GPa, ν = 0.34. Plasticity: bilinear kinematic, σy = 910 MPa, tangent modulus = 1.2 GPa. Screws use the same card. All units mm‑N‑s.
+- Contacts: plate–screw head undercut and head–countersink frictional (μ = 0.2), augmented Lagrange. Shank–plate clearance contact set to rough (stick) to prevent nonphysical interpenetration in edge cases. Bonded thread engagement at the first five pitches as a practical surrogate.
+- Loads/BCs: Four‑point bend mimic per our lab rig: rollers at 20 and 60 mm span; load applied via remote displacement at the upper rollers to 1.5 mm total crosshead travel. No explicit preload in screws. Small‑strain turned on; large deflection off (peak rotation < 1.5 deg).
+- Elements/solver: SOLID187 (quadratic tets). Default ANSYS contact stabilization with 0.1 N·mm penalty cap. Nonlinear solution with force convergence 0.5% and 50 substeps max.
 
-Numerics sanity checks
-- Mesh refinement: three meshes targeted at the radius transition:
-  - Coarse: 1.2 mm nominal size; 85k elements; peak von Mises at the inner fillet = 92 MPa.
-  - Medium: 0.8 mm; 190k elements; peak = 101 MPa.
-  - Fine: 0.5 mm; 480k elements; peak = 103 MPa.
-  - Change from medium to fine is 1.9% at the hotspot; we used the fine mesh for all reported values.
-- Equilibrium and contact stability: residuals below 1e-6 by the last increment; max penetration under 2 µm; 15–28 iterations to converge across load steps.
+Sanity checks on numerics
+- Three meshes: M1 (0.82M elems, 0.35 mm min at fillet), M2 (1.64M, 0.25 mm), M3 (3.28M, 0.18 mm).
+- Response changes M2→M3: global force–displacement slope −1.9%; peak von Mises at head fillet +3.6%. Displacement field smooth by visual inspection; no element distortion flags. Based on this, M2 was used for parametric runs, M3 for the fixture correlation.
 
-Comparison to bench data
-- We mirrored our internal static compression fixture (same 25 mm platen radius, same spacer stack-up). Two physical samples (Rev G geometry, 1.0 mm pocket radius) gave axial stiffness of 2.85 and 2.91 kN/mm up to 6 kN. The model predicted 2.95 kN/mm (+3.5% relative to the average test). The deformation mode (web bending with stress concentration at the inner fillets) matches DIC images.
-- For the revised 0.6 mm fillet, no test data yet; the model estimates 105 MPa peak von Mises at 6 kN. Given the linear-elastic assumption, the change from 1.0 mm to 0.6 mm radius increases the hotspot by about 4%.
+How it stacks up to the lab
+- Lab setup: six specimens in our in‑house 4‑point rig, unconditioned, no saline, ambient 23 °C. Mean stiffness 1.42 kN/mm (SD 0.05). Strain gage at underside of the head fillet indicated 610 MPa equivalent stress at 1.5 mm crosshead travel (converted assuming local linear elastic region).
+- Model: stiffness 1.33 kN/mm (−6.6% vs. mean). Peak von Mises at the same fillet 545 MPa (−10.7%). Hotspot location in FEA matches gage placement within ~0.8 mm.
+- Likely contributors to the residual gap: no screw clamp-up modeled, fixture roller compliance not included, and our bonded-thread surrogate stiffens the joint locally. A trial with μ = 0.25 closed the stiffness delta to −4.9% but pushed contact chattering; we kept μ = 0.2 for stability.
 
-Inputs tug test (what matters)
-- Friction coefficient sweep 0.15–0.30: axial stiffness varies by <5%, peak stress by <2%. The hotspot is largely geometry-driven under compression.
-- PEEK modulus ±15%: stiffness scales proportionally; peak stress shifts ±6–7%. The qualitative ranking of the two fillet options does not change.
+What this is good for right now
+- Comparing alternative head fillet radii, countersink angles, or head undercut depths. The stress hotspot is well resolved and moves consistently with geometry tweaks.
+- Establishing a provisional proof load: at 1.5× the expected in‑service bending moment (based on prior F1717‑style constructs), the model remains below first yield at the head fillet with 8–12% margin depending on screw length.
 
-Where this leaves us for the gate decision
-- Decision impact: We are not setting clinical limits; we’re down-selecting a minor geometry tweak before tool steel release. Consequence of a wrong call is a tooling rework and a few weeks’ slip, not patient harm.
-- Match between model and evidence: For the baseline geometry, predicted force–displacement curve aligns within a few percent of the benchtop data using the same fixture conditions. The model is resolving the stress raiser with a refinements study showing minimal change between the last two grids.
-- Limitations to keep in mind:
-  - Applicability is limited to straight axial compression in a platen setup. Torsion, subsidence, and cyclic endurance are not covered here.
-  - Material is treated as linear elastic; we did not model plasticity or damage initiation. The 6 kN level stays under typical yield for PEEK, which is why we kept it linear for this phase.
-  - Contact uses a single friction value; while not critical for this loading mode, we did not attempt a detailed surface roughness model.
+Caveats and open items
+- Threads beyond the head region are idealized; do not use the current model to comment on flank stresses or galling risk.
+- No attempt yet to account for assembly torque, off‑axis load introduction, or fixture compliance; those all push stress up in the lab and would narrow the gap.
+- Plastic work is low in the current load range; if we intend to assess post‑yield redistribution, we’ll need to revisit the hardening law with actual coupon data at strain >0.5%.
+
+Traceability
+- Model files in PDM: Vault/FEA/Plates/Lateral/RevD/BendRig, item 7‑A3F‑PLT. ANSYS 2024 R1. Material card MC‑Ti64‑BK‑v2. Solver settings saved in WB template tpl‑bend4pt‑2026‑06‑14.wbwx. Lab data set LAB‑4PT‑PLATE‑RIG‑2026‑07‑12.csv.
 
 Recommendation
-- Use the FEA to proceed with the 0.6 mm fillet radius on the inner pocket. The numerics are stable, mesh is sufficiently fine at the hotspot, and the baseline case lines up with our fixture measurements within ~3–4%.
-- Please gate this approval to the scope above. Separate analyses/tests will address torsion and fatigue before the design transfer review.
-- If we need extra margin, we can add one more local refinement pass (0.35 mm at the radius) and include a quick check with a small plastic hardening curve; that work would take ~2 days and would not change the overall conclusion based on current trends.
+- Proceed to use the M3 model as the reference for proof‑load setting and for down‑selecting between head geometries. Before we lean on it for absolute safety margins, add screw clamp-up and a compliant roller model, then re‑check against one additional fixture run with measured torque.

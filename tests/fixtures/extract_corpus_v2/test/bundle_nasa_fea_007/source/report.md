@@ -1,47 +1,50 @@
-To: Dana Liu, Avionics Bay IPT Lead
-From: M. Ortega, Structures
-Date: 06 Aug 2026
-Subject: FEA credibility snapshot — avionics bracket (P/N ACB-4213) for PDR
+To:      DPM, Avionics Structures
+From:    R. Chen, FEA Lead
+Date:    2026-08-06
+Subject: Credibility snapshot — antenna boom bracket FEA (P/N BRKT-ANT-021)
 
-Context and intended use
-We built a finite-element model to judge whether the ACB-4213 bracket can fly as designed or needs a geometry change before long-lead release. The analysis supports two decisions: (1) go/no-go on current fillet radii and wall thickness, and (2) whether to carry a friction-reduction coating at the interface. The model is being used for static strength, local strain predictions for gauge placement, and approximate stiffness; detailed vibro response is out of scope until the shaker test data arrives.
+Quick summary
+We’ve completed the stress analysis for the deployable antenna boom bracket under quasi-static launch loads. Current model points to a minimum yield margin of 0.18 at the lower inboard filet adjoining the web. No red flags on fastener loads. Some open items remain around fillet radius confirmation and bolt preload scatter, but the basic picture is stable.
 
-Model setup and idealizations
-- Geometry: CAD as-designed except threads replaced by smooth holes; fasteners represented by beam elements with pretension. Fillets below 0.5 mm suppressed. The avionics box is represented as a rigid body tied to the bracket interface.
-- Material: 7075-T73 aluminum, E = 71.2 GPa (±2 GPa from our coupon set), ν = 0.33, σy = 435 MPa. Bolts: A286 with 1100 MPa proof.
-- Interfaces: Contact at the bus interface with roughness-based μ = 0.2 baseline; sensitivity 0.1–0.3 explored. Bolt pretension 6 kN each (±10% sweep).
-- Loads/BCs: Quasi-static envelopes from loads team: 12 g vertical, 6 g lateral, 4 g longitudinal applied to the avionics box CG; combined via worst-direction vectoring. Random vibe translated into an equivalent static for local clip evaluation only (3σ integrated); full dynamic is deferred.
+Model setup
+- Geometry: Native from CAD rev C (drawing ANT-021-003). Small chamfers (<0.3 mm) suppressed; the as-machined relief at the web root modeled explicitly at 1.6 mm. Bolt holes modeled with nominal diameters; no thread features.
+- Elements: Tetrahedral quadratic (C3D10M), with local sizing to 0.35 mm in the web-root zone and 1.2–2.5 mm elsewhere. Final production run at ~520k elements, ~840k nodes.
+- Material: 7075-T73 aluminum. E = 71.7 GPa, ν = 0.33, σy = 435 MPa (MMPDS-28 Table 3.7.6.0(b)). Density for inertial check 2810 kg/m³.
+- Contacts: Surface-to-surface with penalty formulation at the bracket–base interface; μ = 0.20. Fastener shanks tied to hole surfaces; under-head contact active.
+- Loads/BCs: Quasi-static “stubbed” launch case: 30 g axial (parallel to boom), 15 g lateral. Base ring fully constrained at mounting lugs consistent with the adapter plate. Twelve M6 bolts preloaded to 8.5 kN each (per fastener spec FST-M6-12.9, torque 10.5 N·m and k = 0.20 assumed).
 
-Numerics and mesh checks
-Abaqus/Standard 2023 FD05. The bracket body meshed with C3D10 tets; near the fillet we enforced 2 elements through thickness. Three meshes were run (global edge 4.0/2.5/1.5 mm). Peak von Mises at the lower lug fillet: 329/318/314 MPa. From Richardson extrapolation the asymptote is ~311 MPa with an estimated mesh-induced bias of ~1.0%. Strain energy change between the two finest meshes is 1.8%. Nonlinear iterations per step <8; max contact overclosure 0.009 mm. No hourglassing or negative pivot warnings.
+Mesh adequacy
+We ran a three-level refinement on the high-stress area:
+- Coarse: 180k elements → peak von Mises = 374 MPa
+- Medium: 340k elements → 356 MPa
+- Fine: 520k elements → 349 MPa
+Change medium→fine = −2.0% at the hotspot; bolt load distribution shifted <1%. Displacements at antenna hinge line changed <0.6%. Based on that, we used the fine mesh for reporting.
 
-Comparison to bench data
-We ran a simple single-axis pull on an engineering article (Rev B bracket alone) to 5.5 kN. Mid-span deflection: test 0.92 mm vs model 0.98 mm (+6.5%). Rosette at the fillet: principal strain test 1850 με vs model 1740 με (−6.0%). These are within the ±10% band we agreed for PDR-level correlation. Note: the test used dry aluminum-on-aluminum; no coating present.
+Sensitivity checks
+- Bolt preload 7–10 kN: hotspot stress varied +4.8%/−3.1%; max bolt axial load shifted from 9.4 kN to 10.1 kN.
+- Interface friction μ = 0.15–0.30: hotspot stress within ±2.2%; slip tendency reduced as expected with higher μ.
+- Fillet radius at web root 1.2–2.0 mm: stress dropped roughly 9% per +0.4 mm increase; this is the dominant geometric lever.
 
-Input data pedigree
-- Elastic properties: 5 ASTM E8 coupons cut from the same lot as the bracket; mean and spread as above.
-- Friction coefficient: in-house lap-shear of 7075-T73 to Al 6061 yielded 0.15–0.25; we set 0.2 baseline.
-- Bolt preload: torque-tension curve from NASM1312-31 gave 6 kN at 0.95 N·m for our lubrication scheme.
+Correlation with bench data
+We instrumented the development article (rev B machining, same nominal geometry at the critical filet) and pulled with a calibrated test frame to mimic the 30 g axial resultant. Three strain gauges near the hotspot read 1980–2140 με. The model predicted 2060–2185 με at the same locations/gage lengths after applying the measured bolt torques (8.1–8.7 kN equivalent). Average difference across the three gauges: 5.9%, worst case 8.3%. No anomalous bending evident; bolt strain in the two most loaded fasteners matched within 6% of the predicted axial.
 
-Sensitivity and uncertainty
-Local peak stress moves by roughly:
-- ±5% E → negligible on stress; ±5% on deflection.
-- μ = 0.1 to 0.3 → −3% to +4% on peak stress.
-- Pretension ±10% → ±2% on peak stress.
-Combining these independent contributors in quadrature gives ~5–7% for stress and ~7–9% for deflection at PDR fidelity. Using the mesh bias above, a conservative 95% band on the fillet stress is 311 MPa ± 25 MPa.
+Results of record
+- Peak von Mises at web root: 349 MPa (fine mesh), margin to yield = (435/349 − 1) = 0.25. Including 3% allowance for discretization per the refinement trend, reported margin = 0.18.
+- Next hot area: under-head fillet of the forward inboard bolt, 312 MPa; bearing stress at hole edges max 218 MPa.
+- Load path: 63% of axial reaction carried by the six inner-ring bolts; shear sharing is uniform within ±7%.
+- Stiffness: hinge-line lateral deflection under combined quasi-static loads = 0.28 mm.
 
-Traceability and reproducibility
-All input decks, material cards, and post-processing scripts are in repo aero-structures/avx-bracket at commit 9f3d1a2. Abaqus job file: ACB4213_pdr_v27.inp. Runs executed on Redwood cluster (RHEL 8.6, Intel oneAPI 2023). Bolt pretension implemented via *PRETENSION SECTION; contact via small-sliding penalty. Plot templates saved in the repository for re-runs.
+Model artifacts and files
+- Primary model: Abaqus/Standard 2023.HF2, job “ANT021_QS_AxLat_revC_fine.inp”
+- Stored in PDMVault under “BRKT-ANT-021-FEA” rev C, with a readme noting the gauge locations and test fixture offsets.
 
-People and review
-Primary analyst: 12 years structural FEA on flight hardware (Orion avionics trays, LEO payload mounts); Abaqus and hand-check certification current. Independent check by P. Alvarez, PE, 27 Jun 2026; comments resolved (switched to quadratic tets at fillet; added third mesh level; corrected pretension application order).
+Gaps and next steps
+- Confirm as-built fillet at web root. The supplier’s first-article report lists 1.55–1.65 mm; drawing shows 1.60 ± 0.10 mm. We modeled 1.60 mm nominal; updating to measured values is unlikely to shift margins more than a few percent, but we should lock this down.
+- Bolt torque scatter: request production torque-tension data (k-factor) from ME; our assumption of k = 0.20 drives ~±5% on hotspot stress across the observed range.
+- Run an orthogonal lateral load case (0 g axial, 15 g lateral) to close the envelope for adapter-plate sizing; expected to be non-controlling but not yet executed.
+- For vibe, a separate modal and PSD assessment is in progress on the system model; not duplicated here.
 
-Bottom line for PDR
-- Strength: With current geometry, predicted peak stress 314 MPa on the medium-fine mesh, 311 MPa extrapolated; margin to yield ≈ 0.40 at limit loads. Acceptable for PDR with noted caveats.
-- Stiffness: Model is slightly soft vs test; within tolerance for avionics alignment. No action now.
-- Coating decision: Given low friction sensitivity on stress and the test being dry, coating is not required for strength; other disciplines may still want it for wear/corrosion.
+Ask
+- Approve carrying the 0.18 yield margin for SRR-level reporting with the stated caveats on fillet and preload. We’ll refresh the numbers within a week after metrology and torque-tension data arrive.
 
-Open items to carry
-- Formal shaker correlation and mode shape check after TVAC/shaker testing.
-- Fretting and micro-slip at the interface not modeled; if wear becomes a driver, we’ll need a refined contact law.
-- Threads idealized; if bolt bending or joint slip emerges in test, revisit the fastener model.
+End. Reach out if you want the ODB and the test/analysis overlay plots.

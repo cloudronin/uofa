@@ -1,72 +1,36 @@
-Appendix A — Selected Numeric Details
+# Appendix A — Supplemental computational details
 
-A1. Mesh Variants and Key Results (identical physics and BCs)
-- Coarse mesh: 6.1 million cells; 8 prism layers; minimum first-cell height 2.5e-5 m.
-  - VRM2 base temperature: 82.4°C.
-  - Total mass flow: 0.083 kg/s.
-  - Module pressure drop: 63 Pa.
-- Medium mesh: 10.2 million cells; 12 prism layers; minimum first-cell height 1.5e-5 m.
-  - VRM2 base temperature: 81.1°C.
-  - Total mass flow: 0.084 kg/s.
-  - Module pressure drop: 62 Pa.
-- Fine mesh: 15.7 million cells; 16 prism layers; minimum first-cell height 1.0e-5 m.
-  - VRM2 base temperature: 80.7°C.
-  - Total mass flow: 0.085 kg/s.
-  - Module pressure drop: 61 Pa.
+Mesh generation and quality:
+- The fluid mesh employed polyhedral cells generated from a surface triangulation with curvature-based refinement. Typical cell orthogonality >0.22; skewness <0.78, with only 0.04% of cells exceeding 0.9 skewness near tight channel bends on the coarse mesh. The final (M3) mesh reduced the high-skewness population below 0.01%.
+- Prism layers: 15 layers with growth factor 1.18; total thickness ~1.6 mm, ensuring y+ between 0.8 and 1.5 over the micro-fins and channel walls.
+- Solid mesh: tetrahedral with four refinement levels under the module footprint; minimum edge length in copper traces ~60 µm; element quality measured by aspect ratio <12 for 95% of elements.
 
-Estimated asymptotic VRM2 base temperature via three-level Richardson: 80.5°C (assumed observed order p ≈ 1.9). The medium mesh differs from the asymptote by about 0.6%. Pressure drop difference medium-to-fine is within 1.5 Pa.
+Solver controls:
+- Pressure–velocity coupling: coupled scheme with pseudo-transient option enabled; Courant target 50; under-relaxation 0.3 for momentum, 0.7 for energy, 0.4 for k and ω during early iterations, then ramped to 0.6/0.9/0.6 at 1500 iterations.
+- Gradient calculation: least-squares cell-based; flow curvature correction turned on for momentum.
+- Thermal coupling: single-domain energy equation with conformal interfaces; checked face mismatch <0.02% by area.
 
-A2. Radiation Sensitivity (medium grid)
-- With radiation off:
-  - VRM2 base temperature: 82.2°C.
-  - Net convective heat through outlet: 418 W.
-- With radiation on (εpaint = 0.85, εsink = 0.2):
-  - VRM2 base temperature: 81.1°C.
-  - Net convective heat through outlet: 403 W.
-  - Net radiative exchange to panels: 24 W.
-- With radiation on and εpaint reduced to 0.75:
-  - VRM2 base temperature: 81.5°C.
-  - Net radiative exchange: 20 W.
+Monitors and residual behavior:
+- Residuals decreased smoothly; a short plateau between iterations 900–1200 was observed coincident with k–ω stabilization in the fin region; subsequent lowering of ω under-relaxation by 0.05 resolved the plateau.
+- Temperature monitors:
+  - “T_outlet_centerline”: area average of 12 faces at the outlet cross-section; stabilized to within 0.02 C from iteration 1850 onward.
+  - “T_module_avg” and “T_module_max”: area averages on the baseplate patch beneath the module; stabilized after iteration 2100.
+- Mass and energy imbalance dropped below 0.2% at iteration ~1600 and 0.1% by ~2500.
 
-A3. Fan Curve Implementation
-- Vendor P–Q data were fit to Δp = a0 + a1·Q + a2·Q^2 over the valid range. Coefficients for each fan differ by less than 2%. The implemented curve is clamped at zero flow and at free delivery.
-- The orifice bench suggests a 3–4% reduction in pressure rise at our Reynolds number versus the catalog curve; we applied this as a uniform scale to a0 and a1 terms.
+Case management:
+- Each mesh level used a consistent boundary condition set with named selections imported from SpaceClaim. A pre-run journal script automatically set the volumetric flow and inlet temperature.
+- Thermal material data for the coolant were provided via a tabulated UDF linked to ASHRAE correlations; solids used Fluent material database values for A356 and copper with minor manual edits to match lab data.
 
-A4. Monitors and Convergence Behavior
-- Monitored temperatures at VRM1 and VRM2 showed monotonic decrease during iterations, ending with slopes below 2e-5 K/iter. Integrated outlet enthalpy converged within 0.1 W over the final 500 iterations.
-- The L2 norm of the energy residual fell below 1e-5 by 2400 iterations on the medium grid; momentum residuals settled at ~6e-5 and continued to decrease slowly.
+Bench replication in the model:
+- Pressure tap locations were matched by measuring from the plate edge to the centerline of the ports (20 ± 0.5 mm) and mapping that to the model faces.
+- The outlet RTD was oriented tip-upstream; to approximate this, the outlet cross-section post-processing region excluded the outer 0.5 mm annulus to reduce sensitivity to recirculation zones near the wall.
 
-A5. Thermocouple and IR Locations
-- TC1–TC8: device-base attachment points (VRM1, VRM2, CPU1, CPU2, FPGA, PHY, and two DC-DC packages).
-- TC9–TC12: heat sink roots near leading and trailing edges of the VRM sinks.
-- IR patches: 15 spots on fin tips, center panel, and bezel interior. Matte tape dots were used to fix emissivity at 0.95 for IR readings.
+Notes on the TIM fit:
+- A series of five short runs adjusted the TIM effective conductivity from an initial value corresponding to 0.23 K·cm^2/W to 0.30 K·cm^2/W in 0.015 steps. A least-squares metric minimized the error at the central thermocouple location over the last 300 iterations of each run. The minimum occurred at 0.28 K·cm^2/W; nearby values changed the corner temperatures by ~0.2–0.3 C.
 
-A6. Energy Balance Components (medium grid, representative run)
-- Electrical heat input: 450 W.
-- Convective outlet enthalpy rise: 403 W.
-- Radiative exchange to internal walls: 24 W.
-- Conductive transfer to side rails held at 27°C: 20 W.
-- Residual (numerical): 3 W.
+File locations:
+- Meshes: TS-INV-CP-RevC/GeomMesh/2026-07/m1, m2, m3 directories; Fluent .msh.h5 files with corresponding quality reports.
+- Solution files: TS-INV-CP-RevC/CFD/CHT/2026-07-ops12Lpm/m3-run03; includes .cas.h5 and .dat.h5 and journal.m3ops12.jou.
+- Bench logs and a photo of the instrumentation layout: TS-INV-CP-RevC/Test/Bench/2026-07-CHT-compare.
 
-Appendix B — CAD and Mesh Notes
-
-B1. Geometric Simplifications
-- Stiffening beads on side panels were retained as they influence panel conduction.
-- Screw bosses in the top cover were simplified but kept to maintain conduction area.
-
-B2. Surface Preparation and Meshing
-- Surface gaps below 0.05 mm were closed by remesher, except at panel seams adjacent to the bezel where local curvature demanded smaller patches.
-- Local volumetric controls: 0.6 mm base size in the fin passages, 0.3 mm near device bases, 1.5–2.5 mm in the free stream away from fins.
-
-Appendix C — Test Bench Snapshot
-
-C1. Ambient Control
-- A mixing chamber and honeycomb straightener upstream of the bezel reduced inlet swirl; measured swirl angle < 5° by five-hole probe.
-
-C2. Stabilization Time
-- Time to reach steady readings after power-on was 32–37 minutes across runs; the last 10 minutes were used for averaging.
-
-C3. Flow Metering
-- The orifice plate had beta ratio 0.5; calibration certificate indicates ±1.2% of reading uncertainty. Differential pressure at operating point: 88 Pa.
-
-These details support the statements in the main report and provide traceable numbers for repeat runs.
+End of Appendix.

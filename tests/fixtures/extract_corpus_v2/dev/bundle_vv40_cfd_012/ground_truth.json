@@ -2,21 +2,21 @@
   "case": "bundle_vv40_cfd_012",
   "pack": "vv40",
   "assessment_summary": {
-    "project_name": "Elbow Duct with Turning Vanes CFD",
-    "cou_name": "Steady RANS to estimate pressure loss and flow quality for 90\u00b0 square HVAC elbow for early sizing (AHU-7)",
+    "project_name": "Centrifugal Pump Head Curve Prediction",
+    "cou_name": "Preliminary pump sizing and curve placement for TK250-50 at 1785 rpm near 65\u201385 m^3/h",
     "profile": "Partial",
     "device_class": "N/A",
     "model_risk_level": "MRL 2",
     "assurance_level": "Medium",
     "standards_reference": "ASME V&V 40-2018",
-    "has_uq": "Yes"
+    "has_uq": "No"
   },
   "expected_factors": [
     {
       "factor_type": "Software quality assurance",
       "expected_status": "not_applicable",
       "expected_level": null,
-      "expected_required_level": 1,
+      "expected_required_level": 2,
       "level_tolerance": 1,
       "evidence_keywords": [],
       "source_file": "report.md"
@@ -37,11 +37,9 @@
       "expected_required_level": 3,
       "level_tolerance": 1,
       "evidence_keywords": [
-        "Mesh refinement study",
-        "K_coarse = 0.37",
-        "p_obs \u2248 1.92 for K",
-        "Extrapolated K_ext \u2248 0.345",
-        "estimated discretization band on fine grid \u2248 1.2% relative"
+        "Head variation across meshes (OP-B): 27.8 m (coarse), 28.2 m (medium), 28.5 m (fine)",
+        "Extrapolated asymptotic value ~28.7 m",
+        "A Richardson-style estimate suggests a numerical scatter near 0.4\u20130.6 m"
       ],
       "source_file": "report.md"
     },
@@ -49,13 +47,12 @@
       "factor_type": "Numerical solver error",
       "expected_status": "assessed",
       "expected_level": 2,
-      "expected_required_level": 2,
+      "expected_required_level": 3,
       "level_tolerance": 1,
       "evidence_keywords": [
-        "Residuals: continuity and momentum below 1e-5",
-        "mass imbalance across inlet/outlet",
-        "Mass residuals balanced to within 0.05% at convergence",
-        "K variation <0.15% over the final 700 iterations"
+        "Residual targets 1e-5 on RMS for continuity and momentum",
+        "Head and torque flattened to within 0.2% over the last 200 iterations",
+        "Mass imbalance closed to <0.1% for all cases"
       ],
       "source_file": "report.md"
     },
@@ -63,10 +60,10 @@
       "factor_type": "Use error",
       "expected_status": "not_applicable",
       "expected_level": null,
-      "expected_required_level": 2,
+      "expected_required_level": 3,
       "level_tolerance": 1,
       "evidence_keywords": [],
-      "source_file": "report.md"
+      "source_file": "appendix.md"
     },
     {
       "factor_type": "Model form",
@@ -75,39 +72,35 @@
       "expected_required_level": 3,
       "level_tolerance": 1,
       "evidence_keywords": [
-        "k-omega SST with low-Re wall treatment",
-        "Appropriateness of physics",
-        "This is a simplification but captures first-order roughness drag"
+        "frozen-rotor assumption that suppresses unsteady blade-passing dynamics",
+        "Turbulence closure: SST formulation with curvature correction disabled",
+        "mixing-plane interface at the impeller exit",
+        "switching to a transient sliding mesh would likely erode 0.5\u20131.5 m of head"
       ],
       "source_file": "report.md"
     },
     {
       "factor_type": "Model inputs",
       "expected_status": "assessed",
-      "expected_level": 3,
+      "expected_level": 2,
       "expected_required_level": 3,
       "level_tolerance": 1,
       "evidence_keywords": [
-        "Boundary and initial conditions",
-        "inlet turbulence intensity 5% (baseline)",
-        "Surface roughness modeled via ks = 0.1 mm",
-        "sensitivity explored 2% and 10%",
-        "doubling ks to 0.2 mm increased K by 2.1%"
+        "Single-phase, isothermal liquid water at 998.2 kg/m^3, 0.00089 Pa\u00b7s",
+        "Total pressure set to 0 Pa gauge",
+        "turbulence intensity 5%",
+        "Tip clearance modeled as a uniform 0.4 mm",
+        "equivalent sand-grain height ks = 25 microns"
       ],
       "source_file": "report.md"
     },
     {
       "factor_type": "Test samples",
-      "expected_status": "assessed",
-      "expected_level": 2,
+      "expected_status": "not_applicable",
+      "expected_level": null,
       "expected_required_level": 2,
       "level_tolerance": 1,
-      "evidence_keywords": [
-        "Laboratory Benchmark",
-        "Two static pressure rings installed at the tap planes",
-        "2D PIV (double-pulsed Nd:YAG, 200 mJ/pulse)",
-        "three cross sections (upstream plane, elbow mid-plane, downstream plane)"
-      ],
+      "evidence_keywords": [],
       "source_file": "report.md"
     },
     {
@@ -117,9 +110,9 @@
       "expected_required_level": 3,
       "level_tolerance": 1,
       "evidence_keywords": [
-        "Environment stabilized at 20 \u00b1 1 \u00b0C",
-        "air properties and bulk velocity were matched to within 0.5% of the test conditions",
-        "downstream tap plane in the model was positioned to coincide with the ring centerline"
+        "Water at 25 C; barometric pressure 100.8 kPa; speed 1785\u00b13 rpm",
+        "1 atm inlet total pressure (gauge 0)",
+        "outlet static pressure adjusted to achieve the requested flow"
       ],
       "source_file": "report.md"
     },
@@ -130,23 +123,22 @@
       "expected_required_level": 3,
       "level_tolerance": 1,
       "evidence_keywords": [
-        "Matching simulation to test",
-        "CFD velocity data sampled on planes corresponding to PIV sheets",
-        "downsampled to PIV interrogation grid spacing"
+        "Reference datum for head calculation: PumpWorks flange-to-flange elevation datum",
+        "static head offset removed using the same datum as the lab report",
+        "Speed fixed at 1785 rpm"
       ],
-      "source_file": "report.md"
+      "source_file": "appendix.md"
     },
     {
       "factor_type": "Output comparison",
       "expected_status": "assessed",
-      "expected_level": 3,
-      "expected_required_level": 3,
+      "expected_level": 2,
+      "expected_required_level": 4,
       "level_tolerance": 1,
       "evidence_keywords": [
-        "Measured K at 1.8 m3/s: 0.358 \u00b1 0.007",
-        "CFD fine grid K at 1.8 m3/s: 0.349 \u00b1 0.004",
-        "Difference: \u22122.6% relative to measurement mean",
-        "Spatial correlation coefficient between CFD and PIV velocity magnitude on the downstream plane: 0.94"
+        "CFD head 31.4 m (fine mesh); lab data 32.5 m \u2192 difference \u22123.4%",
+        "lab data 29.4 m \u2192 difference \u22123.1%",
+        "lab data 27.1 m \u2192 difference \u22126.9%"
       ],
       "source_file": "report.md"
     },
@@ -157,9 +149,9 @@
       "expected_required_level": 3,
       "level_tolerance": 1,
       "evidence_keywords": [
-        "pressure loss coefficient (K)",
-        "mid-plane velocity profiles",
-        "support early sizing choices for a retrofit project"
+        "Outputs of interest:",
+        "Pump total head (m) vs. flow (m^3/h)",
+        "Shaft power (kW) inferred from torque on the rotating domain"
       ],
       "source_file": "report.md"
     },
@@ -170,9 +162,9 @@
       "expected_required_level": 3,
       "level_tolerance": 1,
       "evidence_keywords": [
-        "For preliminary design choices (fan sizing, allowance margin), the results are sufficiently mature",
-        "The analysis is not intended for acoustic prediction",
-        "A 4% conservative uplift on the predicted K is recommended"
+        "fit for preliminary selection of motor power and expected duty placement",
+        "We consider the results proportionate for preliminary pump sizing",
+        "intended operating band"
       ],
       "source_file": "report.md"
     }
@@ -185,35 +177,27 @@
   "expected_validation_results": [
     {
       "name_keywords": [
-        "Pressure loss coefficient",
-        "1.8 m3/s",
-        "CFD 0.349 vs test 0.358"
+        "Vendor-provided hydraulic lab tests",
+        "CFD-to-test comparisons",
+        "OP-A (65 m^3/h)"
       ],
-      "has_uq": "Yes",
-      "pass_fail": "Pass"
-    },
-    {
-      "name_keywords": [
-        "Velocity fields",
-        "Spatial correlation coefficient",
-        "downstream plane"
-      ],
-      "has_uq": "Yes",
+      "has_uq": "No",
       "pass_fail": "Pass"
     }
   ],
   "expected_decision": {
     "outcome": "Accepted",
-    "outcome_source": "For preliminary design choices (fan sizing, allowance margin), the results are sufficiently mature. A 4% conservative uplift on the predicted K is recommended",
+    "outcome_source": "fit for preliminary selection of motor power and expected duty placement",
     "rationale_keywords": [
-      "within approximately 3%",
-      "mesh checks and residual behavior",
-      "agreement in K across the operating envelope",
-      "downstream velocity shape and secondary motion topology align"
+      "good agreement with bench data in the intended operating band",
+      "Mesh refinement reduced sensitivity to discretization",
+      "steady RANS, frozen-rotor CFD runs",
+      "shortfall at the high-flow extreme",
+      "this level of fidelity is adequate"
     ],
     "decided_by_keywords": [
-      "J. Li (CFD)",
-      "MEP Systems Group"
+      "E. K. Navarro",
+      "Analyst"
     ]
   },
   "_provenance": "report.md"

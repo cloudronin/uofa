@@ -1,76 +1,51 @@
-# Appendix: Run Matrix and Supporting Details
+# Appendix: Supplemental Details
 
-This appendix summarizes the run configurations and select numerical indicators for traceability. It is intended to aid reproduction of the results described in the main report.
+A1. Mesh and Cell Quality Summary
 
-## A1. Run Matrix
+- Coarse grid:
+  - Total cells: 2.4M
+  - Min orthogonal quality: 0.19
+  - Max non‑orthogonality: 58°
+  - Prism layers: 22; first‑cell height 12 µm; y+ target ≈ 2.0; achieved median y+ 1.8
+- Baseline grid:
+  - Total cells: 4.9M
+  - Min orthogonal quality: 0.21
+  - Max non‑orthogonality: 55°
+  - Prism layers: 28; first‑cell height 8 µm; y+ target ≈ 1.0; achieved median y+ 0.95
+- Fine grid:
+  - Total cells: 10.2M
+  - Min orthogonal quality: 0.22
+  - Max non‑orthogonality: 53°
+  - Prism layers: 34; first‑cell height 6 µm; y+ target ≈ 0.7; achieved median y+ 0.72
 
-- Case IDs
-  - CRM-M085-AngleSweep-Fine: M∞ = 0.85; α = [-1.0, 0.0, 1.0, 2.0, 3.0] deg; Re = 5e6/ft; fine mesh (34.5M).
-  - CRM-M085-AngleSweep-Medium: Same as above; medium mesh (17.2M).
-  - CRM-M085-Alpha2-Coarse/Medium/Fine: M∞ = 0.85; α = 2.0 deg; used for mesh study.
-  - CRM-M085-Alpha2-FF50: M∞ = 0.85; α = 2.0 deg; far-field at 50 c_ref; fine-level spacing in near-field retained.
-  - CRM-M085-Alpha2-Trip5pct: M∞ = 0.85; α = 2.0 deg; transition forced at 5% chord on wing using source-term toggle.
+A2. Convergence Histories
 
-## A2. Mesh Quality Snapshots
+- For the baseline grid at U∞=40 m/s, α=2°:
+  - Continuity residual dropped from 1.0 to 1.7×10^-5 by 720 iterations; momentum residuals were within 2.0×10^-5.
+  - AIP mass‑averaged total pressure stabilized to within ±0.02% after 580 iterations; inner bend wall shear stress monitor flattened after 610 iterations.
+- For the fine grid at U∞=55 m/s, α=+6°:
+  - Continuity residual reached 2.2×10^-5 by 1340 iterations; a transient plateau occurred around iteration 800 when the solver transitioned to the final under‑relaxation set.
 
-- y+ statistics at α = 2.0 deg (fine mesh):
-  - Mean y+ over wing: 0.83
-  - 95th percentile: 1.48
-  - Max: 1.7 (near wing kink, upper surface)
-- Skewness (Tet):
-  - 90th percentile: 0.78
-  - Max: 0.91
-- Aspect ratio (Prism layers):
-  - Near trailing edge layers: up to 400; acceptable due to alignment with wall-normal gradients.
+A3. Sensitivity Runs Matrix (Selected)
 
-## A3. Iterative Convergence Notes
+- Tu∞ sweeps at U∞=40 m/s, α=2°:
+  - 0.25% → recovery 0.957; DC60 0.041
+  - 0.50% → recovery 0.955; DC60 0.040
+  - 1.00% → recovery 0.952; DC60 0.038
+- AIP mass flow variation:
+  - −1.5% → recovery 0.949; DC60 0.042
+  - +1.5% → recovery 0.960; DC60 0.037
 
-- Residual behavior:
-  - Density residuals dropped from O(1e-1) to O(1e-5) in 7,500–10,500 iterations depending on α.
-  - Momentum residuals showed late-iteration stalls only when α ≥ 3.0 deg; mitigated by reducing CFL from 200 to 120 for the last 1,000 iterations.
-- Force monitors:
-  - Standard deviation over last 500 iterations at α = 2 deg (fine mesh):
-    - σ_CL = 0.0003
-    - σ_CD = 8.2e-06 (≈ 0.08 counts)
-    - σ_CM = 1.1e-04
+A4. Experimental Alignment Notes
 
-## A4. Manufactured and Benchmark Details
+- Tunnel blockage corrections applied to the mass flow used for the AIP outlet boundary; correction magnitude <0.3% for all cases.
+- Temperature uniformity checks via two thermocouples upstream of the model differed by less than 0.4 K during the matched runs.
+- Probe rake traverses were repeated at the baseline condition; repeatability within ±0.4% of mean for recovery.
 
-- Manufactured case definition: Velocity and temperature fields defined by trigonometric polynomials with amplitude 0.2 and wavenumber 2π/L; body force derived analytically to balance the RANS equations without turbulence production (SA equation source terms disabled).
-- Observed orders (uniform triangular meshes, Nx × Ny = 64² → 512²):
-  - L2(u): 1.98–2.01
-  - L∞(p): 1.72–1.85 (drop due to limiter near extrema; acceptable)
-- Flat-plate check:
-  - Domain length 2 m; inflow M = 0.2; SA tripping disabled.
-  - c_f at x = 1.5 m within 1.7% of Blasius.
-  - Wall y+ ≈ 0.9 at first layer; 30 layers; growth 1.2.
+A5. Figures (Descriptions)
 
-## A5. Boundary Condition Summary
+- Figure A1: S‑duct geometry with inner and outer bend Cp tap locations; region of expected separation circled near s/L≈0.6.
+- Figure A2: AIP swirl vector maps (experiment vs. CFD) for baseline lip at α=2°; note qualitative agreement in vortex pair placement with CFD exhibiting slightly broader cores.
+- Figure A3: Residual plots for baseline and fine grids at α=+6°, highlighting final plateau regions and stabilization of AIP total pressure monitors.
 
-- Far-field:
-  - Pressure: p∞ = 101.3 kPa
-  - Temperature: T∞ = 298 K
-  - Turbulent eddy viscosity ratio: 0.03 (baseline), sensitivity 0.01 and 0.1.
-- Wall:
-  - No-slip, adiabatic.
-- Symmetry:
-  - Zero normal velocity and gradients.
-
-## A6. File and Build Trace
-
-- Mesh files:
-  - crm_wb_coarse.pwmesh, md5: 0c2c7f6d3f2e1a04
-  - crm_wb_medium.pwmesh, md5: 1f77a9a52c0d43bc
-  - crm_wb_fine.pwmesh, md5: e3b4a58d9c7f09de
-- FUN3D executable:
-  - fun3d_13.9_skx_dp, build date: 2025-12-06, local patch: fb9c3e7
-- Input decks:
-  - fun3d.nml (baseline), rev: a12
-  - bcmap.surfmap, rev: a03
-
-## A7. Notes on Differences vs. Test Data
-
-- The comparison uses raw RANS results without attempting to replicate tunnel hardware or surface roughness. This explains a portion of the drag shortfall.
-- Fully turbulent assumption was selected to align with a tripped wind-tunnel model; if trip details differ from the assumed 5% chord, remaining biases may persist.
-
-End of appendix.
+End of Appendix.

@@ -1,50 +1,38 @@
-To:    Flight Avionics Thermal IPT
-From:  J. Alvarez, Thermal/Fluids
-Date:  2026-08-06
-Subj:  CHT model readiness — Avionics Cold Plate Rev B (PAO loop)
+To: A. DeLeon, Thermal Subsystem Lead
+From: R. Park, Thermal-Fluid Analyst
+Subject: CHT model check-in — avionics cold plate for PDU tray
+Date: 06 Aug 2026
 
-Quick take
-The current conjugate heat transfer model is fit for preliminary pump sizing and cold-plate geometry freeze for Rev B. Based on comparison with the breadboard test, the model predicts bulk temperatures and pressure loss within ~5%. The main sensitivities are TIM thickness and mass flow. I recommend using this model for PDR closeout decisions, with a follow-on check on radiative exchange before CDR.
+Quick readout on where we are with the conjugate heat transfer model for the PDU tray cold plate. The model’s primary purpose is to substantiate pump setpoint and manifold geometry before CDR by showing ≥10 C thermal headroom at worst-case load.
 
-What we modeled
-- Toolchain: Ansys Fluent 24R1 for flow/energy and steady conjugate conduction; SpaceClaim for CAD cleanup.
-- Physics: Single-phase PAO-6 coolant, temperature-dependent properties (per ExxonMobil data), RANS with k-ω SST, low-Re wall treatment (y+ ≈ 0.8–1.2). Solid stack includes 6061-T6 baseplate (k=167 W/m·K), a C110 copper spreader (k=385 W/m·K), and a silicone-based TIM (nominal k=3.0 W/m·K). Radiation neglected for this phase; justification below.
-- Loads/BCs: 95 W nonuniform die map across eight components (from board power telemetry, June run). Inlet: 26.0 ± 0.2 C, 0.25 kg/s; outlet static pressure fixed. Surface roughness: 2.5 µm on microchannel walls (supplier spec). Contact resistance between spreader and baseplate set by measured bondline thickness (62 ± 12 µm).
+Scope and physics
+- Geometry includes the machined aluminum cold plate with 1.2 mm × 2.0 mm channels, PEEK manifold inserts, the copper base slug under the MOSFET bank, and the PCB stack-up (FR-4, copper pours, TIM, device lids). Fluid is 50/50 propylene glycol-water; heat is applied to 16 devices totaling 600 W.
+- Flow regime is turbulent (bulk Re ≈ 6200 at 2.0 L/min), so we ran steady RANS with SST turbulence and full solid-fluid coupling. No boiling regime modeled; all surfaces remain >10 C below saturation in our envelope.
 
-Evidence the numerics are under control
-- Mesh refinement: Three unstructured meshes with boundary-layer inflation (3.2M / 6.7M / 12.1M cells). Key outputs changed as follows (coarse → medium → fine):
-  - Peak device case temperature: 74.4 → 73.0 → 72.2 C (2.7% then 1.1% change).
-  - Cold-plate ∆P: 16.9 → 16.6 → 16.5 kPa (1.8% then 0.6% change).
-  The trends are monotonic and variations from medium to fine are below 1.2%. We ran on the fine mesh for validation.
-- Iterative behavior: Residuals below 1e-5; net energy balance error 0.3%. Monitors (peak case temp, channel outlet enthalpy) drift <0.2% over the final 500 iterations. Pseudotransient stepping tests did not change outputs beyond 0.1 C.
+Inputs and simplifying choices
+- TIM resistance was set to 0.22 K·cm²/W per vendor D5470 data; we bracketed it 0.10–0.40 in a sweep.
+- Wall roughness for the channels was initially taken as hydraulically smooth; we later ran a case with 5 µm equivalent sandgrain roughness to gauge pressure losses.
+- Coolant properties are temperature-dependent via CoolProp; copper at 385 W/m-K (coupon measurement), 6061-T6 per ASM.
 
-How it lines up with the bench test
-- Hardware: Full-scale breadboard with electric heaters patterned to the same die map; PAO-6 loop with Micropump GJ-N25, Coriolis meter (±0.2% of reading), and 14 K-type TCs (calibrated to ±0.2 C).
-- Run matrix: 20, 60, 95, 110 W at 0.20 and 0.25 kg/s, inlet 26 C. We matched the 95 W / 0.25 kg/s point in the model.
-- Results at 95 W:
-  - Mean baseplate temperature: test 58.9 C vs. model 61.5 C (+4.4%).
-  - Hottest device (VR3): test 73.8 C vs. model 72.0 C (−1.8 C). Local underprediction likely tied to thicker-than-nominal TIM near VR3 (witness marks suggest ~90 µm).
-  - Loop pressure drop: test 17.3 kPa vs. model 16.6 kPa (−4.0%).
-Across the 20–110 W sweep at 0.25 kg/s, errors stayed within ±6% on temperature rise and ±7% on pressure loss.
+Numerics and consistency checks
+- Mesh: polyhedral fluid with prism layers (first cell y+ ≈ 0.8 near walls), and conformal hex-dominant solids. Coarse/medium/fine: 8.1M / 12.4M / 20.7M cells. The hotspot on the copper slug moved by −1.9 C (coarse→medium) and −0.6 C (medium→fine) at 600 W, 2.0 L/min, Tin=28.5 C. We took the 12.4M case forward.
+- Residuals to 1e-5 for energy and 1e-4 for momentum; area-averaged inlet/outlet enthalpy rise matched input electrical heat within 0.4% after stabilization. Solid-side conduction balance closed to within 0.7%.
 
-Input pedigree and checks
-- TIM conductivity measured in-house via D5470 fixture: 2.8–3.2 W/m·K over 25–60 C; model used 3.0 W/m·K with linear T slope.
-- PAO properties from vendor curves digitized and fit; spot-checked viscosity at 40 C (measured 0.0131 Pa·s vs. fit 0.0130 Pa·s).
-- Flow meter and TC calibrations logged week of 2026-07-15; uncertainty propagated to temperature rise is ±0.5 C (2σ).
+Bench comparison
+- We built a single-cold-plate rig with cartridge heaters under a copper spreader, 50/50 PGW at 0.033 kg/s, Tin=28.5±0.2 C. Instrumentation: 8 K-type thermocouples epoxied to the plate underside, one RTD on inlet/outlet, and a FLIR A615 for surface maps; dP via 0–50 kPa differential transducer.
+- Results at 600 W: model predicted the max device-lid temperature 2.6 C higher than measured; mean of the 8 TC points was +1.3 C vs test. Spatial pattern (hotter leading devices) matched the IR qualitatively. Predicted pressure drop was 10–12% lower than measured; introducing 5 µm roughness closed half the gap.
 
-What matters most (sensitivity snapshots)
-- TIM bondline thickness: +30 µm increases VR3 peak by +2.1 C.
-- TIM conductivity: −10% reduces spreading, +0.9 C at peak.
-- Mass flow: ±5% shifts mean baseplate ~∓0.8 C and ∆P ~±10%.
-- Turbulence intensity at inlet (1–5%) made <0.2 C difference on peaks.
+Sensitivity highlights
+- TIM dominates: 0.10→0.40 K·cm²/W increased the worst-case device lid by ~4.3 C.
+- Flow rate: ±10% changed the hotspot by −2.1/+2.4 C, roughly consistent with Nu ∝ Re^0.8 scaling.
+- Inlet temperature mapped nearly one-for-one to device lids (0.95–1.00 C per 1 C), confirming we’re mostly convection-limited at the interface, not deep in the solid stack.
 
-Assumptions and where this model applies
-- Radiation is neglected; with surfaces near 60 C and an internal bay at ~30 C, estimated radiative heat loss is <1.5 W (gray-body calc, ε=0.1–0.2), which is below our measurement noise. We will recheck if bay air rises above 50 C.
-- Validated envelope: 20–110 W, 0.20–0.25 kg/s, inlet 24–28 C. Extrapolation beyond these is not recommended without additional runs.
-- Orientation/micro-g effects are irrelevant for single-phase PAO in this geometry.
+Margin picture and uncertainty
+- Using the medium mesh and nominal inputs at 2.0 L/min, Tin=28.5 C, we get 81.7 C at the top-of-silicon proxy node (via calibrated conduction path), versus a limit of 95 C. Aggregating measurement noise (±0.8 C TC, ±0.5 C IR), emissivity uncertainty (±0.02 translates to ~±1.5 C on the IR peaks), and model param variation (TIM ±0.12 K·cm²/W, roughness 0–5 µm) with a root-sum-square approach gives ~±3.2 C on the hotspot at 95% confidence. That still leaves >10 C margin in the tested configuration.
 
-Peer scrutiny
-- Independent check by S. Patel (thermal analyst) on 2026-07-28; comments on near-wall resolution and energy balance addressed. One open RFA: capture measured TIM thickness map in CAD for final CDR run.
+Odds and ends
+- We did a one-off cross-check with a 1D network (FloTHERM PACK approach replicated in Python): it underpredicts the copper slug drop and therefore gives ~3 C colder lids; we’re not using it for acceptance, only for trend sanity.
+- Known gaps: we are not capturing manifold secondary flows perfectly; a quick unsteady RANS run suggested <1 C impact on peaks, so we stayed steady for now. Also, we haven’t modeled contact pressure variation across the TIM; that’s rolled into the resistance range.
 
-Recommendation
-Use this model for Rev B pump selection and cold-plate channel geometry lock. Before CDR, incorporate the measured TIM spatial map and perform a quick rerun including a gray-body radiation enclosure at bay temperatures >50 C to bound any late hot-day scenarios. No further hardware testing is required for these updates.
+Ask
+- For CDR, I recommend we carry 2.0 L/min as the baseline setpoint and cite ±3.2 C as the analysis band on the worst device. If program chooses to derate flow to 1.6 L/min, we’ll need to absorb ~+2.5 C on the peaks or tighten the TIM spec.

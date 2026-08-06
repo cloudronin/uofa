@@ -1,152 +1,90 @@
-# Slide 1 — Project snapshot
+# Slide 1 — Purpose and decision context
+- Objective: estimate pressure losses and branch split for a round 600 mm T‑junction at 2.5 m/s inlet to support fan sizing and damper selection for Line C.
+- Deliverable: predicted total pressure drop main‑inlet→downstream leg, and flow allocation to side branch, for use in a pre‑bid package.
+- Acceptance band for use: ±10% on pressure loss across the fitting and qualitative assessment of recirculation extent.
 
-- Topic: CFD of a ducted axial fan in an AHU plenum to predict pressure rise and outlet flow uniformity
-- Toolchain: Ansys Fluent 23.2 (double precision), ICEM + Fluent mesher poly-hexcore; post in Tecplot 360
-- Decision date: needed for equipment selection by 2026-08-20
-- What we must decide: Is the 500 mm fan at 1200 RPM sufficient to deliver 3.0 m^3/s at ≥250 Pa total pressure gain with acceptable downstream swirl?
-- Model class: steady RANS with rotating frame (MRF) as baseline; transient sliding-mesh spot-check at the design point
-- Out of scope this phase: acoustics, structural response, icing/fog, motor thermal modeling
+# Slide 2 — Geometry and operating point
+- Geometry: Schedule 20 round duct, 600 mm ID main run; 600×600 T with sharp internal corner, branch centerline orthogonal to main flow.
+- Downstream leg: 3D after tee before gauge tap; branch: 4D after tee to tap; upstream straight: 8D.
+- Air: 20°C, 1 atm; density 1.204 kg/m³; dynamic viscosity 1.81e‑5 Pa·s; incompressible.
+- Nominal inflow: 2.5 m/s at main inlet → Q ≈ 0.707 m³/s (Re_D ≈ 99,500).
+- Wall condition: commercial steel, equivalent sand‑grain roughness k_s = 0.15 mm.
 
-# Slide 2 — What we are checking (metrics and thresholds)
+# Slide 3 — Flow modeling choices
+- Turbulence closure: k‑ω SST with automatic blending; rationale: adverse pressure gradients and separation bubbles expected near the tee lip.
+- Wall treatment: low‑Re formulation with prism layers; target y+ ≈ 1–2 to resolve viscous sublayer where feasible.
+- Continuity/momentum coupling: pressure‑based segregated solver, SIMPLE with Rhie‑Chow interpolation; second‑order schemes for all transport.
+- Steady solution assumed; no buoyancy, no particulates, isothermal.
 
-- Quantities of interest
-  - Δp_total across fan and diffuser (Pa)
-  - Outlet swirl intensity at the grille plane (dimensionless; RMS tangential / bulk axial)
-  - Flow non-uniformity index across grille (max-min)/mean
-- Acceptance bands for this downselect
-  - Δp_total within ±5% at 3.0 m^3/s; within ±8% at 2.0 and 4.0 m^3/s
-  - Swirl intensity ≤0.20 at grille plane
-  - Non-uniformity index ≤0.35 at grille plane
+# Slide 4 — Boundary conditions
+- Main inlet: uniform axial velocity 2.50 m/s; turbulence intensity 5%; turbulent length scale 0.07×D.
+- Downstream outlet and branch outlet: static pressure 0 Pa (gauge) with backflow turbulence copied from domain.
+- No‑slip walls; roughness height k_s = 0.15 mm, roughness constant 0.5 applied via equivalent sand‑grain model.
+- Pressure taps emulated as area‑weighted averages over 50 mm discs flush to wall at specified D locations.
 
-# Slide 3 — Geometry and simplifications
+# Slide 5 — Mesh details
+- Meshing approach: poly‑hexcore with local refinement near the tee intersection and within separation zones; 12 prism layers, first layer 0.1 mm, growth 1.2.
+- Three levels for grid sensitivity:
+  - Coarse: 1.2M cells, min y+ ≈ 0.8, max skewness 0.84.
+  - Medium: 2.8M cells, min y+ ≈ 0.7, max skewness 0.80.
+  - Fine: 6.5M cells, min y+ ≈ 0.6, max skewness 0.78.
+- Quality checks: non‑orthogonality < 70°, cell aspect ratio < 35 in core, < 120 in near‑wall prisms.
 
-- CAD basis: Vendor fan CAD (impeller + shroud) dated 2026-05-11; AHU plenum from project Rev C
-- Simplifications
-  - Omitted motor casing internal cooling vanes; retained external hub geometry
-  - Tip clearance set to 1.5 mm per vendor drawing (tolerance ±0.3 mm not explored yet)
-  - Downstream grille modeled as porous jump matched to K-factor 3.1 (pressure drop vs velocity quadratic fit)
-  - Small fasteners, fillets <2 mm removed; upstream turning vanes retained
-- Domain extents: 5D upstream, 8D downstream to minimize reflection; side panels at real plenum walls
-- Checked blockage ratio vs test rig: cross-section and grille porosity matched within 2%
+# Slide 6 — Solver controls and monitors
+- Pressure–velocity coupling under‑relaxation tuned: p=0.3, U=0.7, k/ω=0.6; multigrid on pressure.
+- Residual targets 1e‑5 for all equations; achieved 2e‑6 to 7e‑6 on medium/fine runs.
+- Additional convergence checks:
+  - Mass imbalance < 0.2% domain‑wide on final 500 iterations window.
+  - Monitored Δp between taps stable within ±0.5 Pa over final 200 iterations.
+  - Velocity at branch plane mean stable within ±0.02 m/s.
 
-# Slide 4 — Physics choices and rationale
+# Slide 7 — Grid sensitivity and observed order
+- Quantity of interest 1 (QoI1): total pressure drop main inlet → downstream tap (Δp_main).
+- Quantity of interest 2 (QoI2): branch takeoff flow rate (Q_branch).
+- Using uniform refinement ratio r ≈ 1.53 (coarse→medium) and r ≈ 1.53 (medium→fine) in the tee region via size fields.
+- Results (Δp_main, Pa): 152.8 (coarse), 147.1 (medium), 145.2 (fine).
+  - Estimated asymptotic order p ≈ 1.98 for Δp_main.
+  - Richardson extrapolation Δp* ≈ 144.3 Pa; approximate grid‑induced error on fine ≈ 0.6% (GCI_fine ≈ 1.2% with Fs=1.25).
+- Results (Q_branch, m³/s): 0.282 (coarse), 0.291 (medium), 0.295 (fine).
+  - Observed order p ≈ 1.76 for Q_branch.
+  - Extrapolated Q* ≈ 0.299 m³/s; estimated grid effect on fine ≈ 1.3% (GCI_fine ≈ 2.5%).
 
-- Flow regime: Low Mach (Ma < 0.15), incompressible; density 1.185 kg/m^3 at 25°C
-- Turbulence closure: k-ω SST with low-Re wall treatment; selected for separation capture near hub/shroud
-- Near-wall approach: y+ targeted ≈1; 12 prism layers, first cell 0.03 mm, growth 1.2
-- Rotation modeling: MRF zone enclosing impeller + shroud; steady-state baseline to cover operating map quickly
-- No heat transfer modeled; air treated as isothermal
-- No empirical tuning; default model constants retained
+# Slide 8 — Sensitivity to inlet turbulence and wall roughness
+- Inlet turbulence intensity varied 1% → 10% (medium grid):
+  - Δp_main changed by −0.8% to +0.6%; Q_branch within ±1.1% of baseline.
+- Wall roughness k_s varied 0.00 → 0.25 mm:
+  - Δp_main increased up to +7.8% at 0.25 mm; Q_branch shifted −2.4% relative to baseline.
+- Implication: loss dominated by wall friction and separation control near the tee edge; upstream flow “quality” less critical within tested range.
 
-# Slide 5 — Boundaries and operating conditions
+# Slide 9 — Inlet profile realism check (swirl and skew)
+- Constructed two additional inlet profiles (medium grid):
+  - Swirl number ≈ 0.20 with solid‑body core to 0.3D and decaying shear layer; kept bulk velocity at 2.5 m/s.
+  - One‑sided skewed profile peaking at 1.2× mean on top half, matching typical elbow‑upstream condition.
+- Effects:
+  - Swirl case: Q_branch rose to 0.302 m³/s (+3.8% vs baseline), Δp_main +2.1%.
+  - Skewed case: Q_branch dropped to 0.284 m³/s (−2.0%), Δp_main +1.4%.
+- Conclusion: maldistribution at takeoff is sensitive to secondary motion; recommend maintaining ≥6D straight approach in layout where possible.
 
-- Inlet: velocity inlet set to meet mass flow targets (2.0, 3.0, 4.0 m^3/s)
-  - Turbulence intensity 5% (varied later 1–10% for sensitivity), length scale 0.05 m
-- Outlet: pressure outlet at 0 Pa gauge; backflow TI matched to inlet
-- Walls: smooth, no-slip; equivalent roughness 0 μm baseline; sensitivity run at 50 μm
-- Rotation: 1200 RPM; sensitivity at 1188 and 1212 RPM
-- Reference pressure: 101325 Pa; gravity off (orientation not relevant to Δp across fan)
+# Slide 10 — Key results and use in design
+- Recommended values (fine grid, baseline BCs):
+  - Pressure drop main inlet → downstream tap: 145 Pa.
+  - Branch flow: 0.295 m³/s (≈ 41.7% of total).
+- Apply ±10% band on Δp_main if roughness or approach flow is uncertain beyond provided ranges.
+- Recirculation length along the dead‑leg wall ≈ 1.1D; peak turbulence kinetic energy ~ 22 m²/s² at the branch lip.
 
-# Slide 6 — Meshing strategy
+# Slide 11 — Visuals (described)
+- Streamlines colored by speed show separation bubble anchored at the branch lip, with reattachment ≈ 0.9D downstream.
+- Wall shear stress map highlights elevated τ_w around the inner corner; consistent with friction‑driven loss component.
+- Velocity profiles at 1D downstream of branch show M‑shaped distribution in the main leg; branch entry exhibits off‑axis peak due to turning.
 
-- Poly-hexcore with local refinement near blade LE/TE and tip gap
-- Three meshes for resolution study (cells after MRF interface merging)
-  - Coarse: 1.5 million, min Δx near blade ≈0.6 mm, y+ median 2.8
-  - Medium: 4.2 million, min Δx near blade ≈0.35 mm, y+ median 1.2
-  - Fine: 12.7 million, min Δx near blade ≈0.18 mm, y+ median 0.6
-- Interface: conformal poly-hex across rotating/stationary interface; non-orthogonality <70°, skewness P95 <0.26
-- Quality checks: negative volumes none; cell size growth capped at 1.35 in stationary regions
+# Slide 12 — Assumptions and modeling limits (for downstream users)
+- Steady‑state only; potential low‑frequency unsteadiness not captured.
+- Single‑phase, dry air; no condensate film modeled.
+- Thermal effects neglected; density held constant.
+- No vibration‑induced surface roughness growth considered; fixed k_s used throughout.
+- Elbows, dampers, and screens outside the 8D/3D/4D segments not included; apply additional system losses separately.
 
-# Slide 7 — Resolution study results (design point 3.0 m^3/s)
-
-- Δp_total (Pa)
-  - Coarse: 242.1
-  - Medium: 253.7
-  - Fine: 258.5
-- Apparent order from Richardson fit: p ≈ 1.9
-- Estimated grid-induced uncertainty (GCI-style with Fs=1.25) between medium and fine: 1.9% on Δp_total
-- Swirl intensity at grille
-  - Coarse: 0.24; Medium: 0.20; Fine: 0.19
-- Conclusion
-  - Medium mesh within 2% of fine for Δp, within 0.01 absolute for swirl metric
-  - Medium selected for map sweeps; fine retained for final check at design point
-
-# Slide 8 — Convergence behavior and solver controls
-
-- Solver: steady, pressure-based coupled algorithm; second-order spatial schemes (QUICK for momentum)
-- Under-relaxation: default for pressure; reduced for turbulent viscosity to 0.6 to stabilize early iterations
-- Convergence criteria
-  - Residuals below 1e-5 for continuity, momentum, k, ω
-  - Monitors: Δp_total flat to within 0.2% over last 2000 iterations; torque on blades stable
-- Initialization: hybrid; ramp rotation over first 500 iterations to avoid spikes
-- Check on steady vs transient
-  - Transient sliding-mesh at design point (2° time step, ~0.00139 s) shows Δp_total = 261.4 Pa vs 258.5 Pa (fine, steady MRF) → +1.1% difference in time-averaged Δp
-  - Swirl intensity time-averaged 0.20 (transient) vs 0.19 (steady fine)
-
-# Slide 9 — Model form spot checks
-
-- Turbulence model comparison at design point on medium mesh
-  - SST (baseline): Δp 253.7 Pa; swirl 0.20
-  - Spalart–Allmaras: Δp 249.2 Pa; swirl 0.22
-  - Realizable k-ε: Δp 257.6 Pa; swirl 0.21
-- Pattern observations
-  - SA under-predicts pressure rise, notable hub separation differences
-  - RKE closer to SST for Δp but shows slightly higher swirl
-- Choice retained: SST as primary; difference to RKE within 1.5% on Δp but SST better represents tip leakage vortex footprint compared to lab PIV visuals
-
-# Slide 10 — External cross-checks (lab data)
-
-- Reference: AMCA 210 test stand data from vendor (Report F-210-663, 2026-06-07), corrected to 25°C and sea level
-  - Uncertainty (coverage ~95%): Δp ±1.5%, flow ±1.0%, RPM ±0.3%
-- Comparison of QoI at three duty points (fine mesh at design, medium elsewhere)
-  - 2.0 m^3/s: CFD Δp 274.9 Pa vs test 294.0 Pa → −6.5%
-  - 3.0 m^3/s: CFD Δp 258.5 Pa vs test 267.0 Pa → −3.2%
-  - 4.0 m^3/s: CFD Δp 212.3 Pa vs test 219.0 Pa → −3.1%
-- Notes
-  - Largest miss at low-flow where stall onset begins; steady RANS expected to be less reliable
-  - No direct lab metric for swirl; indirect check via downstream traverse shows similar skewness trend
-
-# Slide 11 — Sensitivity snapshots
-
-- Inlet turbulence intensity (1%, 5%, 10%) at design point
-  - Δp shifts by −0.8% (1%) to +1.5% (10%) relative to 5% baseline
-  - Swirl intensity varies between 0.18 and 0.22
-- Surface roughness (equiv sandgrain 50 μm) on blades and shroud
-  - Δp decreases by 0.6%; swirl unchanged within 0.01
-- Tip clearance ±0.3 mm around 1.5 mm nominal
-  - +0.3 mm → Δp −2.1%; −0.3 mm → Δp +1.7%
-- RPM ±1%
-  - Δp follows ~quadratic with speed; +1% RPM → +2.0% Δp
-
-# Slide 12 — Data pedigree and run management
-
-- Test data provenance
-  - Full report includes rig schematic, calibration sheets for pressure taps and flow nozzle; received as PDF and CSV; units and corrections consistent with our setup
-- CFD run tracking
-  - Case/mesh pairs and monitors archived with run notes; meshes hash-checked; figures scripted in Tecplot macro for repeatability
-- Hardware
-  - Medium mesh solves: ~4.5 hours to converge on 16 cores (Intel Xeon Gold 6338), peak RAM 22 GB
-  - Fine mesh: 15.2 hours on 64 cores, peak RAM 68 GB
-
-# Slide 13 — Where this leaves the decision
-
-- For the 3.0 m^3/s design point
-  - Predicted Δp_total within −3.2% of test; resolution uncertainty ~2%; model-form spread across RANS closures ~3%
-  - Swirl intensity at grille 0.19–0.20 (meets target ≤0.20)
-- Across operating map
-  - Miss grows at 2.0 m^3/s (−6.5% vs test); acceptable per ±8% band but flagged as less robust
-  - 4.0 m^3/s within −3.1% vs test; acceptable
-- Recommendation
-  - Fan model is acceptable for selection with a 5% margin added to required Δp at design point and caution near low-flow stall
-
-# Slide 14 — Known limits and to-dos (if we extend scope)
-
-- Limitations acknowledged
-  - Steady RANS near stall under-predicts pressure rise vs test; transient unsteadiness not fully captured
-  - Porous-jump grille approximates loss only; does not replicate vane-induced swirl recovery
-  - Single temperature, no compressibility; fine for Ma < 0.15
-- Next steps if needed
-  - Expand sliding-mesh coverage to low-flow case
-  - Explore tip-clearance tolerance range more broadly (manufacturing scatter)
-  - Acquire targeted PIV downstream to directly quantify swirl metric
-- Not pursued now to stay on schedule: acoustic prediction, blade roughness mapping, rotating hub thermal effects
+# Slide 13 — Next actions
+- If branch throttling is expected, repeat at 30%, 50% damper positions using same setup and re‑use fine mesh blocks.
+- Provide CAD of the upstream layout if swirl likely exceeds S=0.1 so that approach flow can be modeled explicitly.
+- If surface condition differs (lined duct or aged galvanization), refine roughness bounds and re‑compute impact on Δp_main.

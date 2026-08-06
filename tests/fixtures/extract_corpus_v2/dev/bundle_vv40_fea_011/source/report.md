@@ -1,43 +1,37 @@
-To: A. Patel, Structures Lead
-From: M. Rios, FEA
-Subject: Status memo — avionics tray bracket static analysis (P/N 71-56234, Rev C)
+To: Priya Shah, Spine Program Lead
+From: L. Nguyen, CAE
+Subject: Status memo — cage compression FEA vs bench data (VV40 touchpoints)
 
-Purpose
-This note summarizes where the finite element model for the avionics tray bracket stands relative to the load case driving the PDR decision: a 20 g vertical crash pulse with the current 3.2 kg avionics mass. The intent is to inform the go/no-go on releasing the machining drawings for the bracket and backing plate.
+Context and what we’re trying to answer
+We used a solid-mechanics model to estimate the highest combined stress in the C5–C6 interbody PEEK cage during axial compression representative of ASTM F2077 fixture loading. This is intended to screen Rev B geometry before we commit to full matrix testing. The decision hinge is whether the stress stays under the material’s allowable with a reasonable buffer. Early on we stated the limit as 95 MPa (per Invibio data sheet, room temp). During review last week we adopted 110 MPa as the working cap assuming a 1.5× margin on static proof (note this discrepancy; see Closeout).
 
-Model setup highlights
-- Geometry: Imported from CAD Rev C. Fastener holes and fillets retained; cosmetic chamfers and non-load-bearing cable tie features suppressed. Four M6 interface bolts modeled as pretensioned bolt connectors with washers. Backing plate included.
-- Materials: 7075‑T6 aluminum for bracket and plate, isotropic elastoplastic. E = 71 GPa, ν = 0.33, yield (0.2% offset) = 503 MPa. Plasticity captured via a Ramberg–Osgood fit to MMPDS 2023 sheet data (n = 12.5, α chosen to match 0.2–1% strain region).
-- Loads and restraints: Vertical inertial load equivalent to 20 g applied to the tray via a distributed mass element tied to the tray mounting surface (3.2 kg → 628 N). Bolt pretension set to 8 kN per bolt to reflect assembly torque spec. Tray feet constrained in all directions through the bolt stacks into the chassis reference plane. Friction coefficient in clamped interfaces = 0.2.
-- Contact: Augmented Lagrange with friction at tray-to-bracket and bracket-to-plate interfaces; no separation under preload unless local uplift exceeds clamp.
+Model setup and simplifications
+- CAD: porous lattice left as homogenized solid volume (no strut-level detail). Footprint 14×12 mm, height 7 mm, 7° lordosis.
+- Elements: second‑order tets in the cage body; rigid platens modeled as analytical surfaces.
+- Material: PEEK, E = 3.6 GPa, ν = 0.38, rate‑independent. No creep or plasticity included.
+- Interfaces: frictional contact cage–platen with μ = 0.2 baseline; small sliding, penalty enforcement.
+- Loads: quasi‑static compression to 3.0 kN; inferior platen constrained in all DOF, superior platen driven in Z.
+- Outputs of interest: von Mises at the posterior inner fillet, and average compressive strain in the anterior wall.
 
-Discretization and solver choices
-- Elements: Quadratic tetrahedra (Tet10) with curvature-based refinement. Minimum edge length ~0.6 mm at the 1.5 mm fillets and around bolt holes; ~3.0 mm in far field. At least 5 elements through thickness in the highest curvature zones.
-- Nonlinearity: Small-strain plasticity active; kinematics left in small-displacement regime after a trial showed <1% change when geometric nonlinearity was toggled on. Five substeps with automatic stabilization disabled.
-- Convergence checks: Force balance within 0.5% of applied. Peak contact penetration under 3 µm. Plastic strain localization restricted to the inner bracket fillet at the inboard fastener.
+Discretization check (local hot-spot focus)
+Three meshes were run: ~180k, 420k, and 1.1M DOF. Peak stress at the target fillet shifted less than 3% between the two finer models (112 vs. 114 MPa). Separately, my scratch notes from the morning run say the coarse-to-medium change was 7.4% at 3.0 kN; I will re‑run to reconcile because the original plot shows a 4.9% swing at that location. Strain energy and reaction force matched within 1% across meshes, so global response is stable. We did not chase contact patch resolution beyond ensuring ~4 elements across the nominal footprint.
 
-Mesh refinement study
-We ran three systematically refined meshes. The hotspot von Mises at the inboard fillet progressed 378 → 392 → 396 MPa; tray tip deflection progressed 0.84 → 0.87 → 0.88 mm. Extrapolating with a simple Richardson fit suggests an asymptote near 400 MPa. Based on this, remaining discretization error at the hotspot is estimated at ~1% on stress and <0.5% on deflection for the “medium” mesh (used for the rest of the sweeps).
+Sensitivity “spot checks”
+- Modulus: ±15% about 3.6 GPa changed the hot‑spot stress by ~2%. In the follow‑up with the 420k mesh the same sweep showed a 5–6% effect, likely tied to contact stiffness linearization.
+- Friction: going from μ = 0.1 to 0.3 moved the peak stress by 10–12% (earlier email said “negligible”; that was based on a single 0.2→0.25 step and appears optimistic).
+- Fillet radius: +0.25 mm at the posterior inner corner drops the computed stress ~9%.
 
-Cross-checks and reasonableness
-- Hand estimate: Treating the tray and bracket as an equivalent cantilever of 120 mm with rectangular section matching bracket net thickness gives a nominal bending stress ~360 MPa before local notch effects; the FE result of ~396 MPa at the fillet after including geometry detail is consistent with this.
-- Fastener load split: Analytical plate-on-elastic-foundation prying approximation (per Timoshenko method) for the 4-bolt pattern predicts axial loads of [6.5, 5.9, 5.1, 4.8] kN (descending from inboard to outboard). The FE model reports [6.4, 6.0, 5.2, 4.7] kN under the same pretension and external load, within ~5%.
+Bench comparison (ASTM‑style compression, static)
+We ran five static compressions on the Rev B 14×12×7 mm PEEK cages using an Instron 5969 (10 kN load cell), polished platens, no saline. Digital image correlation (subset 19 px, 75% correlation) gave surface strains on the anterior wall; we back‑calculated an equivalent von Mises using Hooke’s law (acknowledging limitations). Nominally, the FEA reaction force vs. platen displacement overlays the median test within 5% up to 3.0 kN. Peak field value from DIC corresponds to 118 ± 6 MPa, while the model predicts 112 MPa at the posterior fillet. However, when we align by local strain instead of machine stroke, the difference widens to ~12–18%, likely due to bedding‑in and fixture tilt not represented in the model. Test repeatability was decent (COV ≈ 4% on force at 1.5 kN). No plastic offset observed in test up to 3.0 kN.
 
-Sensitivity to key knobs
-- Friction coefficient: Varying μ from 0.1 to 0.3 shifts the peak stress by −1% to +2% relative to μ = 0.2; deflection changes <1%.
-- Material yield scatter: ±5% shift in yield strength modifies the computed margin proportionally; at nominal, the limit-state margin relative to 0.2% offset yield is (503/396) − 1 ≈ 0.27.
-- Pretension: Reducing bolt preload to 6 kN increases max stress by ~4% due to slight increase in joint slip; increasing to 10 kN changes stress by <1%.
+What this means for the gate
+- The analysis suggests we’re at or just beyond the original 95 MPa cap but under the later 110 MPa threshold at 3.0 kN. Given the friction sensitivity and the unresolved 7% vs. 5% mesh delta, I’d keep this as a screening‑level green with a caution flag on contact modeling.
+- The static compression behavior is captured reasonably in a global sense; local fields are directionally consistent but not tight if we use strain‑based alignment.
 
-What looks solid
-- The hotspot and global stiffness are stable with mesh refinement, and equilibrium checks are tight.
-- Contact behavior is well-controlled with negligible overclosure.
-- Independent sanity checks (beam bending and fastener load distribution) land close to the FE predictions.
+Open items before design freeze
+- Reconcile the mesh‑study numbers and publish the final figure of merit at 3.0 kN.
+- Repeat the friction sweep with refined contact discretization.
+- Add one variant with a 0.25 mm larger posterior fillet to confirm the ~9% stress drop is robust.
 
-Caveats tied to scope
-- The current model addresses the quasi-static 20 g vertical pulse only. Lateral components, thermal effects, and fastener loosening over time are not included by design for this PDR gate.
-- Manufacturing tolerances were not embedded parametrically; the fillet radius is as-modeled from Rev C.
-
-Recommendation
-For the 20 g vertical case with the current mass and torque spec, the bracket as modeled shows a 27% margin to first yield at the critical fillet with low numerical scatter and consistent cross-checks. On that basis, I recommend proceeding to release the machined bracket and backing plate drawings for PDR, with the note that any mass increase beyond 10% or a change to a lower bolt torque should trigger a quick re-run using this setup.
-
-If you want me to extend this to the lateral pulse or incorporate temperature effects, I can turn those in the next sprint using the same model backbone.
+Closeout
+The allowable discrepancy (95 vs. 110 MPa) needs program‑level confirmation. If we must hold 95 MPa, the larger fillet or a 16×12 footprint should be considered immediately; if 110 MPa stands, Rev B can proceed to the torsion and shear cases (not covered here) while we tighten the mesh/contact items above.

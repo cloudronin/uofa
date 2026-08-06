@@ -1,168 +1,80 @@
-# LTV-2 Avionics Bracket FEA — Credibility Snapshot (PDR)
+# FEA Credibility Notes — Avionics Bracket for SmallSat Bus
 
-- Project: Lunar Terrain Vehicle (LTV-2)
-- Component: Avionics bay corner bracket (Al 7075-T7351), P/N LTV2-AVB-003
-- Analysis tool: Ansys Mechanical 2024 R1 (Solver Build 24.1.108), Workbench project AVB_24R1_PDR
-- Analyst: M. Chen (Structures), peer check: M. Alvarez
-- Date: 2026-07-29
+- Scope
+  - Structural analysis of the aluminum avionics bracket that supports the X-band transceiver and harness clamps on the SmallSat bus panel P3.
+  - Primary decision supported: fly/no-fly for CDR based on margins under quasi-static and random-launch environments.
+  - Tooling: ANSYS Mechanical with quadratic tets for the bracket and pretension elements for bolts; postprocessing in nCode for stress ranges.
 
-## Slide 1 — Why we modeled this part
+- What “good enough” looks like for this use
+  - Minimum margins: ≥1.4 on yield in static combined-load case; ≥1.2 on ultimate for fasteners.
+  - First natural frequency target: >150 Hz with free-free cable representation (soft springs).
+  - Limit strain at gage locations to <0.18% during vibe to preclude plasticity in local features.
 
-- Decision supported:
-  - Clear bracket for PDR with mass target unchanged and no redesign of the avionics corner stack
-  - Establish static strength and stiffness margins for ascent-stage quasi-static and sine sweep loads
-- What the model is used for:
-  - Predict peak stress and deflection under worst-case combined in-plane shear and out-of-plane bending caused by avionics mass and harness loads
-  - Quantify influence of bolt preload and joint friction on stiffness (mounting stack-up tolerance study deferred to CDR)
-- Acceptance targets (PDR):
-  - Yield safety factor ≥ 1.25 on primary load case
-  - Deflection at avionics connector face ≤ 0.40 mm under sine-peak equivalent load
-  - No loss of clamp (no net separation at interface under worst preload scatter)
+- Geometry, representation, and simplifications
+  - CAD from PDM rev. C; fillets smaller than 0.8 mm suppressed to avoid poorly shaped tets in tight creases.
+  - Boss/thread features replaced with through-holes and head-bearing surfaces; washers modeled as rigid rings to capture load spread.
+  - Bolts: A286 M4s represented by beam shafts with pretension sections and rigid spiders tying head and nut to hole perimeters.
+  - Cable bundle added as distributed 30 g point mass on the upper flange through soft links (5 N/mm each).
+  - Contacts: bracket-to-panel bonded; beneath bolt heads and nuts treated as no-separation to allow lift-off but no slip.
+  - Rationale: local thread-level stress not needed for system decision; focus is bracket stress and joint forces.
 
-## Slide 2 — Scope and simplifying choices
+- Loads and supports
+  - Quasi-static: directional accelerations per launch provider ICD: +Z 15 g, ±X/±Y 9 g, combined with 1.25 load scale on the worst axis.
+  - Random vibe: NASA GEVS small payload curve, 20–2000 Hz, 0.033 g^2/Hz plateau, 9.7 g RMS, applied at panel mounting plane.
+  - Cable preload: 15 N via harness clamps (two locations), represented as concentrated forces with 20° skew out of plane.
+  - Bolt preloads: 4.0 kN per M4, introduced via pretension sections; torque-to-clamp conversion per fastener vendor note.
+  - Constraints: panel interface defined by 8 countersunk screws to the CFRP panel; panel represented as orthotropic shell submodel with fixed outer perimeter, bracket tied to panel via bonded contact.
 
-- Physics included:
-  - Quasi-static structural response; geometric nonlinearity OFF (max rotations < 3°)
-  - Contact nonlinearity ON (frictional, small sliding) between bracket and base plate; bonded at PCB interface
-- What we did not include (by design for PDR):
-  - Acoustic random and PSD vib — tracked in dynamics plan, not in this static model
-  - Thermal gradients and cooldown preload — flight thermal loads to be added for CDR coupling
-  - Fatigue life estimation — will be based on CDR random vib results
-  - Manufacturing tolerances and hole ovality — awaiting supplier capability data (CDR)
-- Rationale:
-  - Load paths dominated by bracket web bending and fillet stresses; elastic response governs connector alignment
-  - Thermal and acoustic effects small in PDR configuration trade; verified by back-of-envelope comparisons
+- Discretization and local refinement strategy
+  - Elements: SOLID187 10-node tets for bracket and rigid rings; BEAM188 for bolts; PRETS179 for pretension.
+  - Mesh levels near the critical fillet (upper flange to web):
+    - Coarse: 3.0 mm average; ~120k solid elements; hotspot von Mises 212 MPa.
+    - Medium: 1.8 mm average; ~410k solid elements; hotspot 226 MPa.
+    - Fine: 1.2 mm average; ~930k solid elements; hotspot 231 MPa.
+  - Richardson trend consistent with p≈2.0; extrapolated hotspot ~236 MPa; using fine mesh for reporting implies ~2–4% remaining local stress error.
+  - Displacement at antenna lug converged within 1.2% between medium and fine.
 
-## Slide 3 — Geometry, interfaces, and loads
+- Materials and fastener data pedigree
+  - Bracket: 7075-T7351 plate, thickness 6.0 mm. Room-temp mechanicals from MMPDS-17 A-basis: E = 71.7 GPa, ν = 0.33, σ_y = 505 MPa, σ_u = 572 MPa.
+  - Panel insert rings: 7075-T73, matched to bracket for interface stiffness.
+  - Bolts: A286 per NAS 1580, σ_u = 1310 MPa; proof load 1090 MPa; seating hardness modeled as rigid for conservatism.
+  - Damping: 1% modal damping for bracket-only; 0.5% for bracket+panel assembly when random is applied (per heritage on similar brackets).
 
-- Geometry source:
-  - CAD: LTV2-AVB-003 Rev C (Creo), imported via STEP; fillet radii and chamfers preserved
-  - Fasteners: four M5 class 12.9 bolts, 10 mm grip; holes modeled as through with lead-in chamfers
-- Interfaces:
-  - Bracket-to-base plate: frictional contact, µ = 0.25 nominal; surface finish Ra 1.6 µm
-  - PCB-to-bracket: bonded (epoxy layer not modeled explicitly); stiffness contribution negligible (<2% effect in trial)
-- Loads and constraints:
-  - Bolt preloads: 9.5 kN per bolt (torque 6.0 N·m with K=0.22), applied via bolt pretension elements
-  - External: equivalent static from sine sweep: Fx = 1.8 kN, Fz = 2.3 kN applied at avionics CG pad; small My = 120 N·m
-  - Base plate boundary: fixed at bolt circle behind bracket footprint (matches test fixture)
+- Key results (fine mesh)
+  - Static combined-load case (15 g Z worst-case): peak von Mises at upper flange fillet = 231 MPa; FoS_yield = 505/231 = 2.19.
+  - Fastener checks: highest axial at bolt B5 = 3.2 kN tension; shear at B5 = 1.0 kN; interaction within proof envelope (margin_u ≈ 1.35).
+  - Modal: first bracket-dominated mode (torsion about web) = 184 Hz with cable mass; second (bending of top flange) = 236 Hz.
+  - Random response: RMS von Mises at gage G2 (upper flange midspan) = 58 MPa; 3σ peak estimate 174 MPa using narrowband assumption; cumulative damage not assessed here.
 
-## Slide 4 — Elements, mesh controls, and feature capture
+- Correlation with bench data
+  - Setup: single-axis sine sweep to 15 g at 40–220 Hz on bracket+panel subassembly; three 350Ω strain gages at G1/G2/G3 along the upper flange; bolts preloaded to 4.0 kN using torque wrench at 1% accuracy.
+  - Compare at 120 Hz: measured ε_G2 = 1480 με; model predicted surface strain at gage footprint = 1370 με (−7.4% difference).
+  - Across 60–200 Hz band: average magnitude error 8.1%; phase lead ~6–12° observed in model vs test near 180 Hz (mode shape alignment acceptable).
+  - Note: no shaker data above 220 Hz; random environment correlation pending hardware availability.
 
-- Element technology:
-  - SOLID186 (quadratic tets), midside nodes retained on curvature; selective reduced integration OFF
-  - Contact: CONTA174/TARGE170, augmented Lagrange, normal penalty factor auto, tangential penalty 0.2
-- Mesh details:
-  - Global size 2.0 mm; refinements: 0.75 mm around fastener holes and web-to-base fillets; 0.5 mm at the inner corner notch
-  - Element quality: Jacobian ratio > 0.55; skewness < 0.75; no negative volumes
-  - Through-thickness: minimum 4 elements across web thickness (t=3.5 mm), 6 around fillets
-- Reasoning:
-  - Stress gradients steep at hole edges and fillet transitions; curvature-based sizing validated by spot checks
+- Uncertainty propagation (focused, small set)
+  - Treated as independent normals unless noted: E_7075 ±2%; bolt preload ±10% (uniform); panel boundary stiffness ±15%; load scale ±5%.
+  - 500 Latin Hypercube samples; response tracked: hotspot von Mises and first natural frequency.
+  - 95th percentile hotspot stress = 248 MPa; corresponding FoS_yield,95 ≈ 2.04.
+  - 5th percentile first mode = 172 Hz, still comfortably above the 150 Hz target.
+  - Most of the spread came from bolt preload and panel stiffness interaction; modulus had minor effect on frequency only.
 
-## Slide 5 — Mesh refinement study (stress and stiffness)
+- Parameter influence ranking
+  - Spearman ranking across samples on hotspot stress:
+    1) Bolt preload (ρ ≈ −0.52; higher preload reduces slip/lift-off at the fillet)
+    2) Panel boundary stiffness (ρ ≈ −0.31)
+    3) Load scale factor (ρ ≈ +0.27)
+    4) Modulus (ρ ≈ +0.06)
+  - Local geometry check: increasing fillet radius from 1.2 mm to 2.4 mm in a side run dropped peak stress by ~14% with negligible mass impact (+6 g); design team already captured as CR-117.
 
-- Three meshes:
-  - Coarse: ~0.9M DOF (min size 1.2 mm at hotspots)
-  - Medium: ~1.8M DOF (min size 0.8 mm at hotspots)
-  - Fine: ~3.6M DOF (min size 0.5 mm at hotspots)
-- Convergence indicators:
-  - Tip deflection at connector face: 0.331 mm (coarse), 0.318 mm (med), 0.314 mm (fine) → change med→fine = 1.2%
-  - Peak von Mises at inner fillet (nodal): 338 MPa (coarse), 327 MPa (med), 320 MPa (fine) → change med→fine = 2.1%
-  - Linear-extrapolated hotspot stress (quarter-point method) from fine: 328 ± 8 MPa
-- Decision:
-  - Fine mesh adopted for reporting; remaining discretization impact on deflection < 1.5%, on stress < 3%
-
-## Slide 6 — Solver behavior and numerical checks
-
-- Static sequence:
-  - Step 1: Apply bolt pretension to targets (ramped), maintain lock
-  - Step 2: Apply external loads with 20 substeps, automatic time stepping; force residual target 0.1%, displacement convergence 0.1%
-- Health metrics:
-  - Contact penetration max 5.8 µm at load peak; contact status stable after substep 7
-  - No free rigid body modes detected; pivot checks clean; energy balance within 0.4% at final substep
-  - Repeat run with different initial contact status produced identical deflection within 0.2% (reproducibility check)
-- Sensitivities to numerics:
-  - Doubling normal penalty changed hotspot stress < 1%; switching to pure penalty raised penetration but not global response
-
-## Slide 7 — Materials and where the numbers came from
-
-- Base material: Aluminum 7075-T7351 plate, 6.35 mm stock, cut and machined
-  - Elastic: E = 71.7 GPa (±1.2 GPa, lot data), ν = 0.33
-  - Yield (0.2%): 435 MPa; Ultimate: 505 MPa (MMPDS-17, Table 3.7.2.0(b))
-  - Plasticity: bilinear kinematic hardening, tangent modulus 1.3 GPa for overload checks (not engaged in PDR limit loads)
-- Data pedigree:
-  - Mill cert for Heat 7A-26 included; tensile coupon test (3 samples) from sister plate: E = 72.1±0.8 GPa, Fy = 442±6 MPa
-  - Temperature: 20–60 C variation tested in sensitivity; E drop ~1.5% max; yield knockdown not applied at PDR
-- Fasteners: ISO 898-1 Class 12.9 properties; flange washers per ISO 7089; friction coefficient from NASA-HDBK-5080, conservative µ=0.25
-
-## Slide 8 — Benchmarks and sanity checks on the setup
-
-- Reproduced NAFEMS LE10 “plate with a hole” tension case:
-  - Modeled quarter symmetry with SOLID186; nominal K_t = 3.00; obtained 2.98 at fine mesh (0.7% low)
-- Cantilever beam tip deflection (closed-form):
-  - 200×25×5 mm beam, E=70 GPa; analytical δ = 9.14 mm for 500 N; model gave 9.11 mm (0.3% low)
-- Contact sanity test:
-  - Cylinder-on-flat compression compared to Hertz solution; coarse mesh off by 8%; refined contact patch to 0.3 mm elements reduced error to 2.5%
-- Conclusion:
-  - Element formulation and contact settings reproduce textbook responses within a few percent
-
-## Slide 9 — Comparison to subcomponent test (static pull)
-
-- Test article:
-  - Single bracket mounted to a 12 mm 7075 base plate; preload with calibrated torque wrench; loads applied via adapter at avionics CG pad
-  - Instrumentation: 4 strain gauges around inner fillet (G1–G4), LVDT at connector face
-- Measured vs predicted:
-  - Load–deflection slope: Test 7.24 kN/mm; Model 7.52 kN/mm (+3.9%)
-  - Strain at G1 (peak): Test 3,120 µε; Model 3,250 µε (+4.2%)
-  - Onset of local yielding by DIC: Test at 27.0–27.5 kN; Model plasticity onset at 27.5 kN (bilinear fit)
-- Notes:
-  - Preload variation across bolts measured 9.1–10.0 kN (ultrasonic meter); model used uniform 9.5 kN
-  - Friction estimated from slip test at 0.23–0.28; model nominal µ=0.25 aligns with mean value
-
-## Slide 10 — What matters most (parameter sweeps)
-
-- Varied one at a time around nominal:
-  - Bolt preload ±10%: connector deflection changes ±2.0%; hotspot stress ±1.3%
-  - Friction µ = 0.15 → 0.35: connector deflection −0.8%; hotspot stress −6.1% over the range
-  - Elastic modulus −2%: deflection +2.0%; stress −1.5% (load-controlled)
-  - Chamfer tolerance (±0.2 mm) at fillet root: local stress ±3.5% (geometry sensitivity)
-- Combined case (Latin hypercube, 250 samples):
-  - Inputs: E N(71.7,1.2), µ U(0.20,0.30), preload N(9.5,0.7), fillet radius N(2.0,0.1)
-  - Outcomes: deflection mean 0.316 mm, 95th percentile 0.329 mm; hotspot stress mean 322 MPa, 95th percentile 336 MPa
-
-## Slide 11 — Margins and decision readout
-
-- Against yielding (limit load, fine mesh):
-  - Predicted von Mises at critical fillet node: 320 MPa; Allowable: 435 MPa / 1.00 (elastic) → FoS_y = 1.36
-  - Including 95th percentile from sweep: 336 MPa → FoS_y(95%) = 1.29
-- Stiffness requirement:
-  - Deflection at connector face: 0.314 mm < 0.40 mm limit (nominal); 0.329 mm (95th) still below limit
-- Joint integrity:
-  - Minimum contact pressure under load remains positive across interface (>4.2 MPa), indicating no local lift-off
-- Recommendation:
-  - Bracket acceptable for PDR with current geometry; keep µ ≥ 0.22 and torque ≥ 5.5 N·m in assembly work instructions
-
-## Slide 12 — Model tracking, reproducibility, and independent eyes
-
-- How to re-run:
-  - Workbench project: AVB_24R1_PDR.wbpj, stored in Git LFS at repo structures/ltv2/avionics_bracket, tag v0.9-PDR
-  - Mesh recipe saved as Named Selections and Local Sizing set; solution controls exported (xml)
-  - Solver logs archived with checksum; input deck CRC32: D3A4-9F11
-- Reviews:
-  - Cross-check by M. Alvarez: re-meshed with slightly different hotspot sizing (0.6 mm) → stress within 2.4%, deflection within 0.6%
-  - Comments addressed: added contact sanity test; documented penalty sensitivity
-- Traceability:
-  - CAD Rev C; material lot 7A-26; Ansys 2024 R1; contact settings v2; all referenced in Model Register MR-AVB-003-PDR
-
-## Slide 13 — Gaps and CDR to-dos
-
-- Out of scope in this package:
-  - PSD/random vibration and modal correlation — covered by dynamics team, CDR deliverable
-  - Thermal preload and cooldown — requires flight thermal map; to be included in coupled load case set
-  - Fatigue and fretting at hole edges — will use stress-life with surface finish and notch sensitivity after vib environment fixed
-  - Manufacturing deviations (hole position, ovality, surface finish) — awaiting supplier process capability; will roll into statistical study
-- Data we still need:
-  - Direct friction measurements for the actual washer-lube stack intended for flight
-  - Final torque–tension scatter with production tooling
-- Suggested risk burn-down:
-  - Run one additional subcomponent test with instrumented bolts to lock down preload distribution
-  - Perform spot-check with a hexahedral-dominant mesh around fillets to confirm hotspot behavior within ±3%
+- Takeaways, caveats, and immediate next steps
+  - Under current assumptions and loading, the bracket meets margins with room to spare; modes clear the acoustic band crossover.
+  - Limitations to keep in mind:
+    - Joint friction neglected; contact is no-separation with zero tangential stiffness, which may overpredict slip and local stress.
+    - Bolt/hole clearance not represented; bearing stress probably conservative at the current modeling fidelity.
+    - No temperature gradients or CTE mismatch considered; mission thermal profile shows −10 to +35 C at the panel during ascent but is not included here.
+    - Random environment correlation not yet executed; sine sweep data shows acceptable trends, but wideband response needs a check.
+  - Near-term actions proposed:
+    - One random run on the vibe table to 6 dB below protoqual to confirm RMS strain at G2 stays under 0.18%.
+    - Optional geometry tweak: adopt 2.0–2.5 mm fillet at the upper flange if machining space allows; clears the hotspot with minimal rework.
+    - Maintain 4.0 kN bolt preload in work instructions; lower preloads increase variability in hotspot stress per ranking above.
