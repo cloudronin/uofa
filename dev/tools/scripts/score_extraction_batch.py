@@ -44,6 +44,11 @@ from pathlib import Path
 _THIS = Path(__file__).resolve().parent
 sys.path.insert(0, str(_THIS))
 
+from schema_coverage import (  # noqa: E402
+    SchemaCoverage,
+    score_schema_coverage,
+    validate_extracted,
+)
 from groundedness import (  # noqa: E402
     GroundednessResult,
     read_source_text,
@@ -215,6 +220,21 @@ def score_bundle(
     record["factor_score"] = factor_score
     record["overall_f1"] = factor_score["overall_f1"]
 
+    # Schema coverage and SHACL validity, scored on every run.
+    #
+    # For a year this function scored `hasCredibilityFactor` and stopped, so the
+    # headline F1 described one of the thirteen properties ProfileComplete
+    # requires -- on a metric a zero-parameter constant reaches 0.960 on. Nobody
+    # had run the project's own validator over the output either; when finally
+    # run, 37 of 45 packages failed it.
+    #
+    # Neither of these needs ground truth, so both run on any corpus, and both
+    # would have caught that gap for free.
+    record["schema_coverage"] = score_schema_coverage(extracted, pack)
+    conforms, findings = validate_extracted(xlsx_path, pack)
+    record["shacl_conforms"] = conforms
+    record["shacl_findings"] = findings
+
     # Groundedness is scored on every run, and it is the only metric here that a
     # constant function cannot reach: the checklist control scores F1 0.960
     # having read nothing, but it cannot cite a figure from the document.
@@ -276,6 +296,27 @@ def aggregate(per_bundle: list[dict], factor_names: list[str]) -> dict:
         for (m, ft), c in mode_counter.most_common(20)
     ]
 
+    schema = SchemaCoverage()
+    for r in scored:
+        cov = r.get("schema_coverage") or {}
+        if not cov:
+            continue
+        schema.bundles += 1
+        for prop, ok in cov.items():
+            if ok:
+                schema.populated[prop] = schema.populated.get(prop, 0) + 1
+        conforms = r.get("shacl_conforms")
+        if conforms is None:
+            continue
+        findings = r.get("shacl_findings") or []
+        schema.validated += 1
+        if conforms:
+            schema.conforms += 1
+            if not any(f.startswith("placeholder") for f in findings):
+                schema.placeholder_free += 1
+        for f in findings:
+            schema.violations[f] = schema.violations.get(f, 0) + 1
+
     grounded = GroundednessResult()
     for r in scored:
         g = r.get("groundedness")
@@ -292,6 +333,7 @@ def aggregate(per_bundle: list[dict], factor_names: list[str]) -> dict:
         "mean_overall_f1": sum(bundle_f1) / len(bundle_f1) if bundle_f1 else None,
         "groundedness": grounded.as_dict(),
         "ungrounded": grounded.ungrounded,
+        "schema": schema.as_dict(),
         "min_overall_f1": min(bundle_f1) if bundle_f1 else None,
         "max_overall_f1": max(bundle_f1) if bundle_f1 else None,
         "per_factor": per_factor,
@@ -314,6 +356,36 @@ def write_markdown_summary(out_path: Path, header: dict, agg: dict) -> None:
     if agg["mean_overall_f1"] is not None:
         lines.append(f"- Mean overall F1: **{agg['mean_overall_f1']:.3f}** (min {agg['min_overall_f1']:.3f}, max {agg['max_overall_f1']:.3f})")
     lines.append("")
+
+    s = agg.get("schema") or {}
+    if s.get("bundles"):
+        lines.append("## Schema coverage and validity")
+        lines.append("")
+        lines.append("The detection F1 above describes `hasCredibilityFactor`. ProfileComplete")
+        lines.append("requires thirteen properties. These are the rest.")
+        lines.append("")
+        lines.append("| Required property | Populated | |")
+        lines.append("|---|---:|---|")
+        for prop, n in sorted(s["populated"].items()):
+            lines.append(f"| `{prop}` | {n}/{s['bundles']} | {n/s['bundles']:.0%} |")
+        lines.append("")
+        if s.get("validated"):
+            lines.append(f"- SHACL conformance: **{s['conforms']}/{s['validated']}** "
+                         f"({s['validity_rate']:.0%})")
+            lines.append(f"- Conforming *and* free of template placeholders: "
+                         f"**{s['placeholder_free']}/{s['validated']}** "
+                         f"({s['meaningful_rate']:.0%})")
+            lines.append("")
+            lines.append("Reported as two rates, never merged: a package that fails the shape is")
+            lines.append("not a credibility artefact, and one that passes by echoing the template")
+            lines.append("is not either — but nothing downstream can tell them apart.")
+            lines.append("")
+            if s.get("violations_by_field"):
+                lines.append("| Finding | Count |")
+                lines.append("|---|---:|")
+                for f, c in sorted(s["violations_by_field"].items(), key=lambda kv: -kv[1]):
+                    lines.append(f"| `{f}` | {c} |")
+                lines.append("")
 
     g = agg.get("groundedness") or {}
     if g.get("factors_total"):

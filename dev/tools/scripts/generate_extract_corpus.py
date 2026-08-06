@@ -201,12 +201,32 @@ Return JSON conforming exactly to this schema (no prose, no fences):
     {{
       "factor_type": "<exact canonical name from list above>",
       "expected_status": "assessed" | "not_applicable",
-      "expected_level": 1 | 2 | 3 | 4,
+      "expected_level": 1 | 2 | 3 | 4 | 5 | null,
+      "expected_required_level": 1 | 2 | 3 | 4 | 5,
       "level_tolerance": 1,
       "evidence_keywords": ["<3-6 distinctive words/phrases pulled from source>"],
       "source_file": "<filename in source/>"
     }}
-  ]
+  ],
+  "expected_entities": {{
+    "models": <integer count of distinct computational models named>,
+    "datasets": <integer count of distinct datasets named>,
+    "requirements": <integer count of distinct requirements named>
+  }},
+  "expected_validation_results": [
+    {{
+      "name_keywords": ["<2-4 phrases identifying this validation activity>"],
+      "has_uq": "Yes" | "No",
+      "pass_fail": "Pass" | "Fail" | "Inconclusive"
+    }}
+  ],
+  "expected_decision": {{
+    "outcome": "Accepted" | "Not accepted",
+    "outcome_source": "<short quote or paraphrase grounding the outcome>",
+    "rationale_keywords": ["<3-6 phrases from the stated reasoning>"],
+    "decided_by_keywords": ["<name, role or body making the decision>"]
+  }},
+  "_provenance": "<the source document identity: filename, DOI or report number>"
 }}
 
 Include ONE entry per canonical factor. expected_factors length must equal {n_factors}.
@@ -226,7 +246,7 @@ Include ONE entry per canonical factor. expected_factors length must equal {n_fa
      (the bundle was generated specifically to omit them). If you find
      yourself marking 0 factors not_applicable on a sparse bundle, you
      are being too charitable — re-read and identify the omitted factors.
-2. `expected_level` ∈ {{1, 2, 3, 4}} represents the credibility/rigour
+2. `expected_level` ∈ {{1, 2, 3, 4, 5}} represents the credibility/rigour
    level a careful reviewer would assign. Calibrate strictly — most
    well-documented factors land at level 2, not level 4. Use these anchors:
 
@@ -242,15 +262,28 @@ Include ONE entry per canonical factor. expected_factors length must equal {n_fa
      against published benchmark.
    - **Level 4**: exhaustive validation including ALL OF: multi-method
      cross-validation, formal UQ propagation with quantified uncertainty,
-     AND independent literature comparison. RARE — most factors in most
-     real projects do NOT reach this level even when well-documented.
+     AND independent literature comparison.
+   - **Level 5**: everything at level 4, plus the evidence is externally
+     verifiable — independent third-party review, an accredited test
+     campaign, or published peer-reviewed validation of this specific
+     model. The distinguishing feature is that someone outside the
+     project has checked it.
 
-   For a `quality=complete` bundle, the realistic distribution is roughly
-   60% at level 2, 30% at level 3, 10% at level 4. If you find yourself
-   assigning level 4 to more than 2-3 factors, you are being too generous —
-   downgrade the weaker ones to level 3 or 2. Compare your distribution
-   against the existing real fixtures (Morrison case has factors mostly
-   at level 2-3, only `Discretization error` at level 3).
+   Assign the level the evidence supports. Do NOT downgrade to hit a
+   target distribution.
+
+   The previous generator carried an instruction to downgrade whenever more
+   than 2-3 factors reached level 4. It worked: across 800 generated rows,
+   **not one** reached level 4 or 5. That made the level metric meaningless —
+   predicting the constant 2 scored 1.000 within the +/-1 tolerance, and the
+   extractor was marked wrong for assigning the 4s and 5s that a real
+   assessment does contain. Published NASA credibility assessments routinely
+   score 4, and one scores 4 on two of eight factors.
+
+   So: no cap, no target distribution, no downgrading a well-evidenced
+   factor to keep the histogram tidy. A `quality=complete` bundle whose
+   source genuinely documents exhaustive validation should carry level 4s
+   and 5s. A `quality=sparse` one should carry 1s.
 
 3. `evidence_keywords` should be 3-6 phrases that appear LITERALLY in
    the source documents and would help a human reviewer find the
@@ -261,11 +294,24 @@ Include ONE entry per canonical factor. expected_factors length must equal {n_fa
    a CAREFUL reviewer would conclude after resolving the contradictions —
    not the most charitable reading. If the contradiction is unresolvable,
    choose the LOWER of the two possible levels.
-6. For `expected_status: "not_applicable"`, set `expected_level: 1` and
+6. For `expected_status: "not_applicable"`, set `expected_level: null` and
    `evidence_keywords: []`.
-7. Always include `"level_tolerance": 1` in each factor entry (the eval
+
+   NOT 1. The previous generator wrote 1, which put 60 rows carrying a real
+   level into the level metric that had no level to carry — mixing "did you
+   assign the right rigour" with "did you notice this does not apply", two
+   different questions. `null` says the row has no level, and the scorer
+   skips it.
+
+7. `expected_required_level` is the rigour the model's RISK demands, which
+   is independent of what the evidence achieved. A high-risk context of use
+   requires level 4 whether or not the documentation reaches it. Set it from
+   the stated model risk level and criticality, never by copying
+   `expected_level` — the gap between the two is the single most useful
+   number a reviewer reads, and copying makes it identically zero.
+8. Always include `"level_tolerance": 1` in each factor entry (the eval
    uses this to score within ±1 of expected_level as correct).
-8. Do not output any text outside the JSON object.
+9. Do not output any text outside the JSON object.
 
 Bundle metadata for context:
 - bundle_id: {bundle_id}
@@ -276,6 +322,60 @@ Bundle metadata for context:
 Now produce the ground truth.
 """
 
+
+
+
+# Sections ProfileComplete requires that the previous corpus omitted entirely.
+# Their absence is why the eval scored one of thirteen required properties: with
+# no ground truth for entities, validation results or the decision, there was
+# nothing to score them against.
+_REQUIRED_GT_SECTIONS = (
+    "expected_entities",
+    "expected_validation_results",
+    "expected_decision",
+    "_provenance",
+)
+
+# The shape allows exactly these. The extract prompts used to offer
+# "conditionally accepted", which the shape rejects, and 26 of 50 packages
+# failed validation for obeying the prompt. Ground truth must not reintroduce it.
+_DECISION_OUTCOMES = ("Accepted", "Not accepted")
+
+
+def _validate_full_schema(gt: dict) -> None:
+    """Reject a generated ground truth that would repeat a known corpus defect.
+
+    Checked here, before the bundle is written and before the next one is paid
+    for, because every item below cost real money to discover the first time.
+    """
+    missing = [s for s in _REQUIRED_GT_SECTIONS if s not in gt]
+    if missing:
+        raise ValueError(f"ground_truth missing required sections: {missing}")
+
+    outcome = (gt.get("expected_decision") or {}).get("outcome")
+    if outcome not in _DECISION_OUTCOMES:
+        raise ValueError(
+            f"expected_decision.outcome is {outcome!r}; the shape allows only "
+            f"{_DECISION_OUTCOMES}. An acceptance carrying conditions is "
+            f"'Accepted' with the conditions in the rationale.")
+
+    for f in gt["expected_factors"]:
+        status, level = f.get("expected_status"), f.get("expected_level")
+        if status == "not_applicable" and level is not None:
+            raise ValueError(
+                f"{f.get('factor_type')!r}: not_applicable rows must carry "
+                f"expected_level null, got {level!r}. Writing 1 is what put 60 "
+                f"level-less rows into the level metric on the last corpus.")
+        if status == "assessed":
+            if not isinstance(level, int) or not 1 <= level <= 5:
+                raise ValueError(
+                    f"{f.get('factor_type')!r}: assessed rows need an integer "
+                    f"expected_level in 1-5, got {level!r}")
+        req = f.get("expected_required_level")
+        if not isinstance(req, int) or not 1 <= req <= 5:
+            raise ValueError(
+                f"{f.get('factor_type')!r}: expected_required_level must be an "
+                f"integer 1-5, got {req!r}")
 
 def _format_factor_list(factor_names: list[str]) -> str:
     return "\n".join(f"- {name}" for name in factor_names)
@@ -461,6 +561,7 @@ def generate_one_bundle(
                 f"expected_factors length {gt_factor_count} != "
                 f"{len(factor_names)} canonical factors for {standard}"
             )
+        _validate_full_schema(ground_truth)
     except Exception as exc:  # noqa: BLE001
         return _failed(bundle_id, started, f"step-B parse error: {exc}")
 
