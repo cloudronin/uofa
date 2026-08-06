@@ -172,6 +172,29 @@ The META block is required and appears once at the end.
    data not available).
 6. For `quality=ambiguous`, make the contradictions REALISTIC — the kind
    of thing an SME would catch on careful reading but a quick skim might miss.
+7. **The document MUST state a decision, in words, near the end.** A
+   credibility assessment exists to support a decision; one that never
+   records the verdict is not a credibility assessment.
+
+   Write a short closing section — "Decision", "Disposition",
+   "Recommendation" or the equivalent for the format — that says plainly
+   whether the model is **accepted** or **not accepted** for the stated
+   context of use, and who decided. Use the words: "accepted for", "not
+   accepted for", "approved for use in", "not approved". An acceptance
+   carrying conditions is still an acceptance — say "accepted for X
+   subject to Y", never "conditionally accepted", which the schema
+   forbids.
+
+   Why this is mandatory: measured on the previous corpus, only **22%**
+   of documents stated a verdict anywhere. Ground truth carried one for
+   every bundle, so both the ground-truth writer and the extractor were
+   *inferring* it, and the extractor scored 0.914 for guessing — 71% of
+   its correct answers came from documents that said nothing. A field
+   nothing can read is a field nothing can be scored on.
+
+   For `quality=sparse`, still state the decision. Sparsity is about
+   which credibility factors are evidenced, not about withholding the
+   verdict.
 
 Generate the bundle now.
 """
@@ -442,6 +465,32 @@ def _validate_full_schema(gt: dict, quality: str | None = None) -> None:
                 f"{f.get('factor_type')!r}: expected_required_level must be an "
                 f"integer 1-5, got {req!r}")
 
+# Wording that records a verdict. A document without any of it does not state a
+# decision, and an outcome in its ground truth is then an inference nothing can
+# extract -- measured at 78% of the previous corpus.
+_VERDICT_IN_SOURCE = re.compile(
+    r"\b(?:accepted|approved|rejected|declined|denied|not accepted|"
+    r"not approved|adequate for|sufficient for|fit for (?:the )?purpose|"
+    r"cleared for|authoris?ed for|endorsed|unfit|withheld)\b", re.I)
+
+
+def _validate_decision_is_stated(files: list[dict], gt: dict) -> None:
+    """Reject a bundle whose ground truth claims a decision the source omits.
+
+    Ground truth carrying an outcome the document never states is what let the
+    extractor score 0.914 while guessing on 77% of bundles. Checked at
+    generation because it cannot be repaired afterwards: the fix is different
+    source text, not a different label.
+    """
+    if not (gt.get("expected_decision") or {}).get("outcome"):
+        return
+    body = "\n".join(f.get("content", "") for f in files)
+    if not _VERDICT_IN_SOURCE.search(body):
+        raise ValueError(
+            "ground truth records a decision outcome but the source states no "
+            "verdict anywhere. Write the decision into the document -- an "
+            "outcome nothing can read is an outcome nothing can be scored on.")
+
 def _format_factor_list(factor_names: list[str]) -> str:
     return "\n".join(f"- {name}" for name in factor_names)
 
@@ -671,6 +720,7 @@ def generate_one_bundle(
                 f"{len(factor_names)} canonical factors for {standard}"
             )
         _validate_full_schema(ground_truth, quality)
+        _validate_decision_is_stated(files, ground_truth)
     except Exception as exc:  # noqa: BLE001
         return _failed(bundle_id, started, f"step-B parse error: {exc}")
 
