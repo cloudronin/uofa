@@ -1,0 +1,225 @@
+{
+  "case": "bundle_vv40_cht_014",
+  "pack": "vv40",
+  "assessment_summary": {
+    "project_name": "RF ablation catheter heat-transfer model",
+    "cou_name": "Set safe power/irrigation envelopes for a 7F open-irrigated RF ablation catheter in the left atrium; decision metric: peak 3 mm tissue temperature and lesion depth/width after 30\u201360 s",
+    "profile": "Complete",
+    "device_class": "Class III",
+    "model_risk_level": "MRL 4",
+    "assurance_level": "High",
+    "standards_reference": "ASME V&V 40",
+    "has_uq": "Yes"
+  },
+  "expected_factors": [
+    {
+      "factor_type": "Software quality assurance",
+      "expected_status": "assessed",
+      "expected_level": 4,
+      "expected_required_level": 4,
+      "level_tolerance": 1,
+      "evidence_keywords": [
+        "Unit tests for UDF I/O and mapping pass CI on each commit",
+        "run scripts in a Singularity container",
+        "UDF Git tag rfcht-v1.7 (commit 9f4a1b2)",
+        "tracked by DVC with SHA links to raw data",
+        "External SME (Dr. R. Ghuman) performed a red-team read"
+      ],
+      "source_file": "report.md"
+    },
+    {
+      "factor_type": "Numerical code verification",
+      "expected_status": "assessed",
+      "expected_level": 3,
+      "expected_required_level": 4,
+      "level_tolerance": 1,
+      "evidence_keywords": [
+        "custom heat-source UDF and perfusion toggle",
+        "artificially forced benchmark",
+        "closed-form temperature field",
+        "Energy residual over the control volume was <0.2% at steady state"
+      ],
+      "source_file": "report.md"
+    },
+    {
+      "factor_type": "Discretization error",
+      "expected_status": "assessed",
+      "expected_level": 4,
+      "expected_required_level": 4,
+      "level_tolerance": 1,
+      "evidence_keywords": [
+        "Four meshes (1.2M to 9.6M cells)",
+        "observed order 1.96 for peak temperature",
+        "extrapolated discretization effect 3.8% on peak temp",
+        "Time-step halving from 5 ms to 2.5 ms shifts peak temperature by 0.6 C"
+      ],
+      "source_file": "report.md"
+    },
+    {
+      "factor_type": "Numerical solver error",
+      "expected_status": "assessed",
+      "expected_level": 2,
+      "expected_required_level": 4,
+      "level_tolerance": 1,
+      "evidence_keywords": [
+        "Second-order discretization, coupled solver",
+        "Residuals <1e-6",
+        "monitored integral energy plateaus within 0.3% over last 10 s"
+      ],
+      "source_file": "report.md"
+    },
+    {
+      "factor_type": "Use error",
+      "expected_status": "assessed",
+      "expected_level": 2,
+      "expected_required_level": 4,
+      "level_tolerance": 1,
+      "evidence_keywords": [
+        "Input decks, meshes, and outputs tracked by DVC",
+        "run scripts in a Singularity container",
+        "Lab team provided blinded validation files",
+        "re-ran one case from scratch on a different workstation"
+      ],
+      "source_file": "report.md"
+    },
+    {
+      "factor_type": "Model form",
+      "expected_status": "assessed",
+      "expected_level": 3,
+      "expected_required_level": 4,
+      "level_tolerance": 1,
+      "evidence_keywords": [
+        "3D conjugate thermal-fluid model of blood, saline jets, electrode, epoxy, and myocardium",
+        "laminar assumed but bracketed with SST k-omega for sensitivity",
+        "Tissue perfusion via Pennes term",
+        "We explicitly do not claim fidelity for steam pops, charring"
+      ],
+      "source_file": "report.md"
+    },
+    {
+      "factor_type": "Model inputs",
+      "expected_status": "assessed",
+      "expected_level": 3,
+      "expected_required_level": 4,
+      "level_tolerance": 1,
+      "evidence_keywords": [
+        "Inputs and ranges",
+        "Tissue thermal/electrical properties (\u00b115% about literature)",
+        "contact pressure (10\u201320 kPa)",
+        "Posterior mean contact conductance 7.5 kW/m^2-K"
+      ],
+      "source_file": "report.md"
+    },
+    {
+      "factor_type": "Test samples",
+      "expected_status": "assessed",
+      "expected_level": 2,
+      "expected_required_level": 4,
+      "level_tolerance": 1,
+      "evidence_keywords": [
+        "12 benchtop perfused-myocardium tests (porcine)",
+        "fiber-optic probes at 3 and 5 mm",
+        "Lesion dimensions from 7T MRI (0.2 mm voxel)"
+      ],
+      "source_file": "report.md"
+    },
+    {
+      "factor_type": "Test conditions",
+      "expected_status": "assessed",
+      "expected_level": 3,
+      "expected_required_level": 4,
+      "level_tolerance": 1,
+      "evidence_keywords": [
+        "25\u201345 W and 17\u201330 mL/min",
+        "two blood speeds (0.15, 0.25 m/s)",
+        "esophageal wall as an isothermal boundary 37.0\u00b10.2 C",
+        "Catheter contact angle 15\u00b0"
+      ],
+      "source_file": "report.md"
+    },
+    {
+      "factor_type": "Equivalency of input parameters",
+      "expected_status": "assessed",
+      "expected_level": 3,
+      "expected_required_level": 4,
+      "level_tolerance": 1,
+      "evidence_keywords": [
+        "applied RF power 25\u201350 W with PI control matching generator logs",
+        "contact pressure 10\u201320 kPa producing 0.2\u20130.5 mm indentation",
+        "esophageal wall as an isothermal boundary 37.0\u00b10.2 C at 4 mm posterior"
+      ],
+      "source_file": "report.md"
+    },
+    {
+      "factor_type": "Output comparison",
+      "expected_status": "assessed",
+      "expected_level": 4,
+      "expected_required_level": 4,
+      "level_tolerance": 1,
+      "evidence_keywords": [
+        "Mean absolute temperature error at 3 mm = 2.1 C",
+        "Normalized RMS error on lesion depth = 9%; width = 11%",
+        "all cases fall within a 95% total-error band",
+        "One outlier at 45 W/0.15 m/s under-predicts depth by 15%"
+      ],
+      "source_file": "report.md"
+    },
+    {
+      "factor_type": "Relevance of the quantities of interest",
+      "expected_status": "assessed",
+      "expected_level": 3,
+      "expected_required_level": 4,
+      "level_tolerance": 1,
+      "evidence_keywords": [
+        "Decision metric: peak tissue temperature at 3 mm depth and lesion depth/width after 30\u201360 s",
+        "set safe power/irrigation envelopes",
+        "esophagus 3\u20135 mm posterior"
+      ],
+      "source_file": "report.md"
+    },
+    {
+      "factor_type": "Relevance of the validation activities to the COU",
+      "expected_status": "assessed",
+      "expected_level": 4,
+      "expected_required_level": 4,
+      "level_tolerance": 1,
+      "evidence_keywords": [
+        "The intended clinical envelope (25\u201345 W, 17\u201330 mL/min, atrial blood speed 0.15\u20130.25 m/s, contact force 10\u201330 g) sits inside the tested/validated space",
+        "independent data with quantified test error"
+      ],
+      "source_file": "report.md"
+    }
+  ],
+  "expected_entities": {
+    "models": 1,
+    "datasets": 2,
+    "requirements": 1
+  },
+  "expected_validation_results": [
+    {
+      "name_keywords": [
+        "12 benchtop perfused-myocardium tests (porcine)",
+        "fiber-optic probes at 3 and 5 mm",
+        "lesion depth/width"
+      ],
+      "has_uq": "Yes",
+      "pass_fail": "Pass"
+    }
+  ],
+  "expected_decision": {
+    "outcome": "Accepted",
+    "outcome_source": "the current evidence meets or exceeds the targets set in the modeling plan",
+    "rationale_keywords": [
+      "robust grid/time-step studies",
+      "independent data with quantified test error",
+      "separation of tuning vs checking",
+      "uncertainty propagation",
+      "reproducibility under configuration control"
+    ],
+    "decided_by_keywords": [
+      "Dr. K. Alvarez",
+      "Program Lead"
+    ]
+  },
+  "_provenance": "report.md"
+}
