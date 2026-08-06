@@ -188,6 +188,59 @@ def test_contentless_prose_is_caught_by_claim_density():
     assert res.claims_total == 0
 
 
+def test_repetition_passes_all_three_numbers_and_only_distinctness_catches_it():
+    """The loophole that "read the three together" does not close.
+
+    Measured on a real bundle: a control quoting one sentence of the source for
+    every factor scores coverage 1.000, claim density 1.000 AND groundedness
+    1.000. Every figure it cites is real and every rationale carries one, so
+    nothing in the first three numbers separates "found thirteen pieces of
+    evidence" from "found one and pasted it thirteen times".
+
+    Density counts rationales that carry a claim. It never asks whether they
+    carry the *same* claim. That is why distinctness is a fourth column rather
+    than an implication of the other three.
+    """
+    quoted = "GCI_fine for head rise is 0.72% and shaft power 0.43%."
+    res = score_factor_rationales(_factors(*([quoted] * 13)), SOURCE)
+
+    assert res.coverage == 1.0
+    assert res.claim_density == 1.0
+    assert res.groundedness == 1.0
+    assert res.distinctness == 0.0, (
+        "the repetition cheat must fail on distinctness and nothing else")
+
+
+def test_distinctness_catches_partial_overlap_not_just_exact_repeats():
+    """A method quoting overlapping windows of one paragraph has still restated it.
+
+    Containment rather than symmetric Jaccard, so a long quote and a sentence
+    taken from inside it count as the same span -- Jaccard would call them
+    different because their lengths differ.
+    """
+    long_quote = ("Grid convergence was assessed on three meshes and GCI_fine "
+                  "for head rise is 0.72% and for shaft power 0.43%.")
+    inside_it = "GCI_fine for head rise is 0.72%"
+    res = score_factor_rationales(_factors(long_quote, inside_it), SOURCE)
+    assert res.distinctness == 0.0
+
+    genuinely_different = "The rig recorded 28.61 kPa against 28.1 kPa predicted."
+    res2 = score_factor_rationales(_factors(long_quote, genuinely_different), SOURCE)
+    assert res2.distinctness == 1.0
+
+
+def test_the_llm_scores_high_on_distinctness():
+    """The contrast that makes the control's 0.000 meaningful.
+
+    Measured over the shipped corpus: 0.995. If this collapses, the extractor
+    has started repeating itself and the other three numbers will not say so.
+    """
+    res = score_factor_rationales(
+        _factors("GCI_fine is 0.72%.", "Residuals below 1e-5.",
+                 "Sample size was 1,250 points."), SOURCE)
+    assert res.distinctness == 1.0
+
+
 def test_the_cheat_is_distinguishable_from_real_work():
     """Side by side, the three numbers must separate them."""
     filler = score_factor_rationales(

@@ -20,11 +20,18 @@ on the Minimal profile's requirements. It does not produce a deficient
 credibility package; it produces none. So the question is not "can a keyless
 method reach 0.960" but "which of the required properties can it fill at all".
 
-**Keyless should win somewhere, and now there is a metric that shows it.** An
-extractive method that quotes the source cannot fabricate, so it scores
-groundedness **1.000** against the LLM's 0.994. That reframes keyless from
-"cheap approximation everywhere" to "strictly better on fabrication, strictly
-worse on coverage".
+**K2 should win somewhere, and now there is a metric that shows it.** A method
+that quotes the source verbatim cannot fabricate, so it scores groundedness
+**1.000** against the LLM's 0.994.
+
+That immunity belongs to **K2 alone**, and the distinction matters because the
+reframe rests on it. K3 pattern-matching a model name can pick the wrong model —
+the one cited from a reference paper rather than the one under assessment. K5
+can lift the wrong decision from the wrong section. Those are **selection
+errors, not fabrication**, and groundedness cannot see them: the wrong answer is
+still verbatim in the document. K3 and K5 therefore need their own correctness
+measure, which for K3 is the `expected_entities` count check and for K5 is
+outcome accuracy against `expected_decision`.
 
 ## The candidates
 
@@ -38,6 +45,28 @@ Five, not seven. Each targets a property rather than all targeting detection.
 | **K4** | local sentence embeddings | `hasCredibilityFactor` | the open hypothesis |
 | **K5** | section and keyword extraction | `hasDecisionRecord`, `acceptance_criteria` | headed sections are a real surface signal |
 
+### Sizing and kill criteria
+
+Every item has a budget and a stopping rule. The plan this supersedes had
+both; dropping them is how an open hypothesis turns a week into a month.
+
+| | Build | Kill criterion — stop if |
+|---|---|---|
+| **K2** | ~4 h | distinctness < 0.60 after real sentence segmentation. Below that it is `control_first_sentence` with extra steps. |
+| **K3** | ~6 h | entity-count MAE not better than `control_constant_entity`'s on **both** corpora. The constant answers "1, always"; failing to beat that is failing outright. |
+| **K4** | ~8 h | recall < 0.50 at precision ≥ 0.90 on dev. C1 reached R 0.235; below 0.50 embeddings have not bought enough over substring matching to justify the encoder. |
+| **K5** | ~3 h | outcome accuracy not better than `control_constant_decision` (always "Accepted"). |
+
+**Total ~21 h, and a hard cap of 30.** If the four are not measured by then the
+finding is that keyless extraction is not cheap to build either, which is itself
+worth reporting.
+
+**K4 gets the tightest leash** because it is the open hypothesis and therefore
+the one that will absorb unlimited time. One encoder, one pooling strategy, one
+threshold sweep. If `all-MiniLM-L6-v2` at its best threshold misses the
+criterion, the answer is "not with a small local encoder" — trying six more
+models is a different investigation.
+
 **Dropped, with reasons.** C2 (expanded lexicon) is C1's mechanism against C1's
 ceiling — the diagnosis was that enumeration is unbounded, so a bigger list is
 the same finding at higher cost. C3 (spaCy rules) is C1 with a parser. C6 (NLI)
@@ -48,8 +77,15 @@ exists to remove.
 ## The gate that must not be skipped
 
 > **A candidate may not be reported on a property until a constant has been
-> measured on that property. If the constant matches it, the property is not
-> measuring extraction.**
+> measured on that property under that metric. If the constant matches it, the
+> metric on that property is not measuring extraction — and the fix is a better
+> metric, not a dropped property.**
+
+The wording matters. `bindsModel` is a perfectly good property to score; it was
+*coverage on* `bindsModel` that a constant saturated. The right response was to
+switch to `expected_entities` counts, not to stop scoring the binding. A rule
+phrased as "the property is not measuring extraction" tells a future reader to
+abandon exactly the wrong thing.
 
 This is not hypothetical caution. Having added schema coverage to fix the
 one-property problem, the controls were measured and found this:
@@ -69,13 +105,30 @@ So K3 is scored on `expected_entities` **counts**, which the v2 corpus carries
 and the shipped one did not — a constant answering "1, always" is wrong by four
 on a document naming five models. Coverage is necessary and never sufficient.
 
-## What K2's ceiling actually is
+## What K2's ceiling actually is, and the fourth number
 
-`control_first_sentence` quotes one sentence per factor and scores **coverage
-1.0 and groundedness 1.0** while saying the same thing thirteen times. So
-groundedness alone is free for any extractive method, and K2's target is
-groundedness *at high claim density with per-factor distinctness* — the three
-numbers read together, exactly as the metric was designed to be.
+`control_first_sentence` quotes one sentence per factor. Measured on a real
+bundle it scores:
+
+    coverage 1.000   claim density 1.000   groundedness 1.000
+
+**All three.** Reading them together does not catch it. Density counts
+rationales that carry a claim; it never asks whether they carry the *same*
+claim, so a quoted sentence containing numbers passes every one.
+
+So distinctness is a **fourth column with its own definition**, not an
+implication of the other three:
+
+> **distinctness** — the fraction of factors whose rationale does not restate
+> another rationale in the same bundle. Two count as the same when their token
+> sets overlap by ≥ 60% of the shorter one (containment, not Jaccard, so a long
+> quote and a sentence taken from inside it count as one).
+
+    control_first_sentence   cov 1.000  den 1.000  gnd 1.000  distinct 0.000
+    LLM (v4-kv, 50 bundles)  cov 0.974  den 0.565  gnd 0.994  distinct 0.995
+
+K2's target is groundedness at high density **and** high distinctness. Without
+the fourth column the control built to expose the loophole passes it.
 
 A concrete hazard found while building that control: splitting sentences on a
 bare `.` truncates `"head rise is 0.72%"` to `"...is 0."`, scoring groundedness
@@ -110,8 +163,27 @@ question the synthetic corpus cannot answer.
 
 ## The headline deliverable
 
-Not "did a keyless method beat the LLM" — it will not, on coverage. The number
-worth producing is the **hybrid ceiling**: with K2/K3/K5 filling their
-properties, what fraction of the schema still requires a model, and what does
-that leave to pay for? That is the question behind "keyless", and detection F1
-was never measuring it.
+Not "did a keyless method beat the LLM" — it will not, on coverage.
+
+The deliverable is the **hybrid ceiling**, and it must be reported as a
+**named list of the properties still requiring a model, never as a count**.
+"Nine of thirteen covered" is a useless sentence: `hasContextOfUse` and
+`generatedAtTime` are not the same size of hole, and a fraction lets four
+properties carrying the entire substance of the assessment disappear behind a
+reassuring 69%.
+
+So the output is a table, one row per required property:
+
+| Property | Filled by | Correctness measure | Verdict |
+|---|---|---|---|
+| `hasCredibilityFactor` | K1 / K4 | detection F1 vs `control_constant_list` | |
+| rationale | K2 | groundedness × density × **distinctness** | |
+| `bindsModel` / `bindsDataset` / `bindsRequirement` | K3 | `expected_entities` count MAE | |
+| `hasDecisionRecord` | K5 | outcome accuracy vs `control_constant_decision` | |
+| `modelRiskLevel`, `required_level` | — | judgment from risk; no keyless route proposed | |
+| `hasValidationResult` | — | not attempted | |
+
+The last two rows are the point. If `modelRiskLevel` and `required_level` need a
+model, then the shape of the answer is "keyless fills the extractive properties
+and a model is still required for the judgment ones" — which is a real finding
+about where the cost floor sits, and it is invisible in any fraction.

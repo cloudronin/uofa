@@ -246,6 +246,12 @@ def checkable_claims(rationale: str) -> set[float]:
     return {v for v in normalise_numbers(rationale) if v not in _TRIVIAL}
 
 
+# Two rationales count as the same span when they share this much of their
+# vocabulary. Exact repetition scores 1.0; the threshold also catches a method
+# that quotes overlapping windows of one paragraph for every factor.
+_OVERLAP_THRESHOLD = 0.60
+
+
 @dataclass
 class GroundednessResult:
     factors_total: int = 0
@@ -253,6 +259,7 @@ class GroundednessResult:
     rationales_with_claims: int = 0
     claims_total: int = 0
     claims_grounded: int = 0
+    factors_distinct: int = 0
     ungrounded: list[dict] = field(default_factory=list)
 
     @property
@@ -263,6 +270,24 @@ class GroundednessResult:
     def claim_density(self) -> float:
         n = self.factors_with_rationale
         return self.rationales_with_claims / n if n else 0.0
+
+    @property
+    def distinctness(self) -> float:
+        """Fraction of rationales that do not restate another in the same bundle.
+
+        The fourth number, and it is not implied by the other three. Measured:
+        a control quoting one sentence of the source for all thirteen factors
+        scores coverage 1.000, claim density 1.000 AND groundedness 1.000 --
+        every figure it cites is real, and every rationale carries one. Reading
+        the three together does not catch it, because density counts rationales
+        that carry a claim, never whether they carry the *same* claim.
+
+        Distinctness is what separates "found thirteen pieces of evidence" from
+        "found one and pasted it thirteen times", and for an extractive method
+        that is the whole question.
+        """
+        n = self.factors_with_rationale
+        return self.factors_distinct / n if n else 0.0
 
     @property
     def groundedness(self) -> float:
@@ -284,6 +309,8 @@ class GroundednessResult:
             "rationales_with_claims": self.rationales_with_claims,
             "claims_total": self.claims_total,
             "claims_grounded": self.claims_grounded,
+            "distinctness": self.distinctness,
+            "factors_distinct": self.factors_distinct,
         }
 
 
@@ -310,6 +337,23 @@ def assert_grounds_against_source(source_text: str, ground_truth: dict | None) -
             "keywords). Ground against bundle_*/source/, not evidence_keywords."
         )
     del present
+
+
+def _tokens(text: str) -> set[str]:
+    return {w for w in re.findall(r"[a-z0-9.%-]+", text.lower()) if len(w) > 2}
+
+
+def _restates(a: set[str], b: set[str]) -> bool:
+    """Do two rationales say substantially the same thing?
+
+    Containment rather than symmetric Jaccard: a method that quotes a long
+    paragraph for one factor and a sentence of that same paragraph for another
+    has restated it, and Jaccard would score that pair as different because the
+    lengths differ.
+    """
+    if not a or not b:
+        return False
+    return len(a & b) / min(len(a), len(b)) >= _OVERLAP_THRESHOLD
 
 
 def score_factor_rationales(factors: list[dict], source_text: str,
@@ -345,6 +389,15 @@ def score_factor_rationales(factors: list[dict], source_text: str,
                 "missing": missing,
                 "rationale": rationale,
             })
+
+    # Distinctness, computed over the bundle rather than per row: a rationale is
+    # distinct when no *other* rationale in the same bundle restates it.
+    texts = [f.get("rationale") for f in factors
+             if isinstance(f.get("rationale"), str) and f.get("rationale").strip()]
+    toks = [_tokens(x) for x in texts]
+    for i, ti in enumerate(toks):
+        if not any(_restates(ti, tj) for j, tj in enumerate(toks) if i != j):
+            res.factors_distinct += 1
     return res
 
 
