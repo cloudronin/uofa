@@ -26,6 +26,7 @@ sys.path.insert(0, str(CORPUS))
 
 from cas_mapping import (  # noqa: E402
     VARIANTS,
+    canonical,
     roll_up,
     unmapped_factors,
 )
@@ -81,13 +82,38 @@ def test_every_bundle_declares_its_published_vocabulary():
         assert gt["cas_variant"] in VARIANTS, f"{b.name}: {gt['cas_variant']!r}"
 
 
-def test_factors_match_the_declared_vocabulary_exactly():
-    """Transcription means the document's rows, not a superset or a subset."""
+def test_every_transcribed_row_resolves_to_the_declared_vocabulary():
+    """Transcription means the document's rows, not a superset.
+
+    Matching is case-insensitive because the two decomposed-vocabulary papers
+    disagree on capitalisation -- "Data Pedigree" against "Data pedigree" -- and
+    each bundle keeps what its own table printed. Normalising the ground truth
+    instead would mean storing a spelling no document used.
+    """
     for b in BUNDLES:
         gt = _gt(b)
-        published = set(VARIANTS[gt["cas_variant"]])
-        got = {f["factor_type"] for f in gt["expected_factors"]}
-        assert got <= published, f"{b.name}: rows not in the vocabulary: {got - published}"
+        for f in gt["expected_factors"]:
+            canonical(f["factor_type"], gt["cas_variant"])   # raises if unknown
+
+
+def test_a_partial_profile_says_so_and_says_why():
+    """Some tables list only the factors needing an elevation strategy.
+
+    A factor absent from those tables met its threshold; it was not left
+    unassessed. Scoring recall against the full vocabulary would charge the
+    extractor for rows the document deliberately omitted, so a partial bundle
+    has to declare itself.
+    """
+    for b in BUNDLES:
+        gt = _gt(b)
+        prov = gt["_provenance"]
+        completeness = prov.get("profile_completeness")
+        if completeness == "partial":
+            assert prov.get("partial_profile_note"), (
+                f"{b.name}: partial profile with no explanation")
+        elif completeness == "complete":
+            n_published = len(VARIANTS[gt["cas_variant"]])
+            assert len(gt["expected_factors"]) <= n_published, b.name
 
 
 def test_levels_are_inside_the_published_scale():

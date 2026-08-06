@@ -152,6 +152,24 @@ VARIANTS: dict[str, dict[str, list[str]]] = {
 }
 
 
+def canonical(published_factor: str, variant: str) -> str:
+    """Resolve a printed factor name to its key in `variant`, ignoring case.
+
+    The two decomposed-vocabulary papers disagree on capitalisation -- one
+    prints "Data Pedigree", the other "Data pedigree" -- and bundles keep
+    whatever their own table printed, because that is what transcription means.
+    Capitalisation is not semantic, so lookup normalises it rather than forcing
+    one paper's house style onto the other's ground truth.
+    """
+    table = VARIANTS[variant]
+    if published_factor in table:
+        return published_factor
+    lowered = {k.lower(): k for k in table}
+    if published_factor.lower() in lowered:
+        return lowered[published_factor.lower()]
+    raise KeyError(f"{published_factor!r} is not a factor of {variant!r}")
+
+
 def roll_up(pack_levels: dict[str, float | None], variant: str) -> dict[str, float | None]:
     """Pack factor levels -> published factor levels, by the `min` rule.
 
