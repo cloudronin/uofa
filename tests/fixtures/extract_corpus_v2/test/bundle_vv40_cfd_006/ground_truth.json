@@ -2,11 +2,11 @@
   "case": "bundle_vv40_cfd_006",
   "pack": "vv40",
   "assessment_summary": {
-    "project_name": "CFD of an Axial Fan in AMCA 210 Plenum",
-    "cou_name": "Select axial fan/RPM to achieve \u0394p \u2265 325 Pa at Q = 1.20 m\u00b3/s for a data center rack",
+    "project_name": "Data Center Rack Cooling Fan Selection",
+    "cou_name": "Fan selection at 1.20 m\u00b3/s, 325 Pa in AMCA 210 plenum",
     "profile": "Complete",
     "device_class": "N/A",
-    "model_risk_level": "MRL 3",
+    "model_risk_level": "MRL 2",
     "assurance_level": "Medium",
     "standards_reference": "AMCA 210-16",
     "has_uq": "Yes"
@@ -19,11 +19,10 @@
       "expected_required_level": 3,
       "level_tolerance": 1,
       "evidence_keywords": [
-        "A 37-point rotating CFD checklist was followed",
         "All meshes, case/data files, and scripts are in Git with semantic version tags",
         "CI job runs a small regression case nightly to flag solver environment drift",
-        "independent reviewer (J. Yuan)",
-        "Fluent build hash logged"
+        "Fluent build hash logged",
+        "Boundary naming and frame definitions are tested by a script"
       ],
       "source_file": "report.md"
     },
@@ -34,10 +33,10 @@
       "expected_required_level": 3,
       "level_tolerance": 1,
       "evidence_keywords": [
-        "laminar Poiseuille flow case (3D rectangular duct)",
-        "rotating cavity (simplified lid-driven rotor)",
-        "turbulent channel at Re_\u03c4 \u2248 395",
-        "method of manufactured solutions (MMS)"
+        "laminar Poiseuille flow case (3D rectangular duct) with an analytical pressure gradient",
+        "rotating cavity (simplified lid-driven rotor) verifying frame transformations",
+        "turbulent channel at Re_\u03c4 \u2248 395 comparing skin friction",
+        "Ansys\u2019 published method of manufactured solutions (MMS)"
       ],
       "source_file": "report.md"
     },
@@ -45,12 +44,12 @@
       "factor_type": "Discretization error",
       "expected_status": "assessed",
       "expected_level": 3,
-      "expected_required_level": 3,
+      "expected_required_level": 4,
       "level_tolerance": 1,
       "evidence_keywords": [
-        "three-level mesh refinement study",
-        "refinement ratio \u2248 1.4",
-        "Roache procedure with apparent order p \u2248 2.1",
+        "A three-level mesh refinement study was performed",
+        "5.2M cells (coarse), 8.7M (medium), 14.6M (fine)",
+        "apparent order p \u2248 2.1 for \u0394p",
         "estimated remaining grid uncertainty on \u0394p at the fine mesh is 1.2%"
       ],
       "source_file": "report.md"
@@ -58,7 +57,7 @@
     {
       "factor_type": "Numerical solver error",
       "expected_status": "assessed",
-      "expected_level": 2,
+      "expected_level": 3,
       "expected_required_level": 3,
       "level_tolerance": 1,
       "evidence_keywords": [
@@ -76,10 +75,10 @@
       "expected_required_level": 3,
       "level_tolerance": 1,
       "evidence_keywords": [
+        "37-point rotating CFD checklist was followed",
+        "Sign-off by independent reviewer (J. Yuan)",
         "hash-based checks to prevent accidental changes in boundary assignments",
-        "Boundary naming and frame definitions are tested by a script",
-        "Units are enforced via a linter script",
-        "Sign-off by independent reviewer (J. Yuan)"
+        "linter script (converts any mm entries to m and flags rogue unit entries)"
       ],
       "source_file": "report.md"
     },
@@ -87,13 +86,14 @@
       "factor_type": "Model form",
       "expected_status": "assessed",
       "expected_level": 3,
-      "expected_required_level": 3,
+      "expected_required_level": 4,
       "level_tolerance": 1,
       "evidence_keywords": [
         "Steady RANS; MRF in the rotor cell zone",
-        "Baseline: SST k\u2013\u03c9 with curvature correction",
+        "Turbulence model: Baseline: SST k\u2013\u03c9 with curvature correction",
+        "RSM was used as a check",
         "Compressibility: Ignored (Ma < 0.3 rule of thumb)",
-        "The steady RANS approach cannot capture rotating stall inception with fidelity"
+        "we assign a modeling component of \u00b11.5% (covering both)"
       ],
       "source_file": "report.md"
     },
@@ -101,10 +101,11 @@
       "factor_type": "Model inputs",
       "expected_status": "assessed",
       "expected_level": 3,
-      "expected_required_level": 3,
+      "expected_required_level": 4,
       "level_tolerance": 1,
       "evidence_keywords": [
         "Geometry from vendor CAD (STEP, Rev. K)",
+        "cross-checked against physical part using CMM",
         "Tip clearance measured with feeler gauges",
         "Inlet turbulence intensity measured in the test duct with a hot-wire",
         "Air properties derived from lab logs"
@@ -114,7 +115,7 @@
     {
       "factor_type": "Test samples",
       "expected_status": "assessed",
-      "expected_level": 2,
+      "expected_level": 3,
       "expected_required_level": 3,
       "level_tolerance": 1,
       "evidence_keywords": [
@@ -128,40 +129,41 @@
       "factor_type": "Test conditions",
       "expected_status": "assessed",
       "expected_level": 3,
-      "expected_required_level": 3,
+      "expected_required_level": 4,
       "level_tolerance": 1,
       "evidence_keywords": [
         "AMCA 210-16 test conducted in Epsilon\u2019s Lab 2",
         "Arrangement 1 (free inlet)",
-        "All sensors calibrated within six months; certificates archived",
-        "Air density corrections per AMCA"
+        "Air density corrections per AMCA",
+        "swirl angle at the nozzle plane < 5\u00b0"
       ],
       "source_file": "report.md"
     },
     {
       "factor_type": "Equivalency of input parameters",
       "expected_status": "assessed",
-      "expected_level": 3,
-      "expected_required_level": 3,
+      "expected_level": 4,
+      "expected_required_level": 4,
       "level_tolerance": 1,
       "evidence_keywords": [
-        "We modeled the plenum, bellmouth, and measurement section sufficiently to reproduce the boundary conditions",
+        "We modeled the plenum, bellmouth, and measurement section",
         "density set per test condition for paired comparisons",
-        "RPM verified with optical tachometer"
+        "Total pressure inlet with measured turbulence intensity (baseline 1.0% \u00b1 0.5%)",
+        "Rotational speed: Validated at 1200, 1400, 1600, and 1800 RPM"
       ],
       "source_file": "report.md"
     },
     {
       "factor_type": "Output comparison",
       "expected_status": "assessed",
-      "expected_level": 3,
-      "expected_required_level": 3,
+      "expected_level": 4,
+      "expected_required_level": 4,
       "level_tolerance": 1,
       "evidence_keywords": [
-        "predicted \u0394p at 1600 RPM and Q = 1.20 m\u00b3/s is 332 Pa",
+        "The predicted \u0394p at 1600 RPM and Q = 1.20 m\u00b3/s is 332 Pa",
         "The test mean is 327 Pa",
         "mean absolute deviation between CFD and test across eight points is 2.3%",
-        "Torque prediction within 2.6%"
+        "Torque prediction within 2.6% of back-calculated test torque"
       ],
       "source_file": "report.md"
     },
@@ -172,22 +174,22 @@
       "expected_required_level": 3,
       "level_tolerance": 1,
       "evidence_keywords": [
-        "Decision need: Determine if the fan satisfies \u0394p \u2265 325 Pa at Q = 1.20 m\u00b3/s",
-        "We applied CFD to predict the pressure-flow (P\u2013Q) curve",
-        "Primary decision point is 1600 RPM"
+        "Determine if the fan satisfies \u0394p \u2265 325 Pa at Q = 1.20 m\u00b3/s with 10% margin",
+        "pressure-flow (P\u2013Q) curve",
+        "special emphasis at 1600 RPM"
       ],
       "source_file": "report.md"
     },
     {
       "factor_type": "Relevance of the validation activities to the COU",
       "expected_status": "assessed",
-      "expected_level": 3,
-      "expected_required_level": 3,
+      "expected_level": 4,
+      "expected_required_level": 4,
       "level_tolerance": 1,
       "evidence_keywords": [
-        "in-house AMCA 210-16 lab",
-        "The spatial correspondence ensures the comparison is like-for-like",
-        "within the validated envelope; no extrapolation is required"
+        "in an AMCA 210 setup",
+        "Validated at 1200, 1400, 1600, and 1800 RPM",
+        "within the validated envelope; no extrapolation is required for the selection decision"
       ],
       "source_file": "report.md"
     }
@@ -202,7 +204,7 @@
       "name_keywords": [
         "AMCA 210-16 test",
         "P\u2013Q curve",
-        "1600 RPM"
+        "1200, 1400, 1600, and 1800 RPM"
       ],
       "has_uq": "Yes",
       "pass_fail": "Pass"
@@ -213,13 +215,13 @@
     "outcome_source": "we recommend selecting the next higher RPM setting (1650 RPM nominal)",
     "rationale_keywords": [
       "Given the narrow margin to the target",
-      "the 95% prediction interval on \u0394p at 1.20 m\u00b3/s and 1600 RPM is about \u00b14.6% relative",
-      "The test mean is 327 Pa",
-      "\u0394p \u2265 325 Pa at Q = 1.20 m\u00b3/s"
+      "95% prediction interval on \u0394p",
+      "\u00b14.6% relative",
+      "10% design margin",
+      "both the model and test are within a few pascals of the target"
     ],
     "decided_by_keywords": [
-      "Thermal-Fluid Group",
-      "Epsilon Engineering"
+      "Thermal-Fluid Group, Epsilon Engineering"
     ]
   },
   "_provenance": "report.md"

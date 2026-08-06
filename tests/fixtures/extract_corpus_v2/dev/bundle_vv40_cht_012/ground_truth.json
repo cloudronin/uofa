@@ -2,40 +2,34 @@
   "case": "bundle_vv40_cht_012",
   "pack": "vv40",
   "assessment_summary": {
-    "project_name": "M5 inverter CHT",
-    "cou_name": "Predict hottest module temperature and coolant rise for M5 cold plate to support EVT",
+    "project_name": "Inverter cold plate M5 CHT",
+    "cou_name": "Predict hottest module cap temperature and coolant rise for M5 inverter cold plate at 2.0 L/min, 25 C inlet, 180 W to support EVT gating with margin",
     "profile": "Partial",
     "device_class": "N/A",
     "model_risk_level": "MRL 2",
     "assurance_level": "Medium",
-    "standards_reference": "N/A",
+    "standards_reference": "ASME V&V 40-2018",
     "has_uq": "No"
   },
   "expected_factors": [
     {
       "factor_type": "Software quality assurance",
-      "expected_status": "assessed",
-      "expected_level": 2,
+      "expected_status": "not_applicable",
+      "expected_level": null,
       "expected_required_level": 2,
       "level_tolerance": 1,
-      "evidence_keywords": [
-        "Ansys Fluent 2023R2",
-        "Traceability: Inputs and case files for R03\u2013R10 are on Git (tag m5_cht_ev1).",
-        "Peer read by S. Ng",
-        "Double precision throughout except R06"
-      ],
+      "evidence_keywords": [],
       "source_file": "report.md"
     },
     {
       "factor_type": "Numerical code verification",
       "expected_status": "assessed",
       "expected_level": 2,
-      "expected_required_level": 2,
+      "expected_required_level": 3,
       "level_tolerance": 1,
       "evidence_keywords": [
-        "Verified pressure drop against a straight-channel correlation (turbulent) and got within 4%.",
-        "pipe-heating sanity case from White (convective heat-up) and got 0.3% error",
-        "relevance to our strongly 3D corner flows is limited."
+        "pressure drop against a straight-channel correlation (turbulent) and got within 4%",
+        "pipe-heating sanity case from White (convective heat-up) and got 0.3% error"
       ],
       "source_file": "report.md"
     },
@@ -43,26 +37,26 @@
       "factor_type": "Discretization error",
       "expected_status": "assessed",
       "expected_level": 2,
-      "expected_required_level": 2,
+      "expected_required_level": 4,
       "level_tolerance": 1,
       "evidence_keywords": [
-        "Mesh sensitivity: Across 5.2M \u2192 14.7M, hottest-cap prediction shifted 1.2%.",
-        "monotonicity assumption behind the GCI we quoted (0.5%) is shaky.",
-        "Near-wall target was y+\u22481"
+        "Mesh sensitivity: Across 5.2M \u2192 14.7M, hottest-cap prediction shifted 1.2%",
+        "monotonicity assumption behind the GCI we quoted (0.5%) is shaky",
+        "the wall y+ actually increased on the \u201cfinest\u201d mesh"
       ],
       "source_file": "report.md"
     },
     {
       "factor_type": "Numerical solver error",
       "expected_status": "assessed",
-      "expected_level": 3,
-      "expected_required_level": 2,
+      "expected_level": 2,
+      "expected_required_level": 3,
       "level_tolerance": 1,
       "evidence_keywords": [
-        "Convergence: Energy residuals <1e-6, others <1e-4.",
-        "flattened to within 0.2 C",
-        "in R08 the hottest node drifted ~0.8 C",
-        "single precision to test speed"
+        "Convergence: Energy residuals <1e-6, others <1e-4",
+        "hottest node drifted ~0.8 C over the last 500 iters",
+        "treated the solution as steady",
+        "transient check (R10, 0.1 s steps, 3 s total)"
       ],
       "source_file": "report.md"
     },
@@ -70,13 +64,13 @@
       "factor_type": "Use error",
       "expected_status": "assessed",
       "expected_level": 2,
-      "expected_required_level": 2,
+      "expected_required_level": 3,
       "level_tolerance": 1,
       "evidence_keywords": [
-        "Run R09 included surface-to-surface radiation by mistake",
-        "R01\u2013R02 inadvertently used a fixed viscosity \u03bc=1.5e-3 Pa\u00b7s",
-        "bookkeeping issues",
-        "we started with 5% (legacy template) and used 10% in later runs"
+        "included surface-to-surface radiation by mistake",
+        "inadvertently used a fixed viscosity \u03bc=1.5e-3 Pa\u00b7s",
+        "we started with 5% (legacy template)",
+        "bookkeeping issues"
       ],
       "source_file": "report.md"
     },
@@ -84,28 +78,29 @@
       "factor_type": "Model form",
       "expected_status": "assessed",
       "expected_level": 2,
-      "expected_required_level": 2,
+      "expected_required_level": 4,
       "level_tolerance": 1,
       "evidence_keywords": [
-        "SST k-\u03c9 for the coolant with curvature correction off.",
-        "Radiation: off in the baseline",
-        "board modeled as orthotropic equivalent (kxx=12, kyy=12, kzz=0.8 W/m-K).",
-        "We\u2019ve treated the solution as steady."
+        "SST k-\u03c9 for the coolant",
+        "curvature correction off",
+        "Radiation: off in the baseline (cooled enclosure)",
+        "board modeled as orthotropic equivalent",
+        "no explicit contact resistance at the spreader/plate bond"
       ],
       "source_file": "report.md"
     },
     {
       "factor_type": "Model inputs",
       "expected_status": "assessed",
-      "expected_level": 3,
-      "expected_required_level": 2,
+      "expected_level": 2,
+      "expected_required_level": 4,
       "level_tolerance": 1,
       "evidence_keywords": [
-        "50/50 water\u2013glycol loop, nominal 2.0 L/min at 25 C inlet",
-        "Vendor sheet lists turbulence intensity \u224810%",
-        "Loads: 180 W total, apportioned 45/45/45/45 W",
-        "TIM-1 between die caps and spreader, nominal 0.10 mm thickness; TIM-2 under spreader to plate, 0.08 mm nominal.",
-        "Temperature-dependent coolant properties via NIST tables"
+        "TIM-1 between die caps and spreader, nominal 0.10 mm thickness",
+        "TIM-2 under spreader to plate, 0.08 mm nominal",
+        "Vendor sheet lists turbulence intensity \u224810% at that Reynolds number",
+        "Temperature-dependent coolant properties via NIST tables",
+        "solids with temperature-dependent conductivity"
       ],
       "source_file": "report.md"
     },
@@ -118,7 +113,8 @@
       "evidence_keywords": [
         "M5 coupon on the thermal stand",
         "T-type microbead in each module cap",
-        "IR spot check through the window"
+        "IR spot check through the window",
+        "metrology report (gage pins) shows 0.07\u20130.12 mm spread"
       ],
       "source_file": "report.md"
     },
@@ -126,12 +122,11 @@
       "factor_type": "Test conditions",
       "expected_status": "assessed",
       "expected_level": 2,
-      "expected_required_level": 2,
+      "expected_required_level": 3,
       "level_tolerance": 1,
       "evidence_keywords": [
-        "2.0 L/min, 25 C inlet, 180 W.",
-        "Hottest cap measured 68.5\u00b10.7 C",
-        "coolant rise 3.6\u00b10.2 C."
+        "2.0 L/min, 25 C inlet, 180 W",
+        "coolant rise 3.6\u00b10.2 C"
       ],
       "source_file": "report.md"
     },
@@ -139,12 +134,13 @@
       "factor_type": "Equivalency of input parameters",
       "expected_status": "assessed",
       "expected_level": 2,
-      "expected_required_level": 2,
+      "expected_required_level": 4,
       "level_tolerance": 1,
       "evidence_keywords": [
         "Lock inlet turbulence intensity to 10% to match the pump data",
+        "recheck BCs in that case",
         "Remove radiation entirely for the sealed-enclosure condition",
-        "Calibrate thermal interfaces using the metrology thickness distribution rather than a single nominal"
+        "align emissivities and enclosure factors with the test rig"
       ],
       "source_file": "report.md"
     },
@@ -152,12 +148,12 @@
       "factor_type": "Output comparison",
       "expected_status": "assessed",
       "expected_level": 3,
-      "expected_required_level": 2,
+      "expected_required_level": 4,
       "level_tolerance": 1,
       "evidence_keywords": [
-        "Baseline steady run (R07) predicted 63.2 C hottest cap and 3.2 C coolant rise.",
-        "Hottest cap measured 68.5\u00b10.7 C; coolant rise 3.6\u00b10.2 C.",
-        "That\u2019s ~8% low on peak temperature.",
+        "Hottest cap measured 68.5\u00b10.7 C; coolant rise 3.6\u00b10.2 C",
+        "predicted 63.2 C hottest cap and 3.2 C coolant rise",
+        "That\u2019s ~8% low on peak temperature",
         "we called this \u201cwithin 3%\u201d using R05"
       ],
       "source_file": "report.md"
@@ -166,12 +162,12 @@
       "factor_type": "Relevance of the quantities of interest",
       "expected_status": "assessed",
       "expected_level": 2,
-      "expected_required_level": 2,
+      "expected_required_level": 3,
       "level_tolerance": 1,
       "evidence_keywords": [
-        "hottest die cap",
-        "coolant outlet T",
-        "5\u20137 C temperature guard band"
+        "Key monitors (hottest die cap, coolant outlet T)",
+        "report peak and cycle-mean temperatures",
+        "the model is optimistic by ~5\u20138% on the hottest location"
       ],
       "source_file": "report.md"
     },
@@ -179,12 +175,12 @@
       "factor_type": "Relevance of the validation activities to the COU",
       "expected_status": "assessed",
       "expected_level": 2,
-      "expected_required_level": 2,
+      "expected_required_level": 3,
       "level_tolerance": 1,
       "evidence_keywords": [
-        "directionally okay to proceed to EVT",
+        "CFD/CHT set is largely consistent with the bench data",
         "We can launch EVT builds using the CFD result plus a 7 C margin",
-        "I do not recommend using R07 as-is for DVT sign-off."
+        "I do not recommend using R07 as-is for DVT sign-off"
       ],
       "source_file": "report.md"
     }
@@ -197,9 +193,9 @@
   "expected_validation_results": [
     {
       "name_keywords": [
-        "Bench: M5 coupon",
-        "hottest cap measured",
-        "R07 predicted 63.2 C"
+        "M5 coupon on the thermal stand",
+        "predicted 63.2 C hottest cap",
+        "Hottest cap measured 68.5\u00b10.7 C"
       ],
       "has_uq": "No",
       "pass_fail": "Inconclusive"
@@ -209,14 +205,16 @@
     "outcome": "Accepted",
     "outcome_source": "We can launch EVT builds using the CFD result plus a 7 C margin",
     "rationale_keywords": [
-      "model is optimistic by ~5\u20138%",
+      "optimistic by ~5\u20138%",
       "7 C margin",
       "mesh/wall-treatment inconsistency",
-      "turbulence inlet and contact modeling"
+      "turbulence inlet",
+      "contact modeling"
     ],
     "decided_by_keywords": [
-      "R. Patel (CHT Analyst)",
-      "Mira (Thermal Lead)"
+      "Mira",
+      "Thermal Lead",
+      "R. Patel"
     ]
   },
   "_provenance": "report.md"

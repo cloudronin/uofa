@@ -2,50 +2,43 @@
   "case": "bundle_vv40_cfd_014",
   "pack": "vv40",
   "assessment_summary": {
-    "project_name": "P3-70 pump CFD (RANS, 2900 rpm)",
-    "cou_name": "Use CFD to guide trim decisions near BEP at 2900 rpm",
+    "project_name": "P3-70 pump CFD V&V snapshot",
+    "cou_name": "Use RANS CFD to guide diffuser trim and BEP-centric decisions at 2900 rpm for the P3-70 pump; limited reliance off-BEP",
     "profile": "Partial",
     "device_class": "N/A",
-    "model_risk_level": "MRL 2",
+    "model_risk_level": "MRL 3",
     "assurance_level": "Medium",
-    "standards_reference": "N/A",
+    "standards_reference": "ASME V&V 40-2018",
     "has_uq": "Yes"
   },
   "expected_factors": [
     {
       "factor_type": "Software quality assurance",
-      "expected_status": "assessed",
-      "expected_level": 1,
-      "expected_required_level": 3,
+      "expected_status": "not_applicable",
+      "expected_level": null,
+      "expected_required_level": 2,
       "level_tolerance": 1,
-      "evidence_keywords": [
-        "STAR-CCM+ 2022.1",
-        "Fluent 2023 R2",
-        "this wasn\u2019t reflected in the config log",
-        "push the case directories to the cfd-p3 repo"
-      ],
+      "evidence_keywords": [],
       "source_file": "report.md"
     },
     {
       "factor_type": "Numerical code verification",
-      "expected_status": "assessed",
-      "expected_level": 1,
-      "expected_required_level": 3,
+      "expected_status": "not_applicable",
+      "expected_level": null,
+      "expected_required_level": 2,
       "level_tolerance": 1,
-      "evidence_keywords": [
-        "spot-checked one case in Fluent 2023 R2\u2014pressure rise differed by 0.6% at BEP"
-      ],
+      "evidence_keywords": [],
       "source_file": "report.md"
     },
     {
       "factor_type": "Discretization error",
       "expected_status": "assessed",
       "expected_level": 3,
-      "expected_required_level": 3,
+      "expected_required_level": 4,
       "level_tolerance": 1,
       "evidence_keywords": [
-        "GCI was 1.8% (coarse\u2192baseline\u2192fine)",
-        "2.1M (coarse), 4.2M (baseline), 8.5M (fine)",
+        "Mesh: poly + prism layers from Pointwise; 2.1M (coarse), 4.2M (baseline), 8.5M (fine).",
+        "Grid sensitivity: using head as the metric at BEP, GCI was 1.8% (coarse\u2192baseline\u2192fine).",
         "re-run GCI using monotonic metrics"
       ],
       "source_file": "report.md"
@@ -53,27 +46,27 @@
     {
       "factor_type": "Numerical solver error",
       "expected_status": "assessed",
-      "expected_level": 3,
+      "expected_level": 2,
       "expected_required_level": 3,
       "level_tolerance": 1,
       "evidence_keywords": [
-        "residuals <1e-5 for p, k, \u03c9",
-        "mass balance within 0.2%",
-        "energy defect <0.3% at BEP",
-        "rotating-frame under-relaxation was dropped"
+        "Convergence: residuals <1e-5 for p, k, \u03c9; mass balance within 0.2%",
+        "the 0.6 Q_BEP case leveled at 1.6% until rotating-frame under-relaxation was dropped",
+        "unsteady sliding-mesh trial reduced the tongue recirculation but raised torque by ~2%"
       ],
       "source_file": "report.md"
     },
     {
       "factor_type": "Use error",
       "expected_status": "assessed",
-      "expected_level": 2,
+      "expected_level": 1,
       "expected_required_level": 3,
       "level_tolerance": 1,
       "evidence_keywords": [
         "boundary-condition bookkeeping (mass-flow vs pressure)",
         "this wasn\u2019t reflected in the config log",
-        "temperature/viscosity parity with the test"
+        "temperature/viscosity parity with the test",
+        "consistent near-wall treatment on the fine mesh"
       ],
       "source_file": "report.md"
     },
@@ -84,11 +77,11 @@
       "expected_required_level": 3,
       "level_tolerance": 1,
       "evidence_keywords": [
-        "SST k\u2013\u03c9 with curvature correction",
-        "Spalart\u2013Allmaras",
+        "baseline runs used SST k\u2013\u03c9 with curvature correction",
+        "Spalart\u2013Allmaras on the coarse mesh",
+        "0.6 Q_BEP head differed by 7.4%",
         "SAS at BEP matched SST within 1.2% on head",
-        "MRF steady-state",
-        "sliding mesh (unsteady)"
+        "MRF steady-state"
       ],
       "source_file": "report.md"
     },
@@ -99,24 +92,23 @@
       "expected_required_level": 3,
       "level_tolerance": 1,
       "evidence_keywords": [
-        "Inlet: total pressure with 5% turbulence intensity; outlet: mass flow",
-        "Fluid properties: water at 25 C",
-        "tip clearance set to 0.35 mm",
-        "varying inlet turbulence from 3% to 10%",
-        "Tip clearance +0.1 mm reduces head by 1.1%"
+        "Inlet: total pressure with 5% turbulence intensity; outlet: mass flow.",
+        "Fluid properties: water at 25 C.",
+        "We applied a density correction in one sensitivity run but did not adjust viscosity.",
+        "Tip clearance +0.1 mm reduces head by 1.1%."
       ],
       "source_file": "report.md"
     },
     {
       "factor_type": "Test samples",
       "expected_status": "assessed",
-      "expected_level": 1,
-      "expected_required_level": 3,
+      "expected_level": 2,
+      "expected_required_level": 2,
       "level_tolerance": 1,
       "evidence_keywords": [
-        "vendor\u2019s acceptance test was run at 30\u201332 C",
-        "pressure-tap data",
-        "rig"
+        "Operating points: 0.6, 1.0, 1.2 Q_BEP",
+        "vendor\u2019s acceptance test",
+        "head at the three points"
       ],
       "source_file": "report.md"
     },
@@ -127,9 +119,10 @@
       "expected_required_level": 3,
       "level_tolerance": 1,
       "evidence_keywords": [
-        "Operating points: 0.6, 1.0, 1.2 Q_BEP",
+        "water at 25 C",
+        "The vendor\u2019s acceptance test was run at 30\u201332 C",
         "test Re is lower due to warmer water",
-        "30\u201332 C"
+        "2900 rpm"
       ],
       "source_file": "report.md"
     },
@@ -140,8 +133,9 @@
       "expected_required_level": 3,
       "level_tolerance": 1,
       "evidence_keywords": [
-        "did not adjust viscosity",
-        "flipped to fixed outlet static pressure",
+        "fixed outlet static pressure to pin the duty head (this wasn\u2019t reflected in the config log).",
+        "We applied a density correction in one sensitivity run but did not adjust viscosity.",
+        "tip clearance set to 0.35 mm (vendor drawing says 0.30\u00b10.05 mm).",
         "matched fluid props to the rig"
       ],
       "source_file": "report.md"
@@ -149,14 +143,14 @@
     {
       "factor_type": "Output comparison",
       "expected_status": "assessed",
-      "expected_level": 3,
+      "expected_level": 2,
       "expected_required_level": 3,
       "level_tolerance": 1,
       "evidence_keywords": [
         "predicted head 17.7 m vs test 17.9 m (\u20131.1%)",
         "efficiency 78.6% vs 79.2% (\u20130.8%)",
-        "efficiency at 0.6 Q_BEP was off by 6.5%",
-        "diffuser static pressure recovery 8\u201310% higher than rig"
+        "diffuser static pressure recovery 8\u201310% higher than rig",
+        "within 2\u20133% of the lab curve"
       ],
       "source_file": "report.md"
     },
@@ -164,14 +158,13 @@
       "factor_type": "Relevance of the quantities of interest",
       "expected_status": "assessed",
       "expected_level": 2,
-      "expected_required_level": 3,
+      "expected_required_level": 2,
       "level_tolerance": 1,
       "evidence_keywords": [
         "guide trim decisions near best efficiency point (BEP)",
-        "head",
-        "efficiency",
-        "shaft power",
-        "duty head"
+        "BEP head and shaft power trends with small geometry tweaks",
+        "efficiency at 0.6 Q_BEP was off by 6.5%.",
+        "diffuser static pressure recovery"
       ],
       "source_file": "report.md"
     },
@@ -182,23 +175,24 @@
       "expected_required_level": 3,
       "level_tolerance": 1,
       "evidence_keywords": [
-        "We can proceed using the CFD for BEP-centric decisions",
+        "We can use the current CFD to guide trim decisions near best efficiency point (BEP).",
         "Confidence off-BEP is mixed",
-        "BEP calibration run"
+        "We can proceed using the CFD for BEP-centric decisions",
+        "I do not recommend publishing the \u201c\u00b13% everywhere\u201d figure"
       ],
       "source_file": "report.md"
     }
   ],
   "expected_entities": {
-    "models": 3,
+    "models": 1,
     "datasets": 1,
     "requirements": 0
   },
   "expected_validation_results": [
     {
       "name_keywords": [
-        "At BEP: predicted head 17.7 m vs test 17.9 m",
-        "efficiency 78.6% vs 79.2%"
+        "At BEP: predicted head 17.7 m vs test 17.9 m (\u20131.1%)",
+        "efficiency 78.6% vs 79.2% (\u20130.8%)"
       ],
       "has_uq": "Yes",
       "pass_fail": "Pass"
@@ -207,15 +201,7 @@
       "name_keywords": [
         "At 0.6 Q_BEP",
         "efficiency at 0.6 Q_BEP was off by 6.5%",
-        "diffuser static pressure recovery 8\u201310% higher"
-      ],
-      "has_uq": "No",
-      "pass_fail": "Inconclusive"
-    },
-    {
-      "name_keywords": [
-        "within 2\u20133% of the lab curve",
-        "spread up to ~8% depending on BCs and turbulence model"
+        "diffuser static pressure recovery 8\u201310% higher than rig"
       ],
       "has_uq": "No",
       "pass_fail": "Inconclusive"
@@ -225,14 +211,14 @@
     "outcome": "Accepted",
     "outcome_source": "We can proceed using the CFD for BEP-centric decisions",
     "rationale_keywords": [
-      "BEP head and shaft power trends",
       "within 2\u20133% of the lab curve",
+      "BEP head and shaft power trends with small geometry tweaks",
       "Confidence off-BEP is mixed",
-      "boundary-condition bookkeeping (mass-flow vs pressure)",
       "temperature/viscosity parity with the test"
     ],
     "decided_by_keywords": [
-      "A. Nguyen, Fluids Simulation",
+      "A. Nguyen",
+      "Fluids Simulation",
       "Pump Upgrade Program Lead"
     ]
   },

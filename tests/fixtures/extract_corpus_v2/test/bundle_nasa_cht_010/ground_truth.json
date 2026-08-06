@@ -2,13 +2,13 @@
   "case": "bundle_nasa_cht_010",
   "pack": "nasa-7009b",
   "assessment_summary": {
-    "project_name": "Avionics Cold-Plate CHT Model",
-    "cou_name": "PDR-level max component temperature and coolant pressure drop under worst-case steady vacuum operation",
+    "project_name": "AITR-3 Avionics Cold-Plate",
+    "cou_name": "PDR-level predictions of max component temperatures and coolant pressure drop for steady, single-phase operation in vacuum",
     "profile": "Complete",
     "device_class": "N/A",
     "model_risk_level": "MRL 3",
-    "assurance_level": "Medium",
-    "standards_reference": "nasa-7009b",
+    "assurance_level": "High",
+    "standards_reference": "NASA-7009B",
     "has_uq": "Yes"
   },
   "expected_factors": [
@@ -16,14 +16,12 @@
       "factor_type": "Software quality assurance",
       "expected_status": "assessed",
       "expected_level": 3,
-      "expected_required_level": 3,
+      "expected_required_level": 2,
       "level_tolerance": 1,
       "evidence_keywords": [
-        "Jenkins CI rebuilds the Docker image",
-        "solver version is pinned",
-        "JIRA shows no open defects on this model",
-        "caught by automated checks",
-        "GitLab with tags (cht-coldplate v0.9.3)"
+        "Jenkins CI rebuilds the Docker image (RHEL 8, OpenJDK 17, STAR-CCM+ 2306-R8) and replays a smoke test; solver version is pinned",
+        "Case, mesh, and post-processing scripts are under GitLab with tags (cht-coldplate v0.9.3)",
+        "JIRA shows no open defects on this model; two resolved issues relate to unit conversion and a flipped face orientation caught by automated checks"
       ],
       "source_file": "report.md"
     },
@@ -31,40 +29,37 @@
       "factor_type": "Numerical code verification",
       "expected_status": "assessed",
       "expected_level": 3,
-      "expected_required_level": 3,
+      "expected_required_level": 2,
       "level_tolerance": 1,
       "evidence_keywords": [
-        "advection\u2013diffusion MMS cases",
+        "advection\u2013diffusion MMS cases on STAR-CCM+ v2306 last year",
         "observed second-order convergence in L2 norm",
-        "errors <0.5% at finest mesh",
-        "STAR-CCM+ v2306"
+        "errors <0.5% at finest mesh"
       ],
       "source_file": "report.md"
     },
     {
       "factor_type": "Discretization error",
       "expected_status": "assessed",
-      "expected_level": 3,
+      "expected_level": 4,
       "expected_required_level": 3,
       "level_tolerance": 1,
       "evidence_keywords": [
         "Three systematically refined meshes (3.1M / 6.2M / 12.4M cells)",
-        "Richardson extrapolation",
-        "GCI of 2.1% on the production grid",
-        "Time step independence"
+        "Richardson extrapolation of baseplate Tpeak gave a GCI of 2.1% on the production grid (6.2M)",
+        "Time step independence for a representative 10 s startup transient showed <0.2 C difference"
       ],
       "source_file": "report.md"
     },
     {
       "factor_type": "Numerical solver error",
       "expected_status": "assessed",
-      "expected_level": 2,
+      "expected_level": 3,
       "expected_required_level": 3,
       "level_tolerance": 1,
       "evidence_keywords": [
-        "Global mass imbalance <0.05%",
-        "energy residuals <1e-6 stabilized",
-        "double precision and strict under-relaxation",
+        "Global mass imbalance <0.05% and energy residuals <1e-6 stabilized",
+        "double precision and strict under-relaxation used",
         "coupled solver"
       ],
       "source_file": "report.md"
@@ -72,15 +67,13 @@
     {
       "factor_type": "Use error",
       "expected_status": "assessed",
-      "expected_level": 2,
+      "expected_level": 3,
       "expected_required_level": 3,
       "level_tolerance": 1,
       "evidence_keywords": [
         "code owners different from test operators",
-        "unit conversion",
-        "flipped face orientation",
-        "caught by automated checks",
-        "Run-time logs"
+        "two resolved issues relate to unit conversion and a flipped face orientation caught by automated checks",
+        "All assumptions and limitations are listed in the model README"
       ],
       "source_file": "report.md"
     },
@@ -91,11 +84,9 @@
       "expected_required_level": 3,
       "level_tolerance": 1,
       "evidence_keywords": [
-        "Full CHT: 3D conduction in Al6061",
-        "k-omega SST with low-Re corrections",
-        "No phase change modeled",
-        "not valid for incipient boiling",
-        "uniform volumetric sources"
+        "Full CHT: 3D conduction in Al6061 baseplate and chassis, temperature-dependent k(T)",
+        "k-omega SST with low-Re corrections; near-wall y+ < 1",
+        "No phase change modeled; analysis is not valid for incipient boiling or gas ingestion"
       ],
       "source_file": "report.md"
     },
@@ -106,11 +97,10 @@
       "expected_required_level": 3,
       "level_tolerance": 1,
       "evidence_keywords": [
-        "Al6061 k(T) from in-house guarded hot-plate coupons",
-        "TIM (Bergquist GAP PAD 1500) effective conductance",
-        "emissivity measured with IR reflectometer",
-        "Heat loads from board bring-up logs",
-        "pump curve and motor heat leak from vendor P-V data"
+        "Al6061 k(T) from in-house guarded hot-plate coupons (23\u2013100 C) cross-checked to MatWeb",
+        "TIM (Bergquist GAP PAD 1500) effective conductance derived from compression tests",
+        "emissivity measured with IR reflectometer (\u03b5 = 0.12\u00b10.02)",
+        "Heat loads from board bring-up logs at 1g worst-case code path plus 10% contingency"
       ],
       "source_file": "report.md"
     },
@@ -118,7 +108,7 @@
       "factor_type": "Test samples",
       "expected_status": "assessed",
       "expected_level": 2,
-      "expected_required_level": 3,
+      "expected_required_level": 2,
       "level_tolerance": 1,
       "evidence_keywords": [
         "flight-like cold plate",
@@ -130,7 +120,7 @@
     {
       "factor_type": "Test conditions",
       "expected_status": "assessed",
-      "expected_level": 2,
+      "expected_level": 3,
       "expected_required_level": 3,
       "level_tolerance": 1,
       "evidence_keywords": [
@@ -143,26 +133,26 @@
     {
       "factor_type": "Equivalency of input parameters",
       "expected_status": "assessed",
-      "expected_level": 2,
+      "expected_level": 3,
       "expected_required_level": 3,
       "level_tolerance": 1,
       "evidence_keywords": [
         "Boundary conditions trace to Requirement THR-042 and Power ICD rev E",
-        "all values and sources recorded in the run log",
-        "IR mapping"
+        "radiation from exposed outer faces to chamber walls with measured emissivity",
+        "measured emissivity (\u03b5 = 0.12 bead-blasted Al)"
       ],
       "source_file": "report.md"
     },
     {
       "factor_type": "Output comparison",
       "expected_status": "assessed",
-      "expected_level": 3,
-      "expected_required_level": 3,
+      "expected_level": 4,
+      "expected_required_level": 4,
       "level_tolerance": 1,
       "evidence_keywords": [
-        "mean absolute temperature difference across all 17 points was 1.4 C",
+        "model-to-measurement mean absolute temperature difference across all 17 points was 1.4 C",
         "worst case 2.3 C at the card-edge sensor",
-        "Pressure-drop error 3.2%",
+        "Pressure-drop error 3.2% against the differential transducer",
         "measured thermal-vac test data fall within this band"
       ],
       "source_file": "report.md"
@@ -170,26 +160,26 @@
     {
       "factor_type": "Relevance of the quantities of interest",
       "expected_status": "assessed",
-      "expected_level": 2,
+      "expected_level": 3,
       "expected_required_level": 3,
       "level_tolerance": 1,
       "evidence_keywords": [
-        "maximum component temperatures",
-        "coolant-side pressure drop",
-        "worst-case steady operation in vacuum"
+        "maximum component temperatures and coolant-side pressure drop",
+        "worst-case steady operation in vacuum",
+        "peak baseplate temperature at the hottest FPGA"
       ],
       "source_file": "report.md"
     },
     {
       "factor_type": "Relevance of the validation activities to the COU",
       "expected_status": "assessed",
-      "expected_level": 3,
-      "expected_required_level": 3,
+      "expected_level": 4,
+      "expected_required_level": 4,
       "level_tolerance": 1,
       "evidence_keywords": [
         "thermal-vac chamber test",
         "flight-like cold plate",
-        "vacuum",
+        "chamber pressure <1e-4 torr",
         "worst-case steady operation"
       ],
       "source_file": "report.md"
@@ -201,23 +191,23 @@
       "expected_required_level": 3,
       "level_tolerance": 1,
       "evidence_keywords": [
-        "in-house guarded hot-plate coupons (23\u2013100 C) cross-checked to MatWeb",
-        "derived from compression tests at 10, 30, 50 PSI",
+        "guarded hot-plate coupons (23\u2013100 C) cross-checked to MatWeb",
         "emissivity measured with IR reflectometer (\u03b5 = 0.12\u00b10.02)",
-        "vendor P-V data"
+        "RTD \u00b10.15 C, TC \u00b10.5 C, flow \u00b11%",
+        "Boundary conditions trace to Requirement THR-042 and Power ICD rev E"
       ],
       "source_file": "report.md"
     },
     {
       "factor_type": "Development technical review",
       "expected_status": "assessed",
-      "expected_level": 2,
+      "expected_level": 3,
       "expected_required_level": 3,
       "level_tolerance": 1,
       "evidence_keywords": [
         "Independent review held 19 July",
         "three action items closed",
-        "pressure BC justification"
+        "radiation view factors, TIM preload sensitivity, and pressure BC justification"
       ],
       "source_file": "report.md"
     },
@@ -225,13 +215,12 @@
       "factor_type": "Development process and product management",
       "expected_status": "assessed",
       "expected_level": 3,
-      "expected_required_level": 3,
+      "expected_required_level": 2,
       "level_tolerance": 1,
       "evidence_keywords": [
-        "GitLab with tags (cht-coldplate v0.9.3)",
-        "Configuration baseline is frozen for PDR; changes require CCB approval",
         "Credibility/acceptance plan CHT-Plan-006 rev C approved at SDR",
-        "risk register"
+        "Configuration baseline is frozen for PDR; changes require CCB approval",
+        "Case, mesh, and post-processing scripts are under GitLab with tags"
       ],
       "source_file": "report.md"
     },
@@ -239,11 +228,10 @@
       "factor_type": "Results uncertainty",
       "expected_status": "assessed",
       "expected_level": 4,
-      "expected_required_level": 3,
+      "expected_required_level": 4,
       "level_tolerance": 1,
       "evidence_keywords": [
-        "Latin hypercube of 200 samples",
-        "Sobol indices",
+        "Latin hypercube of 200 samples with Sobol indices",
         "Aggregated 95% interval on Tpeak \u00b12.7 C",
         "Instrumentation uncertainties were propagated"
       ],
@@ -256,10 +244,9 @@
       "expected_required_level": 3,
       "level_tolerance": 1,
       "evidence_keywords": [
-        "switching to Spalart\u2013Allmaras",
-        "increasing prism layers from 10 to 14",
-        "reproduced Tpeak within 0.1 C",
-        "Time step independence"
+        "switching to Spalart\u2013Allmaras with the same y+ shifts Tpeak by +0.8 C",
+        "increasing prism layers from 10 to 14 changes Tpeak by <0.2 C",
+        "rerunning the baseline on a second node reproduced Tpeak within 0.1 C"
       ],
       "source_file": "report.md"
     },
@@ -267,11 +254,10 @@
       "factor_type": "Use history",
       "expected_status": "assessed",
       "expected_level": 2,
-      "expected_required_level": 3,
+      "expected_required_level": 2,
       "level_tolerance": 1,
       "evidence_keywords": [
-        "NanoLink-3 mission (2022) cold plate",
-        "predicted within 2 C",
+        "same workflow predicted within 2 C on the NanoLink-3 mission (2022) cold plate",
         "documented in TN-CHT-2217"
       ],
       "source_file": "report.md"
@@ -286,17 +272,24 @@
     {
       "name_keywords": [
         "thermal-vac chamber test",
-        "model-to-measurement mean absolute",
-        "17 points"
+        "flight-like cold plate",
+        "model-to-measurement mean absolute temperature difference"
       ],
       "has_uq": "Yes",
       "pass_fail": "Pass"
     },
     {
       "name_keywords": [
-        "straight surrogate channel",
-        "Nusselt number",
-        "Gnielinski"
+        "Nusselt number and friction factor",
+        "matched Gnielinski within 3.8%"
+      ],
+      "has_uq": "No",
+      "pass_fail": "Pass"
+    },
+    {
+      "name_keywords": [
+        "Solid-only conduction benchmark",
+        "1D analytical temperature drop within 0.7%"
       ],
       "has_uq": "No",
       "pass_fail": "Pass"
@@ -304,17 +297,17 @@
   ],
   "expected_decision": {
     "outcome": "Accepted",
-    "outcome_source": "suitable to answer PDR-level questions",
+    "outcome_source": "suitable to answer PDR-level questions on maximum component temperatures and coolant-side pressure drop",
     "rationale_keywords": [
       "measured thermal-vac test data fall within this band",
       "mean absolute temperature difference 1.4 C",
-      "95% interval of \u00b12.7 C",
-      "5 C design margin"
+      "Pressure-drop error 3.2%",
+      "Aggregated 95% interval on Tpeak \u00b12.7 C",
+      "carrying a 5 C design margin"
     ],
     "decided_by_keywords": [
       "AITR-3 Project Lead",
-      "Power & Thermal Subsystem",
-      "CCB approval"
+      "Power & Thermal Subsystem"
     ]
   },
   "_provenance": "report.md"

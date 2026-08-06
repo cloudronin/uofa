@@ -3,12 +3,12 @@
   "pack": "vv40",
   "assessment_summary": {
     "project_name": "Elbow Duct with Turning Vanes CFD",
-    "cou_name": "Early HVAC elbow sizing: predict pressure loss K and downstream flow distribution for AHU-7 retrofit",
+    "cou_name": "Steady RANS to estimate pressure loss and flow quality for 90\u00b0 square HVAC elbow for early sizing (AHU-7)",
     "profile": "Partial",
     "device_class": "N/A",
     "model_risk_level": "MRL 2",
     "assurance_level": "Medium",
-    "standards_reference": "ASME V&V 40",
+    "standards_reference": "ASME V&V 40-2018",
     "has_uq": "Yes"
   },
   "expected_factors": [
@@ -16,7 +16,7 @@
       "factor_type": "Software quality assurance",
       "expected_status": "not_applicable",
       "expected_level": null,
-      "expected_required_level": 2,
+      "expected_required_level": 1,
       "level_tolerance": 1,
       "evidence_keywords": [],
       "source_file": "report.md"
@@ -34,28 +34,28 @@
       "factor_type": "Discretization error",
       "expected_status": "assessed",
       "expected_level": 3,
-      "expected_required_level": 2,
+      "expected_required_level": 3,
       "level_tolerance": 1,
       "evidence_keywords": [
         "Mesh refinement study",
         "K_coarse = 0.37",
         "p_obs \u2248 1.92 for K",
         "Extrapolated K_ext \u2248 0.345",
-        "estimated discretization band on fine grid \u2248 1.2%"
+        "estimated discretization band on fine grid \u2248 1.2% relative"
       ],
       "source_file": "report.md"
     },
     {
       "factor_type": "Numerical solver error",
       "expected_status": "assessed",
-      "expected_level": 3,
+      "expected_level": 2,
       "expected_required_level": 2,
       "level_tolerance": 1,
       "evidence_keywords": [
-        "Convergence targets: scaled residuals below 1e-5 for continuity and momentum",
-        "steady monitors of section-averaged static pressure at taps varying less than 0.2%",
+        "Residuals: continuity and momentum below 1e-5",
+        "mass imbalance across inlet/outlet",
         "Mass residuals balanced to within 0.05% at convergence",
-        "starting from uniform vs precursor-patched initial fields resulted in the same K within 0.3%"
+        "K variation <0.15% over the final 700 iterations"
       ],
       "source_file": "report.md"
     },
@@ -72,13 +72,12 @@
       "factor_type": "Model form",
       "expected_status": "assessed",
       "expected_level": 2,
-      "expected_required_level": 2,
+      "expected_required_level": 3,
       "level_tolerance": 1,
       "evidence_keywords": [
-        "Appropriateness of physics",
-        "The flows considered are subsonic, incompressible",
         "k-omega SST with low-Re wall treatment",
-        "This is a simplification but captures first-order roughness drag."
+        "Appropriateness of physics",
+        "This is a simplification but captures first-order roughness drag"
       ],
       "source_file": "report.md"
     },
@@ -86,12 +85,12 @@
       "factor_type": "Model inputs",
       "expected_status": "assessed",
       "expected_level": 3,
-      "expected_required_level": 2,
+      "expected_required_level": 3,
       "level_tolerance": 1,
       "evidence_keywords": [
         "Boundary and initial conditions",
         "inlet turbulence intensity 5% (baseline)",
-        "ks = 0.1 mm",
+        "Surface roughness modeled via ks = 0.1 mm",
         "sensitivity explored 2% and 10%",
         "doubling ks to 0.2 mm increased K by 2.1%"
       ],
@@ -99,38 +98,41 @@
     },
     {
       "factor_type": "Test samples",
-      "expected_status": "not_applicable",
-      "expected_level": null,
+      "expected_status": "assessed",
+      "expected_level": 2,
       "expected_required_level": 2,
       "level_tolerance": 1,
-      "evidence_keywords": [],
+      "evidence_keywords": [
+        "Laboratory Benchmark",
+        "Two static pressure rings installed at the tap planes",
+        "2D PIV (double-pulsed Nd:YAG, 200 mJ/pulse)",
+        "three cross sections (upstream plane, elbow mid-plane, downstream plane)"
+      ],
       "source_file": "report.md"
     },
     {
       "factor_type": "Test conditions",
       "expected_status": "assessed",
-      "expected_level": 3,
-      "expected_required_level": 2,
+      "expected_level": 2,
+      "expected_required_level": 3,
       "level_tolerance": 1,
       "evidence_keywords": [
-        "Environment stabilized at 20 \u00b1 1 \u00b0C.",
-        "air properties and bulk velocity were matched to within 0.5%",
-        "The downstream tap plane in the model was positioned to coincide",
-        "12 Dh conditioning section with honeycomb and two screens."
+        "Environment stabilized at 20 \u00b1 1 \u00b0C",
+        "air properties and bulk velocity were matched to within 0.5% of the test conditions",
+        "downstream tap plane in the model was positioned to coincide with the ring centerline"
       ],
       "source_file": "report.md"
     },
     {
       "factor_type": "Equivalency of input parameters",
       "expected_status": "assessed",
-      "expected_level": 3,
-      "expected_required_level": 2,
+      "expected_level": 2,
+      "expected_required_level": 3,
       "level_tolerance": 1,
       "evidence_keywords": [
         "Matching simulation to test",
-        "matched to within 0.5% of the test conditions",
-        "inlet turbulence intensity is not measured in the lab upstream of the elbow module",
-        "we include \u00b11.5% as roughness-induced spread"
+        "CFD velocity data sampled on planes corresponding to PIV sheets",
+        "downsampled to PIV interrogation grid spacing"
       ],
       "source_file": "report.md"
     },
@@ -138,10 +140,9 @@
       "factor_type": "Output comparison",
       "expected_status": "assessed",
       "expected_level": 3,
-      "expected_required_level": 2,
+      "expected_required_level": 3,
       "level_tolerance": 1,
       "evidence_keywords": [
-        "Pressure loss coefficient",
         "Measured K at 1.8 m3/s: 0.358 \u00b1 0.007",
         "CFD fine grid K at 1.8 m3/s: 0.349 \u00b1 0.004",
         "Difference: \u22122.6% relative to measurement mean",
@@ -153,13 +154,12 @@
       "factor_type": "Relevance of the quantities of interest",
       "expected_status": "assessed",
       "expected_level": 2,
-      "expected_required_level": 2,
+      "expected_required_level": 3,
       "level_tolerance": 1,
       "evidence_keywords": [
-        "pressure loss coefficient (K) between upstream and downstream taps",
+        "pressure loss coefficient (K)",
         "mid-plane velocity profiles",
-        "to support early sizing choices",
-        "maldistribution into downstream branches"
+        "support early sizing choices for a retrofit project"
       ],
       "source_file": "report.md"
     },
@@ -167,12 +167,11 @@
       "factor_type": "Relevance of the validation activities to the COU",
       "expected_status": "assessed",
       "expected_level": 2,
-      "expected_required_level": 2,
+      "expected_required_level": 3,
       "level_tolerance": 1,
       "evidence_keywords": [
-        "Use for decision-making",
-        "For early sizing at the system level",
-        "For preliminary design choices (fan sizing, allowance margin), the results are sufficiently mature.",
+        "For preliminary design choices (fan sizing, allowance margin), the results are sufficiently mature",
+        "The analysis is not intended for acoustic prediction",
         "A 4% conservative uplift on the predicted K is recommended"
       ],
       "source_file": "report.md"
@@ -187,8 +186,8 @@
     {
       "name_keywords": [
         "Pressure loss coefficient",
-        "Over the three flow rates",
-        "bench-scale measurements"
+        "1.8 m3/s",
+        "CFD 0.349 vs test 0.358"
       ],
       "has_uq": "Yes",
       "pass_fail": "Pass"
@@ -196,27 +195,25 @@
     {
       "name_keywords": [
         "Velocity fields",
-        "PIV",
-        "Spatial correlation coefficient"
+        "Spatial correlation coefficient",
+        "downstream plane"
       ],
       "has_uq": "Yes",
-      "pass_fail": "Inconclusive"
+      "pass_fail": "Pass"
     }
   ],
   "expected_decision": {
     "outcome": "Accepted",
-    "outcome_source": "For preliminary design choices (fan sizing, allowance margin), the results are sufficiently mature.",
+    "outcome_source": "For preliminary design choices (fan sizing, allowance margin), the results are sufficiently mature. A 4% conservative uplift on the predicted K is recommended",
     "rationale_keywords": [
       "within approximately 3%",
-      "consistent low bias",
       "mesh checks and residual behavior",
-      "bench-scale measurements",
-      "4% conservative uplift"
+      "agreement in K across the operating envelope",
+      "downstream velocity shape and secondary motion topology align"
     ],
     "decided_by_keywords": [
-      "J. Li",
-      "MEP Systems Group",
-      "S. Ortiz"
+      "J. Li (CFD)",
+      "MEP Systems Group"
     ]
   },
   "_provenance": "report.md"
