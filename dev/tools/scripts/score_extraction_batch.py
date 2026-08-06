@@ -52,6 +52,7 @@ from schema_coverage import (  # noqa: E402
 from groundedness import (  # noqa: E402
     GroundednessResult,
     score_attribution,
+    score_field,
     read_source_text,
     score_factor_rationales,
 )
@@ -256,6 +257,17 @@ def score_bundle(
         ar, asc = score_attribution(extracted.get("credibility_factors", []),
                                     ground_truth)
         record["attribution"] = {"correct": ar, "scored": asc}
+
+        # Decision outcome, decomposed. Accuracy alone merges "read it and got
+        # it right" with "guessed and got it right", and on this corpus the
+        # second is 71% of the first's headline.
+        want_dec = (ground_truth.get("expected_decision") or {}).get("outcome")
+        got_dec = (extracted.get("decision") or {}).get("outcome")
+        if want_dec and got_dec:
+            record["decision_verdict"] = score_field(
+                got_dec, want_dec, read_source_text(bundle_dir), "decision_outcome")
+        elif want_dec:
+            record["decision_verdict"] = "abstained"
     except SystemExit as exc:
         record["groundedness_error"] = str(exc)
     return record
@@ -340,6 +352,8 @@ def aggregate(per_bundle: list[dict], factor_names: list[str]) -> dict:
         for f in findings:
             schema.violations[f] = schema.violations.get(f, 0) + 1
 
+    dec = Counter(r["decision_verdict"] for r in scored if r.get("decision_verdict"))
+
     att_ok = sum((r.get("attribution") or {}).get("correct", 0) for r in scored)
     att_n = sum((r.get("attribution") or {}).get("scored", 0) for r in scored)
 
@@ -362,6 +376,7 @@ def aggregate(per_bundle: list[dict], factor_names: list[str]) -> dict:
         "schema": schema.as_dict(),
         "attribution": {"correct": att_ok, "scored": att_n,
                         "rate": att_ok / att_n if att_n else None},
+        "decision_verdict": dict(dec),
         "extraction_cost": cost_summary,
         "min_overall_f1": min(bundle_f1) if bundle_f1 else None,
         "max_overall_f1": max(bundle_f1) if bundle_f1 else None,
@@ -454,6 +469,33 @@ def write_markdown_summary(out_path: Path, header: dict, agg: dict) -> None:
                      "quoting one sentence of the source for every factor scores coverage 1.000, "
                      "density 1.000 **and** groundedness 1.000, and only distinctness (0.000) "
                      "separates it from real work.")
+        lines.append("")
+
+    d = agg.get("decision_verdict") or {}
+    if d:
+        n = sum(d.values())
+        gc, uc = d.get("grounded_correct", 0), d.get("unsupported_correct", 0)
+        lines.append("## Decision outcome — read, or guessed?")
+        lines.append("")
+        lines.append("| Verdict | Count | |")
+        lines.append("|---|---:|---|")
+        for k, label in (("grounded_correct", "read it, got it right"),
+                         ("grounded_wrong", "read it, got it wrong"),
+                         ("unsupported_correct", "**guessed**, got it right"),
+                         ("unsupported_wrong", "guessed, got it wrong"),
+                         ("abstained", "declined to answer")):
+            if d.get(k):
+                lines.append(f"| `{k}` | {d[k]} | {d[k]/n:.1%} — {label} |")
+        lines.append("")
+        lines.append(f"- Headline accuracy: **{(gc+uc)/n:.3f}** — the number a plain "
+                     f"accuracy metric reports")
+        lines.append(f"- Genuine extraction: **{gc/n:.3f}** — supported by the document")
+        lines.append(f"- Lucky guesses: **{uc/n:.3f}** — correct, but the source says nothing")
+        lines.append("")
+        lines.append("An extractor that **abstains** where the document is silent should be "
+                     "ranked above one that guesses correctly. A recorded decision nobody "
+                     "made is worse than a blank: an absent field is visibly absent, an "
+                     "invented one is indistinguishable from a real one.")
         lines.append("")
 
     c = agg.get("extraction_cost") or {}

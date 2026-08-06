@@ -466,6 +466,64 @@ def score_attribution(factors: list[dict], ground_truth: dict) -> tuple[int, int
     return right, scored
 
 
+# Wording a document uses to state a verdict. Absence of all of it means the
+# document does not record a decision, whatever the extractor wrote down.
+_VERDICT_WORDS = re.compile(
+    r"\b(?:accepted|approved|rejected|declined|denied|not accepted|not approved|"
+    r"adequate for|sufficient for|fit for (?:the )?purpose|cleared for|"
+    r"authoris?ed for|endorsed|unfit|withheld|do(?:es)? not (?:meet|satisfy))\b",
+    re.I)
+
+
+def field_is_supported(value: str, source_text: str, field: str) -> bool:
+    """Could this value have been read out of the document at all?
+
+    Separate from whether it is *correct*. A decision outcome is supported when
+    the source contains verdict wording somewhere; a free-text value is
+    supported when it appears in the source.
+
+    ## Why this exists
+
+    `expected_decision.outcome` is in ground truth for every bundle, and the
+    source states no verdict in **78%** of them -- the ground truth outcome is
+    the corpus generator's inference. Scored against it, sonnet invents an
+    outcome in 77% of bundles and scores **0.914**, against a constant's 0.878.
+
+    Two models inferring the same base rate agree with each other, and the
+    scorer records that agreement as extraction. It is not: nothing was read.
+    """
+    if not isinstance(value, str) or not value.strip():
+        return False
+    if field == "decision_outcome":
+        return bool(_VERDICT_WORDS.search(source_text))
+    return " ".join(value.split()).lower() in " ".join(source_text.split()).lower()
+
+
+def score_field(value: str, expected: str, source_text: str,
+                field: str) -> str:
+    """One of four outcomes, never collapsed into "correct".
+
+        grounded_correct     read it, got it right      -- extraction
+        grounded_wrong       read it, got it wrong      -- misreading
+        unsupported_correct  guessed, got it right      -- LUCK
+        unsupported_wrong    guessed, got it wrong      -- fabrication
+
+    Reporting only accuracy merges the first and third, which is how a field
+    invented in 77% of bundles came to read as 0.914. The pair a credibility
+    tool must not confuse is `grounded_correct` and `unsupported_correct`:
+    identical in the output, opposite in what they say about the method.
+
+    An extractor that abstains where the document is silent should be scored
+    ABOVE one that guesses correctly, because a recorded decision nobody made
+    is worse than a blank -- an absent field is visibly absent, an invented one
+    is indistinguishable from a real one.
+    """
+    supported = field_is_supported(value, source_text, field)
+    correct = (str(value).strip().lower() == str(expected).strip().lower())
+    return f"{'grounded' if supported else 'unsupported'}_" \
+           f"{'correct' if correct else 'wrong'}"
+
+
 def read_source_text(bundle_dir: Path) -> str:
     """Concatenate a bundle's source documents. This is the grounding reference."""
     src = Path(bundle_dir) / "source"
