@@ -96,6 +96,21 @@ _DEFAULT_CAPS: dict[str, dict[str, object]] = {
 _OLLAMA_ONLY_EXTRA_KEYS = frozenset({"think"})
 
 
+def _gpt5_or_later(name: str) -> bool:
+    """gpt-5, gpt-5.4, gpt-6... but not gpt-4o or gpt-4.1.
+
+    Compares the major version numerically so a future gpt-6 is covered
+    without another edit, and gpt-4.1 is not caught by a naive prefix test.
+    """
+    if not name.startswith("gpt-"):
+        return False
+    major = name[4:].split(".", 1)[0].split("-", 1)[0]
+    try:
+        return int(major) >= 5
+    except ValueError:
+        return False
+
+
 @dataclass
 class LiteLLMBackend:
     """Wraps `litellm.completion()`. One instance per (backend, model) pair."""
@@ -136,7 +151,48 @@ class LiteLLMBackend:
         return bool(self._cap("supports_seed"))
 
     def supports_temperature(self) -> bool:
+        """Whether a temperature other than the default may be sent.
+
+        `_DEFAULT_CAPS` answers per backend, which is right for Anthropic and
+        the older OpenAI models. The reasoning-era models (o-series, gpt-5 and
+        later) accept the parameter only at its default of 1:
+
+            Unsupported value: 'temperature' does not support 0.7 with this
+            model. Only the default (1) value is supported.
+
+        An explicit override still wins, so a caller who knows better can force
+        it; absent that, sending nothing gets the default rather than a 400.
+        """
+        if "supports_temperature" in self.capability_overrides:
+            return bool(self.capability_overrides["supports_temperature"])
+        if self._fixed_temperature_model():
+            return False
         return bool(self._cap("supports_temperature"))
+
+    def _fixed_temperature_model(self) -> bool:
+        name = self.model_name.split("/", 1)[-1].lower()
+        return self.backend_name in ("openai", "openai-compatible") and (
+            name.startswith(("o1", "o3", "o4")) or _gpt5_or_later(name))
+
+    def max_tokens_param(self) -> str:
+        """The output-budget parameter name this model accepts.
+
+        OpenAI's reasoning-era models (o1, o3, gpt-5 and later) reject
+        `max_tokens` outright:
+
+            Unsupported parameter: 'max_tokens' is not supported with this
+            model. Use 'max_completion_tokens' instead.
+
+        It is a hard 400, so every call fails and nothing is billed -- which is
+        how a 3-bundle dry run caught it for $0.00 before a 50-bundle run.
+        Anthropic and older OpenAI models still take `max_tokens`, so this is
+        chosen per model rather than switched globally.
+        """
+        name = self.model_name.split("/", 1)[-1].lower()
+        if self.backend_name in ("openai", "openai-compatible") and (
+                name.startswith(("o1", "o3", "o4")) or _gpt5_or_later(name)):
+            return "max_completion_tokens"
+        return "max_tokens"
 
     def supports_streaming(self) -> bool:
         return bool(self._cap("supports_streaming"))
@@ -335,7 +391,7 @@ class LiteLLMBackend:
         if options.temperature is not None and self.supports_temperature():
             kwargs["temperature"] = options.temperature
         if options.max_tokens is not None:
-            kwargs["max_tokens"] = options.max_tokens
+            kwargs[self.max_tokens_param()] = options.max_tokens
         if options.seed is not None and self.supports_seed():
             kwargs["seed"] = options.seed
         if self.api_key:

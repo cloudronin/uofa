@@ -388,16 +388,40 @@ def _format_source_documents(files: list[dict]) -> str:
     return "\n---\n\n".join(parts)
 
 
+# model prefix -> (LiteLLM backend name, env var holding the key)
+_PROVIDERS = (
+    ("claude", "anthropic", "ANTHROPIC_API_KEY"),
+    ("gpt-",   "openai",    "OPENAI_API_KEY"),
+    ("o1",     "openai",    "OPENAI_API_KEY"),
+    ("ollama/", "ollama",   ""),
+)
+
+
 def _make_backend(model: str) -> LiteLLMBackend:
-    api_key = os.environ.get("ANTHROPIC_API_KEY")
-    if not api_key:
-        raise SystemExit("ANTHROPIC_API_KEY not set in environment.")
-    return LiteLLMBackend(
-        backend_name="anthropic",
-        model_name=model,
-        api_key=api_key,
-        default_timeout_seconds=DEFAULT_TIMEOUT_S,
-    )
+    """Route by model name rather than assuming one provider.
+
+    This used to hardcode anthropic and ANTHROPIC_API_KEY, so pointing the
+    generator at an OpenAI model failed with a message naming the wrong
+    variable.
+    """
+    bare = model.split("/", 1)[1] if model.startswith(("openai/", "anthropic/")) else model
+    for prefix, backend_name, env_var in _PROVIDERS:
+        if not bare.startswith(prefix) and not model.startswith(prefix):
+            continue
+        api_key = os.environ.get(env_var) if env_var else "local"
+        if not api_key:
+            raise SystemExit(
+                f"{env_var} not set, and model {model!r} routes to the "
+                f"{backend_name} backend.")
+        return LiteLLMBackend(
+            backend_name=backend_name,
+            model_name=model,
+            api_key=api_key,
+            default_timeout_seconds=DEFAULT_TIMEOUT_S,
+        )
+    raise SystemExit(
+        f"No provider mapping for model {model!r}. Add its prefix to "
+        f"_PROVIDERS in {__file__}.")
 
 
 def _approx_tokens(text: str) -> int:
