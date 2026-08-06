@@ -44,6 +44,11 @@ from pathlib import Path
 _THIS = Path(__file__).resolve().parent
 sys.path.insert(0, str(_THIS))
 
+from groundedness import (  # noqa: E402
+    GroundednessResult,
+    read_source_text,
+    score_factor_rationales,
+)
 from score_extraction import (  # noqa: E402
     _ROOT,
     parse_extracted_xlsx,
@@ -51,6 +56,12 @@ from score_extraction import (  # noqa: E402
     run_extraction,
     score_factors,
 )
+
+# Fields summed when rolling per-bundle groundedness up to the corpus. Ratios
+# are recomputed from the totals rather than averaged over bundles: a bundle
+# contributing two claims should not weigh the same as one contributing thirty.
+_GROUNDEDNESS_COUNTERS = ("factors_total", "factors_with_rationale",
+                          "rationales_with_claims", "claims_total", "claims_grounded")
 
 
 # Pattern that disqualifies a prompt version from running against the test set.
@@ -203,6 +214,19 @@ def score_bundle(
     )
     record["factor_score"] = factor_score
     record["overall_f1"] = factor_score["overall_f1"]
+
+    # Groundedness is scored on every run, and it is the only metric here that a
+    # constant function cannot reach: the checklist control scores F1 0.960
+    # having read nothing, but it cannot cite a figure from the document.
+    # Failures are recorded rather than raised -- a bundle with no readable
+    # source should cost its groundedness row, not the whole run's F1.
+    try:
+        grounded = score_factor_rationales(
+            extracted.get("credibility_factors", []), read_source_text(bundle_dir))
+        record["groundedness"] = grounded.as_dict()
+        record["ungrounded"] = grounded.ungrounded
+    except SystemExit as exc:
+        record["groundedness_error"] = str(exc)
     return record
 
 
@@ -252,11 +276,22 @@ def aggregate(per_bundle: list[dict], factor_names: list[str]) -> dict:
         for (m, ft), c in mode_counter.most_common(20)
     ]
 
+    grounded = GroundednessResult()
+    for r in scored:
+        g = r.get("groundedness")
+        if not g:
+            continue
+        for k in _GROUNDEDNESS_COUNTERS:
+            setattr(grounded, k, getattr(grounded, k) + g[k])
+        grounded.ungrounded += r.get("ungrounded", [])
+
     return {
         "n_bundles": len(per_bundle),
         "n_scored": len(scored),
         "n_crashed": len(crashed),
         "mean_overall_f1": sum(bundle_f1) / len(bundle_f1) if bundle_f1 else None,
+        "groundedness": grounded.as_dict(),
+        "ungrounded": grounded.ungrounded,
         "min_overall_f1": min(bundle_f1) if bundle_f1 else None,
         "max_overall_f1": max(bundle_f1) if bundle_f1 else None,
         "per_factor": per_factor,
@@ -279,6 +314,32 @@ def write_markdown_summary(out_path: Path, header: dict, agg: dict) -> None:
     if agg["mean_overall_f1"] is not None:
         lines.append(f"- Mean overall F1: **{agg['mean_overall_f1']:.3f}** (min {agg['min_overall_f1']:.3f}, max {agg['max_overall_f1']:.3f})")
     lines.append("")
+
+    g = agg.get("groundedness") or {}
+    if g.get("factors_total"):
+        lines.append("## Rationale groundedness")
+        lines.append("")
+        lines.append("Detection F1 above is reachable by a function that reads no input — the")
+        lines.append("pack's checklist scores 0.960. These three are not: citing a figure from")
+        lines.append("the document requires having read it.")
+        lines.append("")
+        lines.append("| | | |")
+        lines.append("|---|---:|---|")
+        lines.append(f"| Coverage | **{g['coverage']:.3f}** | "
+                     f"{g['factors_with_rationale']}/{g['factors_total']} factors given a rationale |")
+        lines.append(f"| Claim density | **{g['claim_density']:.3f}** | "
+                     f"{g['rationales_with_claims']}/{g['factors_with_rationale']} carry a checkable claim |")
+        lines.append(f"| Groundedness | **{g['groundedness']:.3f}** | "
+                     f"{g['claims_grounded']}/{g['claims_total']} claims trace to source |")
+        lines.append("")
+        lines.append(f"Ungrounded rationales: **{len(agg.get('ungrounded', []))}**. "
+                     "Read all three together — coverage 0 means the method wrote nothing, "
+                     "high coverage with low density means it wrote filler, and high density "
+                     "with low groundedness means it wrote confident fiction.")
+        lines.append("")
+        lines.append("Measures **fabrication, not attribution**: a real figure cited under the "
+                     "wrong factor scores as grounded. Sign is not checked.")
+        lines.append("")
     lines.append("## Per-factor detection rate")
     lines.append("")
     lines.append("| Factor | GT appearances | Detected | Rate | Level acc |")

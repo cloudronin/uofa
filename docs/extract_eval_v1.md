@@ -5,6 +5,23 @@
 **Spec:** [`Product Requirements/UofA_Extract_Prompt_Iteration_Spec_v1.md`](../Product%20Requirements/UofA_Extract_Prompt_Iteration_Spec_v1.md)
 **Status:** Complete — prompt frozen at v4-kv
 
+> **Read the detection figures below with the null-model controls beside them.**
+> Added Aug 5, 2026. The numbers in this report are correct as run and are left
+> exactly as reported. What has changed is what they mean: emitting the pack's
+> fixed checklist — a function with zero parameters that reads none of the input
+> — scores **F1 0.960** on this corpus, because ground truth lists the full
+> checklist and marks 92.5% of rows `assessed`. So the 0.964 headline sits
+> **0.004** above a constant, not 0.114 above the 0.85 target, and the ±1 level
+> tolerance is saturated by predicting the constant 2.
+>
+> The per-factor level figures are affected too: the 0.55 on *Numerical solver
+> error* reads as the model failing, but it is the model predicting levels 4 and
+> 5 into a corpus whose generator was tightened until it stopped emitting them.
+> That is a corpus defect, not a finding about the model.
+>
+> See [`keyless-extract-findings.md`](keyless-extract-findings.md). The scorer
+> now prints these controls on every run and they are never suppressed.
+
 ## Headline
 
 | Metric | Dev | Test | Spec target | Pass |
