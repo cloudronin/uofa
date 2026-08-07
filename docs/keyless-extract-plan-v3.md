@@ -276,6 +276,47 @@ generated, and recommended generating one. That was wrong: it missed
 `cas_mapping.py`, which already bridges them. Generating a 7009A corpus is not
 required for the K6 measurement.
 
+### K6 routes well on a real document, and picks badly
+
+The 0.000 above measures a *picker*. This pipeline's detector is a *router* --
+`extract_k2` already takes `routing: dict[str, list[int]]`, "candidate span
+indices, ranked best first" -- so collapsing it to argmax measured something the
+architecture never claimed. Scored as routing, on the furniture-filtered pool of
+213 sentences:
+
+| k | K6 recall@k | random@k | lift |
+|---|---|---|---|
+| 1 | 0.000 | 0.013 | −0.013 |
+| 3 | 0.167 | 0.027 | +0.140 |
+| 10 | 0.333 | 0.090 | +0.243 |
+| **20** | **0.667** | 0.184 | **+0.482** |
+
+Rank of the best gold sentence, of 213: **2, 8, 12, 13**, 60, 153. Four of six
+factors put the answer in the top 6% of the pool.
+
+Real at n=6, on two independent tests: P(≥4 of 6 hits at random@20) =
+**0.0125**, and P(4 of 6 uniform ranks landing in the top 6%) = **0.0002**.
+
+The random baseline is reported at every k because recall@k rises with k for any
+method including a useless one -- the number to beat is k/N, not zero.
+`control_constant_list` has no analogue here: it emits factor names, not sentence
+positions, so it cannot route at all. That is exactly the claim this plan makes
+about why routing is the right frame, now measured on a real document rather
+than argued.
+
+**This corrects the entry above.** The furniture-filter result concluded that
+"the learned representation itself does not transfer". Wrong: the *ranking*
+transfers and the *argmax* does not. K6 knows roughly where the evidence is in a
+document written by strangers, under a standard variant it was never trained on,
+after a rollup it has never seen — and cannot pick the single best sentence out
+of its own shortlist.
+
+That is a different and much cheaper problem. The shortlist is what the extractor
+was always designed to consume, and selection is where a model is affordable: 20
+sentences to read instead of 539.
+
+**Reproduce:** `dev/tools/scripts/v1_routing_recall.py`.
+
 ### Capitalisation is deliberately not normalised
 
 The two decomposed-vocabulary papers disagree — one prints `Data Pedigree`, the
