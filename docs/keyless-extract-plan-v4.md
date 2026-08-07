@@ -394,46 +394,31 @@ two candidates consumed a day.
 
 ### Rewritten criteria
 
-* **K3c** — **not evaluated, and not for want of power.** The gold cannot be
-  constructed. Asked to count distinct models, datasets and requirements in the
-  five documents, one annotator given the *identical prompt twice* produced
-  different answers on **7 of 15** measurements:
+* **K3c** — **partly evaluable. The earlier verdict here was wrong.**
 
-  | | run 1 → run 2 |
-  |---|---|
-  | nagaraja models | 3 → **1** |
-  | opensim datasets | 5 → **2** |
-  | morrison datasets, requirements | 4 → 5, 1 → 2 |
-  | bologna requirements | 1 → 0 |
+  This plan previously said the gold could not be constructed, citing 53%
+  self-agreement on entity counts. That figure came from **two draws** per
+  document, which cannot distinguish a stable count from an unstable one — the
+  exact underpowering the section above was written to prevent, committed two
+  steps after writing it.
 
-  Self-agreement 53%. MAE scored against a gold that unreliable measures the
-  gold's noise, not the candidate.
+  Re-run with five draws, on a real document and a seeded synthetic one:
 
-  The disagreements are on genuinely ambiguous calls — is the fall-impact
-  mechanistic model a second model or part of one pipeline; are in vitro and
-  in vivo one dataset or two — so a tighter prompt would narrow it but not
-  resolve it. The ambiguity is in the documents.
+  | | models | datasets | requirements |
+  |---|---|---|---|
+  | bologna (real) | `[1,1,1,1,1]` | `[2,2,2,2,2]` | `[1,1,2,1,3]` |
+  | seeded synthetic | `[1,1,1,1,1]` | `[3,3,3,3,3]` | `[7,4,5,3,5]` |
 
-  **This reflects back on K3's original result.** K3 "failed" at ~5 models
-  against a ground truth of ~1.8, measured on synthetic bundles where the count
-  has a definite answer *by construction* — the generator knew how many models
-  it wrote. Real documents have no such answer. Entity counts are well defined
-  in synthetic data and ill defined in real evidence, which is one more property
-  the corpus manufactured.
+  **Models and datasets are stable; requirements are not — in both.**
+  Indefiniteness is a property of the *category*, not of real versus synthetic
+  evidence, and the earlier claim that real documents have no definite entity
+  count was drawn from the one category where that happens to hold.
 
-  What would make this row evaluable: score the entities *named*, not counted —
-  a set-overlap measure against annotated spans, where "did it find the
-  Discrete Element Knee Model" is answerable and "how many models are there"
+  So: score `bindsModel` and `bindsDataset` on counts, at n=10 (5 documents × 2
+  categories) against `control_constant_entity`. Leave `bindsRequirement` out of
+  the count metric and score it by entities *named* instead — "did it find the
+  5% acceptance criterion" is answerable where "how many requirements are there"
   is not.
-* **K7** — **not evaluated.** Report presence and absence only: does the
-  candidate return a value on the 4 V&V 40 documents and `null` on both 7009A
-  documents. That is a correctness check, not a comparison, and it is the one
-  thing n=4 can support. Any non-null value on a 7009A document is fabrication
-  and fails outright, independent of n.
-* **K5** — **not evaluated.** Same treatment: report presence, and report that
-  the outcome is absent from the source in the documents where it is absent.
-  K5's synthetic verdict (0.061, abstaining on 44 of 49) was already driven by
-  absence rather than by extraction failure.
 
 ## What this plan will not fix
 

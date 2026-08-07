@@ -26,9 +26,9 @@ import and are out of scope.
 | `modelRiskLevel` | **V&V 40 only** (0/0 vs 22/17/23) | **K8** extract-and-validate | **5 of 6 documents correct**, 1 named failure | **no** |
 | `wasDerivedFrom` | n/a — a run fact | emit the input filenames | **fixed**; was 100% template placeholder | **no** |
 | `hasValidationResult` | always (5–15 mentions) | K9 shape routing | **not demonstrated** — 4 vs 2 of 24, p=0.135 | unknown |
-| `bindsModel` | always | K3c entity role | **not evaluable** — gold 53% self-agreement | unknown |
-| `bindsDataset` | always | K3c | not evaluable | unknown |
-| `bindsRequirement` | always | K3c | not evaluable | unknown |
+| `bindsModel` | always | K3c entity role | **evaluable** — counts stable over 5 draws | unknown |
+| `bindsDataset` | always | K3c | **evaluable** — counts stable | unknown |
+| `bindsRequirement` | always | K3c | not evaluable *by count* — unstable in real and synthetic alike | unknown |
 | `hasContextOfUse` | **V&V 40 only** (0/1 vs 39/33/50) | K7 section extraction | **not evaluable** — n=4 needs 4/4 | unknown |
 | `hasDecisionRecord` | thin everywhere (0–8) | K5 section extraction | **not evaluable** — n=5 needs 4/5 | unknown |
 
@@ -117,9 +117,13 @@ table. Three of the four known applied V&V 40 case studies are in.
 
 * **K7, K5 — underpowered.** At n=4 against a coin-flip control, no result is
   distinguishable. A criterion they could pass would demand perfection.
-* **K3c — the gold is not reproducible.** One annotator given the identical
-  prompt twice disagreed with itself on 7 of 15 entity counts. MAE against that
-  measures the gold's noise. Re-specify as entities *named*, not counted.
+* **K3c — two of its three rows are fine; the third is not countable.** An
+  earlier version of this deliverable said the gold could not be constructed,
+  from a 2-draw test. At 5 draws, models and datasets are perfectly stable on
+  both a real and a seeded-synthetic document, and only `requirements` varies —
+  in *both*. Indefiniteness is a property of that category, not of real
+  evidence. `bindsModel` and `bindsDataset` are evaluable on counts at n=10;
+  `bindsRequirement` needs a named-entity measure.
 
 ### The annotation is one reader's, cross-checked once
 
