@@ -443,6 +443,57 @@ A fourth document would need to be journal prose to move the number that matters
 `imm` is the only real bundle left and it is a 32-slide deck at 43 words a slide,
 so the real corpus is exhausted for this purpose.
 
+### The synthetic corpus says use K6; real documents say use K4. K6 fitted the generator.
+
+Same measure on 111 factor-bundle pairs, 17 held-out synthetic bundles,
+bundle-level split asserted:
+
+| k | K6 | K4 | RRF |
+|---|---|---|---|
+| 1 | **0.577** | 0.216 | 0.423 |
+| 5 | **0.829** | 0.505 | 0.766 |
+| 20 | **1.000** | 0.865 | 0.982 |
+
+K6 wins outright — the exact opposite of the real-document result, where K4 beat
+it at tight k. RRF sits between them here rather than above both, because
+fusing a strong router with a weak one dilutes it.
+
+**The transfer gap is the finding**, comparing against real *journal prose*
+(12 pairs; ARED is dropped because its evidence lines begin with the factor name
+and flatter every router):
+
+| router | k | synthetic | real prose | drop |
+|---|---|---|---|---|
+| K6 | 5 | 0.829 | 0.083 | **−0.746** |
+| K4 | 5 | 0.505 | 0.417 | **−0.088** |
+| RRF | 5 | 0.766 | 0.333 | −0.433 |
+
+**K6 loses three quarters of its performance; K4 loses almost none.** Same
+measure, same filter, same pool — only the documents change.
+
+That asymmetry is what a model fitted to its generator looks like. K6 trains on
+37 bundles produced by the same generator as the 17 it is scored on, and a
+bundle-level split stops it memorising documents, not the phrasing conventions
+they share. K4 trains on nothing: its queries are pack prompt anchors, so it has
+no generator to fit.
+
+#### Consequences
+
+* **Synthetic routing numbers are not evidence about real documents.** K6's
+  0.615 attribution and its 0.829 recall@5 both describe the generator. Every
+  keyless figure measured only on synthetic text inherits this.
+* **K4 was retired on the wrong metric and is the better real-document router.**
+  It was killed for failing detection F1 — a metric this plan calls permanently
+  wrong — and never re-scored as a router until now.
+* **The recommendation stands: K4 @ k=5.** It is the weaker router on synthetic
+  text and the stronger one where it matters.
+* This is the strongest available evidence for V1's original premise. The
+  synthetic corpus does not merely flatter absolute scores — **it inverts the
+  ranking between methods**, which no amount of synthetic evaluation could have
+  detected.
+
+**Reproduce:** `dev/tools/scripts/router_comparison_synthetic.py`.
+
 ### Capitalisation is deliberately not normalised
 
 The two decomposed-vocabulary papers disagree — one prints `Data Pedigree`, the
