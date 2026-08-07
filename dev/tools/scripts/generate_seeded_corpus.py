@@ -258,6 +258,20 @@ text above including any hyphenation or spacing damage.
 Judge only what is on the page. If a factor is mentioned but no finding is \
 reported, mark it "ambiguous". If it is absent, omit it entirely.
 
+What counts as a finding, because this is where over-labelling happens:
+
+* A finding says what THIS study did, found, or scored for that factor, and why. \
+A passing mention of the topic is not a finding, and neither is a sentence that \
+merely uses the words.
+* A section heading or a table row label NAMES a factor without assessing it. \
+Never quote one.
+* These papers reproduce the standard's gradation ladder, which DEFINES each \
+level ("a. A single sample was used. b. Multiple samples were used..."). Those \
+are the standard's definitions, not findings about this model.
+* Most papers assess only PART of the checklist. Returning a factor the paper \
+does not actually assess is worse than omitting one it does: it puts a target in \
+the answer key that no careful reader would select.
+
 Do not treat the summary table as evidence when the same finding also appears in \
 the prose -- prefer the prose sentence. Table rows are the last resort.
 

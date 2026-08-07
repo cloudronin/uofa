@@ -329,3 +329,26 @@ def test_table_coverage_is_measured_against_what_the_paper_assesses():
     for rows, combos, want in ((42, 39, True), (63, 56, True), (11, 73, False)):
         assert (rows / combos >= G._MIN_TABLE_COVERAGE) is want, (
             f"{rows}/{combos} should {'pass' if want else 'be regenerated'}")
+
+
+def test_gold_and_the_annotator_are_asked_the_same_question():
+    """Otherwise the agreement score measures the prompts, not the papers.
+
+    Gold enumerates (model x mechanism x factor); D1's annotator judges what the
+    paper reports. Left asymmetric, gold labelled factors the papers never
+    assess -- 13 of 39 findings on one bundle -- and none of them appeared in
+    the authored summary table, so the papers had stayed in scope and gold was
+    over-attributing. That depresses selection agreement for a reason that has
+    nothing to do with the corpus.
+
+    The discipline D1's prompt carries must therefore be in gold's too.
+    """
+    from d1_annotator_agreement import PROMPT as ANNOTATOR_PROMPT
+
+    for phrase, why in [
+        ("what THIS study did", "the definition of a finding"),
+        ("row label", "headings and row labels name a factor without assessing it"),
+        ("gradation", "the standard's level definitions are not findings"),
+    ]:
+        assert phrase.lower() in G.GOLD_PROMPT.lower(), f"gold prompt lacks {why}"
+        assert phrase.lower() in ANNOTATOR_PROMPT.lower(), f"annotator prompt lacks {why}"
