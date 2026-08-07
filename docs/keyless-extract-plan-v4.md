@@ -394,11 +394,37 @@ two candidates consumed a day.
 
 ### Rewritten criteria
 
-* **K3c** — beat `control_constant_entity` on count MAE across all 15
-  measurements, with the sign of the difference consistent on at least 4 of the
-  5 documents. Per-document consistency substitutes for the power that n=15
-  cannot supply, and it is what would have caught K4's document-dependent
-  reversal early.
+* **K3c** — **not evaluated, and not for want of power.** The gold cannot be
+  constructed. Asked to count distinct models, datasets and requirements in the
+  five documents, one annotator given the *identical prompt twice* produced
+  different answers on **7 of 15** measurements:
+
+  | | run 1 → run 2 |
+  |---|---|
+  | nagaraja models | 3 → **1** |
+  | opensim datasets | 5 → **2** |
+  | morrison datasets, requirements | 4 → 5, 1 → 2 |
+  | bologna requirements | 1 → 0 |
+
+  Self-agreement 53%. MAE scored against a gold that unreliable measures the
+  gold's noise, not the candidate.
+
+  The disagreements are on genuinely ambiguous calls — is the fall-impact
+  mechanistic model a second model or part of one pipeline; are in vitro and
+  in vivo one dataset or two — so a tighter prompt would narrow it but not
+  resolve it. The ambiguity is in the documents.
+
+  **This reflects back on K3's original result.** K3 "failed" at ~5 models
+  against a ground truth of ~1.8, measured on synthetic bundles where the count
+  has a definite answer *by construction* — the generator knew how many models
+  it wrote. Real documents have no such answer. Entity counts are well defined
+  in synthetic data and ill defined in real evidence, which is one more property
+  the corpus manufactured.
+
+  What would make this row evaluable: score the entities *named*, not counted —
+  a set-overlap measure against annotated spans, where "did it find the
+  Discrete Element Knee Model" is answerable and "how many models are there"
+  is not.
 * **K7** — **not evaluated.** Report presence and absence only: does the
   candidate return a value on the 4 V&V 40 documents and `null` on both 7009A
   documents. That is a correctness check, not a comparison, and it is the one
