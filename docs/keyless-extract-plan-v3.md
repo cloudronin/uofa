@@ -487,10 +487,14 @@ no generator to fit.
   wrong — and never re-scored as a router until now.
 * **The recommendation stands: K4 @ k=5.** It is the weaker router on synthetic
   text and the stronger one where it matters.
-* This is the strongest available evidence for V1's original premise. The
-  synthetic corpus does not merely flatter absolute scores — **it inverts the
-  ranking between methods**, which no amount of synthetic evaluation could have
-  detected.
+* **This is an argument for more real data, not for V1.** V1 was scoped as a
+  gate: annotate two or three bundles, falsify or continue. That assumes
+  synthetic evaluation is broadly sound and wants a spot check. The inversion
+  says something stronger — synthetic evaluation gets *method selection*
+  backwards — and a three-document sample cannot fix that. It is large enough to
+  reveal the problem and far too small to choose between methods, which is
+  exactly what we now need to do. The conclusion is not "run the gate"; it is
+  that real documents have to become the evaluation substrate.
 
 **Reproduce:** `dev/tools/scripts/router_comparison_synthetic.py`.
 
