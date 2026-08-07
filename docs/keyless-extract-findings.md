@@ -6,6 +6,12 @@ candidate, including the ones that failed, with what each cost.
 Companion to `keyless-extract-investigation-spec.md`. Measured against the
 50-bundle corpus in `tests/fixtures/extract_corpus/`.
 
+Corpus construction has its own running record in
+[`corpus-construction-findings.md`](corpus-construction-findings.md) — what was
+learned building the seeded corpus these candidates are evaluated on, including
+six thresholds set from the wrong population and four defects attributed one step
+downstream of their cause.
+
 ## The tool was shipping invalid packages and nothing noticed
 
 Read this first. It is not a finding about an eval.
