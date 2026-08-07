@@ -361,6 +361,14 @@ def build_body(sections: list[dict], device: str = "the device") -> str:
 # minutes of generation, not seconds.
 TIMEOUTS = {"plan": 300.0, "write": 1500.0, "gold": 900.0}
 
+# Gold runs once per MODEL rather than once for the whole paper. One call had to
+# enumerate every (model x mechanism x factor) inside a single completion budget
+# that gpt-5 also draws reasoning from: two of three papers returned zero bytes
+# and the third returned four findings out of an available eighty. Splitting by
+# model bounds each output, and it hands the call an explicit scope -- the same
+# correction that has now been needed five times in this work.
+GOLD_MAX_TOKENS = 32000
+
 
 def _ask(backend, step: str, prompt: str, max_tokens: int = 16000,
          temperature: float = 0.7, save_to: pathlib.Path | None = None
@@ -410,33 +418,48 @@ def generate_one(idx: int, seed_tag: str, out_root: pathlib.Path, backend,
         scope = sparse_scope(_factors(standard), bundle_id)
 
         _raw = (lambda step: (save_raw / f"{bundle_id}.{step}.json") if save_raw else None)
-        plan_raw, ti, to = _ask(backend, "plan", PLAN_PROMPT.format(
-            standard=standard, seed_excerpt=_seed_text(seed_tag),
-            device=device, concern=concern, method=method,
-            n_models=rng.choice([2, 2, 3]), n_mech=rng.choice([2, 3, 3, 4]),
-            scope="\n".join(f"- {f}" for f in scope),
-            standard_rules=_VV40_RULES if standard == "V&V40" else _7009A_RULES),
-            save_to=_raw("plan"))
-        rep["tokens_in"] += ti; rep["tokens_out"] += to
-        plan = _parse_json_response(plan_raw)
 
-        write_raw, ti, to = _ask(backend, "write", WRITE_PROMPT.format(
-            standard=standard, plan=json.dumps(plan, indent=2)), max_tokens=40000,
-            save_to=_raw("write"))
-        rep["tokens_in"] += ti; rep["tokens_out"] += to
-        content, lost = parse_or_salvage(write_raw)
-        if lost:
-            rep["sections_lost_to_truncation"] = lost
+        # Resume. A paper whose PDF compiled but whose gold failed has already
+        # been paid for twice over; regenerating it from the plan discards a
+        # rendered document to redo the one step that broke. Two papers in a
+        # pilot sat in exactly this state.
+        pdf = bdir / "source" / "paper.pdf"
+        planfile = bdir / "plan.json"
+        if pdf.exists() and planfile.exists():
+            plan = json.loads(planfile.read_text())
+            rep["resumed_from_existing_pdf"] = True
+        else:
+            plan_raw, ti, to = _ask(backend, "plan", PLAN_PROMPT.format(
+                standard=standard, seed_excerpt=_seed_text(seed_tag),
+                device=device, concern=concern, method=method,
+                n_models=rng.choice([2, 2, 3]), n_mech=rng.choice([2, 3, 3, 4]),
+                scope="\n".join(f"- {f}" for f in scope),
+                standard_rules=_VV40_RULES if standard == "V&V40" else _7009A_RULES),
+                save_to=_raw("plan"))
+            rep["tokens_in"] += ti; rep["tokens_out"] += to
+            plan = _parse_json_response(plan_raw)
+            bdir.mkdir(parents=True, exist_ok=True)
+            # Written before the write step, so a resume has what gold needs.
+            planfile.write_text(json.dumps(plan, indent=2) + "\n")
 
-        spec = {"title": content["title"], "runhead": content["runhead"],
-                "authors": content["authors"], "affiliations": content["affiliations"],
-                "abstract": content["abstract"], "keywords": content["keywords"],
-                "body": build_body(content["sections"], device)}
-        tex = LR.render(spec)
-        bad = LR.validate(tex)
-        if bad:
-            raise RuntimeError(f"invalid LaTeX: {bad}")
-        pdf = LR.compile_pdf(tex, bdir / "source" / "paper.pdf")
+            write_raw, ti, to = _ask(backend, "write", WRITE_PROMPT.format(
+                standard=standard, plan=json.dumps(plan, indent=2)), max_tokens=40000,
+                save_to=_raw("write"))
+            rep["tokens_in"] += ti; rep["tokens_out"] += to
+            content, lost = parse_or_salvage(write_raw)
+            if lost:
+                rep["sections_lost_to_truncation"] = lost
+
+            spec = {"title": content["title"], "runhead": content["runhead"],
+                    "authors": content["authors"],
+                    "affiliations": content["affiliations"],
+                    "abstract": content["abstract"], "keywords": content["keywords"],
+                    "body": build_body(content["sections"], device)}
+            tex = LR.render(spec)
+            bad = LR.validate(tex)
+            if bad:
+                raise RuntimeError(f"invalid LaTeX: {bad}")
+            pdf = LR.compile_pdf(tex, pdf)
 
         path = LR.measure(pdf)
         missing = LR.check(path)
@@ -445,19 +468,34 @@ def generate_one(idx: int, seed_tag: str, out_root: pathlib.Path, backend,
 
         from uofa_cli.readers.pdf_reader import read_pdf
         doc = "\n".join(c.text for c in read_pdf(pdf))
-        gold_raw, ti, to = _ask(gold_backend, "gold", GOLD_PROMPT.format(
-            models=", ".join(m["name"] for m in plan["models"]),
-            mechanisms=", ".join(m["name"] for m in plan["mechanisms"]),
-            document=doc[:120000]), max_tokens=16000, save_to=_raw("gold"))
-        rep["tokens_in"] += ti; rep["tokens_out"] += to
-        gold = _parse_json_response(gold_raw)
+        mechs = ", ".join(m["name"] for m in plan["mechanisms"])
+        raw_findings, empty = [], []
+        for mi, m in enumerate(plan["models"]):
+            g_raw, ti, to = _ask(
+                gold_backend, "gold",
+                GOLD_PROMPT.format(models=m["name"], mechanisms=mechs,
+                                   document=doc[:120000]),
+                max_tokens=GOLD_MAX_TOKENS, save_to=_raw(f"gold{mi}"))
+            rep["tokens_in"] += ti; rep["tokens_out"] += to
+            try:
+                got, _ = parse_or_salvage(g_raw)
+            except (RuntimeError, ValueError):
+                empty.append(m["name"])
+                continue
+            for f in got.get("findings", []):
+                f.setdefault("model", m["name"])
+                raw_findings.append(f)
+        if not raw_findings:
+            raise RuntimeError(f"gold produced nothing for any model ({empty})")
+        if empty:
+            rep["gold_models_without_findings"] = empty
 
         # A span the model did not copy verbatim is not evidence -- drop it
         # rather than let an approximate quote become the routing target.
         flat = " ".join(doc.split()).lower()
-        kept = [f for f in gold.get("findings", [])
+        kept = [f for f in raw_findings
                 if " ".join(str(f.get("span", "")).split()).lower() in flat]
-        dropped = len(gold.get("findings", [])) - len(kept)
+        dropped = len(raw_findings) - len(kept)
 
         (bdir / "ground_truth.json").write_text(json.dumps(
             {"bundle_id": bundle_id, "standard": standard, "seed": seed_tag,
