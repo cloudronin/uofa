@@ -498,6 +498,58 @@ no generator to fit.
 
 **Reproduce:** `dev/tools/scripts/router_comparison_synthetic.py`.
 
+### Bologna: a third journal-prose document, and it settles the K4/K6 question
+
+`10.1016/j.cmpb.2023.107727` — an ASME V&V 40 credibility assessment of the
+Bologna Biomechanical CT hip model. The first non-NASA document in the corpus,
+and the only one whose published vocabulary **is** the pack's, so it needs no
+rollup.
+
+Journal prose is now **23 factor-document pairs across 3 documents**, up from 12
+across 2:
+
+| router | @1 | @3 | @5 | @10 | @20 |
+|---|---|---|---|---|---|
+| K6 | 0.00 | 0.09 | 0.13 | 0.30 | 0.48 |
+| **K4** | 0.09 | 0.22 | **0.43** | 0.48 | 0.52 |
+| RRF | **0.13** | 0.22 | 0.35 | 0.48 | **0.57** |
+
+**K4 beats K6 by 3.3× at k=5**, and does so on Bologna alone as well (0.45 vs
+0.18). The two-document result is confirmed on an independent document under a
+different standard, which is the strongest form the check could take: the
+synthetic corpus ranks K6 first at 0.829 recall@5, real journal prose ranks it
+last at 0.13.
+
+#### It carries what nothing else does
+
+* **Model risk stated and derived** — decision consequence LOW × *regulatory
+  impact* HIGH. The authors substitute regulatory impact for model influence and
+  argue for it at length. Recorded as printed: the substitution is theirs, and a
+  real deviation from V&V 40 is more informative than a normalised one.
+* **Per-factor available gradation ranges** — SQA a–c, NCV a–d, the same ranges
+  Morrison prints. That independently confirms the differing gradation counts
+  are a property of the standard, not of Morrison, which the fixture work had
+  left open.
+
+#### Why it is not a bundle in the NASA corpus
+
+It carries **no `expected_level`**. The paper publishes a letter gradation
+(a–d) for the goal and Low/Medium/High for what was achieved; neither is a NASA
+CAS 0–4 score, and converting them would invent two conventions the document
+does not state — the refusal already recorded for the Morrison letters. It lives
+in `tests/fixtures/extract_corpus_vv40/`, because the NASA CAS tests assume NASA
+CAS semantics and this document does not have them.
+
+Transcribed at published granularity: **23 sub-factors** (20 assessed, 3 NA),
+mapping onto all 13 pack factors. The pack is the *coarser* vocabulary here —
+the reverse of every 7009A document, where the published table is coarser than
+the pack.
+
+Annotation covers **11 of 13** pack factors. Bologna states its findings in
+Table 1 rather than in prose, so factors whose cell is a bare noun phrase
+("all key characteristics measured") have no annotatable evidence and are
+omitted rather than guessed at.
+
 ### Capitalisation is deliberately not normalised
 
 The two decomposed-vocabulary papers disagree — one prints `Data Pedigree`, the

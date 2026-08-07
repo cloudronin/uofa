@@ -68,7 +68,11 @@ DOCS = [("opensim", "bundle_real_opensim_knee", "annot_opensim.json"),
         ("elemance", "bundle_real_elemance_thoracic", "annot_elemance_thoracic.json"),
         # rollup_7009a, and a poster rather than a journal article -- if routing
         # only works on decomposed-vocabulary prose, this is where it shows.
-        ("ared", "bundle_real_ared_dap", "annot_ared_dap.json")]
+        ("ared", "bundle_real_ared_dap", "annot_ared_dap.json"),
+        # ASME V&V 40, not NASA 7009A. Maps onto the vv40 pack by identity, so
+        # no rollup -- the only document in the set where published and pack
+        # vocabulary are the same, which is why it lives in its own corpus dir.
+        ("bologna", "extract_corpus_vv40/bundle_bologna_bcthip", "annot_bologna.json")]
 KS = (1, 3, 5, 10, 20, 40)
 ENCODER = "all-MiniLM-L6-v2"
 NAMES = tuple({n.lower() for n in ec.NASA_ALL_FACTOR_NAMES}
@@ -117,10 +121,13 @@ def factor_queries() -> dict[str, str]:
 
 
 def load_case(tag, bundle, annot):
-    gt = json.loads((_ROOT / "tests" / "fixtures" / "extract_corpus_real" / bundle
-                     / "ground_truth.json").read_text())
-    variant = gt["cas_variant"]
-    src = _ROOT / "tests" / "fixtures" / "extract_corpus_real" / bundle / "source"
+    base = (_ROOT / "tests" / "fixtures" / bundle if "/" in bundle
+            else _ROOT / "tests" / "fixtures" / "extract_corpus_real" / bundle)
+    gt = json.loads((base / "ground_truth.json").read_text())
+    # V&V 40 documents have no cas_variant: their published vocabulary IS the
+    # pack's, so the "mapping" is identity and `VARIANTS` does not apply.
+    variant = gt.get("cas_variant")
+    src = base / "source"
     text = "\n".join(c.text for p in sorted(src.glob("*.pdf")) for c in read_pdf(p))
     sents = sentences(text)
     flat = norm(text)
@@ -132,13 +139,16 @@ def load_case(tag, bundle, annot):
         offs.append((i, i + len(n)))
         cur = i + len(n)
     ann = json.loads((_ROOT / "docs" / "v1" / annot).read_text())
-    table = VARIANTS[variant]
+    if variant is None:
+        table = {f: [f] for f in ec.VV40_FACTOR_NAMES}
+    else:
+        table = VARIANTS[variant]
     lowered = {k.lower(): k for k in table}
     # A published factor with no pack constituent cannot be routed at all --
     # People Qualifications, where the pack has nothing to say about who ran the
     # model. Excluded rather than scored as a miss, which would penalise the
     # router for a gap in the schema.
-    unmapped = set(unmapped_factors(variant))
+    unmapped = set(unmapped_factors(variant)) if variant else set()
     gold: dict[str, set[int]] = {}
     for a in ann["annotations"]:
         raw = a["factor_type"].strip()
@@ -210,7 +220,9 @@ def main() -> int:
         texts = [sents[i] for i in pool]
         P = clf.predict_proba(feats.transform(texts))
         cvec = enc.encode(texts, normalize_embeddings=True, show_progress_bar=False)
-        for pub, cons in VARIANTS[variant].items():
+        table = ({f: [f] for f in ec.VV40_FACTOR_NAMES} if variant is None
+                 else VARIANTS[variant])
+        for pub, cons in table.items():
             if pub not in gold:
                 continue
             cols = [cls[c] for c in cons if c in cls]
