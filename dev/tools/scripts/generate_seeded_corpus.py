@@ -188,7 +188,12 @@ clearly reporting a finding.
 3. Score every factor separately for each (model x mechanism) pair. Never merge \
 them.
 
-4. Include ONE credibility-assessment summary table, and make it the real thing:
+4. Include the credibility-assessment summary as ONE TABLE PER MODEL, each in
+   its own section -- so a paper assessing three models has three tables. Real
+   papers split a large assessment this way rather than printing one enormous
+   grid, and it keeps each table to a readable size.
+
+   Every table must be the real thing:
 
    * one row per (factor x model x mechanism) the paper assesses -- put the \
 scope in the FACTOR cell, like "Model form - Model 1 - level gait"
@@ -205,6 +210,11 @@ the numbers in the prose.
 
    Device parameters, mesh sizes and material properties belong in a DIFFERENT \
 table if you want one. They are not credibility factors.
+
+   Across all of those tables there must be {expected_rows} rows in total -- one \
+for every (factor x model x mechanism) this paper assesses. A paper that prints \
+a handful of representative rows instead is rejected and regenerated: the \
+missing rows are findings with no gradation to read.
 
 5. Say nothing about any credibility factor not in the plan.
 
@@ -603,8 +613,17 @@ def generate_one(idx: int, seed_tag: str, out_root: pathlib.Path, backend,
             # Written before the write step, so a resume has what gold needs.
             planfile.write_text(json.dumps(plan, indent=2) + "\n")
 
+            # Tell the writer how many rows the table needs. Left implicit, the
+            # 7009A papers printed a handful of representative rows: 11 of 73,
+            # then 3 of 64, while the two V&V 40 papers at 42 and 63 expected
+            # rows produced all of them. The failure tracks table SIZE, so the
+            # count is stated and the table is split per model.
+            expected_rows = (len(plan.get("models") or [1])
+                             * len(plan.get("mechanisms") or [1])
+                             * max(len(plan.get("clear_factors") or []), 1))
             write_raw, ti, to = _ask(backend, "write", WRITE_PROMPT.format(
-                standard=standard, plan=json.dumps(plan, indent=2)), max_tokens=40000,
+                standard=standard, plan=json.dumps(plan, indent=2),
+                expected_rows=expected_rows), max_tokens=40000,
                 save_to=_raw("write"))
             rep["tokens_in"] += ti; rep["tokens_out"] += to
             content, lost = parse_or_salvage(write_raw)
@@ -612,13 +631,10 @@ def generate_one(idx: int, seed_tag: str, out_root: pathlib.Path, backend,
                 rep["sections_lost_to_truncation"] = lost
 
             levels = factor_levels(content["sections"])
-            expected = (len(plan.get("models") or [1])
-                        * len(plan.get("mechanisms") or [1])
-                        * max(len(plan.get("clear_factors") or []), 1))
-            coverage = len(levels) / max(expected, 1)
+            coverage = len(levels) / max(expected_rows, 1)
             if coverage < _MIN_TABLE_COVERAGE:
                 raise RuntimeError(
-                    f"summary table covers {len(levels)}/{expected} of the "
+                    f"summary table covers {len(levels)}/{expected_rows} of the "
                     f"(factor x model x mechanism) combinations this paper "
                     f"assesses ({coverage:.2f} < {_MIN_TABLE_COVERAGE}). Every "
                     f"missing row is a finding with no gradation to read, which "
