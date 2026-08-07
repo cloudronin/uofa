@@ -285,3 +285,31 @@ def test_seed_reading_never_touches_ground_truth(monkeypatch):
     monkeypatch.setattr(pathlib.Path, "read_text", spy)
     G._seed_text("bologna", chars=500)
     assert not any("ground_truth" in n or "extracted" in n for n in opened), opened
+
+
+@pytest.mark.parametrize("bad,note", [
+    ('{"a": "x \\sep y", "sections": [1]}', "invalid escape"),
+    ('{"a": 1, "sections": [1, 2,]}', "trailing comma in array"),
+    ('{"sections": [1], "b": {"c": 1,},}', "trailing comma in object"),
+])
+def test_common_model_json_slips_are_repaired_without_loss(bad, note):
+    """Both cost a whole paper, and the second cost it silently.
+
+    An invalid escape killed 66,000 chars of otherwise perfect JSON over two
+    characters. A trailing comma was worse: the salvage path truncates at the
+    last position that parses, and the comma sat just before the credibility
+    table, so recovery returned a document whose only surviving table was device
+    parameters -- the artefact the run existed to produce was in the discarded
+    half, and nothing said so.
+    """
+    got, lost = G.parse_or_salvage(bad)
+    assert got.get("sections"), note
+    assert lost == 0, f"{note}: repaired content should not need truncating"
+
+
+def test_salvage_still_truncates_genuinely_incomplete_json():
+    """Repair must not paper over a response that really was cut off."""
+    truncated = '{"title": "t", "sections": [{"heading": "a"}, {"heading": "b"'
+    got, lost = G.parse_or_salvage(truncated)
+    assert [s["heading"] for s in got["sections"]] == ["a"]
+    assert lost >= 0

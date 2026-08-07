@@ -216,7 +216,7 @@ backslashes; the renderer adds all formatting.
 
 {{
   "title": "...", "runhead": "...", "abstract": "...",
-  "keywords": "three \\\\sep separated keywords",
+  "keywords": "three, comma separated, keywords",
   "authors": ["..."], "affiliations": ["..."],
   "sections": [
     {{"heading": "...", "level": 1,
@@ -327,6 +327,31 @@ def parse_or_salvage(raw: str) -> tuple[dict, int]:
         return _parse_json_response(raw), 0
     except (json.JSONDecodeError, ValueError):
         pass
+    # An invalid escape is a common model slip and is recoverable without
+    # losing anything: JSON defines only \" \\ \/ \b \f \n \r \t \uXXXX, so a
+    # backslash before any other character was meant literally. One paper died
+    # on `\sep` in its keywords -- 66,000 chars of otherwise perfect JSON
+    # discarded over two characters.
+    # Two model slips that cost whole papers, both repairable without loss:
+    #
+    # An invalid escape. JSON defines only \" \\ \/ \b \f \n \r \t \uXXXX, so a
+    # backslash before anything else was meant literally. One paper died on
+    # `\sep` in its keywords -- 66,000 chars of otherwise perfect JSON discarded
+    # over two characters.
+    #
+    # A trailing comma before ] or }. Worse than it sounds: the salvage path
+    # truncates at the last position that parses, and on that same paper the
+    # comma sat just before the credibility table, so recovery silently returned
+    # a document whose only surviving table was device parameters. The table the
+    # whole run was regenerated to produce was in the discarded half.
+    repaired = re.sub(r'\\(?!["\\/bfnrtu])', r"\\\\", raw)
+    repaired = re.sub(r",(\s*[}\]])", r"\1", repaired)
+    if repaired != raw:
+        try:
+            return _parse_json_response(repaired), 0
+        except (json.JSONDecodeError, ValueError):
+            pass
+        raw = repaired
     s = raw.strip()
     if s.startswith("```"):
         s = "\n".join(s.splitlines()[1:])
