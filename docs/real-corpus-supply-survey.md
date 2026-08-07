@@ -79,7 +79,47 @@ ceiling for how well specified a bundle can be, not the norm — measured on the
 synthetic corpus, model risk is stated in 2% of documents and model influence in
 0%.
 
-## Recommendation
+## What the three recommendations actually yielded
+
+All three were carried out. **Net effect on the transfer question: nothing.**
+
+| step | outcome |
+|---|---|
+| Fetch `20140003849` | **Rejected.** NTRS types it "Conference Paper"; the artifact is a one-page 700-word extended abstract with no CAS table, and its text extracts with doubled characters (`VALLIDATION ANND CREDIBIILITY`) from a font-encoding fault. |
+| Promote `20230000585` | **Rejected.** Zero per-factor scores in the text layer -- they exist only in radar plots, the same problem as the elemance thresholds. Not transcribable at published granularity. |
+| Promote `20230000583` | **Accepted**, with a limit. Prints a fully explicit table inline, so levels transcribe cleanly. But **zero sentences name any factor** -- it lists scores and otherwise discusses ankles and EVA. Transcribable for levels, *not annotatable for routing.* |
+| Size the V&V 40 pool | 92 PMC hits, of which most describe the standard. Four clear applications found. |
+
+So the corpus gained one bundle and the routing evaluation gained nothing. Both
+rejections were only visible on inspection -- NTRS metadata called one a
+conference paper and the other a poster with credibility scores, and both
+descriptions were true and useless.
+
+### A variant was added, by the rule that anticipated it
+
+`20230000583` prints Code Verification and Solution Verification as separate
+factors. `cas_mapping.py` had removed exactly those two keys with the note *"add
+a key when a transcribed table prints it, not before"*. A table now prints them,
+so `decomposed_8_7009a` was added as a **new** variant rather than by widening
+`decomposed_7009a` -- widening would give every existing decomposed bundle a key
+its own table never printed, and an unused key is a denominator.
+
+### The V&V 40 pool, sized
+
+| paper | year | access |
+|---|---|---|
+| Morrison et al., hemolysis in centrifugal blood pumps | 2019 | PMC open — **already a repo fixture** |
+| Catalano et al., TAVI patient-specific modelling I | 2025 | APL Bioeng |
+| Scuoppo et al., TAVI patient-specific modelling II | 2025 | APL Bioeng |
+| Bologna Biomechanical CT | 2023 | Elsevier |
+
+Larger than NTRS's prose supply and in the right genre, but the licensing model
+is different: these are commercial-journal articles, not `PUBLIC_USE_PERMITTED`
+NASA works. The fetch-manifest-plus-SHA-256 discipline that makes the NTRS
+corpus redistributable does not obviously transfer, and each paper needs
+checking individually.
+
+## Original recommendation, kept for the record
 
 1. **Fetch `20140003849`** — one prose document, and directly comparable to the
    ARED poster already annotated, which makes it a clean genre-controlled pair:

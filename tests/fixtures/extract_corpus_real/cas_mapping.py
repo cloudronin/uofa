@@ -111,6 +111,42 @@ DECOMPOSED_7009A: dict[str, list[str]] = {
     "Results robustness": ["Results robustness"],
 }
 
+# ── decomposed_8_7009a: 8 published factors ──────────────────
+# decomposed_7009a with verification split in two. The 7-key table above notes
+# that "Code verification" and "Solution verification" were once carried
+# speculatively as separate keys, were used by no bundle, and were removed with
+# the rule: add a key when a transcribed table prints it, not before.
+#
+# The IWS2023 boot/ankle poster (20230000583) prints them:
+#
+#   Data Pedigree (1) Input Pedigree (2) Code Verification (0)
+#   Solution Verification (1) Conceptual Validation (0) Referent Validation (1)
+#   Results Uncertainty (0) Results Robustness (0)
+#
+# So they are added here as a separate variant rather than by widening
+# decomposed_7009a. Widening it would give every existing decomposed bundle a
+# key its table never printed, and an unused key is a denominator: three of them
+# previously depressed `control_constant_list` precision on every one of those
+# bundles.
+#
+# The split follows 7009A's own division. Code verification asks whether the
+# code solves the equations correctly -- method of manufactured solutions,
+# regression. Solution verification asks whether THIS solution is converged,
+# which is discretisation and solver error.
+DECOMPOSED_8_7009A: dict[str, list[str]] = {
+    "Data Pedigree": ["Data pedigree"],
+    "Input Pedigree": ["Model inputs"],
+    "Code Verification": ["Numerical code verification"],
+    "Solution Verification": ["Discretization error", "Numerical solver error"],
+    "Conceptual Validation": ["Model form"],
+    "Referent Validation": [
+        "Output comparison",
+        "Relevance of the validation activities to the COU",
+    ],
+    "Results Uncertainty": ["Results uncertainty"],
+    "Results Robustness": ["Results robustness"],
+}
+
 # ── capability_results_7009b: 11 published factors ───────────
 CAPABILITY_RESULTS_7009B: dict[str, list[str]] = {
     # M&S Capability Assessment (NASA-STD-7009B E.3)
@@ -145,6 +181,7 @@ CAPABILITY_RESULTS_7009B: dict[str, list[str]] = {
 VARIANTS: dict[str, dict[str, list[str]]] = {
     "rollup_7009a": ROLLUP_7009A,
     "decomposed_7009a": DECOMPOSED_7009A,
+    "decomposed_8_7009a": DECOMPOSED_8_7009A,
     "capability_results_7009b": CAPABILITY_RESULTS_7009B,
 }
 
