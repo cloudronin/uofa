@@ -206,6 +206,53 @@ genre — ARED routes at 0.86 recall@5 against 0.33 for journal prose, because i
 evidence lines begin with the factor name. Adding posters raises the aggregate
 and answers nothing.
 
+## D3: the Frontiers collection screened — 0 of 7 usable
+
+*Verification and Validation of In Silico Models for Biomedical Implantable
+Devices*, Frontiers in Medical Technology. Screened on one criterion: does the
+article publish a **per-factor** credibility assessment — a table of V&V 40
+credibility factors with a selected gradation for each?
+
+| article | DOI | per-factor table? |
+|---|---|---|
+| Editorial | `10.3389/fmedt.2022.856067` | n/a — editorial |
+| Uncertainties in cardiovascular in silico analyses | `10.3389/fmedt.2021.748908` | **no** |
+| Bayesian augmented trials, TB vaccination | `10.3389/fmedt.2021.719380` | n/a — not an implantable device model |
+| Bioresorbable vascular scaffold designs | `10.3389/fmedt.2021.724062` | **no** — QoI and CoU only, qualitative |
+| Flow-diverter aneurysm occlusion | `10.3389/fmedt.2021.705003` | **no** |
+| Coronary stent deployment validation | `10.3389/fmedt.2021.702656` | **no** |
+| Stent-graft deployment in EVAR | `10.3389/fmedt.2021.704806` | **no** |
+
+Two say so outright. The coronary-stent paper: *"it is not in the scope of this
+study to perform a step-by-step risk-informed credibility assessment."* The
+flow-diverter paper: *"This work is not yet started for ANKYRAS as a clinical
+tool."*
+
+**The collection is about V&V methodology, not completed V&V 40 assessments.**
+That is chronology, not oversight: these are 2021 papers, V&V 40 was published in
+2018, and the completed per-factor assessments in the corpus are 2019, 2023 and
+2024. Early adoption produced papers *about* the framework; the applications came
+later.
+
+Three of the seven do state model risk, model influence or decision consequence
+in prose. They are therefore candidates for the **K7 and K8 rows only** — the
+same status TAVI I has — and not for factor routing. Not added yet: those rows
+already have four documents, and a document that cannot exercise the routing
+evaluation is worth less than one that can.
+
+### What this changes about "the corpus is not exhausted"
+
+That correction stands as a correction — the collection was real and unexamined,
+and declaring exhaustion after two searches was wrong. But having examined it,
+the supply of documents with per-factor credibility tables is genuinely thin, and
+the screen took under an hour to establish rather than being assumed either way.
+
+The five in the corpus may be close to the population of published, extractable,
+per-factor V&V 40 and NASA CAS assessments as of 2026. The productive direction
+is probably not more searching but **relaxing the criterion**: a document that
+states model risk without a per-factor table still exercises 2 of the 9 rows,
+and there are at least four such documents already identified.
+
 ## Sources
 
 - [NTRS citation 20140003849 — ARED conference paper](https://ntrs.nasa.gov/citations/20140003849)
