@@ -31,6 +31,7 @@ split, and the page is read exactly as before.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 from uofa_cli.document_reader import DocumentChunk
@@ -125,6 +126,38 @@ def _find_gutter(words: list[dict], x0: float, x1: float) -> float | None:
     return x0 + width * (best + 0.5) / _BINS
 
 
+# A word split across a line break by hyphenation. Measured across the corpus,
+# 0.7%-14% of lines end this way -- 14% in the APL Bioengineering PDFs -- and
+# each one breaks a sentence in two.
+#
+# Rejoining needs a decision the hyphen itself does not carry:
+#
+#     "signifi-" + "cant"    -> "significant"       drop the hyphen
+#     "patient-" + "specific" -> "patient-specific"  keep it
+#
+# There is no lexicon here, so the document's own vocabulary is used as one: if
+# the joined form appears elsewhere in the text, drop the hyphen; if the
+# hyphenated form appears, keep it; if neither, keep it, because inventing a
+# word is worse than leaving a real compound hyphenated.
+_HYPHEN_SPLIT = re.compile(r"([A-Za-z]{2,})-$")
+
+
+def _dehyphenate(prev: str, nxt: str, vocab: frozenset[str]) -> str | None:
+    """The rejoined word, or None if this is not a hyphenation split."""
+    m = _HYPHEN_SPLIT.search(prev.rstrip())
+    if not m:
+        return None
+    tail = nxt.lstrip().split(" ", 1)[0].strip(".,;:)")
+    if not tail or not tail[:1].islower():
+        return None
+    joined, hyphened = m.group(1) + tail, m.group(1) + "-" + tail
+    if joined.lower() in vocab:
+        return joined
+    if hyphened.lower() in vocab:
+        return hyphened
+    return hyphened
+
+
 def _unwrap(text: str) -> str:
     """Join lines a PDF wrapped mid-sentence.
 
@@ -141,6 +174,7 @@ def _unwrap(text: str) -> str:
     and a line ending in terminal punctuation stays a break, so headings, list
     items and table rows are unaffected.
     """
+    vocab = frozenset(w.lower() for w in re.findall(r"[A-Za-z][A-Za-z-]{2,}", text))
     out: list[str] = []
     for raw in text.split("\n"):
         line = raw.rstrip()
@@ -148,6 +182,13 @@ def _unwrap(text: str) -> str:
             out.append("")
             continue
         prev = out[-1] if out else ""
+        if prev:
+            fixed = _dehyphenate(prev, line, vocab)
+            if fixed is not None:
+                rest = line.lstrip().split(" ", 1)
+                out[-1] = (_HYPHEN_SPLIT.sub("", prev.rstrip()) + fixed
+                           + (" " + rest[1] if len(rest) > 1 else ""))
+                continue
         cont = (
             prev
             and not prev.rstrip().endswith((".", "!", "?", ":", ";", "•", "-"))
