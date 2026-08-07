@@ -284,7 +284,15 @@ def build_body(sections: list[dict]) -> str:
     return "\n\n".join(out)
 
 
-def _ask(backend, prompt: str, max_tokens: int = 16000,
+# Per-step wall-clock budgets. The shared factory's 240s is sized for the
+# markdown generator's short calls; the first pilot spent $0.04 and produced
+# nothing because all three papers cleared the plan step and then timed out
+# writing. Asking gpt-5 for 5000-9000 words of prose plus its reasoning is
+# minutes of generation, not seconds.
+TIMEOUTS = {"plan": 300.0, "write": 1500.0, "gold": 900.0}
+
+
+def _ask(backend, prompt: str, step: str, max_tokens: int = 16000,
          temperature: float = 0.7) -> tuple[str, int, int]:
     """One call. Returns (text, tokens_in, tokens_out).
 
@@ -296,7 +304,13 @@ def _ask(backend, prompt: str, max_tokens: int = 16000,
     passed here and dropped there when unsupported.
     """
     text = backend.generate(prompt, GenerationOptions(
-        temperature=temperature, max_tokens=max_tokens))
+        temperature=temperature, max_tokens=max_tokens,
+        timeout_seconds=TIMEOUTS[step]))
+    if not (text or "").strip():
+        raise RuntimeError(
+            f"{step}: empty response. gpt-5 draws reasoning tokens from the "
+            f"completion budget, so a max_tokens of {max_tokens} may have been "
+            "spent before any visible output.")
     return text, _approx_tokens(prompt), _approx_tokens(text)
 
 
@@ -317,7 +331,7 @@ def generate_one(idx: int, seed_tag: str, out_root: pathlib.Path, backend,
         rng = random.Random(f"seeded:{bundle_id}")
         scope = sparse_scope(_factors(standard), bundle_id)
 
-        plan_raw, ti, to = _ask(backend, PLAN_PROMPT.format(
+        plan_raw, ti, to = _ask(backend, "plan", PLAN_PROMPT.format(
             standard=standard, seed_excerpt=_seed_text(seed_tag),
             device=device, concern=concern, method=method,
             n_models=rng.choice([2, 2, 3]), n_mech=rng.choice([2, 3, 3, 4]),
@@ -326,7 +340,7 @@ def generate_one(idx: int, seed_tag: str, out_root: pathlib.Path, backend,
         rep["tokens_in"] += ti; rep["tokens_out"] += to
         plan = _parse_json_response(plan_raw)
 
-        write_raw, ti, to = _ask(backend, WRITE_PROMPT.format(
+        write_raw, ti, to = _ask(backend, "write", WRITE_PROMPT.format(
             standard=standard, plan=json.dumps(plan, indent=2)), max_tokens=32000)
         rep["tokens_in"] += ti; rep["tokens_out"] += to
         content = _parse_json_response(write_raw)
@@ -353,7 +367,7 @@ def generate_one(idx: int, seed_tag: str, out_root: pathlib.Path, backend,
 
         from uofa_cli.readers.pdf_reader import read_pdf
         doc = "\n".join(c.text for c in read_pdf(pdf))
-        gold_raw, ti, to = _ask(gold_backend, GOLD_PROMPT.format(
+        gold_raw, ti, to = _ask(gold_backend, "gold", GOLD_PROMPT.format(
             models=", ".join(m["name"] for m in plan["models"]),
             mechanisms=", ".join(m["name"] for m in plan["mechanisms"]),
             document=doc[:120000]), max_tokens=16000)
