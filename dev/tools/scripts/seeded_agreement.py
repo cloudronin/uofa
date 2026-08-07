@@ -119,6 +119,18 @@ def main() -> int:
     spent_tokens = 0
     failed, tot_f, both_f = [], 0, 0
     gold_only = annot_only = annot_out_of_scope = 0
+    # Document level is the GATED basis, because that is how D1 measured the
+    # numbers the bands are anchored to: one comparison per (document, factor),
+    # pooling every scope. Measuring per (model x mechanism) and comparing
+    # against a document-level band scored this corpus at 0.508 against a real
+    # 0.708 -- a granularity mismatch reported as a corpus defect.
+    #
+    # An earlier explanation for that gap, that more scopes per paper make
+    # attribution harder, was tested against the real papers and REFUTED:
+    # elemance has 8 scopes and the highest same-sentence agreement of the five
+    # (6/6), while single-scope bologna has the lowest (7/12).
+    doc_gold: dict = {}
+    doc_annot: dict = {}
     tot_s = agree_s = 0
     na_total = na_hits = 0
     print(f"\nseeded agreement — {len(bundles)} bundles, second annotator "
@@ -206,6 +218,11 @@ def main() -> int:
                 failed.append(f"{b.name}[{model}/{mech}]")
                 continue
 
+            for f, sp in mine.items():
+                doc_gold.setdefault(b.name, {}).setdefault(f, []).extend(sp)
+            for f, sp in theirs.items():
+                doc_annot.setdefault(b.name, {}).setdefault(f, []).extend(sp)
+
             for f in set(mine) | set(theirs):
                 if paper_scope and f.lower() not in paper_scope:
                     annot_out_of_scope += 1
@@ -243,8 +260,29 @@ def main() -> int:
     cost = estimate_cost(args.model, spent_tokens, output_ratio=0.08)
     print(f"\n  {spent_tokens:,} tokens, about ${cost:.2f}")
 
-    got = {"agree_selection": both_f / tot_f,
-           "agree_same_sentence": agree_s / max(tot_s, 1),
+    # Recompute at document level -- the basis the bands come from.
+    d_both = d_uni = d_hit = d_tot = 0
+    for name in doc_gold:
+        gt2 = json.loads((args.corpus / name / "ground_truth.json").read_text()) \
+            if (args.corpus / name / "ground_truth.json").exists() else \
+            json.loads(next(args.corpus.rglob(f"{name}/ground_truth.json")).read_text())
+        sc = {x.lower() for x in gt2.get("scope_allowed", [])}
+        sents = sentences("\n".join(c.text for p in sorted((args.corpus / name).rglob("*.pdf"))
+                                     for c in read_pdf(p)))
+        g = {k: v for k, v in doc_gold[name].items() if not sc or k.lower() in sc}
+        t = {k: v for k, v in doc_annot.get(name, {}).items() if not sc or k.lower() in sc}
+        d_both += len(set(g) & set(t)); d_uni += len(set(g) | set(t))
+        for f in set(g) & set(t):
+            ms, ts = spans_for(g[f], sents), spans_for(t[f], sents)
+            if ms and ts:
+                d_tot += 1; d_hit += bool(ms & ts)
+    print(f"\n  per-scope (diagnostic only):  selection {both_f/max(tot_f,1):.3f}  "
+          f"same-sentence {agree_s/max(tot_s,1):.3f}")
+    print(f"  document level (gated):       selection {d_both/max(d_uni,1):.3f}  "
+          f"same-sentence {d_hit/max(d_tot,1):.3f}")
+
+    got = {"agree_selection": d_both / max(d_uni, 1),
+           "agree_same_sentence": d_hit / max(d_tot, 1),
            "na_rate": na_hits / max(na_total, 1)}
     print()
     bad = []
