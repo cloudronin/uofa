@@ -66,6 +66,7 @@ from generate_extract_corpus import (  # noqa: E402
 )
 from uofa_cli import excel_constants as ec  # noqa: E402
 from uofa_cli.adversarial.model_costs import assert_priced, estimate_cost  # noqa: E402
+from uofa_cli.llm.backend import GenerationOptions  # noqa: E402
 
 # The three seeds. elemance and morrison are held back -- see the plan: they
 # carry the failure modes least replaceable by anything generated (2 models x 4
@@ -283,10 +284,19 @@ def build_body(sections: list[dict]) -> str:
     return "\n\n".join(out)
 
 
-def _ask(backend, prompt: str, max_tokens: int = 16000) -> tuple[str, int, int]:
-    """One call. Returns (text, tokens_in, tokens_out)."""
-    resp = backend.complete(prompt=prompt, max_tokens=max_tokens)
-    text = resp.text if hasattr(resp, "text") else str(resp)
+def _ask(backend, prompt: str, max_tokens: int = 16000,
+         temperature: float = 0.7) -> tuple[str, int, int]:
+    """One call. Returns (text, tokens_in, tokens_out).
+
+    The budget is generous because gpt-5 draws reasoning tokens from the same
+    allowance as the completion: a budget sized for the visible answer alone
+    returns an empty string rather than an error. The backend already handles
+    that family's other two quirks -- `max_completion_tokens` instead of
+    `max_tokens`, and rejecting any non-default temperature -- so temperature is
+    passed here and dropped there when unsupported.
+    """
+    text = backend.generate(prompt, GenerationOptions(
+        temperature=temperature, max_tokens=max_tokens))
     return text, _approx_tokens(prompt), _approx_tokens(text)
 
 
