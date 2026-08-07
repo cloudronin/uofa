@@ -146,6 +146,56 @@ Morrison's two contexts of use.
 
 ---
 
+## Seeded generation: three objections, all tested, none supported
+
+The synthetic corpus inverted the ranking between two methods, so a proposal to
+generate more of it — seeded on the five real papers — met three objections from
+me. Each was tested rather than argued.
+
+**1. "Seeded output will still look like markdown, not like real papers."** Wrong.
+
+| | words | sent-like | kept% | factors named | >20ch |
+|---|---|---|---|---|---|
+| bologna (real) | 10,998 | 46% | 35% | 11/13 | 0.05% |
+| **seeded synth** | 4,457 | **47%** | 39% | **8/13** | 0.07% |
+| old synth | 3,162 | 25% | 37% | 0/13 | 0.00% |
+
+Indistinguishable from the real document on surface profile; nothing like the
+corpus that caused the problem.
+
+**2. "Entity counts will be definite by construction, as they are not in real
+documents."** Wrong, and it overturned a verdict in this deliverable. At five
+draws, models and datasets are perfectly stable on *both* a real and a seeded
+document; only `requirements` varies, and it varies in both. The earlier claim
+came from a two-draw test.
+
+**3. "Gold written in the same pass as the document will be circular."** Not
+supported. Generating a paper and its ground truth together, then having a
+different model family annotate the document alone:
+
+| | factor selection | same sentence |
+|---|---|---|
+| synthetic, gold written in the same pass | 100.0% | **10/13 = 76.9%** |
+| real, gold written by a reader afterwards | 92.0% | **30/42 = 71.4%** |
+
+**Fisher exact p = 1.000.** Gold written by the generator is not measurably more
+reproducible than gold written by a reader. If the document were being written to
+make its own gold findable, agreement would approach 100%.
+
+### The one real difference
+
+**Factor selection: 100% against 92%.** The synthetic paper reports a clean
+finding for all thirteen factors; real papers are ambiguous about which factors
+they address at all, and that ambiguity is where 8 of the 51 real pairs sit. That
+is *completeness*, not circularity — synthetic papers are tidier than real ones,
+which flatters coverage while leaving the harder judgement untested.
+
+So seeded generation is a sound way to scale the corpus, with one caveat that
+should be designed around rather than discovered later: **generate papers that
+omit factors, report some ambiguously, and assess several models across several
+mechanisms** — because those are the properties the old corpus lacked, and the
+seeded output reproduces the prose but not yet the mess.
+
 ## What would fill the blanks
 
 In order of value per hour:
