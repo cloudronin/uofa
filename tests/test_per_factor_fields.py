@@ -140,22 +140,14 @@ def test_the_synthetic_corpus_shortfall_rate():
     If this moves, the claim in the Tier 1 corpus tests that real models fall
     short far more often is comparing against a stale baseline.
     """
-    openpyxl = pytest.importorskip("openpyxl")
-    from uofa_cli.excel_constants import NASA_ALL_FACTOR_NAMES, VV40_FACTOR_NAMES
+    from conftest import extracted_corpus_rows
 
-    known = set(VV40_FACTOR_NAMES) | set(NASA_ALL_FACTOR_NAMES)
-    rows = []
-    for bd in sorted((_ROOT / "tests" / "fixtures" / "extract_corpus").glob("*/bundle_*")):
-        x = bd / "extracted.xlsx"
-        if not x.exists():
-            continue
-        ws = openpyxl.load_workbook(x, data_only=True)["Credibility Factors"]
-        for r in range(1, ws.max_row + 1):
-            if ws.cell(r, 1).value in known:
-                rows.append({"factor_type": ws.cell(r, 1).value,
-                             "required_level": ws.cell(r, 3).value,
-                             "achieved_level": ws.cell(r, 4).value,
-                             "acceptance_criteria": ws.cell(r, 5).value})
+    # From the committed JSON, not from extracted.xlsx. Those are gitignored, so
+    # in CI every loop body was skipped, the totals came out zero, and this
+    # failed on an assertion that said nothing about the cause.
+    rows = extracted_corpus_rows()
+    assert rows, ("extracted_rows.json is missing; regenerate with "
+                  "dev/tools/scripts/dump_corpus_rows.py")
 
     s = score_per_factor_fields(rows, [])
     assert s["rows"] == 800
@@ -165,3 +157,28 @@ def test_the_synthetic_corpus_shortfall_rate():
     # Not boilerplate: if this collapses, the column stopped being extracted and
     # started being echoed from the template.
     assert s["acceptance_criteria_distinct"] > 700
+
+
+def test_the_committed_rows_still_match_the_extraction_output():
+    """The frozen JSON must not drift from the run it was taken from.
+
+    Committing derived rows makes the pinning tests runnable in CI, but it also
+    creates a second copy that can silently go stale -- a frozen fiction that
+    every other assertion then trusts. Where the xlsx exist (locally, after an
+    extraction run) this checks the copy is still faithful. Where they do not
+    (CI), it skips, because absence is the normal case there and not a fault.
+    """
+    import sys
+    from conftest import extracted_corpus_by_bundle
+    sys.path.insert(0, str(_ROOT / "dev" / "tools" / "scripts"))
+    pytest.importorskip("openpyxl")
+    from dump_corpus_rows import collect
+
+    live = collect()
+    if not live:
+        pytest.skip("no extracted.xlsx present; nothing to compare against")
+    frozen = extracted_corpus_by_bundle()
+    assert set(live) == set(frozen), "bundle set drifted from extracted_rows.json"
+    for k in sorted(live):
+        assert live[k] == frozen[k], (
+            f"{k} drifted; regenerate with dev/tools/scripts/dump_corpus_rows.py")

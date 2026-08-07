@@ -280,22 +280,17 @@ def test_llm_baseline_on_the_shipped_corpus():
     These are the numbers a candidate backend has to be compared against, and
     unlike detection F1 there is no constant function that reaches them.
     """
-    openpyxl = pytest.importorskip("openpyxl")
+    from conftest import extracted_corpus_by_bundle
     from groundedness import GroundednessResult, read_source_text
-    from uofa_cli.excel_constants import VV40_FACTOR_NAMES, NASA_ALL_FACTOR_NAMES
 
-    known = set(VV40_FACTOR_NAMES) | set(NASA_ALL_FACTOR_NAMES)
+    # See test_per_factor_fields: the xlsx are gitignored, so this read nothing
+    # in CI and failed on totals of zero.
+    by_bundle = extracted_corpus_by_bundle()
+    assert by_bundle, ("extracted_rows.json is missing; regenerate with "
+                       "dev/tools/scripts/dump_corpus_rows.py")
     agg = GroundednessResult()
-    for bd in sorted((_ROOT / "tests" / "fixtures" / "extract_corpus").glob("*/bundle_*")):
-        x = bd / "extracted.xlsx"
-        if not x.exists():
-            continue
-        wb = openpyxl.load_workbook(x, data_only=True)
-        if "Credibility Factors" not in wb.sheetnames:
-            continue
-        ws = wb["Credibility Factors"]
-        facs = [{"factor_type": ws.cell(r, 1).value, "rationale": ws.cell(r, 6).value}
-                for r in range(1, ws.max_row + 1) if ws.cell(r, 1).value in known]
+    for rel, facs in sorted(by_bundle.items()):
+        bd = _ROOT / "tests" / "fixtures" / "extract_corpus" / rel
         res = score_factor_rationales(facs, read_source_text(bd))
         for k in ("factors_total", "factors_with_rationale", "rationales_with_claims",
                   "claims_total", "claims_grounded"):
