@@ -119,7 +119,77 @@ NASA works. The fetch-manifest-plus-SHA-256 discipline that makes the NTRS
 corpus redistributable does not obviously transfer, and each paper needs
 checking individually.
 
-## Original recommendation, kept for the record
+## The three V&V 40 papers, assessed
+
+All three were obtained and read with the pipeline's own reader.
+
+### A third PDF pathology: lost spaces
+
+| paper | alpha tokens >20 chars | verdict |
+|---|---|---|
+| tavi1 | **10.36%** | unusable |
+| tavi2 | **11.25%** | unusable |
+| **bologna** | **0.06%** | clean |
+| elemance / opensim | 0.01% / 0.08% | known-good baseline |
+
+Both TAVI papers lose word spacing on extraction —
+`thisworkseekstoperformapopulation-basedvalidation`,
+`DepartmentofEngineering`. Real English words are almost never over 20
+characters; ~10% of theirs are. That is a third extraction pathology after
+column interleaving and line wrapping, and it destroys every downstream
+sentence operation. No reader fix was attempted.
+
+Independently of the text quality, neither TAVI paper publishes a per-factor
+credibility table. They follow the V&V 40 *process* — QoI, CoU, model risk — and
+Part I says so directly: *"the ASME also recommends an applicability assessment
+to complete the credibility assessment. This was, however, not carried out in
+this study."*
+
+They are still interesting for one thing the corpus almost entirely lacks:
+**Part I states model risk as 5 on a 1–5 scale, with both inputs given.** Across
+the synthetic corpus, risk level is stated in 2% of documents and model
+influence in 0%.
+
+### Bologna is the best real document found
+
+`10.1016/j.cmpb.2023.107727` — Aldieri et al., *Comput. Methods Programs
+Biomed.* 240:107727 (2023). CC BY-NC-ND.
+
+* **Clean extraction** — 0.06% run-together, 11,018 words, 40% sentence-like.
+* **Full V&V 40 assessment** — CoU, QoI, and model risk derived from decision
+  consequence × *regulatory impact*, which the authors substitute for model
+  influence and explain at length. A realistic deviation, not a defect.
+* **Table 1 gives per-factor: available range, selected rigour, achieved
+  credibility, and a written rationale.**
+
+```
+SQA (5.1.1.1)              a-c   b: SQA procedures from the vendors are referenced.   Medium
+NCV (5.1.1.2)              a-d   b: multiple benchmark test cases are used...         Medium
+Discretisation (5.1.2.1)   a-c   c: conservation equation balances checked...         High
+Numerical solver (5.1.2.2) a-c   c: problem-specific sensitivity study on solver...   High
+```
+
+* **Maps to the vv40 pack directly** — no `roll_up` layer, unlike every 7009A
+  document in the corpus.
+* **The per-factor rationale is annotatable evidence**, which is precisely what
+  the two accepted posters lacked.
+
+It also settles an open question. The Morrison transcription recorded that
+gradation counts differ per factor — SQA a–c, NCV a–d — and flagged that the
+letter→level convention was unrecoverable. Bologna independently prints **the
+same ranges**, so the differing counts are a property of the standard rather
+than of Morrison.
+
+One caveat: Bologna uses V&V 40's finer decomposition (5.2.2.1.1 "Quantity of
+test samples", 5.2.2.1.2 "Range of characteristic test samples", …) — roughly 20
+sub-factors against the pack's 13. Transcribing at published granularity means
+a fourth variant, the same call already made for `decomposed_8_7009a`.
+
+**Recommendation: Bologna becomes the next bundle, and the first V&V 40 one.**
+It is a journal-prose document with annotatable per-factor evidence, which is
+the exact gap nothing else in this survey filled.
+
+## Original recommendation, kept for the record## Original recommendation, kept for the record
 
 1. **Fetch `20140003849`** — one prose document, and directly comparable to the
    ARED poster already annotated, which makes it a clean genre-controlled pair:
