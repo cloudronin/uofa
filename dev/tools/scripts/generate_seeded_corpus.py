@@ -245,10 +245,27 @@ reported, mark it "ambiguous". If it is absent, omit it entirely.
 Do not treat the summary table as evidence when the same finding also appears in \
 the prose -- prefer the prose sentence. Table rows are the last resort.
 
+Three rules about the span, each of which decides whether the answer is usable:
+
+* ONE SENTENCE. Not a passage, not two sentences joined. It must sit between one \
+full stop and the next, exactly as the text above breaks. A span that crosses a \
+sentence boundary can never be matched and is discarded.
+* A sentence may be evidence for more than one mechanism, but do not reuse the \
+same sentence for DIFFERENT factors. If two factors would quote the same \
+sentence, at most one of them is really reported there.
+* Copy it exactly, including any hyphenation or spacing damage the reader \
+introduced.
+
+`level` is the GRADATION this paper assigns -- the score, level or rating it \
+states for that factor, in the paper's own vocabulary (for example "3", "b", \
+"Medium", or a value on whatever scale this paper uses). If the paper reports a \
+finding but states no gradation, use "not stated". Never put a mechanism name, a \
+scope, or "unspecified" here.
+
 Return ONLY JSON:
 {{"findings": [
   {{"model": "...", "mechanism": "...", "factor": "...",
-    "level": "...", "span": "verbatim sentence", "status": "clear|ambiguous"}}
+    "level": "...", "span": "one verbatim sentence", "status": "clear|ambiguous"}}
 ]}}
 """
 
@@ -531,11 +548,36 @@ def generate_one(idx: int, seed_tag: str, out_root: pathlib.Path, backend,
         if empty:
             rep["gold_models_without_findings"] = empty
 
-        # A span the model did not copy verbatim is not evidence -- drop it
-        # rather than let an approximate quote become the routing target.
-        flat = " ".join(doc.split()).lower()
-        kept = [f for f in raw_findings
-                if " ".join(str(f.get("span", "")).split()).lower() in flat]
+        # A span must be verbatim AND inside a single sentence. Checking it
+        # against the flattened document was too weak: 47 of 251 spans in a pilot
+        # passed while spanning a sentence boundary, and a sentence-level router
+        # can never match those -- they would sit in the answer key as permanent
+        # misses and be read as router failure.
+        from keyless_k2_extractive import sentences as _sents
+        norm = lambda s: " ".join(str(s).split()).lower()  # noqa: E731
+        sent_low = [norm(s) for s in _sents(doc)]
+        kept, dropped_reason = [], {"not-verbatim": 0, "crosses-sentences": 0,
+                                    "factor-reuses-span": 0}
+        flat = norm(doc)
+        seen_by_factor: dict[str, set] = {}
+        for f in raw_findings:
+            k = norm(f.get("span", ""))
+            if not k or k not in flat:
+                dropped_reason["not-verbatim"] += 1
+                continue
+            if not any(k in s for s in sent_low):
+                dropped_reason["crosses-sentences"] += 1
+                continue
+            # One sentence may serve several mechanisms of the same factor, but
+            # not several different factors: 91 findings over 33 distinct spans
+            # is padding, not evidence.
+            other = next((fac for fac, spans in seen_by_factor.items()
+                          if k in spans and fac != f.get("factor")), None)
+            if other:
+                dropped_reason["factor-reuses-span"] += 1
+                continue
+            seen_by_factor.setdefault(f.get("factor", ""), set()).add(k)
+            kept.append(f)
         dropped = len(raw_findings) - len(kept)
 
         (bdir / "ground_truth.json").write_text(json.dumps(
@@ -543,13 +585,14 @@ def generate_one(idx: int, seed_tag: str, out_root: pathlib.Path, backend,
              "device": device, "scope_allowed": scope,
              "models": plan["models"], "mechanisms": plan["mechanisms"],
              "deviation": plan.get("deviation"),
-             "findings": kept, "spans_dropped_not_verbatim": dropped},
+             "findings": kept, "spans_dropped": dropped,
+             "spans_dropped_by_reason": dropped_reason},
             indent=2) + "\n")
         (bdir / "metadata.json").write_text(json.dumps(
             {"bundle_id": bundle_id, "standard": standard, "seed": seed_tag,
              "generated_at": started.isoformat(), "pathology": path}, indent=2) + "\n")
         rep.update(status="generated", pathology=path, findings=len(kept),
-                   spans_dropped=dropped)
+                   spans_dropped=dropped, spans_dropped_by_reason=dropped_reason)
     except Exception as exc:  # noqa: BLE001 -- one bad paper must not stop the run
         rep["error"] = f"{type(exc).__name__}: {exc}"
     rep["cost_estimate_usd"] = estimate_cost(
