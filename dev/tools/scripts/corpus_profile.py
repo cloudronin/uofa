@@ -70,7 +70,10 @@ BANDS: dict[str, tuple[float | None, float | None, str]] = {
     "furniture_kept":     (0.25, 0.45, "real 0.35"),
     "run_together":       (None, 0.005, "real ~0.0005; >0.005 means a reader bug"),
     "two_col_pages":      (0.60, None, "real 0.75-1.00 for 2-col papers"),
-    "hyphen_lines":       (0.02, None, "real 0.007-0.083"),
+    # Two-sided. An earlier version had a floor only, and passed a rendered paper
+    # hyphenating 31.9% of its lines against a real range topping out at 8.3% --
+    # four times the real maximum, waved through because nothing looked up.
+    "hyphen_lines":       (0.02, 0.12, "real 0.007-0.083, mean 0.049"),
     # Two-sided, and the high side is the point: agreement above the band means
     # the papers are too clean. The seeded pilot scored 1.000 on selection.
     "agree_selection":    (0.85, 0.95, "real 0.920"),
