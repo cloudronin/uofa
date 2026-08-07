@@ -266,21 +266,55 @@ def _family(model: str) -> str:
     return "anthropic" if m.startswith("claude") else "openai"
 
 
-def build_body(sections: list[dict]) -> str:
+def _row3(r) -> tuple[str, str, str] | None:
+    """Coerce a model-written table row to (factor, level, basis).
+
+    The schema asks for three cells and a real run returned 11 rows of two out of
+    53 -- the model merged level and basis, or omitted the basis. Unpacking
+    strictly threw away an otherwise good paper that had already cost $0.17 to
+    write, two calls after the mistake. Model output is negotiated, not
+    guaranteed; the escaping in `latex_render.sanitize` is where strictness
+    belongs, not here.
+    """
+    if isinstance(r, dict):
+        r = [r.get("factor"), r.get("level"), r.get("basis")]
+    if not isinstance(r, (list, tuple)) or not r:
+        return None
+    cells = [("" if c is None else str(c)).strip() for c in r]
+    cells = (cells + ["", ""])[:3] if len(cells) < 3 else cells[:3]
+    return (cells[0], cells[1], cells[2]) if cells[0] else None
+
+
+def build_body(sections: list[dict], device: str = "the device") -> str:
     """Model content -> LaTeX, via the renderer's helpers. No model markup."""
-    out = []
+    out, saw_figure = [], False
     for s in sections:
-        out.append(LR.section(s["heading"], s.get("paragraphs") or [],
-                              level=int(s.get("level") or 1)))
+        if not isinstance(s, dict) or not s.get("heading"):
+            continue
+        paras = [p for p in (s.get("paragraphs") or []) if isinstance(p, str) and p.strip()]
+        out.append(LR.section(str(s["heading"]), paras,
+                              level=min(3, max(1, int(s.get("level") or 1)))))
         if s.get("figure"):
-            out.append(LR.wide_figure(s["figure"]))
-        if s.get("rubric"):
-            r = s["rubric"]
-            out.append(LR.rubric_block(r["factor"], r["rungs"]))
-        if s.get("table"):
-            t = s["table"]
-            rows = [(str(a), str(b), str(c)) for a, b, c in t["rows"]]
-            out.append(LR.factor_table(rows, t["caption"]))
+            out.append(LR.wide_figure(str(s["figure"])))
+            saw_figure = True
+        r = s.get("rubric")
+        if isinstance(r, dict) and r.get("factor") and r.get("rungs"):
+            rungs = [str(x) for x in r["rungs"] if str(x).strip()]
+            if rungs:
+                out.append(LR.rubric_block(str(r["factor"]), rungs))
+        t = s.get("table")
+        if isinstance(t, dict) and t.get("rows"):
+            rows = [x for x in (_row3(r) for r in t["rows"]) if x]
+            if rows:
+                out.append(LR.factor_table(rows, str(t.get("caption") or "Summary")))
+    if not saw_figure:
+        # R1 wants a full-width float: it puts a single-column region on a
+        # two-column page, which is the case the gutter detector has to survive.
+        # The run that prompted this produced none, so it is guaranteed here
+        # rather than left to whether the model felt like it.
+        out.insert(1, LR.wide_figure(
+            f"Overview of the {device} geometry, load cases and the mechanisms "
+            f"assessed, shown across the full page width."))
     return "\n\n".join(out)
 
 
@@ -353,7 +387,7 @@ def generate_one(idx: int, seed_tag: str, out_root: pathlib.Path, backend,
         spec = {"title": content["title"], "runhead": content["runhead"],
                 "authors": content["authors"], "affiliations": content["affiliations"],
                 "abstract": content["abstract"], "keywords": content["keywords"],
-                "body": build_body(content["sections"])}
+                "body": build_body(content["sections"], device)}
         tex = LR.render(spec)
         bad = LR.validate(tex)
         if bad:

@@ -63,7 +63,17 @@ sys.path.insert(0, str(_ROOT / "src"))
 # bands; these are the per-paper rendering targets.
 TARGETS = {
     "two_col_pages": 0.80,   # real 0.75-1.00 for 2-col papers
-    "hyphen_lines": 0.040,   # real 0.007-0.083
+    # Per paper this asks only "did hyphenation happen at all" -- the failure it
+    # catches is markdown, or a renderer that stopped breaking words. It does NOT
+    # ask for the real RATE; corpus_profile's two-sided band on the corpus mean
+    # (0.02-0.12, real mean 0.049) does that.
+    #
+    # The distinction is not pedantic. This was 0.040, which rejects opensim
+    # (0.026) and elemance (0.007) -- two of the five real papers. A per-paper
+    # criterion that fails real documents is measuring the wrong thing, and it is
+    # the same mistake as the diversity floor: a number chosen rather than one
+    # taken from the corpus it claims to describe.
+    "hyphen_lines": 0.005,   # real per paper: 0.007-0.083
     "rubric_sents": 20,      # real 0, 4, 11, 24, 45
     # Lost inter-word spaces. Measured at pdfplumber's DEFAULT tolerance, where
     # the fault must be present -- reading through the project's own reader
@@ -78,6 +88,13 @@ TARGETS = {
 # a ceiling in `check()`, not a floor.
 _MAX_AFTER_FIX = 0.005
 
+# Ceilings, because a pathology can also be too STRONG. These mirror
+# corpus_profile.BANDS: without them the renderer called a paper shippable at
+# 15.0% hyphenation that the corpus gate then rejected at its 0.12 ceiling, so
+# the failure surfaced two steps after the cause and after the paper was paid
+# for. A per-paper check that disagrees with the corpus gate is worse than none.
+CEILINGS = {"hyphen_lines": 0.12}
+
 _PREAMBLE = r"""\documentclass[5p,times]{elsarticle}
 \usepackage[T1]{fontenc}
 \usepackage{booktabs}
@@ -85,18 +102,26 @@ _PREAMBLE = r"""\documentclass[5p,times]{elsarticle}
 \usepackage{graphicx}
 \usepackage{amsmath}
 \usepackage{textcomp}
-% Hyphenation is a REQUIRED pathology here, not a defect -- it is what the
-% dehyphenator regression-tests against, so microtype is deliberately absent.
-% Moderate, not maximal: at \hyphenpenalty=50 with \emergencystretch=0pt the demo
-% hyphenated 31.9% of lines against a real range of 0.7-8.3%, and these settings
-% let TeX stretch a line before breaking a word. The rate that finally matters is
-% a property of the PROSE -- lexically impoverished filler over-hyphenates
-% whatever the settings -- so corpus_profile.py gates it two-sided on the real
-% documents rather than the renderer promising a number.
-\hyphenpenalty=500
-\exhyphenpenalty=500
+% Hyphenation is a REQUIRED pathology, and the target is the REAL rate, not the
+% maximum one: real papers hyphenate 0.7-8.3% of lines, mean 4.9%.
+%
+% microtype was originally left out on the reasoning that it would suppress
+% hyphenation. That was backwards. Measured on a real generated paper (7,435
+% words), without it the rate floors at 10.2% even at \hyphenpenalty=9999 --
+% above the real maximum and past corpus_profile's ceiling. Real journal papers
+% use microtype, and it is what puts them in range:
+%
+%     no microtype, pen=500        15.0%   run-together @default  7.6%
+%     microtype,    pen=500         8.0%                         16.6%
+%     microtype,    pen=2000        6.0%   <- chosen             15.7%
+%
+% It also strengthens the lost-inter-word-space pathology, because character
+% expansion tightens the spacing -- the same mechanism as the two real APL PDFs.
+\usepackage{microtype}
+\hyphenpenalty=2000
+\exhyphenpenalty=2000
 \tolerance=1000
-\emergencystretch=2em
+\emergencystretch=4em
 \pagestyle{fancy}
 \fancyhf{}
 \fancyhead[C]{\small @@runhead@@}
@@ -144,6 +169,27 @@ _UNICODE = {"\u2014": "---", "\u2013": "--", "\u2018": "`", "\u2019": "'",
             "\u03b1": r"\ensuremath{\alpha}", "\u03b2": r"\ensuremath{\beta}",
             "\u03c3": r"\ensuremath{\sigma}", "\u0394": r"\ensuremath{\Delta}"}
 
+# Greek, built from the code points rather than listed. An explicit table caught
+# alpha, beta, sigma and Delta and then a real paper used phi, which is a fatal
+# pdflatex error -- so the whole alphabet is covered at once instead of one
+# letter per failed run.
+for _cp, _nm in ((0x3B1, "alpha"), (0x3B2, "beta"), (0x3B3, "gamma"),
+                 (0x3B4, "delta"), (0x3B5, "epsilon"), (0x3B6, "zeta"),
+                 (0x3B7, "eta"), (0x3B8, "theta"), (0x3B9, "iota"),
+                 (0x3BA, "kappa"), (0x3BB, "lambda"), (0x3BC, "mu"),
+                 (0x3BD, "nu"), (0x3BE, "xi"), (0x3C0, "pi"), (0x3C1, "rho"),
+                 (0x3C3, "sigma"), (0x3C4, "tau"), (0x3C5, "upsilon"),
+                 (0x3C6, "phi"), (0x3C7, "chi"), (0x3C8, "psi"),
+                 (0x3C9, "omega"), (0x393, "Gamma"), (0x394, "Delta"),
+                 (0x398, "Theta"), (0x39B, "Lambda"), (0x3A0, "Pi"),
+                 (0x3A3, "Sigma"), (0x3A6, "Phi"), (0x3A8, "Psi"),
+                 (0x3A9, "Omega")):
+    _UNICODE.setdefault(chr(_cp), rf"\ensuremath{{\{_nm}}}")
+
+# Anything still non-ASCII after the map. A single unmapped character is a FATAL
+# pdflatex error, so the default cannot be to pass it through and hope.
+_NON_ASCII = re.compile(r"[^\x00-\x7f]")
+
 # `\` cannot be replaced in place: its replacement contains braces, which the
 # brace rules would then escape into `\textbackslash\{\}`. Park it first and
 # restore it after the escape pass.
@@ -168,6 +214,15 @@ def sanitize(text: str) -> str:
     text = text.replace(_BS, r"\textbackslash{}")
     for k, v in _UNICODE.items():
         text = text.replace(k, v)
+    # Whatever is left: decompose accents to their ASCII base where that works
+    # (e.g. e-acute -> e), and drop the rest. Lossy by design -- losing one glyph
+    # beats a fatal compile error that discards a paper already paid for.
+    if _NON_ASCII.search(text):
+        import unicodedata
+        text = _NON_ASCII.sub(
+            lambda m: unicodedata.normalize("NFKD", m.group(0))
+                                 .encode("ascii", "ignore").decode() or "",
+            text)
     return text
 
 
@@ -319,6 +374,8 @@ def check(m: dict) -> list[str]:
     """Which pathology targets this paper missed. Empty means shippable."""
     miss = [f"{k}={m[k]:.3f} < {v}" if isinstance(v, float) else f"{k}={m[k]} < {v}"
             for k, v in TARGETS.items() if m[k] < v]
+    miss += [f"{k}={m[k]:.3f} > {v} (too strong; real papers do not do this)"
+             for k, v in CEILINGS.items() if m[k] > v]
     if m["run_together"] > _MAX_AFTER_FIX:
         miss.append(f"run_together={m['run_together']:.4f} > {_MAX_AFTER_FIX} "
                     "after the reader fix -- the fix is not holding")
