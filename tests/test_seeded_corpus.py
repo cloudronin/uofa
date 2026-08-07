@@ -267,10 +267,11 @@ def test_levels_come_from_the_table_not_from_a_model_rereading_it():
 
 def test_a_paper_without_a_usable_factor_table_is_rejected():
     """R3 and R8 were in the spec and absent from the prompt actually sent."""
-    assert G._MIN_TABLE_ROWS >= 6
     thin = [{"heading": "R", "table": {"caption": "c",
                                        "rows": [["Model form", "3", "b"]]}}]
-    assert len(G.factor_levels(thin)) < G._MIN_TABLE_ROWS
+    # 1 gradation row against a paper assessing, say, 2 models x 3 mechanisms
+    # x 7 factors is nowhere near the coverage R8 asks for.
+    assert len(G.factor_levels(thin)) / (2 * 3 * 7) < G._MIN_TABLE_COVERAGE
 
 
 def test_seed_reading_never_touches_ground_truth(monkeypatch):
@@ -313,3 +314,18 @@ def test_salvage_still_truncates_genuinely_incomplete_json():
     got, lost = G.parse_or_salvage(truncated)
     assert [s["heading"] for s in got["sections"]] == ["a"]
     assert lost >= 0
+
+
+def test_table_coverage_is_measured_against_what_the_paper_assesses():
+    """An absolute row floor cannot catch a partial table.
+
+    Measured on the pilot: bologna 42 rows over 39 combinations (1.08),
+    nagaraja 63/56 (1.12), opensim 11/73 (0.15). A floor of 6 passed all three.
+    Every missing row is a finding with no gradation to read, which is precisely
+    where the residual N/A rate came from -- opensim contributed almost all of
+    it.
+    """
+    assert 0.5 < G._MIN_TABLE_COVERAGE <= 1.0
+    for rows, combos, want in ((42, 39, True), (63, 56, True), (11, 73, False)):
+        assert (rows / combos >= G._MIN_TABLE_COVERAGE) is want, (
+            f"{rows}/{combos} should {'pass' if want else 'be regenerated'}")

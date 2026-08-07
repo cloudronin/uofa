@@ -479,11 +479,24 @@ def build_body(sections: list[dict], device: str = "the device") -> str:
 # a number and hoping. Without any bibliography the pilot came out at 0.652.
 _REFS = 34
 
-# A paper whose summary table carries fewer real gradations than this has not
-# produced the R3/R8 artefact at all. One pilot paper put "Global" in the level
-# column, one produced a device-parameter table, and one produced no table --
-# and all three passed, because nothing checked. Regenerated, not shipped.
-_MIN_TABLE_ROWS = 6
+# R8 wants EVERY (factor x model x mechanism) the paper assesses to appear in the
+# summary table, scored -- absent evidence at the bottom of the scale rather than
+# a missing row. So the gate is coverage against what the plan says the paper
+# covers, not an absolute count.
+#
+# An absolute floor of 6 was far too weak. Measured on the pilot:
+#
+#     bologna    39 combinations, 42 table rows   coverage 1.08
+#     nagaraja   56 combinations, 63 table rows   coverage 1.12
+#     opensim    73 combinations, 11 table rows   coverage 0.15  <- passed the
+#                                                                   old floor
+#
+# opensim's 62 missing rows are exactly the residual N/A rate: a finding whose
+# combination is not in the table has no gradation to read, so it comes back
+# "not stated". 0.80 leaves room for a paper that genuinely folds two mechanisms
+# into one row while rejecting a table that covers a seventh of its own
+# assessment.
+_MIN_TABLE_COVERAGE = 0.80
 
 
 # Per-step wall-clock budgets. The shared factory's 240s is sized for the
@@ -585,11 +598,18 @@ def generate_one(idx: int, seed_tag: str, out_root: pathlib.Path, backend,
                 rep["sections_lost_to_truncation"] = lost
 
             levels = factor_levels(content["sections"])
-            if len(levels) < _MIN_TABLE_ROWS:
+            expected = (len(plan.get("models") or [1])
+                        * len(plan.get("mechanisms") or [1])
+                        * max(len(plan.get("clear_factors") or []), 1))
+            coverage = len(levels) / max(expected, 1)
+            if coverage < _MIN_TABLE_COVERAGE:
                 raise RuntimeError(
-                    f"summary table unusable: {len(levels)} rows carry a real "
-                    f"gradation, need >={_MIN_TABLE_ROWS}. R3/R8 want one row per "
-                    f"(factor x model x mechanism) with a sortable level column.")
+                    f"summary table covers {len(levels)}/{expected} of the "
+                    f"(factor x model x mechanism) combinations this paper "
+                    f"assesses ({coverage:.2f} < {_MIN_TABLE_COVERAGE}). Every "
+                    f"missing row is a finding with no gradation to read, which "
+                    f"is where the N/A rate comes from.")
+            rep["table_coverage"] = round(coverage, 3)
             (bdir / "levels.json").write_text(json.dumps(levels, indent=2) + "\n")
 
             spec = {"title": content["title"], "runhead": content["runhead"],

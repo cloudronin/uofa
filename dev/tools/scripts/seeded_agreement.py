@@ -49,6 +49,7 @@ from d1_annotator_agreement import PROMPT, norm, spans_for, toks  # noqa: E402
 from document_furniture import strip_furniture  # noqa: E402
 from keyless_k2_extractive import sentences  # noqa: E402
 from uofa_cli import excel_constants as ec  # noqa: E402
+from uofa_cli.adversarial.model_costs import estimate_cost  # noqa: E402
 from uofa_cli.readers.pdf_reader import read_pdf  # noqa: E402
 
 NAMES = tuple({n.lower() for n in ec.VV40_FACTOR_NAMES})
@@ -109,6 +110,10 @@ def main() -> int:
                              model_name=args.model, api_key=os.environ[var],
                              default_timeout_seconds=300)
 
+    # Priced, because an unpriced check is a hole in the same spend guard the
+    # generator has: two earlier runs of this script cost real money that
+    # could only be estimated afterwards.
+    spent_tokens = 0
     failed, tot_f, both_f = [], 0, 0
     tot_s = agree_s = 0
     na_total = na_hits = 0
@@ -158,10 +163,11 @@ def main() -> int:
         for (model, mech), mine in chosen:
             scope = (f"This assessment is specifically of -- model: {model}; "
                      f"mechanism: {mech}.\n")
-            raw = backend.generate(
-                PROMPT.format(factor_list="\n".join(f"- {x}" for x in vocab),
-                              source="\n".join(kept)[:80000], scope=scope),
-                GenerationOptions(max_tokens=16000))
+            prompt_text = PROMPT.format(
+                factor_list="\n".join(f"- {x}" for x in vocab),
+                source="\n".join(kept)[:80000], scope=scope)
+            raw = backend.generate(prompt_text, GenerationOptions(max_tokens=16000))
+            spent_tokens += len(prompt_text) // 4 + len(raw or "") // 4
             m = re.search(r"\{.*\}", raw or "", re.S)
             if not m:
                 failed.append(f"{b.name}[{model}/{mech}]")
@@ -189,6 +195,9 @@ def main() -> int:
         print(f"  no usable response: {failed or 'none'};  comparable factors: {tot_f}")
         print("  No verdict. An API failure is not evidence about the corpus.")
         return 1
+
+    cost = estimate_cost(args.model, spent_tokens, output_ratio=0.08)
+    print(f"\n  {spent_tokens:,} tokens, about ${cost:.2f}")
 
     got = {"agree_selection": both_f / tot_f,
            "agree_same_sentence": agree_s / max(tot_s, 1),
