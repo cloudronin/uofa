@@ -42,6 +42,25 @@ inter-word spaces caused two documents to be discarded; hyphenation split
 *Acceptance:* the reader's gutter detector fires on ≥80% of body pages; the
 document's span-survival rate through `read_pdf` is ≥90%.
 
+*Built* as [`latex_render.py`](../dev/tools/scripts/latex_render.py), measured
+per paper:
+
+| pathology | generated | real |
+|---|---|---|
+| two-column pages | 1.000 | 0.75–1.00 |
+| hyphenated line ends | 0.043 | 0.007–0.083 |
+| rubric sentences | 31 | 0–45 |
+| run-together @ default tolerance | 0.090 | 0.10–0.11 (APL PDFs) |
+| run-together @ `x_tolerance=1.2` | 0.000 | 0.0002 |
+
+The last two are **one assertion in two halves**. Measuring lost inter-word
+spaces through this project's own reader tests whether the `x_tolerance` fix
+works, which is the opposite of testing that the fault is present — so it is
+measured at pdfplumber's default tolerance as well. The plan expected to need a
+special font for one paper in ten; elsarticle's narrow two-column setting
+produces the fault unaided, so **every** generated paper regression-tests that
+fix. A paper missing any pathology is regenerated, not shipped.
+
 ### R2 — Several models across several mechanisms
 
 Each paper assesses **2–3 models × 2–4 mechanisms**, scoring every factor
@@ -79,6 +98,13 @@ in Nagaraja.
 
 *Acceptance:* ≥20 rubric definition sentences; all removed by
 `document_furniture` before routing.
+
+*Amended in build:* the rubric is generated in the standard's **shape**, not its
+verbatim text. The pathology is structural — a bare gradation letter alone on a
+line, followed by a definition sentence, in a ladder of increasing rigour.
+Copying ASME's ladder into all forty papers would place ~45 identical sentences
+in every one of them, driving inter-paper similarity straight against the
+diversity gate, and would republish the standard forty times over.
 
 ### R5 — Omitted and ambiguously reported factors
 
