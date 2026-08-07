@@ -67,6 +67,52 @@ def test_dry_run_makes_no_network_call_and_still_proves_the_render_path(tmp_path
     assert (tmp_path / "_dryrun" / "paper.pdf").exists()
 
 
+class _FakeBackend:
+    """Records what generate() was handed, so the call can be inspected."""
+
+    model_name = "gpt-5"
+
+    def __init__(self, reply="{}"):
+        self.reply, self.calls = reply, []
+
+    def generate(self, prompt, options):
+        self.calls.append((prompt, options))
+        return self.reply
+
+
+def test_ask_passes_the_step_timeout_not_the_prompt():
+    """Pins the argument order.
+
+    An edit once put the step name before the prompt at the call sites while the
+    signature still took it second, so the entire prompt became the TIMEOUTS key
+    and every paper died with a KeyError whose message was the prompt. Free to
+    catch here, and it cost a whole run to notice.
+    """
+    b = _FakeBackend('{"ok": 1}')
+    text, ti, to = G._ask(b, "write", "PROMPT BODY", max_tokens=999)
+    prompt, opts = b.calls[0]
+    assert prompt == "PROMPT BODY"
+    assert opts.timeout_seconds == G.TIMEOUTS["write"]
+    assert opts.max_tokens == 999
+    assert text == '{"ok": 1}' and ti > 0 and to > 0
+
+
+@pytest.mark.parametrize("step", ["plan", "write", "gold"])
+def test_every_step_has_a_timeout(step):
+    assert G.TIMEOUTS[step] >= 300.0
+    G._ask(_FakeBackend(), step, "x")
+
+
+def test_empty_response_fails_loudly():
+    """gpt-5 returns "" when reasoning exhausts the completion budget.
+
+    Passing that to the JSON parser produces a JSONDecodeError that names the
+    wrong cause, so the budget never gets raised.
+    """
+    with pytest.raises(RuntimeError, match="empty response"):
+        G._ask(_FakeBackend("   "), "write", "x")
+
+
 def test_family_detection():
     assert G._family("gpt-5") == "openai"
     assert G._family("openai/gpt-5") == "openai"

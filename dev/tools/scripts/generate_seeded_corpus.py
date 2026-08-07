@@ -292,7 +292,7 @@ def build_body(sections: list[dict]) -> str:
 TIMEOUTS = {"plan": 300.0, "write": 1500.0, "gold": 900.0}
 
 
-def _ask(backend, prompt: str, step: str, max_tokens: int = 16000,
+def _ask(backend, step: str, prompt: str, max_tokens: int = 16000,
          temperature: float = 0.7) -> tuple[str, int, int]:
     """One call. Returns (text, tokens_in, tokens_out).
 
