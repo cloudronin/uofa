@@ -283,30 +283,45 @@ Three papers, 161 findings, 235 reference spans. Every offline row passes.
 | factor selection | 0.847 | 0.85–0.95 | real 0.920 |
 | same sentence | 0.508 | 0.60–0.85 | real 0.714 |
 
-### The same-sentence band does not transfer, and that is a measurement error
+### The bands do transfer — I was measuring at the wrong granularity
 
-0.714 was measured on real papers assessing **one or two** (model × mechanism)
-scopes. The seeded papers assess **six to twelve**, because R2 requires several
-models across several mechanisms. Attributing a factor to the correct one of
-twelve scopes is a harder task than attributing it to the only one available, so
-the two numbers are not comparable.
+The pilot first scored **0.508** same-sentence against a band anchored at 0.708,
+and I proposed that the band did not transfer: the seeded papers assess six to
+twelve (model × mechanism) scopes where the real ones assess one or two, so
+attribution should be harder.
 
-The evidence is direct. Crediting a match against gold's spans for **any** scope
-of the same factor gives **0.652**; restricting to the correct scope gives
-**0.508**. The 0.144 between them is scope attribution, not evidence
-identification — the annotator quotes the gait protocol where gold quotes the
-deep-flexion protocol, and both are genuinely *test conditions*.
+**That explanation was tested and refuted.** Per real document:
 
-Every disagreement inspected was two defensible picks. None was a gold error.
+| paper | scopes | same sentence |
+|---|---|---|
+| bologna | 1 | 7/12 = 0.583 |
+| nagaraja | 1 | 8/12 = 0.667 |
+| morrison | 2 | 7/10 = 0.700 |
+| opensim | 1 | 6/8 = 0.750 |
+| **elemance** | **8** | **6/6 = 1.000** |
 
-**This is the same mistake as the per-paper floors**: a threshold taken from one
-population and applied to another. It was made three times on rendering
-thresholds before being recognised, and once more here.
+The paper with the most scopes has the *highest* agreement and the single-scope
+papers the lowest. Scope multiplicity does not depress this measure.
 
-The only real paper with comparable scope multiplicity is **elemance** — 2 models
-× 4 mechanisms, 8 scopes — and it is held back from seeding. Holding it back does
-not prevent using it as a measurement anchor, and it is the correct anchor for
-this band. Until it is measured, **0.508 is reported and not compared**.
+The real cause is granularity. D1 anchors the bands by comparing once per
+(document, factor), pooling every scope; the seeded check was comparing per
+(model × mechanism) and reporting that against a document-level band. Measured
+the way the baseline was measured:
+
+| measure | seeded | real | band |
+|---|---|---|---|
+| factor selection | **0.917** | 0.961 | 0.85–0.95 |
+| same sentence | **0.773** | 0.708 | 0.60–0.85 |
+| N/A rate | **0.000** | 0.000 | = 0 |
+
+Every acceptance measure passes, and selection sits *below* 0.95 rather than
+above — the corpus is not too clean, which is what the whole gate exists to
+establish.
+
+Two explanations were offered for that gap before either was checked, and both
+were wrong in the direction that flattered the corpus. Running D1 against the
+real papers cost about $0.15 and settled it. **Check what produced a number
+before explaining it.**
 
 ### Multi-reference gold
 
