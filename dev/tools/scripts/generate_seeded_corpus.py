@@ -583,7 +583,8 @@ def _ask(backend, step: str, prompt: str, max_tokens: int = 16000,
 
 
 def generate_one(idx: int, seed_tag: str, out_root: pathlib.Path, backend,
-                 gold_backend, save_raw: pathlib.Path | None) -> dict:
+                 gold_backend, save_raw: pathlib.Path | None,
+                 split: str = "train") -> dict:
     """plan -> write -> render -> gold. Returns a report row."""
     started = datetime.now(timezone.utc)
     bundle_id = f"bundle_seeded_{idx:03d}_{seed_tag}"
@@ -798,7 +799,8 @@ def generate_one(idx: int, seed_tag: str, out_root: pathlib.Path, backend,
         dropped = len(raw_findings) - len(kept)
 
         (bdir / "ground_truth.json").write_text(json.dumps(
-            {"bundle_id": bundle_id, "standard": standard, "seed": seed_tag,
+            {"bundle_id": bundle_id, "split": split,
+             "standard": standard, "seed": seed_tag,
              "device": device, "scope_allowed": scope,
              "models": plan["models"], "mechanisms": plan["mechanisms"],
              "deviation": plan.get("deviation"),
@@ -806,8 +808,9 @@ def generate_one(idx: int, seed_tag: str, out_root: pathlib.Path, backend,
              "spans_dropped_by_reason": dropped_reason},
             indent=2) + "\n")
         (bdir / "metadata.json").write_text(json.dumps(
-            {"bundle_id": bundle_id, "standard": standard, "seed": seed_tag,
-             "generated_at": started.isoformat(), "pathology": path}, indent=2) + "\n")
+            {"bundle_id": bundle_id, "split": split, "standard": standard,
+             "seed": seed_tag, "generated_at": started.isoformat(),
+             "pathology": path}, indent=2) + "\n")
         rep.update(status="generated", pathology=path, findings=len(kept),
                    spans_dropped=dropped, spans_dropped_by_reason=dropped_reason)
     except Exception as exc:  # noqa: BLE001 -- one bad paper must not stop the run
@@ -840,6 +843,12 @@ def main() -> int:
                     help="not called here; asserted cross-family so the corpus "
                          "cannot be built in a shape the check cannot validate")
     ap.add_argument("--output-root", type=pathlib.Path, required=True)
+    ap.add_argument("--split", choices=("holdout", "train"), required=True,
+                    help="stamped into every bundle at GENERATION time. The plan "
+                         "called for ~30 train / ~10 held out and nothing "
+                         "enforced it, which leaves the split to be assigned "
+                         "afterwards -- and a split assigned after the fact can "
+                         "be reassigned after a result.")
     ap.add_argument("--max-cost", type=float, default=2.0)
     ap.add_argument("--parallel", type=int, default=3)
     ap.add_argument("--save-raw", type=pathlib.Path, default=None)
@@ -915,7 +924,7 @@ def main() -> int:
     spent, reports, halted = 0.0, [], False
     with concurrent.futures.ThreadPoolExecutor(max_workers=args.parallel) as ex:
         futs = {ex.submit(generate_one, i, seeds[i % len(seeds)], args.output_root,
-                          backend, gold_backend, args.save_raw): i
+                          backend, gold_backend, args.save_raw, args.split): i
                 for i in range(args.count)}
         for fut in concurrent.futures.as_completed(futs):
             try:
@@ -940,7 +949,7 @@ def main() -> int:
     (args.output_root / "generation_report.json").write_text(json.dumps(
         {"generated_at": datetime.now(timezone.utc).isoformat(),
          "model": args.model, "gold_model": gold_model, "seeds": seeds,
-         "n_generated": ok, "n_failed": sum(1 for r in reports if r["status"] == "failed"),
+         "split": args.split, "n_generated": ok, "n_failed": sum(1 for r in reports if r["status"] == "failed"),
          "total_cost_estimate_usd": round(spent, 4), "halted_at_max_cost": halted,
          "reports": reports}, indent=2) + "\n")
     print(f"\n  generated {ok}/{args.count}, ${spent:.2f}")

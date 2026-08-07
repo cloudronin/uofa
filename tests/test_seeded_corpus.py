@@ -27,9 +27,11 @@ SCRIPT = _ROOT / "dev" / "tools" / "scripts" / "generate_seeded_corpus.py"
 
 
 def _run(*flags, tmp):
-    return subprocess.run(
-        [PY, str(SCRIPT), "--count", "2", "--output-root", str(tmp), "--dry-run",
-         *flags], capture_output=True, text=True, cwd=_ROOT)
+    argv = [PY, str(SCRIPT), "--count", "2", "--output-root", str(tmp), "--dry-run",
+            *flags]
+    if "--split" not in flags:
+        argv += ["--split", "train"]
+    return subprocess.run(argv, capture_output=True, text=True, cwd=_ROOT)
 
 
 # ------------------------------------------------------------------- guards
@@ -403,3 +405,24 @@ def test_gold_is_multi_reference():
     assert 'f["span"] = valid[0]' in src, "keep a single-span view for old readers"
     agree = (_ROOT / "dev" / "tools" / "scripts" / "seeded_agreement.py").read_text()
     assert '.extend(spans)' in agree, "the check must credit any valid reference"
+
+
+def test_split_is_required_and_stamped_at_generation(tmp_path):
+    """A split assigned after the fact can be reassigned after a result.
+
+    The plan called for ~30 train and ~10 held out, and nothing enforced it. An
+    unstamped corpus leaves the division to be made later -- which means it can
+    be made, or remade, once the numbers are known.
+    """
+    r = subprocess.run([PY, str(SCRIPT), "--count", "1", "--output-root",
+                        str(tmp_path), "--dry-run"],
+                       capture_output=True, text=True, cwd=_ROOT)
+    assert r.returncode != 0
+    assert "--split" in r.stderr + r.stdout
+
+    ok = _run("--split", "holdout", tmp=tmp_path)
+    assert ok.returncode == 0
+
+    src = (_ROOT / "dev" / "tools" / "scripts" / "generate_seeded_corpus.py").read_text()
+    assert '"split": split' in src, "the split must reach ground_truth.json"
+    assert src.count('"split": split') >= 2, "and metadata.json"
