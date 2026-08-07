@@ -54,8 +54,48 @@ from uofa_cli.readers.pdf_reader import read_pdf  # noqa: E402
 
 NAMES = tuple({n.lower() for n in ec.VV40_FACTOR_NAMES})
 
-BANDS = {"agree_selection": (0.85, 0.95), "agree_same_sentence": (0.60, 0.85),
-         "na_rate": (0.0, 0.0)}
+# Anchored on the five real papers, measured 2026-08-07 by running
+# d1_annotator_agreement.py: 77 (document, factor) cells, 49 marked by both,
+# 1 gold-only, 1 annotator-only, 26 by neither.
+#
+#     Jaccard   0.961        Gwet AC1  0.952        same-sentence 0.708
+#
+# The ceiling was 0.95 and the real corpus measures 0.961 -- the band rejected
+# its own reference. The old anchor of "real 0.920" came from a D1 run predating
+# two fixes to that script (a table-bias in the annotation, and withheld scope).
+# Ceilings now sit above the real value and below 1.000, which is what the old
+# synthetic corpus and the first seeded paper both scored.
+BANDS = {"agree_selection": (0.85, 0.99), "agree_selection_ac1": (0.85, 0.99),
+         "agree_same_sentence": (0.60, 0.85), "na_rate": (0.0, 0.0)}
+REAL = {"agree_selection": 0.961, "agree_selection_ac1": 0.952,
+        "agree_same_sentence": 0.708, "na_rate": 0.0}
+
+
+def gwet_ac1(both_yes: int, gold_only: int, annot_only: int, neither: int) -> float:
+    r"""Chance-corrected agreement that survives high prevalence.
+
+    Cohen's kappa is the usual instrument and is unusable here. Measured on the
+    real papers it returns **0.000 for bologna and nagaraja despite 92% raw
+    agreement**, because one rater marked 100% of the checklist and a rater with
+    no variance carries no information for kappa however well they agree. That is
+    the kappa paradox (Feinstein & Cicchetti 1990).
+
+    Here it is structural rather than unlucky. R8 records that real credibility
+    assessments enumerate the whole checklist and score absent evidence 0 rather
+    than dropping the row, so prevalence is near 100% by the nature of the
+    artefact -- the same property that makes `control_constant_list` score 1.000.
+
+    Gwet's AC1 estimates chance agreement from how often the raters were in the
+    ambiguous middle rather than from their marginals, so it does not collapse
+    when nearly everything is marked.
+    """
+    n = both_yes + gold_only + annot_only + neither
+    if n == 0:
+        return float("nan")
+    po = (both_yes + neither) / n
+    pi = ((both_yes + gold_only) / n + (both_yes + annot_only) / n) / 2
+    pe = 2 * pi * (1 - pi)
+    return (po - pe) / (1 - pe) if pe < 1 else float("nan")
 # "not stated" belongs here. It is what N/A means, and leaving it out let a run
 # where 188 of 207 levels were "not stated" score na_rate 0.000 and pass -- the
 # check would have been satisfied by the wording of the failure.
@@ -262,6 +302,7 @@ def main() -> int:
 
     # Recompute at document level -- the basis the bands come from.
     d_both = d_uni = d_hit = d_tot = 0
+    ac_by = ac_go = ac_ao = ac_nn = 0   # the 2x2 AC1 needs
     for name in doc_gold:
         gt2 = json.loads((args.corpus / name / "ground_truth.json").read_text()) \
             if (args.corpus / name / "ground_truth.json").exists() else \
@@ -272,6 +313,14 @@ def main() -> int:
         g = {k: v for k, v in doc_gold[name].items() if not sc or k.lower() in sc}
         t = {k: v for k, v in doc_annot.get(name, {}).items() if not sc or k.lower() in sc}
         d_both += len(set(g) & set(t)); d_uni += len(set(g) | set(t))
+        # AC1 needs the both-ABSENT cell, which Jaccard discards. The universe
+        # is the factors this paper could address; a factor neither rater marked
+        # is an agreement and Jaccard never credits it.
+        universe = sc or {k.lower() for k in set(g) | set(t)}
+        ac_by += len(set(g) & set(t))
+        ac_go += len(set(g) - set(t))
+        ac_ao += len(set(t) - set(g))
+        ac_nn += max(0, len(universe) - len(set(g) | set(t)))
         for f in set(g) & set(t):
             ms, ts = spans_for(g[f], sents), spans_for(t[f], sents)
             if ms and ts:
@@ -281,16 +330,25 @@ def main() -> int:
     print(f"  document level (gated):       selection {d_both/max(d_uni,1):.3f}  "
           f"same-sentence {d_hit/max(d_tot,1):.3f}")
 
+    ac1 = gwet_ac1(ac_by, ac_go, ac_ao, ac_nn)
+    print(f"  selection 2x2:  both {ac_by}, gold-only {ac_go}, "
+          f"annotator-only {ac_ao}, neither {ac_nn}")
+
     got = {"agree_selection": d_both / max(d_uni, 1),
+           "agree_selection_ac1": ac1,
            "agree_same_sentence": d_hit / max(d_tot, 1),
            "na_rate": na_hits / max(na_total, 1)}
     print()
     bad = []
     for k, (lo, hi) in BANDS.items():
         v = got[k]
+        if v != v:            # nan -- AC1 is undefined when nothing varies
+            print(f"  ----  {k:22s}  undefined (no variation to correct for)")
+            continue
         ok = lo - 1e-9 <= v <= hi + 1e-9
         bad += [] if ok else [k]
-        print(f"  {'PASS' if ok else 'FAIL'}  {k:22s} {v:6.3f}   band [{lo:.2f}, {hi:.2f}]")
+        print(f"  {'PASS' if ok else 'FAIL'}  {k:22s} {v:6.3f}   "
+              f"band [{lo:.2f}, {hi:.2f}]   real {REAL[k]:.3f}")
     if got["agree_selection"] > BANDS["agree_selection"][1]:
         print("\n  Selection is ABOVE the band. That is a failure, not a good "
               "result:\n  every factor is cleanly reported, which is the old "

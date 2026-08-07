@@ -335,3 +335,91 @@ Alternatives come from gold's own reading, never from the annotator's spans.
 Merging those would make the agreement checker part-author of the key it
 validates, and cross-family independence is the only reason the number means
 anything.
+
+## Addendum: why Gwet's AC1 and not Cohen's kappa
+
+Inter-rater agreement on factor selection was reported as raw Jaccard
+(`both / union`). Cohen's kappa is the conventional instrument, so the obvious
+improvement is to adopt it. **Computed on the five real papers, kappa is
+unusable.**
+
+| doc | raw agreement | **Cohen's κ** | Gwet's AC1 | PABAK |
+|---|---|---|---|---|
+| bologna | 0.923 | **0.000** | 0.917 | 0.846 |
+| nagaraja | 0.923 | **0.000** | 0.917 | 0.846 |
+| morrison | 1.000 | 1.000 | 1.000 | 1.000 |
+| opensim | 1.000 | 1.000 | 1.000 | 1.000 |
+| elemance | 1.000 | 1.000 | 1.000 | 1.000 |
+
+Kappa returns **0.000 for two papers with 92% raw agreement**. One rater marked
+100% of the checklist, and a rater with no variance carries no information for
+kappa however well the two agree. This is the kappa paradox (Feinstein &
+Cicchetti, 1990): with skewed marginals, chance agreement `Pe` approaches
+observed agreement `Po`, and `(Po − Pe)/(1 − Pe)` collapses.
+
+### The paradox is structural here, not accidental
+
+It is not a small-sample artefact that more documents would fix. **R8** records
+why: real credibility assessments enumerate the whole checklist and score absent
+evidence 0 rather than dropping the row. Prevalence is therefore near 100% *by
+the nature of the artefact*.
+
+This is the same property that makes `control_constant_list` — a function that
+prints the standard's checklist and reads nothing — score **1.000** on the real
+corpus, and it is why detection can never be a metric in this domain. One
+property of these documents breaks two different measures for the same reason.
+
+Any corpus faithful to R8 will defeat kappa. A corpus that did *not* defeat
+kappa would be one where papers omit factors wholesale, which is the tidiness
+R5 exists to prevent.
+
+### What AC1 does differently
+
+Gwet's AC1 estimates chance agreement from how often raters were plausibly in
+the ambiguous middle, rather than from their marginal totals:
+
+```
+Po = (both_yes + neither) / n
+π  = mean of the two raters' marked proportions
+Pe = 2π(1 − π)          AC1 = (Po − Pe) / (1 − Pe)
+```
+
+As prevalence approaches 1, `π → 1` and `Pe → 0`, so AC1 approaches raw
+agreement instead of collapsing. It behaves sensibly on every row above.
+
+PABAK (`2Po − 1`) is also stable but discards the marginals entirely and is
+harsher at high agreement. AC1 is reported; Jaccard is retained alongside it so
+the two are comparable across the project's history.
+
+### Not applied to same-sentence agreement
+
+Same-sentence is not a binary classification over a fixed universe — it is
+picking one sentence from several hundred. Chance agreement is around 0.002, so
+raw agreement and any chance-corrected variant are numerically indistinguishable.
+Correcting it would add ceremony and no information.
+
+### Re-anchoring, and a band that rejected its own reference
+
+Both selection bands were re-anchored while doing this, because the existing one
+was wrong. Pooled over the five real papers — 77 (document, factor) cells, 49
+marked by both, 1 gold-only, 1 annotator-only, 26 by neither:
+
+| statistic | real corpus | band |
+|---|---|---|
+| Jaccard | 0.961 | 0.85–0.99 |
+| Gwet AC1 | 0.952 | 0.85–0.99 |
+
+**The previous ceiling was 0.95, and the real corpus measures 0.961 — the band
+rejected the documents it was anchored to.** The spec's stated anchor of "real
+0.920" came from a D1 run predating two fixes to that script: a table-bias in the
+annotation, and withheld scope. The measurement moved and the band did not
+follow.
+
+Ceilings now sit above the real value and below **1.000**, which is what the old
+synthetic corpus and the first seeded paper both scored — still the signal the
+ceiling exists to catch.
+
+This is the sixth threshold in this work set from one population and applied to
+another. The recurring lesson: **a band must be re-derived whenever the
+measurement behind it changes, and the first test of any band is whether it
+accepts its own reference.**
