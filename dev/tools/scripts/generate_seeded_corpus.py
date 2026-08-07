@@ -240,7 +240,7 @@ backslashes; the renderer adds all formatting.
 }}
 
 `rubric`, `figure` and `table` are optional per section; use null where absent. \
-Include at least 6 rubric blocks across the paper, each a ladder of increasing \
+Include at least 9 rubric blocks across the paper, each a ladder of increasing \
 rigour for one factor, in the standard's own style.
 """
 
@@ -621,7 +621,11 @@ def generate_one(idx: int, seed_tag: str, out_root: pathlib.Path, backend,
                 standard_rules=_VV40_RULES if standard == "V&V40" else _7009A_RULES),
                 save_to=_raw("plan"))
             rep["tokens_in"] += ti; rep["tokens_out"] += to
-            plan = _parse_json_response(plan_raw)
+            # Same repair path as the write step. A checkpoint paper died on a
+            # plan-step JSONDecodeError while the write step had recovered from
+            # the identical fault for hours -- the repair was added in one place
+            # and not the other.
+            plan, _ = parse_or_salvage(plan_raw)
             bdir.mkdir(parents=True, exist_ok=True)
             # Written before the write step, so a resume has what gold needs.
             planfile.write_text(json.dumps(plan, indent=2) + "\n")
