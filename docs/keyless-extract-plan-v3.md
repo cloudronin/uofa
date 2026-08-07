@@ -402,6 +402,47 @@ soft, but the degradation is monotonic across three configurations and large.
 
 **Reproduce:** `v1_router_comparison.py`; `V1_ROUTER=k4 V1_K=5 v1_selection_stage.py`.
 
+### Third document: the aggregate improves, the hard case does not
+
+`bundle_real_ared_dap` — `rollup_7009a`, a one-page poster rather than a journal
+article, and a different published vocabulary (8 factors, V&V as single rolled-up
+scores). 19 factor-document pairs across 3 documents.
+
+Aggregate recall@k, all three routers now significant at every k:
+
+| k | K6 | K4 | RRF |
+|---|---|---|---|
+| 1 | 0.158 | 0.211 | **0.316** |
+| 5 | 0.421 | 0.474 | **0.526** |
+| 20 | 0.684 | 0.632 | **0.684** |
+| 40 | 0.737 | 0.737 | **0.789** |
+
+**Do not read that table on its own.** Per document, RRF:
+
+| document | n | @1 | @5 | @20 |
+|---|---|---|---|---|
+| ared | 7 | **0.71** | **0.86** | **1.00** |
+| opensim | 6 | 0.00 | 0.33 | 0.67 |
+| elemance | 6 | 0.17 | 0.33 | 0.33 |
+
+ARED carries the aggregate, and it does so for a reason that does not
+generalise: its evidence lines *begin with the factor name* — "Input Pedigree
+Used highest quality data possible" — because a poster rationale block is a
+labelled table. Routing a labelled table is close to free.
+
+So the third document added an easier genre rather than more evidence about the
+hard one. On journal prose the numbers are unchanged: ~0.33 at k=5, 0.33–0.67 at
+k=20. **The earlier finding stands and is not improved.**
+
+What the third document does establish: routing works across a second published
+vocabulary and a second genre, RRF is ≥ K6 on every document rather than only in
+aggregate, and top-1 is non-zero for the first time (0.316) — though almost
+entirely from ARED.
+
+A fourth document would need to be journal prose to move the number that matters.
+`imm` is the only real bundle left and it is a 32-slide deck at 43 words a slide,
+so the real corpus is exhausted for this purpose.
+
 ### Capitalisation is deliberately not normalised
 
 The two decomposed-vocabulary papers disagree — one prints `Data Pedigree`, the

@@ -52,7 +52,7 @@ sys.path.insert(0, str(_ROOT / "dev" / "tools" / "scripts"))
 sys.path.insert(0, str(_ROOT / "src"))
 sys.path.insert(0, str(_ROOT / "tests" / "fixtures" / "extract_corpus_real"))
 
-from cas_mapping import DECOMPOSED_7009A  # noqa: E402
+from cas_mapping import DECOMPOSED_7009A, VARIANTS, unmapped_factors  # noqa: E402
 from document_furniture import strip_furniture  # noqa: E402
 from keyless_extract_probe import (  # noqa: E402
     PROMPTS,
@@ -65,11 +65,18 @@ from uofa_cli import excel_constants as ec  # noqa: E402
 from uofa_cli.readers.pdf_reader import read_pdf  # noqa: E402
 
 DOCS = [("opensim", "bundle_real_opensim_knee", "annot_opensim.json"),
-        ("elemance", "bundle_real_elemance_thoracic", "annot_elemance_thoracic.json")]
+        ("elemance", "bundle_real_elemance_thoracic", "annot_elemance_thoracic.json"),
+        # rollup_7009a, and a poster rather than a journal article -- if routing
+        # only works on decomposed-vocabulary prose, this is where it shows.
+        ("ared", "bundle_real_ared_dap", "annot_ared_dap.json")]
 KS = (1, 3, 5, 10, 20, 40)
 ENCODER = "all-MiniLM-L6-v2"
 NAMES = tuple({n.lower() for n in ec.NASA_ALL_FACTOR_NAMES}
               | {k.lower() for k in DECOMPOSED_7009A})
+# Published factor names vary in case between papers; `canonical` resolves that.
+# This table only handles the cases where the annotation is FINER than the
+# published vocabulary (the OpenSim prose splits code from solution
+# verification, which decomposed_7009a does not).
 ANNOT_TO_PUBLISHED = {
     "code verification": "Code/solution verification",
     "solution verification": "Code/solution verification",
@@ -110,6 +117,9 @@ def factor_queries() -> dict[str, str]:
 
 
 def load_case(tag, bundle, annot):
+    gt = json.loads((_ROOT / "tests" / "fixtures" / "extract_corpus_real" / bundle
+                     / "ground_truth.json").read_text())
+    variant = gt["cas_variant"]
     src = _ROOT / "tests" / "fixtures" / "extract_corpus_real" / bundle / "source"
     text = "\n".join(c.text for p in sorted(src.glob("*.pdf")) for c in read_pdf(p))
     sents = sentences(text)
@@ -122,10 +132,18 @@ def load_case(tag, bundle, annot):
         offs.append((i, i + len(n)))
         cur = i + len(n)
     ann = json.loads((_ROOT / "docs" / "v1" / annot).read_text())
+    table = VARIANTS[variant]
+    lowered = {k.lower(): k for k in table}
+    # A published factor with no pack constituent cannot be routed at all --
+    # People Qualifications, where the pack has nothing to say about who ran the
+    # model. Excluded rather than scored as a miss, which would penalise the
+    # router for a gap in the schema.
+    unmapped = set(unmapped_factors(variant))
     gold: dict[str, set[int]] = {}
     for a in ann["annotations"]:
-        pub = ANNOT_TO_PUBLISHED.get(a["factor_type"].strip().lower())
-        if pub is None:
+        raw = a["factor_type"].strip()
+        pub = lowered.get(raw.lower()) or ANNOT_TO_PUBLISHED.get(raw.lower())
+        if pub is None or pub in unmapped:
             continue
         for e in a["evidence"]:
             n = norm(e)
@@ -136,7 +154,7 @@ def load_case(tag, bundle, annot):
                 if lo < st + len(n) and st < hi:
                     gold.setdefault(pub, set()).add(i)
     _, pool, _ = strip_furniture(sents, NAMES)
-    return sents, pool, gold
+    return sents, pool, gold, variant
 
 
 def report(name, ranked, rng):
@@ -188,11 +206,11 @@ def main() -> int:
 
     k6r, k4r = {}, {}
     for tag, bundle, annot in DOCS:
-        sents, pool, gold = load_case(tag, bundle, annot)
+        sents, pool, gold, variant = load_case(tag, bundle, annot)
         texts = [sents[i] for i in pool]
         P = clf.predict_proba(feats.transform(texts))
         cvec = enc.encode(texts, normalize_embeddings=True, show_progress_bar=False)
-        for pub, cons in DECOMPOSED_7009A.items():
+        for pub, cons in VARIANTS[variant].items():
             if pub not in gold:
                 continue
             cols = [cls[c] for c in cons if c in cls]
