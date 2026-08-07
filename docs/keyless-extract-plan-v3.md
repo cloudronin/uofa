@@ -357,6 +357,51 @@ the third such finding, after the two-column PDFs and the furniture.
 
 **Reproduce:** `dev/tools/scripts/v1_selection_stage.py`.
 
+### The router is embeddings, not lexical — and the shortlist must be short
+
+K6 is purely lexical: TF-IDF word(1,2) + char_wb(3,5) into logistic regression,
+no embeddings in the routing path. K4 is the embeddings candidate, and it was
+retired for failing detection F1 — the metric this plan establishes is wrong
+permanently. It had never been scored as a router.
+
+Recall@k on the same 12 pairs, same filter, same baseline:
+
+| k | K6 | K4 | RRF | random |
+|---|---|---|---|---|
+| 1 | 0.000 | 0.000 | **0.083** | 0.008 |
+| 3 | 0.083 | 0.083 | **0.167** | 0.021 |
+| 5 | 0.083 | **0.417** | 0.333 | 0.034 |
+| 20 | 0.500 | 0.500 | 0.500 | 0.121 |
+| 40 | 0.583 | 0.583 | **0.667** | 0.226 |
+
+They are complementary: K4 wins `Results uncertainty` (rank 363 → 21) and
+`Results robustness` (60 → 3), where the prose never uses the standard's word;
+K6 wins `Referent validation` (81 → 12), where the document happens to.
+
+#### Selection degrades with shortlist size, and it dominates
+
+| config | ceiling | selector | **end to end** | sentences read |
+|---|---|---|---|---|
+| **K4 @ 5** | 0.417 | **1.000** (5/5) | **0.417** | **5** |
+| K6 @ 20 | 0.500 | 0.833 (5/6) | 0.417 | 20 |
+| RRF @ 40 | **0.667** | 0.250 (2/8) | 0.167 | 40 |
+
+The best ceiling produces the worst pipeline. Selection falls 1.000 → 0.833 →
+0.250 as k grows, and at k=40 that more than cancels reaching 0.667.
+
+So the router's job is **precision at small k**, not recall at large k — which
+is the opposite of how a recall@k table reads, and the reason both numbers have
+to be reported together. Handing a selector more options makes it worse.
+
+**Recommended configuration: K4 @ k=5.** Same end-to-end as K6 @ 20, on a
+quarter of the context, with the selector no longer a constraint at all — every
+remaining loss is the router failing to reach the evidence.
+
+n is small (5/5, 5/6, 2/8 on 12 pairs, 2 documents) so the individual rates are
+soft, but the degradation is monotonic across three configurations and large.
+
+**Reproduce:** `v1_router_comparison.py`; `V1_ROUTER=k4 V1_K=5 v1_selection_stage.py`.
+
 ### Capitalisation is deliberately not normalised
 
 The two decomposed-vocabulary papers disagree — one prints `Data Pedigree`, the

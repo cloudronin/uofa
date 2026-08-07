@@ -54,7 +54,12 @@ from uofa_cli.readers.pdf_reader import read_pdf  # noqa: E402
 
 DOCS = [("opensim", "bundle_real_opensim_knee", "annot_opensim.json"),
         ("elemance", "bundle_real_elemance_thoracic", "annot_elemance_thoracic.json")]
-K = 20
+# Router and shortlist size are the pipeline's two dials. Defaults are the
+# configuration first measured; --router/--k sweep the cost/reach curve found
+# in v1_router_comparison.py.
+K = int(os.environ.get("V1_K", "20"))
+ROUTER = os.environ.get("V1_ROUTER", "k6")   # k6 | k4 | rrf
+ENCODER = "all-MiniLM-L6-v2"
 NAMES = tuple({n.lower() for n in ec.NASA_ALL_FACTOR_NAMES}
               | {k.lower() for k in DECOMPOSED_7009A})
 ANNOT_TO_PUBLISHED = {
@@ -129,6 +134,14 @@ def main() -> int:
     clf.fit(feats.fit_transform(X), y)
     cls = {c: i for i, c in enumerate(clf.classes_)}
 
+    enc = queries = None
+    if ROUTER in ("k4", "rrf"):
+        from sentence_transformers import SentenceTransformer
+        sys.path.insert(0, str(_ROOT / "dev" / "tools" / "scripts"))
+        from v1_router_comparison import factor_queries
+        enc = SentenceTransformer(ENCODER)
+        queries = factor_queries()
+
     cases = []
     for tag, bundle, annot in DOCS:
         src = _ROOT / "tests" / "fixtures" / "extract_corpus_real" / bundle / "source"
@@ -164,17 +177,34 @@ def main() -> int:
                     if lo < st + len(n) and st < hi:
                         gold.setdefault(pub, set()).add(i)
         _, pool, _ = strip_furniture(sents, NAMES)
-        P = clf.predict_proba(feats.transform([sents[i] for i in pool]))
+        texts = [sents[i] for i in pool]
+        P = clf.predict_proba(feats.transform(texts))
+        cvec = enc.encode(texts, normalize_embeddings=True, show_progress_bar=False) \
+            if ROUTER in ("k4", "rrf") else None
         for pub, cons in DECOMPOSED_7009A.items():
             cols = [cls[c] for c in cons if c in cls]
             if not cols or pub not in gold:
                 continue
-            order = sorted(range(len(pool)), key=lambda k: -max(P[k][c] for c in cols))
+            o6 = sorted(range(len(pool)), key=lambda k: -max(P[k][c] for c in cols))
+            if cvec is not None:
+                qs = [queries[c] for c in cons if c in queries]
+                qv = enc.encode(qs, normalize_embeddings=True, show_progress_bar=False)
+                sims = (qv @ cvec.T).max(axis=0)
+                o4 = sorted(range(len(pool)), key=lambda k: -sims[k])
+            if ROUTER == "k6":
+                order = o6
+            elif ROUTER == "k4":
+                order = o4
+            else:
+                p6 = {s: i for i, s in enumerate(o6)}
+                p4 = {s: i for i, s in enumerate(o4)}
+                order = sorted(range(len(pool)),
+                               key=lambda s: -(1.0 / (60 + p6[s]) + 1.0 / (60 + p4[s])))
             shortlist = [pool[k] for k in order[:K]]
             cases.append({"doc": tag, "factor": pub, "shortlist": shortlist,
                           "gold": gold[pub], "sents": sents, "scope": scope})
 
-    print(f"\nSelection stage — sonnet choosing 1 of {K} routed sentences\n")
+    print(f"\nSelection stage — sonnet choosing 1 of {K} sentences routed by {ROUTER.upper()}\n")
     print(f"  {len(cases)} factor-document pairs\n")
 
     rng = random.Random(0)
@@ -205,13 +235,13 @@ def main() -> int:
 
     n = len(cases)
     print(f"\n  {'measure':38s} {'score':>7s}")
-    print(f"  {'router recall@20 (the ceiling)':38s} {reachable / n:>7.3f}  ({reachable}/{n})")
+    print(f"  {f'router recall@{K} (the ceiling)':38s} {reachable / n:>7.3f}  ({reachable}/{n})")
     print(f"  {'sonnet selection, end to end':38s} {sel_ok / n:>7.3f}  ({sel_ok}/{n})")
     if reachable:
         print(f"  {'sonnet selection, of those reachable':38s} "
               f"{sel_ok_reachable / reachable:>7.3f}  ({sel_ok_reachable}/{reachable})")
     print(f"  {'control: always take rank 1':38s} {first_ok / n:>7.3f}  ({first_ok}/{n})")
-    print(f"  {'control: uniform 1-of-20':38s} "
+    print(f"  {f'control: uniform 1-of-{K}':38s} "
           f"{sum(rng.randrange(K) == 0 for _ in range(2000)) / 2000 * (reachable / n):>7.3f}")
     print(f"\n  Two documents, one annotator. End to end is the number the")
     print(f"  pipeline delivers; 'of those reachable' measures the selector alone.")
