@@ -336,37 +336,78 @@ of API spend; the binding cost throughout is annotation.
 
 ## Kill criteria
 
-Each dies unless it beats its null **on real journal prose**:
+Every criterion in the first draft of this plan was satisfiable without meaning
+anything, and both that were actually run proved it:
 
-* **K8** — the output is a fixed record, and anything else is a fail. Judging
-  "was it reported as a deviation?" by eye lets the builder mark their own work.
+* **K8** passed all four while capturing `"high"` from *"if the pump causes high
+  levels of hemolysis"* — the hazard, not the assigned value — and `"3"` from the
+  citation `[3,4]`. The criteria checked the SHAPE of the output and never that
+  the spans were risk statements.
+* **K9** passed "beat `control_first_comparison` at k=5" on **4 hits against 2
+  out of 24**, p = 0.135, tied at k=10 and worse at k=1. The criterion never
+  said *by how much*, so it stays satisfied at every sample size.
 
-  ```json
-  {"stated_risk": "<verbatim span or null>",
-   "decision_consequence": "<verbatim span or null>",
-   "model_influence": "<verbatim span or null>",
-   "substituted_term": "<verbatim term or null>",
-   "derived_risk": "<value from the V&V 40 table or null>",
-   "agreement": "match" | "mismatch" | "not_derivable"}
-  ```
+Writing a criterion in advance is necessary and **not sufficient**. It also has
+to be powered for the sample it runs on, and it has to test the content of the
+result rather than its shape.
 
-  Pass conditions, all required:
-  1. On documents stating both inputs, `derived_risk` is non-null and
-     `agreement` is `match`.
-  2. On Bologna, `substituted_term` is exactly `"regulatory impact"`,
-     `model_influence` is `null`, and `agreement` is `not_derivable` — because
-     the standard's table cannot be indexed on a term the standard does not
-     define. Reporting `mismatch` is a fail. Reporting `match` is a worse fail.
-  3. On both 7009A documents, every field is `null` and `agreement` is
-     `not_derivable`. Any non-null value is fabrication.
-  4. Every non-null span appears verbatim in the source.
-* **K9** — beat `control_constant_validation` (emit the first comparison
-  sentence) on `name_keywords` recall.
-* **K3c** — beat `control_constant_entity` on count MAE, K3's own criterion.
-* **K7** — beat "first sentence of the document" on CoU match, and **report
-  absent on both 7009A documents**. Returning a value there is a fail regardless
-  of what it returns.
-* **K5** — beat `control_constant_decision`, on documents that state a decision.
+### What is detectable at these sample sizes
+
+One-sided binomial, α = 0.05. Minimum candidate hits needed to separate it from
+a control with the given rate:
+
+| n | vs p₀=0.10 | vs p₀=0.25 | vs p₀=0.50 |
+|---|---|---|---|
+| 4 | 3/4 (75%) | 4/4 (100%) | **impossible** |
+| 5 | 3/5 (60%) | 4/5 (80%) | 5/5 (100%) |
+| 12 | 4/12 (33%) | 7/12 (58%) | 10/12 (83%) |
+| 24 | 6/24 (25%) | 11/24 (46%) | 17/24 (71%) |
+| 55 | 10/55 (18%) | 20/55 (36%) | 35/55 (64%) |
+
+At n=4 against a coin-flip control, **no result is distinguishable at all**.
+
+### The remaining candidates, powered
+
+| candidate | n available | needs, vs a 0.25 control | verdict |
+|---|---|---|---|
+| **K3c** `bindsModel/Dataset/Requirement` | 15 (5 docs × 3 entity types) | 8/15 = 53% | runnable, but only a large effect is visible |
+| **K7** `hasContextOfUse` | **4** (V&V 40 documents only) | **4/4 = 100%** | **underpowered — do not run as a test** |
+| **K5** `hasDecisionRecord` | **5** (one decision per document) | 4/5 = 80% | **underpowered — do not run as a test** |
+
+**K7 and K5 cannot be evaluated at current n.** A criterion they could pass would
+require perfection, and one they could fail would be a coin flip. Running them
+produces a number that means nothing in either direction, which is how the last
+two candidates consumed a day.
+
+### The rule, for every future criterion
+
+1. **State n before running.** If the minimum detectable effect at that n exceeds
+   what the candidate could plausibly achieve, the candidate is **not evaluated**
+   — not passed, not failed.
+2. **State the margin, not just the direction.** "Beat the control" is not a
+   criterion; "beat it by the margin significant at this n" is.
+3. **Test content, not shape.** At least one condition must check that a
+   returned span is the thing it claims to be. K8's spans were verbatim and
+   wrong.
+4. **Report the p-value beside the rate.** Both failures above are visible in one
+   line of arithmetic that neither criterion asked for.
+
+### Rewritten criteria
+
+* **K3c** — beat `control_constant_entity` on count MAE across all 15
+  measurements, with the sign of the difference consistent on at least 4 of the
+  5 documents. Per-document consistency substitutes for the power that n=15
+  cannot supply, and it is what would have caught K4's document-dependent
+  reversal early.
+* **K7** — **not evaluated.** Report presence and absence only: does the
+  candidate return a value on the 4 V&V 40 documents and `null` on both 7009A
+  documents. That is a correctness check, not a comparison, and it is the one
+  thing n=4 can support. Any non-null value on a 7009A document is fabrication
+  and fails outright, independent of n.
+* **K5** — **not evaluated.** Same treatment: report presence, and report that
+  the outcome is absent from the source in the documents where it is absent.
+  K5's synthetic verdict (0.061, abstaining on 44 of 49) was already driven by
+  absence rather than by extraction failure.
 
 ## What this plan will not fix
 
