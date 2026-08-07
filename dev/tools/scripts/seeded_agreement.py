@@ -115,6 +115,7 @@ def main() -> int:
     # could only be estimated afterwards.
     spent_tokens = 0
     failed, tot_f, both_f = [], 0, 0
+    gold_only = annot_only = 0
     tot_s = agree_s = 0
     na_total = na_hits = 0
     print(f"\nseeded agreement — {len(bundles)} bundles, second annotator "
@@ -182,6 +183,10 @@ def main() -> int:
 
             for f in set(mine) | set(theirs):
                 tot_f += 1
+                if f in mine and f not in theirs:
+                    gold_only += 1
+                elif f in theirs and f not in mine:
+                    annot_only += 1
                 if f in mine and f in theirs:
                     both_f += 1
                     ms, ts = spans_for(mine[f], sents), spans_for(theirs[f], sents)
@@ -195,6 +200,15 @@ def main() -> int:
         print(f"  no usable response: {failed or 'none'};  comparable factors: {tot_f}")
         print("  No verdict. An API failure is not evidence about the corpus.")
         return 1
+
+    # WHICH WAY the disagreement runs. A single agreement figure cannot tell a
+    # corpus that is genuinely ambiguous from a protocol where one side is
+    # simply more liberal -- gold is asked to enumerate every
+    # (model x mechanism x factor), the annotator to judge what the paper
+    # reports, and those are not the same task.
+    print(f"\n  gold selected but annotator did not: {gold_only}")
+    print(f"  annotator selected but gold did not:  {annot_only}")
+    print(f"  both:                                 {both_f}   of {tot_f}")
 
     cost = estimate_cost(args.model, spent_tokens, output_ratio=0.08)
     print(f"\n  {spent_tokens:,} tokens, about ${cost:.2f}")
