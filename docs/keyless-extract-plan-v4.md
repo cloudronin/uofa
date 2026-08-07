@@ -127,12 +127,16 @@ should win where the document uses the standard's own terminology — and the da
 that (a) drew Bologna's spans from a summary table rather than the body prose and
 (b) excluded 12 pairs the annotator could not find. Correcting both:
 
+Final, at 90% annotation coverage (55 scored pairs):
+
 | k | K6 | K4 | **RRF** |
 |---|---|---|---|
-| 1 | **0.170** | 0.132 | 0.189 |
-| 3 | **0.283** | 0.245 | 0.264 |
-| 5 | 0.321 | 0.340 | **0.358** |
-| 20 | 0.547 | 0.491 | **0.604** |
+| 1 | **0.182** | 0.127 | **0.182** |
+| 3 | **0.291** | 0.236 | 0.255 |
+| 5 | 0.327 | 0.327 | **0.364** |
+| 10 | 0.400 | **0.436** | 0.418 |
+| 20 | 0.545 | 0.491 | **0.600** |
+| 40 | 0.600 | 0.564 | **0.709** |
 
 K4 minus K6 at recall@5, as the evidence improved: **+0.334 → +0.160 → +0.019**.
 K6 now wins at k=1 and k=3.
@@ -276,6 +280,31 @@ scored pairs **37 → 53** — and that recovery is what collapsed the K4 result
 carries it, and gpt-5 is not a human SME: this bounds reader-dependence, it does
 not establish correctness.
 
+### D2: coverage 39/51 → 46/51, and the last three are documented
+
+Two of the five remaining pairs were findable after all — Morrison's
+`Discretization error` ("a convergence study was conducted using three different
+meshes") and Bologna's `Equivalency of input parameters` ("analogous boundary
+conditions were replicated"). Coverage is **46/51 = 90%**.
+
+The other three now carry a written ledger entry instead of a silent gap:
+
+* **nagaraja / Equivalency of input parameters** — no finding. The paper
+  reproduces the gradation definitions and discusses input parameters at length
+  in the sensitivity analysis, but never asserts simulation and experiment inputs
+  were equivalent. The independent annotator did not find it either.
+* **morrison / Numerical solver error** — no finding. The only sentences naming
+  it are the V&V 40 definition, not a statement about this model.
+* **morrison / Use error** — **UNKNOWN, not absent.** The candidate region is
+  damaged: *"Previous literature has is mandatory in this reported user error in
+  implementing the situation."* is two columns spliced. The detector splits 11 of
+  Morrison's 12 pages, so this is residual damage on a page it handles.
+
+That third entry is the one worth keeping. "Absent from the document" and "our
+reader could not parse it" are different claims, and only the first belongs in a
+deliverable. Recording it as unknown is what stops a tooling limit from being
+published as a property of the evidence.
+
 ## Sequencing
 
 An earlier draft of this plan said "adding candidates cannot substitute for
@@ -291,7 +320,7 @@ documents carry 57% of the sample, buys less confidence than two more documents.
 | | work | cost | why here |
 |---|---|---|---|
 | ~~**D1**~~ | ~~Second annotator pass~~ | **done** | 71.4% after two fixes; collapsed the K4 result |
-| **D2** | Re-check the **5 remaining** uncovered pairs | ~1h | 10 of the original 12 turned out to be findable, so the rest are suspect too |
+| ~~**D2**~~ | ~~Re-check the 5 remaining uncovered pairs~~ | **done** | 2 recovered, 3 have a written ledger entry; coverage 90% |
 | **D3** | **Frontiers V&V/in-silico-implantables collection** | ~6h | 7 articles on stent deployment, stent-grafts, flow diverters, bioresorbable scaffolds — none overlapping the current five |
 | **D4** | **TAVI I into the corpus for the risk rows** | ~2h | recovered by the `x_tolerance` fix; states model risk, both inputs, and CoU |
 | **1** | Restate Group A with K4/RRF | ~1h | v3's headline names the losing router |
