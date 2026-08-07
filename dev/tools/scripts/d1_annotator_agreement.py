@@ -104,8 +104,17 @@ from keyless_k2_extractive import sentences  # noqa: E402
 from uofa_cli import excel_constants as ec  # noqa: E402
 from uofa_cli.readers.pdf_reader import read_pdf  # noqa: E402
 
+# All five, not the original two. Clustering analysis showed opensim and
+# elemance are as tightly clustered as Bologna was (2% of the document, median
+# gap 2), and Bologna's cluster turned out to be a summary table. Their clusters
+# look like findings sections instead, but that was assumed once already and was
+# wrong, so it is checked.
 DOCS = [("bologna", "extract_corpus_vv40/bundle_bologna_bcthip", "annot_bologna.json"),
-        ("nagaraja", "extract_corpus_vv40/bundle_nagaraja", "annot_nagaraja.json")]
+        ("nagaraja", "extract_corpus_vv40/bundle_nagaraja", "annot_nagaraja.json"),
+        ("morrison", "extract_corpus_vv40/bundle_morrison", "annot_morrison.json"),
+        ("opensim", "extract_corpus_real/bundle_real_opensim_knee", "annot_opensim.json"),
+        ("elemance", "extract_corpus_real/bundle_real_elemance_thoracic",
+         "annot_elemance_thoracic.json")]
 NAMES = tuple({n.lower() for n in ec.VV40_FACTOR_NAMES})
 
 PROMPT = """\
@@ -194,8 +203,14 @@ def main() -> int:
         # drawn from the same allowance as the answer, so a budget that is fine
         # for a short prompt returns empty on a long one.
         body = "\n".join(kept)[:80000]
+        # Offer each annotator the vocabulary its own document uses: the 7009A
+        # papers are annotated with published decomposed_7009a names, the V&V 40
+        # papers with pack names. Offering the wrong list guarantees disagreement
+        # on factor selection for reasons that have nothing to do with reading.
+        mine_names = sorted(mine)
+        vocab = mine_names if tag in ("opensim", "elemance") else list(ec.VV40_FACTOR_NAMES)
         raw = backend.generate(
-            PROMPT.format(factor_list="\n".join(f"- {f}" for f in ec.VV40_FACTOR_NAMES),
+            PROMPT.format(factor_list="\n".join(f"- {f}" for f in vocab),
                           source=body),
             GenerationOptions(max_tokens=16000))
         m = re.search(r"\{.*\}", raw or "", re.S)
