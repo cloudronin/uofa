@@ -227,10 +227,17 @@ def test_each_standard_has_its_own_factor_vocabulary(standard, expect_names):
 
 
 @pytest.mark.parametrize("v", ["3", "b", "Medium", "low-medium", "7/12", "Level 2",
-                              "High-Medium", "0", "5"])
+                              "High-Medium", "0", "5", "6", "12", "3.5", "9-10"])
 def test_gradations_are_accepted_including_R6_deviations(v):
     """R6 requires each paper to deviate somewhere, so compound levels and
-    private numeric scales are legitimate and must not be filtered out."""
+    private numeric scales are legitimate and must not be filtered out.
+
+    This was bounded to [0-5] and therefore REJECTED the deviation the spec
+    mandates: a paper scoring on its own 0-12 "Explicit FEA Credibility Index"
+    had 39 of its 64 table rows scored 6, the generator reported that as a
+    coverage failure, and the paper was regenerated twice while the writer had
+    produced the full grid correctly every time.
+    """
     assert G._GRADATION.match(v), f"{v!r} is a gradation and was rejected"
 
 

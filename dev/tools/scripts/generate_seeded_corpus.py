@@ -395,14 +395,22 @@ def parse_or_salvage(raw: str) -> tuple[dict, int]:
         f"ends {s[-80:]!r})")
 
 
-# A gradation, on any scale a paper might plausibly use. Deliberately permissive
-# -- R6 requires each paper to deviate from the standard somewhere, including
-# compound levels ("low-medium") and private numeric scales, so this must accept
-# those while rejecting scopes, mechanism names and units.
+# A gradation, on any scale a paper might plausibly use.
+#
+# The bound was [0-5], which REJECTED THE DEVIATION R6 REQUIRES. One paper scored
+# on its own 0-12 "Explicit FEA Credibility Index" -- a private numeric scale,
+# exactly the deviation the spec asks each paper to make -- and 39 of its 64
+# table rows scored 6. The generator reported that as a coverage failure and the
+# paper was regenerated twice while the writer had produced the full grid
+# correctly both times.
+#
+# So any bare number is a gradation. What must still be rejected is a scope
+# ("Global"), a mechanism name ("Gait"), or a measurement carrying a unit
+# ("3.0 mm", "90 um") -- the anchors do that, since a unit cannot follow.
 _GRADATION = re.compile(
-    r"^(?:[0-5](?:\s*[-/]\s*[0-5])?|[a-e]|"
+    r"^(?:\d{1,2}(?:\.\d)?(?:\s*[-/]\s*\d{1,2}(?:\.\d)?)?|[a-e]|"
     r"(?:very\s+)?(?:low|medium|med|high)(?:\s*[-/]\s*(?:low|medium|med|high))?|"
-    r"\d{1,2}\s*/\s*\d{1,2}|level\s*[0-5]|not\s+applicable)$", re.I)
+    r"level\s*\d{1,2}|not\s+applicable)$", re.I)
 
 
 def factor_levels(sections: list[dict]) -> dict[str, str]:
