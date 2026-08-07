@@ -188,8 +188,23 @@ clearly reporting a finding.
 3. Score every factor separately for each (model x mechanism) pair. Never merge \
 them.
 
-4. Include a summary table whose rows restate findings that are ALSO in the \
-prose, with the numbers in the prose.
+4. Include ONE credibility-assessment summary table, and make it the real thing:
+
+   * one row per (factor x model x mechanism) the paper assesses -- put the \
+scope in the FACTOR cell, like "Model form - Model 1 - level gait"
+   * the LEVEL cell holds the GRADATION and nothing else: the score, level or \
+rating on the scale this paper uses ("3", "b", "Medium", "7/12"). Never a scope, \
+a mechanism name, "Global", or a unit. A reader must be able to sort the table \
+by that column.
+   * every factor the paper covers appears, INCLUDING those where the evidence \
+is absent or weak -- score those at the bottom of the scale rather than omitting \
+the row. Real assessments enumerate the whole checklist; a missing row is not \
+the same as a low score.
+   * the basis cell restates a finding that is ALSO argued in the prose, with \
+the numbers in the prose.
+
+   Device parameters, mesh sizes and material properties belong in a DIFFERENT \
+table if you want one. They are not credibility factors.
 
 5. Say nothing about any credibility factor not in the plan.
 
@@ -209,7 +224,8 @@ backslashes; the renderer adds all formatting.
       "rubric": {{"factor": "...", "rungs": ["a text", "b text", "c text", "d text"]}},
       "figure": "full-width figure caption, or null",
       "table": {{"caption": "...",
-                "rows": [["factor name", "level", "one-line basis"]]}}}}
+                "rows": [["factor - model - mechanism", "gradation only",
+                          "one-line basis"]]}}}}
   ]
 }}
 
@@ -330,6 +346,38 @@ def parse_or_salvage(raw: str) -> tuple[dict, int]:
         f"ends {s[-80:]!r})")
 
 
+# A gradation, on any scale a paper might plausibly use. Deliberately permissive
+# -- R6 requires each paper to deviate from the standard somewhere, including
+# compound levels ("low-medium") and private numeric scales, so this must accept
+# those while rejecting scopes, mechanism names and units.
+_GRADATION = re.compile(
+    r"^(?:[0-5](?:\s*[-/]\s*[0-5])?|[a-e]|"
+    r"(?:very\s+)?(?:low|medium|med|high)(?:\s*[-/]\s*(?:low|medium|med|high))?|"
+    r"\d{1,2}\s*/\s*\d{1,2}|level\s*[0-5]|not\s+applicable)$", re.I)
+
+
+def factor_levels(sections: list[dict]) -> dict[str, str]:
+    """factor-cell -> gradation, from the paper's own summary table.
+
+    Read from the authored content rather than re-extracted from the PDF by a
+    model. Gold was asked to do both jobs in one call and did the second badly --
+    but the fault was upstream: the write prompt never defined the level column,
+    so one paper put "Global" there, one produced a device-parameter table
+    ("Stent OD", "Strut thickness"), and one produced no table at all. Gold was
+    reporting those tables faithfully.
+    """
+    out = {}
+    for s in sections:
+        t = s.get("table")
+        if not isinstance(t, dict):
+            continue
+        for r in t.get("rows", []):
+            cells = _row3(r)
+            if cells and _GRADATION.match(cells[1].strip()):
+                out[cells[0].strip().lower()] = cells[1].strip()
+    return out
+
+
 def _row3(r) -> tuple[str, str, str] | None:
     """Coerce a model-written table row to (factor, level, basis).
 
@@ -406,6 +454,12 @@ def build_body(sections: list[dict], device: str = "the device") -> str:
 # a number and hoping. Without any bibliography the pilot came out at 0.652.
 _REFS = 34
 
+# A paper whose summary table carries fewer real gradations than this has not
+# produced the R3/R8 artefact at all. One pilot paper put "Global" in the level
+# column, one produced a device-parameter table, and one produced no table --
+# and all three passed, because nothing checked. Regenerated, not shipped.
+_MIN_TABLE_ROWS = 6
+
 
 # Per-step wall-clock budgets. The shared factory's 240s is sized for the
 # markdown generator's short calls; the first pilot spent $0.04 and produced
@@ -480,6 +534,8 @@ def generate_one(idx: int, seed_tag: str, out_root: pathlib.Path, backend,
         planfile = bdir / "plan.json"
         if pdf.exists() and planfile.exists():
             plan = json.loads(planfile.read_text())
+            lf = bdir / "levels.json"
+            levels = json.loads(lf.read_text()) if lf.exists() else {}
             rep["resumed_from_existing_pdf"] = True
         else:
             plan_raw, ti, to = _ask(backend, "plan", PLAN_PROMPT.format(
@@ -502,6 +558,14 @@ def generate_one(idx: int, seed_tag: str, out_root: pathlib.Path, backend,
             content, lost = parse_or_salvage(write_raw)
             if lost:
                 rep["sections_lost_to_truncation"] = lost
+
+            levels = factor_levels(content["sections"])
+            if len(levels) < _MIN_TABLE_ROWS:
+                raise RuntimeError(
+                    f"summary table unusable: {len(levels)} rows carry a real "
+                    f"gradation, need >={_MIN_TABLE_ROWS}. R3/R8 want one row per "
+                    f"(factor x model x mechanism) with a sortable level column.")
+            (bdir / "levels.json").write_text(json.dumps(levels, indent=2) + "\n")
 
             spec = {"title": content["title"], "runhead": content["runhead"],
                     "authors": content["authors"],
@@ -583,6 +647,18 @@ def generate_one(idx: int, seed_tag: str, out_root: pathlib.Path, backend,
                 dropped_reason["factor-reuses-span"] += 1
                 continue
             seen_by_factor.setdefault(f.get("factor", ""), set()).add(k)
+            # The gradation comes from the paper's own table, not from the gold
+            # model re-reading it. Match the most specific table row first: the
+            # table keys its rows "factor - model - mechanism".
+            fac, mdl, mech = (str(f.get(x, "")).lower()
+                              for x in ("factor", "model", "mechanism"))
+            hit = next((v for key, v in levels.items()
+                        if fac and fac in key and (not mdl or mdl[:18] in key)
+                        and (not mech or mech[:18] in key)), None)
+            hit = hit or next((v for key, v in levels.items() if fac and fac in key), None)
+            if hit:
+                f["level"] = hit
+                f["level_source"] = "summary table"
             kept.append(f)
         dropped = len(raw_findings) - len(kept)
 

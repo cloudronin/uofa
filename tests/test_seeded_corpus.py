@@ -226,6 +226,53 @@ def test_each_standard_has_its_own_factor_vocabulary(standard, expect_names):
         assert set(names) != set(G._factors("V&V40"))
 
 
+@pytest.mark.parametrize("v", ["3", "b", "Medium", "low-medium", "7/12", "Level 2",
+                              "High-Medium", "0", "5"])
+def test_gradations_are_accepted_including_R6_deviations(v):
+    """R6 requires each paper to deviate somewhere, so compound levels and
+    private numeric scales are legitimate and must not be filtered out."""
+    assert G._GRADATION.match(v), f"{v!r} is a gradation and was rejected"
+
+
+@pytest.mark.parametrize("v", ["Global", "Gait", "Edge loading", "3.0 mm", "90 um",
+                              "unspecified", "not stated", "", "mechanism-specific"])
+def test_non_gradations_are_rejected(v):
+    """Every one of these appeared in a pilot paper's level column."""
+    assert not G._GRADATION.match(v), f"{v!r} is not a gradation and was accepted"
+
+
+def test_levels_come_from_the_table_not_from_a_model_rereading_it():
+    """And rows that do not carry a gradation are not levels at all.
+
+    Three pilot papers produced, respectively, "Global" in every level cell, a
+    device-parameter table ("Stent OD", "Strut thickness"), and no table. Gold
+    reported those faithfully -- the fault was that the write prompt never
+    defined the column, and nothing checked the result.
+    """
+    sections = [
+        {"heading": "Results", "table": {"caption": "Credibility", "rows": [
+            ["Model form - Model 1 - gait", "3", "basis"],
+            ["Test samples - Model 1 - gait", "low-medium", "basis"],
+            ["Governing choices - Model 1 - gait", "Global", "not a gradation"],
+        ]}},
+        {"heading": "Device", "table": {"caption": "Parameters", "rows": [
+            ["Stent OD", "3.0 mm", "labeling size"],
+            ["Strut thickness", "90 um", "measured"],
+        ]}},
+    ]
+    lv = G.factor_levels(sections)
+    assert lv == {"model form - model 1 - gait": "3",
+                  "test samples - model 1 - gait": "low-medium"}
+
+
+def test_a_paper_without_a_usable_factor_table_is_rejected():
+    """R3 and R8 were in the spec and absent from the prompt actually sent."""
+    assert G._MIN_TABLE_ROWS >= 6
+    thin = [{"heading": "R", "table": {"caption": "c",
+                                       "rows": [["Model form", "3", "b"]]}}]
+    assert len(G.factor_levels(thin)) < G._MIN_TABLE_ROWS
+
+
 def test_seed_reading_never_touches_ground_truth(monkeypatch):
     """Generation may see a seed's DOCUMENT and never its labels."""
     opened: list[str] = []
