@@ -225,7 +225,37 @@ def extract(
     result.model_used = model
     result.corpus_tokens = corpus.total_tokens
     result.raw_json = raw_json
+    _stamp_source_documents(result, corpus)
     return result
+
+
+def _stamp_source_documents(result: ExtractionResult, corpus: ExtractionCorpus) -> None:
+    """Set `source_document` from the files actually read, not from the model.
+
+    `wasDerivedFrom` is one of the nine properties `ProfileComplete` requires,
+    and the model was being asked to supply it -- "filename, DOI or report
+    number of the document this was derived from". Measured across 54 extracted
+    workbooks, it answered `None` every time, so the property was satisfied
+    downstream only by the skeleton template's own example URI. The requirement
+    was being met by the instructions for meeting it.
+
+    This is not an extraction problem. The pipeline opened the files; it knows
+    their names, and a model guessing at them can only be wrong. Stamping it
+    here also means the value cannot be a hallucinated DOI, which is the failure
+    mode that matters for a provenance field on a credibility artefact.
+
+    Confidence is 1.0 and `source_file` is None on purpose: this is not a
+    reading of the document, so attributing it to a page would be false.
+    """
+    names: list[str] = []
+    for chunk in corpus.chunks:
+        if chunk.source_file and chunk.source_file not in names:
+            names.append(chunk.source_file)
+    if not names:
+        return
+    result.assessment_summary["source_document"] = FieldExtraction(
+        value="; ".join(names), confidence=1.0, source_file=None, source_page=None,
+    )
 
 
 def _save_debug_response(raw_json: dict) -> None:
