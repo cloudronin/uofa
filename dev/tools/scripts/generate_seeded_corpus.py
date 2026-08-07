@@ -719,7 +719,8 @@ def generate_one(idx: int, seed_tag: str, out_root: pathlib.Path, backend,
         norm = lambda s: " ".join(str(s).split()).lower()  # noqa: E731
         sent_low = [norm(s) for s in _sents(doc)]
         kept, dropped_reason = [], {"not-verbatim": 0, "crosses-sentences": 0,
-                                    "factor-reuses-span": 0, "factor-out-of-scope": 0}
+                                    "factor-reuses-span": 0, "factor-out-of-scope": 0,
+                                    "factor-not-scored": 0}
         in_scope = {x.lower() for x in scope}
         flat = norm(doc)
         seen_by_factor: dict[str, set] = {}
@@ -781,9 +782,18 @@ def generate_one(idx: int, seed_tag: str, out_root: pathlib.Path, backend,
                         if fac and fac in key and (not mdl or mdl[:18] in key)
                         and (not mech or mech[:18] in key)), None)
             hit = hit or next((v for key, v in levels.items() if fac and fac in key), None)
-            if hit:
-                f["level"] = hit
-                f["level_source"] = "summary table"
+            if not hit:
+                # The paper's own table does not score this factor anywhere, so
+                # under R8 -- which records that real assessments enumerate the
+                # whole checklist and score absent evidence rather than dropping
+                # the row -- the paper does not assess it. Same authority as the
+                # out-of-scope drop: the authored table decides, not the gold
+                # model's reading of incidental prose. These were the entire
+                # residual N/A rate at the checkpoint, 13 findings of 405.
+                dropped_reason["factor-not-scored"] += 1
+                continue
+            f["level"] = hit
+            f["level_source"] = "summary table"
             kept.append(f)
         dropped = len(raw_findings) - len(kept)
 

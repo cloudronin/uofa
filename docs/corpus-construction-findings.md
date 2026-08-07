@@ -254,3 +254,41 @@ about **$14**.
 * Retraining K6 on this corpus remains **deferred, not scheduled**: seeding on
   three of the five real papers means training on paraphrases of three test
   documents, and the only clean read would be elemance and morrison, n=2.
+
+### Agreement at n=8 — 2026-08-07
+
+The pilot's agreement result was n=3 and rested on 24 factor comparisons. At n=8
+it rests on 65, across papers seeded on all three sources and spanning eight
+devices. Document level, the basis the bands are anchored to:
+
+| measure | n=3 | **n=8** | real | band |
+|---|---|---|---|---|
+| factor selection (Jaccard) | 0.917 | **0.891** | 0.961 | 0.85–0.99 |
+| factor selection (Gwet AC1) | — | **0.876** | 0.952 | 0.85–0.99 |
+| same sentence | 0.773 | **0.786** | 0.708 | 0.60–0.85 |
+| N/A rate | 0.000 | 0.032 → **0.000** | 0.000 | = 0 |
+
+Selection sits **below** the ceiling on both statistics, which is the result the
+gate exists to produce: the papers are not too clean. Same-sentence is *above*
+the real corpus and inside its band.
+
+The 2×2 the AC1 needs, document level over 8 bundles: both 57, gold-only 1,
+annotator-only 6, neither 1.
+
+**The N/A regression, and why it is one line of code.** Thirteen findings of 404
+carried no gradation, all in the four papers added at the checkpoint. In every
+case the paper's own summary table scores that factor in **no row at all** — gold
+reported a finding for `Test samples` where the table has zero `Test samples`
+rows.
+
+Under R8 a paper scores every factor it assesses, so a factor absent from the
+table is one the paper does not assess, and the finding is wrong. This is the
+same authority already used for the out-of-scope drop: **the authored table
+decides what the paper assesses, not the gold model's reading of incidental
+prose.** Dropped and counted as `factor-not-scored`; 3.2% of findings, N/A rate
+back to 0.
+
+A per-scope figure is also printed now, as a diagnostic only: selection 0.799,
+same-sentence 0.564. It is *not* gated, because the bands come from
+document-level measurement and comparing across granularities is what produced
+the 0.508 mistake recorded above.
