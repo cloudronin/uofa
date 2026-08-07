@@ -317,6 +317,46 @@ sentences to read instead of 539.
 
 **Reproduce:** `dev/tools/scripts/v1_routing_recall.py`.
 
+### The hybrid, measured end to end on real documents
+
+Keyless routes to 20 sentences; sonnet picks one. Two real documents, 12
+factor-document pairs, scored against hand annotation.
+
+| stage | score | |
+|---|---|---|
+| router recall@20 | **0.500** | 6/12 — the ceiling |
+| selector, of those reachable | **0.833** | 5/6, p = 0.0000018 |
+| **end to end** | **0.417** | 5/12, p = 0.0000116 |
+| control: always take rank 1 | 0.000 | 0/12 |
+| control: uniform 1-of-20 | 0.028 | |
+
+**The router is now the bottleneck, not the selector.** 0.417 = 0.500 × 0.833,
+and the selector is nearly maxed out against what it is handed. Effort belongs
+in routing recall.
+
+The economic claim holds: the paid stage reads 20 sentences instead of 539
+(opensim) or 1326 (elemance) — a 27–66× reduction in what the model sees, for a
+selector that gets 5 of 6 right when the answer is present.
+
+#### Naming the model and mechanism moved the selector from 3/6 to 5/6
+
+The first run scored 0.500 on reachable cases, and all three misses were the
+same error: right factor, wrong model. Sonnet picked "a factor score of 1 is
+assigned for the code verification" where the bundle's own score is 0, and
+"factor score of 2 for the results robustness" where the bundle's is 1.
+
+These papers assess **2 models × 4 injury mechanisms**, scoring every factor
+separately for each, and the prompt named only the factor. The bundle's own
+provenance already carries the scope (`model`, `injury_mechanism`, `scenario`),
+so adding it was free.
+
+The unit of assessment is **(model × mechanism × factor)**, not factor. That is
+a fact about real evidence bundles that the synthetic corpus does not contain —
+one generated bundle is one model, so the ambiguity cannot arise there. It is
+the third such finding, after the two-column PDFs and the furniture.
+
+**Reproduce:** `dev/tools/scripts/v1_selection_stage.py`.
+
 ### Capitalisation is deliberately not normalised
 
 The two decomposed-vocabulary papers disagree — one prints `Data Pedigree`, the
