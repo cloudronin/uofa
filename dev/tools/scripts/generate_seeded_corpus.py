@@ -710,11 +710,26 @@ def generate_one(idx: int, seed_tag: str, out_root: pathlib.Path, backend,
         norm = lambda s: " ".join(str(s).split()).lower()  # noqa: E731
         sent_low = [norm(s) for s in _sents(doc)]
         kept, dropped_reason = [], {"not-verbatim": 0, "crosses-sentences": 0,
-                                    "factor-reuses-span": 0}
+                                    "factor-reuses-span": 0, "factor-out-of-scope": 0}
+        in_scope = {x.lower() for x in scope}
         flat = norm(doc)
         seen_by_factor: dict[str, set] = {}
         for f in raw_findings:
             k = norm(f.get("span", ""))
+            # A finding for a factor this paper does not assess is wrong, not
+            # merely out of scope: the plan forbids the factor and the authored
+            # summary table does not contain it, so the paper demonstrably makes
+            # no claim about it. Gold reaches these by mapping incidental prose
+            # onto the full checklist it is given -- 11 of 34 findings on one
+            # bundle, every one of which also came back with no gradation,
+            # because there is no table row to read one from.
+            #
+            # This removes provably wrong entries from the answer key. It is not
+            # the same as handing gold the scope, which would let it FIND things
+            # the annotator cannot and rig the agreement measure.
+            if str(f.get("factor", "")).lower() not in in_scope:
+                dropped_reason["factor-out-of-scope"] += 1
+                continue
             if not k or k not in flat:
                 dropped_reason["not-verbatim"] += 1
                 continue

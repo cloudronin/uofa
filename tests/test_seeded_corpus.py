@@ -359,3 +359,27 @@ def test_gold_and_the_annotator_are_asked_the_same_question():
     ]:
         assert phrase.lower() in G.GOLD_PROMPT.lower(), f"gold prompt lacks {why}"
         assert phrase.lower() in ANNOTATOR_PROMPT.lower(), f"annotator prompt lacks {why}"
+
+
+def test_gold_findings_outside_the_papers_scope_are_dropped():
+    """They are wrong, not merely out of scope.
+
+    The plan forbids the factor and the authored summary table does not contain
+    it, so the paper demonstrably makes no claim about it. Gold reaches these by
+    mapping incidental prose onto the full checklist it is handed: 11 of 34
+    findings on one pilot bundle, and all 11 also came back with no gradation --
+    there is no table row to read one from. So the N/A residual and the
+    out-of-scope residual were the same eleven findings.
+
+    Dropping them removes provably wrong entries from the answer key. It is NOT
+    the same as handing gold the scope, which would let gold find things the
+    annotator cannot and rig the measure in the flattering direction.
+    """
+    src = (_ROOT / "dev" / "tools" / "scripts" / "generate_seeded_corpus.py").read_text()
+    assert 'dropped_reason["factor-out-of-scope"] += 1' in src
+    # and the scope must still be withheld from the gold PROMPT
+    assert "{factors}" in G.GOLD_PROMPT
+    filled = G.GOLD_PROMPT.format(models="M", mechanisms="X", document="D",
+                                  factors="\n".join(G._factors("V&V40")))
+    full = G._factors("V&V40")
+    assert all(f in filled for f in full), "gold must still see the FULL checklist"
