@@ -8,6 +8,41 @@ Measured on **37 factor-document pairs across 5 real journal-prose documents**:
 two NASA-STD-7009A (opensim, elemance) and three ASME V&V 40 (bologna,
 nagaraja, morrison). Two standards, five documents, one annotator.
 
+### The denominator is the findable subset, and that biases every number
+
+51 factor-document pairs are possible. **39 were annotated and 12 were not** —
+and the 12 are not `not_applicable`, they are the ones where a careful reader
+looked for evidence and could not locate it.
+
+| document | possible | annotated | excluded |
+|---|---|---|---|
+| opensim | 6 | 6 | 0 |
+| elemance | 6 | 6 | 0 |
+| bologna | 13 | 11 | 2 |
+| nagaraja | 13 | 10 | 3 |
+| **morrison** | 13 | **4** | **9** |
+| total | 51 | 39 | 12 (24%) |
+
+Excluded: `Equivalency of input parameters` (all three V&V 40 documents),
+`Test conditions` (three), and for Morrison a further seven whose per-factor
+content sits inside Tables 3–4 rather than in prose.
+
+**So recall@k is measured on the pairs where evidence was findable, and the
+hard cases are outside the denominator.** Every number in this plan carries
+that. Two consequences:
+
+* Report **annotation coverage (39/51) beside every recall figure**, and treat
+  the excluded pairs as an upper bound on optimism — if a router would have
+  missed them too, true recall is lower by up to 24%.
+* Coverage is itself a finding. A reader who cannot locate per-factor evidence
+  for a quarter of factors is telling you something about the documents, not
+  about the router. `Equivalency of input parameters` is unfindable in three
+  independent papers, which is a stronger statement than any recall number here.
+
+The fix is not to annotate harder. It is to record, per excluded pair, **why**:
+absent from the document, present only in a table, or present but not locatable.
+That turns 12 silent exclusions into 12 data points.
+
 ## What changed since v3
 
 1. **Synthetic evaluation inverts method rankings.** K6 scores 0.829 recall@5 on
@@ -179,35 +214,72 @@ Learned the expensive way; not negotiable for a v4 number to mean anything.
 6. **The furniture filter applies to the routing path only.** The CAS table is
    noise for rationale and gold for levels.
 7. **`evidence_keywords` may never seed a matcher.** Unchanged from v2.
-8. **Expect a new extraction pathology per document genre.** Four so far, each
+8. **The reliability check must run on the data being relied on.** Inter-annotator
+   agreement was measured at 89.3% — on *synthetic* labels, which then turned out
+   to invert method rankings. The real corpus, which everything now rests on, has
+   one annotator and no cross-check. A second independent pass over two documents
+   is the minimum that distinguishes 39 measurements from 39 opinions, and it is
+   cheaper than any candidate in the sequence below.
+9. **Expect a new extraction pathology per document genre.** Four so far, each
    invisible on synthetic markdown and each found only by reading real output:
    column interleaving, line wrapping, lost inter-word spaces, and reproduced
    gradation rubrics surviving as standalone sentences. Budget for a fifth.
 
 ## Sequencing
 
+An earlier draft of this plan said "adding candidates cannot substitute for
+adding documents" and then sequenced five candidates and zero documents. That is
+self-contradictory, and the contradiction favoured the fun work. Corrected:
+**documents first.**
+
+Two documents did more to the K4 result than any candidate could — going from
+three to five halved its apparent lead and produced a reversal that is still
+unexplained. Nineteen hours of candidates judged on the same 39 pairs, where two
+documents carry 57% of the sample, buys less confidence than two more documents.
+
 | | work | cost | why here |
 |---|---|---|---|
+| **D1** | **Second annotator pass, 2 documents** | ~3h | 39 pairs are one person's judgment with no cross-check; the 89.3% agreement figure was measured on synthetic labels that then proved misleading |
+| **D2** | **Record why each of the 12 exclusions was excluded** | ~2h | turns a silent 24% bias into 12 data points |
+| **D3** | **Frontiers V&V/in-silico-implantables collection** | ~6h | 7 articles on stent deployment, stent-grafts, flow diverters, bioresorbable scaffolds — none overlapping the current five |
+| **D4** | **TAVI I into the corpus for the risk rows** | ~2h | recovered by the `x_tolerance` fix; states model risk, both inputs, and CoU |
 | **1** | Restate Group A with K4/RRF | ~1h | v3's headline names the losing router |
 | **2** | `wasDerivedFrom` fix | ~1h | a bug currently scored as satisfied |
-| **3** | **K8** risk extract-and-validate | ~4h | best-evidenced candidate; 3 documents supply both inputs, Morrison in prose for 2 COUs |
+| **3** | **K8** risk extract-and-validate | ~4h | best-evidenced candidate; D4 adds a fourth document to it |
 | **4** | **K9** validation results | ~4h | most tractable unfilled row, present in all 5 |
-| **5** | **K3c** entity role by embedding | ~4h | reuses the loaded encoder; K3's own diagnosis points here |
-| **6** | **K7** CoU section | ~3h | narrow: V&V 40 only |
+| **5** | **K3c** entity role by embedding | ~4h | reuses the loaded encoder |
+| **6** | **K7** CoU section | ~3h | V&V 40 only; D4 adds a fourth document |
 | **7** | K5 re-run, presence-first | ~2h | may correctly report "absent" |
 
-All free — no key, no generation spend. The binding cost is annotation.
-
-K8 moved from 5th to 3rd: it was speculative in the first draft of this plan and
-is now the best-supported candidate here.
+D1–D4 come first and cost ~13h against the candidates' ~19h. Everything is free
+of API spend; the binding cost throughout is annotation.
 
 ## Kill criteria
 
 Each dies unless it beats its null **on real journal prose**:
 
-* **K8** — derived risk must match stated risk where both appear. Bologna's
-  regulatory-impact substitution counts as a **pass** if reported as a
-  documented deviation, and a **fail** if reported as a mismatch.
+* **K8** — the output is a fixed record, and anything else is a fail. Judging
+  "was it reported as a deviation?" by eye lets the builder mark their own work.
+
+  ```json
+  {"stated_risk": "<verbatim span or null>",
+   "decision_consequence": "<verbatim span or null>",
+   "model_influence": "<verbatim span or null>",
+   "substituted_term": "<verbatim term or null>",
+   "derived_risk": "<value from the V&V 40 table or null>",
+   "agreement": "match" | "mismatch" | "not_derivable"}
+  ```
+
+  Pass conditions, all required:
+  1. On documents stating both inputs, `derived_risk` is non-null and
+     `agreement` is `match`.
+  2. On Bologna, `substituted_term` is exactly `"regulatory impact"`,
+     `model_influence` is `null`, and `agreement` is `not_derivable` — because
+     the standard's table cannot be indexed on a term the standard does not
+     define. Reporting `mismatch` is a fail. Reporting `match` is a worse fail.
+  3. On both 7009A documents, every field is `null` and `agreement` is
+     `not_derivable`. Any non-null value is fabrication.
+  4. Every non-null span appears verbatim in the source.
 * **K9** — beat `control_constant_validation` (emit the first comparison
   sentence) on `name_keywords` recall.
 * **K3c** — beat `control_constant_entity` on count MAE, K3's own criterion.
@@ -218,13 +290,30 @@ Each dies unless it beats its null **on real journal prose**:
 
 ## What this plan will not fix
 
-Five documents, 37 pairs, one annotator. Nagaraja contributes 10 and Bologna 11,
-so two documents carry 57% of the sample.
+Five documents, 39 annotated pairs of 51 possible, one annotator. Nagaraja and
+Bologna carry 57% of the sample.
 
-The corpus is close to exhausted: NTRS yields no further journal prose, and of
-the four known applied V&V 40 case studies, three are now in — the fourth pair
-(TAVI I and II) is unusable through a ~10% inter-word space-loss extraction
-fault and publishes no per-factor table anyway.
+### The corpus is not exhausted — that claim was wrong
 
-**Adding candidates cannot substitute for adding documents.** If the rows fill
-and the sample stays at five, the deliverable says so in its own header.
+An earlier version of this plan declared the corpus exhausted after two
+searches. It is not:
+
+* **The Frontiers collection** *Verification and Validation of In Silico Models
+  for Biomedical Implantable Devices* — 7 articles covering stent deployment,
+  stent-graft deployment in endovascular repair, flow diverters and bioresorbable
+  scaffolds. None overlaps the current five. Whether they publish per-factor
+  credibility tables is unchecked, and checking is D3.
+* **TAVI I**, discarded for an extraction fault that turned out to be one
+  pdfplumber parameter. It is still not a per-factor assessment — 3/13 factor
+  names, and the paper says the applicability assessment was not carried out —
+  but it states model risk, both of its inputs, and context of use, so it is a
+  fourth document for K7 and K8. The original rejection conflated "unusable for
+  factor routing" with "unusable".
+
+The lesson is narrower than "search harder": **a document was discarded for a
+tooling default that was already on the known-pathologies list.** A known
+pathology is a bug with an untried fix, not a property of the document.
+
+**Adding candidates cannot substitute for adding documents** — which is why
+D1–D4 now precede every candidate in the sequence above. If the rows fill and
+the sample stays at five, the deliverable says so in its own header.
