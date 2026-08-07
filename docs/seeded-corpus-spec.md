@@ -155,19 +155,68 @@ non-null `modelRiskLevel` on a 7009A document is fabrication.
 
 A generated corpus is **not usable** until its profile matches the real one.
 
-| measure | real target | tolerance |
+Implemented as [`corpus_profile.py`](../dev/tools/scripts/corpus_profile.py),
+which exits non-zero out of tolerance.
+
+| measure | real | tolerance |
 |---|---|---|
-| sentence-like fraction | 0.46 | ±0.10 |
-| furniture-filter retention | 0.35 | ±0.10 |
+| sentence-like fraction | 0.46 | 0.36–0.56 |
+| furniture-filter retention | 0.35 | 0.25–0.45 |
 | run-together tokens (>20 chars) | ~0.05% | <0.5% |
+| two-column pages | 0.73 | ≥0.60 |
+| hyphenated line ends | 0.049 | ≥0.02 |
+| **words per paper** | **10,994** | **≥5,000** |
+| **distinct types per paper** | **1,613** | **≥1,200** |
 | gold span survival through the reader | ≥0.90 | — |
 | factor-selection agreement, 2 annotators | 0.92 | 0.85–0.95 |
 | same-sentence agreement, 2 annotators | 0.71 | 0.60–0.85 |
 | N/A rate | 0.000 | = 0 |
 | entity counts over 5 draws | models, datasets stable; requirements not | — |
 
-The last two rows are the ones that catch tidiness. Agreement *above* 0.95 means
-the papers are too clean, not that the corpus is good.
+Agreement *above* 0.95 means the papers are too clean, not that the corpus is
+good. Length and vocabulary breadth are new rows: the old corpus ran 1,341 words
+and 513 types per document, and a paper that short cannot satisfy R7 at all.
+
+### Diversity: what calibration changed
+
+The plan proposed failing above 0.60 mean pairwise cosine / 0.85 max. Measuring
+first — as the plan required — showed all three parts of that were wrong.
+
+**The thresholds were far too loose.** Real papers sit at mean 0.141, max 0.261.
+
+**Full-text cosine reads length, not sameness.** Uncapped, it rated the corpus
+that inverted the K6/K4 ranking as *more varied* than five real papers under two
+standards, because the real ones are 8× longer and long documents share more
+terms. Capping every document to its first 1,500 words restores the true
+ordering: real 0.141, old synthetic 0.202.
+
+**Two of the three measures grow with corpus size on their own.** Subsampling one
+generator 200× at each n: mean pairwise is flat (0.137 → 0.138 from n=5 to 87),
+but max pairwise gains 59% and mean nearest-neighbour 40%. A ceiling calibrated
+on five papers would have **failed a 40-paper corpus exactly as diverse as the
+real ones**, and that spurious failure would have read as generator collapse. The
+two size-sensitive thresholds are therefore scaled by the measured drift.
+
+**No average can be the duplication gate.** Mean pairwise is blind to it — three
+exact twins hidden among thirty papers move it 0.162 → 0.166. Mean
+nearest-neighbour is better but still dilutes: those same six duplicated papers
+failed to lift it past its own threshold, because a mean hides a minority. So the
+gate is a **count**: papers whose nearest neighbour is ≥ 0.60. It must be 0. The
+margin is wide — the closest genuine pair anywhere in this project is 0.404
+(opensim/elemance, same group and scenario) and the closest of 87 template-
+generated papers is 0.391.
+
+| measure | real | gate |
+|---|---|---|
+| mean pairwise (size-stable, twin-blind) | 0.141 | ≤ 0.18 |
+| max pairwise | 0.261 @ n=5 | ≤ 0.29 × drift(n) |
+| mean nearest-neighbour | 0.213 @ n=5 | ≤ 0.24 × drift(n) |
+| **papers with a twin ≥ 0.60** | **0** | **= 0** |
+
+Validated in both directions: the gate passes the five real papers and rejects
+the old synthetic corpus (exit 1, five rows out of tolerance). It does *not* fail
+the old corpus on diversity, which is correct — those 87 papers are genuinely
+distinct parameter variants. Their defect was tidiness and length, not repetition.
 
 ## What this corpus is and is not for
 
