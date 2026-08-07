@@ -77,6 +77,9 @@ def main() -> int:
                     help="the SECOND annotator; must differ in family from the "
                          "model that wrote the gold")
     ap.add_argument("--key-file", type=pathlib.Path, default=None)
+    ap.add_argument("--save-raw", type=pathlib.Path, default=None,
+                    help="dump the annotator's responses; without them every "
+                         "diagnosis of a failing score costs another full run")
     ap.add_argument("--limit", type=int, default=None)
     ap.add_argument("--max-scopes", type=int, default=3,
                     help="scopes annotated per bundle (each is one call carrying "
@@ -115,7 +118,7 @@ def main() -> int:
     # could only be estimated afterwards.
     spent_tokens = 0
     failed, tot_f, both_f = [], 0, 0
-    gold_only = annot_only = 0
+    gold_only = annot_only = annot_out_of_scope = 0
     tot_s = agree_s = 0
     na_total = na_hits = 0
     print(f"\nseeded agreement — {len(bundles)} bundles, second annotator "
@@ -140,6 +143,19 @@ def main() -> int:
         # disagreement.
         vocab = (list(ec.VV40_FACTOR_NAMES) if gt.get("standard") == "V&V40"
                  else list(ec.NASA_ALL_FACTOR_NAMES))
+
+        # Both sides must be judged on the same basis. Gold's out-of-scope
+        # findings are dropped at generation time, because the plan forbids the
+        # factor and the authored table does not contain it -- the paper makes no
+        # claim about it. The annotator is deliberately NOT told the scope, so it
+        # still selects those factors, and counting them as disagreement measures
+        # the constraint rather than the reading: one run scored 0.467 with gold a
+        # strict subset of the annotator, 0 gold-only against 65 annotator-only.
+        #
+        # They are excluded and COUNTED, never silently dropped. The count is
+        # itself a result: it says how often a careful reader attributes a factor
+        # this paper does not assess.
+        paper_scope = {x.lower() for x in gt.get("scope_allowed", [])}
 
         findings = gt.get("findings", [])
         na_total += len(findings)
@@ -169,6 +185,10 @@ def main() -> int:
                 source="\n".join(kept)[:80000], scope=scope)
             raw = backend.generate(prompt_text, GenerationOptions(max_tokens=16000))
             spent_tokens += len(prompt_text) // 4 + len(raw or "") // 4
+            if args.save_raw:
+                args.save_raw.mkdir(parents=True, exist_ok=True)
+                (args.save_raw / f"{b.name}.{abs(hash((model, mech))) % 9999}.json"
+                 ).write_text(raw or "")
             m = re.search(r"\{.*\}", raw or "", re.S)
             if not m:
                 failed.append(f"{b.name}[{model}/{mech}]")
@@ -182,6 +202,9 @@ def main() -> int:
                 continue
 
             for f in set(mine) | set(theirs):
+                if paper_scope and f.lower() not in paper_scope:
+                    annot_out_of_scope += 1
+                    continue
                 tot_f += 1
                 if f in mine and f not in theirs:
                     gold_only += 1
@@ -209,6 +232,8 @@ def main() -> int:
     print(f"\n  gold selected but annotator did not: {gold_only}")
     print(f"  annotator selected but gold did not:  {annot_only}")
     print(f"  both:                                 {both_f}   of {tot_f}")
+    print(f"  annotator picked a factor the paper does not assess: "
+          f"{annot_out_of_scope} (excluded from the score, not hidden)")
 
     cost = estimate_cost(args.model, spent_tokens, output_ratio=0.08)
     print(f"\n  {spent_tokens:,} tokens, about ${cost:.2f}")
