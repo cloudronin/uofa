@@ -266,6 +266,42 @@ def _family(model: str) -> str:
     return "anthropic" if m.startswith("claude") else "openai"
 
 
+def parse_or_salvage(raw: str) -> tuple[dict, int]:
+    """Parse the response; if it was cut off mid-structure, recover what closed.
+
+    Returns (parsed, sections_lost).
+
+    A write response truncated at the token limit is a JSONDecodeError, and
+    discarding it throws away the whole paper -- one pilot run lost $0.219 that
+    way. A paper with fifteen of its eighteen sections is still a usable paper,
+    and the acceptance gate will reject it on word count if it is not.
+
+    The recovery walks back to the last position where closing the open
+    containers yields valid JSON, which is the end of the last complete section.
+    """
+    try:
+        return _parse_json_response(raw), 0
+    except (json.JSONDecodeError, ValueError):
+        pass
+    s = raw.strip()
+    if s.startswith("```"):
+        s = "\n".join(s.splitlines()[1:])
+        if s.rstrip().endswith("```"):
+            s = s.rstrip()[:-3]
+    ends = [m.start() + 1 for m in re.finditer(r"\}", s)]
+    for cut in reversed(ends[-400:]):
+        for suffix in ("]}", "}]}", "}", ""):
+            try:
+                d = json.loads(s[:cut] + suffix)
+            except (json.JSONDecodeError, ValueError):
+                continue
+            if isinstance(d, dict) and d.get("sections"):
+                return d, max(0, len(ends) - ends.index(cut) - 1)
+    raise RuntimeError(
+        f"unparseable and unsalvageable ({len(raw):,} chars, "
+        f"ends {s[-80:]!r})")
+
+
 def _row3(r) -> tuple[str, str, str] | None:
     """Coerce a model-written table row to (factor, level, basis).
 
@@ -327,7 +363,8 @@ TIMEOUTS = {"plan": 300.0, "write": 1500.0, "gold": 900.0}
 
 
 def _ask(backend, step: str, prompt: str, max_tokens: int = 16000,
-         temperature: float = 0.7) -> tuple[str, int, int]:
+         temperature: float = 0.7, save_to: pathlib.Path | None = None
+         ) -> tuple[str, int, int]:
     """One call. Returns (text, tokens_in, tokens_out).
 
     The budget is generous because gpt-5 draws reasoning tokens from the same
@@ -340,6 +377,13 @@ def _ask(backend, step: str, prompt: str, max_tokens: int = 16000,
     text = backend.generate(prompt, GenerationOptions(
         temperature=temperature, max_tokens=max_tokens,
         timeout_seconds=TIMEOUTS[step]))
+    # Written BEFORE anything can reject it. --save-raw used to run after the
+    # parse, so the one response worth inspecting -- the one that failed to
+    # parse -- was the only one not kept. That discarded $0.219 of output whose
+    # defect could then only be guessed at.
+    if save_to is not None:
+        save_to.parent.mkdir(parents=True, exist_ok=True)
+        save_to.write_text(text or "")
     if not (text or "").strip():
         raise RuntimeError(
             f"{step}: empty response. gpt-5 draws reasoning tokens from the "
@@ -365,24 +409,24 @@ def generate_one(idx: int, seed_tag: str, out_root: pathlib.Path, backend,
         rng = random.Random(f"seeded:{bundle_id}")
         scope = sparse_scope(_factors(standard), bundle_id)
 
+        _raw = (lambda step: (save_raw / f"{bundle_id}.{step}.json") if save_raw else None)
         plan_raw, ti, to = _ask(backend, "plan", PLAN_PROMPT.format(
             standard=standard, seed_excerpt=_seed_text(seed_tag),
             device=device, concern=concern, method=method,
             n_models=rng.choice([2, 2, 3]), n_mech=rng.choice([2, 3, 3, 4]),
             scope="\n".join(f"- {f}" for f in scope),
-            standard_rules=_VV40_RULES if standard == "V&V40" else _7009A_RULES))
+            standard_rules=_VV40_RULES if standard == "V&V40" else _7009A_RULES),
+            save_to=_raw("plan"))
         rep["tokens_in"] += ti; rep["tokens_out"] += to
         plan = _parse_json_response(plan_raw)
 
         write_raw, ti, to = _ask(backend, "write", WRITE_PROMPT.format(
-            standard=standard, plan=json.dumps(plan, indent=2)), max_tokens=32000)
+            standard=standard, plan=json.dumps(plan, indent=2)), max_tokens=40000,
+            save_to=_raw("write"))
         rep["tokens_in"] += ti; rep["tokens_out"] += to
-        content = _parse_json_response(write_raw)
-
-        if save_raw:
-            save_raw.mkdir(parents=True, exist_ok=True)
-            (save_raw / f"{bundle_id}.plan.json").write_text(plan_raw)
-            (save_raw / f"{bundle_id}.write.json").write_text(write_raw)
+        content, lost = parse_or_salvage(write_raw)
+        if lost:
+            rep["sections_lost_to_truncation"] = lost
 
         spec = {"title": content["title"], "runhead": content["runhead"],
                 "authors": content["authors"], "affiliations": content["affiliations"],
@@ -404,7 +448,7 @@ def generate_one(idx: int, seed_tag: str, out_root: pathlib.Path, backend,
         gold_raw, ti, to = _ask(gold_backend, "gold", GOLD_PROMPT.format(
             models=", ".join(m["name"] for m in plan["models"]),
             mechanisms=", ".join(m["name"] for m in plan["mechanisms"]),
-            document=doc[:120000]), max_tokens=16000)
+            document=doc[:120000]), max_tokens=16000, save_to=_raw("gold"))
         rep["tokens_in"] += ti; rep["tokens_out"] += to
         gold = _parse_json_response(gold_raw)
 

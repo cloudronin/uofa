@@ -59,21 +59,24 @@ _ROOT = pathlib.Path(__file__).resolve().parent.parent.parent.parent
 sys.path.insert(0, str(_ROOT / "dev" / "tools" / "scripts"))
 sys.path.insert(0, str(_ROOT / "src"))
 
-# Targets, from the real documents. See corpus_profile.BANDS for the corpus-level
-# bands; these are the per-paper rendering targets.
+# Per-paper floors, and they answer a DIFFERENT question from corpus_profile's
+# bands. Here: did this pathology occur at all -- did the renderer break, did it
+# emit markdown. There: is the corpus rate the real rate.
+#
+# Confusing the two set three of these wrong in a row, always the same way: a
+# floor picked from what a typical real paper does, which then rejects the
+# atypical real papers. Measured per paper, the five are
+#
+#     two-column   1.000  0.917  0.875  0.750  0.089   (elemance is 1-column)
+#     hyphenation  0.083  0.070  0.059  0.026  0.007
+#
+# so a floor at the middle of either range fails two of the five documents the
+# whole corpus is anchored to. A per-paper criterion that rejects real papers is
+# measuring the wrong thing. These floors sit below every real value; the corpus
+# mean is what checks the rate.
 TARGETS = {
-    "two_col_pages": 0.80,   # real 0.75-1.00 for 2-col papers
-    # Per paper this asks only "did hyphenation happen at all" -- the failure it
-    # catches is markdown, or a renderer that stopped breaking words. It does NOT
-    # ask for the real RATE; corpus_profile's two-sided band on the corpus mean
-    # (0.02-0.12, real mean 0.049) does that.
-    #
-    # The distinction is not pedantic. This was 0.040, which rejects opensim
-    # (0.026) and elemance (0.007) -- two of the five real papers. A per-paper
-    # criterion that fails real documents is measuring the wrong thing, and it is
-    # the same mistake as the diversity floor: a number chosen rather than one
-    # taken from the corpus it claims to describe.
-    "hyphen_lines": 0.005,   # real per paper: 0.007-0.083
+    "two_col_pages": 0.50,   # real per paper: 0.089-1.000; corpus mean 0.726
+    "hyphen_lines": 0.005,   # real per paper: 0.007-0.083; corpus mean 0.049
     "rubric_sents": 20,      # real 0, 4, 11, 24, 45
     # Lost inter-word spaces. Measured at pdfplumber's DEFAULT tolerance, where
     # the fault must be present -- reading through the project's own reader
@@ -282,6 +285,23 @@ def wide_figure(caption: str) -> str:
                       rf"\caption{{{sanitize(caption)}}}", r"\end{figure*}"])
 
 
+def keywords(raw) -> str:
+    r"""Keyword list -> `a \sep b \sep c`, with each keyword escaped.
+
+    This was the one field passed through unescaped, because it is the only one
+    that legitimately carries a command (`\sep`). Two of three papers in a pilot
+    then failed to compile on `ASME V&V 40` as a keyword -- "Misplaced alignment
+    tab character &", a fatal error, from a field nobody thought of as prose.
+
+    The separator is now the renderer's, like every other token: split whatever
+    the model sent, escape the pieces, rejoin.
+    """
+    parts = ([str(x) for x in raw] if isinstance(raw, (list, tuple))
+             else re.split(r"\\sep|;|,", str(raw)))
+    clean = [sanitize(p.strip()) for p in parts if p and p.strip()]
+    return r" \sep ".join(clean) or "verification \\sep validation"
+
+
 def section(heading: str, paragraphs: list[str], level: int = 1) -> str:
     """A heading and its prose. The model supplies both as plain text."""
     cmd = {1: "section", 2: "subsection", 3: "subsubsection"}[level]
@@ -305,7 +325,7 @@ def render(spec: dict) -> str:
     for k, v in (("runhead", sanitize(spec["runhead"])),
                  ("title", sanitize(spec["title"])), ("authors", auth),
                  ("abstract", sanitize(spec["abstract"])),
-                 ("keywords", spec["keywords"])):
+                 ("keywords", keywords(spec["keywords"]))):
         head = head.replace(f"@@{k}@@", v)   # not %-format: the preamble is full
                                              # of LaTeX % comments
     return head + spec["body"] + _END
@@ -318,9 +338,12 @@ def compile_pdf(tex: str, out: pathlib.Path, keep: bool = False) -> pathlib.Path
         d = pathlib.Path(td)
         (d / "paper.tex").write_text(tex)
         for _ in range(2):
+            # errors="replace": pdflatex emits the offending bytes of a bad
+            # input verbatim, so a strict decode turns a readable LaTeX error
+            # into a UnicodeDecodeError from the error handler itself.
             r = subprocess.run(
                 ["pdflatex", "-interaction=nonstopmode", "-halt-on-error", "paper.tex"],
-                cwd=d, capture_output=True, text=True)
+                cwd=d, capture_output=True, text=True, errors="replace")
         if not (d / "paper.pdf").exists():
             log = (d / "paper.log").read_text(errors="replace") if (d / "paper.log").exists() else r.stdout
             err = [ln for ln in log.splitlines() if ln.startswith("!")][:6]

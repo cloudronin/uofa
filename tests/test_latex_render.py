@@ -107,11 +107,24 @@ def test_hyphenation_is_present_but_not_excessive(rendered):
     assert rendered["hyphen_lines"] <= L.CEILINGS["hyphen_lines"]
 
 
-@pytest.mark.parametrize("rate", [0.083, 0.070, 0.059, 0.026, 0.007])
-def test_every_real_paper_would_pass_the_per_paper_floor(rate):
-    """The five real per-paper rates. A floor above any of them is wrong."""
-    assert L.check({**{k: 1e9 for k in L.TARGETS}, "hyphen_lines": rate,
-                    "run_together": 0.0}) == []
+@pytest.mark.parametrize("hyph,twocol", [
+    (0.083, 1.000),   # bologna
+    (0.070, 0.917),   # morrison
+    (0.059, 0.875),   # nagaraja
+    (0.026, 0.750),   # opensim
+    (0.007, 0.089),   # elemance -- a one-column report, and still a real paper
+])
+def test_every_real_paper_passes_the_per_paper_floors(hyph, twocol):
+    """The floors must not reject the documents the corpus is anchored to.
+
+    Three floors were set wrong in a row by picking a value from what a TYPICAL
+    real paper does, which then rejects the atypical ones: 0.040 hyphenation
+    failed opensim and elemance, and 0.80 two-column failed the same two. The
+    per-paper question is "did this happen at all"; corpus_profile's band on the
+    corpus mean is what checks the rate.
+    """
+    assert L.check({**{k: 1e9 for k in L.TARGETS}, "hyphen_lines": hyph,
+                    "two_col_pages": twocol, "run_together": 0.0}) == []
 
 
 @needs_tex
