@@ -98,7 +98,8 @@ def control_first_comparison(sents: list[str], pool: list[int]) -> list[int]:
 DOCS = [("bologna", "extract_corpus_vv40/bundle_bologna_bcthip"),
         ("nagaraja", "extract_corpus_vv40/bundle_nagaraja"),
         ("morrison", "extract_corpus_vv40/bundle_morrison"),
-        ("opensim", "extract_corpus_real/bundle_real_opensim_knee")]
+        ("opensim", "extract_corpus_real/bundle_real_opensim_knee"),
+        ("elemance", "extract_corpus_real/bundle_real_elemance_thoracic")]
 KS = (1, 3, 5, 10)
 
 
@@ -145,17 +146,20 @@ def main() -> int:
     pv = sum(comb(n, i) * b5**i * (1 - b5)**(n - i) for i in range(k9h, n + 1))
     print(f"\n  KILL CRITERION as written: beat control_first_comparison at k=5")
     print(f"    {a5:.3f} vs {b5:.3f} -- satisfied, and it should not have been.")
-    print(f"\n  That is {k9h} hits against {ch} on {n} gold items. One sentence of")
-    print(f"  difference, and the two are tied at k=1 and at k=10.")
+    print(f"\n  That is {k9h} hits against {ch} on {n} gold items, and the two are")
+    print(f"  tied at k=10 while K9 is WORSE at k=1.")
     print(f"    P(K9 >= {k9h}/{n} | true rate = the control's) = {pv:.3f}  -- not significant")
-    print(f"\n  VERDICT: NOT DEMONSTRATED. K9 beats a random selector decisively")
-    print(f"  (p = 0.008) and its own null not at all. A criterion satisfiable by one")
-    print(f"  extra hit on eight items was too weak to be worth passing, which is the")
-    print(f"  same defect K8's criteria had -- they checked the shape of the result")
-    print(f"  and not whether it meant anything.")
-    print(f"\n  What would settle it: more gold. Eight results across four documents")
-    print(f"  cannot separate two methods. This is the annotation constraint again,")
-    print(f"  not a property of K9.")
+    print(f"\n  VERDICT: NOT DEMONSTRATED.")
+    print(f"\n  The gold was tripled -- 8 results across 4 documents to {n} across 5 --")
+    print(f"  specifically to settle this, and the verdict did not move. That is the")
+    print(f"  useful outcome: more annotation confirmed the negative instead of")
+    print(f"  reversing it, so K9's shape heuristic genuinely does not beat 'the first")
+    print(f"  sentence containing a comparison verb'.")
+    print(f"\n  The criterion as written stays satisfied at every sample size, because")
+    print(f"  'beat the control at k=5' never asked by how much. Both criteria written")
+    print(f"  for this plan -- K8's and K9's -- were satisfiable without meaning")
+    print(f"  anything. Writing them in advance is necessary and not sufficient; they")
+    print(f"  also have to be powered for the sample they run on.")
     print(f"\n  Four documents, 8 gold results, one annotator. elemance carries no")
     print(f"  validation result: its comparison sentences are all about credibility")
     print(f"  scores, which is why _ABOUT_SCORING exists.")
