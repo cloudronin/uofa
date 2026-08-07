@@ -55,7 +55,11 @@ NAMES = tuple({n.lower() for n in ec.VV40_FACTOR_NAMES})
 
 BANDS = {"agree_selection": (0.85, 0.95), "agree_same_sentence": (0.60, 0.85),
          "na_rate": (0.0, 0.0)}
-_NA = {"n/a", "na", "not applicable", "none", "null", ""}
+# "not stated" belongs here. It is what N/A means, and leaving it out let a run
+# where 188 of 207 levels were "not stated" score na_rate 0.000 and pass -- the
+# check would have been satisfied by the wording of the failure.
+_NA = {"n/a", "na", "not applicable", "none", "null", "not stated",
+       "unspecified", "unknown", ""}
 
 
 def _family(model: str) -> str:

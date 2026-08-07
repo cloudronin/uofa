@@ -258,9 +258,15 @@ introduced.
 
 `level` is the GRADATION this paper assigns -- the score, level or rating it \
 states for that factor, in the paper's own vocabulary (for example "3", "b", \
-"Medium", or a value on whatever scale this paper uses). If the paper reports a \
-finding but states no gradation, use "not stated". Never put a mechanism name, a \
-scope, or "unspecified" here.
+"Medium", or a value on whatever scale this paper uses).
+
+Look for it in the paper's SUMMARY TABLE, not only in the sentence you quoted. \
+These papers state the gradation in a per-factor table and argue for it in the \
+prose, exactly as real ones do, so the evidence sentence and the level usually \
+sit in different places. Quoting a prose sentence and then reporting "not \
+stated" means the table was not consulted. Use "not stated" only when the paper \
+genuinely assigns no gradation anywhere. Never put a mechanism name or a scope \
+here.
 
 Return ONLY JSON:
 {{"findings": [
