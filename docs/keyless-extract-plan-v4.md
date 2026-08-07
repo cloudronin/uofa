@@ -123,10 +123,25 @@ should win where the document uses the standard's own terminology — and the da
 | nagaraja | 12/13 | K6 |
 | morrison | 13/13 | K4 |
 
-Three of five fit. **The reversal is unexplained.** The honest statement is that
-K4 leads on aggregate with one documented exception — not that K4 is better.
-`K4 @ k=5` stands as the recommendation, weakly, and RRF is the better hedge if
-one router must serve all documents (best at k=1 and k=20, never worst).
+**Superseded by D1.** The K4 advantage above was measured against an annotation
+that (a) drew Bologna's spans from a summary table rather than the body prose and
+(b) excluded 12 pairs the annotator could not find. Correcting both:
+
+| k | K6 | K4 | **RRF** |
+|---|---|---|---|
+| 1 | **0.170** | 0.132 | 0.189 |
+| 3 | **0.283** | 0.245 | 0.264 |
+| 5 | 0.321 | 0.340 | **0.358** |
+| 20 | 0.547 | 0.491 | **0.604** |
+
+K4 minus K6 at recall@5, as the evidence improved: **+0.334 → +0.160 → +0.019**.
+K6 now wins at k=1 and k=3.
+
+**"K4 beats K6 on real documents" was an artefact of measuring on the pairs the
+annotator could find, and those pairs favoured K4.** No router has a decisive
+lead. **RRF is the default** — best at k=5 and k=20, never worst — chosen for
+robustness rather than for a margin, since 0.018 at k=5 is inside the noise that
+annotation choices have already been shown to produce.
 
 ### Group B — announced properties, findable by section + routing
 
@@ -214,16 +229,52 @@ Learned the expensive way; not negotiable for a v4 number to mean anything.
 6. **The furniture filter applies to the routing path only.** The CAS table is
    noise for rationale and gold for levels.
 7. **`evidence_keywords` may never seed a matcher.** Unchanged from v2.
-8. **The reliability check must run on the data being relied on.** Inter-annotator
-   agreement was measured at 89.3% — on *synthetic* labels, which then turned out
-   to invert method rankings. The real corpus, which everything now rests on, has
-   one annotator and no cross-check. A second independent pass over two documents
-   is the minimum that distinguishes 39 measurements from 39 opinions, and it is
-   cheaper than any candidate in the sequence below.
+8. **The reliability check must run on the data being relied on.** Done — D1,
+   below. It found two defects and changed the headline result, at a cost of a
+   few hours against the 19h of candidates it preceded.
 9. **Expect a new extraction pathology per document genre.** Four so far, each
    invisible on synthetic markdown and each found only by reading real output:
    column interleaving, line wrapping, lost inter-word spaces, and reproduced
    gradation rubrics surviving as standalone sentences. Budget for a fifth.
+
+## D1: done, and it changed the result
+
+gpt-5 re-annotated all five documents independently; a second pass by the same
+annotator measures consistency, not reliability.
+
+| | first pass | after fix 1 | after fix 2 |
+|---|---|---|---|
+| factor selection | 76.9% | 81.2% | **92.0%** |
+| same sentence | 15.0% | 50.0% | **71.4%** |
+| ≥50% token overlap | 40.0% | 66.7% | **76.1%** |
+
+Two defects, one in the data and one in the protocol:
+
+**Fix 1 — my annotation was table-biased.** All 12 Bologna spans sat in sentences
+501–525 of 989: a contiguous 2% block that is Table 1. gpt-5 annotated the body
+prose the table summarises. Both are "evidence" and the document contains it
+twice, but the prose carries the checkable claims — "a dataset of 101 calibrated
+CT scans", "an error of 7 pp", "TÜV" — where the table carries the standard's
+summary vocabulary. Re-annotated under a rule fixed in advance; Bologna went
+0/10 → 5/10.
+
+**Fix 2 — the protocol withheld scope.** These papers assess several models
+across several mechanisms, and a bundle is one (model × mechanism) pair. gpt-5
+was given the document and the factor list but not the pair, and quoted THUMS
+femur/tibia evidence for an Elemance/thoracic bundle. Elemance went 1/6 → 6/6.
+The failure mode was already known — naming the model took the selection stage
+from 3/6 to 5/6 — and withholding it here manufactured disagreement that would
+have been read as unreliable annotation.
+
+**The denominator was the bigger finding.** gpt-5 located evidence for **10 of
+the 12 pairs excluded** as "no evidence found": "a convergence study was
+conducted using three different meshes", "PIV experiments in the pump were
+repeated five times". Nine verified and were added. Coverage **39/51 → 46/51**,
+scored pairs **37 → 53** — and that recovery is what collapsed the K4 result.
+
+71.4% is substantial, not decisive. Every figure resting on the annotation
+carries it, and gpt-5 is not a human SME: this bounds reader-dependence, it does
+not establish correctness.
 
 ## Sequencing
 
@@ -239,8 +290,8 @@ documents carry 57% of the sample, buys less confidence than two more documents.
 
 | | work | cost | why here |
 |---|---|---|---|
-| **D1** | **Second annotator pass, 2 documents** | ~3h | 39 pairs are one person's judgment with no cross-check; the 89.3% agreement figure was measured on synthetic labels that then proved misleading |
-| **D2** | **Record why each of the 12 exclusions was excluded** | ~2h | turns a silent 24% bias into 12 data points |
+| ~~**D1**~~ | ~~Second annotator pass~~ | **done** | 71.4% after two fixes; collapsed the K4 result |
+| **D2** | Re-check the **5 remaining** uncovered pairs | ~1h | 10 of the original 12 turned out to be findable, so the rest are suspect too |
 | **D3** | **Frontiers V&V/in-silico-implantables collection** | ~6h | 7 articles on stent deployment, stent-grafts, flow diverters, bioresorbable scaffolds — none overlapping the current five |
 | **D4** | **TAVI I into the corpus for the risk rows** | ~2h | recovered by the `x_tolerance` fix; states model risk, both inputs, and CoU |
 | **1** | Restate Group A with K4/RRF | ~1h | v3's headline names the losing router |

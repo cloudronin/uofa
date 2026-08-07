@@ -40,6 +40,18 @@ two whose annotation was hardest -- both state per-factor findings in tables
 that reproduce the standard's own gradation text, which is exactly where a
 reader is most likely to be substituting judgement for evidence.
 
+## The annotators must be given the same scope
+
+These papers assess several models across several injury mechanisms and score
+every factor separately for each. A bundle is one (model x mechanism) pair. The
+first version of this script gave gpt-5 the document and the factor list but not
+the pair, and on elemance it duly quoted THUMS femur/tibia evidence for an
+Elemance/thoracic bundle -- scoring 1/6 against an annotation that was correct.
+
+That failure mode was already known: naming the model took the selection stage
+from 3/6 to 5/6. Withholding it here manufactured disagreement and would have
+been read as unreliable annotation.
+
 ## Result: 15% same-sentence, and the cause is not disagreement
 
     factor selection            20/26   76.9%
@@ -121,6 +133,7 @@ PROMPT = """\
 You are annotating an engineering credibility-assessment document written under
 ASME V&V 40.
 
+{scope}
 For each credibility factor listed below that the document ACTUALLY reports a
 finding about, quote 1-3 short phrases that appear LITERALLY in the source and
 that a reviewer would cite as the evidence for that factor. Copy unbroken spans
@@ -137,6 +150,10 @@ Two things to avoid, both of which are present in this document:
 
 A finding says what THIS study did, found, or scored, and why. Omit any factor
 the document does not report a finding about. Do not invent phrases.
+
+Where the paper assesses SEVERAL models or several injury mechanisms, quote only
+evidence for the one named above. A sentence scoring a different model or a
+different mechanism is the wrong answer however well it matches the factor.
 
 Return JSON only, no prose, no fences:
 {{"factors": [{{"factor_type": "<exact name from the list>",
@@ -207,11 +224,17 @@ def main() -> int:
         # papers are annotated with published decomposed_7009a names, the V&V 40
         # papers with pack names. Offering the wrong list guarantees disagreement
         # on factor selection for reasons that have nothing to do with reading.
+        prov = json.loads((_ROOT / "tests" / "fixtures" / bundle
+                           / "ground_truth.json").read_text()).get("_provenance", {})
+        bits = [f"{k.replace('_', ' ')}: {prov[k]}"
+                for k in ("model", "injury_mechanism", "scenario") if prov.get(k)]
+        scope = ("This assessment is specifically of -- " + "; ".join(bits) + ".\n"
+                 if bits else "")
         mine_names = sorted(mine)
         vocab = mine_names if tag in ("opensim", "elemance") else list(ec.VV40_FACTOR_NAMES)
         raw = backend.generate(
             PROMPT.format(factor_list="\n".join(f"- {f}" for f in vocab),
-                          source=body),
+                          source=body, scope=scope),
             GenerationOptions(max_tokens=16000))
         m = re.search(r"\{.*\}", raw or "", re.S)
         if not m:
