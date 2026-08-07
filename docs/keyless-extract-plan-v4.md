@@ -187,10 +187,68 @@ Each candidate dies unless it beats its null **on real journal prose**:
 * **K7** — beat "first sentence of the document" on CoU match.
 * **K5** — beat `control_constant_decision`, on documents that state a decision.
 
+## Update: five documents, and the K4 margin halved
+
+Morrison et al. 2019 (hemolysis in centrifugal blood pumps) and Nagaraja et al.
+(pedicle screw system under compression-bending) were added — both ASME V&V 40,
+both clean extractions (0.02% and 0.00% space loss). Journal prose is now
+**37 factor-document pairs across 5 documents**.
+
+| router | @1 | @3 | @5 | @10 | @20 |
+|---|---|---|---|---|---|
+| K6 | 0.08 | 0.14 | 0.22 | 0.32 | 0.49 |
+| K4 | 0.08 | **0.24** | **0.38** | 0.46 | 0.49 |
+| RRF | **0.14** | 0.22 | 0.35 | 0.43 | **0.54** |
+
+**K4's advantage at k=5 fell from 3.3× to 1.7×** when the sample went from 3
+documents to 5. It still leads at k=3, 5 and 10, and it wins on 4 of the 5
+documents individually — but **Nagaraja reverses it**, K6 scoring 0.40 against
+K4's 0.20.
+
+A vocabulary hypothesis was proposed for that exception — K6 is lexical, so it
+should win where the document uses the standard's own terminology — and **the
+data does not support it**:
+
+| document | canonical factor names present | winner @5 |
+|---|---|---|
+| opensim | 0/13 | K4 |
+| elemance | 0/13 | K4 |
+| bologna | 11/13 | K4 |
+| nagaraja | 12/13 | K6 |
+| morrison | 13/13 | K4 |
+
+Three of five fit, two do not. The exception is unexplained, and the honest
+statement is that K4 leads on aggregate with one documented reversal, not that
+K4 is better.
+
+The K4 @ k=5 recommendation stands on the aggregate, but it is a weaker
+recommendation than the three-document result implied. That is what adding
+documents is for.
+
+### A fourth extraction pathology, found in Nagaraja
+
+V&V 40 papers reproduce the standard's gradation table, and `sentences()` splits
+at the letter markers — leaving the letter as a fragment and the **definition as
+a clean standalone sentence** that survives every per-sentence test:
+
+    [fragment] 'b.'
+    [KEPT    ] 'Multiple samples were used, but not enough to be statistically relevant.'
+
+A definition is indistinguishable from a finding in isolation: it has a verb and
+asserts something. The signal is positional, so only `strip_furniture` can see
+it. NASA rubrics are digit-led and were already caught per-sentence; V&V 40
+rubrics are letter-led and are now caught contextually. Removed 45 such
+sentences from Nagaraja and 11 from Morrison.
+
+Residual: the rule catches definitions the segmenter separated with a letter
+marker, not those it merged. Nagaraja still leaks some — "Test conditions were
+not characterized or were characterized with gross observations" is gradation
+(a), and it survives. Annotation worked around it by selecting only spans naming
+what *this* study did.
+
 ## What this plan will not fix
 
-Journal prose is **three documents, 23 factor-document pairs**, and Bologna
-contributes 11 of them. Every number below will carry that. NTRS is exhausted;
+Journal prose is **five documents, 37 factor-document pairs**. Every number below will carry that. NTRS is exhausted;
 the V&V 40 pool has roughly four known applied case studies, two of which are
 unusable through a space-loss extraction fault.
 

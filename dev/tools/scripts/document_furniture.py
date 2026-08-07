@@ -110,6 +110,24 @@ _AFFILIATION = re.compile(
 
 _MIN_WORDS = 6
 
+# A bare gradation letter left behind by the segmenter. V&V 40 papers reproduce
+# the standard's gradation table as "a. A single sample was used. b. Multiple
+# samples were used..."; `sentences()` treats "a." as a sentence end, so the
+# letter becomes its own fragment and the DEFINITION becomes a clean standalone
+# sentence that survives every per-sentence test:
+#
+#   [fragment] 'b.'
+#   [KEPT    ] 'Multiple samples were used, but not enough to be statistically relevant.'
+#
+# The definition is indistinguishable from a finding in isolation -- it has a
+# verb and asserts something -- so the signal has to be positional. Only
+# `strip_furniture` can see it, because only it has the surrounding list.
+#
+# NASA rubrics are digit-led and are caught per-sentence by `_RUBRIC_ROW`;
+# V&V 40 rubrics are letter-led and are caught here. Same content, two
+# standards, two shapes.
+_GRADATION_LETTER = re.compile(r"^\s*[a-e][.)]\s*$")
+
 
 def _looks_tabular(s: str) -> bool:
     """A row of a scoring table: mostly labels and digits, few connecting words.
@@ -224,7 +242,11 @@ def strip_furniture(sentences: list[str], factor_names: tuple[str, ...] = (),
     kept, idx, reasons = [], [], Counter()
     for i, s in enumerate(sentences):
         norm = " ".join(s.split()).lower()
-        reason = "running-head" if norm in heads else classify(s, factor_names)
+        prev = sentences[i - 1] if i else ""
+        if _GRADATION_LETTER.match(prev):
+            reason = "rubric-definition"
+        else:
+            reason = "running-head" if norm in heads else classify(s, factor_names)
         if reason is None:
             kept.append(s)
             idx.append(i)

@@ -72,7 +72,9 @@ DOCS = [("opensim", "bundle_real_opensim_knee", "annot_opensim.json"),
         # ASME V&V 40, not NASA 7009A. Maps onto the vv40 pack by identity, so
         # no rollup -- the only document in the set where published and pack
         # vocabulary are the same, which is why it lives in its own corpus dir.
-        ("bologna", "extract_corpus_vv40/bundle_bologna_bcthip", "annot_bologna.json")]
+        ("bologna", "extract_corpus_vv40/bundle_bologna_bcthip", "annot_bologna.json"),
+        ("nagaraja", "extract_corpus_vv40/bundle_nagaraja", "annot_nagaraja.json"),
+        ("morrison", "extract_corpus_vv40/bundle_morrison", "annot_morrison.json")]
 KS = (1, 3, 5, 10, 20, 40)
 ENCODER = "all-MiniLM-L6-v2"
 NAMES = tuple({n.lower() for n in ec.NASA_ALL_FACTOR_NAMES}
