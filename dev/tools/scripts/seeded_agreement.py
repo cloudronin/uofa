@@ -73,6 +73,11 @@ def main() -> int:
                          "model that wrote the gold")
     ap.add_argument("--key-file", type=pathlib.Path, default=None)
     ap.add_argument("--limit", type=int, default=None)
+    ap.add_argument("--max-scopes", type=int, default=3,
+                    help="scopes annotated per bundle (each is one call carrying "
+                         "the whole document). 3 gives ~55 factor comparisons "
+                         "across 3 bundles, against D1's 42 on the real corpus; "
+                         "all 22 scopes would cost ~$2 to measure the same thing.")
     args = ap.parse_args()
 
     bundles = sorted(b for b in args.corpus.rglob("bundle_*")
@@ -129,7 +134,13 @@ def main() -> int:
             key = (f.get("model", ""), f.get("mechanism", ""))
             by_scope.setdefault(key, {}).setdefault(f["factor"], []).append(f["span"])
 
-        for (model, mech), mine in by_scope.items():
+        # Largest scopes first: a scope with one finding contributes almost
+        # nothing to the estimate and costs the same as one with eight.
+        chosen = sorted(by_scope.items(), key=lambda kv: -len(kv[1]))[:args.max_scopes]
+        if len(chosen) < len(by_scope):
+            print(f"    (annotating {len(chosen)} of {len(by_scope)} scopes; "
+                  f"the rest are not measured)")
+        for (model, mech), mine in chosen:
             scope = (f"This assessment is specifically of -- model: {model}; "
                      f"mechanism: {mech}.\n")
             raw = backend.generate(
