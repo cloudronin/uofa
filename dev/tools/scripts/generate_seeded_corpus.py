@@ -287,9 +287,13 @@ the prose -- prefer the prose sentence. Table rows are the last resort.
 
 Three rules about the span, each of which decides whether the answer is usable:
 
-* ONE SENTENCE. Not a passage, not two sentences joined. It must sit between one \
-full stop and the next, exactly as the text above breaks. A span that crosses a \
-sentence boundary can never be matched and is discarded.
+* EACH span is ONE SENTENCE. Not a passage, not two sentences joined. It must \
+sit between one full stop and the next, exactly as the text above breaks. A span \
+that crosses a sentence boundary can never be matched and is discarded.
+* List EVERY sentence that independently evidences this finding, not just the \
+best one. These papers often state a finding twice -- once where the method is \
+described and again where the result is reported -- and a reader citing either \
+is right. An answer key holding only one of them marks the other wrong.
 * A sentence may be evidence for more than one mechanism, but do not reuse the \
 same sentence for DIFFERENT factors. If two factors would quote the same \
 sentence, at most one of them is really reported there.
@@ -311,7 +315,8 @@ here.
 Return ONLY JSON:
 {{"findings": [
   {{"model": "...", "mechanism": "...", "factor": "...",
-    "level": "...", "span": "one verbatim sentence", "status": "clear|ambiguous"}}
+    "level": "...", "spans": ["one verbatim sentence", "another if the paper "
+    "states this finding more than once"], "status": "clear|ambiguous"}}
 ]}}
 """
 
@@ -715,7 +720,30 @@ def generate_one(idx: int, seed_tag: str, out_root: pathlib.Path, backend,
         flat = norm(doc)
         seen_by_factor: dict[str, set] = {}
         for f in raw_findings:
-            k = norm(f.get("span", ""))
+            # Multi-reference: a finding carries every sentence that
+            # independently evidences it. These papers state a finding twice --
+            # once describing the method, again reporting the result -- and a
+            # single-span key marks a reader who cites the other one wrong. The
+            # pilot measured that directly: same-sentence agreement 0.509, and
+            # every disagreement inspected was two DEFENSIBLE picks, not a gold
+            # error. A router finding a valid alternative would have been scored
+            # as a miss, understating every routing result on this corpus.
+            cands = f.get("spans") or ([f["span"]] if f.get("span") else [])
+            valid = []
+            for cand in cands:
+                ck = norm(cand)
+                if not ck or ck not in flat:
+                    dropped_reason["not-verbatim"] += 1
+                    continue
+                if not any(ck in sl for sl in sent_low):
+                    dropped_reason["crosses-sentences"] += 1
+                    continue
+                valid.append(cand)
+            if not valid:
+                continue
+            f["spans"] = valid
+            f["span"] = valid[0]          # first reference, for readers of one
+            k = norm(valid[0])
             # A finding for a factor this paper does not assess is wrong, not
             # merely out of scope: the plan forbids the factor and the authored
             # summary table does not contain it, so the paper demonstrably makes
@@ -730,21 +758,16 @@ def generate_one(idx: int, seed_tag: str, out_root: pathlib.Path, backend,
             if str(f.get("factor", "")).lower() not in in_scope:
                 dropped_reason["factor-out-of-scope"] += 1
                 continue
-            if not k or k not in flat:
-                dropped_reason["not-verbatim"] += 1
-                continue
-            if not any(k in s for s in sent_low):
-                dropped_reason["crosses-sentences"] += 1
-                continue
             # One sentence may serve several mechanisms of the same factor, but
             # not several different factors: 91 findings over 33 distinct spans
             # is padding, not evidence.
+            mine = {norm(x) for x in valid}
             other = next((fac for fac, spans in seen_by_factor.items()
-                          if k in spans and fac != f.get("factor")), None)
+                          if (spans & mine) and fac != f.get("factor")), None)
             if other:
                 dropped_reason["factor-reuses-span"] += 1
                 continue
-            seen_by_factor.setdefault(f.get("factor", ""), set()).add(k)
+            seen_by_factor.setdefault(f.get("factor", ""), set()).update(mine)
             # The gradation comes from the paper's own table, not from the gold
             # model re-reading it. Match the most specific table row first: the
             # table keys its rows "factor - model - mechanism".

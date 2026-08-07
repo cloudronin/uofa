@@ -169,7 +169,12 @@ def main() -> int:
             if f.get("status") == "ambiguous":
                 continue
             key = (f.get("model", ""), f.get("mechanism", ""))
-            by_scope.setdefault(key, {}).setdefault(f["factor"], []).append(f["span"])
+            # Every reference span, not just the first. The key is
+            # multi-reference because these papers state a finding more than
+            # once; scoring against one arbitrary member of that set measures
+            # which member gold happened to list first.
+            spans = f.get("spans") or ([f["span"]] if f.get("span") else [])
+            by_scope.setdefault(key, {}).setdefault(f["factor"], []).extend(spans)
 
         # Largest scopes first: a scope with one finding contributes almost
         # nothing to the estimate and costs the same as one with eight.
