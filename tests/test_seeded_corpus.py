@@ -178,6 +178,54 @@ def test_body_assembly_tolerates_absent_optional_blocks():
     assert "tabular" not in body
 
 
+def test_gold_is_given_the_standards_checklist():
+    """Without it, gold invents labels that are not factors.
+
+    One pilot bundle came back with "Credibility matrix", "Credibility rating"
+    and "Model Risk Analysis (ASME V&V 40)" -- zero of ten names in common with
+    the standard's list, because the prompt asked for factors without ever
+    saying which factors exist.
+    """
+    assert "{factors}" in G.GOLD_PROMPT
+    filled = G.GOLD_PROMPT.format(models="M", mechanisms="X", document="D",
+                                  factors="\n".join(f"- {x}" for x in G._factors("V&V40")))
+    assert "Model form" in filled
+    assert "not on this list is not a credibility factor" in filled
+
+
+def test_gold_gets_the_full_checklist_not_the_sparse_scope():
+    """Otherwise selection agreement measures who knew the scope, not who read.
+
+    The agreement annotator is offered the full standard; gold must be too, or
+    gold holds the withheld subset and the comparison is rigged.
+    """
+    full = G._factors("V&V40")
+    sparse = G.sparse_scope(full, "bundle_seeded_000_bologna")
+    assert len(sparse) < len(full), "sparse_scope must actually withhold"
+    # The call site passes _factors(standard); pin that it is not the scope.
+    src = (_ROOT / "dev" / "tools" / "scripts" / "generate_seeded_corpus.py").read_text()
+    assert "factors=\"\\n\".join(f\"- {x}\" for x in _factors(standard))" in src, \
+        "gold must be handed the full checklist, not this paper's scope"
+
+
+@pytest.mark.parametrize("standard,expect_names", [
+    ("V&V40", "Model form"),
+    ("7009A", None),
+])
+def test_each_standard_has_its_own_factor_vocabulary(standard, expect_names):
+    """A 7009A paper annotated with V&V 40 names cannot agree with its own gold.
+
+    This is D1's recorded lesson. Ignoring it produced a selection agreement of
+    0.184 -- a vocabulary mismatch reported as a reading disagreement.
+    """
+    names = G._factors(standard)
+    assert names
+    if expect_names:
+        assert expect_names in names
+    else:
+        assert set(names) != set(G._factors("V&V40"))
+
+
 def test_seed_reading_never_touches_ground_truth(monkeypatch):
     """Generation may see a seed's DOCUMENT and never its labels."""
     opened: list[str] = []

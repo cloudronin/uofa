@@ -120,6 +120,17 @@ def main() -> int:
         sents = sentences(text)
         kept, _, _ = strip_furniture(sents, NAMES)
 
+        # The annotator gets the vocabulary of the bundle's OWN standard. D1
+        # records this and the reason -- "offering the wrong list guarantees
+        # disagreement on factor selection for reasons that have nothing to do
+        # with reading" -- and this script imported D1's prompt without its
+        # constraint, hardcoding V&V 40 names. On a 7009A bundle only 4 of 14
+        # gold factors were even on the list offered, and selection agreement
+        # came out at 0.184: a vocabulary mismatch reported as a reading
+        # disagreement.
+        vocab = (list(ec.VV40_FACTOR_NAMES) if gt.get("standard") == "V&V40"
+                 else list(ec.NASA_ALL_FACTOR_NAMES))
+
         findings = gt.get("findings", [])
         na_total += len(findings)
         na_hits += sum(1 for f in findings
@@ -144,7 +155,7 @@ def main() -> int:
             scope = (f"This assessment is specifically of -- model: {model}; "
                      f"mechanism: {mech}.\n")
             raw = backend.generate(
-                PROMPT.format(factor_list="\n".join(f"- {x}" for x in ec.VV40_FACTOR_NAMES),
+                PROMPT.format(factor_list="\n".join(f"- {x}" for x in vocab),
                               source="\n".join(kept)[:80000], scope=scope),
                 GenerationOptions(max_tokens=16000))
             m = re.search(r"\{.*\}", raw or "", re.S)

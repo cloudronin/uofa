@@ -230,6 +230,11 @@ across these mechanisms: {mechanisms}
 {document}
 </document>
 
+Use ONLY these factor names, exactly as written. They are the standard's \
+checklist; a label that is not on this list is not a credibility factor:
+
+{factors}
+
 For EVERY (model x mechanism x factor) combination where this document reports a \
 finding, return the sentence that carries the evidence, copied VERBATIM from the \
 text above including any hyphenation or spacing damage.
@@ -498,7 +503,18 @@ def generate_one(idx: int, seed_tag: str, out_root: pathlib.Path, backend,
         for mi, m in enumerate(plan["models"]):
             g_raw, ti, to = _ask(
                 gold_backend, "gold",
+                # The FULL checklist for the standard, not this paper's sparse
+                # scope. Without any list at all, gold invented its own labels
+                # -- "Credibility matrix", "Credibility rating" -- which are
+                # document artifacts rather than factors, and left one bundle
+                # with zero of ten names in common with the standard's.
+                #
+                # Full rather than sparse so gold and the agreement annotator
+                # choose from the same set: handing gold the withheld subset
+                # would make selection agreement measure who knew the scope
+                # rather than who read the paper.
                 GOLD_PROMPT.format(models=m["name"], mechanisms=mechs,
+                                   factors="\n".join(f"- {x}" for x in _factors(standard)),
                                    document=doc[:120000]),
                 max_tokens=GOLD_MAX_TOKENS, save_to=_raw(f"gold{mi}"))
             rep["tokens_in"] += ti; rep["tokens_out"] += to
