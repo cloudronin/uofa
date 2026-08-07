@@ -107,24 +107,47 @@ def test_hyphenation_is_present_but_not_excessive(rendered):
     assert rendered["hyphen_lines"] <= L.CEILINGS["hyphen_lines"]
 
 
-@pytest.mark.parametrize("hyph,twocol", [
-    (0.083, 1.000),   # bologna
-    (0.070, 0.917),   # morrison
-    (0.059, 0.875),   # nagaraja
-    (0.026, 0.750),   # opensim
-    (0.007, 0.089),   # elemance -- a one-column report, and still a real paper
-])
-def test_every_real_paper_passes_the_per_paper_floors(hyph, twocol):
-    """The floors must not reject the documents the corpus is anchored to.
+def _passing(**over):
+    """A measurement that clears every check, with one field overridden.
 
-    Three floors were set wrong in a row by picking a value from what a TYPICAL
-    real paper does, which then rejects the atypical ones: 0.040 hyphenation
-    failed opensim and elemance, and 0.80 two-column failed the same two. The
-    per-paper question is "did this happen at all"; corpus_profile's band on the
-    corpus mean is what checks the rate.
+    Built explicitly rather than by zeroing TARGETS: zeroing makes every OTHER
+    floor fail too, so the assertion under test passes or fails for reasons that
+    have nothing to do with it.
     """
-    assert L.check({**{k: 1e9 for k in L.TARGETS}, "hyphen_lines": hyph,
-                    "two_col_pages": twocol, "run_together": 0.0}) == []
+    return {"two_col_pages": 1.0, "hyphen_lines": 0.05, "rubric_sents": 30,
+            "run_together_default": 0.10, "run_together": 0.0, **over}
+
+
+def test_the_passing_baseline_actually_passes():
+    assert L.check(_passing()) == []
+
+
+@pytest.mark.parametrize("hyph", [0.083, 0.070, 0.059, 0.026, 0.007])
+def test_hyphenation_floor_passes_every_real_paper(hyph):
+    """Justified text hyphenates, so all five real rates must clear the floor.
+
+    This floor was 0.040, which rejects opensim (0.026) and elemance (0.007) --
+    a value picked from what a TYPICAL real paper does, which then fails the
+    atypical ones. corpus_profile's band on the corpus mean checks the rate.
+    """
+    assert L.check(_passing(hyphen_lines=hyph)) == []
+
+
+def test_the_two_column_floor_is_a_claim_about_THIS_renderer():
+    """Not about real papers, and the distinction is load-bearing.
+
+    Real per-paper two-column rates are 1.000, 0.917, 0.875, 0.750 and 0.089 --
+    elemance is a one-column report and still a perfectly real paper. So this
+    floor cannot be justified as "what real papers do". It is justified as "the
+    two-column setting took effect", which is a property of a renderer that
+    always sets two columns, and it is why corpus_profile targets a corpus MEAN
+    (>=0.60, real 0.726) rather than a per-paper rate.
+    """
+    assert L.check(_passing(two_col_pages=0.67)) == []    # table-heavy, fine
+    assert L.check(_passing(two_col_pages=0.089)) != []   # renderer broke
+    assert L.TARGETS["two_col_pages"] > 0.089, (
+        "if this floor ever drops below elemance's rate it has stopped "
+        "asserting anything about the renderer")
 
 
 @needs_tex
