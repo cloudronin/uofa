@@ -236,9 +236,56 @@ checklist, and naive methods find the checklist rather than the assessment.
 **Scope of that result, stated precisely.** What was measured is the lexical
 baseline on 7 factors of 1 document. **K6 — the trained detector whose 0.615 is
 the headline keyless figure — has still not been run on a real document.** The
-plan's kill criterion is about the K6→K2 pipeline, so it is not yet triggered.
-What changed is that the measurement is now possible, and the baseline it must
-beat on real text is 0.000 rather than unmeasurable.
+plan's kill criterion is about the K6→K2 pipeline, so it is not triggered.
+
+### K6 cannot be run on the real corpus at all — the label spaces are disjoint
+
+Attempting it turned up the reason the transfer question has never been
+answered, and it is not a property of K6:
+
+| corpus | `cas_variant` | standard | factors |
+|---|---|---|---|
+| real, 2 bundles | `rollup_7009a` | NASA-STD-7009**A** | 8 |
+| real, 11 bundles | `decomposed_7009a` | NASA-STD-7009**A** | 6 |
+| synthetic, all 87 | *(none)* | NASA-STD-7009**B** | 19 |
+
+**Four of the twelve real factor names exist in the training vocabulary.** The
+rest — `Code/solution verification`, `Conceptual validation`, `Referent
+validation`, `Input pedigree`, `M&S management`, `People qualifications`,
+`Validation`, `Verification` — are 7009A's decomposition, which the synthetic
+corpus was never generated for.
+
+A classifier cannot be scored on labels it was never trained to emit. So "does
+K6 transfer to real documents" is **not answerable with this pair of corpora**,
+and no number should be reported for it until one of them changes. That is a
+constraint, not a result, and `tests/test_real_corpus_vocabulary.py` pins it so
+it cannot quietly be forgotten.
+
+The options, none of them free:
+
+* **Generate a 7009A corpus.** The generator takes its factor list from the
+  pack, so this is a pack addition plus a generation run. Makes the existing K6
+  answerable and leaves every published figure comparable.
+* **Map 7009A onto 7009B.** Cheap, and wrong the same way the Morrison gradation
+  mapping was: `Code/solution verification` covers what 7009B splits across
+  `Numerical code verification` and `Numerical solver error`, so the mapping is
+  one-to-many and would have to be invented rather than recovered.
+* **Re-transcribe the real bundles under 7009B.** Discards what the published
+  tables actually say, which is the entire value of Tier 1.
+
+The first is the only one that does not manufacture data.
+
+### A transcription bug found on the way
+
+`decomposed_7009a` carried the same factor under two spellings — `Data Pedigree`
+in 8 bundles, `Data pedigree` in 3 — split exactly by source paper (NTRS
+20230017197 Title Case, 20240016501 sentence case). Two transcription sessions,
+two conventions. Any exact-match scorer reads them as different factors and
+silently halves the support for each.
+
+Normalised to the pack's sentence case: **18 name variants collapse to 12 real
+factors**, and the shared vocabulary rises from 3 to 4 (`Use History` →
+`Use history` now matches the pack) — the two problems were entangled.
 
 ### Original V1 framing, kept for the record
 
