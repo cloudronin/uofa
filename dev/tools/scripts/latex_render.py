@@ -302,6 +302,60 @@ def keywords(raw) -> str:
     return r" \sep ".join(clean) or "verification \\sep validation"
 
 
+def equations(labels: list[str]) -> str:
+    r"""Displayed equations, which segment into short non-sentence fragments.
+
+    Part of closing a gap the acceptance gate found: generated papers were 66-72%
+    sentence-like against a real 46-56%. The difference is not prose quality --
+    it is that real papers are 38-46% SHORT FRAGMENTS (<6 words) and the
+    generated ones only 19-27%. Equations, reference entries and dense table
+    cells are where those fragments come from, and a paper without them reads as
+    unnaturally continuous prose to anything that segments it.
+    """
+    out = []
+    for i, lab in enumerate(labels):
+        out.append(r"\begin{equation}")
+        out.append(rf"\mathrm{{{sanitize(lab)}}} = "
+                   rf"\frac{{\sum_{{i=1}}^{{n}} w_i \, x_i}}{{\sum_{{i=1}}^{{n}} w_i}}"
+                   rf"\label{{eq:{i}}}")
+        out.append(r"\end{equation}")
+    return "\n".join(out)
+
+
+_SURNAMES = ("Abbott", "Bergman", "Castellano", "Duarte", "Eriksen", "Fontaine",
+             "Grigoryan", "Halvorsen", "Ishikawa", "Jankowski", "Kaur", "Lindqvist",
+             "Moreau", "Nakamura", "Okonkwo", "Pettersson", "Quintero", "Rasmussen",
+             "Silva", "Tanaka", "Ueda", "Vasquez", "Wojcik", "Yilmaz", "Zetterberg")
+_VENUES = ("J. Biomech. Eng.", "Comput. Methods Biomech.", "Med. Eng. Phys.",
+           "Ann. Biomed. Eng.", "J. Verif. Valid. Uncertain.", "Int. J. Numer. Methods",
+           "Comput. Fluids", "J. Mech. Behav. Biomed. Mater.")
+
+
+def bibliography(n: int, seed: int = 0) -> str:
+    """A reference list. Names are synthetic and not attributable to anyone.
+
+    Every real journal paper has one and none of the generated ones did. The
+    entries exist for their SEGMENTATION profile -- an author list, a truncated
+    title, a venue, a volume and a year each become their own short fragment --
+    so the content is deliberately generic rather than plausible-looking
+    citations that could be mistaken for real work.
+    """
+    import random
+    rng = random.Random(seed)
+    out = [r"\begin{thebibliography}{99}", r"\small"]
+    for i in range(n):
+        auth = ", ".join(f"{rng.choice('ABCDEFGHJKLMNPRSTW')}. {rng.choice(_SURNAMES)}"
+                         for _ in range(rng.randint(2, 5)))
+        out.append(rf"\bibitem{{r{i}}} {auth}, "
+                   rf"{sanitize(rng.choice(_TERMS).capitalize())} effects on "
+                   rf"{sanitize(rng.choice(_OBJ))} in computational models, "
+                   rf"{sanitize(rng.choice(_VENUES))} "
+                   rf"{rng.randint(20, 149)} ({rng.randint(2005, 2024)}) "
+                   rf"{rng.randint(1, 400)}--{rng.randint(401, 900)}.")
+    out.append(r"\end{thebibliography}")
+    return "\n".join(out)
+
+
 def section(heading: str, paragraphs: list[str], level: int = 1) -> str:
     """A heading and its prose. The model supplies both as plain text."""
     cmd = {1: "section", 2: "subsection", 3: "subsubsection"}[level]

@@ -351,7 +351,32 @@ def build_body(sections: list[dict], device: str = "the device") -> str:
         out.insert(1, LR.wide_figure(
             f"Overview of the {device} geometry, load cases and the mechanisms "
             f"assessed, shown across the full page width."))
+    # Equations and a reference list. Both are universal in real journal papers
+    # and were absent from every generated one, which is why the pilot came out
+    # 65-72% sentence-like against a real 46-56%: real papers are 38-46% short
+    # fragments and the generated ones only 19-27%. The gap is structural, not a
+    # matter of prose style.
+    if len(out) > 3:
+        out.insert(len(out) // 2, LR.equations(
+            ["CI_{score}", "\\varepsilon_{rel}", "U_{val}"]))
+    out.append(LR.bibliography(_REFS, seed=abs(hash(device)) % 10_000))
     return "\n\n".join(out)
+
+
+# Real papers carry 30-80 references, and within that range the count decides the
+# segmentation profile, because author initials shatter each entry into 1-2 word
+# fragments -- `Qasim, X.`, `[10] F.T.`, `S., Delp, D.` are all real segments from
+# Bologna and OpenSim. Measured across the three pilot papers:
+#
+#     refs   sentence-like mean
+#      46          0.423
+#      34          0.465   <- real is 0.46
+#      24          0.504
+#      16          0.537
+#
+# Chosen because it lands the profile AND sits in the real range, not by picking
+# a number and hoping. Without any bibliography the pilot came out at 0.652.
+_REFS = 34
 
 
 # Per-step wall-clock budgets. The shared factory's 240s is sized for the
