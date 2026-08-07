@@ -237,14 +237,30 @@ def parse_extracted_xlsx(xlsx_path: Path, factor_names: list[str]) -> dict:
         for row in range(1, ws.max_row + 1):
             factor_type = ws.cell(row=row, column=1).value
             if factor_type and str(factor_type) in factor_names:
-                result["credibility_factors"].append({
+                factor = {
                     "factor_type": str(factor_type),
                     "required_level": ws.cell(row=row, column=3).value,
                     "achieved_level": ws.cell(row=row, column=4).value,
                     "acceptance_criteria": ws.cell(row=row, column=5).value,
                     "rationale": ws.cell(row=row, column=6).value,
                     "status": ws.cell(row=row, column=7).value,
-                })
+                }
+                # The template pre-fills column A (factor name) and B (category)
+                # for every factor in the pack, so a row exists whether or not
+                # the extractor wrote anything. Emitting the empty ones as
+                # extracted factors credited the template with a detection: six
+                # NASA-only factors had 162 entirely blank rows across the dev
+                # corpus and the report gave all six a detection rate of 1.00,
+                # lifting mean F1 from 0.853 to 0.920 (nasa 0.793 -> 0.928).
+                #
+                # Dropped here rather than in the scorer so that controls and
+                # candidates keep going through one identical scoring path --
+                # a blank row means the extractor did not produce that factor,
+                # which is a fact about parsing, not about grading.
+                if _factor_has_content(factor):
+                    result["credibility_factors"].append(factor)
+                else:
+                    result.setdefault("blank_factor_rows", []).append(str(factor_type))
 
     # -- Decision --
     if "Decision" in wb.sheetnames:
@@ -273,8 +289,31 @@ def _find_data_row(ws) -> int:
     return 3
 
 
+# Fields an extractor must fill for a factor row to count as extracted. The
+# factor name and its category are excluded on purpose: the workbook template
+# pre-fills both for every factor in the pack, so matching on them measures the
+# template. `linked_evidence` is excluded too -- it is optional and populated in
+# 11% of rows, so requiring it would mark real extractions blank.
+_CONTENT_FIELDS = ("achieved_level", "required_level", "status",
+                   "acceptance_criteria", "rationale")
+
+
+def _factor_has_content(extracted: dict) -> bool:
+    """Did the extractor write anything into this row, or is it a blank template row?"""
+    return any(
+        (v := extracted.get(f)) is not None and str(v).strip() != ""
+        for f in _CONTENT_FIELDS
+    )
+
+
 def score_factors(extracted_factors: list, ground_truth_factors: list) -> dict:
-    """Score credibility factor extraction accuracy."""
+    """Score credibility factor extraction accuracy.
+
+    Blank template rows are filtered out in `parse_extracted_xlsx`, not here, so
+    controls and candidates go through one identical scoring path -- the
+    property that makes a control-to-candidate delta a difference in method
+    rather than in measurement.
+    """
     results = {
         "total_factors": len(ground_truth_factors),
         "factors_found": 0,
@@ -433,6 +472,11 @@ def score_controls(pack: str, ground_truth_factors: list) -> dict[str, dict]:
 def _compute_f1(results, extracted_by_type, ground_truth_factors):
     """Compute F1 score for factor detection."""
     gt_types = {f["factor_type"] for f in ground_truth_factors if f["expected_status"] == "assessed"}
+    # Blank rows are the template's pre-filled factor names, not extractions.
+    # Counting them here inflated recall for six NASA-only factors whose rows
+    # were entirely empty. `control_constant_list` is unaffected: it asserts a
+    # status for every factor, which is a claim about the document and so has
+    # content -- the point is to stop crediting silence, not to weaken the null.
     ext_types = set(extracted_by_type.keys())
 
     tp = len(gt_types & ext_types)

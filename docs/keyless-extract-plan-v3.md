@@ -19,13 +19,21 @@ nothing.
 push the corpus to 30-60% `not_applicable` so the checklist constant would stop
 being unbeatable. Measured, on the only real data we have:
 
-| corpus | bundles | N/A rate | constant precision |
-|---|---|---|---|
-| **real NTRS (Tier 1)** | 13 | **0.0%** | **1.000** |
-| synthetic v2 dev | 54 | 12.8% | 0.872 |
-| synthetic v2 test | 33 | 10.5% | 0.895 |
+| corpus | bundles | distinct documents | N/A rate | constant precision |
+|---|---|---|---|---|
+| **real NTRS (Tier 1)** | 13 | **4** | **0.0%** | **1.000** |
+| synthetic v2 dev | 54 | 54 | 12.8% | 0.872 |
+| synthetic v2 test | 33 | 33 | 10.5% | 0.895 |
 
-Zero N/A across 78 real factor rows. The synthetic corpus is *already* more
+Zero N/A across 78 real factor rows — **but those 13 bundles draw on only 4
+distinct source document sets**, one of which backs 8 of them (the shared
+Elemance/THUMS report, where each bundle is a different model assessed within one
+publication). The effective sample is 4 documents, not 13, and an earlier version
+of this table reported 13 as though they were independent.
+
+The conclusion survives the correction because it does not rest on sample size:
+a published CAS table has one row per factor by construction, so 0% is what the
+document type produces. But "4 documents" is the number to quote. The synthetic corpus is *already* more
 adversarial to the constant than reality is, and driving it to 45% would
 manufacture a property real documents do not have — a detection score that looks
 discriminating and transfers to nothing. That is the failure this plan exists to
@@ -72,6 +80,28 @@ failed the project's own SHACL 82% of the time while the eval reported PASS.
 Fixed: schema coverage and validity now run on every batch, with null models for
 each property.
 
+**Blank template rows were being scored as detections.** The workbook template
+pre-fills a row for every factor in the pack, and the parser emitted those rows
+as extractions whether or not anything was written into them. Six NASA-only
+factors had **162 entirely empty rows** across the dev corpus — no level, no
+status, no criteria, no rationale — and the report gave all six a detection rate
+of 1.00.
+
+| mean overall F1 | all | nasa | vv40 |
+|---|---|---|---|
+| blank rows credited | 0.920 | 0.928 | 0.912 |
+| **blank rows dropped** | **0.853** | **0.793** | 0.912 |
+
+NASA read as *better* than V&V 40 while the extractor was filling 13 of its 19
+factors. V&V 40 is unchanged, which is the control for the fix.
+
+This is the checklist-constant problem inside the extractor's own score: naming
+a factor is free, so any metric that rewards the name rewards a null model. The
+filter lives in the parser rather than the scorer on purpose — putting it in
+`score_factors` classes `control_constant_list` (which emits `factor_type`
+alone, by design) as blank too, dropping it from 0.960 to 0.000 and
+manufacturing headroom for every candidate instead of measuring any.
+
 ## The question that replaced the original one
 
 Not *"can a keyless method beat the LLM"* — it cannot, and detection cannot
@@ -92,7 +122,13 @@ of coefficients, seconds to train, offline.
 |---|---|---|
 | ~~**C1**~~ | ~~Finish sparse convergence~~ | **abandoned** — see above; real N/A is 0% |
 | **C2** | Re-extract regenerated bundles, re-score | ~$3 |
-| **C3** | Fix 20 colliding bundle ids between dev and test manifests | free, ~30 min |
+| ~~**C3**~~ | ~~Fix 20 colliding bundle ids~~ | **done** — verified 0 collisions, 0 shared documents |
+
+C3 is verified rather than asserted: no bundle id appears in both splits, and no
+two bundles across the split hash to the same source content. The value is that
+the bundle-level split is now *checkable*, so the eventual held-out figure means
+what it says. It does not license using the test set yet — that stays
+sentinel-locked, and K6 keeps its within-dev holdout during calibration.
 
 C1 stopped at 54 dev / 33 test bundles (26 sparse specs ungenerated). Two
 mechanisms were tried and both are recorded in the generator rather than
@@ -133,9 +169,80 @@ Both are extractors, so both need their own correctness measure: groundedness
 cannot see a *selection* error, where the wrong model or the wrong decision is
 lifted verbatim.
 
-### External validity, ~2h, free — DEFERRED by decision
+### V1 — run, and it found something upstream of what it was aimed at
 
-**Status: deferred.** Sequencing decision taken 2026-08-06: K3 and K5 run
+**Status: done, with a caveat about who did it.** V1 was specified as *human*
+annotation. This was annotated by Claude, which is weaker — but the loop V1
+exists to break is that gpt-5 both wrote and labelled the synthetic corpus, and
+the NTRS documents are human-written and published, so the check still bites.
+Annotation was written before any extractor was run against the document.
+
+**The real corpus is 4 documents, not 13** (one report backs 8 bundles), and
+only 2 of the 4 are extractable prose:
+
+| document | form | usable |
+|---|---|---|
+| elemance | 45pp report | yes |
+| opensim | 12pp journal article + supplemental | yes |
+| ared | 1pp conference poster | no — columns interleaved |
+| imm | 32 slides, 43 words/slide | no — bullet fragments |
+
+**The finding: the PDF reader was destroying 92% of sentences.** Thirteen
+evidence spans were annotated on the OpenSim paper — the sentence a reviewer
+would cite for each factor. Against the pipeline's own reader:
+
+    extract_text()                1/13 contiguous  ( 8%)
+    extract_text(layout=True)     1/13 contiguous  ( 8%)
+    per-column extraction        12/13 contiguous  (92%)
+
+Token recall was ~1.00 throughout. The words were all present; the sentences
+were not. `page.extract_text()` reads in raster order, so on a two-column page
+it joins the left column's line to the right column's line — every sentence
+becomes two halves of unrelated paragraphs. Invisible to any word-level metric
+and fatal to everything the pipeline actually does: quoting, classifying and
+attributing *sentences*.
+
+It survived this long because the synthetic corpus is markdown, where the
+question never arises. Only real documents were affected — which is exactly
+where the transfer claims live.
+
+Fixed in `readers/pdf_reader.py` by detecting the gutter (a vertical band no
+body word crosses, measured after dropping full-width running heads and
+captions) and reading each column separately. Measured separation is wide —
+two-column pages 0.000–0.010, single-column 0.056–0.071 — so the 0.03 threshold
+is not finely tuned. Both single-column prose documents split on zero pages,
+which is the side that matters: a false positive would cut every line in half.
+
+**A second layer of the same bug.** `sentences()` splits on newlines before
+punctuation — correct for markdown, where a line is a logical unit; wrong for a
+PDF, where a newline is where the typesetter ran out of column. So even after
+the columns were recovered, sentences were still delivered as line fragments.
+Unwrapping in the reader took the OpenSim document from 989 fragments to 539
+sentences. Both layers were invisible on markdown and fatal on PDF, which is the
+pattern worth remembering: **the sentence-level toolchain assumes markdown line
+semantics, and real evidence is PDFs.**
+
+**The first real-document attribution number, and it is 0.000.** A lexical
+router — the honest zero-training keyless baseline — scores **0/7** against the
+hand annotation, below the 0.30 kill threshold. The reason is more useful than
+the number: it routes *every* factor to the abstract's sentence enumerating the
+eight credibility factors, because that is where the factor names are densest.
+That sentence is a citation of the standard, not evidence for anything. The
+findings are 200 sentences later in the Results section.
+
+This is the checklist-constant phenomenon once more: the document contains the
+checklist, and naive methods find the checklist rather than the assessment.
+
+**Scope of that result, stated precisely.** What was measured is the lexical
+baseline on 7 factors of 1 document. **K6 — the trained detector whose 0.615 is
+the headline keyless figure — has still not been run on a real document.** The
+plan's kill criterion is about the K6→K2 pipeline, so it is not yet triggered.
+What changed is that the measurement is now possible, and the baseline it must
+beat on real text is 0.000 rather than unmeasurable.
+
+### Original V1 framing, kept for the record
+
+**Status: superseded by the above.** Sequencing decision taken 2026-08-06: K3 and K5 run
 first. The argument for doing V1 first was made and not accepted, which is a
 legitimate call — it trades earlier candidate coverage against later validation.
 
