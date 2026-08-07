@@ -61,6 +61,27 @@ _MAX_GUTTER_COVERAGE = 0.03
 
 _BINS = 120
 
+# pdfplumber infers word boundaries from horizontal character gaps, and its
+# default threshold is too wide for some publishers' fonts: the APL Bioengineering
+# PDFs came out as "thisworkseekstoperformapopulation-basedvalidation", losing
+# ~10% of tokens into run-together strings and roughly halving the token count.
+#
+# Measured over every document in the corpus. Two are repaired and none regress:
+#
+#     document    default -> x_tolerance=1.2   (fraction of tokens >20 chars)
+#     tavi1        9.98%  ->  0.02%            3,746 -> 6,549 tokens
+#     tavi2       11.25%  ->  0.01%            3,963 -> 7,129 tokens
+#     bologna      0.06%  ->  0.04%
+#     nagaraja     0.00%  ->  0.00%
+#     morrison     0.02%  ->  0.01%
+#     opensim      0.08%  ->  0.08%
+#     elemance     0.01%  ->  0.01%
+#     ared         0.06%  ->  0.06%
+#
+# Two documents were discarded from the corpus over this before it was diagnosed
+# as a tooling default rather than a property of the documents.
+_X_TOLERANCE = 1.2
+
 
 def _find_gutter(words: list[dict], x0: float, x1: float) -> float | None:
     """The x of a low-coverage vertical band, or None for a single column.
@@ -144,24 +165,25 @@ def _page_text(page) -> str:
     try:
         words = page.extract_words()
     except Exception:  # noqa: BLE001 — malformed page: fall back to raster order
-        return _unwrap(page.extract_text() or "")
+        return _unwrap(page.extract_text(x_tolerance=_X_TOLERANCE) or "")
 
     x0, _, x1, _ = page.bbox
     gutter = _find_gutter(words, x0, x1)
     if gutter is None:
-        return _unwrap(page.extract_text() or "")
+        return _unwrap(page.extract_text(x_tolerance=_X_TOLERANCE) or "")
 
     parts = []
     for lo, hi in ((x0, gutter), (gutter, x1)):
         try:
-            col = page.crop((lo, page.bbox[1], hi, page.bbox[3])).extract_text()
+            col = page.crop((lo, page.bbox[1], hi, page.bbox[3])).extract_text(
+                x_tolerance=_X_TOLERANCE)
         except Exception:  # noqa: BLE001
-            return page.extract_text() or ""
+            return page.extract_text(x_tolerance=_X_TOLERANCE) or ""
         if col and col.strip():
             parts.append(col)
     # A split that recovered only one side is not a split.
     if len(parts) != 2:
-        return _unwrap(page.extract_text() or "")
+        return _unwrap(page.extract_text(x_tolerance=_X_TOLERANCE) or "")
     return _unwrap("\n".join(parts))
 
 
