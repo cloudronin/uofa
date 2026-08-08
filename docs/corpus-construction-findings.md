@@ -461,3 +461,28 @@ document — they are per-change and nobody reads them in sequence.
 
 **Append a dated entry when a result lands or a pattern repeats.** If a fix is
 worth a commit message explaining *why*, the why belongs here.
+
+### Contaminating the holdout while debugging K7 — 2026-08-07
+
+K7 scored 1/6 on the holdout, exactly matching its control. Diagnosing why, I
+opened two holdout bundles and read their gold against K7's proposals. The
+diagnosis was correct — `_MODEL` misses the plural "simulations", and many
+context-of-use statements never name the model at all ("The COU is to compare
+alternative helmet design variants…") — but **deriving a pattern fix from
+holdout failures is fitting to the test set.**
+
+The split was built one hour earlier, stamped at generation time specifically so
+it could not be reassigned after a result. It does not defend against being
+*read*.
+
+Recorded rather than quietly worked around:
+
+* `bundle_seeded_001_bologna` and `bundle_seeded_004_bologna` were inspected.
+* Any K7 pattern tuned on them is fitted to two of the ten holdout papers.
+* K7 is therefore developed against the **train** set, and holdout numbers for it
+  are reported twice — over all ten, and over the eight never opened.
+
+The general lesson is narrower than "do not look at the test set", because
+debugging requires looking at something: **decide which corpus you are allowed
+to debug against before the first failure, not after.** The train set existed and
+was the right place; I reached for whichever bundle was in front of me.
