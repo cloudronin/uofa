@@ -134,10 +134,19 @@ DOMAINS = [
 _NOT_ACCEPTED_RATE = 0.185
 
 
-def decision_for(bundle_id: str) -> str:
-    """Accepted or not, fixed per bundle. Deterministic like sparse_scope."""
+def decision_for(idx: int, count: int = 1) -> str:
+    """Accepted or not. Deterministic, and STRATIFIED across the run.
+
+    Drawing independently per bundle does not guarantee the property appears in
+    both splits. Hashing the 40 real bundle names gave two rejections, both in
+    train -- so the holdout, which is the measurement surface, would have had
+    none and a constant would still score 1.000 there. K5 would have stayed
+    untestable precisely where it matters, and the fix would have looked applied.
+
+    Spreading evenly by index puts the target rate in every split of any size.
+    """
     return ("not accepted"
-            if random.Random(f"decision:{bundle_id}").random() < _NOT_ACCEPTED_RATE
+            if int((idx + 1) * _NOT_ACCEPTED_RATE) > int(idx * _NOT_ACCEPTED_RATE)
             else "accepted")
 
 
