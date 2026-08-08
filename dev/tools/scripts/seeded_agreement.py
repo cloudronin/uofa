@@ -46,6 +46,7 @@ sys.path.insert(0, str(_ROOT / "dev" / "tools" / "scripts"))
 sys.path.insert(0, str(_ROOT / "src"))
 
 from d1_annotator_agreement import PROMPT, norm, spans_for, toks  # noqa: E402
+from generate_seeded_corpus import parse_or_salvage  # noqa: E402
 from document_furniture import strip_furniture  # noqa: E402
 from keyless_k2_extractive import sentences  # noqa: E402
 from uofa_cli import excel_constants as ec  # noqa: E402
@@ -157,6 +158,7 @@ def main() -> int:
     # generator has: two earlier runs of this script cost real money that
     # could only be estimated afterwards.
     spent_tokens = 0
+    attempted = 0
     failed, tot_f, both_f = [], 0, 0
     gold_only = annot_only = annot_out_of_scope = 0
     # Document level is the GATED basis, because that is how D1 measured the
@@ -242,6 +244,7 @@ def main() -> int:
                 source="\n".join(kept)[:80000], scope=scope)
             raw = backend.generate(prompt_text, GenerationOptions(max_tokens=16000))
             spent_tokens += len(prompt_text) // 4 + len(raw or "") // 4
+            attempted += 1
             if args.save_raw:
                 args.save_raw.mkdir(parents=True, exist_ok=True)
                 (args.save_raw / f"{b.name}.{abs(hash((model, mech))) % 9999}.json"
@@ -251,10 +254,15 @@ def main() -> int:
                 failed.append(f"{b.name}[{model}/{mech}]")
                 continue
             try:
+                # Same repair the generator uses. Without it a trailing comma in
+                # one response of thirty refused the whole verdict -- and that
+                # response recovered 13 factors once repaired. Third time a fix
+                # was added in one place and not the other.
+                parsed, _ = parse_or_salvage(m.group(0))
                 theirs = {f["factor_type"]: f.get("evidence") or []
-                          for f in json.loads(m.group(0)).get("factors", [])
+                          for f in parsed.get("factors", [])
                           if f.get("evidence")}
-            except json.JSONDecodeError:
+            except (json.JSONDecodeError, RuntimeError, ValueError):
                 failed.append(f"{b.name}[{model}/{mech}]")
                 continue
 
@@ -280,11 +288,20 @@ def main() -> int:
                         agree_s += 1 if ms & ts else 0
         print(f"  {b.name:30s} {len(by_scope)} scopes, {len(findings)} findings")
 
-    if failed or tot_f == 0:
+    # The D1 rule stands -- an API failure is not evidence about the corpus --
+    # but refusing a verdict over ONE call of thirty discards the other
+    # twenty-nine. Report the verdict and name what was lost; refuse only when
+    # enough is missing that the remainder cannot speak for the corpus.
+    lost = len(failed) / max(len(failed) + attempted, 1)
+    if tot_f == 0 or lost > 0.20:
         print("\n  ── DID NOT RUN ──")
-        print(f"  no usable response: {failed or 'none'};  comparable factors: {tot_f}")
+        print(f"  no usable response: {failed or 'none'} "
+              f"({lost:.0%} of calls);  comparable factors: {tot_f}")
         print("  No verdict. An API failure is not evidence about the corpus.")
         return 1
+    if failed:
+        print(f"\n  {len(failed)} scope(s) excluded, {lost:.0%} of calls, "
+              f"named not absorbed: {failed}")
 
     # WHICH WAY the disagreement runs. A single agreement figure cannot tell a
     # corpus that is genuinely ambiguous from a protocol where one side is

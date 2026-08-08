@@ -649,6 +649,17 @@ def generate_one(idx: int, seed_tag: str, out_root: pathlib.Path, backend,
                 rep["sections_lost_to_truncation"] = lost
 
             levels = factor_levels(content["sections"])
+            # Set check, not just a ratio. A table can clear 0.80 coverage and
+            # still omit a factor entirely -- which is how 16 findings ended up
+            # with no gradation to read while the ratio looked healthy.
+            missing = [f for f in (plan.get("clear_factors") or [])
+                       if not any(f.lower() in k for k in levels)]
+            if missing:
+                raise RuntimeError(
+                    f"summary table omits {len(missing)} factor(s) the paper "
+                    f"reports on: {missing[:4]}. Every one is a finding with no "
+                    f"gradation to read, and R8 requires each assessed factor to "
+                    f"be scored.")
             coverage = len(levels) / max(expected_rows, 1)
             if coverage < _MIN_TABLE_COVERAGE:
                 raise RuntimeError(
@@ -783,18 +794,20 @@ def generate_one(idx: int, seed_tag: str, out_root: pathlib.Path, backend,
                         if fac and fac in key and (not mdl or mdl[:18] in key)
                         and (not mech or mech[:18] in key)), None)
             hit = hit or next((v for key, v in levels.items() if fac and fac in key), None)
-            if not hit:
-                # The paper's own table does not score this factor anywhere, so
-                # under R8 -- which records that real assessments enumerate the
-                # whole checklist and score absent evidence rather than dropping
-                # the row -- the paper does not assess it. Same authority as the
-                # out-of-scope drop: the authored table decides, not the gold
-                # model's reading of incidental prose. These were the entire
-                # residual N/A rate at the checkpoint, 13 findings of 405.
-                dropped_reason["factor-not-scored"] += 1
-                continue
-            f["level"] = hit
-            f["level_source"] = "summary table"
+            # NOT dropped when the table lacks the factor. That was tried and
+            # was wrong: it removed 16 findings the INDEPENDENT annotator also
+            # found, using table knowledge the annotator does not have, and
+            # selection agreement fell 0.891 -> 0.765 (AC1 0.876 -> 0.702). Two
+            # readers finding evidence in the prose means the paper assesses the
+            # factor and its TABLE is incomplete -- so the defect is the table,
+            # and it is caught at write time by _table_covers_every_factor.
+            if hit:
+                f["level"] = hit
+                f["level_source"] = "summary table"
+            else:
+                f["level"] = "not stated"
+                f["level_source"] = "absent from the paper's table"
+                f["status"] = "ambiguous"
             kept.append(f)
         dropped = len(raw_findings) - len(kept)
 
