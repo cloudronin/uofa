@@ -933,3 +933,47 @@ cannot reproduce the failure.** Running one test file is the fast check and it i
 structurally blind to a collection-order bug. When a fix is for a failure that
 only appears in the full run, the full run is the only check that confirms it —
 and "it passes when I run it" is not that.
+
+### Three CI failures, one cause, and the third instance of the same blindness — 2026-08-08
+
+Pushing the seeded-corpus work to `main` ran its tests in CI for the first time,
+and three failed on one line:
+
+    FileNotFoundError: [Errno 2] No such file or directory: 'pdflatex'
+
+`--dry-run` renders one paper from canned content "to prove the
+render->measure->gate path". The devcontainer has no TeX toolchain, so the guard
+that exists to catch a bad configuration *before anything is billed* was itself
+the thing that crashed. **A guard that cannot run is worse than no guard, because
+it looks like one.**
+
+Fixed by degrading honestly: without `pdflatex` the dry run prints
+
+    RENDER PROOF SKIPPED: no pdflatex on PATH.
+    Planning, scope and the split were checked; the render->measure->gate path was NOT.
+
+and exits 0. The test asserts the proof where the toolchain exists and asserts
+**the skip is announced** where it does not — rather than skipping silently,
+which would make a green CI mean less than it appears to.
+
+**Verified under the failing condition, not just the passing one.** The fix was
+checked by running with a stripped `PATH` containing no `pdflatex`, because "it
+passes on my machine" was exactly what let the bug through: this machine has
+LaTeX installed and CI does not.
+
+**This is the third instance in one session of the same blindness**, and the
+pattern is now unmistakable:
+
+| what CI had that local did not | how it hid |
+|---|---|
+| no `extracted.xlsx` (gitignored) | local had the paid run's output |
+| both conftests collected | local runs one test file, never colliding |
+| no `pdflatex` | local has a TeX install |
+
+Every one passed locally and failed in CI, and in every case **the local
+environment was richer than CI's**. The lesson is not "run CI more"; it is that
+a check whose environment is a superset of the target's cannot falsify anything
+about the target. Where a script depends on an external binary, a file outside
+the repo, or a module name that could collide, the test must be run **with that
+thing removed** — which is cheap, and is the only version of the check that can
+fail.

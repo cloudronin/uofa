@@ -63,11 +63,24 @@ def test_gold_and_agreement_must_be_different_families(tmp_path):
 
 
 def test_dry_run_makes_no_network_call_and_still_proves_the_render_path(tmp_path):
-    """The lesson from the sparse campaign: a guard never dry-run cost a day."""
+    """The lesson from the sparse campaign: a guard never dry-run cost a day.
+
+    The render half needs pdflatex, which CI's devcontainer does not carry. The
+    test asserts the proof where the toolchain exists and asserts the SKIP IS
+    ANNOUNCED where it does not -- rather than skipping silently, which would
+    make a green CI mean less than it appears to.
+    """
+    import shutil
     r = _run(tmp=tmp_path)
     assert r.returncode == 0
     assert "no API calls made" in r.stdout
-    assert (tmp_path / "_dryrun" / "paper.pdf").exists()
+    if shutil.which("pdflatex") is None:
+        assert "RENDER PROOF SKIPPED" in r.stdout, (
+            "without pdflatex the dry run must say the render path went "
+            "unchecked; silence here reads as a proof that never happened")
+        assert not (tmp_path / "_dryrun" / "paper.pdf").exists()
+    else:
+        assert (tmp_path / "_dryrun" / "paper.pdf").exists()
 
 
 class _FakeBackend:

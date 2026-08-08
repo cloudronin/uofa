@@ -53,6 +53,7 @@ import os
 import pathlib
 import random
 import re
+import shutil
 import sys
 from datetime import datetime, timezone
 
@@ -1124,6 +1125,18 @@ def main() -> int:
             sc = sparse_scope(_factors(std), f"bundle_seeded_{i:03d}_{tag}")
             print(f"  {i:3d}  {tag:9s} {std:6s} {dev:32s} {len(sc):2d}/"
                   f"{len(_factors(std)):2d} factors in scope")
+        # The render proof needs a TeX toolchain. CI's devcontainer has none, so
+        # crashing here turned "the dry run proves the path" into "the dry run
+        # fails on machines without LaTeX" -- and the dry run is the guard that
+        # exists so a bad configuration is caught before anything is billed. A
+        # guard that cannot run is worse than no guard, because it looks like one.
+        if shutil.which("pdflatex") is None:
+            print("\n  RENDER PROOF SKIPPED: no pdflatex on PATH.")
+            print("  Planning, scope and the split were checked; the "
+                  "render->measure->gate path was NOT.")
+            print("  no API calls made, nothing billed")
+            return 0
+
         print("\n  rendering one paper from canned content to prove the "
               "render->measure->gate path...")
         p = LR.compile_pdf(LR.render(LR.demo_spec(0)),
