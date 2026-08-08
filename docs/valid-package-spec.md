@@ -105,15 +105,40 @@ them and the warning is the only change they see.
 command, with no flag given — or if an unstamped package is validated under an
 assumed standard without saying so.
 
-### R0c — the version bump
+### R0c — the version bump — **DONE, and it is not the version I first wrote**
 
-Core changes what it *demands*, so it is not additive: **0.7 → 0.8**. Touches
-`spec/context/v0.8.jsonld` (new, from v0.7), `packs/core/pack.json` (`version`
-and `coreCompatibility`), and any fixture asserting a context version.
+An earlier draft said "core schema 0.7 → 0.8, touching `spec/context/v0.8.jsonld`".
+That conflated three separate version series:
 
-`packs/core/pack.json` already describes core as **"Standards-agnostic."** R0 is
-what makes that sentence true of the `UnitOfAssurance` profiles; the version bump
-is what lets a consumer tell the two eras apart.
+| artefact | series | did R0 change it? |
+|---|---|---|
+| `spec/context/vX.jsonld` | the JSON-LD **context** — term to IRI mappings | **no** |
+| `packs/core/pack.json` | the **pack** shipping the shapes, at 0.5.0 | **yes** |
+| `CONTEXT_URL` in `excel_constants` | what gets stamped into a package | no |
+
+**R0 changed the shapes, not the vocabulary.** `hasContextOfUse` still exists as
+a term with the same IRI; what moved is which shape requires it. A
+`v0.8.jsonld` would have been byte-identical to `v0.7.jsonld`, which is
+versioning that signals nothing.
+
+So the bump is **`packs/core/pack.json` 0.5.0 → 0.6.0** — a minor version, because
+core *removed* a requirement.
+
+**And `packs/vv40/pack.json` declares `coreCompatibility: ">=0.6.0"`**, which is
+the part that actually matters. The dangerous pairing is **new core with old
+vv40**: core has given up the context-of-use requirement and an old vv40 does not
+yet carry it, so every V&V 40 package silently stops being asked for one. That
+combination is exactly what `coreCompatibility` exists to refuse, and without the
+bump nothing would have refused it.
+
+*(The reverse pairing — old core, new vv40 — applies the constraint twice, which
+is harmless.)*
+
+**Unrelated drift, found while doing this and not fixed here:** `CONTEXT_URL`
+points at `spec/context/v0.5.jsonld` while the context series has reached v0.7.
+Every package emitted since v0.6 has been stamped with a two-versions-stale
+context. That predates this work and is out of its scope, but it should not go
+unrecorded.
 
 ### The regression instrument
 

@@ -688,10 +688,23 @@ class TestPacks:
         assert "core" in result.stdout
 
     def test_packs_detail(self):
+        """Reads the version from the manifest, for the reason test_version does.
+
+        This assertion was hardcoded "0.5.0" -- the same defect the comment in
+        test_version describes being fixed there, left in place here. It passed
+        for as long as core's version happened not to move, and failed the first
+        time it did (0.5.0 -> 0.6.0, when core gave up the context-of-use
+        requirement). A test pinning a value it does not read is a test that
+        dates rather than checks.
+        """
+        import json
+
+        manifest = json.loads(
+            (Path(__file__).parent.parent / "packs" / "core" / "pack.json").read_text())
         result = run_uofa("packs", "core")
         assert result.returncode == 0
         assert "core" in result.stdout
-        assert "0.5.0" in result.stdout
+        assert manifest["version"] in result.stdout
         assert "Standards-agnostic" in result.stdout or "agnostic" in result.stdout.lower()
 
     def test_packs_missing_pack(self):
