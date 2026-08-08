@@ -192,7 +192,12 @@ def extract(corpus, pack_name: str) -> ExtractionResult:
             "achieved_level": _blank("keyless factor scoring is 0.100 end to end"),
             "acceptance_criteria": _blank("no route"),
             "rationale": _blank("no route"),
-            "status": _fe("not_assessed", 0.0, None),
+            # "not-assessed" with a HYPHEN: the vocabulary's enum. Writing
+            # "not_assessed" made every keyless workbook unimportable, and it
+            # went unnoticed because the extractor was only ever tested as far
+            # as producing a spreadsheet -- never through `uofa import` to a
+            # package, which is the only output anyone actually wants.
+            "status": _fe("not-assessed", 0.0, None),
         })
 
     res.raw_json = {"keyless": True, "routes": sorted(_CONF),
