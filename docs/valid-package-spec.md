@@ -153,7 +153,9 @@ package because it lacked a name is not.
 ### R3 — the declared profile is derived, with a floor
 
 Import computes the highest profile the content actually satisfies and declares
-that. **Order: Disposition, Complete, NasaMinimal, Minimal.**
+that. **Order: Disposition, Complete, Minimal.**
+
+There is no NASA-specific profile: R0 removes the V&V 40 concept from core rather than adding a second profile beside it, so 7009A packages reach the same Minimal every other standard reaches.
 
 *Why Disposition ranks highest:* it is `CompleteBody` plus `hasDisposition`
 (`sh:node` inheritance, verified), so it is strictly the most demanding. Zero
@@ -231,8 +233,8 @@ Per profile and per standard, because a single figure hides Finding 1.
 
 | | target |
 |---|---|
-| gpt-5, 7009A | **2/2 at NasaMinimal or above** |
-| keyless, 7009A | **2/2 at NasaMinimal** |
+| gpt-5, 7009A | **2/2 at Minimal or above** |
+| keyless, 7009A | **2/2 at Minimal** |
 
 **Invariant across both:**
 
