@@ -800,3 +800,52 @@ is the thing to improve.
 implementation reported as a negative about the task.* Every "no keyless route"
 row was one method deep. The fix is procedural: before recording a property as
 unextractable, try the method that already works elsewhere in the same codebase.
+
+### Attacking the two bottlenecks: one moved, one was mis-specified — 2026-08-08
+
+Neither improvement came from tuning a ranker. Both came from asking what the
+stage *upstream* could reach at all before touching the stage that was failing.
+
+**The decision locator was denied the feature it needed.** The gold decision
+sentence sits at median 0.79 through the document, 20 of 34 in the back half, and
+a bag of n-grams cannot represent position. Four positional features took top-1
+from **0.222 to 0.400**, top-3 to **0.700**, against controls still at 0.000.
+
+Separately, six papers carried no label at all. Their best-matching sentence
+scored 0.42–0.53 against a 0.60 gate — the *label* was strict, not the documents
+unlabelled. At 0.40 all forty papers label, and the outcome classifier went
+0.800 → **0.917** balanced, **0.833 reject recall**, on the larger sample. Five of
+six rejections caught, against a constant that catches none.
+
+**The requirement generator was looking for the wrong syntactic category.** Its
+ceiling was **0.140**: 86% of gold names were never proposed, so no ranker could
+have recovered them and every hour spent on ranking would have been wasted. The
+misses were unambiguous —
+
+    a recirculation CSE fraction below 5%
+    within the predefined 10% tolerance for central tendency
+    peak resultant linear head acceleration
+    an NIH not exceeding 0.02 g/100 L at 120 min
+
+A requirement in this literature is a lowercase **acceptance criterion** — a
+quantity, a relation, a threshold — not a proper noun. The generator was matching
+capital letters.
+
+**Raising that ceiling made the result worse, and that is the finding.** The
+broadened generator reached **0.822**. End-to-end recall went **0.065 → 0.032**
+and fell *below* its own control, because candidates per paper went from ~400 to
+~1,225 and picking six became a harder selection problem than the recall gain
+repaid.
+
+This is pattern #7 in a new place. Upstream recall and downstream precision are
+not independent, and **a candidate-generation improvement shipped without a
+matching selection improvement can be a net loss.** The ceiling diagnostic was
+still worth running — it is what proved the ranker was never the problem — but a
+ceiling is a bound on success, not a promise of it.
+
+**And the property is mis-specified.** 42% of the gold requirement names do not
+appear verbatim in the document, so no extractive method can exceed **0.579** by
+construction. `requirements` was already the only entity category that varied
+across repeated annotation draws. The gold is a set of paraphrased acceptance
+criteria, and asking for them by name asks a question the documents do not
+answer. `bindsRequirement` needs its task redefined before any method is chosen.

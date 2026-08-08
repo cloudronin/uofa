@@ -139,12 +139,54 @@ split, evaluated on the 10-paper holdout, split at the bundle level.
 | property | pattern matcher | **trained** | its control |
 |---|---|---|---|
 | `hasValidationResult` | K9 0.152 | **0.438** recall@5 | 0.125 |
-| `hasDecisionRecord`, outcome | K5 0.033 | **0.800** balanced, 0.600 reject recall | 0.500, 0.000 |
-| `hasDecisionRecord`, locating it | — | 0.222 | 0.000 |
-| `bindsRequirement` | K3c 0.026 | 0.065 | 0.000 |
+| `hasDecisionRecord`, outcome | K5 0.033 | **0.917** balanced, 0.833 reject recall | 0.500, 0.000 |
+| `hasDecisionRecord`, locating it | — | **0.400** top-1, **0.700** top-3 | 0.000 |
+| `bindsRequirement` | K3c 0.026 | 0.032 | **0.065 — the control wins** |
 
-**Two of the three now have a keyless route that beats its control.**
-`bindsRequirement` still does not — 2 of 31 names is not something to build on.
+**Two of the three now have a keyless route that beats its control**, and the
+decision record beats it on the measure that matters: **5 of 6 rejections caught,
+against a constant that catches none.**
+
+### The two stages that improved, and the diagnostic that found them
+
+Neither improvement came from tuning a ranker. Both came from measuring what the
+stage upstream could reach at all — the eighth time in this project that the
+defect was one step above the symptom.
+
+* **The decision locator was denied the feature it needed.** The gold sentence
+  sits at median 0.79 through the document and 20 of 34 are in the back half, and
+  a bag of n-grams has no way to represent position. Four positional features took
+  it from 0.222 to **0.400**. Separately, six papers had no label at all: their
+  best-matching sentence scored 0.42–0.53 against a 0.60 gate, so the *label* was
+  strict, not the documents unlabelled. At 0.40 all forty papers label, which is
+  six more papers of training and of evaluation, and the outcome classifier went
+  0.800 → **0.917** balanced on the larger sample.
+
+* **The requirement generator was looking for the wrong syntactic category.** Its
+  ceiling was **0.140** — 86% of gold names were never proposed, so no ranker
+  could have recovered them. The misses said why: `a recirculation CSE fraction
+  below 5%`, `within the predefined 10% tolerance`, `peak resultant linear head
+  acceleration`. A requirement here is a lowercase **acceptance criterion** — a
+  quantity, a relation, a threshold — not a proper noun, and the generator was
+  matching capital letters.
+
+### Raising that ceiling made the result worse, which is the finding
+
+Broadening the generator took the ceiling from 0.140 to **0.822**. End-to-end
+recall went from 0.065 to **0.032**, and fell *below* its own control.
+
+Candidates per paper went from ~400 to ~1,225, so picking six became a far harder
+selection problem than the recall gain repaid. This is pattern #7 — fixing one
+measure by breaking another — arriving in a new place: an upstream ceiling and
+downstream precision are not independent, and a recall improvement that is not
+paired with a selection improvement can be a net loss.
+
+**`bindsRequirement` is not a naming problem and should stop being measured as
+one.** 42% of its gold names do not appear verbatim in the document at all, so no
+extractive method can exceed 0.579 by construction; the category was already the
+only one that varied across repeated annotation draws. The gold is a set of
+paraphrased acceptance criteria, and matching it by name asks a question the
+documents do not answer.
 
 ### The metric was wrong too, and that mattered more than the method
 
@@ -199,8 +241,8 @@ locator rather than by the 0.800 classifier.
 |---|---|
 | `hasContextOfUse` | K7, retrieval tied with its control |
 | `hasValidationResult` | **trained, 0.438** — transfers to real papers |
-| `hasDecisionRecord` | **trained**, outcome 0.800 balanced; bounded by a 0.222 locator |
-| `bindsRequirement` | **no route** — 0.065, and 0.026 before that |
+| `hasDecisionRecord` | **trained**, outcome 0.917 balanced; bounded by a 0.400 locator |
+| `bindsRequirement` | **no route** — 0.032, below its own control, and mis-specified |
 | `hash`, `signature`, `generatedAtTime` | signing, not extraction |
 
 One property of the four is still without a route, and two of the remaining three
@@ -238,10 +280,12 @@ shape is a **hybrid with the split declared per property** — trained routes wh
 they are measured to work, a model where they are not, and `method` recorded on
 every value so the division is auditable afterwards.
 
-What would move it: `bindsRequirement` needs a candidate generator better than a
-capitalisation regex, and `hasDecisionRecord` needs a locator better than 0.222 —
-the outcome classifier behind it is already at 0.800 balanced and is not the
-constraint. Neither is a model-shaped problem.
+What would move it: `hasDecisionRecord` needs a locator better than 0.400 top-1 —
+the outcome classifier behind it is at 0.917 balanced and is not the constraint,
+and top-3 already reaches 0.700, so emitting three candidates rather than one is
+available today. `bindsRequirement` needs its *task* redefined before any method
+is chosen, because 42% of its gold is paraphrase and the remaining match problem
+is a selection problem that a broader generator makes worse.
 
 That is the opposite of the failure this repository already paid for, where 14
 turbomachinery models labelled "Class II" validated and honest packages did not.

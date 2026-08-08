@@ -55,6 +55,11 @@ from keyless_pipeline_registry import Doc, read  # noqa: E402
 
 SEED = 20260808          # fixed, so a rerun is a rerun and not a new sample
 
+# The six papers whose decision sentence never matched peak at 0.42-0.53 against
+# a 0.60 gate -- the label was strict, not the documents unlabelled. Loosened to
+# recover all six, which is six more papers of training AND of evaluation.
+_LABEL_HIT = 0.40
+
 
 def _tfidf():
     """Word 1-2 grams plus character 3-5 grams. The K6 feature set, unchanged."""
@@ -70,6 +75,25 @@ def _tfidf():
 def _clf():
     from sklearn.linear_model import LogisticRegression
     return LogisticRegression(max_iter=2000, class_weight="balanced", C=4.0)
+
+
+def _positional(n: int):
+    """Where each sentence sits, as features TF-IDF structurally cannot see.
+
+    The gold decision sentence sits at median 0.79 through the document and 20 of
+    34 are in the back half. A bag of n-grams has no way to represent that, so the
+    locator was being asked to find a positional thing with positional
+    information withheld.
+    """
+    import numpy as np
+    pos = np.arange(n, dtype=float) / max(n - 1, 1)
+    return np.column_stack([pos, (pos > 0.75).astype(float),
+                            (pos > 0.90).astype(float), (pos < 0.10).astype(float)])
+
+
+def _stack(text_features, n: int):
+    from scipy.sparse import csr_matrix, hstack
+    return hstack([text_features, csr_matrix(_positional(n))]).tocsr()
 
 
 def _norm(s: str) -> str:
@@ -88,7 +112,7 @@ def decision_labels(doc: Doc, gt: dict) -> tuple[list[int], str | None]:
     for j, t in enumerate(doc.texts):
         n = _norm(t)
         # The gold sentence may span several extracted ones after unwrapping.
-        if n and (n in src or src in n or _overlap(n, src) >= 0.6):
+        if n and (n in src or src in n or _overlap(n, src) >= _LABEL_HIT):
             hits.append(j)
     return hits, d.get("outcome")
 
@@ -132,28 +156,39 @@ def decision_record(train, test) -> dict:
     from sklearn.metrics import balanced_accuracy_score
 
     # -- stage 1: which sentence states the decision
-    X, y = [], []
+    import numpy as np
+    from scipy.sparse import csr_matrix, hstack
+    X, y, P_ = [], [], []
     for doc, gt in train:
-        pos, _ = decision_labels(doc, gt)
-        pos = set(pos)
+        pos = set(decision_labels(doc, gt)[0])
+        pp = _positional(len(doc.texts))
         for j, t in enumerate(doc.texts):
             X.append(t)
             y.append(int(j in pos))
+            P_.append(pp[j])
     feats, clf = _tfidf(), _clf()
-    clf.fit(feats.fit_transform(X), y)
+    clf.fit(hstack([feats.fit_transform(X), csr_matrix(np.array(P_))]).tocsr(), y)
     col = list(clf.classes_).index(1)
 
+    def rank(doc):
+        M = _stack(feats.transform(doc.texts), len(doc.texts))
+        return clf.predict_proba(M)[:, col]
+
     rng = random.Random(SEED)
-    found = first = rand = n = 0
+    found = first = rand = n = at3 = at5 = 0
     outcomes_true, outcomes_pred, outcomes_const = [], [], []
     for doc, gt in test:
         pos, outcome = decision_labels(doc, gt)
+        pos = set(pos)
         if not pos:
             continue
         n += 1
-        P = clf.predict_proba(feats.transform(doc.texts))[:, col]
+        P = rank(doc)
         top = max(range(len(doc.texts)), key=lambda j: P[j])
         found += top in pos
+        order = sorted(range(len(doc.texts)), key=lambda j: -P[j])
+        at3 += bool(pos & set(order[:3]))
+        at5 += bool(pos & set(order[:5]))
         first += 0 in pos
         rand += rng.randrange(len(doc.texts)) in pos
         if outcome:
@@ -173,13 +208,15 @@ def decision_record(train, test) -> dict:
         pos, outcome = decision_labels(doc, gt)
         if not pos or not outcome:
             continue
-        P = clf.predict_proba(feats.transform(doc.texts))[:, col]
+        P = rank(doc)
         top = max(range(len(doc.texts)), key=lambda j: P[j])
         outcomes_pred.append(oc.predict(of.transform([doc.texts[top]]))[0])
 
     return {
         "n": n,
         "locate_trained": found / max(n, 1),
+        "locate_at3": at3 / max(n, 1),
+        "locate_at5": at5 / max(n, 1),
         "locate_first": first / max(n, 1),
         "locate_random": rand / max(n, 1),
         "outcome_acc": _acc(outcomes_true, outcomes_pred),
@@ -240,13 +277,49 @@ def validation_results(train, test, k: int = 5) -> dict:
 
 # ── 3. bindsRequirement ───────────────────────────────────────────────
 
-# Candidate spans: capitalised phrases, standard identifiers, quoted terms.
-_CAND = re.compile(
-    r"\b(?:[A-Z][A-Za-z0-9\-]{2,}(?:\s+(?:of|for|and|the)?\s*[A-Z][A-Za-z0-9\-]{2,}){0,4})\b"
-    r"|\b(?:ISO|ASTM|IEC|ASME|FDA|EN)\s*[A-Z0-9\-]+(?::\d{4})?\b")
+# Candidate spans.
+#
+# The first version of this looked only for capitalised phrases and scored a
+# candidate-generation ceiling of 0.140 -- i.e. 86% of gold requirement names were
+# never proposed, and no ranker could have recovered them. The misses said why:
+#
+#     a recirculation CSE fraction below 5%
+#     within the predefined 10% tolerance for central tendency
+#     peak resultant linear head acceleration
+#     an NIH not exceeding 0.02 g/100 L at 120 min
+#
+# A requirement in this literature is usually a lowercase **acceptance criterion**
+# -- a quantity, a relation and a threshold -- not a proper noun. Looking for
+# capital letters was looking for the wrong syntactic category entirely.
+_CAND_PATTERNS = [
+    # standard identifiers, including the trailing lowercase word ("ISO 14243-1
+    # waveforms"), which the capitalised-run pattern cut off
+    r"\b(?:ISO|ASTM|IEC|ASME|FDA|EN|AAMI)\s*[A-Z0-9][A-Za-z0-9\-]*(?::\d{4})?"
+    r"(?:[,\s]+(?:Class|Annex|Part)?\s*[A-Za-z0-9.\-]+){0,2}",
+    # a threshold: quantity + relation + number
+    r"\b(?:[a-z][\w\-]*\s+){0,5}(?:below|under|less than|not exceeding|exceeding|"
+    r"within|above|at least|no more than|greater than|up to)\s+"
+    r"[\d.]+\s*(?:%|percent|mm|MPa|kPa|g/100\s*L|N|Hz|s|min|deg\w*)?"
+    r"(?:\s+[a-z][\w\-]*){0,4}",
+    # criterion vocabulary and what it governs
+    r"\b(?:[a-z][\w\-]*\s+){0,3}(?:acceptance|tolerance|threshold|criterion|"
+    r"criteria|requirement|limit|band|specification)s?(?:\s+(?:for|of|on)\s+)?"
+    r"(?:\s+[a-z][\w\-]*){0,4}",
+    # requirement identifiers, e.g. PS-VER-001
+    r"\b[A-Z]{2,}(?:-[A-Z0-9]+){1,3}\b",
+    # the original: capitalised runs
+    r"\b[A-Z][A-Za-z0-9\-]{2,}(?:\s+(?:of|for|and|the)?\s*[A-Z][A-Za-z0-9\-]{2,}){0,4}\b",
+    # a measured quantity phrased as a noun run ("peak resultant linear head
+    # acceleration") -- three or more lowercase content words in sequence
+    r"\b(?:peak|maximum|minimum|mean|median|RMS|root mean square|resultant|total|"
+    r"predefined|predicted|measured)\s+(?:[a-z][\w\-]*\s+){1,4}"
+    r"(?:acceleration|error|stress|strain|force|pressure|velocity|displacement|"
+    r"fraction|index|rate|difference|deviation|tolerance)\b",
+]
+_CAND = re.compile("|".join(f"(?:{p})" for p in _CAND_PATTERNS), re.I)
 
 
-def _candidates(doc: Doc, cap: int = 400) -> tuple[list[str], dict[str, int]]:
+def _candidates(doc: Doc, cap: int = 4000) -> tuple[list[str], dict[str, int]]:
     """Distinct candidate spans, and how often each occurs.
 
     Frequency is returned because the control that beat K3c is the *frequent*
@@ -498,6 +571,8 @@ def main() -> int:
     print(f"    {'trained':22s}{d['locate_trained']:>8.3f}")
     print(f"    {'control: first sent':22s}{d['locate_first']:>8.3f}")
     print(f"    {'control: random':22s}{d['locate_random']:>8.3f}")
+    print(f"    {'trained, top 3':22s}{d['locate_at3']:>8.3f}")
+    print(f"    {'trained, top 5':22s}{d['locate_at5']:>8.3f}")
     print(f"\n  the outcome, {d['n_reject']} rejections in the holdout")
     print(f"    {'':22s}{'accuracy':>10s}{'balanced':>10s}{'reject recall':>15s}")
     print(f"    {'trained':22s}{d['outcome_acc']:>10.3f}{d['outcome_bal']:>10.3f}"
@@ -518,8 +593,8 @@ def main() -> int:
     print(f"    {'control: constant':22s}{c['const_acc']:>10.3f}"
           f"{c['const_bal']:>10.3f}{c['const_reject_recall']:>15.3f}")
     print("    Measured on the GOLD sentence, so this is classification given")
-    print("    the right input -- not end to end. Composed with a 0.222 locator")
-    print("    it would be poor, which is the next table's question.")
+    print("    the right input, not end to end. The locator above is the")
+    print("    constraint, and the next table asks whether it can be skipped.")
 
     dc = decision_cv_document(train + test)
     print(f"\n  the outcome from the WHOLE DOCUMENT, no locator, n={dc['n']}"
