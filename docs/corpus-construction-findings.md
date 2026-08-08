@@ -486,3 +486,36 @@ The general lesson is narrower than "do not look at the test set", because
 debugging requires looking at something: **decide which corpus you are allowed
 to debug against before the first failure, not after.** The train set existed and
 was the right place; I reached for whichever bundle was in front of me.
+
+### The four blocked rows, run at n=40 — 2026-08-07
+
+| candidate | verdict | detail |
+|---|---|---|
+| **K7** | **works** | 15/20 train, 3/4 on the uncontaminated holdout, control 11/20 and 1/4. 7009A restraint 13/14. |
+| **K9** | **not demonstrated, and now convincingly** | 18/100 against a control's 13/100, p = 0.094 |
+| **K3c** | **fails on counts** | 0/3 properties better on train, 1/3 on holdout |
+| **K5** | **untestable — the corpus's fault** | all 40 papers accept, so a constant scores 1.000 |
+
+**K9 is the clearest gain.** The deliverable recorded "not demonstrated, 4 vs 2 of
+24, p = 0.135" — a verdict nobody could rely on, because n=24 could not separate
+anything. At 100 gold results across 40 papers the verdict is unchanged and the
+confidence in it is not: the effect is small and does not reach significance at
+four times the sample. That is the difference between *we cannot tell* and *we
+can tell, and the answer is no*, which is what the corpus was built to buy.
+
+**K5 was made untestable by an omission in the generator.** Every one of the 40
+papers accepts its model, so `control_constant_decision` scores 1.000 and the
+kill criterion becomes "beat 1.000". The old corpus left room at 0.815. Nothing
+in the spec or any prompt ever asked for a paper that rejects its model — the
+same class of omission as the four missing gold fields, and found the same way,
+by trying to use the corpus.
+
+Fixed for future generation: `decision_for()` assigns the outcome deterministically
+per bundle at the rate the old corpus had (0.185 not accepted, giving a constant
+0.775 that K5 can beat). **The existing 40 papers still accept unanimously** —
+making K5 testable needs the nine that should reject to be regenerated.
+
+**K5 and K3c were also reading PDFs with `read_text()`** — binary garbage scored
+as a failure to extract, the eighth instance of a symptom one step downstream of
+its cause. Fixing it changed K5's verdict from "fails" to "untestable", which is
+a different and more useful thing to know.

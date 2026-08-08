@@ -103,25 +103,63 @@ DOCS = [("bologna", "extract_corpus_vv40/bundle_bologna_bcthip"),
 KS = (1, 3, 5, 10)
 
 
+def _seeded_gold(gt: dict, sents: list[str], pool: list[int]) -> set[int]:
+    """Sentence indices a seeded bundle's validation results land in.
+
+    The real corpus records a verbatim `span` per result; the seeded corpus
+    records `name_keywords` -- the comparator, the measured value, the predicted
+    value. Matching on keywords rather than a span is not a looser test here, it
+    is the only one available, and it is stricter in one way: a sentence must
+    carry MOST of a result's keywords, not merely appear near it.
+    """
+    norm = lambda x: " ".join(str(x).split()).lower()   # noqa: E731
+    low = {i: norm(sents[i]) for i in pool}
+    hits: set[int] = set()
+    for r in gt.get("expected_validation_results") or []:
+        kws = [norm(k) for k in (r.get("name_keywords") or []) if len(str(k)) > 3]
+        if not kws:
+            continue
+        best, score = None, 0.0
+        for i, s_ in low.items():
+            f = sum(1 for k in kws if k in s_) / len(kws)
+            if f > score:
+                best, score = i, f
+        if best is not None and score >= 0.5:
+            hits.add(best)
+    return hits
+
+
 def main() -> int:
+    import argparse
+    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap.add_argument("--corpus", type=pathlib.Path, default=None,
+                    help="seeded corpus root; omit to run the five real papers")
+    args = ap.parse_args()
     norm = lambda s: " ".join(str(s).split()).lower()  # noqa: E731
     hits = {k: [0, 0] for k in KS}          # K9: [hit, total]
     ctrl = {k: [0, 0] for k in KS}
     print("\nK9 — validation results by shape\n")
 
-    for tag, bundle in DOCS:
-        src = _ROOT / "tests" / "fixtures" / bundle / "source"
+    docs = ([(b.name[14:], b) for b in sorted(args.corpus.rglob("bundle_*"))
+             if (b / "ground_truth.json").exists()] if args.corpus
+            else [(t, _ROOT / "tests" / "fixtures" / b) for t, b in DOCS])
+    for tag, bundle in docs:
+        src = (bundle / "source") if args.corpus else (bundle / "source")
         sents = sentences("\n".join(c.text for p in sorted(src.glob("*.pdf"))
                                     for c in read_pdf(p)))
         _, pool, _ = strip_furniture(sents, NAMES)
-        gold_rows = json.loads(
-            (_ROOT / "docs" / "v1" / f"valresults_{tag}.json").read_text())["results"]
-        gold = set()
-        for r in gold_rows:
-            for i in pool:
-                if norm(r["span"]) in norm(sents[i]):
-                    gold.add(i)
-                    break
+        if args.corpus:
+            gold = _seeded_gold(json.loads((bundle / "ground_truth.json").read_text()),
+                                sents, pool)
+        else:
+            gold_rows = json.loads(
+                (_ROOT / "docs" / "v1" / f"valresults_{tag}.json").read_text())["results"]
+            gold = set()
+            for r in gold_rows:
+                for i in pool:
+                    if norm(r["span"]) in norm(sents[i]):
+                        gold.add(i)
+                        break
         ranked, base = find_results(sents, pool), control_first_comparison(sents, pool)
         for k in KS:
             hits[k][0] += len(set(ranked[:k]) & gold)

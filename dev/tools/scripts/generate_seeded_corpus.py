@@ -122,6 +122,35 @@ DOMAINS = [
     ("blood oxygenator manifold", "flow maldistribution", "CFD"),
 ]
 
+# Fraction of papers whose conclusion is NOT accepted. Anchored on the corpus K5
+# was calibrated against -- 66 of 81 bundles accepted, so 0.185 -- rather than
+# chosen, because this number IS the control's score: a constant "Accepted"
+# scores exactly the accepted rate, and K5's kill criterion is to beat it.
+#
+# Every one of the first 40 seeded papers accepted its model, so the constant
+# scored 1.000 and the criterion became "beat 1.000". Nothing in the spec or the
+# prompts had ever asked for a rejection; the property was untestable by
+# omission, and it took trying to use the corpus to notice.
+_NOT_ACCEPTED_RATE = 0.185
+
+
+def decision_for(bundle_id: str) -> str:
+    """Accepted or not, fixed per bundle. Deterministic like sparse_scope."""
+    return ("not accepted"
+            if random.Random(f"decision:{bundle_id}").random() < _NOT_ACCEPTED_RATE
+            else "accepted")
+
+
+_ACCEPT_RULE = """\
+The assessment CONCLUDES THAT THE MODEL IS ACCEPTED for its stated purpose. Say
+so explicitly in a concluding sentence, with the reasoning it rests on."""
+_REJECT_RULE = """\
+The assessment CONCLUDES THAT THE MODEL IS NOT ACCEPTED for its stated purpose.
+Say so explicitly in a concluding sentence, and give the reasoning: a factor
+whose evidence fell short, a comparison that did not meet its criterion, or a
+gap that further work must close. Do not soften it into an acceptance with
+caveats -- the conclusion is negative and the paper says so."""
+
 PLAN_PROMPT = """\
 You are planning a credibility assessment paper for a medical device \
 computational model, to be written under {standard}.
@@ -161,6 +190,8 @@ stated confidently and never flagged as a deviation:
 
 {standard_rules}
 
+{decision_rule}
+
 Return ONLY JSON:
 {{
   "title": "...",
@@ -171,6 +202,7 @@ Return ONLY JSON:
   "clear_factors": ["..."],
   "ambiguous_factors": ["..."],
   "deviation": {{"kind": "one of the four above", "detail": "how it appears"}},
+  "decision_outcome": "Accepted|Not accepted",
   "sections": ["ordered section headings for this paper"]
 }}
 """
@@ -242,7 +274,11 @@ missing rows are findings with no gradation to read.
 
 5. Say nothing about any credibility factor not in the plan.
 
-6. Write 5000-9000 words of real technical prose. Full paragraphs, specific \
+6. The paper reaches the conclusion its plan states in `decision_outcome`, and
+says so in a concluding sentence. If it is "Not accepted", the paper does not
+soften that into an acceptance with caveats.
+
+7. Write 5000-9000 words of real technical prose. Full paragraphs, specific \
 numbers, named methods. Not an outline.
 
 Return ONLY JSON. Every string is PLAIN TEXT -- no LaTeX, no markdown, no \
