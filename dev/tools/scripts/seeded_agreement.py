@@ -212,8 +212,15 @@ def main() -> int:
         paper_scope = {x.lower() for x in gt.get("scope_allowed", [])}
 
         findings = gt.get("findings", [])
-        na_total += len(findings)
-        na_hits += sum(1 for f in findings
+        # Over CLEAR findings only. R8 requires every factor a paper ASSESSES to
+        # be scored; R5 requires 10-20% of factors to be reported ambiguously,
+        # and an ambiguous factor is a passing mention that a careful reader
+        # might or might not count -- it has no gradation by definition.
+        # Counting those as N/A would make the two requirements contradict, and
+        # would penalise the corpus for having the property R5 asks for.
+        scored = [f for f in findings if f.get("status") != "ambiguous"]
+        na_total += len(scored)
+        na_hits += sum(1 for f in scored
                        if str(f.get("level", "")).strip().lower() in _NA)
 
         # One scope at a time. Withholding it manufactured a 1/6 disagreement in
