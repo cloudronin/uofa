@@ -1,0 +1,558 @@
+{
+  "bundle_id": "bundle_seeded_010_bologna",
+  "split": "train",
+  "standard": "V&V40",
+  "seed": "bologna",
+  "device": "transcatheter delivery system",
+  "scope_allowed": [
+    "Numerical code verification",
+    "Numerical solver error",
+    "Output comparison",
+    "Relevance of the validation activities to the COU",
+    "Software quality assurance",
+    "Test samples",
+    "Use error"
+  ],
+  "models": [
+    {
+      "name": "Model-HF",
+      "what_it_computes": "High-fidelity 3D explicit finite element analysis of the delivery system, computing time-resolved actuator force during unsheathing and partial release, including detailed contact, large deformation, and frictional stick\u2013slip."
+    },
+    {
+      "name": "Model-RO",
+      "what_it_computes": "Reduced-order explicit FE submodel with homogenized device and sheath representation, computing deployment-force envelopes and peak force estimates under prescribed kinematics."
+    }
+  ],
+  "mechanisms": [
+    {
+      "name": "Unsheathing friction and stick\u2013slip",
+      "why_it_matters": "Peaks in handle force during sheath retraction can cause loss of positional control, abrupt release, or tissue injury."
+    },
+    {
+      "name": "Frame recoil constraint during staged release",
+      "why_it_matters": "Stored elastic energy in the self-expanding frame generates reaction forces transmitted through the handle; excessive force can lead to overshoot and malposition."
+    }
+  ],
+  "deviation": {
+    "kind": "private_scale",
+    "detail": "All credibility factor ratings are reported on a 0\u20135 Credibility Index (CI), with critical factors requiring CI \u2265 4.0 and non-critical factors requiring CI \u2265 3.5."
+  },
+  "expected_decision": {
+    "outcome": "Not accepted",
+    "outcome_source": "Therefore, the models are not accepted for the stated context of use.",
+    "rationale_keywords": [
+      "multiple critical criteria fell below the required thresholds",
+      "solution accuracy",
+      "comparison to data",
+      "high decision risk"
+    ]
+  },
+  "expected_entities": {
+    "models": 2,
+    "datasets": 1,
+    "requirements": 1
+  },
+  "expected_validation_results": [
+    {
+      "name_keywords": [
+        "Model-HF",
+        "unsheathing",
+        "MAPE 9.2%",
+        "RMSE 0.28 N"
+      ],
+      "has_uq": "No",
+      "pass_fail": "Pass"
+    },
+    {
+      "name_keywords": [
+        "Model-HF",
+        "staged release",
+        "MAPE 17.5%",
+        "RMSE 0.39 N"
+      ],
+      "has_uq": "No",
+      "pass_fail": "Fail"
+    }
+  ],
+  "expected_context_of_use": "The decision problem is whether a design variant satisfies an internal limit for operator handle force during deployment.",
+  "findings": [
+    {
+      "model": "Model-HF",
+      "mechanism": "Unsheathing friction and stick\u2013slip",
+      "factor": "Numerical code verification",
+      "level": "4.5",
+      "spans": [
+        "For Model-HF in unsheathing friction and stick\u2013slip, algorithm implementation checks were strong across discrete mechanics and contact comparators, supporting a CI of 4.5.",
+        "In Model-HF, the patch tests passed to within 0.3% stress imbalance for bricks and 0.5% for shells.",
+        "The free-flight linear momentum conservation test showed cumulative error less than 0.05% over 0.1 s at a 2.0e-6 s time step.",
+        "The Hertzian contact comparators reproduced normal load\u2013deflection curves within 0.6% of analytical predictions over seven load levels.",
+        "The frictional sliding test recovered the expected transition from sticking to sliding at \u00b5N, with peak tangential traction errors within 0.8% for \u00b5 = 0.2 \u00b1 0.02 and with a Stribeck regularization parameter diminished to v0 = 0.5 mm/s, demonstrating that the implementation approaches true Coulomb behavior in the regularization limit.",
+        "The linear oscillator tests gave period errors of 0.7% and amplitude decay within 1.1% over 100 cycles when using a bulk viscosity tuned to 1.5% of the critical level, in line with expectations for central-difference integration with mild damping.",
+        "These outcomes were recorded for both double-precision and mixed-precision runs, with no significant divergence observed."
+      ],
+      "status": "clear",
+      "span": "For Model-HF in unsheathing friction and stick\u2013slip, algorithm implementation checks were strong across discrete mechanics and contact comparators, supporting a CI of 4.5.",
+      "level_source": "summary table"
+    },
+    {
+      "model": "Model-HF",
+      "mechanism": "Unsheathing friction and stick\u2013slip",
+      "factor": "Numerical solver error",
+      "level": "3.8",
+      "spans": [
+        "Time-integration accuracy under halved time steps produced a 5.6% change in peak force on average, with energy ratios below 4.2% and negligible mass scaling, resulting in CI 3.8.",
+        "For unsheathing, halving the time step changed the peak handle force by 5.6% on average across sizes (range 4.7\u20136.1%); a second halving changed it by an additional 2.1% (range 1.6\u20132.8%).",
+        "Kinetic-to-internal energy ratios remained below 4.2% at peak oscillations, and total energy drift over the window of interest was under 0.9%.",
+        "Mass scaling was not used in Model-HF except for limited preloading phases (effective mass increase below 1.05), and we confirmed that enabling and disabling this small scaling did not materially change outputs (difference < 0.4% in peaks)."
+      ],
+      "status": "clear",
+      "span": "Time-integration accuracy under halved time steps produced a 5.6% change in peak force on average, with energy ratios below 4.2% and negligible mass scaling, resulting in CI 3.8.",
+      "level_source": "summary table"
+    },
+    {
+      "model": "Model-HF",
+      "mechanism": "Unsheathing friction and stick\u2013slip",
+      "factor": "Output comparison",
+      "level": "3.6",
+      "spans": [
+        "Agreement with bench traces achieved a MAPE of 9.2% and RMSE of 0.28 N at 70 mm curvature, with modest degradation at 40 mm curvature; we assigned CI 3.6.",
+        "At 40 mm curvature, the MAPE increased modestly to 10.8% (range 9.5\u201312.1%) with RMSE 0.34 N (range 0.27\u20130.41 N), driven by stronger stick\u2013slip amplitudes."
+      ],
+      "status": "clear",
+      "span": "Agreement with bench traces achieved a MAPE of 9.2% and RMSE of 0.28 N at 70 mm curvature, with modest degradation at 40 mm curvature; we assigned CI 3.6.",
+      "level_source": "summary table"
+    },
+    {
+      "model": "Model-HF",
+      "mechanism": "Unsheathing friction and stick\u2013slip",
+      "factor": "Relevance of the validation activities to the COU",
+      "level": "4.2",
+      "spans": [
+        "Geometric alignment focused on the curvature of the delivery path; we selected radii of 40, 70, and 100 mm for inserts, covering the 20th to 80th percentiles of iliofemoral curvature observed in a 96-patient preclinical image dataset.",
+        "Simulations used as-manufactured capsule-mouth geometries measured by micro-CT on representative devices; we did not update the model geometry per specimen."
+      ],
+      "status": "clear",
+      "span": "Geometric alignment focused on the curvature of the delivery path; we selected radii of 40, 70, and 100 mm for inserts, covering the 20th to 80th percentiles of iliofemoral curvature observed in a 96-patient preclinical image dataset.",
+      "level_source": "summary table"
+    },
+    {
+      "model": "Model-HF",
+      "mechanism": "Unsheathing friction and stick\u2013slip",
+      "factor": "Software quality assurance",
+      "level": "4.0",
+      "spans": [
+        "Process controls for tools and scripts were robust with high coverage and no high-severity open issues; CI 4.0.",
+        "For the commercial solver, we operated under a validated version with vendor-issued maintenance updates tracked in our configuration database.",
+        "For preprocessing and postprocessing, we used a Git-based repository with branch protection, mandatory code review by at least one peer and one senior reviewer for changes exceeding 50 lines, and automated continuous integration (CI) that runs a regression suite on 112 cases spanning meshing of capsule mouth geometries, application of friction coefficients, and extraction of force traces.",
+        "Code coverage measured by line count is 82% for preprocessing and 76% for postprocessing.",
+        "We maintained an issue tracker with severity levels; at the time of assessment, there were zero high-severity open issues, three medium-severity issues (two related to rare meshing topologies and one to plotting rounding behavior), and nine low-severity issues.",
+        "Peer review records and CI logs are archived and traceable to the analyses reported here.",
+        "The commercial solver\u2019s pre- and post-release verification reports were cross-referenced, and we verified that no known defects affected the contact or explicit integration modules used in this work."
+      ],
+      "status": "clear",
+      "span": "Process controls for tools and scripts were robust with high coverage and no high-severity open issues; CI 4.0.",
+      "level_source": "summary table"
+    },
+    {
+      "model": "Model-HF",
+      "mechanism": "Unsheathing friction and stick\u2013slip",
+      "factor": "Test samples",
+      "level": "3.5",
+      "spans": [
+        "The physical test set provided moderate coverage across sizes and lubricity states with limited worst-case runs; CI 3.5.",
+        "For unsheathing, we executed a total of 18 tests for Model-HF comparisons across three device sizes (small, medium, large), two lubricity states (activated and partially dried), and a central curvature (70 mm), with three replicates per condition.",
+        "We added 6 tests at tighter curvature (40 mm) for the small and medium sizes to probe worst-case unsheathing behavior."
+      ],
+      "status": "clear",
+      "span": "The physical test set provided moderate coverage across sizes and lubricity states with limited worst-case runs; CI 3.5.",
+      "level_source": "summary table"
+    },
+    {
+      "model": "Model-HF",
+      "mechanism": "Frame recoil constraint during staged release",
+      "factor": "Numerical code verification",
+      "level": "4.5",
+      "spans": [
+        "For Model-HF in staged-release recoil, algorithm checks remained strong (CI 4.5).",
+        "In Model-HF, the patch tests passed to within 0.3% stress imbalance for bricks and 0.5% for shells.",
+        "The free-flight linear momentum conservation test showed cumulative error less than 0.05% over 0.1 s at a 2.0e-6 s time step.",
+        "The Hertzian contact comparators reproduced normal load\u2013deflection curves within 0.6% of analytical predictions over seven load levels.",
+        "The frictional sliding test recovered the expected transition from sticking to sliding at \u00b5N, with peak tangential traction errors within 0.8% for \u00b5 = 0.2 \u00b1 0.02 and with a Stribeck regularization parameter diminished to v0 = 0.5 mm/s, demonstrating that the implementation approaches true Coulomb behavior in the regularization limit.",
+        "The linear oscillator tests gave period errors of 0.7% and amplitude decay within 1.1% over 100 cycles when using a bulk viscosity tuned to 1.5% of the critical level, in line with expectations for central-difference integration with mild damping.",
+        "These outcomes were recorded for both double-precision and mixed-precision runs, with no significant divergence observed."
+      ],
+      "status": "clear",
+      "span": "For Model-HF in staged-release recoil, algorithm checks remained strong (CI 4.5).",
+      "level_source": "summary table"
+    },
+    {
+      "model": "Model-HF",
+      "mechanism": "Frame recoil constraint during staged release",
+      "factor": "Numerical solver error",
+      "level": "4.1",
+      "spans": [
+        "Time-integration accuracy improved relative to unsheathing, with peak changes of 3.2% under halving and energy ratios below 3.0%, yielding CI 4.1.",
+        "The first halving of the time step changed the peak handle force by 3.2% on average (range 2.4\u20133.7%); the second halving changed it by 1.0% (range 0.7\u20131.3%).",
+        "Kinetic-to-internal energy ratios remained below 3.0% during the transient peak, and total energy drift was under 0.6%."
+      ],
+      "status": "clear",
+      "span": "Time-integration accuracy improved relative to unsheathing, with peak changes of 3.2% under halving and energy ratios below 3.0%, yielding CI 4.1.",
+      "level_source": "summary table"
+    },
+    {
+      "model": "Model-HF",
+      "mechanism": "Frame recoil constraint during staged release",
+      "factor": "Output comparison",
+      "level": "2.9",
+      "spans": [
+        "Agreement with bench measurements fell short due to underprediction of the primary transient (MAPE 17.5%, RMSE 0.39 N); CI 2.9."
+      ],
+      "status": "clear",
+      "span": "Agreement with bench measurements fell short due to underprediction of the primary transient (MAPE 17.5%, RMSE 0.39 N); CI 2.9.",
+      "level_source": "summary table"
+    },
+    {
+      "model": "Model-HF",
+      "mechanism": "Frame recoil constraint during staged release",
+      "factor": "Relevance of the validation activities to the COU",
+      "level": "3.8",
+      "spans": [
+        "Alignment was acceptable on kinematics and curvature but limited by fixture compliance differences and unmodeled capsule micro-geometry variability; CI 3.8.",
+        "For staged release, fixture compliance at the distal end was modeled as a linear spring with stiffness fitted from independent bending tests on the rig (4.3 N/mm).",
+        "However, during staged release, we measured a 0.2 s hold-time drift in some rig sequences due to controller latency, which we captured in the simulation inputs for those tests but could not eliminate entirely in all repeats.",
+        "The overall alignment reached our targets on kinematics and covered key geometric and lubricity states, but the residual differences in capsule-mouth micro-geometry and in fixture compliance during staged release likely contributed to discrepancies in peak force magnitudes, particularly for the recoil mechanism where sensitivity to local constraint is high."
+      ],
+      "status": "clear",
+      "span": "Alignment was acceptable on kinematics and curvature but limited by fixture compliance differences and unmodeled capsule micro-geometry variability; CI 3.8.",
+      "level_source": "summary table"
+    },
+    {
+      "model": "Model-HF",
+      "mechanism": "Frame recoil constraint during staged release",
+      "factor": "Software quality assurance",
+      "level": "4.0",
+      "spans": [
+        "Process controls remained strong (CI 4.0).",
+        "Peer review records and CI logs are archived and traceable to the analyses reported here.",
+        "The commercial solver\u2019s pre- and post-release verification reports were cross-referenced, and we verified that no known defects affected the contact or explicit integration modules used in this work."
+      ],
+      "status": "clear",
+      "span": "Process controls remained strong (CI 4.0).",
+      "level_source": "summary table"
+    },
+    {
+      "model": "Model-HF",
+      "mechanism": "Frame recoil constraint during staged release",
+      "factor": "Test samples",
+      "level": "3.0",
+      "spans": [
+        "The test set coverage was lean for staged release (no small size and limited lubricity states); CI 3.0.",
+        "For staged release, we executed 9 tests across two device sizes (medium, large) at 70 mm curvature with activated lubricity, and 4 tests at 40 mm curvature for the medium size.",
+        "While these selections ensured coverage of primary conditions gaps remained."
+      ],
+      "status": "clear",
+      "span": "The test set coverage was lean for staged release (no small size and limited lubricity states); CI 3.0.",
+      "level_source": "summary table"
+    },
+    {
+      "model": "Model-HF",
+      "mechanism": "Unsheathing friction and stick\u2013slip",
+      "factor": "Numerical code verification",
+      "level": "4.5",
+      "spans": [
+        "For Model-HF in unsheathing friction and stick\u2013slip, algorithm implementation checks were strong across discrete mechanics and contact comparators, supporting a CI of 4.5.",
+        "In Model-HF, the patch tests passed to within 0.3% stress imbalance for bricks and 0.5% for shells."
+      ],
+      "status": "clear",
+      "span": "For Model-HF in unsheathing friction and stick\u2013slip, algorithm implementation checks were strong across discrete mechanics and contact comparators, supporting a CI of 4.5.",
+      "level_source": "summary table"
+    },
+    {
+      "model": "Model-HF",
+      "mechanism": "Unsheathing friction and stick\u2013slip",
+      "factor": "Numerical solver error",
+      "level": "3.8",
+      "spans": [
+        "Time-integration accuracy under halved time steps produced a 5.6% change in peak force on average, with energy ratios below 4.2% and negligible mass scaling, resulting in CI 3.8.",
+        "For unsheathing, halving the time step changed the peak handle force by 5.6% on average across sizes (range 4.7\u20136.1%); a second halving changed it by an additional 2.1% (range 1.6\u20132.8%)."
+      ],
+      "status": "clear",
+      "span": "Time-integration accuracy under halved time steps produced a 5.6% change in peak force on average, with energy ratios below 4.2% and negligible mass scaling, resulting in CI 3.8.",
+      "level_source": "summary table"
+    },
+    {
+      "model": "Model-HF",
+      "mechanism": "Unsheathing friction and stick\u2013slip",
+      "factor": "Output comparison",
+      "level": "3.6",
+      "spans": [
+        "Agreement with bench traces achieved a MAPE of 9.2% and RMSE of 0.28 N at 70 mm curvature, with modest degradation at 40 mm curvature; we assigned CI 3.6."
+      ],
+      "status": "clear",
+      "span": "Agreement with bench traces achieved a MAPE of 9.2% and RMSE of 0.28 N at 70 mm curvature, with modest degradation at 40 mm curvature; we assigned CI 3.6.",
+      "level_source": "summary table"
+    },
+    {
+      "model": "Model-HF",
+      "mechanism": "Unsheathing friction and stick\u2013slip",
+      "factor": "Software quality assurance",
+      "level": "4.0",
+      "spans": [
+        "Process controls for tools and scripts were robust with high coverage and no high-severity open issues; CI 4.0.",
+        "For preprocessing and postprocessing, we used a Git-based repository with branch protection, mandatory code review by at least one peer and one senior reviewer for changes exceeding 50 lines, and automated continuous integration (CI) that runs a regression suite on 112 cases spanning meshing of capsule mouth geometries, application of friction coefficients, and extraction of force traces."
+      ],
+      "status": "clear",
+      "span": "Process controls for tools and scripts were robust with high coverage and no high-severity open issues; CI 4.0.",
+      "level_source": "summary table"
+    },
+    {
+      "model": "Model-HF",
+      "mechanism": "Unsheathing friction and stick\u2013slip",
+      "factor": "Test samples",
+      "level": "3.5",
+      "spans": [
+        "The physical test set provided moderate coverage across sizes and lubricity states with limited worst-case runs; CI 3.5.",
+        "For unsheathing, we executed a total of 18 tests for Model-HF comparisons across three device sizes (small, medium, large), two lubricity states (activated and partially dried), and a central curvature (70 mm), with three replicates per condition."
+      ],
+      "status": "clear",
+      "span": "The physical test set provided moderate coverage across sizes and lubricity states with limited worst-case runs; CI 3.5.",
+      "level_source": "summary table"
+    },
+    {
+      "model": "Model-HF",
+      "mechanism": "Frame recoil constraint during staged release",
+      "factor": "Numerical code verification",
+      "level": "4.5",
+      "spans": [
+        "For Model-HF in staged-release recoil, algorithm checks remained strong (CI 4.5).",
+        "The Hertzian contact comparators reproduced normal load\u2013deflection curves within 0.6% of analytical predictions over seven load levels."
+      ],
+      "status": "clear",
+      "span": "For Model-HF in staged-release recoil, algorithm checks remained strong (CI 4.5).",
+      "level_source": "summary table"
+    },
+    {
+      "model": "Model-HF",
+      "mechanism": "Frame recoil constraint during staged release",
+      "factor": "Numerical solver error",
+      "level": "4.1",
+      "spans": [
+        "Time-integration accuracy improved relative to unsheathing, with peak changes of 3.2% under halving and energy ratios below 3.0%, yielding CI 4.1."
+      ],
+      "status": "clear",
+      "span": "Time-integration accuracy improved relative to unsheathing, with peak changes of 3.2% under halving and energy ratios below 3.0%, yielding CI 4.1.",
+      "level_source": "summary table"
+    },
+    {
+      "model": "Model-HF",
+      "mechanism": "Frame recoil constraint during staged release",
+      "factor": "Output comparison",
+      "level": "2.9",
+      "spans": [
+        "Agreement with bench measurements fell short due to underprediction of the primary transient (MAPE 17.5%, RMSE 0.39 N); CI 2.9."
+      ],
+      "status": "clear",
+      "span": "Agreement with bench measurements fell short due to underprediction of the primary transient (MAPE 17.5%, RMSE 0.39 N); CI 2.9.",
+      "level_source": "summary table"
+    },
+    {
+      "model": "Model-HF",
+      "mechanism": "Frame recoil constraint during staged release",
+      "factor": "Relevance of the validation activities to the COU",
+      "level": "3.8",
+      "spans": [
+        "Alignment was acceptable on kinematics and curvature but limited by fixture compliance differences and unmodeled capsule micro-geometry variability; CI 3.8.",
+        "The overall alignment reached our targets on kinematics and covered key geometric and lubricity states, but the residual differences in capsule-mouth micro-geometry and in fixture compliance during staged release likely contributed to discrepancies in peak force magnitudes, particularly for the recoil mechanism where sensitivity to local constraint is high."
+      ],
+      "status": "clear",
+      "span": "Alignment was acceptable on kinematics and curvature but limited by fixture compliance differences and unmodeled capsule micro-geometry variability; CI 3.8.",
+      "level_source": "summary table"
+    },
+    {
+      "model": "Model-HF",
+      "mechanism": "Frame recoil constraint during staged release",
+      "factor": "Software quality assurance",
+      "level": "4.0",
+      "spans": [
+        "Process controls remained strong (CI 4.0).",
+        "Peer review records and CI logs are archived and traceable to the analyses reported here."
+      ],
+      "status": "clear",
+      "span": "Process controls remained strong (CI 4.0).",
+      "level_source": "summary table"
+    },
+    {
+      "model": "Model-HF",
+      "mechanism": "Frame recoil constraint during staged release",
+      "factor": "Test samples",
+      "level": "3.0",
+      "spans": [
+        "The test set coverage was lean for staged release (no small size and limited lubricity states); CI 3.0.",
+        "For staged release, we executed 9 tests across two device sizes (medium, large) at 70 mm curvature with activated lubricity, and 4 tests at 40 mm curvature for the medium size."
+      ],
+      "status": "clear",
+      "span": "The test set coverage was lean for staged release (no small size and limited lubricity states); CI 3.0.",
+      "level_source": "summary table"
+    },
+    {
+      "model": "Model-RO",
+      "mechanism": "Unsheathing friction and stick\u2013slip",
+      "factor": "Numerical code verification",
+      "level": "3.7",
+      "spans": [
+        "Ninety-six percent of 142 unit tests passed on the first run; the remaining failures involved edge conditions at high curvature parameterization and were corrected in a subsequent patch."
+      ],
+      "status": "clear",
+      "span": "Ninety-six percent of 142 unit tests passed on the first run; the remaining failures involved edge conditions at high curvature parameterization and were corrected in a subsequent patch.",
+      "level_source": "summary table"
+    },
+    {
+      "model": "Model-RO",
+      "mechanism": "Unsheathing friction and stick\u2013slip",
+      "factor": "Numerical solver error",
+      "level": "3.3",
+      "spans": [
+        "Time-integration accuracy showed 8.9% change in peaks on the first halving and 3.2% on the second, with kinetic-to-internal energy ratios peaking at 6.1% and permitted mass scaling up to 1.30; CI 3.3.",
+        "For unsheathing, halving the time step to 4.0e-7 s and then to 2.0e-7 s reduced peak handle force by 8.9% and 3.2% respectively on representative runs (ranges 7.6\u201310.1% and 2.6\u20133.9%)."
+      ],
+      "status": "clear",
+      "span": "Time-integration accuracy showed 8.9% change in peaks on the first halving and 3.2% on the second, with kinetic-to-internal energy ratios peaking at 6.1% and permitted mass scaling up to 1.30; CI 3.3.",
+      "level_source": "summary table"
+    },
+    {
+      "model": "Model-RO",
+      "mechanism": "Unsheathing friction and stick\u2013slip",
+      "factor": "Output comparison",
+      "level": "3.1",
+      "spans": [
+        "Agreement with bench measurements resulted in 13.4% MAPE and 0.41 N RMSE under central curvature, with phase lead of 10\u201320 ms in larger stick\u2013slip events; CI 3.1."
+      ],
+      "status": "clear",
+      "span": "Agreement with bench measurements resulted in 13.4% MAPE and 0.41 N RMSE under central curvature, with phase lead of 10\u201320 ms in larger stick\u2013slip events; CI 3.1.",
+      "level_source": "summary table"
+    },
+    {
+      "model": "Model-RO",
+      "mechanism": "Unsheathing friction and stick\u2013slip",
+      "factor": "Relevance of the validation activities to the COU",
+      "level": "3.9",
+      "spans": [
+        "Alignment to intended use was good on kinematics and curvature coverage and reasonable on lubricity states; CI 3.9.",
+        "We selected radii of 40, 70, and 100 mm for inserts, covering the 20th to 80th percentiles of iliofemoral curvature observed in a 96-patient preclinical image dataset."
+      ],
+      "status": "clear",
+      "span": "Alignment to intended use was good on kinematics and curvature coverage and reasonable on lubricity states; CI 3.9.",
+      "level_source": "summary table"
+    },
+    {
+      "model": "Model-RO",
+      "mechanism": "Unsheathing friction and stick\u2013slip",
+      "factor": "Software quality assurance",
+      "level": "3.5",
+      "spans": [
+        "Process controls for the in-house libraries were moderate with 58% coverage and two medium-severity open issues; CI 3.5.",
+        "For the reduced-order model, which relies on in-house libraries implementing connector laws and contact proxies, we managed the repository under the same Git workflow but with a smaller regression suite of 47 unit and integrated tests."
+      ],
+      "status": "clear",
+      "span": "Process controls for the in-house libraries were moderate with 58% coverage and two medium-severity open issues; CI 3.5.",
+      "level_source": "summary table"
+    },
+    {
+      "model": "Model-RO",
+      "mechanism": "Unsheathing friction and stick\u2013slip",
+      "factor": "Test samples",
+      "level": "2.8",
+      "spans": [
+        "For reduced-order comparisons, given the model\u2019s intended use for rapid screening, we selected a leaner set: 12 unsheathing tests covering two sizes (medium, large), both lubricity states, and two curvatures (70 mm and 40 mm), with three replicates per condition;"
+      ],
+      "status": "clear",
+      "span": "For reduced-order comparisons, given the model\u2019s intended use for rapid screening, we selected a leaner set: 12 unsheathing tests covering two sizes (medium, large), both lubricity states, and two curvatures (70 mm and 40 mm), with three replicates per condition;",
+      "level_source": "summary table"
+    },
+    {
+      "model": "Model-RO",
+      "mechanism": "Frame recoil constraint during staged release",
+      "factor": "Numerical code verification",
+      "level": "3.5",
+      "spans": [
+        "In staged-release recoil for Model-RO, algorithm checks were weaker (CI 3.5) due to the absence of a dedicated recoil-energy comparator and heavier reliance on fitted parameters.",
+        "The contact proxy implementation was compared against an elastic ring\u2013ring contact model; load\u2013deflection curves matched within 1.1\u20131.4% over the expected range."
+      ],
+      "status": "clear",
+      "span": "In staged-release recoil for Model-RO, algorithm checks were weaker (CI 3.5) due to the absence of a dedicated recoil-energy comparator and heavier reliance on fitted parameters.",
+      "level_source": "summary table"
+    },
+    {
+      "model": "Model-RO",
+      "mechanism": "Frame recoil constraint during staged release",
+      "factor": "Numerical solver error",
+      "level": "2.9",
+      "spans": [
+        "Time-integration accuracy was insufficient, with 12.7% and 4.6% changes under successive halving and kinetic-to-internal energy ratios up to 8.4% at peak; mass scaling at 1.30 introduced a 3.4% change in peak; CI 2.9."
+      ],
+      "status": "clear",
+      "span": "Time-integration accuracy was insufficient, with 12.7% and 4.6% changes under successive halving and kinetic-to-internal energy ratios up to 8.4% at peak; mass scaling at 1.30 introduced a 3.4% change in peak; CI 2.9.",
+      "level_source": "summary table"
+    },
+    {
+      "model": "Model-RO",
+      "mechanism": "Frame recoil constraint during staged release",
+      "factor": "Output comparison",
+      "level": "2.4",
+      "spans": [
+        "Agreement with bench measurements was poor (CI 2.4), with MAPE 22.8% and RMSE 0.62 N and a magnitude bias toward underprediction.",
+        "In staged release, the MAPE in peak force was 22.8% (range 19.3\u201325.6%) with RMSE 0.62 N (range 0.53\u20130.70 N), and a bias toward underprediction of peak magnitude."
+      ],
+      "status": "clear",
+      "span": "Agreement with bench measurements was poor (CI 2.4), with MAPE 22.8% and RMSE 0.62 N and a magnitude bias toward underprediction.",
+      "level_source": "summary table"
+    },
+    {
+      "model": "Model-RO",
+      "mechanism": "Frame recoil constraint during staged release",
+      "factor": "Relevance of the validation activities to the COU",
+      "level": "3.5",
+      "spans": [
+        "Alignment remained acceptable (CI 3.5), though the hold\u2013release timing in several bench runs drifted by 5\u20138 ms beyond the target and was only partially reproduced.",
+        "Boundary constraints at the capsule mouth were controlled via an alignment jig; post-test metrology indicated that concen-tricity was within 0.1 mm, but slight burrs or micro-chamfer variations of up to 0.03 mm arose during repeated insertions."
+      ],
+      "status": "clear",
+      "span": "Alignment remained acceptable (CI 3.5), though the hold\u2013release timing in several bench runs drifted by 5\u20138 ms beyond the target and was only partially reproduced.",
+      "level_source": "summary table"
+    },
+    {
+      "model": "Model-RO",
+      "mechanism": "Frame recoil constraint during staged release",
+      "factor": "Software quality assurance",
+      "level": "3.5",
+      "spans": [
+        "Process controls were unchanged (CI 3.5).",
+        "For the reduced-order model, which relies on in-house libraries implementing connector laws and contact proxies, we managed the repository under the same Git workflow but with a smaller regression suite of 47 unit and integrated tests."
+      ],
+      "status": "clear",
+      "span": "Process controls were unchanged (CI 3.5).",
+      "level_source": "summary table"
+    },
+    {
+      "model": "Model-RO",
+      "mechanism": "Frame recoil constraint during staged release",
+      "factor": "Test samples",
+      "level": "2.5",
+      "spans": [
+        "The test set for this pairing was minimal (N=8) and concentrated in one size; CI 2.5.",
+        "and 8 staged-release tests focusing on the medium size at 70 mm curvature with activated lubricity and on 40 mm curvature with activated lubricity, with four replicates for the former and four for the latter."
+      ],
+      "status": "clear",
+      "span": "The test set for this pairing was minimal (N=8) and concentrated in one size; CI 2.5.",
+      "level_source": "summary table"
+    }
+  ],
+  "spans_dropped": 1,
+  "spans_dropped_by_reason": {
+    "not-verbatim": 4,
+    "crosses-sentences": 10,
+    "factor-reuses-span": 0,
+    "factor-out-of-scope": 0,
+    "factor-not-scored": 0
+  }
+}

@@ -442,6 +442,49 @@ container. Verified not to alter well-formed input.
 All three slips share a shape: **the structure is nearly right, and discarding a
 whole paper over two characters is the expensive way to be strict.**
 
+### K5 becomes measurable — 2026-08-07
+
+Six papers regenerated so the corpus contains rejections: 5 of 30 train, 1 of 10
+holdout, constants 0.833 and 0.900 against the real corpus's 0.815. Both sets
+still clear every offline row, diversity 0.136 and 0.154, zero twins.
+
+| | before | after |
+|---|---|---|
+| constant control | 1.000 | 0.833 / 0.900 |
+| K5 | criterion unreachable | **0.033 / 0.100 — fails** |
+
+K5 abstains on 28 of 30. The reason is visible and is not the corpus's:
+
+* 9 of 30 papers use explicit "accepted"/"not accepted" wording — the old corpus
+  had 11 of 49, so this is comparable
+* 27 of 30 have gold's `outcome_source` verbatim in the document
+
+The conclusion is stated and findable; K5 matches a narrow closed vocabulary
+that most papers do not use. **"Untestable" has become "fails, decisively"**,
+which is the transition the corpus was built to enable.
+
+### Two more failure shapes, both mine
+
+**A fix that looks applied and does not reach the surface it was for.** The first
+accept/reject assignment drew independently per bundle. On the real bundle names
+that produced two rejections, both in train — so the holdout would have had none,
+a constant would still have scored 1.000 there, and K5 would have stayed
+untestable exactly where it matters while the corpus-level number moved
+(40/40 → 38/40) and looked fixed. Stratifying by index puts the target rate in
+every split at any size.
+
+**Truncating a report before reading it.** `{decision_rule}` was added to a prompt
+while the `format()` call was left untouched — a replacement that silently did
+not match — and five papers failed at $0.00 each with a `KeyError`. I piped that
+run through `tail -4`, which kept the summary and discarded every failure line,
+so it read as "generated 0/30, $0.00" and I took it for nothing having happened.
+
+The same instinct that made `--save-raw` worth adding applies to one's own
+terminal: **if a step can fail, do not truncate its report before reading it.**
+A test now compares each prompt's placeholders against the keywords its call site
+passes, so an unsupplied placeholder fails in the suite rather than once per
+paper at generation time.
+
 ## Open
 
 * Agreement re-measurement on the holdout set after the incomplete-table fix.
