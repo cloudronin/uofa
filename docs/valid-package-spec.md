@@ -6,49 +6,76 @@ wrong. Every number here was measured against the five real papers.
 
 ---
 
-## Finding 1 — the profiles make NASA-STD-7009A unvalidatable
+## Finding 1 — core is not standards-agnostic, and says it is
 
-**Every profile requires `uofa:hasContextOfUse`:**
+`packs/core/pack.json` describes itself as **"Core credibility assessment rules.
+Standards-agnostic."** Its shape file is not.
 
-| profile | required properties | requires `hasContextOfUse` |
+**Every `UnitOfAssurance` profile in core requires `uofa:hasContextOfUse`:**
+
+| profile | required | requires `hasContextOfUse` |
 |---|---|---|
 | `MinimalBody` | 7 | **yes** |
 | `CompleteBody` | 13 | **yes** |
 | `DispositionBody` | 14 | **yes** |
 
-And **NASA-STD-7009A defines no context of use.** That is this project's own
-measured finding, not an assumption: K7 correctly returns *nothing* on 9 of 10
-and 4 of 4 seeded 7009A documents, and the real papers carry 0 mentions
-(opensim) and 1 (elemance) against 39/33/50 for the three V&V 40 papers.
+Context of use is an ASME V&V 40 concept. **NASA-STD-7009A defines no such
+thing** — measured, not assumed: the definitional route correctly returns nothing
+on 9 of 10 and 4 of 4 seeded 7009A documents, and the two real 7009A papers carry
+0 and 1 mentions of the term against 39, 33 and 50 for the three V&V 40 papers.
 
-So **no 7009A document can produce a valid package at any profile**, and the only
-way to make one is to invent the field. Two of the five real papers are 7009A.
+So **no 7009A document can produce a valid package at any profile**, and the two
+that validated in the head-to-head did so on a context of use the model invented.
+Two of the five real papers are 7009A.
 
-**This is not an extractor defect and not a packaging defect.** The profile
-definitions encode ASME V&V 40's conceptual model as universal, and the shape
-then measures 7009A documents against a concept their standard does not contain.
-Every downstream number — extraction accuracy, validity rate, the head-to-head —
-is affected, and no amount of work on the extractors touches it.
+### The fix is subtraction, not addition
 
-It is also the reason the first draft of this spec was wrong. It set "keyless 5/5
-at ProfileMinimal" as acceptance, which is reachable **only by fabricating
-`hasContextOfUse` on the two 7009A papers** — forbidden by this spec's own R4.
-Two requirements of mine contradicting each other, for the third time in this
-project.
+The first draft of this spec proposed adding a fourth profile,
+`ProfileNasaMinimal`, to core. That was implemented, proven to work, and
+**reverted** — because it treats the symptom. Core would then carry *two*
+standards' assumptions instead of one, and a core that enumerates standards is
+not core.
 
-### R0 — a profile a 7009A document can satisfy
+The pack system already models this correctly everywhere else: `packs/vv40` and
+`packs/nasa-7009b` each constrain `CredibilityFactor` in their own shape file.
+Nothing standard-specific about `UnitOfAssurance` was ever done that way, which
+is how a V&V 40 concept ended up in the core profiles.
 
-Add `UnitOfAssurance_NasaMinimalBody`: Minimal's seven, minus `hasContextOfUse`,
-plus `bindsModel` (which 7009A does require and every real 7009A document
-states). Register it as a fourth branch of the `sh:or`, and add its URI to the
-`conformsToProfile` `sh:in` list — which `PROFILE_URIS` already derives from,
-so nothing drifts.
+### R0 — core carries no standard's vocabulary
 
-*Fails if:* a 7009A document can only validate by carrying a context of use.
+Remove `hasContextOfUse` from core's `MinimalBody` and `CompleteBody`.
+`DispositionBody` follows by `sh:node` inheritance. Core then requires only what
+every standard shares:
 
-**R0 is a prerequisite for everything below.** Until it lands, 7009A papers are
-**expected non-conformant** and must be reported that way rather than counted as
-extractor failures.
+    bindsRequirement, hasValidationResult, hasDecisionRecord,
+    generatedAtTime, hash, signature
+
+Move the requirement to `packs/vv40/shapes/vv40_shapes.ttl`, where a V&V 40
+package is required to declare a context of use exactly as it is today.
+
+This is a **core schema version bump: 0.7 → 0.8** (`spec/context/v0.8.jsonld`,
+`packs/core/pack.json`), because it changes what core demands rather than adding
+to it.
+
+**Open question, and it must be settled before implementing.** The vv40 shape has
+to apply to V&V 40 packages *only*. Validation loads several packs at once — the
+regression harness loads all 7 shape files together — so a shape targeting
+`uofa:UnitOfAssurance` unconditionally would impose the COU requirement on 7009A
+packages again, reproducing the bug in a new location. The discriminator a V&V 40
+package carries has not yet been identified, and **guessing at it is how this
+change goes wrong quietly**: the packages would still validate, and the
+requirement would silently apply to the wrong set.
+
+### The regression instrument
+
+`dev/tools/scripts/profile_baseline.py` validates every package in the repo and
+diffs two runs. Baseline before any change: **64 packages, 55 conforming, 9 not.**
+
+A schema edit claiming to be additive, or to only move a constraint, is a claim
+about 64 packages, and the only way to hold it is to validate all of them twice.
+The script exits non-zero on any package that stops conforming, and it also
+reports packages that *start* conforming — because silently making validation
+easier is how a shape stops meaning anything.
 
 ---
 
