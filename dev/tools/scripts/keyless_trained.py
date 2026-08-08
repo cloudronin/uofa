@@ -275,7 +275,7 @@ def validation_results(train, test, k: int = 5) -> dict:
             "recall_control": ctrl / max(tot, 1), "k": k}
 
 
-# ── 3. bindsRequirement ───────────────────────────────────────────────
+# ── 3. acceptanceCriteria (was measured as bindsRequirement) ──────────
 
 # Candidate spans.
 #
@@ -369,11 +369,19 @@ def _name_hit(cand: str, gold: list[str]) -> bool:
     return False
 
 
-def requirements(train, test, cap: int = 6) -> dict:
-    """Score candidate spans with a trained classifier; keep the top `cap`."""
+def acceptance_criteria(train, test, cap: int = 6) -> dict:
+    """Score candidate spans with a trained classifier; keep the top `cap`.
+
+    Measured against `bindsRequirement` until 2026-08-08, which was the wrong
+    property: 81% of this gold is a relation and a threshold, and the vocabulary
+    already separates `acceptanceCriteria` ("the bar a claim had to clear") from
+    `bindsRequirement` ("the engineering requirement the model is trusted to help
+    satisfy"). The generator's own prompt asked for "an acceptance target the
+    paper states it must meet" and filed the answers under requirements.
+    """
     X, y = [], []
     for doc, gt in train:
-        gold = (gt.get("expected_entity_names") or {}).get("requirements") or []
+        gold = (gt.get("expected_entity_names") or {}).get("acceptance_criteria") or []
         if not gold:
             continue
         cands, _ = _candidates(doc)
@@ -381,14 +389,14 @@ def requirements(train, test, cap: int = 6) -> dict:
             X.append(c)
             y.append(int(_name_hit(c, gold)))
     if sum(y) < 5:
-        return {"n": 0, "note": "too few positive requirement spans to train"}
+        return {"n": 0, "note": "too few positive criterion spans to train"}
     feats, clf = _tfidf(), _clf()
     clf.fit(feats.fit_transform(X), y)
     col = list(clf.classes_).index(1)
 
     hit = freq = tot = 0
     for doc, gt in test:
-        gold = (gt.get("expected_entity_names") or {}).get("requirements") or []
+        gold = (gt.get("expected_entity_names") or {}).get("acceptance_criteria") or []
         if not gold:
             continue
         cands, counts = _candidates(doc)
@@ -554,6 +562,74 @@ def validation_results_real(train, k: int = 5) -> list[tuple]:
     return rows
 
 
+class Trained:
+    """The fitted routes, so `keyless_extract` can use them without re-measuring.
+
+    Fitted once on the corpus given, then applied per document. Kept in one place
+    because twelve standalone scripts each re-implementing document reading is
+    what produced two candidates scoring binary garbage.
+    """
+
+    def __init__(self, corpus, k: int = 5) -> None:
+        import numpy as np
+        from scipy.sparse import csr_matrix, hstack
+
+        # -- where the decision is stated
+        X, y, P_ = [], [], []
+        for doc, gt in corpus:
+            pos = set(decision_labels(doc, gt)[0])
+            pp = _positional(len(doc.texts))
+            for j, t in enumerate(doc.texts):
+                X.append(t)
+                y.append(int(j in pos))
+                P_.append(pp[j])
+        self._lf, self._lc = _tfidf(), _clf()
+        self._lc.fit(hstack([self._lf.fit_transform(X),
+                             csr_matrix(np.array(P_))]).tocsr(), y)
+        self._lcol = list(self._lc.classes_).index(1)
+
+        # -- what the decision was, given that sentence
+        Xo, yo = [], []
+        for doc, gt in corpus:
+            pos, outcome = decision_labels(doc, gt)
+            if pos and outcome:
+                Xo.append(" ".join(doc.texts[j] for j in pos))
+                yo.append(outcome)
+        self._of, self._oc = _tfidf(), _clf()
+        self._oc.fit(self._of.fit_transform(Xo), yo)
+
+        # -- which sentences are validation results
+        Xr, yr = [], []
+        for doc, gt in corpus:
+            pos = set(result_labels(doc, gt))
+            for j, t in enumerate(doc.texts):
+                Xr.append(t)
+                yr.append(int(j in pos))
+        self._rf, self._rc = _tfidf(), _clf()
+        self._rc.fit(self._rf.fit_transform(Xr), yr)
+        self._rcol = list(self._rc.classes_).index(1)
+        self.k = k
+
+    def validation_results(self, doc: Doc) -> list[int]:
+        P = self._rc.predict_proba(self._rf.transform(doc.texts))[:, self._rcol]
+        return sorted(range(len(doc.texts)), key=lambda j: -P[j])[:self.k]
+
+    def decision(self, doc: Doc, top_n: int = 3) -> tuple[list[int], str | None]:
+        """Three candidates, not one: top-1 is 0.400 and top-3 is 0.700.
+
+        Emitting the single best sentence discards a result nearly twice as good
+        for no gain a reader benefits from -- the author is going to read the
+        candidates either way.
+        """
+        M = _stack(self._lf.transform(doc.texts), len(doc.texts))
+        P = self._lc.predict_proba(M)[:, self._lcol]
+        top = sorted(range(len(doc.texts)), key=lambda j: -P[j])[:top_n]
+        if not top:
+            return [], None
+        outcome = self._oc.predict(self._of.transform([doc.texts[top[0]]]))[0]
+        return top, outcome
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--k", type=int, default=5)
@@ -615,15 +691,16 @@ def main() -> int:
     print(f"    {'control: comparison':22s}{v['recall_control']:>8.3f}")
     print("    K9's shape heuristic scored 12/79 against this control's 9/79.")
 
-    r = requirements(train, test)
-    print("\n── bindsRequirement ───────────────────────────────────────")
+    r = acceptance_criteria(train, test)
+    print("\n── acceptanceCriteria ─────────────────────────────────────")
     if not r.get("n"):
         print(f"    {r.get('note')}")
     else:
-        print(f"  name recall over {r['n']} gold requirement names, top {r['cap']}")
+        print(f"  name recall over {r['n']} gold criteria, top {r['cap']}")
         print(f"    {'trained':22s}{r['recall_trained']:>8.3f}")
         print(f"    {'control: frequent':22s}{r['recall_frequent']:>8.3f}")
-        print("    K3c scored 0.026 here against a naive 0.039.")
+        print("    K3c scored 0.026 here against a naive 0.039, both under the")
+        print("    wrong property name. bindsRequirement is now author-supplied.")
 
     if args.real:
         rows = validation_results_real(train + test, args.k)

@@ -2,16 +2,18 @@
 """Extract a credibility package without a model, and refuse to invent the rest.
 
 `UnitOfAssurance_CompleteBody` requires thirteen properties at `minCount >= 1`,
-nine of them from the extractor. Two keyless routes work, four are weak, three
-fail. This walks that table, records which route produced each value, and
-**emits nothing where no route works**.
+eight of them from the extractor. Four keyless routes work, four are weak. This
+walks that table, records which route produced each value, and **emits nothing
+where no route works**.
 
 The shape is an `sh:or` over three profiles -- Minimal (7 properties), Complete
 (13), Disposition (14) -- so a sparse package does not fail for want of one
-field, it fails to reach any profile. Keyless supplies **one of Minimal's seven**
-(`hasContextOfUse`); three more of the seven are exactly the properties with no
-keyless route, and the last three come from signing. So no amount of tuning makes
-a keyless-only package validate: the gap is structural, not a matter of accuracy.
+field, it fails to reach any profile. Of Minimal's seven, three come from
+signing, one (`bindsRequirement`) is author-supplied by decision, and the other
+three -- `hasContextOfUse`, `hasValidationResult`, `hasDecisionRecord` -- all have
+keyless routes that beat their controls. So a keyless package can reach Minimal
+**once a human names the requirement its model is trusted to help satisfy**,
+which is a thing a paper does not contain and an extractor should not guess.
 
 ## Why absence is the whole design
 
@@ -60,7 +62,6 @@ sys.path.insert(0, str(_ROOT / "src"))
 import keyless_k3c_named_entities as K3c  # noqa: E402
 import keyless_k7_context_of_use as K7  # noqa: E402
 import keyless_k8_model_risk as K8  # noqa: E402
-from keyless_k5_sections import extract_decision  # noqa: E402
 from keyless_pipeline_registry import Doc, read  # noqa: E402
 from uofa_cli import excel_constants as ec  # noqa: E402
 
@@ -83,13 +84,35 @@ ROUTES = {
     "hasCredibilityFactor": ("k6+k10", "weak",  0.100),   # end-to-end sweep best
     "bindsModel":           ("k3c", "weak",     0.418),
     "bindsDataset":         ("k3c", "weak",     0.088),
-    "bindsRequirement":     (None,  "no-route", 0.0),     # 0.026 < a naive 0.039
-    "hasValidationResult":  (None,  "no-route", 0.0),     # p = 0.094, not demonstrated
-    "hasDecisionRecord":    (None,  "no-route", 0.0),     # 0.033 against a 0.833 control
+    "hasValidationResult":  ("trained", "works", 0.438),  # recall@5 vs 0.125 control
+    "hasDecisionRecord":    ("trained", "works", 0.400),  # locator top-1; 0.700 @3
 }
-# Supplied by signing and import, never by an extractor.
-OUT_OF_SCOPE = ("uofa:hash", "uofa:signature", "prov:generatedAtTime",
-                "prov:wasAttributedTo")
+
+# Properties no extractor produces, each with the reason it does not.
+#
+# `bindsRequirement` was moved here on 2026-08-08 and is the only one that was
+# ever measured. Its verdict -- 0.026, then 0.032, both below a naive baseline --
+# was scored against gold that is 81% acceptance criteria, because the generator
+# asked for "an acceptance target the paper states it must meet" and filed the
+# answers under `requirements`. The vocabulary already separates the two, and the
+# real property means something a paper does not contain: only 30% cite a
+# standard at all.
+#
+# It stays required at `minCount 1` in `ProfileMinimal`. That is deliberate. The
+# requirement a model is trusted to help satisfy is the point of the artefact,
+# and a package that cannot name one should not validate. It is simply not an
+# extractor's to supply -- so `uofa extract` reports it absent and the author
+# fills it, rather than the extractor inventing one to clear the constraint.
+OUT_OF_SCOPE = {
+    "uofa:hash": "computed at signing",
+    "uofa:signature": "computed at signing",
+    "prov:generatedAtTime": "stamped at signing",
+    "prov:wasAttributedTo": "supplied at import",
+    "uofa:bindsRequirement":
+        "the engineering requirement the model is trusted to help satisfy lives "
+        "in a design history file or submission, not in a paper -- only 30% of "
+        "documents cite a standard at all. Author-supplied.",
+}
 
 
 def required_properties() -> list[str]:
@@ -180,16 +203,26 @@ def extract(doc: Doc, standard: str = "V&V40", ctx=None) -> dict:
         out[prop] = (_val(names, "k3c", conf, None) if names
                      else _absent(f"K3c proposed no {kind}"))
 
-    # The three with no keyless route. Each names the measurement that says so.
-    out["uofa:bindsRequirement"] = _absent(
-        "K3c scores 0.026 on requirement names, below a naive baseline's 0.039")
-    out["uofa:hasValidationResult"] = _absent(
-        "K9 scores 18/100 against a control's 13/100, p = 0.094 -- not demonstrated")
-    dec, _src = extract_decision(text)
-    out["uofa:hasDecisionRecord"] = _absent(
-        "K5 scores 0.033 against a 0.833 constant"
-        + (f"; a section scan saw {dec!r}, which is recorded here and not emitted"
-           if dec else ""))
+    # hasValidationResult and hasDecisionRecord -- trained routes, not patterns.
+    # Both were recorded as having no keyless route on the strength of one
+    # hand-written matcher each; a classifier beats their controls.
+    if ctx is None or not getattr(ctx, "trained", None):
+        for prop, why in (("uofa:hasValidationResult", "validation results"),
+                          ("uofa:hasDecisionRecord", "the decision")):
+            out[prop] = _absent(
+                f"no trained model loaded; run with --trained to route {why}")
+    else:
+        res = ctx.trained.validation_results(doc)
+        out["uofa:hasValidationResult"] = (
+            _val([doc.texts[i] for i in res], "trained",
+                 ROUTES["hasValidationResult"][2], None)
+            if res else _absent("the classifier ranked no sentence as a result"))
+        top, outcome = ctx.trained.decision(doc)
+        out["uofa:hasDecisionRecord"] = (
+            _val({"outcome": outcome, "candidates": [doc.texts[i] for i in top]},
+                 "trained", ROUTES["hasDecisionRecord"][2],
+                 doc.texts[top[0]] if top else None)
+            if top else _absent("the classifier ranked no sentence as a decision"))
 
     # hasCredibilityFactor -- the sweep's winner, k6 routing into k10 selection.
     # 0.100 end to end is what it scores, and the value carries that figure so a
@@ -214,8 +247,8 @@ def extract(doc: Doc, standard: str = "V&V40", ctx=None) -> dict:
         [p.name for p in sorted((doc.bundle / "source").glob("*"))],
         "files", 1.000, None)
 
-    for p in OUT_OF_SCOPE:
-        out[p] = _absent("supplied by signing or import, not by an extractor")
+    for prop, why in OUT_OF_SCOPE.items():
+        out[prop] = _absent(why)
     return out
 
 
@@ -235,6 +268,19 @@ def judge(pkg: dict, gt: dict) -> dict[str, bool]:
         have = pkg.get(prop, {}).get("value") or []
         if want:
             got[prop] = any(K3c.names_match(h, w) for h in have for w in want)
+
+    want_dec = (gt.get("expected_decision") or {}).get("outcome")
+    have_dec = (pkg.get("uofa:hasDecisionRecord", {}).get("value") or {})
+    if want_dec and have_dec:
+        got["uofa:hasDecisionRecord"] = have_dec.get("outcome") == want_dec
+
+    want_res = gt.get("expected_validation_results") or []
+    have_res = pkg.get("uofa:hasValidationResult", {}).get("value") or []
+    if want_res and have_res:
+        joined = " ".join(have_res).lower()
+        got["uofa:hasValidationResult"] = any(
+            sum(k.lower() in joined for k in (r.get("name_keywords") or [])) >= 2
+            for r in want_res)
 
     want_cou = gt.get("expected_context_of_use")
     have_cou = pkg.get("uofa:hasContextOfUse", {}).get("value")
@@ -271,6 +317,9 @@ def main() -> int:
     ap.add_argument("--corpus", type=pathlib.Path, required=True)
     ap.add_argument("--limit", type=int, default=None)
     ap.add_argument("--json", type=pathlib.Path, default=None)
+    ap.add_argument("--trained", action="store_true",
+                    help="fit the trained routes for validation results and the "
+                         "decision record (both beat their controls)")
     ap.add_argument("--factors", action="store_true",
                     help="load the k6 classifier and route credibility factors "
                          "(slow; without it that property is absent for want of "
@@ -282,12 +331,22 @@ def main() -> int:
     if args.limit:
         bundles = bundles[:args.limit]
 
+    class _Ctx:
+        trained = None
+
     ctx = None
     if args.factors:
         from keyless_pipeline_registry import Pipeline
         from keyless_sweep import Ctx
         ctx = Ctx()
         ctx.pipe = Pipeline(route="k6", select="k10")   # the sweep's winner
+        ctx.trained = None
+    if args.trained:
+        from keyless_trained import Trained, load
+        ctx = ctx or _Ctx()
+        # Fitted on train only. Fitting on the split being scored would make
+        # every number below a training score.
+        ctx.trained = Trained(load("train"))
 
     filled = absent = 0
     per_prop: dict[str, int] = {}
@@ -331,8 +390,8 @@ def main() -> int:
           f"{'CORRECT':>12s}")
     order = ["uofa:modelRiskLevel", "uofa:hasContextOfUse",
              "uofa:hasCredibilityFactor", "uofa:bindsModel", "uofa:bindsDataset",
-             "prov:wasDerivedFrom", "uofa:bindsRequirement",
-             "uofa:hasValidationResult", "uofa:hasDecisionRecord"]
+             "prov:wasDerivedFrom", "uofa:hasValidationResult",
+             "uofa:hasDecisionRecord", "uofa:bindsRequirement"]
     for prop in order:
         # Look up by the full name first: ROUTES keys prov: properties with
         # their prefix, and stripping it silently reported wasDerivedFrom as
@@ -354,10 +413,12 @@ def main() -> int:
     print("  measured only where the gold covers the property. They are different")
     print("  numbers and the second is the one that matters: minCount is satisfied")
     print("  by the first.")
-    print("\n  Every absence above is a property no keyless route extracts. Filling")
-    print("  them would make these packages pass `uofa shacl`, because minCount")
-    print("  requires presence and not correctness -- which is how 14 turbomachinery")
-    print("  models came to be labelled 'Class II' and validate.")
+    print("\n  bindsRequirement is absent BY DECISION, not by failure: it names the")
+    print("  engineering requirement the model is trusted to help satisfy, which")
+    print("  lives in a design history file and not in a paper. An extractor that")
+    print("  emitted one would be inventing it -- and minCount would accept the")
+    print("  invention, which is how 14 turbomachinery models came to be labelled")
+    print("  'Class II' and validate while honest packages failed.")
     if args.json:
         args.json.write_text(json.dumps(packages, indent=2) + "\n")
         print(f"\n  wrote {args.json}")

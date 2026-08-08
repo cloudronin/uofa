@@ -55,7 +55,7 @@ _ROOT = pathlib.Path(__file__).resolve().parent.parent.parent.parent
 sys.path.insert(0, str(_ROOT / "dev" / "tools" / "scripts"))
 sys.path.insert(0, str(_ROOT / "src"))
 
-from keyless_k3_entities import _read_source, extract_entities_salient  # noqa: E402
+from keyless_k3_entities import _read_source  # noqa: E402
 
 _FILLER = {"the", "of", "to", "a", "an", "and", "for", "in", "on", "with", "model",
            "models", "simulation", "framework"}
@@ -111,7 +111,7 @@ _PATTERNS = {
         r"(?:dataset|data\s?set|corpus|campaign|series|cohort|specimens?|"
         r"measurements?|tests?|trials?|bench(?:top)?|rig|study))\b|"
         r"\b(ISO\s?\d{3,5}[\w-]*|ASTM\s?[A-Z]?\d+[\w-]*)\b", re.I),
-    "requirements": re.compile(
+    "acceptance_criteria": re.compile(
         r"\b((?:within|below|above|less than|greater than|no more than|at least)\s+"
         r"[\d.]+\s*(?:%|mm|MPa|N|kPa|s|Hz|micro\w*|percent)?[\w\s-]{0,24})\b|"
         r"\b([A-Za-z][\w\s-]{2,28}\s+(?:criterion|criteria|requirement|"
@@ -136,7 +136,7 @@ def propose_models(text: str, cap: int = 12) -> list[str]:
 def control_constant_name(_text: str, cap: int = 12) -> list[str]:
     """Constant null: the phrases every credibility paper contains.
 
-    Scores 0.000 on datasets and requirements, because no dataset name is common
+    Scores 0.000 on datasets and acceptance criteria, because no dataset name is common
     to all papers. That makes "beats the constant" a meaningless bar for those
     two rows -- any non-zero recall clears it -- so it is reported alongside a
     control that actually competes.
@@ -173,7 +173,7 @@ def main() -> int:
     if not bundles:
         raise SystemExit(f"no bundles under {args.corpus}")
 
-    KINDS = ("models", "datasets", "requirements")
+    KINDS = ("models", "datasets", "acceptance_criteria")
     hit = {k: 0 for k in KINDS}
     tot = {k: 0 for k in KINDS}
     chit = {k: 0 for k in KINDS}
@@ -202,7 +202,7 @@ def main() -> int:
           f"{'freq-NP':>10s}{'verdict':>10s}")
     passed = 0
     for kind, prop in (("models", "bindsModel"), ("datasets", "bindsDataset"),
-                       ("requirements", "bindsRequirement")):
+                       ("acceptance_criteria", "acceptanceCriteria")):
         n = tot[kind]
         if not n:
             print(f"  {prop:16s}{'—':>7s}{'no gold names recorded':>30s}")
@@ -215,7 +215,7 @@ def main() -> int:
         print(f"  {prop:16s}{n:>7d}{r:>10.3f}{c:>10.3f}{f:>10.3f}"
               f"{'PASSES' if ok else 'FAILS':>10s}")
 
-    print(f"\n  KILL CRITERION: name recall must beat the STRONGER control, per property")
+    print("\n  KILL CRITERION: name recall must beat the STRONGER control, per property")
     print(f"  -> {passed}/3 properties pass")
     return 0
 

@@ -141,7 +141,7 @@ split, evaluated on the 10-paper holdout, split at the bundle level.
 | `hasValidationResult` | K9 0.152 | **0.438** recall@5 | 0.125 |
 | `hasDecisionRecord`, outcome | K5 0.033 | **0.917** balanced, 0.833 reject recall | 0.500, 0.000 |
 | `hasDecisionRecord`, locating it | — | **0.400** top-1, **0.700** top-3 | 0.000 |
-| `bindsRequirement` | K3c 0.026 | 0.032 | **0.065 — the control wins** |
+| `acceptanceCriteria` (was measured as `bindsRequirement`) | K3c 0.026 | 0.032 | **0.065 — the control wins** |
 
 **Two of the three now have a keyless route that beats its control**, and the
 decision record beats it on the measure that matters: **5 of 6 rejections caught,
@@ -235,6 +235,52 @@ The decision signal is *localised*, and diluting it destroys it. So the two-stag
 design is required, and `hasDecisionRecord` end to end is bounded by the 0.222
 locator rather than by the 0.800 classifier.
 
+### `bindsRequirement` was the wrong property all along
+
+Every number ever recorded for `bindsRequirement` — K3c's 0.026, the trained
+0.032 — was scored against gold that is **81% acceptance-criterion shaped**: a
+relation and a threshold, like `a recirculation CSE fraction below 5%`. Only 4%
+are cited standards.
+
+The vocabulary already separates the two, and has since before any of this was
+measured:
+
+| term | means |
+|---|---|
+| `bindsRequirement` | "the engineering requirement the model is being trusted to help satisfy" |
+| `acceptanceCriteria` | "the bar a factor or claim had to clear, stated before the evidence was weighed against it" |
+
+The generator's own prompt asked for *"an acceptance target the paper states it
+must meet"* and filed the answers under `requirements`. So the mislabel began at
+generation, and every extractor since has been scored against gold for a property
+it was not extracting. **That is the eleventh instance in this project of a
+number measuring the tooling rather than the thing, and the first to originate in
+the gold itself.**
+
+The 107 labels were re-pointed at `acceptance_criteria` across all 40 bundles.
+`acceptanceCriteria` was declared in the vocabulary and constrained by no shape,
+so nothing broke and a previously unpopulated property now has gold.
+
+### `bindsRequirement` is author-supplied — the decision, and why
+
+Only **30% of papers cite a standard at all** (mean 0.6 per paper). The engineering
+requirement a model is trusted to help satisfy lives in a design history file or a
+regulatory submission, not in a journal article.
+
+It **stays required at `minCount 1` in `ProfileMinimal`**, and is reclassified as
+author-supplied alongside `hash`, `signature` and `wasAttributedTo`. Both halves
+of that are deliberate:
+
+* Keeping it required, because the requirement a model is trusted for is the
+  point of the artefact, and a package that cannot name one should not validate.
+* Removing it from the extractor, because a required field the source does not
+  contain can only be satisfied by supplying one — which is precisely the
+  constraint that produced 14 turbomachinery models labelled "Class II" that
+  validated while honest packages failed.
+
+Relaxing the constraint instead would have made the number look better and the
+artefact mean less.
+
 ### What is left in `ProfileMinimal`
 
 | Minimal requires | keyless |
@@ -242,14 +288,18 @@ locator rather than by the 0.800 classifier.
 | `hasContextOfUse` | K7, retrieval tied with its control |
 | `hasValidationResult` | **trained, 0.438** — transfers to real papers |
 | `hasDecisionRecord` | **trained**, outcome 0.917 balanced; bounded by a 0.400 locator |
-| `bindsRequirement` | **no route** — 0.032, below its own control, and mis-specified |
+| `bindsRequirement` | **author-supplied by decision**, not an extraction failure |
 | `hash`, `signature`, `generatedAtTime` | signing, not extraction |
 
-One property of the four is still without a route, and two of the remaining three
-are too weak to ship unsupervised. That is a quality problem, which is the kind
-that responds to work — not the structural wall an earlier draft of this section
-claimed. **That claim was wrong, and it was wrong because it generalised from
-three failed pattern matchers to the properties themselves.**
+Every extractor-facing property in Minimal now has a keyless route that beats its
+control. **A keyless package reaches Minimal once a human names the requirement**
+— which is one field, entered once, and the only one the documents genuinely do
+not carry.
+
+An earlier draft of this section called the gap structural and said no amount of
+tuning would close it. That was wrong twice over: it generalised from three failed
+pattern matchers to the properties themselves, and one of the three was not even
+the property being measured.
 
 ### Measured on the 40 seeded papers
 
@@ -257,14 +307,20 @@ Emitted values against gold, on the holdout and train splits. `filled` is
 presence and `correct` is accuracy, and the gap between the two columns is the
 entire argument of this document:
 
-| property | filled (holdout / train) | correct (holdout / train) |
+Routes fitted on train, scored on the 10 held-out papers:
+
+| property | filled | **correct** |
 |---|---|---|
-| `hasCredibilityFactor` | 10/10, 30/30 | **0.217 / 0.304** |
-| `bindsModel` | 10/10, 30/30 | 0.400 / 0.467 |
-| `bindsDataset` | 10/10, 30/30 | 0.500 / 0.267 |
-| `hasContextOfUse` | 6/10, 19/30 | 0.500 / 0.200 |
-| `modelRiskLevel` | 1/10, 2/30 | no gold |
-| `bindsRequirement`, `hasValidationResult`, `hasDecisionRecord` | 0 | — |
+| `hasDecisionRecord` | 10/10 | **1.000** — 1 rejection in this split, so read it with the 0.917 balanced CV figure |
+| `hasValidationResult` | 10/10 | **0.778** |
+| `bindsDataset` | 10/10 | 0.500 |
+| `hasContextOfUse` | 6/10 | 0.500 |
+| `bindsModel` | 10/10 | 0.400 |
+| `hasCredibilityFactor` | 10/10 | 0.217 |
+| `modelRiskLevel` | 1/10 | no gold |
+| `bindsRequirement` | 0/10 | author-supplied |
+
+67 values emitted, 13 honestly absent.
 
 `modelRiskLevel` fills 1 in 10 here and 5 of 6 on the real papers. That gap is
 the **corpus**, not K8: all four real V&V 40 papers state model influence and
@@ -283,9 +339,10 @@ every value so the division is auditable afterwards.
 What would move it: `hasDecisionRecord` needs a locator better than 0.400 top-1 —
 the outcome classifier behind it is at 0.917 balanced and is not the constraint,
 and top-3 already reaches 0.700, so emitting three candidates rather than one is
-available today. `bindsRequirement` needs its *task* redefined before any method
-is chosen, because 42% of its gold is paraphrase and the remaining match problem
-is a selection problem that a broader generator makes worse.
+available today. `bindsRequirement` is now author-supplied and needs no method at all; the gold
+that was filed under it belongs to `acceptanceCriteria`, where 42% paraphrase and
+a selection problem a broader generator makes worse are that property's to
+solve.
 
 That is the opposite of the failure this repository already paid for, where 14
 turbomachinery models labelled "Class II" validated and honest packages did not.

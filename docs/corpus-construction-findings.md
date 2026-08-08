@@ -849,3 +849,51 @@ construction. `requirements` was already the only entity category that varied
 across repeated annotation draws. The gold is a set of paraphrased acceptance
 criteria, and asking for them by name asks a question the documents do not
 answer. `bindsRequirement` needs its task redefined before any method is chosen.
+
+### bindsRequirement was the wrong property, and the gold said so — 2026-08-08
+
+Every number ever recorded for `bindsRequirement` — K3c's 0.026, the trained
+0.032 — was scored against gold that is **81% acceptance-criterion shaped**: a
+relation and a threshold, like `a recirculation CSE fraction below 5%`. Only 4%
+are cited standards. The vocabulary has always separated the two:
+
+| term | means |
+|---|---|
+| `bindsRequirement` | "the engineering requirement the model is being trusted to help satisfy" |
+| `acceptanceCriteria` | "the bar a factor or claim had to clear, stated before the evidence was weighed against it" |
+
+**The mislabel began at generation.** `generate_seeded_corpus.py` asked the writer
+for *"a requirement is an acceptance target the paper states it must meet"* and
+filed the answers under `requirements`. The prompt described acceptance criteria
+accurately and gave them the wrong name, and every extractor since has been
+measured against gold for a property it was not extracting.
+
+**This is the eleventh instance of a number measuring the tooling rather than the
+thing, and the first to originate in the gold.** The previous ten were thresholds,
+matchers, readers and stale corpora — all downstream of the labels. This one was
+in the labels, which is the layer everything else is checked against, so nothing
+downstream could have caught it. The tell was available early and went unread:
+`requirements` was already known to be *the only entity category that varied
+across repeated annotation draws* — recorded as evidence that the category was
+indefinite, when it was evidence that the category was wrong.
+
+**What changed.** The 107 labels were re-pointed to `acceptance_criteria` in all
+40 bundles, in both `expected_entity_names` and `expected_entities`, and the
+generator prompt, K3c's kind table and the trained route follow. `acceptanceCriteria`
+was declared in the vocabulary and constrained by no shape, so nothing broke and
+a previously unpopulated property now has gold. The v2 corpus keeps its
+`requirements` counts: different generator, different lineage, and renaming it
+would invalidate measurements taken on it.
+
+**And the property itself is now author-supplied.** Only 30% of papers cite a
+standard at all. `bindsRequirement` stays required at `minCount 1` in
+`ProfileMinimal` — the requirement a model is trusted for is the point of the
+artefact — but it moves out of the extractor, beside `hash` and `signature`. A
+required field the source does not contain can only be satisfied by supplying
+one, which is the constraint that produced 14 turbomachinery models labelled
+"Class II" that validated while honest packages failed. Relaxing the constraint
+would have made the number look better and the artefact mean less.
+
+With that settled, **every extractor-facing property in `ProfileMinimal` now has
+a keyless route that beats its control**, and a keyless package reaches Minimal
+once a human names the requirement — one field, entered once.

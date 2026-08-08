@@ -56,18 +56,42 @@ def test_the_required_list_comes_from_the_shape_not_a_literal():
     assert "uofa_shacl.ttl" in body, "the list must be read from the shape file"
 
 
-def test_no_route_properties_emit_null_and_say_why(package):
-    """The three failing properties must never carry a plausible-looking value."""
-    for prop in ("uofa:bindsRequirement", "uofa:hasValidationResult",
-                 "uofa:hasDecisionRecord"):
+def test_author_supplied_properties_emit_null_and_say_why(package):
+    """Nothing an extractor cannot know may carry a plausible-looking value."""
+    for prop in keyless_extract.OUT_OF_SCOPE:
         v = package[prop]
         assert v["value"] is None, (
-            f"{prop} has no keyless route that beats its control, so any value "
-            f"here is fabrication that would satisfy minCount")
+            f"{prop} is not an extractor's to supply, so any value here is "
+            f"fabrication that would satisfy minCount")
         assert v["method"] == "no-keyless-route"
-        # The reason must name the measurement, so a reader can check it.
-        assert any(c.isdigit() for c in v["reason"]), (
-            f"{prop}'s reason cites no number: {v['reason']!r}")
+        assert v["reason"], f"{prop} is absent without saying why"
+
+
+def test_binds_requirement_is_author_supplied_not_a_failed_route(package):
+    """The decision of 2026-08-08, pinned so it is not quietly reverted.
+
+    `bindsRequirement` means the engineering requirement the model is trusted to
+    help satisfy. It was measured at 0.026 and then 0.032 against gold that is
+    81% acceptance criteria -- the generator asked for "an acceptance target the
+    paper states it must meet" and filed the answers under `requirements`. Only
+    30% of papers cite a standard at all, so the property is not extractable from
+    a paper and an extractor that emitted one would be inventing it.
+    """
+    assert "bindsRequirement" not in keyless_extract.ROUTES, (
+        "bindsRequirement is author-supplied; it must not carry a route and a "
+        "confidence, because that invites someone to improve the number")
+    v = package["uofa:bindsRequirement"]
+    assert v["value"] is None
+    assert "design history file" in v["reason"] or "author" in v["reason"].lower()
+
+
+def test_the_two_recovered_routes_are_not_silently_dropped(package):
+    """hasValidationResult and hasDecisionRecord have trained routes now."""
+    for prop in ("hasValidationResult", "hasDecisionRecord"):
+        assert prop in keyless_extract.ROUTES, (
+            f"{prop} has a trained route that beats its control; dropping it "
+            f"from ROUTES would re-record it as unextractable")
+        assert keyless_extract.ROUTES[prop][0] == "trained"
 
 
 def test_every_emitted_value_carries_its_provenance(package):

@@ -388,10 +388,16 @@ factor. They are what makes the corpus usable for anything beyond routing.
   quoted from the paper, with the phrases its rationale turns on.
 
   `entities` -- the DISTINCT computational models, comparator datasets and stated
-  requirements the paper contains, BY NAME, as the paper names them. A dataset is
-  a body of measurements the model is compared against; a requirement is an
-  acceptance target the paper states it must meet. Name each once, in the paper's
-  own words, however abbreviated.
+  acceptance criteria the paper contains, BY NAME, as the paper names them. A
+  dataset is a body of measurements the model is compared against; an acceptance
+  criterion is the bar a claim had to clear, stated before the evidence was
+  weighed against it. Name each once, in the paper's own words, however
+  abbreviated.
+
+  This field was called `requirements` until 2026-08-08, and the name was wrong:
+  what it describes is `uofa:acceptanceCriteria`, while `uofa:bindsRequirement`
+  means the engineering requirement the model is trusted to help satisfy -- which
+  lives in a design history file, not in a paper.
 
   `validation_results` -- every comparison of a model output against a
   measurement or referent, with whether uncertainty was quantified and whether
@@ -404,7 +410,7 @@ Return ONLY JSON:
                 "outcome_source": "verbatim sentence stating it",
                 "rationale_keywords": ["phrase the rationale turns on", "..."]}},
   "entities": {{"models": ["as the paper names it", "..."],
-                "datasets": ["..."], "requirements": ["..."]}},
+                "datasets": ["..."], "acceptance_criteria": ["..."]}},
   "validation_results": [
     {{"name_keywords": ["the comparator", "the measured value", "the predicted value"],
       "has_uq": "Yes|No", "pass_fail": "Pass|Fail|Inconclusive"}}],
@@ -605,7 +611,7 @@ def _entity_names(raw) -> dict[str, list[str]]:
     prompt still carries integers. Accepting both means the corpus can be
     migrated a set at a time rather than all at once.
     """
-    out = {"models": [], "datasets": [], "requirements": []}
+    out = {"models": [], "datasets": [], "acceptance_criteria": []}
     if not isinstance(raw, dict):
         return out
     for k in out:
