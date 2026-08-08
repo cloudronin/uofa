@@ -38,7 +38,7 @@ checks answer different questions. Per paper: did this pathology occur at all �
 so the floor must sit below every real value. Corpus level: is the rate the real
 rate — that is where a two-sided band belongs.
 
-### 2. The defect is often one step upstream of the symptom — four times
+### 2. The defect is often one step upstream of the symptom — eight times
 
 | symptom | what it looked like | actual cause |
 |---|---|---|
@@ -46,9 +46,18 @@ rate — that is where a two-sided band belongs.
 | the table was device parameters | the write prompt just fixed | a trailing comma truncating the real table away |
 | table coverage 0.15, 0.05, 0.39 | the writer under-delivering | a validator discarding valid rows |
 | selection agreement 0.631 | the corpus being ambiguous | gold and annotator asked different questions |
+| selection agreement 0.765 | the corpus again | my own `factor-not-scored` drop |
+| a table "omitting" a factor | the writer | a substring match and one dropped article |
+| K5 and K3c failing outright | the candidates | both called `read_text()` on PDFs |
+| K5 "failing" | the candidate | the criterion was unreachable at a 1.000 control |
 
 Each number was real. Each attribution was wrong. Twice the symptom pointed
-directly at a component that had just been corrected.
+directly at a component that had just been corrected, and twice it pointed at a
+candidate that was reading binary garbage.
+
+**The predictive value is the point.** By the eighth instance this had become the
+first thing worth checking: when a component fails, look at what feeds it before
+looking at it.
 
 ### 3. Explaining a number before checking what produced it — twice, both flattering
 
@@ -485,26 +494,6 @@ A test now compares each prompt's placeholders against the keywords its call sit
 passes, so an unsupplied placeholder fails in the suite rather than once per
 paper at generation time.
 
-## Open
-
-* Agreement re-measurement on the holdout set after the incomplete-table fix.
-* Three holdout papers regenerating: their tables omit factors they report on,
-  caught by the set check that replaced the ratio.
-* **Zero ambiguous findings** against R5's 10–20%. Not gated, but watched.
-* The 30-paper train set is not started.
-* Retraining K6 on this corpus remains **deferred, not scheduled**: seeding on
-  three of the five real papers means training on paraphrases of three test
-  documents, and the only clean read would be elemance and morrison, n=2.
-
-## Keeping this document honest
-
-It fell behind once already: four findings existed only in commit messages until
-someone asked whether they were being recorded. Commit messages are not this
-document — they are per-change and nobody reads them in sequence.
-
-**Append a dated entry when a result lands or a pattern repeats.** If a fix is
-worth a commit message explaining *why*, the why belongs here.
-
 ### Contaminating the holdout while debugging K7 — 2026-08-07
 
 K7 scored 1/6 on the holdout, exactly matching its control. Diagnosing why, I
@@ -529,6 +518,67 @@ The general lesson is narrower than "do not look at the test set", because
 debugging requires looking at something: **decide which corpus you are allowed
 to debug against before the first failure, not after.** The train set existed and
 was the right place; I reached for whichever bundle was in front of me.
+
+### The corpus did not carry the gold it was built to serve
+
+The plan's stated outcome was to unblock K7, K5, K3c and K9 "by giving them an n
+at which a result means something". Forty papers were generated, validated and
+committed before anyone checked whether their gold contained those candidates'
+answers. It did not:
+
+| candidate | reads | in the seeded gold |
+|---|---|---|
+| K5 | `expected_decision` | absent |
+| K3c | `expected_entities` | absent |
+| K9 | validation-result spans | absent |
+| K7 | context of use | absent, and no K7 existed |
+
+The gold carried `findings`, `models`, `mechanisms` and `scope_allowed` —
+everything routing needs and none of the four fields the plan named as the point
+of the exercise.
+
+**Nothing forced the check.** R1–R9 describe *document* properties and say
+nothing about the gold schema, so every acceptance gate passed on a corpus that
+could not answer the questions it was built for. It surfaced only when the four
+candidates were finally run against it.
+
+This is a different failure shape from the eight above: not a wrong conclusion
+from real data, but a **gap between two documents** — the spec constrained the
+papers, the plan promised the outcome, and nothing tied the second to the first.
+
+Fixed by having gold emit all four, named as the existing scripts already read
+them so K5, K3c and K9 run unchanged rather than through a shim. Cost about $6.60
+to regenerate gold across all 40, PDFs untouched.
+
+**The general form:** a corpus can satisfy every property its spec names and
+still not serve its purpose, because a spec describes what the artefact IS and a
+plan describes what it is FOR. Check the second explicitly.
+
+### K7, written from nothing
+
+There was no K7. It is now `keyless_k7_context_of_use.py`, and two findings came
+out of building it.
+
+**Its 7009A control does not transfer from K8.** K8's works because the risk
+vocabulary is genuinely absent from those papers — they never write "model
+influence" — so any value is invented. K7 has no such luck: OpenSim states "The
+OPENSIM Full Body Model was used to assess a muscle strain injury", which is a
+model-purpose statement in exactly the shape a context of use takes. The
+standards differ in whether they give that statement a formal role, not in
+whether the sentence exists. Requiring `None` there tests whether the extractor
+was *told* the standard, not whether it read anything.
+
+**Its first route was built on a premise true only of Bologna** — that the
+statement sits away from the term naming it. Measured on train, most papers do
+name it, and a definitional route (the term or a synonym plus a copula) beats
+both the shape route and the control on retrieval *and* restraint.
+
+### K9 gained a corpus mode
+
+K9 read hand-annotated `docs/v1/valresults_*.json` with hardcoded documents. It
+now takes `--corpus`. The real corpus records a verbatim span per result; the
+seeded corpus records `name_keywords`, so matching is on keywords, and a sentence
+must carry most of a result's keywords rather than merely sit near one.
 
 ### The four blocked rows, run at n=40 — 2026-08-07
 
@@ -562,3 +612,23 @@ making K5 testable needs the nine that should reject to be regenerated.
 as a failure to extract, the eighth instance of a symptom one step downstream of
 its cause. Fixing it changed K5's verdict from "fails" to "untestable", which is
 a different and more useful thing to know.
+
+## Open
+
+* Agreement re-measurement on the holdout set after the incomplete-table fix.
+* Three holdout papers regenerating: their tables omit factors they report on,
+  caught by the set check that replaced the ratio.
+* **Zero ambiguous findings** against R5's 10–20%. Not gated, but watched.
+* The 30-paper train set is not started.
+* Retraining K6 on this corpus remains **deferred, not scheduled**: seeding on
+  three of the five real papers means training on paraphrases of three test
+  documents, and the only clean read would be elemance and morrison, n=2.
+
+## Keeping this document honest
+
+It fell behind once already: four findings existed only in commit messages until
+someone asked whether they were being recorded. Commit messages are not this
+document — they are per-change and nobody reads them in sequence.
+
+**Append a dated entry when a result lands or a pattern repeats.** If a fix is
+worth a commit message explaining *why*, the why belongs here.
