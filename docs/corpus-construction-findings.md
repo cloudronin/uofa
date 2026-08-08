@@ -585,7 +585,7 @@ must carry most of a result's keywords rather than merely sit near one.
 | candidate | verdict | detail |
 |---|---|---|
 | **K7** | ~~works~~ **retrieval ties its control** | Corrected 2026-08-08 — 15/20 was measured on a train split regenerated three times afterwards. On the current corpus K7 is 9/20 and its control is also 9/20. 7009A restraint 9/10 and 4/4 holds. |
-| **K9** | **not demonstrated, and now convincingly** | 18/100 against a control's 13/100, p = 0.094 |
+| **K9** | **not demonstrated, and now convincingly** | Renumbered 2026-08-08 on the current corpus: 12/79 against a control's 9/79, p = 0.185. The recorded 18/100 was measured pre-regeneration; the verdict is unchanged, the numbers are not. |
 | **K3c** | **fails on counts** | 0/3 properties better on train, 1/3 on holdout |
 | **K5** | **untestable — the corpus's fault** | all 40 papers accept, so a constant scores 1.000 |
 

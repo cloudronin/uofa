@@ -25,17 +25,24 @@ import and are out of scope.
 | — per-factor `rationale` | always | RRF → K2 quote | groundedness 1.000 by construction | no |
 | `modelRiskLevel` | **V&V 40 only** (0/0 vs 22/17/23) | **K8** extract-and-validate | **5 of 6 documents correct**, 1 named failure | **no** |
 | `wasDerivedFrom` | n/a — a run fact | emit the input filenames | **fixed**; was 100% template placeholder | **no** |
-| `hasValidationResult` | always (5–15 mentions) | K9 shape routing | **not demonstrated at n=100** — 18 vs 13, p=0.094 | unknown |
+| `hasValidationResult` | always (5–15 mentions) | K9 shape routing | **not demonstrated at n=79** — 12 vs 9, p=0.185 | unknown |
 | `bindsModel` | always | K3c by NAME | **0.42 / 0.41**, against a naive 0.37 / 0.36 — thin but consistent | probably |
 | `bindsDataset` | always | K3c by NAME | **0.09 / 0.16** vs 0.02 / 0.00 — weak, real | unknown |
 | `bindsRequirement` | always | K3c by NAME | **0.026, below a naive 0.039** — does not work | unknown |
 | `hasContextOfUse` | **V&V 40 only** (0/1 vs 39/33/50) | **K7 definitional** | retrieval **9/20 train, tied with its control**; restraint on 7009A **9/10, 4/4** | **no** |
 | `hasDecisionRecord` | thin everywhere (0–8) | K5 section extraction | **fails** — 0.033 against a 0.833 control | unknown |
 
-**Four rows are solved, one is a bug fix, two are measured negatives, and two are
-blocked on gold rather than on documents.** No row is now "not evaluable" for want
-of sample size — a 40-paper seeded corpus closed that, and closing it turned three
-verdicts from *cannot tell* into *can tell*.
+**Two rows are solved, one is a bug fix, four are measured negatives, and two are
+thin passes.** No row is now "not evaluable" for want of sample size — a 40-paper
+seeded corpus closed that. What it did *not* do is turn many negatives positive:
+of the four rows it unblocked, three came back negative and the fourth split.
+
+**Every seeded figure here was re-run on 2026-08-08 against the current corpus.**
+K5 and K3c reproduced exactly. K7 and K9 did not: both had been measured on a
+train split regenerated three times afterwards. K9's verdict survived renumbering
+and K7's did not — its margin over its control disappeared entirely. A number
+measured on a corpus that has since been regenerated is not a result, and nothing
+in the tooling said so at the time.
 
 ### What the corpus changed
 
@@ -43,14 +50,21 @@ verdicts from *cannot tell* into *can tell*.
 |---|---|---|
 | `hasContextOfUse` | not evaluable, n=4 | **split** — retrieval ties its control, restraint works |
 | `bindsModel` | evaluable, unknown | **thin pass** — 0.42 vs a naive 0.37 |
-| `hasValidationResult` | not demonstrated, n=24, p=0.135 | **not demonstrated**, n=100, p=0.094 |
+| `hasValidationResult` | not demonstrated, n=24, p=0.135 | **not demonstrated**, n=79, p=0.185 |
 | `hasDecisionRecord` | not evaluable, n=5 | **fails**, 0.033 vs 0.833 |
 
-Three of the four remain negative. That is the point: **a negative you can rely
-on is a result, and a negative you cannot is an open question wearing its
-clothes.** K9's verdict did not change and its standing did — at four times the
-sample the effect still fails to separate from the control, so the row is closed
-rather than pending.
+Three of the four remain negative and the fourth is split. That is the point: **a
+negative you can rely on is a result, and a negative you cannot is an open
+question wearing its clothes.** K9's verdict did not change and its standing did
+— at three times the sample the effect still fails to separate from the control,
+so the row is closed rather than pending.
+
+`hasContextOfUse` is the one to read carefully, because it is two capabilities
+sharing a row. **Finding** a context of use ties a control that merely names the
+term. **Declining** to state one on a NASA-STD-7009A document, which defines no
+such concept, works on 9 of 10 and 4 of 4. The second is the rarer skill and the
+one a fabricating extractor cannot fake, and it would have been buried by a
+single averaged number.
 
 ---
 
@@ -87,6 +101,76 @@ table implies read alone.
 RRF is best or tied at every k. K4 and K6 are exactly tied at k=5 — an earlier
 claim that K4 beat K6 by 3.3× was an artefact of annotating only the pairs that
 were easy to find.
+
+---
+
+## Can a keyless pipeline BE the extractor? No, and the reason is structural
+
+`dev/tools/scripts/keyless_extract.py` composes every candidate into one
+extractor and runs the whole table at once. The result settles a question the
+per-candidate scripts could not.
+
+**The shape is an `sh:or` over three profiles**, not one flat requirement:
+
+| profile | required properties |
+|---|---|
+| `ProfileMinimal` | 7 |
+| `ProfileComplete` | 13 |
+| `ProfileDisposition` | 14 |
+
+So a sparse package does not fail for want of one field. It fails to reach **any**
+profile, and `uofa shacl` says exactly that: *conformsToProfile must be
+ProfileMinimal, ProfileComplete, or ProfileDisposition*, then *required fields for
+the declared profile are missing*.
+
+**Of `ProfileMinimal`'s seven, keyless supplies one.**
+
+| Minimal requires | keyless |
+|---|---|
+| `hasContextOfUse` | K7, retrieval tied with its control |
+| `bindsRequirement` | **no route** — 0.026 below a naive 0.039 |
+| `hasDecisionRecord` | **no route** — 0.033 against a 0.833 constant |
+| `hasValidationResult` | **no route** — 12/79 vs 9/79, p = 0.185 |
+| `hash`, `signature`, `generatedAtTime` | signing, not extraction |
+
+Three of the four extractor-facing properties in the *smallest* profile are
+exactly the three with no working keyless route. That is not a tuning gap. **No
+improvement in accuracy on the properties keyless does well closes it**, because
+none of them are in Minimal — `modelRiskLevel`, `bindsModel` and `bindsDataset`
+all live in Complete.
+
+### Measured on the 40 seeded papers
+
+Emitted values against gold, on the holdout and train splits. `filled` is
+presence and `correct` is accuracy, and the gap between the two columns is the
+entire argument of this document:
+
+| property | filled (holdout / train) | correct (holdout / train) |
+|---|---|---|
+| `hasCredibilityFactor` | 10/10, 30/30 | **0.217 / 0.304** |
+| `bindsModel` | 10/10, 30/30 | 0.400 / 0.467 |
+| `bindsDataset` | 10/10, 30/30 | 0.500 / 0.267 |
+| `hasContextOfUse` | 6/10, 19/30 | 0.500 / 0.200 |
+| `modelRiskLevel` | 1/10, 2/30 | no gold |
+| `bindsRequirement`, `hasValidationResult`, `hasDecisionRecord` | 0 | — |
+
+`modelRiskLevel` fills 1 in 10 here and 5 of 6 on the real papers. That gap is
+the **corpus**, not K8: all four real V&V 40 papers state model influence and
+decision consequence, and only 9 of 26 seeded ones do. The seeded corpus does not
+exercise K8, so K8's verdict stays where it was measured, at n=6 real.
+
+### What this means for `extract`
+
+A keyless default that emitted the whole table would be emitting fabrication for
+the three properties that decide whether a package validates at all. The usable
+shape is a **hybrid with the split declared per property**: pattern routes where
+they are measured to work, a model for the three that decide profile conformance,
+and `method` recorded on every value so the division is auditable afterwards.
+
+That is the opposite of the failure this repository already paid for, where 14
+turbomachinery models labelled "Class II" validated and honest packages did not.
+`minCount` rewards presence; only provenance distinguishes a value that was found
+from one that was supplied.
 
 ---
 
