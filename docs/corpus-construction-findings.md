@@ -672,3 +672,43 @@ document — they are per-change and nobody reads them in sequence.
 
 **Append a dated entry when a result lands or a pattern repeats.** If a fix is
 worth a commit message explaining *why*, the why belongs here.
+
+### K3c, corrected — 2026-08-08
+
+The first named-entity measurement reported 0.657 / 0.818 and was **wrong twice
+over**. Both errors flattered the result, and both were in the measuring
+apparatus rather than the extractor.
+
+**The matcher counted fragments.** `names_match` used a symmetric subset test,
+which is fine for proper names and catastrophic for the long clauses gold records
+as requirement names. Against
+
+> "energy balance artifacts ≤1% and maximum penetration ≤0.02 mm support 8–10 on
+> solver control"
+
+the bare word `"balance"` satisfied it. So did `"control"`. `bindsRequirement`
+measured **0.387** that way; corrected to a majority-overlap rule it measures
+**0.026**.
+
+**The control could not lose.** A constant naming "Computational Model" scores
+0.000 on datasets and requirements, because no dataset name is common to all
+papers — so "beats the constant" was satisfied by any non-zero recall at all.
+Adding a control that competes (the document's most frequent capitalised phrases)
+changes the reading of every row:
+
+| property | K3c | constant | freq-NP | verdict |
+|---|---|---|---|---|
+| `bindsModel` | 0.42 / 0.41 | 0.08 / 0.09 | 0.37 / 0.36 | thin pass |
+| `bindsDataset` | 0.09 / 0.16 | 0.00 | 0.02 / 0.00 | weak pass |
+| `bindsRequirement` | 0.026 | 0.00 | 0.039 | **fails** |
+
+Names remain the right measure — the same extractor scores 0.133 on exact counts
+against 0.42 on names — but **"unblocks three rows" was optimistic**: one row is
+a thin pass, one is weak, and one loses to a naive baseline.
+
+**This was the ninth instance of a verdict turning out to be about the tool, and
+the first predicted in advance.** The long-clause problem was flagged two steps
+before it was tested, from nothing more than looking at what gold had recorded as
+a requirement "name". By this point the pattern is reliable enough to use as a
+prior: *when a number is better than expected, check the matcher before
+believing it.*

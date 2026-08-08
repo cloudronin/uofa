@@ -26,9 +26,9 @@ import and are out of scope.
 | `modelRiskLevel` | **V&V 40 only** (0/0 vs 22/17/23) | **K8** extract-and-validate | **5 of 6 documents correct**, 1 named failure | **no** |
 | `wasDerivedFrom` | n/a — a run fact | emit the input filenames | **fixed**; was 100% template placeholder | **no** |
 | `hasValidationResult` | always (5–15 mentions) | K9 shape routing | **not demonstrated at n=100** — 18 vs 13, p=0.094 | unknown |
-| `bindsModel` | always | **K3c by NAME** | **0.657 / 0.818** against a control's 0.104 / 0.182 | **no** |
-| `bindsDataset` | always | K3c | blocked — gold carries no dataset names | unknown |
-| `bindsRequirement` | always | K3c | blocked — gold carries no requirement names | unknown |
+| `bindsModel` | always | K3c by NAME | **0.42 / 0.41**, against a naive 0.37 / 0.36 — thin but consistent | probably |
+| `bindsDataset` | always | K3c by NAME | **0.09 / 0.16** vs 0.02 / 0.00 — weak, real | unknown |
+| `bindsRequirement` | always | K3c by NAME | **0.026, below a naive 0.039** — does not work | unknown |
 | `hasContextOfUse` | **V&V 40 only** (0/1 vs 39/33/50) | **K7 definitional** | **15/20 train, 3/4 clean holdout** vs control 11/20, 1/4 | **no** |
 | `hasDecisionRecord` | thin everywhere (0–8) | K5 section extraction | **fails** — 0.033 against a 0.833 control | unknown |
 
@@ -42,7 +42,7 @@ verdicts from *cannot tell* into *can tell*.
 | row | at 5 real documents | at 40 seeded |
 |---|---|---|
 | `hasContextOfUse` | not evaluable, n=4 | **works** — and K7 did not exist before |
-| `bindsModel` | evaluable, unknown | **works** — once scored by name |
+| `bindsModel` | evaluable, unknown | **thin pass** — 0.42 vs a naive 0.37 |
 | `hasValidationResult` | not demonstrated, n=24, p=0.135 | **not demonstrated**, n=100, p=0.094 |
 | `hasDecisionRecord` | not evaluable, n=5 | **fails**, 0.033 vs 0.833 |
 
@@ -216,11 +216,26 @@ seeded output reproduces the prose but not yet the mess.
 
 In order of value per hour:
 
-1. ~~**Re-specify K3c** as named-entity overlap rather than counts.~~ **Done, and
-   it works**: 0.657 train / 0.818 holdout against a control's 0.104 / 0.182,
-   where the same extractor scores 0.133 on exact counts. Only `bindsModel` is
-   closed — the gold carries no dataset or requirement names, so those two rows
-   are blocked on a regeneration rather than on a method.
+1. ~~**Re-specify K3c** as named-entity overlap rather than counts.~~ **Done.
+   Names beat counts, and the margin is much smaller than it first appeared.**
+
+   The first measurement reported 0.657 / 0.818 and was wrong twice over: the
+   matcher let a fragment match a long name — the bare word "balance" counted as
+   naming a 20-word requirement — and the control was a constant that names
+   nothing, so any non-zero recall beat it.
+
+   Against the document's most frequent capitalised phrases, which is a control
+   that actually competes:
+
+   | property | K3c | naive | |
+   |---|---|---|---|
+   | `bindsModel` | 0.42 / 0.41 | 0.37 / 0.36 | thin, consistent in direction |
+   | `bindsDataset` | 0.09 / 0.16 | 0.02 / 0.00 | weak but real |
+   | `bindsRequirement` | 0.026 | 0.039 | **loses to the naive control** |
+
+   Names are still the right measure — counts score 0.133 where names score 0.42
+   — but "unblocks three rows" was optimistic. One row is a thin pass, one is
+   weak, and one does not work.
 2. **Relax the sourcing criterion.** Four documents state model risk without a
    per-factor table — enough to make K7 and K8 evaluable, not enough for routing.
 3. **A human annotation pass.** 71.4% agreement with a model bounds

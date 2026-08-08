@@ -387,8 +387,11 @@ factor. They are what makes the corpus usable for anything beyond routing.
   `decision` -- the accept/reject conclusion the paper reaches about its model,
   quoted from the paper, with the phrases its rationale turns on.
 
-  `entities` -- how many DISTINCT computational models, comparator datasets and
-  stated requirements the paper contains. Counts, not names.
+  `entities` -- the DISTINCT computational models, comparator datasets and stated
+  requirements the paper contains, BY NAME, as the paper names them. A dataset is
+  a body of measurements the model is compared against; a requirement is an
+  acceptance target the paper states it must meet. Name each once, in the paper's
+  own words, however abbreviated.
 
   `validation_results` -- every comparison of a model output against a
   measurement or referent, with whether uncertainty was quantified and whether
@@ -400,7 +403,8 @@ Return ONLY JSON:
 {{"decision": {{"outcome": "Accepted|Not accepted",
                 "outcome_source": "verbatim sentence stating it",
                 "rationale_keywords": ["phrase the rationale turns on", "..."]}},
-  "entities": {{"models": 0, "datasets": 0, "requirements": 0}},
+  "entities": {{"models": ["as the paper names it", "..."],
+                "datasets": ["..."], "requirements": ["..."]}},
   "validation_results": [
     {{"name_keywords": ["the comparator", "the measured value", "the predicted value"],
       "has_uq": "Yes|No", "pass_fail": "Pass|Fail|Inconclusive"}}],
@@ -591,6 +595,25 @@ def factor_levels(sections: list[dict]) -> dict[str, str]:
             cells = _row3(r)
             if cells and _GRADATION.match(cells[1].strip()):
                 out[cells[0].strip().lower()] = cells[1].strip()
+    return out
+
+
+def _entity_names(raw) -> dict[str, list[str]]:
+    """Normalise gold's entity block to {kind: [name, ...]}.
+
+    Gold returned counts before names, and a bundle regenerated under the older
+    prompt still carries integers. Accepting both means the corpus can be
+    migrated a set at a time rather than all at once.
+    """
+    out = {"models": [], "datasets": [], "requirements": []}
+    if not isinstance(raw, dict):
+        return out
+    for k in out:
+        v = raw.get(k)
+        if isinstance(v, list):
+            out[k] = [str(x).strip() for x in v if str(x).strip()]
+        # an int is the old shape: a count with no names, and no way to recover
+        # them -- left empty rather than invented
     return out
 
 
@@ -990,7 +1013,13 @@ def generate_one(idx: int, seed_tag: str, out_root: pathlib.Path, backend,
              # Named as the existing candidates read them, so K5, K3c and K9
              # run against this corpus unchanged rather than needing a shim.
              "expected_decision": corpus_level.get("decision"),
-             "expected_entities": corpus_level.get("entities"),
+             # Names, and counts derived FROM the names so the two cannot
+             # disagree. `expected_entities` keeps its count shape because
+             # keyless_k3_entities reads it; the names are a new field, so
+             # nothing that worked before stops working.
+             "expected_entity_names": _entity_names(corpus_level.get("entities")),
+             "expected_entities": {k: len(v) for k, v in
+                                   _entity_names(corpus_level.get("entities")).items()},
              "expected_validation_results": corpus_level.get("validation_results") or [],
              # R9: null on 7009A by rule, not by chance. A value here on a
              # 7009A paper is fabrication, and asserting it is the point.

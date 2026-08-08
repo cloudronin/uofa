@@ -20,20 +20,20 @@ and one that asserts "two" score identically, and the first is doing the work.
 Names break that tie. A constant cannot name the models in a document it never
 opened.
 
-## What can be scored today, and what cannot
+## All three rows
 
-The seeded gold carries model names, because the plan names them:
+`bindsModel` could be scored immediately, because the plan already named the
+models. `bindsDataset` and `bindsRequirement` could not: `expected_entities`
+carried counts and nothing else, so those rows were blocked on gold rather than
+on method.
 
-    "models": [{"name": "Implant-Only Explicit Contact Model (IO-ECM)"}, ...]
+Gold now emits `expected_entity_names` for all three kinds, with counts derived
+from the names so the two cannot disagree. Each kind gets its own route, because
+they are named differently in prose:
 
-Dataset and requirement names are not recorded -- `expected_entities` carries
-counts for those and nothing else. So `bindsModel` is scored by name here and the
-other two rows still cannot be, for want of gold rather than for want of a
-method. Extending the gold step to emit names would close them; it is a
-regeneration, not a redesign.
-
-Reporting one row rather than three is the honest reading of "unblocks three
-rows": the method transfers, the gold has not caught up.
+* a **model** is a proper noun, usually with an acronym
+* a **dataset** is a body of measurements, named after its source or rig
+* a **requirement** is an acceptance target, named by the quantity it bounds
 
 ## Matching
 
@@ -65,46 +65,101 @@ def _words(x: str) -> set[str]:
     return {w for w in re.findall(r"[a-z0-9]{2,}", x.lower()) if w not in _FILLER}
 
 
+# A MAJORITY of the longer name's words, not half. At exactly half,
+# "knee simulator" matched "AMTI sixstation knee simulator" -- and the words it
+# drops are the distinguishing ones, so it names a category rather than that rig.
+# Genuine abbreviations are handled by the acronym path, which is why this can be
+# strict without penalising "IO-ECM".
+_OVERLAP = 0.60
+
+
 def names_match(gold: str, proposed: str) -> bool:
     """Same entity, allowing for abbreviation and punctuation.
 
-    A hit needs the proposal to carry either every significant word of the gold
-    name, or its acronym -- papers refer to "IO-ECM" far more often than to
+    Overlap is measured against the LONGER of the two, not as a subset test. A
+    symmetric subset rule is fine for proper names and catastrophic for the long
+    clauses gold records as requirement names: against
+
+        "energy balance artifacts <=1% and maximum penetration <=0.02 mm
+         support 8-10 on solver control"
+
+    the bare word "balance" satisfied `p <= g` and counted as naming that
+    requirement. Every short fragment did. bindsRequirement measured 0.387 that
+    way, and the number was fragments.
+
+    The acronym path survives, because it is the one case where a short proposal
+    genuinely names a long entity: papers write "IO-ECM" far more often than
     "Implant-Only Explicit Contact Model", and both name the same model.
     """
     g, p = _words(gold), _words(proposed)
     if not g or not p:
         return False
-    if g <= p or p <= g:
-        return True
     acro = {t for t in re.findall(r"\b([A-Z][A-Z0-9-]{2,})\b", gold)}
-    return bool(acro & {t.upper() for t in re.findall(r"[A-Za-z0-9-]{3,}", proposed)})
+    if acro & {t.upper() for t in re.findall(r"[A-Za-z0-9-]{3,}", proposed)}:
+        return True
+    return len(g & p) / max(len(g), len(p)) >= _OVERLAP
 
 
-# A candidate model name in running text: a capitalised phrase, or an acronym.
-_CANDIDATE = re.compile(
-    r"\b([A-Z][A-Za-z0-9-]*(?:\s+[A-Z][A-Za-z0-9-]*){0,5}\s+"
-    r"(?:Model|Simulation|Framework|Analysis))\b|\b([A-Z][A-Z0-9]{2,}(?:-[A-Z0-9]+)*)\b")
+# One pattern per kind, because the three are named differently in prose.
+_PATTERNS = {
+    "models": re.compile(
+        r"\b([A-Z][A-Za-z0-9-]*(?:\s+[A-Z][A-Za-z0-9-]*){0,5}\s+"
+        r"(?:Model|Simulation|Framework|Analysis))\b|"
+        r"\b([A-Z][A-Z0-9]{2,}(?:-[A-Z0-9]+)*)\b"),
+    "datasets": re.compile(
+        r"\b([A-Z][A-Za-z0-9-]*(?:\s+[A-Za-z0-9-]+){0,4}\s+"
+        r"(?:dataset|data\s?set|corpus|campaign|series|cohort|specimens?|"
+        r"measurements?|tests?|trials?|bench(?:top)?|rig|study))\b|"
+        r"\b(ISO\s?\d{3,5}[\w-]*|ASTM\s?[A-Z]?\d+[\w-]*)\b", re.I),
+    "requirements": re.compile(
+        r"\b((?:within|below|above|less than|greater than|no more than|at least)\s+"
+        r"[\d.]+\s*(?:%|mm|MPa|N|kPa|s|Hz|micro\w*|percent)?[\w\s-]{0,24})\b|"
+        r"\b([A-Za-z][\w\s-]{2,28}\s+(?:criterion|criteria|requirement|"
+        r"acceptance\s+limit|tolerance|threshold|target))\b", re.I),
+}
 
 
-def propose_models(text: str, cap: int = 12) -> list[str]:
-    """Model names a keyless reader would put forward, most frequent first."""
+def propose(kind: str, text: str, cap: int = 12) -> list[str]:
+    """Names a keyless reader would put forward for this kind, most frequent first."""
     counts: dict[str, int] = {}
-    for m in _CANDIDATE.finditer(text):
-        name = (m.group(1) or m.group(2) or "").strip()
+    for m in _PATTERNS[kind].finditer(text):
+        name = next((g for g in m.groups() if g), "").strip()
         if len(name) > 2:
             counts[name] = counts.get(name, 0) + 1
     return [n for n, _ in sorted(counts.items(), key=lambda kv: -kv[1])[:cap]]
 
 
-def control_constant_name(_text: str, cap: int = 12) -> list[str]:
-    """Null model: the words a credibility paper always contains.
+def propose_models(text: str, cap: int = 12) -> list[str]:
+    return propose("models", text, cap)
 
-    The count-based control wins by asserting a number. Its named analogue has
-    to assert a NAME, and there is no name every paper shares -- which is the
-    whole argument for scoring names.
+
+def control_constant_name(_text: str, cap: int = 12) -> list[str]:
+    """Constant null: the phrases every credibility paper contains.
+
+    Scores 0.000 on datasets and requirements, because no dataset name is common
+    to all papers. That makes "beats the constant" a meaningless bar for those
+    two rows -- any non-zero recall clears it -- so it is reported alongside a
+    control that actually competes.
     """
     return ["Computational Model", "Finite Element Model", "CFD Model"][:cap]
+
+
+# A capitalised phrase: what a reader would propose knowing nothing about the
+# three kinds. It reads the document, so it is not free, and it is the control
+# worth beating -- if a kind-specific pattern cannot outscore "the most frequent
+# proper nouns", the pattern is not contributing.
+_NOUN_PHRASE = re.compile(
+    r"\b([A-Z][A-Za-z0-9-]*(?:\s+[a-z0-9-]+){0,3}(?:\s+[A-Z][A-Za-z0-9-]*)?)\b")
+
+
+def control_frequent_phrases(text: str, cap: int = 12) -> list[str]:
+    """Null model: the document's most frequent capitalised phrases."""
+    counts: dict[str, int] = {}
+    for m in _NOUN_PHRASE.finditer(text):
+        n = m.group(1).strip()
+        if len(n) > 4:
+            counts[n] = counts.get(n, 0) + 1
+    return [n for n, _ in sorted(counts.items(), key=lambda kv: -kv[1])[:cap]]
 
 
 def main() -> int:
@@ -118,36 +173,50 @@ def main() -> int:
     if not bundles:
         raise SystemExit(f"no bundles under {args.corpus}")
 
-    hit = tot = chit = 0
-    cnt_hit = cnt_tot = 0
-    print(f"\nK3c — models by NAME, {len(bundles)} bundles\n")
+    KINDS = ("models", "datasets", "requirements")
+    hit = {k: 0 for k in KINDS}
+    tot = {k: 0 for k in KINDS}
+    chit = {k: 0 for k in KINDS}
+    fhit = {k: 0 for k in KINDS}
+    print(f"\nK3c — entities by NAME, {len(bundles)} bundles\n")
     for b in bundles:
         gt = json.loads((b / "ground_truth.json").read_text())
-        gold = [m["name"] for m in (gt.get("models") or []) if m.get("name")]
-        if not gold:
-            continue
+        names = gt.get("expected_entity_names") or {}
         text = _read_source(b)
-        proposed = propose_models(text, args.k)
-        ctrl = control_constant_name(text, args.k)
-        for g in gold:
-            tot += 1
-            hit += any(names_match(g, p) for p in proposed)
-            chit += any(names_match(g, p) for p in ctrl)
-        # the count row, for the comparison the deliverable rests on
-        got = extract_entities_salient(text).get("models", 0)
-        cnt_tot += 1
-        cnt_hit += (got == len(gold))
+        for kind in KINDS:
+            gold = names.get(kind) or []
+            if kind == "models" and not gold:
+                gold = [m["name"] for m in (gt.get("models") or []) if m.get("name")]
+            if not gold:
+                continue
+            proposed = propose(kind, text, args.k)
+            ctrl = control_constant_name(text, args.k)
+            freq = control_frequent_phrases(text, args.k)
+            for g in gold:
+                tot[kind] += 1
+                hit[kind] += any(names_match(g, p) for p in proposed)
+                chit[kind] += any(names_match(g, p) for p in ctrl)
+                fhit[kind] += any(names_match(g, p) for p in freq)
 
-    print(f"  {'measure':34s}{'K3c':>10s}{'control':>10s}")
-    print(f"  {'models found BY NAME':34s}{hit}/{tot:<8d}{chit}/{tot:<8d}")
-    print(f"  {'                     ':34s}{hit/max(tot,1):>10.3f}{chit/max(tot,1):>10.3f}")
-    print(f"\n  exact model COUNT, for contrast: {cnt_hit}/{cnt_tot} = "
-          f"{cnt_hit/max(cnt_tot,1):.3f}")
-    print(f"\n  KILL CRITERION: name recall must beat the constant")
-    verdict = "PASSES" if hit / max(tot, 1) > chit / max(tot, 1) else "FAILS"
-    print(f"  -> {verdict}")
-    print(f"\n  bindsModel only. Dataset and requirement names are not in the gold,")
-    print(f"  so those two rows stay blocked for want of gold rather than method.")
+    print(f"  {'property':16s}{'gold':>7s}{'K3c':>10s}{'constant':>10s}"
+          f"{'freq-NP':>10s}{'verdict':>10s}")
+    passed = 0
+    for kind, prop in (("models", "bindsModel"), ("datasets", "bindsDataset"),
+                       ("requirements", "bindsRequirement")):
+        n = tot[kind]
+        if not n:
+            print(f"  {prop:16s}{'—':>7s}{'no gold names recorded':>30s}")
+            continue
+        r, c, f = hit[kind] / n, chit[kind] / n, fhit[kind] / n
+        # Must beat the STRONGER of the two controls. The constant scores 0 on
+        # two of three kinds, so it alone cannot decide anything.
+        ok = r > max(c, f)
+        passed += ok
+        print(f"  {prop:16s}{n:>7d}{r:>10.3f}{c:>10.3f}{f:>10.3f}"
+              f"{'PASSES' if ok else 'FAILS':>10s}")
+
+    print(f"\n  KILL CRITERION: name recall must beat the STRONGER control, per property")
+    print(f"  -> {passed}/3 properties pass")
     return 0
 
 
