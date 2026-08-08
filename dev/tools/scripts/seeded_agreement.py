@@ -418,11 +418,15 @@ def main() -> int:
         bad += [] if ok else [k]
         print(f"  {'PASS' if ok else 'FAIL'}  {k:30s} {v:6.3f}   "
               f"band [{lo:.2f}, {hi:.2f}]   real {REAL[k]:.3f}")
-    if got["agree_selection"] > BANDS["agree_selection"][1]:
-        print("\n  Selection is ABOVE the band. That is a failure, not a good "
-              "result:\n  every factor is cleanly reported, which is the old "
-              "corpus's defect.\n  R5 (omitted and ambiguous factors) is what "
-              "brings it down.")
+    # Selection is reported rather than gated, but the "too clean" warning still
+    # matters: it is the signal the whole check was built for. Reading the
+    # threshold from BANDS crashed once selection moved to REPORTED.
+    _TOO_CLEAN = 0.99
+    if got.get("agree_selection", 0) > _TOO_CLEAN:
+        print(f"\n  Selection is {got['agree_selection']:.3f}, above {_TOO_CLEAN}. "
+              "That is a failure, not a good\n  result: every factor is cleanly "
+              "reported, which is the old corpus's\n  defect. R5 (omitted and "
+              "ambiguous factors) is what brings it down.")
     if bad:
         print(f"\n  OUT OF TOLERANCE: {bad}")
     return 1 if bad else 0

@@ -613,6 +613,46 @@ as a failure to extract, the eighth instance of a symptom one step downstream of
 its cause. Fixing it changed K5's verdict from "fails" to "untestable", which is
 a different and more useful thing to know.
 
+### Train-set agreement, sampled — 2026-08-07
+
+12 of 30 bundles, 2 scopes each. Confirmatory only: the holdout is the validated
+set and the plan never required this.
+
+| measure | train sample | holdout | band |
+|---|---|---|---|
+| gold precision | **1.000** | 0.986 | 0.95–1.00 |
+| same sentence (single-ref) | 0.582 | 0.824 | 0.60–0.85 |
+| N/A rate | 0.000 | 0.000 | = 0 |
+| gold recall (reported) | 0.798 | 0.850 | — |
+
+2×2: both 67, **gold-only 0**, annotator-only 17, neither 2. Gold claims nothing
+the independent annotator does not also see, which is the property that matters
+for an answer key.
+
+**The two same-sentence figures are not comparable.** Train was sampled at
+`--max-scopes 2 --limit 12` and holdout at `--max-scopes 3` over all ten, to save
+about $3. Fewer scopes per bundle means fewer chances for the annotator's pick to
+land on one of gold's spans for that scope, which depresses the figure
+mechanically. Recording the difference rather than reading it as train being
+worse: **the sampling differs, so the number differs, and no comparison is
+available without re-running both the same way.**
+
+That is the granularity mistake from earlier in this document, met again at the
+level of sampling parameters rather than of measurement basis. It cost nothing
+this time only because the holdout is what the corpus is validated on.
+
+### A crash in the reporting path
+
+Splitting selection from gated to reported left the "too clean" warning reading
+`BANDS["agree_selection"]`, which no longer existed — so every run raised
+`KeyError` **after** printing its verdicts. The numbers were correct and the
+process exited non-zero, which reads as a failed check rather than a failed
+print.
+
+Fixed with an explicit threshold. The lesson is small and repeats one already
+here: **a key that moves between dicts breaks every reader of the old dict**, and
+the readers are easy to miss when the value still exists somewhere.
+
 ## Open
 
 * Agreement re-measurement on the holdout set after the incomplete-table fix.
