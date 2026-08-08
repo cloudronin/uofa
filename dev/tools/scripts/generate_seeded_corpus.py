@@ -104,6 +104,22 @@ DOMAINS = [
     ("neurovascular coil", "packing density", "explicit FEA"),
     ("prosthetic foot", "energy return", "implicit FEA"),
     ("ventricular assist inflow", "thrombogenic potential", "CFD"),
+    # Extended past 30 so a 30-paper run never repeats a device. Relying on the
+    # twins gate to catch a repeat is weaker than not creating one: the gate
+    # fires at 0.60 similarity, and two papers on the same device would sit
+    # below that while still being the least independent pair in the corpus.
+    ("bileaflet mechanical valve", "hinge washout", "CFD"),
+    ("distal radius plate", "screw angulation", "implicit FEA"),
+    ("cochlear electrode array", "insertion force", "explicit FEA"),
+    ("peritoneal dialysis catheter", "drainage resistance", "CFD"),
+    ("shoulder glenoid component", "rocking-horse loosening", "implicit FEA"),
+    ("guidewire core", "torque transmission", "explicit FEA"),
+    ("stent graft seal zone", "migration resistance", "FSI"),
+    ("bone screw thread", "insertion torque", "implicit FEA"),
+    ("nebuliser mesh", "droplet size distribution", "CFD"),
+    ("intraocular lens haptic", "capsular contraction", "implicit FEA"),
+    ("tracheal stent", "radial recoil", "explicit FEA"),
+    ("blood oxygenator manifold", "flow maldistribution", "CFD"),
 ]
 
 PLAN_PROMPT = """\
