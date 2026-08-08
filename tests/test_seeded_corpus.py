@@ -191,6 +191,7 @@ def test_gold_is_given_the_standards_checklist():
     """
     assert "{factors}" in G.GOLD_PROMPT
     filled = G.GOLD_PROMPT.format(models="M", mechanisms="X", document="D",
+                                  cou_rule=G._COU_VV40,
                                   factors="\n".join(f"- {x}" for x in G._factors("V&V40")))
     assert "Model form" in filled
     assert "not on this list is not a credibility factor" in filled
@@ -383,6 +384,7 @@ def test_gold_findings_outside_the_papers_scope_are_dropped():
     # and the scope must still be withheld from the gold PROMPT
     assert "{factors}" in G.GOLD_PROMPT
     filled = G.GOLD_PROMPT.format(models="M", mechanisms="X", document="D",
+                                  cou_rule=G._COU_VV40,
                                   factors="\n".join(G._factors("V&V40")))
     full = G._factors("V&V40")
     assert all(f in filled for f in full), "gold must still see the FULL checklist"
@@ -474,3 +476,32 @@ def test_bracket_repair_leaves_valid_json_alone():
     """Including brackets inside string literals, which are not containers."""
     ok = '{"a": [1, 2], "b": {"c": "a } and ] inside a string"}}'
     assert json.loads(G._fix_brackets(ok)) == json.loads(ok)
+
+
+def test_gold_emits_the_fields_the_blocked_candidates_read():
+    """The corpus was built to unblock K5, K3c, K9 and K7 and did not.
+
+    Its gold carried findings, models, mechanisms and scope -- everything
+    routing needs and none of the four fields those candidates read. The spec's
+    R1-R9 describe DOCUMENT properties and say nothing about the gold schema, so
+    nothing forced the check; the plan named the four rows as the point of the
+    exercise and the output did not serve them.
+    """
+    for field in ("decision", "entities", "validation_results", "context_of_use"):
+        assert field in G.GOLD_PROMPT, f"gold is never asked for {field}"
+    src = (_ROOT / "dev" / "tools" / "scripts" / "generate_seeded_corpus.py").read_text()
+    for field in ("expected_decision", "expected_entities",
+                  "expected_validation_results", "expected_context_of_use"):
+        assert f'"{field}"' in src, f"{field} never reaches ground_truth.json"
+
+
+def test_context_of_use_is_null_on_7009a_by_rule():
+    """R9: 7009A has no such concept, so any value is fabrication.
+
+    Enforced in code rather than left to the prompt -- the deliverable records
+    0/1 mentions across the two real 7009A papers against 39/33/50 in the three
+    V&V 40 ones, so a model that invents one is contradicting the standard.
+    """
+    src = (_ROOT / "dev" / "tools" / "scripts" / "generate_seeded_corpus.py").read_text()
+    assert 'if standard == "V&V40" else None' in src
+    assert "cou_fabricated_and_discarded" in src

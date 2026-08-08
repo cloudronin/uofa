@@ -175,6 +175,14 @@ Return ONLY JSON:
 }}
 """
 
+# R9: a 7009A paper must not state a context of use, so gold must not invent
+# one. Any non-null value on a 7009A document is fabrication, and the deliverable
+# already records 0/1 mentions across the two real 7009A papers against 39/33/50
+# in the three V&V 40 ones.
+_COU_VV40 = ("This paper is written under ASME V&V 40 and states one; quote it.")
+_COU_7009A = ("This paper is written under NASA-STD-7009A, which has no such "
+              "concept. Return null. A quote here would be invented.")
+
 _VV40_RULES = """\
 Under ASME V&V 40 the paper MUST state a context of use and a model risk level, \
 each with its rationale."""
@@ -328,8 +336,31 @@ stated" means the table was not consulted. Use "not stated" only when the paper 
 genuinely assigns no gradation anywhere. Never put a mechanism name or a scope \
 here.
 
+Also return these four, which describe the paper as a whole rather than any one
+factor. They are what makes the corpus usable for anything beyond routing.
+
+  `decision` -- the accept/reject conclusion the paper reaches about its model,
+  quoted from the paper, with the phrases its rationale turns on.
+
+  `entities` -- how many DISTINCT computational models, comparator datasets and
+  stated requirements the paper contains. Counts, not names.
+
+  `validation_results` -- every comparison of a model output against a
+  measurement or referent, with whether uncertainty was quantified and whether
+  the paper calls the agreement acceptable.
+
+  `context_of_use` -- what the model is used to decide, quoted. {cou_rule}
+
 Return ONLY JSON:
-{{"findings": [
+{{"decision": {{"outcome": "Accepted|Not accepted",
+                "outcome_source": "verbatim sentence stating it",
+                "rationale_keywords": ["phrase the rationale turns on", "..."]}},
+  "entities": {{"models": 0, "datasets": 0, "requirements": 0}},
+  "validation_results": [
+    {{"name_keywords": ["the comparator", "the measured value", "the predicted value"],
+      "has_uq": "Yes|No", "pass_fail": "Pass|Fail|Inconclusive"}}],
+  "context_of_use": "verbatim sentence, or null",
+  "findings": [
   {{"model": "...", "mechanism": "...", "factor": "...",
     "level": "...", "spans": ["one verbatim sentence", "another if the paper "
     "states this finding more than once"], "status": "clear|ambiguous"}}
@@ -769,6 +800,7 @@ def generate_one(idx: int, seed_tag: str, out_root: pathlib.Path, backend,
         doc = "\n".join(c.text for c in read_pdf(pdf))
         mechs = ", ".join(m["name"] for m in plan["mechanisms"])
         raw_findings, empty = [], []
+        corpus_level: dict = {}
         for mi, m in enumerate(plan["models"]):
             g_raw, ti, to = _ask(
                 gold_backend, "gold",
@@ -783,6 +815,8 @@ def generate_one(idx: int, seed_tag: str, out_root: pathlib.Path, backend,
                 # would make selection agreement measure who knew the scope
                 # rather than who read the paper.
                 GOLD_PROMPT.format(models=m["name"], mechanisms=mechs,
+                                   cou_rule=(_COU_VV40 if standard == "V&V40"
+                                             else _COU_7009A),
                                    factors="\n".join(f"- {x}" for x in _factors(standard)),
                                    document=doc[:120000]),
                 max_tokens=GOLD_MAX_TOKENS, save_to=_raw(f"gold{mi}"))
@@ -795,6 +829,16 @@ def generate_one(idx: int, seed_tag: str, out_root: pathlib.Path, backend,
             for f in got.get("findings", []):
                 f.setdefault("model", m["name"])
                 raw_findings.append(f)
+            # Corpus-level fields describe the paper, not the model, so the
+            # first call that answers them wins and the rest agree by
+            # construction. Taking a later call's version would silently prefer
+            # whichever model happened to be processed last.
+            for k in ("decision", "entities", "validation_results",
+                      "context_of_use"):
+                if k not in corpus_level and got.get(k) is not None:
+                    corpus_level[k] = got[k]
+        if standard != "V&V40" and corpus_level.get("context_of_use"):
+            rep["cou_fabricated_and_discarded"] = True
         if not raw_findings:
             raise RuntimeError(f"gold produced nothing for any model ({empty})")
         if empty:
@@ -896,6 +940,15 @@ def generate_one(idx: int, seed_tag: str, out_root: pathlib.Path, backend,
              "device": device, "scope_allowed": scope,
              "models": plan["models"], "mechanisms": plan["mechanisms"],
              "deviation": plan.get("deviation"),
+             # Named as the existing candidates read them, so K5, K3c and K9
+             # run against this corpus unchanged rather than needing a shim.
+             "expected_decision": corpus_level.get("decision"),
+             "expected_entities": corpus_level.get("entities"),
+             "expected_validation_results": corpus_level.get("validation_results") or [],
+             # R9: null on 7009A by rule, not by chance. A value here on a
+             # 7009A paper is fabrication, and asserting it is the point.
+             "expected_context_of_use": (corpus_level.get("context_of_use")
+                                         if standard == "V&V40" else None),
              "findings": kept, "spans_dropped": dropped,
              "spans_dropped_by_reason": dropped_reason},
             indent=2) + "\n")
