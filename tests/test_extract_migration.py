@@ -254,3 +254,26 @@ def test_thinking_false_sets_think_extra_false():
         )
     last_options = backend.calls[-1][2]
     assert last_options.extra.get("think") is False
+
+
+def test_merge_survives_a_bare_value_where_a_dict_was_expected():
+    """A chunked extraction must not die on one un-wrapped field.
+
+    The prompt asks for {"value": ..., "confidence": ...}; the model sometimes
+    returns a bare string. `credibility_factors` guarded for that with
+    isinstance; `assessment_summary` and `decision` did not, so a single bare
+    string raised `'str' object has no attribute 'get'` and lost the entire
+    document. It cost elemance -- 28,310 tokens, the only one of the five real
+    papers over the 24k chunking threshold, which is why no short paper showed it.
+    """
+    from uofa_cli.llm_extractor import _merge_json_results
+
+    merged = _merge_json_results([
+        {"assessment_summary": {"project_name": "a bare string"},
+         "decision": {"outcome": "Accepted"}},
+        {"assessment_summary": {"project_name": {"value": "wrapped",
+                                                 "confidence": 0.9}}},
+    ])
+    # Higher confidence wins, and the bare value neither crashes nor outranks it.
+    assert merged["assessment_summary"]["project_name"]["value"] == "wrapped"
+    assert merged["decision"]["outcome"] == "Accepted"

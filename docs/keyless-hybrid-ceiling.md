@@ -351,6 +351,68 @@ from one that was supplied.
 
 ---
 
+## The head-to-head: keyless against gpt-5, five real papers
+
+Step 4 of the keyless plan required a measurement before anything became the
+default. This is it: both extractors over the same five documents, scored by the
+same function in `dev/tools/scripts/keyless_vs_model.py`.
+
+| | gpt-5 | keyless |
+|---|---|---|
+| validation results, 24 gold | **11** — 0.458 | 9 — 0.375 |
+| factor levels filled, 65 rows | **65** | 0, by design |
+| rationale claims traceable to the source | **83/84** — 0.988 | none written |
+| documents completed, before the fix below | 4 of 5 | **5 of 5** |
+
+### The verdict: keyless does NOT become the default
+
+Validation results are near parity — two hits in twenty-four separate them — but
+that is one field. The model fills 65 factor levels with rationales whose figures
+are 98.8% traceable to the document; keyless fills none, because the best keyless
+route for levels reaches 0.100 end to end and a wrong level validates.
+
+That gap is the answer. **Keyless is the no-key path and the honest floor, not the
+default.**
+
+### What 0.988 does and does not mean
+
+Groundedness asks whether the NUMBERS in a rationale appear in the source. It
+does not ask whether the level assigned is right, or whether the rationale is
+attached to the correct factor. The distinction is not hypothetical here: this
+repository once reported `mean overall F1 0.964 — PASS` while 37 of 45 packages
+failed the shape. **0.988 means the model is not inventing figures. It does not
+mean it is 98.8% correct.**
+
+### Factor levels are reported as filled, never as correct
+
+The real papers grade a letter within a stated range — `b` of `a-c` — while the
+template takes an integer 1-4. Mapping one onto the other is a judgement, and a
+wrong mapping produces a confident number that measures the mapping. Ten figures
+in this project have already turned out to measure the tooling. So the levels are
+counted, not scored.
+
+### The model lost a document, and keyless did not
+
+`elemance` is 28,310 tokens — the only one of the five over the 24k chunking
+threshold — and the model extractor died on it:
+
+    AttributeError: 'str' object has no attribute 'get'
+
+The prompt asks for `{"value": ..., "confidence": ...}` and the model sometimes
+returns a bare string. `_merge_json_results` guards for that when merging
+`credibility_factors` and **does not** when merging `assessment_summary` or
+`decision`, so one un-wrapped field discarded the entire document. Fixed, with a
+regression test; elemance now completes with 93 cells and 14 validation results,
+and the table above includes it.
+
+This is the fifth instance in one session of **a guard written once and needed
+three times**, and it is the most repeated defect in this repository. It also
+sharpens the case for the keyless path as a floor: on the longest real document
+available, the paid extractor produced nothing and the free one produced a
+package.
+
+---
+
 ## Detection is not a metric, permanently
 
 `control_constant_list` — a function that prints the standard's checklist and

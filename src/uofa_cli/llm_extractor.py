@@ -664,6 +664,24 @@ def _parse_response(raw: str) -> dict:
     raise ValueError(f"Could not parse LLM response as JSON: {text[:200]}...")
 
 
+def _conf(field: object) -> float:
+    """Confidence of a field that may be a dict OR a bare value.
+
+    The model is asked for {"value": ..., "confidence": ...} and sometimes
+    returns a bare string. `credibility_factors` guarded for that with
+    `isinstance(ft, dict)`; the summary and decision loops did not, so a single
+    bare string anywhere in a CHUNKED extraction raised
+
+        AttributeError: 'str' object has no attribute 'get'
+
+    and lost the whole document. It cost elemance, the longest of the five real
+    papers -- 28,310 tokens, the only one over the 24k chunking threshold, which
+    is why the short papers never showed it. The guard written once and needed
+    three times is the most repeated defect in this repository.
+    """
+    return field.get("confidence", 0) if isinstance(field, dict) else 0.0
+
+
 def _merge_json_results(results: list[dict]) -> dict:
     """Merge multiple extraction results — highest confidence wins for duplicates."""
     merged: dict = {
@@ -678,7 +696,7 @@ def _merge_json_results(results: list[dict]) -> dict:
         # Summary: highest confidence per field
         for key, val in result.get("assessment_summary", {}).items():
             existing = merged["assessment_summary"].get(key)
-            if existing is None or (val and val.get("confidence", 0) > existing.get("confidence", 0)):
+            if existing is None or _conf(val) > _conf(existing):
                 merged["assessment_summary"][key] = val
 
         # Entities and validation: append all
@@ -708,7 +726,7 @@ def _merge_json_results(results: list[dict]) -> dict:
         # Decision: highest confidence per field
         for key, val in result.get("decision", {}).items():
             existing = merged["decision"].get(key)
-            if existing is None or (val and val.get("confidence", 0) > existing.get("confidence", 0)):
+            if existing is None or _conf(val) > _conf(existing):
                 merged["decision"][key] = val
 
     return merged
