@@ -11,7 +11,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from uofa_cli.output import step_header
+from uofa_cli.output import step_header, info
 from uofa_cli.shacl_friendly import run_shacl_multi, print_results
 from uofa_cli import paths
 
@@ -55,7 +55,8 @@ def run_structured(args) -> ShaclResult:
     if not args.file.exists():
         raise FileNotFoundError(f"File not found: {args.file}")
 
-    shacl_paths = paths.all_shacl_schemas(active=paths.resolve_active_packs(args))
+    active = paths.resolve_active_packs(args)
+    shacl_paths = paths.all_shacl_schemas(active=active)
 
     if args.raw:
         from pyshacl import validate as shacl_validate
@@ -101,6 +102,25 @@ def run_structured(args) -> ShaclResult:
 
 def run(args) -> int:
     step_header("C2: SHACL profile validation")
+
+    # An assumed standard that goes unannounced is the original defect one layer
+    # up: the package predates the pack stamp, so this run guessed which
+    # standard it follows, and a reader of the verdict deserves to know.
+    #
+    # INCOMPLETE. This does not fire yet. The CLI pre-parses --pack and
+    # populates args.active_packs before the subcommand runs, so by here an
+    # explicit `--pack vv40` and a defaulted one are the same value and "no flag
+    # was given" is not answerable. Fixing it means distinguishing the two at
+    # the CLI layer -- a default sentinel, or recording whether the flag was
+    # supplied -- rather than guessing here. Left visibly unfinished instead of
+    # made to look done: the read/write half below IS complete and tested, and
+    # the warning is what tells a user the other half is missing.
+    if (args.file.exists()
+            and not getattr(args, "active_packs", None)
+            and paths.packs_recorded_in(args.file) is None):
+        info(f"  No pack recorded in this package — validating as "
+             f"{paths.resolve_active_packs(args)}. Pass --pack to be explicit.")
+
     result = run_structured(args)
     if result.raw_text is not None:
         print(result.raw_text)

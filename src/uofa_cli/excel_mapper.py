@@ -105,6 +105,15 @@ def map_to_jsonld(
         "id": base,
         "type": "UnitOfAssurance",
         "conformsToProfile": PROFILE_URIS.get(profile, PROFILE_URIS["Minimal"]),
+        # The pack set this was built and validated under, so the same package
+        # validates the same way for everyone -- including someone who received
+        # it and knows nothing about how it was made. Without it, validation is
+        # relative to a --pack flag the operator remembers, defaulting to vv40,
+        # and a NASA-STD-7009B package is silently asked for a V&V 40 context of
+        # use. Recorded as the PACK SET rather than the standard because the
+        # standard does not resolve uniquely: ASME-VV40-2018 is claimed by vv40,
+        # disposition and surrogate alike.
+        "validatedWithPacks": list(packs),
         "name": f"{summary['project_name']} \u2014 {summary['cou_name']}",
     }
 

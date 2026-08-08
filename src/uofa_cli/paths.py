@@ -24,16 +24,56 @@ CORE_INTERFACE_VERSIONS: dict[str, str] = {
 }
 
 
+def packs_recorded_in(path) -> list[str] | None:
+    """The pack set a package records having been built under, if any.
+
+    A package used to record nothing about which standard it follows, so
+    validation was relative to a flag the operator remembered to pass -- and the
+    default is ``vv40``. That meant a NASA-STD-7009B package validated as plain
+    ``uofa shacl pkg.jsonld`` was asked for a V&V 40 context of use and failed
+    for a reason belonging to a different standard.
+
+    Returns None for the 64 packages that predate the stamp; the caller falls
+    back to the default AND says so, because an assumed standard that goes
+    unannounced is the whole defect repeating one layer up.
+    """
+    import json
+    try:
+        blob = json.loads(Path(path).read_text())
+    except (OSError, ValueError):
+        # Narrow ON PURPOSE. The first version caught bare Exception and used
+        # `pathlib.Path` in a module that imports only `Path`, so every call
+        # raised NameError and returned None -- a silent, plausible-looking
+        # "no pack recorded" for every package in the repo. A catch-all around
+        # a lookup turns a bug into a default.
+        return None
+    for node in ([blob] + (blob.get("@graph") or [])):
+        if not isinstance(node, dict):
+            continue
+        for key in ("uofa:validatedWithPacks", "validatedWithPacks",
+                    "https://uofa.net/vocab#validatedWithPacks"):
+            v = node.get(key)
+            if v:
+                return [v] if isinstance(v, str) else list(v)
+    return None
+
+
 def resolve_active_packs(args=None) -> list[str]:
     """The active pack set for this invocation — the P2d explicit-threading accessor.
 
-    Reads ``args.active_packs`` (set once by the CLI entry point) when present;
-    otherwise defaults to the open-core baseline pack ``vv40``. There is no
-    process global (removed in P2d-3) — commands resolve here and thread the
-    result down explicitly.
+    Order: an explicit ``--pack``, then the set the package records, then the
+    ``vv40`` default. There is no process global (removed in P2d-3) — commands
+    resolve here and thread the result down explicitly.
     """
     explicit = getattr(args, "active_packs", None)
-    return list(explicit) if explicit else ["vv40"]
+    if explicit:
+        return list(explicit)
+    target = getattr(args, "file", None)
+    if target is not None:
+        recorded = packs_recorded_in(target)
+        if recorded:
+            return recorded
+    return ["vv40"]
 
 
 def find_repo_root(override: str = None) -> Path:
