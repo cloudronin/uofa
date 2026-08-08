@@ -418,6 +418,27 @@ _GRADATION = re.compile(
     r"level\s*\d{1,2}|not\s+applicable)$", re.I)
 
 
+# Articles and prepositions a writer drops without changing the meaning. A paper
+# wrote "relevance of validation activities to the COU" where the checklist says
+# "relevance of THE validation activities to the COU", and a substring match
+# rejected the whole paper over the missing word -- the seventh time in this work
+# a validator's limitation was attributed to the thing it was validating.
+_FILLER = {"the", "of", "to", "a", "an", "and", "for", "in", "on", "with"}
+
+
+def factor_matches(factor: str, key: str) -> bool:
+    """Does this table key name that factor? Compared on content words.
+
+    Not a substring test: one dropped article must not read as a missing row.
+    Not fuzzy either -- every content word of the factor must be present, so
+    "test samples" still does not match a "test conditions" row.
+    """
+    def words(x: str) -> set[str]:
+        return {w for w in re.findall(r"[a-z0-9]+", x.lower()) if w not in _FILLER}
+    fw = words(factor)
+    return bool(fw) and fw <= words(key)
+
+
 def factor_levels(sections: list[dict]) -> dict[str, str]:
     """factor-cell -> gradation, from the paper's own summary table.
 
@@ -653,7 +674,7 @@ def generate_one(idx: int, seed_tag: str, out_root: pathlib.Path, backend,
             # still omit a factor entirely -- which is how 16 findings ended up
             # with no gradation to read while the ratio looked healthy.
             missing = [f for f in (plan.get("clear_factors") or [])
-                       if not any(f.lower() in k for k in levels)]
+                       if not any(factor_matches(f, k) for k in levels)]
             if missing:
                 raise RuntimeError(
                     f"summary table omits {len(missing)} factor(s) the paper "
@@ -791,9 +812,10 @@ def generate_one(idx: int, seed_tag: str, out_root: pathlib.Path, backend,
             fac, mdl, mech = (str(f.get(x, "")).lower()
                               for x in ("factor", "model", "mechanism"))
             hit = next((v for key, v in levels.items()
-                        if fac and fac in key and (not mdl or mdl[:18] in key)
+                        if factor_matches(fac, key) and (not mdl or mdl[:18] in key)
                         and (not mech or mech[:18] in key)), None)
-            hit = hit or next((v for key, v in levels.items() if fac and fac in key), None)
+            hit = hit or next((v for key, v in levels.items()
+                               if factor_matches(fac, key)), None)
             # NOT dropped when the table lacks the factor. That was tried and
             # was wrong: it removed 16 findings the INDEPENDENT annotator also
             # found, using table knowledge the annotator does not have, and

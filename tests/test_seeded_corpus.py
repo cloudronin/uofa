@@ -426,3 +426,28 @@ def test_split_is_required_and_stamped_at_generation(tmp_path):
     src = (_ROOT / "dev" / "tools" / "scripts" / "generate_seeded_corpus.py").read_text()
     assert '"split": split' in src, "the split must reach ground_truth.json"
     assert src.count('"split": split') >= 2, "and metadata.json"
+
+
+@pytest.mark.parametrize("factor,key,want", [
+    # the case that rejected a whole paper: one dropped article
+    ("Relevance of the validation activities to the COU",
+     "relevance of validation activities to the cou - model a - m1", True),
+    ("Test samples", "test samples - model a - gait", True),
+    ("Model form", "model form assumptions - m1 - x", True),
+    # and the discriminations that must survive being lenient
+    ("Test samples", "test conditions - model a - gait", False),
+    ("Discretization error", "numerical solver error - a - b", False),
+    ("Model inputs", "model input pedigree - a - b", False),
+])
+def test_factor_matching_survives_a_dropped_article(factor, key, want):
+    """A substring test rejected a valid paper over the word "the".
+
+    The table row existed as "relevance of validation activities to the COU"
+    where the checklist says "relevance of THE validation activities"; the paper
+    was regenerated and rejected again. Seventh time in this work a validator's
+    limitation was attributed to the thing it was validating.
+
+    Content words, not fuzz: every significant word must be present, so
+    "test samples" still does not match a "test conditions" row.
+    """
+    assert G.factor_matches(factor, key) is want
