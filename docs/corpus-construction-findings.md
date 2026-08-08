@@ -72,6 +72,48 @@ Running D1 against the real papers cost about **$0.15** and settled it.
   a string the `_NA` set happened not to list. The check was satisfied by the
   *wording* of its own failure.
 
+### 5. A fix added in one place and not the other — three times
+
+* `--save-raw` wrote *after* parsing, so the one response worth inspecting was
+  the only one not kept. Fixed in the generator; the agreement script then cost
+  another $0.46 run for the same reason.
+* `parse_or_salvage` repaired the write step's JSON for hours while the plan step
+  still used the raw parser, and a paper died on it.
+* The agreement script parsed the annotator's JSON with the raw parser, so **one
+  trailing comma in thirty responses refused the entire verdict** — and that
+  response recovered 13 factors once repaired.
+
+Each repair was written once and needed twice. Grep for the other call site.
+
+### 6. Two of my own requirements contradicting each other — twice
+
+* `_GRADATION` was bounded to `[0-5]` and therefore **rejected the private
+  numeric scale R6 requires**. A paper was regenerated three times while its
+  writer had produced the full grid correctly every time.
+* Counting ambiguous findings as N/A made **R8** (every assessed factor scored)
+  contradict **R5** (10–20% reported ambiguously, which by definition have no
+  gradation). The corpus was being penalised for having the property R5 asks
+  for.
+
+Both were resolved by asking which requirement governs the specific thing being
+measured — not by loosening a threshold until the conflict stopped showing.
+
+### 7. Fixing one measure by breaking another
+
+Dropping findings whose factor the summary table never scores took `na_rate` to
+0 and drove selection agreement **0.891 → 0.765** (AC1 0.876 → 0.702), with
+annotator-only rising 6 → 18. Sixteen of those eighteen were exactly the dropped
+findings.
+
+The drop removed gold entries using table knowledge the independent annotator
+does not have — the same asymmetry corrected an hour earlier for out-of-scope
+findings, recreated immediately. And the entries were not even wrong: **two
+readers found evidence for those factors in the prose**, so the paper assesses
+them and its *table* is incomplete.
+
+The lesson is narrow and useful: when a filter improves one measure, check the
+measure that filter's information could distort.
+
 ---
 
 ## What the gates actually catch
@@ -245,16 +287,6 @@ about **$14**.
 
 ---
 
-## Open
-
-* Agreement at n=8 not yet reported (run in flight at time of writing).
-* The 40-paper run is not started. The plan's ~30 train / ~10 held-out split is
-  **not enforced anywhere** — it should be stamped at generation time so it
-  cannot drift.
-* Retraining K6 on this corpus remains **deferred, not scheduled**: seeding on
-  three of the five real papers means training on paraphrases of three test
-  documents, and the only clean read would be elemance and morrison, n=2.
-
 ### Agreement at n=8 — 2026-08-07
 
 The pilot's agreement result was n=3 and rested on 24 factor comparisons. At n=8
@@ -292,3 +324,55 @@ A per-scope figure is also printed now, as a diagnostic only: selection 0.799,
 same-sentence 0.564. It is *not* gated, because the bands come from
 document-level measurement and comparing across granularities is what produced
 the 0.508 mistake recorded above.
+
+### Holdout set — 10 papers, 2026-08-07
+
+Ten papers, three seeds, two standards, ten distinct devices. Every bundle
+stamped `split: holdout` **at generation time** — the plan called for ~30 train
+and ~10 held out and nothing enforced it, and a split assigned after the fact can
+be reassigned after a result.
+
+420 findings, 583 reference spans (1.39 each). All eleven offline rows pass:
+diversity mean **0.151** against a 0.180 ceiling, zero twins, `na_rate` 0.000.
+
+`crosses-sentences` removed **225 spans** across the set — every one a target no
+sentence-level router could have matched.
+
+Agreement is being re-measured after the incomplete-table fix; the reading taken
+before it (0.765 / 0.702 / 0.935) reflects the drop described in pattern 7 and is
+**not** a corpus result.
+
+**Zero ambiguous findings**, against R5's 10–20% target. Gold stopped marking
+them once its prompt was aligned with the annotator's — it now omits rather than
+marking ambiguous. R5's binding test is the agreement band rather than this
+count, but a corpus with no ambiguous findings is one where the hard judgement
+may be under-represented. Watching it.
+
+### A resume-path asymmetry
+
+Resume skips the write step, which is correct for a paper whose **gold** failed
+and wrong for one whose **pathology check** failed — that verdict is about the
+PDF itself. A paper rejected for 17 rubric sentences was resumed twice at $0.000,
+re-measuring the same PDF and reaching the same verdict, because the fix that
+would have helped lives in the write step. A `too clean` rejection needs the
+paper rewritten, not its gold redone.
+
+## Open
+
+* Agreement re-measurement on the holdout set after the incomplete-table fix.
+* Three holdout papers regenerating: their tables omit factors they report on,
+  caught by the set check that replaced the ratio.
+* **Zero ambiguous findings** against R5's 10–20%. Not gated, but watched.
+* The 30-paper train set is not started.
+* Retraining K6 on this corpus remains **deferred, not scheduled**: seeding on
+  three of the five real papers means training on paraphrases of three test
+  documents, and the only clean read would be elemance and morrison, n=2.
+
+## Keeping this document honest
+
+It fell behind once already: four findings existed only in commit messages until
+someone asked whether they were being recorded. Commit messages are not this
+document — they are per-change and nobody reads them in sequence.
+
+**Append a dated entry when a result lands or a pattern repeats.** If a fix is
+worth a commit message explaining *why*, the why belongs here.
