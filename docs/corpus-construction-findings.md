@@ -401,6 +401,47 @@ Comparing them would repeat the granularity mistake recorded above.
 Tested rather than asserted, which matters because two earlier explanations of
 this same number were wrong and both flattered the corpus.
 
+### Train set — 30 papers, 2026-08-07
+
+30 bundles, **30 distinct devices**, 1,403 findings (1,337 clear, 66 ambiguous),
+2,156 reference spans at 1.54 each. `na_rate` 0.000 over clear findings. No table
+omits a factor its paper reports on. Every bundle stamped `split: train`.
+
+**$10.72** — $8.64 for the first pass, $2.08 to regenerate six rejections.
+
+All eleven offline rows pass, and diversity **improved with scale**:
+
+| n | diversity mean | twins |
+|---|---|---|
+| 3 | 0.171 | 0 |
+| 9 | 0.151 | 0 |
+| 10 (holdout) | 0.156 | 0 |
+| **30 (train)** | **0.136** | 0 |
+
+At thirty papers the set is *more* diverse than the five real papers (0.141).
+That settles the question the checkpoint existed to ask, in the opposite
+direction to the risk: the concern was collapse, and distinct subject matter per
+paper produced the reverse.
+
+**Six of thirty were rejected on the first pass**, five of them by gates working
+as designed — two too clean on rubric count (13 and 19 against a floor of 20),
+three with tables omitting or under-covering the factors they report on. A 20%
+rejection rate is the price of gates with teeth; the alternative is those papers
+in the corpus.
+
+### A third repairable JSON slip
+
+A plan response opened `"deviation": {` and closed it with `]`. Neither the
+escape repair nor the trailing-comma repair touches a mismatched bracket, so
+salvage truncated to before the field and the paper was discarded.
+
+`_fix_brackets` tracks open containers on a stack and closes each with the
+bracket it was opened with, skipping string literals — a brace in prose is not a
+container. Verified not to alter well-formed input.
+
+All three slips share a shape: **the structure is nearly right, and discarding a
+whole paper over two characters is the expensive way to be strict.**
+
 ## Open
 
 * Agreement re-measurement on the holdout set after the incomplete-table fix.
