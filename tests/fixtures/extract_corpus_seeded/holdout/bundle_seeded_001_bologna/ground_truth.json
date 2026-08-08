@@ -45,34 +45,54 @@
     "outcome": "Accepted",
     "outcome_source": "Within a V&V40-aligned, Medium-risk COU, the implicit FEA program for a balloon-expandable Co\u2013Cr coronary stent achieves sufficient credibility to support design down-selection and to set pre-test acceptance bands for fatigue safety factors and minimum radial strength, in conjunction with mandatory bench testing.",
     "rationale_keywords": [
-      "mesh refinement altered mechanism-relevant outputs by at most a few percent",
-      "tightening the iteration tolerances by two orders of magnitude or refining time steps by a factor of five led to changes below 1%",
-      "mean absolute error between simulated and measured minimum radial strength was 3.8%",
-      "correctly classified 11 of 12 outcomes at 10^8 cycles",
-      "tests span the stent sizes and loading ranges used in design decisions",
-      "configuration control with an automated 73-case regression suite"
+      "Medium-risk COU",
+      "sufficient credibility",
+      "mesh refinement altered outputs by at most a few percent",
+      "solver tightening changed outputs by less than one percent",
+      "mean absolute error 3.8%",
+      "11 of 12 outcomes",
+      "configuration control",
+      "automated regression suite"
+    ]
+  },
+  "expected_entity_names": {
+    "models": [
+      "Model U",
+      "Model S"
+    ],
+    "datasets": [
+      "radial compression tests were executed on three sizes (2.5, 3.0, 3.5 mm), five devices per size, using an annular gauge",
+      "pulsatile fatigue segment tests were designed to bound the local cyclic environment at critical strut/connector locations",
+      "deployment strain imaging comparisons used stents expanded in a transparent gel vessel analog with refractive index matching",
+      "material characterization leverages uniaxial tension, cyclic stabilized hysteresis, and fully reversed strain-controlled tests on L605 coupons"
+    ],
+    "requirements": [
+      "For spatial resolution, the acceptance criterion is a change of less than 5% in the mechanism-relevant output when moving from the fine to the superfine mesh (and less than 3% preferred), with at least three levels tested at the most severe case; the threshold for acceptance is CAS \u2265 3.",
+      "For iteration/stepping performance, acceptance requires that tightening tolerances or refining steps by factors of 5\u201310 changes the mechanism-relevant output by less than 1% (less than 0.5% preferred), with CAS \u2265 3.",
+      "For model-to-test alignment on outputs, acceptance requires pre-specified agreement bands based on measurement uncertainty: less than 10% MAE for radial strength across sizes and greater than 90% correct prediction of runout vs. failure for fatigue segments, with CAS \u2265 3.",
+      "For process assurance, acceptance requires configuration control, requirements traceability, and an automated regression suite with regular execution; CAS \u2265 3."
     ]
   },
   "expected_entities": {
     "models": 2,
-    "datasets": 3,
-    "requirements": 2
+    "datasets": 4,
+    "requirements": 4
   },
   "expected_validation_results": [
     {
       "name_keywords": [
-        "annular gauge radial compression",
-        "minimum radial strength at 10% outer diameter reduction",
-        "simulation vs bench measurements"
+        "minimum radial strength",
+        "annular gauge",
+        "simulation vs test MAE 3.8%, R^2 = 0.97"
       ],
       "has_uq": "Yes",
       "pass_fail": "Pass"
     },
     {
       "name_keywords": [
-        "pulsatile fatigue segment",
-        "DIC-measured strain amplitudes",
-        "predicted strain amplitudes and run-out/failure classification"
+        "fatigue segment",
+        "DIC strain amplitude",
+        "RMS 8%, 11 of 12 outcomes"
       ],
       "has_uq": "Yes",
       "pass_fail": "Pass"
@@ -80,14 +100,14 @@
     {
       "name_keywords": [
         "deployment strain imaging",
-        "post-expansion equivalent plastic strain",
-        "Dice similarity and magnitude difference"
+        "Dice 0.78",
+        "6% magnitude difference"
       ],
       "has_uq": "Yes",
-      "pass_fail": "Pass"
+      "pass_fail": "Inconclusive"
     }
   ],
-  "expected_context_of_use": "The intended use of the simulations is quantitative and prescriptive within the device development lifecycle but not clinical.",
+  "expected_context_of_use": "Specifically, the models are used to (i) predict local fatigue safety factors at strut and connector hotspots under representative pulsatile loading and (ii) predict minimum radial strength under quasi-static compression across a family of stent sizes.",
   "findings": [
     {
       "model": "Model U",
@@ -99,84 +119,6 @@
       ],
       "status": "clear",
       "span": "The second-most severe location changed by 0.7% in amplitude.",
-      "level_source": "summary table"
-    },
-    {
-      "model": "Model U",
-      "mechanism": "Pulsatile fatigue of struts and connectors",
-      "factor": "Numerical solver error",
-      "level": "4",
-      "spans": [
-        "The resulting change in stabilized hotspot equivalent strain amplitude was 0.4%, and the change in local safety factor was under 0.01."
-      ],
-      "status": "clear",
-      "span": "The resulting change in stabilized hotspot equivalent strain amplitude was 0.4%, and the change in local safety factor was under 0.01.",
-      "level_source": "summary table"
-    },
-    {
-      "model": "Model U",
-      "mechanism": "Pulsatile fatigue of struts and connectors",
-      "factor": "Numerical code verification",
-      "level": "1",
-      "spans": [
-        "We consulted the solver vendor\u2019s numerical verification doc-umentation (release 2025.1), which summarizes 290 verification tests spanning linear and nonlinear statics, contact, and plasticity.",
-        "In addition, we executed five internal spot checks relevant to our use cases: two patch tests on single elements under uniaxial and pure shear with J2 plasticity (residual forces below 1e9 N), a contact block-sliding test with penalty enforcement (measured slip within 0.2% of analytical), and two small benchmark frames with combined isotropic\u2013kinematic hardening under strain control (stabilized loop area within 3% of reference).",
-        "No dedicated method-of-manufactured-solutions (MMS) exercises were conducted for our exact model configurations, and we did not run code-level verifications of the cyclic hardening algorithm beyond the mentioned spot checks.",
-        "The solver version used in production analyses matches the vendor-verified build."
-      ],
-      "status": "clear",
-      "span": "We consulted the solver vendor\u2019s numerical verification doc-umentation (release 2025.1), which summarizes 290 verification tests spanning linear and nonlinear statics, contact, and plasticity.",
-      "level_source": "summary table"
-    },
-    {
-      "model": "Model U",
-      "mechanism": "Pulsatile fatigue of struts and connectors",
-      "factor": "Model inputs",
-      "level": "4",
-      "spans": [
-        "To propagate input variability, we drew 200 Latin hypercube samples within the joint confidence region of \u03c3f, b, \u03f5f, c, and kinematic saturation parameters (C, \u03b3) and evaluated their impact on the computed safety factor at the most severe crown.",
-        "The standard deviation of the predicted safety factor was 0.12 in Model U and 0.15 in Model S when holding geometry fixed.",
-        "Boundary conditions and load spectra for pulsatile loading are tied to physiologic bounds: a mean arterial pressure of 100 mmHg with an amplitude of 40 mmHg (range 35\u201350 mmHg in sensitivity checks), and heart rates between 60 and 90 bpm.",
-        "The combined effect on hotspot equivalent strain amplitude was up to 0.0003 across the ranges, and the effect on local safety factors was up to 0.07 in Model S and 0.05 in Model U."
-      ],
-      "status": "clear",
-      "span": "To propagate input variability, we drew 200 Latin hypercube samples within the joint confidence region of \u03c3f, b, \u03f5f, c, and kinematic saturation parameters (C, \u03b3) and evaluated their impact on the computed safety factor at the most severe crown.",
-      "level_source": "summary table"
-    },
-    {
-      "model": "Model U",
-      "mechanism": "Pulsatile fatigue of struts and connectors",
-      "factor": "Output comparison",
-      "level": "3",
-      "spans": [
-        "The root-mean-square difference between predicted and DIC-measured strain amplitudes across segments was 8%."
-      ],
-      "status": "clear",
-      "span": "The root-mean-square difference between predicted and DIC-measured strain amplitudes across segments was 8%.",
-      "level_source": "summary table"
-    },
-    {
-      "model": "Model U",
-      "mechanism": "Pulsatile fatigue of struts and connectors",
-      "factor": "Relevance of the validation activities to the COU",
-      "level": "4",
-      "spans": [
-        "For fatigue, the cyclic amplitudes and heart rates employed in segment tests (strain amplitudes 200\u2013350 \u00b5\u03f5; heart rates 60\u201390 bpm) overlap the ranges used in simulations and represent the 5th\u201395th percentile of physiologic cycles expected in proximal coronary segments."
-      ],
-      "status": "clear",
-      "span": "For fatigue, the cyclic amplitudes and heart rates employed in segment tests (strain amplitudes 200\u2013350 \u00b5\u03f5; heart rates 60\u201390 bpm) overlap the ranges used in simulations and represent the 5th\u201395th percentile of physiologic cycles expected in proximal coronary segments.",
-      "level_source": "summary table"
-    },
-    {
-      "model": "Model U",
-      "mechanism": "Pulsatile fatigue of struts and connectors",
-      "factor": "Software quality assurance",
-      "level": "4",
-      "spans": [
-        "Over 12 months and four minor releases of the modeling workflow, there were zero regressions that affected mechanism-relevant outputs; two incidental regressions affected postprocessing only and were corrected within 48 hours."
-      ],
-      "status": "clear",
-      "span": "Over 12 months and four minor releases of the modeling workflow, there were zero regressions that affected mechanism-relevant outputs; two incidental regressions affected postprocessing only and were corrected within 48 hours.",
       "level_source": "summary table"
     },
     {
@@ -218,83 +160,6 @@
     },
     {
       "model": "Model S",
-      "mechanism": "Pulsatile fatigue of struts and connectors",
-      "factor": "Numerical solver error",
-      "level": "3",
-      "spans": [
-        "For Model S pulsatile cases, the time increment was reduced from 0.5 ms to 0.1 ms for ten cycles, accompanied by tightening the force residual tolerance from 10^5 to 10^7 and the maximum number of iterations per increment increased from 25 to 50.",
-        "The stabilized hotspot equivalent strain amplitude decreased from 0.00266 to 0.00264 (\u2206 = 0.9%).",
-        "The mean stress shifted by 4 MPa.",
-        "Varying the penalty contact stiffness by \u00b150% during pulsatile cycles altered the hotspot amplitude by 0.3%."
-      ],
-      "status": "clear",
-      "span": "For Model S pulsatile cases, the time increment was reduced from 0.5 ms to 0.1 ms for ten cycles, accompanied by tightening the force residual tolerance from 10^5 to 10^7 and the maximum number of iterations per increment increased from 25 to 50.",
-      "level_source": "summary table"
-    },
-    {
-      "model": "Model S",
-      "mechanism": "Pulsatile fatigue of struts and connectors",
-      "factor": "Numerical code verification",
-      "level": "1",
-      "spans": [
-        "We consulted the solver vendor\u2019s numerical verification doc-umentation (release 2025.1), which summarizes 290 verification tests spanning linear and nonlinear statics, contact, and plasticity."
-      ],
-      "status": "clear",
-      "span": "We consulted the solver vendor\u2019s numerical verification doc-umentation (release 2025.1), which summarizes 290 verification tests spanning linear and nonlinear statics, contact, and plasticity.",
-      "level_source": "summary table"
-    },
-    {
-      "model": "Model S",
-      "mechanism": "Pulsatile fatigue of struts and connectors",
-      "factor": "Model inputs",
-      "level": "3",
-      "spans": [
-        "The standard deviation of the predicted safety factor was 0.12 in Model U and 0.15 in Model S when holding geometry fixed.",
-        "The combined effect on hotspot equivalent strain amplitude was up to 0.0003 across the ranges, and the effect on local safety factors was up to 0.07 in Model S and 0.05 in Model U."
-      ],
-      "status": "clear",
-      "span": "The standard deviation of the predicted safety factor was 0.12 in Model U and 0.15 in Model S when holding geometry fixed.",
-      "level_source": "summary table"
-    },
-    {
-      "model": "Model S",
-      "mechanism": "Pulsatile fatigue of struts and connectors",
-      "factor": "Output comparison",
-      "level": "3",
-      "spans": [
-        "Model U and Model S predicted stabilized equivalent strain amplitudes at corresponding sites under the same nominal cyclic conditions.",
-        "The root-mean-square difference between predicted and DIC-measured strain amplitudes across segments was 8%."
-      ],
-      "status": "clear",
-      "span": "Model U and Model S predicted stabilized equivalent strain amplitudes at corresponding sites under the same nominal cyclic conditions.",
-      "level_source": "summary table"
-    },
-    {
-      "model": "Model S",
-      "mechanism": "Pulsatile fatigue of struts and connectors",
-      "factor": "Relevance of the validation activities to the COU",
-      "level": "3",
-      "spans": [
-        "For fatigue, the cyclic amplitudes and heart rates employed in segment tests (strain amplitudes 200\u2013350 \u00b5\u03f5; heart rates 60\u201390 bpm) overlap the ranges used in simulations and represent the 5th\u201395th percentile of physiologic cycles expected in proximal coronary segments."
-      ],
-      "status": "clear",
-      "span": "For fatigue, the cyclic amplitudes and heart rates employed in segment tests (strain amplitudes 200\u2013350 \u00b5\u03f5; heart rates 60\u201390 bpm) overlap the ranges used in simulations and represent the 5th\u201395th percentile of physiologic cycles expected in proximal coronary segments.",
-      "level_source": "summary table"
-    },
-    {
-      "model": "Model S",
-      "mechanism": "Pulsatile fatigue of struts and connectors",
-      "factor": "Software quality assurance",
-      "level": "4",
-      "spans": [
-        "Over 12 months and four minor releases of the modeling workflow, there were zero regressions that affected mechanism-relevant outputs; two incidental regressions affected postprocessing only and were corrected within 48 hours."
-      ],
-      "status": "clear",
-      "span": "Over 12 months and four minor releases of the modeling workflow, there were zero regressions that affected mechanism-relevant outputs; two incidental regressions affected postprocessing only and were corrected within 48 hours.",
-      "level_source": "summary table"
-    },
-    {
-      "model": "Model S",
       "mechanism": "Radial crush strength",
       "factor": "Discretization error",
       "level": "4",
@@ -303,6 +168,44 @@
       ],
       "status": "clear",
       "span": "The fine-to-superfine change in the 3.0 mm device was from 0.402 to 0.395 N/mm (\u2206 = 1.7%).",
+      "level_source": "summary table"
+    },
+    {
+      "model": "Model S",
+      "mechanism": "Crimp/expansion plasticity and residual stress",
+      "factor": "Discretization error",
+      "level": "3",
+      "spans": [
+        "Maximum plastic strain at the most severe crown decreased from 0.062 to 0.060 moving from fine to superfine (\u2206 = 3.1%)."
+      ],
+      "status": "clear",
+      "span": "Maximum plastic strain at the most severe crown decreased from 0.062 to 0.060 moving from fine to superfine (\u2206 = 3.1%).",
+      "level_source": "summary table"
+    },
+    {
+      "model": "Model U",
+      "mechanism": "Pulsatile fatigue of struts and connectors",
+      "factor": "Numerical solver error",
+      "level": "4",
+      "spans": [
+        "The resulting change in stabilized hotspot equivalent strain amplitude was 0.4%, and the change in local safety factor was under 0.01."
+      ],
+      "status": "clear",
+      "span": "The resulting change in stabilized hotspot equivalent strain amplitude was 0.4%, and the change in local safety factor was under 0.01.",
+      "level_source": "summary table"
+    },
+    {
+      "model": "Model S",
+      "mechanism": "Pulsatile fatigue of struts and connectors",
+      "factor": "Numerical solver error",
+      "level": "3",
+      "spans": [
+        "For Model S pulsatile cases, the time increment was reduced from 0.5 ms to 0.1 ms for ten cycles, accompanied by tightening the force residual tolerance from 10^5 to 10^7 and the maximum number of iterations per increment increased from 25 to 50.",
+        "The stabilized hotspot equivalent strain amplitude decreased from 0.00266 to 0.00264 (\u2206 = 0.9%).",
+        "Varying the penalty contact stiffness by \u00b150% during pulsatile cycles altered the hotspot amplitude by 0.3%."
+      ],
+      "status": "clear",
+      "span": "For Model S pulsatile cases, the time increment was reduced from 0.5 ms to 0.1 ms for ten cycles, accompanied by tightening the force residual tolerance from 10^5 to 10^7 and the maximum number of iterations per increment increased from 25 to 50.",
       "level_source": "summary table"
     },
     {
@@ -321,14 +224,66 @@
     },
     {
       "model": "Model S",
-      "mechanism": "Radial crush strength",
+      "mechanism": "Crimp/expansion plasticity and residual stress",
+      "factor": "Numerical solver error",
+      "level": "3",
+      "spans": [
+        "For deployment (crimp/expand/release) in Model S, line search was toggled and the time stepping during balloon pressurization was halved to ensure monotonic convergence in regions with extensive contact changes.",
+        "The maximum equivalent plastic strain change under these controls was 0.003 absolute (from 0.060 to 0.057 at the worst crown), and residual hoop stress at the same location changed by 7 MPa."
+      ],
+      "status": "clear",
+      "span": "For deployment (crimp/expand/release) in Model S, line search was toggled and the time stepping during balloon pressurization was halved to ensure monotonic convergence in regions with extensive contact changes.",
+      "level_source": "summary table"
+    },
+    {
+      "model": "Model U",
+      "mechanism": "Pulsatile fatigue of struts and connectors",
       "factor": "Numerical code verification",
       "level": "1",
       "spans": [
-        "We consulted the solver vendor\u2019s numerical verification doc-umentation (release 2025.1), which summarizes 290 verification tests spanning linear and nonlinear statics, contact, and plasticity."
+        "We consulted the solver vendor\u2019s numerical verification doc-umentation (release 2025.1), which summarizes 290 verification tests spanning linear and nonlinear statics, contact, and plasticity.",
+        "In addition, we executed five internal spot checks relevant to our use cases: two patch tests on single elements under uniaxial and pure shear with J2 plasticity (residual forces below 1e9 N), a contact block-sliding test with penalty enforcement (measured slip within 0.2% of analytical), and two small benchmark frames with combined isotropic\u2013kinematic hardening under strain control (stabilized loop area within 3% of reference).",
+        "No dedicated method-of-manufactured-solutions (MMS) exercises were conducted for our exact model configurations, and we did not run code-level verifications of the cyclic hardening algorithm beyond the mentioned spot checks.",
+        "The solver version used in production analyses matches the vendor-verified build."
       ],
       "status": "clear",
       "span": "We consulted the solver vendor\u2019s numerical verification doc-umentation (release 2025.1), which summarizes 290 verification tests spanning linear and nonlinear statics, contact, and plasticity.",
+      "level_source": "summary table"
+    },
+    {
+      "model": "Model U",
+      "mechanism": "Pulsatile fatigue of struts and connectors",
+      "factor": "Model inputs",
+      "level": "4",
+      "spans": [
+        "The standard deviation of the predicted safety factor was 0.12 in Model U and 0.15 in Model S when holding geometry fixed."
+      ],
+      "status": "clear",
+      "span": "The standard deviation of the predicted safety factor was 0.12 in Model U and 0.15 in Model S when holding geometry fixed.",
+      "level_source": "summary table"
+    },
+    {
+      "model": "Model S",
+      "mechanism": "Pulsatile fatigue of struts and connectors",
+      "factor": "Model inputs",
+      "level": "3",
+      "spans": [
+        "The standard deviation of the predicted safety factor was 0.12 in Model U and 0.15 in Model S when holding geometry fixed."
+      ],
+      "status": "clear",
+      "span": "The standard deviation of the predicted safety factor was 0.12 in Model U and 0.15 in Model S when holding geometry fixed.",
+      "level_source": "summary table"
+    },
+    {
+      "model": "Model S",
+      "mechanism": "Crimp/expansion plasticity and residual stress",
+      "factor": "Model inputs",
+      "level": "3",
+      "spans": [
+        "Sensitivity runs showed that balloon overshoot changed the maximum equivalent plastic strain by up to 0.04 absolute, while friction variations changed it by up to 0.005 absolute."
+      ],
+      "status": "clear",
+      "span": "Sensitivity runs showed that balloon overshoot changed the maximum equivalent plastic strain by up to 0.04 absolute, while friction variations changed it by up to 0.005 absolute.",
       "level_source": "summary table"
     },
     {
@@ -344,79 +299,27 @@
       "level_source": "summary table"
     },
     {
-      "model": "Model S",
-      "mechanism": "Radial crush strength",
-      "factor": "Relevance of the validation activities to the COU",
-      "level": "4",
-      "spans": [
-        "For radial strength, the annular gauge replicates the standardized condition in ISO 25539-2 and uses stents at the same three nominal sizes in the design family.",
-        "The compliance of the gauge and the correction applied in data reduction are consistent between simulation and test, and the 10% outer diameter reduction criterion matches the COU decision variable definition."
-      ],
-      "status": "clear",
-      "span": "For radial strength, the annular gauge replicates the standardized condition in ISO 25539-2 and uses stents at the same three nominal sizes in the design family.",
-      "level_source": "summary table"
-    },
-    {
-      "model": "Model S",
-      "mechanism": "Radial crush strength",
-      "factor": "Software quality assurance",
-      "level": "4",
-      "spans": [
-        "Over 12 months and four minor releases of the modeling workflow, there were zero regressions that affected mechanism-relevant outputs; two incidental regressions affected postprocessing only and were corrected within 48 hours."
-      ],
-      "status": "clear",
-      "span": "Over 12 months and four minor releases of the modeling workflow, there were zero regressions that affected mechanism-relevant outputs; two incidental regressions affected postprocessing only and were corrected within 48 hours.",
-      "level_source": "summary table"
-    },
-    {
-      "model": "Model S",
-      "mechanism": "Crimp/expansion plasticity and residual stress",
-      "factor": "Discretization error",
+      "model": "Model U",
+      "mechanism": "Pulsatile fatigue of struts and connectors",
+      "factor": "Output comparison",
       "level": "3",
       "spans": [
-        "Maximum plastic strain at the most severe crown decreased from 0.062 to 0.060 moving from fine to superfine (\u2206 = 3.1%).",
-        "The L2-norm of the difference in residual hoop stress fields (normalized by the field norm) between fine and superfine was 2.5% over the stent lattice."
+        "The root-mean-square difference between predicted and DIC-measured strain amplitudes across segments was 8%."
       ],
       "status": "clear",
-      "span": "Maximum plastic strain at the most severe crown decreased from 0.062 to 0.060 moving from fine to superfine (\u2206 = 3.1%).",
+      "span": "The root-mean-square difference between predicted and DIC-measured strain amplitudes across segments was 8%.",
       "level_source": "summary table"
     },
     {
       "model": "Model S",
-      "mechanism": "Crimp/expansion plasticity and residual stress",
-      "factor": "Numerical solver error",
+      "mechanism": "Pulsatile fatigue of struts and connectors",
+      "factor": "Output comparison",
       "level": "3",
       "spans": [
-        "For deployment (crimp/expand/release) in Model S, line search was toggled and the time stepping during balloon pressurization was halved to ensure monotonic convergence in regions with extensive contact changes.",
-        "The maximum equivalent plastic strain change under these controls was 0.003 absolute (from 0.060 to 0.057 at the worst crown), and residual hoop stress at the same location changed by 7 MPa."
+        "The root-mean-square difference between predicted and DIC-measured strain amplitudes across segments was 8%."
       ],
       "status": "clear",
-      "span": "For deployment (crimp/expand/release) in Model S, line search was toggled and the time stepping during balloon pressurization was halved to ensure monotonic convergence in regions with extensive contact changes.",
-      "level_source": "summary table"
-    },
-    {
-      "model": "Model S",
-      "mechanism": "Crimp/expansion plasticity and residual stress",
-      "factor": "Numerical code verification",
-      "level": "1",
-      "spans": [
-        "We consulted the solver vendor\u2019s numerical verification doc-umentation (release 2025.1), which summarizes 290 verification tests spanning linear and nonlinear statics, contact, and plasticity."
-      ],
-      "status": "clear",
-      "span": "We consulted the solver vendor\u2019s numerical verification doc-umentation (release 2025.1), which summarizes 290 verification tests spanning linear and nonlinear statics, contact, and plasticity.",
-      "level_source": "summary table"
-    },
-    {
-      "model": "Model S",
-      "mechanism": "Crimp/expansion plasticity and residual stress",
-      "factor": "Model inputs",
-      "level": "3",
-      "spans": [
-        "Sensitivity runs showed that balloon overshoot changed the maximum equivalent plastic strain by up to 0.04 absolute, while friction variations changed it by up to 0.005 absolute.",
-        "Residual hoop stress in the most stressed crown varied by 12 MPa across the friction range."
-      ],
-      "status": "clear",
-      "span": "Sensitivity runs showed that balloon overshoot changed the maximum equivalent plastic strain by up to 0.04 absolute, while friction variations changed it by up to 0.005 absolute.",
+      "span": "The root-mean-square difference between predicted and DIC-measured strain amplitudes across segments was 8%.",
       "level_source": "summary table"
     },
     {
@@ -425,12 +328,22 @@
       "factor": "Output comparison",
       "level": "3",
       "spans": [
-        "We compared the post-expansion equivalent plastic strain fields to Model S predictions for the same deployment parameters.",
-        "We computed a Dice similarity coefficient on binary masks of regions exceeding 2% plastic strain and obtained 0.78.",
-        "The mean absolute difference in equivalent plastic strain magnitude within the overlap was 6%."
+        "We computed a Dice similarity coefficient on binary masks of regions exceeding 2% plastic strain and obtained 0.78."
       ],
       "status": "clear",
-      "span": "We compared the post-expansion equivalent plastic strain fields to Model S predictions for the same deployment parameters.",
+      "span": "We computed a Dice similarity coefficient on binary masks of regions exceeding 2% plastic strain and obtained 0.78.",
+      "level_source": "summary table"
+    },
+    {
+      "model": "Model S",
+      "mechanism": "Radial crush strength",
+      "factor": "Relevance of the validation activities to the COU",
+      "level": "4",
+      "spans": [
+        "For radial strength, the annular gauge replicates the standardized condition in ISO 25539-2 and uses stents at the same three nominal sizes in the design family."
+      ],
+      "status": "clear",
+      "span": "For radial strength, the annular gauge replicates the standardized condition in ISO 25539-2 and uses stents at the same three nominal sizes in the design family.",
       "level_source": "summary table"
     },
     {
@@ -439,8 +352,7 @@
       "factor": "Relevance of the validation activities to the COU",
       "level": "3",
       "spans": [
-        "Deployment strain imaging employs a gel vessel analog with stiffness near the low end of coronary tissue, biasing comparisons to a conservative overestimation of plastic strain in regions of high curvature.",
-        "While the imaging medium is not a perfect surrogate for an artery, the primary purpose is to appraise the reasonableness of the spatial pattern and magnitude of residual plastic strain that seeds fatigue."
+        "Deployment strain imaging employs a gel vessel analog with stiffness near the low end of coronary tissue, biasing comparisons to a conservative overestimation of plastic strain in regions of high curvature."
       ],
       "status": "clear",
       "span": "Deployment strain imaging employs a gel vessel analog with stiffness near the low end of coronary tissue, biasing comparisons to a conservative overestimation of plastic strain in regions of high curvature.",
@@ -448,7 +360,7 @@
     },
     {
       "model": "Model S",
-      "mechanism": "Crimp/expansion plasticity and residual stress",
+      "mechanism": "Pulsatile fatigue of struts and connectors",
       "factor": "Software quality assurance",
       "level": "4",
       "spans": [
@@ -456,6 +368,18 @@
       ],
       "status": "clear",
       "span": "Over 12 months and four minor releases of the modeling workflow, there were zero regressions that affected mechanism-relevant outputs; two incidental regressions affected postprocessing only and were corrected within 48 hours.",
+      "level_source": "summary table"
+    },
+    {
+      "model": "Model S",
+      "mechanism": "Radial crush strength",
+      "factor": "Software quality assurance",
+      "level": "4",
+      "spans": [
+        "All production runs are tagged to the solver build (2025.1) and to a specific commit of the workflow repository."
+      ],
+      "status": "clear",
+      "span": "All production runs are tagged to the solver build (2025.1) and to a specific commit of the workflow repository.",
       "level_source": "summary table"
     },
     {
@@ -466,7 +390,7 @@
       "spans": [
         "Under a 40 mmHg pressure oscillation about 100 mmHg mean and mild curvature (radius 20 mm), stabilized hotspot equivalent strain amplitudes at the crown near the proximal connector were 0.00274 (coarse), 0.00266 (fine), and 0.00260 (superfine).",
         "The change from fine to superfine was 2.3%.",
-        "The set of top five hotspots was invariant between fine and superfine meshes."
+        "Mean stress at the hotspot differed by 10 MPa (from 520 to 510 MPa)."
       ],
       "status": "clear",
       "span": "Under a 40 mmHg pressure oscillation about 100 mmHg mean and mild curvature (radius 20 mm), stabilized hotspot equivalent strain amplitudes at the crown near the proximal connector were 0.00274 (coarse), 0.00266 (fine), and 0.00260 (superfine).",
@@ -547,8 +471,7 @@
       "spans": [
         "We consulted the solver vendor\u2019s numerical verification doc-umentation (release 2025.1), which summarizes 290 verification tests spanning linear and nonlinear statics, contact, and plasticity.",
         "In addition, we executed five internal spot checks relevant to our use cases: two patch tests on single elements under uniaxial and pure shear with J2 plasticity (residual forces below 1e9 N), a contact block-sliding test with penalty enforcement (measured slip within 0.2% of analytical), and two small benchmark frames with combined isotropic\u2013kinematic hardening under strain control (stabilized loop area within 3% of reference).",
-        "No dedicated method-of-manufactured-solutions (MMS) exercises were conducted for our exact model configurations, and we did not run code-level verifications of the cyclic hardening algorithm beyond the mentioned spot checks.",
-        "The solver version used in production analyses matches the vendor-verified build."
+        "No dedicated method-of-manufactured-solutions (MMS) exercises were conducted for our exact model configurations, and we did not run code-level verifications of the cyclic hardening algorithm beyond the mentioned spot checks."
       ],
       "status": "clear",
       "span": "We consulted the solver vendor\u2019s numerical verification doc-umentation (release 2025.1), which summarizes 290 verification tests spanning linear and nonlinear statics, contact, and plasticity.",
@@ -562,8 +485,7 @@
       "spans": [
         "We consulted the solver vendor\u2019s numerical verification doc-umentation (release 2025.1), which summarizes 290 verification tests spanning linear and nonlinear statics, contact, and plasticity.",
         "In addition, we executed five internal spot checks relevant to our use cases: two patch tests on single elements under uniaxial and pure shear with J2 plasticity (residual forces below 1e9 N), a contact block-sliding test with penalty enforcement (measured slip within 0.2% of analytical), and two small benchmark frames with combined isotropic\u2013kinematic hardening under strain control (stabilized loop area within 3% of reference).",
-        "No dedicated method-of-manufactured-solutions (MMS) exercises were conducted for our exact model configurations, and we did not run code-level verifications of the cyclic hardening algorithm beyond the mentioned spot checks.",
-        "The solver version used in production analyses matches the vendor-verified build."
+        "No dedicated method-of-manufactured-solutions (MMS) exercises were conducted for our exact model configurations, and we did not run code-level verifications of the cyclic hardening algorithm beyond the mentioned spot checks."
       ],
       "status": "clear",
       "span": "We consulted the solver vendor\u2019s numerical verification doc-umentation (release 2025.1), which summarizes 290 verification tests spanning linear and nonlinear statics, contact, and plasticity.",
@@ -577,8 +499,7 @@
       "spans": [
         "We consulted the solver vendor\u2019s numerical verification doc-umentation (release 2025.1), which summarizes 290 verification tests spanning linear and nonlinear statics, contact, and plasticity.",
         "In addition, we executed five internal spot checks relevant to our use cases: two patch tests on single elements under uniaxial and pure shear with J2 plasticity (residual forces below 1e9 N), a contact block-sliding test with penalty enforcement (measured slip within 0.2% of analytical), and two small benchmark frames with combined isotropic\u2013kinematic hardening under strain control (stabilized loop area within 3% of reference).",
-        "No dedicated method-of-manufactured-solutions (MMS) exercises were conducted for our exact model configurations, and we did not run code-level verifications of the cyclic hardening algorithm beyond the mentioned spot checks.",
-        "The solver version used in production analyses matches the vendor-verified build."
+        "No dedicated method-of-manufactured-solutions (MMS) exercises were conducted for our exact model configurations, and we did not run code-level verifications of the cyclic hardening algorithm beyond the mentioned spot checks."
       ],
       "status": "clear",
       "span": "We consulted the solver vendor\u2019s numerical verification doc-umentation (release 2025.1), which summarizes 290 verification tests spanning linear and nonlinear statics, contact, and plasticity.",
@@ -590,13 +511,11 @@
       "factor": "Model inputs",
       "level": "3",
       "spans": [
-        "To propagate input variability, we drew 200 Latin hypercube samples within the joint confidence region of \u03c3f, b, \u03f5f, c, and kinematic saturation parameters (C, \u03b3) and evaluated their impact on the computed safety factor at the most severe crown.",
-        "The standard deviation of the predicted safety factor was 0.12 in Model U and 0.15 in Model S when holding geometry fixed.",
         "Boundary conditions and load spectra for pulsatile loading are tied to physiologic bounds: a mean arterial pressure of 100 mmHg with an amplitude of 40 mmHg (range 35\u201350 mmHg in sensitivity checks), and heart rates between 60 and 90 bpm.",
         "The combined effect on hotspot equivalent strain amplitude was up to 0.0003 across the ranges, and the effect on local safety factors was up to 0.07 in Model S and 0.05 in Model U."
       ],
       "status": "clear",
-      "span": "To propagate input variability, we drew 200 Latin hypercube samples within the joint confidence region of \u03c3f, b, \u03f5f, c, and kinematic saturation parameters (C, \u03b3) and evaluated their impact on the computed safety factor at the most severe crown.",
+      "span": "Boundary conditions and load spectra for pulsatile loading are tied to physiologic bounds: a mean arterial pressure of 100 mmHg with an amplitude of 40 mmHg (range 35\u201350 mmHg in sensitivity checks), and heart rates between 60 and 90 bpm.",
       "level_source": "summary table"
     },
     {
@@ -615,6 +534,18 @@
     },
     {
       "model": "Model S",
+      "mechanism": "Radial crush strength",
+      "factor": "Output comparison",
+      "level": "4",
+      "spans": [
+        "Across sizes, the mean absolute error between simulated and measured minimum radial strength was 3.8%, with R^2 = 0.97 when pooling devices."
+      ],
+      "status": "clear",
+      "span": "Across sizes, the mean absolute error between simulated and measured minimum radial strength was 3.8%, with R^2 = 0.97 when pooling devices.",
+      "level_source": "summary table"
+    },
+    {
+      "model": "Model S",
       "mechanism": "Pulsatile fatigue of struts and connectors",
       "factor": "Output comparison",
       "level": "3",
@@ -627,42 +558,16 @@
     },
     {
       "model": "Model S",
-      "mechanism": "Radial crush strength",
-      "factor": "Output comparison",
-      "level": "4",
-      "spans": [
-        "Across three stent sizes, simulated minimum radial strength agreed with bench measurements with a mean absolute error of 3.8% and R^2 = 0.97, and the converged mesh changed the predicted force at 10% OD reduction by 1.7% from the next-finer mesh.",
-        "Across sizes, the mean absolute error between simulated and measured minimum radial strength was 3.8%, with R^2 = 0.97 when pooling devices."
-      ],
-      "status": "clear",
-      "span": "Across three stent sizes, simulated minimum radial strength agreed with bench measurements with a mean absolute error of 3.8% and R^2 = 0.97, and the converged mesh changed the predicted force at 10% OD reduction by 1.7% from the next-finer mesh.",
-      "level_source": "summary table"
-    },
-    {
-      "model": "Model S",
       "mechanism": "Crimp/expansion plasticity and residual stress",
       "factor": "Output comparison",
       "level": "3",
       "spans": [
-        "Deployment imaging showed that the spatial distribution of post-expansion plastic strain matched simulations with a Dice overlap of 0.78 and a 6% average magnitude difference in regions above 2% plastic strain.",
-        "We computed a Dice similarity coefficient on binary masks of regions exceeding 2% plastic strain and obtained 0.78."
+        "We computed a Dice similarity coefficient on binary masks of regions exceeding 2% plastic strain and obtained 0.78.",
+        "The mean absolute difference in equivalent plastic strain magnitude within the overlap was 6%.",
+        "Spatial alignment errors due to optical distortion were quantified at 0.1 mm and accounted for in the analysis."
       ],
       "status": "clear",
-      "span": "Deployment imaging showed that the spatial distribution of post-expansion plastic strain matched simulations with a Dice overlap of 0.78 and a 6% average magnitude difference in regions above 2% plastic strain.",
-      "level_source": "summary table"
-    },
-    {
-      "model": "Model S",
-      "mechanism": "Pulsatile fatigue of struts and connectors",
-      "factor": "Relevance of the validation activities to the COU",
-      "level": "3",
-      "spans": [
-        "For fatigue, the cyclic amplitudes and heart rates employed in segment tests (strain amplitudes 200\u2013350 \u00b5\u03f5; heart rates 60\u201390 bpm) overlap the ranges used in simulations and represent the 5th\u201395th percentile of physiologic cycles expected in proximal coronary segments.",
-        "Connector geometries tested in segments correspond to the two most severe link topologies identified by Model S.",
-        "Collectively, these tests exercise the same decision variables and loading conditions used in the COU and encompass the central body of expected operation with margin at the extremities."
-      ],
-      "status": "clear",
-      "span": "For fatigue, the cyclic amplitudes and heart rates employed in segment tests (strain amplitudes 200\u2013350 \u00b5\u03f5; heart rates 60\u201390 bpm) overlap the ranges used in simulations and represent the 5th\u201395th percentile of physiologic cycles expected in proximal coronary segments.",
+      "span": "We computed a Dice similarity coefficient on binary masks of regions exceeding 2% plastic strain and obtained 0.78.",
       "level_source": "summary table"
     },
     {
@@ -672,8 +577,7 @@
       "level": "4",
       "spans": [
         "For radial strength, the annular gauge replicates the standardized condition in ISO 25539-2 and uses stents at the same three nominal sizes in the design family.",
-        "The compliance of the gauge and the correction applied in data reduction are consistent between simulation and test, and the 10% outer diameter reduction criterion matches the COU decision variable definition.",
-        "Collectively, these tests exercise the same decision variables and loading conditions used in the COU and encompass the central body of expected operation with margin at the extremities."
+        "The compliance of the gauge and the correction applied in data reduction are consistent between simulation and test, and the 10% outer diameter reduction criterion matches the COU decision variable definition."
       ],
       "status": "clear",
       "span": "For radial strength, the annular gauge replicates the standardized condition in ISO 25539-2 and uses stents at the same three nominal sizes in the design family.",
@@ -685,12 +589,11 @@
       "factor": "Relevance of the validation activities to the COU",
       "level": "3",
       "spans": [
-        "Deployment strain imaging employs a gel vessel analog with stiffness near the low end of coronary tissue, biasing comparisons to a conservative overestimation of plastic strain in regions of high curvature.",
         "While the imaging medium is not a perfect surrogate for an artery, the primary purpose is to appraise the reasonableness of the spatial pattern and magnitude of residual plastic strain that seeds fatigue.",
         "Collectively, these tests exercise the same decision variables and loading conditions used in the COU and encompass the central body of expected operation with margin at the extremities."
       ],
       "status": "clear",
-      "span": "Deployment strain imaging employs a gel vessel analog with stiffness near the low end of coronary tissue, biasing comparisons to a conservative overestimation of plastic strain in regions of high curvature.",
+      "span": "While the imaging medium is not a perfect surrogate for an artery, the primary purpose is to appraise the reasonableness of the spatial pattern and magnitude of residual plastic strain that seeds fatigue.",
       "level_source": "summary table"
     },
     {
@@ -699,7 +602,9 @@
       "factor": "Software quality assurance",
       "level": "4",
       "spans": [
-        "Over 12 months and four minor releases of the modeling workflow, there were zero regressions that affected mechanism-relevant outputs; two incidental regressions affected postprocessing only and were corrected within 48 hours."
+        "Over 12 months and four minor releases of the modeling workflow, there were zero regressions that affected mechanism-relevant outputs; two incidental regressions affected postprocessing only and were corrected within 48 hours.",
+        "All production runs are tagged to the solver build (2025.1) and to a specific commit of the workflow repository.",
+        "Data retention and reproducibility are supported by immutable artifacts stored in a controlled bucket with metadata including solver version, run date, and parameter hashes."
       ],
       "status": "clear",
       "span": "Over 12 months and four minor releases of the modeling workflow, there were zero regressions that affected mechanism-relevant outputs; two incidental regressions affected postprocessing only and were corrected within 48 hours.",
@@ -711,7 +616,9 @@
       "factor": "Software quality assurance",
       "level": "4",
       "spans": [
-        "Over 12 months and four minor releases of the modeling workflow, there were zero regressions that affected mechanism-relevant outputs; two incidental regressions affected postprocessing only and were corrected within 48 hours."
+        "Over 12 months and four minor releases of the modeling workflow, there were zero regressions that affected mechanism-relevant outputs; two incidental regressions affected postprocessing only and were corrected within 48 hours.",
+        "All production runs are tagged to the solver build (2025.1) and to a specific commit of the workflow repository.",
+        "Data retention and reproducibility are supported by immutable artifacts stored in a controlled bucket with metadata including solver version, run date, and parameter hashes."
       ],
       "status": "clear",
       "span": "Over 12 months and four minor releases of the modeling workflow, there were zero regressions that affected mechanism-relevant outputs; two incidental regressions affected postprocessing only and were corrected within 48 hours.",
@@ -723,19 +630,21 @@
       "factor": "Software quality assurance",
       "level": "4",
       "spans": [
-        "Over 12 months and four minor releases of the modeling workflow, there were zero regressions that affected mechanism-relevant outputs; two incidental regressions affected postprocessing only and were corrected within 48 hours."
+        "Over 12 months and four minor releases of the modeling workflow, there were zero regressions that affected mechanism-relevant outputs; two incidental regressions affected postprocessing only and were corrected within 48 hours.",
+        "All production runs are tagged to the solver build (2025.1) and to a specific commit of the workflow repository.",
+        "Data retention and reproducibility are supported by immutable artifacts stored in a controlled bucket with metadata including solver version, run date, and parameter hashes."
       ],
       "status": "clear",
       "span": "Over 12 months and four minor releases of the modeling workflow, there were zero regressions that affected mechanism-relevant outputs; two incidental regressions affected postprocessing only and were corrected within 48 hours.",
       "level_source": "summary table"
     }
   ],
-  "spans_dropped": 27,
+  "spans_dropped": 8,
   "spans_dropped_by_reason": {
     "not-verbatim": 8,
-    "crosses-sentences": 16,
+    "crosses-sentences": 14,
     "factor-reuses-span": 0,
-    "factor-out-of-scope": 21,
+    "factor-out-of-scope": 0,
     "factor-not-scored": 0
   }
 }
