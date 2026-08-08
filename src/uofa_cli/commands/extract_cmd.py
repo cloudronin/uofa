@@ -45,6 +45,11 @@ def add_arguments(parser):
                         help="model name on the chosen backend (overrides [llm] model)")
     parser.add_argument("--extract-base-url", default=None,
                         help="base URL for openai-compatible backends (e.g. Together AI, vLLM)")
+    parser.add_argument("--keyless", action="store_true", default=False,
+                        help="extract without a language model: no API key, no "
+                             "network, no spend. Fills only the fields with a "
+                             "route measured to beat a null model, and leaves "
+                             "the rest blank rather than guessing")
 
 
 def run(args) -> int:
@@ -131,7 +136,7 @@ def run(args) -> int:
         return 1
 
     # ── Step 1: Discover files ───────────────────────────────
-    step_header(f"Discovering files...")
+    step_header("Discovering files...")
 
     file_paths, discover_warnings = discover_files(sources, glob_pattern=args.glob)
     for w in discover_warnings:
@@ -166,22 +171,38 @@ def run(args) -> int:
         error("No text could be extracted from the source files.")
         return 1
 
-    # ── Step 3: LLM extraction ───────────────────────────────
-    step_header(f"Extracting with {model}...")
+    # ── Step 3: extraction ───────────────────────────────────
+    if getattr(args, "keyless", False):
+        from uofa_cli import keyless_extractor
+        step_header("Extracting without a model (keyless)...")
+        try:
+            result = keyless_extractor.extract(corpus, pack_name)
+        except Exception as exc:
+            error(f"Keyless extraction failed: {exc}")
+            if getattr(args, "verbose", False):
+                raise
+            return 1
+        # The blanks are the part a user must act on, so they are stated. A run
+        # that reports only what it filled reads as a success.
+        for line in keyless_extractor.summarise(result):
+            info(f"  {line}")
+        model = "keyless"
+    else:
+        step_header(f"Extracting with {model}...")
 
-    pack_prompt_path = paths.extract_prompt()
+        pack_prompt_path = paths.extract_prompt()
 
-    try:
-        result = extract(
-            corpus, model, pack_name, pack_prompt_path,
-            thinking=getattr(args, "thinking", False),
-            llm_config=llm_config,
-        )
-    except Exception as exc:
-        error(f"Extraction failed: {exc}")
-        if getattr(args, "verbose", False):
-            raise
-        return 1
+        try:
+            result = extract(
+                corpus, model, pack_name, pack_prompt_path,
+                thinking=getattr(args, "thinking", False),
+                llm_config=llm_config,
+            )
+        except Exception as exc:
+            error(f"Extraction failed: {exc}")
+            if getattr(args, "verbose", False):
+                raise
+            return 1
 
     # Extraction summary
     n_summary = sum(1 for fe in result.assessment_summary.values() if fe.value is not None)

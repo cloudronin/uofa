@@ -65,9 +65,7 @@ than a model. No API key, no network.
 """
 from __future__ import annotations
 
-import json
 import pathlib
-import re
 import sys
 
 _ROOT = pathlib.Path(__file__).resolve().parent.parent.parent.parent
@@ -82,124 +80,13 @@ from uofa_cli.readers.pdf_reader import read_pdf  # noqa: E402
 NAMES = tuple({n.lower() for n in ec.VV40_FACTOR_NAMES})
 
 # ASME V&V 40 Table: model risk from its two inputs. Only the gradations the
-# standard defines are keys -- a value it does not define must not be silently
-# mapped onto one, which is the whole point of the `not_derivable` branch.
-_RISK_TABLE: dict[tuple[str, str], str] = {}
-_LEVELS = ("low", "medium", "high")
-for _i, _inf in enumerate(_LEVELS):
-    for _j, _dc in enumerate(_LEVELS):
-        _RISK_TABLE[(_inf, _dc)] = _LEVELS[min(2, max(_i, _j))]
-
-# The gradation is stated as a CONCLUSION after the rationale, not next to the
-# label. Morrison:
-#
-#   ...will be identified from the CFD results -> Low
-#   Decision Consequence: if the pump causes high levels of hemolysis while the
-#   patient is in the surgical suite, then the pump can be replaced -> Medium
-#   Model Risk: Low-medium (level 2)
-#
-# A first-match rule captured "high" from "high levels of hemolysis" -- the
-# hazard being described, not the value being assigned -- and Morrison then
-# scored agreement=match by coincidence. Take the LAST gradation before the next
-# label instead, which is where the assignment sits.
-_LABEL = r"(?:model influence|decision consequence|regulatory impact|model risk)"
-_GRADE = re.compile(r"\b(low|medium|high)\b", re.I)
-
-# Citations look like risk levels. "accounting for its risk level [3,4]" yielded
-# a stated risk of "3" on Bologna, from a bibliography reference.
-_CITATION = re.compile(r"\[[\d,\s-]+\]")
-
-# Compound values the standard does not define -- Morrison's "Low-medium
-# (level 2)", Nagaraja's "High-Medium". Recorded rather than resolved: picking
-# one half would be inventing a gradation the authors declined to state.
-_COMPOUND = re.compile(r"\b(low|medium|high)\s*[-/]\s*(low|medium|high)\b", re.I)
-
-
-def _segment_after(text: str, label: str) -> str | None:
-    """Text between this label and the next one -- where its value is assigned."""
-    m = re.search(label + r"\s*:?", text, re.I)
-    if not m:
-        return None
-    rest = text[m.end():]
-    nxt = re.search(_LABEL, rest, re.I)
-    return rest[:nxt.start()] if nxt else rest[:400]
-
-
-def _graded(text: str, label: str) -> str | None:
-    """The gradation assigned to `label`: the last one before the next label."""
-    seg = _segment_after(text, label)
-    if seg is None:
-        return None
-    hits = _GRADE.findall(_CITATION.sub(" ", seg))
-    return hits[-1].lower() if hits else None
-
-# Terms a paper may put in place of one of the two inputs. Detected so the
-# substitution can be NAMED rather than guessed at or silently accepted.
-_SUBSTITUTES = ("regulatory impact",)
-
-# Values used where the standard expects a gradation.
-_NON_GRADATION = re.compile(
-    r"(?:model influence|decision consequence)[^.]{0,60}?\bdeemed (\w+)\b", re.I)
-
-
-def _locate(label: str, sents: list[str], pool: list[int]) -> tuple[str | None, str | None]:
-    """(gradation, the verbatim sentence carrying the label) or (None, None)."""
-    for i in pool:
-        s = " ".join(sents[i].split())
-        if re.search(label, s, re.I):
-            g = _graded(s, label)
-            if g:
-                return g, s
-    return None, None
-
-
-def assess(sents: list[str], pool: list[int]) -> dict:
-    """The fixed output record. Every field is a verbatim span or null."""
-    inf_v, inf_s = _locate(r"model influence", sents, pool)
-    dc_v, dc_s = _locate(r"decision consequence", sents, pool)
-    risk_v, risk_s = _locate(r"model risk|risk rating", sents, pool)
-    # A compound stated risk is not a gradation the table can be compared to.
-    compound = None
-    if risk_s:
-        m = _COMPOUND.search(_CITATION.sub(" ", risk_s))
-        if m:
-            compound = m.group(0).lower()
-            risk_v = None
-
-    sub = None
-    for i in pool:
-        low = " ".join(sents[i].split()).lower()
-        for term in _SUBSTITUTES:
-            if term in low and "model influence" not in low:
-                sub = term
-                break
-        if sub:
-            break
-    # A non-gradation value given to a defined input is also a substitution --
-    # of the value rather than the name.
-    if sub is None:
-        for i in pool:
-            m = _NON_GRADATION.search(sents[i])
-            if m and m.group(1).lower() not in _LEVELS:
-                sub = m.group(1).lower()
-                break
-
-    derived = None
-    if inf_v and dc_v:
-        derived = _RISK_TABLE.get((inf_v, dc_v))
-
-    if derived is None:
-        agreement = "not_derivable"
-    elif risk_v is None:
-        agreement = "not_derivable"
-    else:
-        agreement = "match" if risk_v == derived else "mismatch"
-
-    if compound and sub is None:
-        sub = compound
-    return {"stated_risk": risk_s, "decision_consequence": dc_s,
-            "model_influence": inf_s, "substituted_term": sub,
-            "derived_risk": derived, "agreement": agreement}
+# Moved to `uofa_cli.keyless.routes` so the shipped extractor and this
+# candidate script cannot drift apart. Verified identical on all 40
+# seeded documents before the move; `tests/test_keyless_routes.py`
+# keeps them from being redefined here.
+from uofa_cli.keyless.routes import (  # noqa: E402
+    assess,
+)
 
 
 DOCS = [
@@ -265,15 +152,15 @@ def main() -> int:
     r = out["morrison"]
     print(f"  KNOWN-FAIL morrison: agreement={r['agreement']!r} -- two contexts of use, "
           f"and K8 is scope-blind.")
-    print(f"             It pairs COU1's inputs with a COU2 risk sentence. The criteria")
-    print(f"             above did not test Morrison, which is how the first version of")
-    print(f"             this script reported PASS on two false captures.")
+    print("             It pairs COU1's inputs with a COU2 risk sentence. The criteria")
+    print("             above did not test Morrison, which is how the first version of")
+    print("             this script reported PASS on two false captures.")
     ok = ok and r["agreement"] == "mismatch"  # pinned: this is the current, wrong, behaviour
-    print(f"\n  K8: 5 of 6 documents correct, 1 known failure (morrison, multi-COU).")
+    print("\n  K8: 5 of 6 documents correct, 1 known failure (morrison, multi-COU).")
     print(f"  Criteria as written: {'satisfied' if ok else 'NOT satisfied'} -- but they were")
-    print(f"  satisfied by a broken extractor once already, so read the spans above.")
-    print(f"\n  Six documents, two standards. The two 7009A rows are the control:")
-    print(f"  those documents do not state model risk, so any value is invented.")
+    print("  satisfied by a broken extractor once already, so read the spans above.")
+    print("\n  Six documents, two standards. The two 7009A rows are the control:")
+    print("  those documents do not state model risk, so any value is invented.")
     return 0
 
 

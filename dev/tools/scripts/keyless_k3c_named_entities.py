@@ -70,67 +70,17 @@ def _words(x: str) -> set[str]:
 # drops are the distinguishing ones, so it names a category rather than that rig.
 # Genuine abbreviations are handled by the acronym path, which is why this can be
 # strict without penalising "IO-ECM".
-_OVERLAP = 0.60
-
-
-def names_match(gold: str, proposed: str) -> bool:
-    """Same entity, allowing for abbreviation and punctuation.
-
-    Overlap is measured against the LONGER of the two, not as a subset test. A
-    symmetric subset rule is fine for proper names and catastrophic for the long
-    clauses gold records as requirement names: against
-
-        "energy balance artifacts <=1% and maximum penetration <=0.02 mm
-         support 8-10 on solver control"
-
-    the bare word "balance" satisfied `p <= g` and counted as naming that
-    requirement. Every short fragment did. bindsRequirement measured 0.387 that
-    way, and the number was fragments.
-
-    The acronym path survives, because it is the one case where a short proposal
-    genuinely names a long entity: papers write "IO-ECM" far more often than
-    "Implant-Only Explicit Contact Model", and both name the same model.
-    """
-    g, p = _words(gold), _words(proposed)
-    if not g or not p:
-        return False
-    acro = {t for t in re.findall(r"\b([A-Z][A-Z0-9-]{2,})\b", gold)}
-    if acro & {t.upper() for t in re.findall(r"[A-Za-z0-9-]{3,}", proposed)}:
-        return True
-    return len(g & p) / max(len(g), len(p)) >= _OVERLAP
-
-
-# One pattern per kind, because the three are named differently in prose.
-_PATTERNS = {
-    "models": re.compile(
-        r"\b([A-Z][A-Za-z0-9-]*(?:\s+[A-Z][A-Za-z0-9-]*){0,5}\s+"
-        r"(?:Model|Simulation|Framework|Analysis))\b|"
-        r"\b([A-Z][A-Z0-9]{2,}(?:-[A-Z0-9]+)*)\b"),
-    "datasets": re.compile(
-        r"\b([A-Z][A-Za-z0-9-]*(?:\s+[A-Za-z0-9-]+){0,4}\s+"
-        r"(?:dataset|data\s?set|corpus|campaign|series|cohort|specimens?|"
-        r"measurements?|tests?|trials?|bench(?:top)?|rig|study))\b|"
-        r"\b(ISO\s?\d{3,5}[\w-]*|ASTM\s?[A-Z]?\d+[\w-]*)\b", re.I),
-    "acceptance_criteria": re.compile(
-        r"\b((?:within|below|above|less than|greater than|no more than|at least)\s+"
-        r"[\d.]+\s*(?:%|mm|MPa|N|kPa|s|Hz|micro\w*|percent)?[\w\s-]{0,24})\b|"
-        r"\b([A-Za-z][\w\s-]{2,28}\s+(?:criterion|criteria|requirement|"
-        r"acceptance\s+limit|tolerance|threshold|target))\b", re.I),
-}
-
-
-def propose(kind: str, text: str, cap: int = 12) -> list[str]:
-    """Names a keyless reader would put forward for this kind, most frequent first."""
-    counts: dict[str, int] = {}
-    for m in _PATTERNS[kind].finditer(text):
-        name = next((g for g in m.groups() if g), "").strip()
-        if len(name) > 2:
-            counts[name] = counts.get(name, 0) + 1
-    return [n for n, _ in sorted(counts.items(), key=lambda kv: -kv[1])[:cap]]
-
-
-def propose_models(text: str, cap: int = 12) -> list[str]:
-    return propose("models", text, cap)
+# Moved to `uofa_cli.keyless.routes` so the shipped extractor and this
+# candidate script cannot drift apart. Verified identical on all 40
+# seeded documents before the move; `tests/test_keyless_routes.py`
+# keeps them from being redefined here.
+from uofa_cli.keyless.routes import (  # noqa: E402
+    _OVERLAP,
+    _PATTERNS,
+    names_match,
+    propose,
+    propose_models,
+)
 
 
 def control_constant_name(_text: str, cap: int = 12) -> list[str]:

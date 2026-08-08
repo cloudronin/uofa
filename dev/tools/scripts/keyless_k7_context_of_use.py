@@ -144,29 +144,15 @@ _PURPOSE = re.compile(
 
 # Sentences ABOUT the context of use rather than statements of it. Bologna's
 # four mentions are all of this kind, and quoting one would score the term.
-_ABOUT = re.compile(
-    r"\b(context of use|COU)\b.{0,60}\b(is (presented|described|defined|given)|"
-    r"section|table|figure|following|below|above|proposed context)\b|"
-    r"^\s*(starting from|based on|according to)\b", re.I)
-
-
-# The term, or a synonym, followed by a copula: a sentence DEFINING the context
-# of use rather than referring to one. `_ABOUT` still removes the referring kind.
-_DEFN = re.compile(
-    r"\b(context of use|COU|intended (use|application)|question of interest)\b"
-    r"[^.]{0,40}?\b(is|are|was|were|comprises?|covers?|will be|shall be)\b", re.I)
-
-
-def find_context_of_use(sents: list[str], pool: list[int]) -> list[int]:
-    """Sentence indices defining a context of use, best-first.
-
-    Definitional statements first, since they carry it 15 times in 20 on the
-    train set against 11 for naming the term alone. The shape route is NOT
-    appended: it adds one hit and drops 7009A restraint from 9/10 to 3/10.
-    """
-    return [i for i in pool
-            if _DEFN.search(" ".join(sents[i].split()))
-            and not _ABOUT.search(" ".join(sents[i].split()))]
+# Moved to `uofa_cli.keyless.routes` so the shipped extractor and this
+# candidate script cannot drift apart. Verified identical on all 40
+# seeded documents before the move; `tests/test_keyless_routes.py`
+# keeps them from being redefined here.
+from uofa_cli.keyless.routes import (  # noqa: E402
+    _ABOUT,
+    _DEFN,
+    find_context_of_use,
+)
 
 
 def find_by_shape(sents: list[str], pool: list[int]) -> list[int]:
