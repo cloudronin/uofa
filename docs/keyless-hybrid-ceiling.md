@@ -25,16 +25,32 @@ import and are out of scope.
 | — per-factor `rationale` | always | RRF → K2 quote | groundedness 1.000 by construction | no |
 | `modelRiskLevel` | **V&V 40 only** (0/0 vs 22/17/23) | **K8** extract-and-validate | **5 of 6 documents correct**, 1 named failure | **no** |
 | `wasDerivedFrom` | n/a — a run fact | emit the input filenames | **fixed**; was 100% template placeholder | **no** |
-| `hasValidationResult` | always (5–15 mentions) | K9 shape routing | **not demonstrated** — 4 vs 2 of 24, p=0.135 | unknown |
-| `bindsModel` | always | K3c entity role | **evaluable** — counts stable over 5 draws | unknown |
-| `bindsDataset` | always | K3c | **evaluable** — counts stable | unknown |
-| `bindsRequirement` | always | K3c | not evaluable *by count* — unstable in real and synthetic alike | unknown |
-| `hasContextOfUse` | **V&V 40 only** (0/1 vs 39/33/50) | K7 section extraction | **not evaluable** — n=4 needs 4/4 | unknown |
-| `hasDecisionRecord` | thin everywhere (0–8) | K5 section extraction | **not evaluable** — n=5 needs 4/5 | unknown |
+| `hasValidationResult` | always (5–15 mentions) | K9 shape routing | **not demonstrated at n=100** — 18 vs 13, p=0.094 | unknown |
+| `bindsModel` | always | **K3c by NAME** | **0.657 / 0.818** against a control's 0.104 / 0.182 | **no** |
+| `bindsDataset` | always | K3c | blocked — gold carries no dataset names | unknown |
+| `bindsRequirement` | always | K3c | blocked — gold carries no requirement names | unknown |
+| `hasContextOfUse` | **V&V 40 only** (0/1 vs 39/33/50) | **K7 definitional** | **15/20 train, 3/4 clean holdout** vs control 11/20, 1/4 | **no** |
+| `hasDecisionRecord` | thin everywhere (0–8) | K5 section extraction | **fails** — 0.033 against a 0.833 control | unknown |
 
-**Two rows are solved, one is a bug fix, one has a real result, one is measured
-and negative, and four cannot be judged at five documents.** The blanks are the
-finding, and each one now says what would fill it.
+**Four rows are solved, one is a bug fix, two are measured negatives, and two are
+blocked on gold rather than on documents.** No row is now "not evaluable" for want
+of sample size — a 40-paper seeded corpus closed that, and closing it turned three
+verdicts from *cannot tell* into *can tell*.
+
+### What the corpus changed
+
+| row | at 5 real documents | at 40 seeded |
+|---|---|---|
+| `hasContextOfUse` | not evaluable, n=4 | **works** — and K7 did not exist before |
+| `bindsModel` | evaluable, unknown | **works** — once scored by name |
+| `hasValidationResult` | not demonstrated, n=24, p=0.135 | **not demonstrated**, n=100, p=0.094 |
+| `hasDecisionRecord` | not evaluable, n=5 | **fails**, 0.033 vs 0.833 |
+
+Three of the four remain negative. That is the point: **a negative you can rely
+on is a result, and a negative you cannot is an open question wearing its
+clothes.** K9's verdict did not change and its standing did — at four times the
+sample the effect still fails to separate from the control, so the row is closed
+rather than pending.
 
 ---
 
@@ -200,8 +216,11 @@ seeded output reproduces the prose but not yet the mess.
 
 In order of value per hour:
 
-1. **Re-specify K3c** as named-entity overlap rather than counts. Unblocks three
-   rows and needs no new documents.
+1. ~~**Re-specify K3c** as named-entity overlap rather than counts.~~ **Done, and
+   it works**: 0.657 train / 0.818 holdout against a control's 0.104 / 0.182,
+   where the same extractor scores 0.133 on exact counts. Only `bindsModel` is
+   closed — the gold carries no dataset or requirement names, so those two rows
+   are blocked on a regeneration rather than on a method.
 2. **Relax the sourcing criterion.** Four documents state model risk without a
    per-factor table — enough to make K7 and K8 evaluable, not enough for routing.
 3. **A human annotation pass.** 71.4% agreement with a model bounds
