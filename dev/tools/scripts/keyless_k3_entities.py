@@ -169,6 +169,28 @@ def extract_entities_salient(text: str) -> dict[str, int]:
     return out
 
 
+def _read_source(bundle: pathlib.Path) -> str:
+    """Source text, whichever format the bundle is in.
+
+    This read `p.read_text()` over `source/*`, which is right for the markdown
+    corpus it was written against and returns binary garbage on a PDF. The
+    seeded corpus is PDF, so the candidate was scoring against noise and
+    reporting it as a failure to extract -- the eighth time in this work a
+    symptom sat one step downstream of its cause.
+
+    PDFs go through the project's own reader, so the extraction pathologies
+    apply here exactly as they do everywhere else.
+    """
+    parts = []
+    for p in sorted(bundle.glob("source/*")):
+        if p.suffix.lower() == ".pdf":
+            from uofa_cli.readers.pdf_reader import read_pdf
+            parts.append("\n".join(c.text for c in read_pdf(p)))
+        elif p.suffix.lower() in (".md", ".txt"):
+            parts.append(p.read_text(errors="ignore"))
+    return "\n".join(parts)
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--corpus", type=Path,
@@ -189,8 +211,7 @@ def main() -> int:
         if not want:
             continue
         n += 1
-        src = "\n".join(p.read_text(errors="ignore")
-                        for p in sorted((b / "source").glob("*")))
+        src = _read_source(b)
         got = extract_entities(src)
         got_s = extract_entities_salient(src)
         for k in kinds:
