@@ -131,3 +131,27 @@ def test_context_of_use_is_absent_on_7009a():
             f"{b.name} is {gt['standard']}, which has no context of use")
         return
     pytest.skip("no 7009A document in the holdout")
+
+
+def test_no_test_imports_conftest_by_bare_name():
+    """`from conftest import ...` resolves to whichever conftest imported first.
+
+    There are two: `tests/conftest.py` and `tests/space/conftest.py`. In a
+    single-file run only one is collected and the import works; in a full run or
+    in CI the other can win, and two tests failed for a year's worth of runs with
+    `ImportError: cannot import name 'extracted_corpus_by_bundle' from 'conftest'
+    (tests/space/conftest.py)`.
+
+    It survived because every hand-check ran the file alone, which is the one way
+    the collision cannot happen. Shared helpers belong in a module named for what
+    they hold; conftest is for fixtures pytest injects by name.
+    """
+    offenders = []
+    for f in sorted((_ROOT / "tests").rglob("test_*.py")):
+        for i, line in enumerate(f.read_text().splitlines(), 1):
+            if line.strip().startswith(("from conftest import", "import conftest")):
+                offenders.append(f"{f.relative_to(_ROOT)}:{i}")
+    assert not offenders, (
+        f"{offenders} import conftest by bare name, which is ambiguous while "
+        f"tests/space/conftest.py exists. Import from a uniquely-named module "
+        f"(see tests/extracted_corpus.py) or take it as a pytest fixture.")

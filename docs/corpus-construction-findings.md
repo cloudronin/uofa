@@ -897,3 +897,39 @@ would have made the number look better and the artefact mean less.
 With that settled, **every extractor-facing property in `ProfileMinimal` now has
 a keyless route that beats its control**, and a keyless package reaches Minimal
 once a human names the requirement — one field, entered once.
+
+### The CI fix that fixed one of two causes — 2026-08-08
+
+`test_llm_baseline_on_the_shipped_corpus` and `test_the_synthetic_corpus_shortfall_rate`
+failed in CI earlier in this session. The diagnosis then was that they read
+`extracted.xlsx`, which is gitignored, so in CI every loop body was skipped and
+the totals came out zero. The rows were frozen to a committed JSON and the fix
+was pushed.
+
+They still failed. The frozen fixture was real and necessary and was **one of two
+causes**. The second:
+
+    ImportError: cannot import name 'extracted_corpus_by_bundle'
+    from 'conftest' (tests/space/conftest.py)
+
+`from conftest import ...` resolves to whichever `conftest` module imported
+first, and there are two — `tests/conftest.py` and `tests/space/conftest.py`.
+Collect only one and the import works; collect both, as every full run and every
+CI run does, and the wrong one can win.
+
+**It survived because every hand-check ran the file alone.** `pytest
+tests/test_groundedness.py` does not collect `tests/space`, so the collision
+cannot occur, and that is the command anyone runs when checking one test. The
+failure needed the whole suite, and the whole suite takes fifteen minutes, so it
+was never the loop used while iterating.
+
+Fixed by moving the helpers to `tests/extracted_corpus.py`, a module named for
+what it holds, with `conftest` re-exporting them. A guard now fails if any test
+imports `conftest` by bare name.
+
+**Two patterns, one new.** #5, a fix applied in one place and not the other, for
+the fourth time. And a new one worth naming: **a verification whose cheap form
+cannot reproduce the failure.** Running one test file is the fast check and it is
+structurally blind to a collection-order bug. When a fix is for a failure that
+only appears in the full run, the full run is the only check that confirms it —
+and "it passes when I run it" is not that.

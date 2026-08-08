@@ -280,7 +280,7 @@ def test_llm_baseline_on_the_shipped_corpus():
     These are the numbers a candidate backend has to be compared against, and
     unlike detection F1 there is no constant function that reaches them.
     """
-    from conftest import extracted_corpus_by_bundle
+    from extracted_corpus import extracted_corpus_by_bundle
     from groundedness import GroundednessResult, read_source_text
 
     # See test_per_factor_fields: the xlsx are gitignored, so this read nothing

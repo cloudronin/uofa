@@ -140,7 +140,7 @@ def test_the_synthetic_corpus_shortfall_rate():
     If this moves, the claim in the Tier 1 corpus tests that real models fall
     short far more often is comparing against a stale baseline.
     """
-    from conftest import extracted_corpus_rows
+    from extracted_corpus import extracted_corpus_rows
 
     # From the committed JSON, not from extracted.xlsx. Those are gitignored, so
     # in CI every loop body was skipped, the totals came out zero, and this
@@ -169,7 +169,7 @@ def test_the_committed_rows_still_match_the_extraction_output():
     (CI), it skips, because absence is the normal case there and not a fault.
     """
     import sys
-    from conftest import extracted_corpus_by_bundle
+    from extracted_corpus import extracted_corpus_by_bundle
     sys.path.insert(0, str(_ROOT / "dev" / "tools" / "scripts"))
     pytest.importorskip("openpyxl")
     from dump_corpus_rows import collect
