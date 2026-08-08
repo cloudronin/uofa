@@ -122,3 +122,21 @@ def test_summarise_states_the_blanks():
     text = " ".join(KX.summarise(res)).lower()
     assert "blank" in text
     assert "0 scored" in text
+
+
+def test_an_unrunnable_route_says_so_rather_than_reporting_zero(monkeypatch):
+    """"0 results" from a missing dependency and from an empty paper look alike.
+
+    They mean opposite things. Without scikit-learn the run must announce that
+    validation results and the decision were not ATTEMPTED -- otherwise a user
+    reads a silent degradation as a finding about their document. The same
+    defect made the corpus dry run crash in CI rather than say it could not
+    check the render path.
+    """
+    from uofa_cli.keyless import trained as T
+    monkeypatch.setattr(T, "available", lambda: (False, "simulated: no sklearn"))
+    res = KX.extract(_VV40, "vv40")
+    assert res.validation_results == []
+    assert res.decision["outcome"].value is None
+    text = " ".join(KX.summarise(res))
+    assert "NOT attempted" in text and "simulated: no sklearn" in text

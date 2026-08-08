@@ -195,7 +195,8 @@ def extract(corpus, pack_name: str) -> ExtractionResult:
             "status": _fe("not_assessed", 0.0, None),
         })
 
-    res.raw_json = {"keyless": True, "routes": sorted(_CONF)}
+    res.raw_json = {"keyless": True, "routes": sorted(_CONF),
+                    "trained_available": ok, "trained_unavailable_reason": _why}
     return res
 
 
@@ -208,7 +209,14 @@ def summarise(res: ExtractionResult) -> list[str]:
     """
     filled = sum(1 for fe in res.assessment_summary.values() if fe.value is not None)
     blanks = len(res.assessment_summary) - filled
-    return [
+    lines = []
+    # A route that could not RUN and a document that contained nothing produce
+    # the same "0 results" line, and they mean opposite things. Say which.
+    if not res.raw_json.get("trained_available", True):
+        lines.append(
+            "validation results and the decision were NOT attempted: "
+            + res.raw_json.get("trained_unavailable_reason", "route unavailable"))
+    return lines + [
         f"{filled} of {len(res.assessment_summary)} summary fields filled, "
         f"{blanks} left blank",
         f"{len(res.credibility_factors)} factors named, "
