@@ -95,9 +95,34 @@ class Doc:
         return [" ".join(t.split()).lower() for t in self.texts]
 
 
+_CACHE = pathlib.Path(__file__).parent / ".doc_cache"
+
+
+def _cache_key(bundle: pathlib.Path) -> pathlib.Path:
+    """Keyed on the source bytes, so a regenerated corpus misses the cache.
+
+    Content-addressed rather than path-addressed on purpose: a stale corpus read
+    is the same class of defect as a stale measurement, and this project has one
+    of those already.
+    """
+    import hashlib
+    h = hashlib.sha256()
+    for p in sorted((bundle / "source").glob("*")):
+        h.update(p.name.encode())
+        h.update(p.read_bytes())
+    return _CACHE / f"{bundle.name}-{h.hexdigest()[:16]}.json"
+
+
 def read(bundle: pathlib.Path) -> Doc:
     """PDF or markdown, through the project's own reader either way."""
     from uofa_cli.readers.pdf_reader import read_pdf
+
+    ck = _cache_key(bundle)
+    if ck.exists():
+        blob = json.loads(ck.read_text())
+        sents, pool = blob["sents"], blob["pool"]
+        return _with_gold(Doc(bundle=bundle, sents=sents, pool=pool), bundle)
+
     parts = []
     for p in sorted((bundle / "source").glob("*")):
         if p.suffix.lower() == ".pdf":
@@ -106,8 +131,13 @@ def read(bundle: pathlib.Path) -> Doc:
             parts.append(p.read_text(errors="ignore"))
     sents = sentences("\n".join(parts))
     _, pool, _ = strip_furniture(sents, NAMES)
-    doc = Doc(bundle=bundle, sents=sents, pool=pool)
+    _CACHE.mkdir(exist_ok=True)
+    ck.write_text(json.dumps({"sents": sents, "pool": pool}))
+    return _with_gold(Doc(bundle=bundle, sents=sents, pool=pool), bundle)
 
+
+def _with_gold(doc: Doc, bundle: pathlib.Path) -> Doc:
+    """Gold is read fresh every time, never cached -- it is the thing that moves."""
     gt_path = bundle / "ground_truth.json"
     if gt_path.exists():
         gt = json.loads(gt_path.read_text())

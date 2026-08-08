@@ -104,7 +104,7 @@ were easy to find.
 
 ---
 
-## Can a keyless pipeline BE the extractor? No, and the reason is structural
+## Can a keyless pipeline BE the extractor? Two of the three blockers fell
 
 `dev/tools/scripts/keyless_extract.py` composes every candidate into one
 extractor and runs the whole table at once. The result settles a question the
@@ -123,21 +123,91 @@ profile, and `uofa shacl` says exactly that: *conformsToProfile must be
 ProfileMinimal, ProfileComplete, or ProfileDisposition*, then *required fields for
 the declared profile are missing*.
 
-**Of `ProfileMinimal`'s seven, keyless supplies one.**
+### The "no keyless route" verdicts were about three matchers, not three properties
+
+`bindsRequirement`, `hasDecisionRecord` and `hasValidationResult` were each
+written off on the strength of **one hand-written pattern matcher**: K3c's
+regexes, K5's section scan, K9's shape heuristic. Meanwhile the strongest keyless
+method in this project — a trained classifier, which is all K6 ever was — had been
+applied to exactly **one property of nine**.
+
+`dev/tools/scripts/keyless_trained.py` applies it to the other three. TF-IDF over
+word and character n-grams into logistic regression: `sklearn` and the standard
+library, no embeddings, no network, no model call. Trained on the 30-paper train
+split, evaluated on the 10-paper holdout, split at the bundle level.
+
+| property | pattern matcher | **trained** | its control |
+|---|---|---|---|
+| `hasValidationResult` | K9 0.152 | **0.438** recall@5 | 0.125 |
+| `hasDecisionRecord`, outcome | K5 0.033 | **0.800** balanced, 0.600 reject recall | 0.500, 0.000 |
+| `hasDecisionRecord`, locating it | — | 0.222 | 0.000 |
+| `bindsRequirement` | K3c 0.026 | 0.065 | 0.000 |
+
+**Two of the three now have a keyless route that beats its control.**
+`bindsRequirement` still does not — 2 of 31 names is not something to build on.
+
+### The metric was wrong too, and that mattered more than the method
+
+K5 "failed" at 0.033 against a control scoring **0.833 by answering "Accepted"
+every time**, because 34 of 40 papers accept. That control cannot be beaten on
+accuracy and is useless in practice: it never identifies a single rejection,
+which is the one outcome a reviewer needs the tool to catch. It is
+`control_constant_list` scoring 1.000 all over again — a null model topping a
+leaderboard because the measure rewards the majority answer.
+
+Scored as balanced accuracy the constant is pinned at 0.500 by construction, and
+the trained classifier reaches **0.800, catching 3 of 5 rejections against the
+constant's 0**. The property was never unextractable; it was being measured with
+a number that a constant function wins.
+
+### The anchor: does it transfer to real papers?
+
+`hasValidationResult` is the one of the three with real-paper gold, so it is the
+only one that can be checked against the documents that decide disagreements.
+Trained on all 40 seeded papers, tested on the five real ones:
+
+| document | | gold | trained | control |
+|---|---|---|---|---|
+| opensim | seed | 5 | 3 | 0 |
+| bologna | seed | 6 | 3 | 1 |
+| nagaraja | seed | 6 | 1 | 0 |
+| elemance | **clean** | 4 | 1 | 0 |
+| morrison | **clean** | 3 | 1 | 0 |
+| **all five** | | **24** | **9** | **1** |
+| **clean only** | | **7** | **2** | **0** |
+
+Three of the five *are* the generator's seeds, so their phrasing echoes through
+the training data and the five-paper total is partly a training score. The clean
+read is elemance and morrison, **n=2**: 2 of 7 against a control's 0 of 7. Thin,
+in the right direction, and honestly labelled as two documents.
+
+### One clean negative: the locator cannot be deleted
+
+Accept/reject looks like a document-level property — abstract, conclusion and
+discussion all carry it — so classifying it from the whole document should skip
+the weak 0.222 locator entirely. It does not work: **0.850 accuracy, 0.500
+balanced, 0.000 reject recall — identical to the constant to three decimals.**
+Given 200+ sentences the classifier learns to say "Accepted" every time.
+
+The decision signal is *localised*, and diluting it destroys it. So the two-stage
+design is required, and `hasDecisionRecord` end to end is bounded by the 0.222
+locator rather than by the 0.800 classifier.
+
+### What is left in `ProfileMinimal`
 
 | Minimal requires | keyless |
 |---|---|
 | `hasContextOfUse` | K7, retrieval tied with its control |
-| `bindsRequirement` | **no route** — 0.026 below a naive 0.039 |
-| `hasDecisionRecord` | **no route** — 0.033 against a 0.833 constant |
-| `hasValidationResult` | **no route** — 12/79 vs 9/79, p = 0.185 |
+| `hasValidationResult` | **trained, 0.438** — transfers to real papers |
+| `hasDecisionRecord` | **trained**, outcome 0.800 balanced; bounded by a 0.222 locator |
+| `bindsRequirement` | **no route** — 0.065, and 0.026 before that |
 | `hash`, `signature`, `generatedAtTime` | signing, not extraction |
 
-Three of the four extractor-facing properties in the *smallest* profile are
-exactly the three with no working keyless route. That is not a tuning gap. **No
-improvement in accuracy on the properties keyless does well closes it**, because
-none of them are in Minimal — `modelRiskLevel`, `bindsModel` and `bindsDataset`
-all live in Complete.
+One property of the four is still without a route, and two of the remaining three
+are too weak to ship unsupervised. That is a quality problem, which is the kind
+that responds to work — not the structural wall an earlier draft of this section
+claimed. **That claim was wrong, and it was wrong because it generalised from
+three failed pattern matchers to the properties themselves.**
 
 ### Measured on the 40 seeded papers
 
@@ -161,11 +231,17 @@ exercise K8, so K8's verdict stays where it was measured, at n=6 real.
 
 ### What this means for `extract`
 
-A keyless default that emitted the whole table would be emitting fabrication for
-the three properties that decide whether a package validates at all. The usable
-shape is a **hybrid with the split declared per property**: pattern routes where
-they are measured to work, a model for the three that decide profile conformance,
-and `method` recorded on every value so the division is auditable afterwards.
+A keyless default is not blocked on a wall, it is blocked on quality. Of the four
+extractor-facing properties in `ProfileMinimal`, one has no route at all
+(`bindsRequirement`) and two have routes too weak to run unsupervised. The usable
+shape is a **hybrid with the split declared per property** — trained routes where
+they are measured to work, a model where they are not, and `method` recorded on
+every value so the division is auditable afterwards.
+
+What would move it: `bindsRequirement` needs a candidate generator better than a
+capitalisation regex, and `hasDecisionRecord` needs a locator better than 0.222 —
+the outcome classifier behind it is already at 0.800 balanced and is not the
+constraint. Neither is a model-shaped problem.
 
 That is the opposite of the failure this repository already paid for, where 14
 turbomachinery models labelled "Class II" validated and honest packages did not.

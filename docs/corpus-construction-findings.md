@@ -750,3 +750,53 @@ recorded result should carry the hash of the split it was measured on, and any
 verdict whose hash does not match the current corpus should be printed as stale
 rather than read as a result. Until that exists, a corpus regeneration means
 re-running every candidate, and this one did not.
+
+### "No keyless route" meant "one matcher failed" — 2026-08-08
+
+Three properties were recorded as having no keyless route. Each verdict rested on
+a single hand-written pattern matcher — K3c's regexes, K5's section scan, K9's
+shape heuristic — while the strongest keyless method in the project, a trained
+classifier, had been applied to **one property of nine**. K6 is nothing but TF-IDF
+into logistic regression, and it was never tried anywhere else.
+
+`keyless_trained.py` applies it to the other three. No embeddings, no network, no
+model call; bundle-level split, controls per stage.
+
+| property | matcher | trained | control |
+|---|---|---|---|
+| `hasValidationResult` | 0.152 | **0.438** | 0.125 |
+| `hasDecisionRecord` outcome | 0.033 | **0.800** balanced | 0.500 |
+| `bindsRequirement` | 0.026 | 0.065 | 0.000 |
+
+Two of three now beat their controls. On the five real papers — the anchor —
+validation results transfer at 9/24 against a control's 1/24, and 2/7 on the two
+papers that are not the generator's seeds.
+
+**The metric was the bigger error.** K5 was scored against a control that answers
+"Accepted" every time and scores 0.833, because 34 of 40 papers accept. That
+control is unbeatable on accuracy and worthless in use: it never identifies a
+rejection, the one outcome the tool exists to catch. On balanced accuracy the
+constant is pinned at 0.500 and the classifier reaches 0.800, catching 3 of 5
+rejections against 0. This is `control_constant_list` scoring 1.000 in different
+clothes — a null model winning because the measure rewards the majority answer —
+and it was recorded as a property being unextractable.
+
+**Two of my own defects, found by looking rather than by a test.** The
+requirement-name matcher used substring containment, so "Section" scored against
+"Section 5 requirements"; fixing it to whole-token containment took the trained
+result from 0.323 to **0.065**. And the control labelled "most frequent spans"
+was taking the first six in document order. Both flattered the candidate. This is
+the *third* time the K3c fragment bug has been written — twice in K3c, once here
+— which makes it worth a shared matcher rather than a note.
+
+**A clean negative worth keeping.** Accept/reject reads like a document-level
+property, so classifying it from the whole document should delete the weak 0.222
+locator. It scores 0.850 / 0.500 / 0.000 — identical to the constant. Given 200+
+sentences the classifier learns to always say "Accepted". The signal is localised
+and diluting it destroys it, so the two-stage design is required and the locator
+is the thing to improve.
+
+**Pattern #8, and it is the one that cost the most.** *A negative result about one
+implementation reported as a negative about the task.* Every "no keyless route"
+row was one method deep. The fix is procedural: before recording a property as
+unextractable, try the method that already works elsewhere in the same codebase.
