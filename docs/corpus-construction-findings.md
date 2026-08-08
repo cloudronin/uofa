@@ -357,6 +357,50 @@ re-measuring the same PDF and reaching the same verdict, because the fix that
 would have helped lives in the write step. A `too clean` rejection needs the
 paper rewritten, not its gold redone.
 
+### Holdout validated — 10 papers, 2026-08-07
+
+**Gated:**
+
+| measure | holdout | real | band |
+|---|---|---|---|
+| gold precision | **0.986** | 0.980 | 0.95–1.00 |
+| same sentence (single-reference) | **0.824** | 0.708 | 0.60–0.85 |
+| N/A rate (clear findings) | **0.000** | 0.000 | = 0 |
+
+Plus all eleven offline rows: diversity mean 0.156 against a 0.180 ceiling, zero
+twins, 490 findings over 706 reference spans.
+
+**Reported, not gated:** selection 0.840, AC1 0.810, gold recall 0.850,
+same-sentence multi-reference 0.912.
+
+### Why selection is reported and precision is gated
+
+The 2×2 is `both 68, gold-only 1, annotator-only 12`. A single selection figure
+averages two errors with **opposite consequences**:
+
+* a **wrong** gold entry penalises a router that correctly finds other evidence
+* a **missing** gold entry leaves that factor untested
+
+Only the first mis-scores. Gold is deliberately precision-biased — its prompt
+says returning a factor the paper does not assess is worse than omitting one it
+does — so it under-selects against an unbiased reader **by design**, and the
+aggregate reads 0.840 while hiding which side moved. Precision 0.986 is the
+correctness property and is gated; recall 0.850 is coverage and is reported.
+
+This is a decision to accept a known asymmetry, not a discovery that it does not
+exist. The alternative — relaxing gold's omission bias — raises recall by
+admitting wrong entries, which is the failure mode that actively mis-scores.
+
+### Why same-sentence is gated on single-reference gold
+
+The key is multi-reference, correctly: a router finding any valid sentence should
+count. But that inflates agreement by construction — **0.912 multi against 0.824
+single on identical data** — and the 0.708 baseline was measured single-reference.
+Comparing them would repeat the granularity mistake recorded above.
+
+Tested rather than asserted, which matters because two earlier explanations of
+this same number were wrong and both flattered the corpus.
+
 ## Open
 
 * Agreement re-measurement on the holdout set after the incomplete-table fix.
