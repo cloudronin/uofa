@@ -41,41 +41,89 @@ The pack system already models this correctly everywhere else: `packs/vv40` and
 Nothing standard-specific about `UnitOfAssurance` was ever done that way, which
 is how a V&V 40 concept ended up in the core profiles.
 
-### R0 — core carries no standard's vocabulary
+### R0 — core carries no standard's vocabulary — **DONE**
 
-Remove `hasContextOfUse` from core's `MinimalBody` and `CompleteBody`.
-`DispositionBody` follows by `sh:node` inheritance. Core then requires only what
-every standard shares:
+`hasContextOfUse` removed from core's `MinimalBody` and `CompleteBody`
+(`DispositionBody` follows by `sh:node`), and added to
+`packs/vv40/shapes/vv40_shapes.ttl` as `VV40ContextOfUseShape`.
+
+Minimal now requires **six**, none of them a single standard's vocabulary:
 
     bindsRequirement, hasValidationResult, hasDecisionRecord,
     generatedAtTime, hash, signature
 
-Move the requirement to `packs/vv40/shapes/vv40_shapes.ttl`, where a V&V 40
-package is required to declare a context of use exactly as it is today.
+Complete still requires **twelve** — it lost only the context of use.
 
-This is a **core schema version bump: 0.7 → 0.8** (`spec/context/v0.8.jsonld`,
-`packs/core/pack.json`), because it changes what core demands rather than adding
-to it.
+**Zero regressions across all 64 packages** — 59 conforming before and after, the
+same 5 failing.
 
-**Open question, and it must be settled before implementing.** The vv40 shape has
-to apply to V&V 40 packages *only*. Validation loads several packs at once — the
-regression harness loads all 7 shape files together — so a shape targeting
-`uofa:UnitOfAssurance` unconditionally would impose the COU requirement on 7009A
-packages again, reproducing the bug in a new location. The discriminator a V&V 40
-package carries has not yet been identified, and **guessing at it is how this
-change goes wrong quietly**: the packages would still validate, and the
-requirement would silently apply to the wrong set.
+**Why it is behaviour-preserving.** Shapes load as core + the *active* packs
+(`paths.all_shacl_schemas`), and the default active set is `["vv40"]`. So a
+default invocation loads the vv40 shape exactly where the core constraint used to
+sit. Nothing about a V&V 40 package changes; what changes is that
+`--pack nasa-7009b` no longer imports a V&V 40 assumption.
+
+**A false premise that blocked this for a while, worth recording.** An earlier
+draft called the targeting an open question, reasoning that "validation loads
+several packs at once" so a vv40 shape would hit 7009A packages too. That was
+never true of the tool — it was true of *my regression harness*, which loaded all
+seven shape files. I inferred the system's behaviour from my own instrument's,
+which is the same error as reading a stale measurement as a live one, and it also
+meant the first baseline (55/64) was over-strict by four packages. The corrected
+harness validates each package under core + its own pack, and reports **59/64**.
+
+### R0b — a package must say which standard it is under **(new, and R0 is half a fix without it)**
+
+**A package records nothing about its standard.** No `criteriaSet`, no standards
+reference, nothing. Validation is therefore relative to a flag the operator
+remembers to pass, and the default is `vv40`.
+
+So after R0, a 7009A package validated as `uofa shacl pkg.jsonld` — no `--pack` —
+**still gets the V&V 40 context-of-use requirement and still fails.** The
+assumption left core; the default still applies it. R0's benefit currently
+reaches only operators who know to type `--pack nasa-7009b`.
+
+`uofa import` stamps the pack it built under into the package, and `uofa shacl` /
+`uofa check` read it as the active set when no `--pack` is given, with an explicit
+flag still overriding. A package then validates the same way for everyone,
+including someone who received it and knows nothing about how it was made.
+
+**Migration, and it decides how much R0b is worth.** All 64 existing packages
+predate the stamp. `uofa shacl` on an unstamped package falls back to the `vv40`
+default — the current behaviour — which means **every existing artefact keeps the
+V&V 40 assumption R0 removed**, and R0b's guarantee holds only for packages built
+after it. That is not acceptable for the two 7009A example packages in
+`packs/nasa-7009b/examples/`, which are shipped artefacts demonstrating the
+standard.
+
+So: the fallback is `vv40` and it emits a warning naming the assumption it just
+made, and **the 7009A example packages are restamped as part of this work**. The
+remaining unstamped packages are V&V 40 anyway, so the fallback is correct for
+them and the warning is the only change they see.
+
+*Fails if:* the same package validates differently depending on who runs the
+command, with no flag given — or if an unstamped package is validated under an
+assumed standard without saying so.
+
+### R0c — the version bump
+
+Core changes what it *demands*, so it is not additive: **0.7 → 0.8**. Touches
+`spec/context/v0.8.jsonld` (new, from v0.7), `packs/core/pack.json` (`version`
+and `coreCompatibility`), and any fixture asserting a context version.
+
+`packs/core/pack.json` already describes core as **"Standards-agnostic."** R0 is
+what makes that sentence true of the `UnitOfAssurance` profiles; the version bump
+is what lets a consumer tell the two eras apart.
 
 ### The regression instrument
 
-`dev/tools/scripts/profile_baseline.py` validates every package in the repo and
-diffs two runs. Baseline before any change: **64 packages, 55 conforming, 9 not.**
+`dev/tools/scripts/profile_baseline.py` validates every package under **core plus
+its own pack**, mirroring `all_shacl_schemas`, and diffs two runs. It exits
+non-zero on any package that stops conforming, and also reports packages that
+*start* conforming — silently making validation easier is how a shape stops
+meaning anything.
 
-A schema edit claiming to be additive, or to only move a constraint, is a claim
-about 64 packages, and the only way to hold it is to validate all of them twice.
-The script exits non-zero on any package that stops conforming, and it also
-reports packages that *start* conforming — because silently making validation
-easier is how a shape stops meaning anything.
+Baseline: **64 packages, 59 conforming, 5 not.**
 
 ---
 
@@ -155,6 +203,13 @@ package because it lacked a name is not.
 Import computes the highest profile the content actually satisfies and declares
 that. **Order: Disposition, Complete, Minimal.**
 
+**Profile derivation is pack-aware.** After R0 the required set depends on the
+active packs — a V&V 40 package must carry a context of use and a 7009A package
+must not be asked for one — so "the highest profile the content satisfies" is
+only answerable against a declared pack set. This is why R0b is a prerequisite
+rather than a convenience: without a recorded pack, derivation would compute a
+different profile depending on who ran it.
+
 There is no NASA-specific profile: R0 removes the V&V 40 concept from core rather than adding a second profile beside it, so 7009A packages reach the same Minimal every other standard reaches.
 
 *Why Disposition ranks highest:* it is `CompleteBody` plus `hasDisposition`
@@ -205,49 +260,71 @@ carries a null model, and the one that was skipped here is the one that would
 have caught the first draft's impossible acceptance table.
 
 **The harness.** R1, R2 and `bindsRequirement` are interactive or run-context,
-and nobody answers a prompt in a batch run. `keyless_vs_model.py` must therefore
-declare exactly what it supplies — `--assessor "batch-harness"`, project name
-from the filename, `bindsRequirement` left absent — and print R5's per-class
-counts in its output. Without that the head-to-head measures the harness defaults
-rather than the extractors.
+and nobody answers a prompt in a batch run. `keyless_vs_model.py` declares exactly
+what it supplies — `--assessor "batch-harness"`, project name from the filename —
+and prints R5's per-class counts. Without that the head-to-head measures the
+harness defaults rather than the extractors.
+
+**`bindsRequirement` stays absent, and the harness must not paper over it.** An
+earlier draft left it absent AND set "at Minimal" acceptance targets, so every
+batch package failed Minimal and every target was 0 before anything ran. The
+resolution is not to have the harness invent a requirement to make the number
+move — that is R4's exact prohibition — but to report the boundary instead of a
+rate. Acceptance now does. The harness prints `bindsRequirement: absent
+(author-decision)` on every row, so the one field standing between a keyless
+package and Minimal is visible rather than buried in a failure count.
 
 *Fails if:* the null control is absent from the comparison, or the harness's
 contributions are not separable from the extractors'.
 
 ---
 
-## Acceptance
+## Acceptance — the boundary, not a pass rate
 
-Per profile and per standard, because a single figure hides Finding 1.
+The first two drafts set pass-rate targets. Both were unreachable, for different
+reasons, and the second was unreachable **by construction of the harness this
+same spec specifies**: R6 leaves `bindsRequirement` absent, Minimal requires it,
+so every batch-run package fails Minimal and every "at Minimal" row was 0 before
+anyone ran anything. That is the third time in this document's history that two of
+its own requirements have contradicted, and the pattern is now clear enough to
+name: **a target expressed as a rate invites engineering the rate.**
 
-**Before R0** — the two 7009A papers are expected non-conformant:
+So acceptance is the boundary. Per path, which of Minimal's six fields it
+produces and what blocks the rest.
 
-| | now | target |
-|---|---|---|
-| gpt-5, V&V 40 (3 papers) | 0/3 | **3/3 at Complete or below** |
-| keyless, V&V 40 (3 papers) | 0/3 | **3/3 at Minimal** |
-| gpt-5, 7009A (2 papers) | 2/2 | **0/2, failing loudly** — the current passes rest on invented COU strings |
-| keyless, 7009A (2 papers) | 0/2 | **0/2, failing loudly** |
+| Minimal requires | class | gpt-5 | keyless |
+|---|---|---|---|
+| `generatedAtTime` | run-context | ✅ | ✅ |
+| `hash` | run-context | ✅ | ✅ |
+| `signature` | run-context | ✅ | ✅ |
+| `hasValidationResult` | document-derived | ✅ | ✅ trained, recall@5 **0.438** vs 0.125 |
+| `hasDecisionRecord` | document-derived | ✅ | ✅ trained, **0.917** balanced, 5 of 6 rejections |
+| `bindsRequirement` | **author-decision** | ✅ | ❌ **by design** |
+| | | **6 of 6** | **5 of 6** |
 
-**After R0:**
+**Keyless reaches five of six, and the sixth is a decision rather than a
+failure.** `bindsRequirement` names the engineering requirement the model is
+trusted to help satisfy; only 30% of papers cite a standard at all, and it was
+settled as author-supplied on 2026-08-08. An extractor that emitted it would be
+inventing it.
 
-| | target |
-|---|---|
-| gpt-5, 7009A | **2/2 at Minimal or above** |
-| keyless, 7009A | **2/2 at Minimal** |
+That is the boundary this investigation has been circling, and it is a more
+useful result than a 5/5 that had to be engineered: **a keyless package is one
+human-entered field away from Minimal, and that field is one no document
+contains.**
 
-**Invariant across both:**
+**Invariants — these are still rates, because each has a null answer that is
+correct:**
 
 | | now | target |
 |---|---|---|
 | packages validating on an invented assessor | 2/5 | **0** |
 | keyless factor levels emitted | 0/65 | **0/65 — unchanged** |
-| null control | unmeasured | **0/5, printed** |
+| null control (an extractor that reads nothing) | unmeasured | **0 of 6, printed** |
+| packages whose verdict depends on who ran the command | unknown | **0** |
 
-The last three rows are what make the others mean anything. Any implementation
-reaching its targets by loosening R4 has defeated the purpose.
-
----
+The null control is the check that would have caught both unreachable acceptance
+tables, and it is the one this spec twice failed to specify.
 
 ## Risks
 
@@ -256,10 +333,13 @@ reaching its targets by loosening R4 has defeated the purpose.
   dropped to Minimal.
 - **R1 puts the operator's name in every package**, which may be shared. It must
   be overridable and visible in the output, never silently stamped.
-- **R0 changes a shipped shape.** A new `sh:or` branch cannot invalidate an
-  existing package — `sh:or` only ever adds ways to pass — but the profile
-  *reported* for a package may change, and every fixture asserting a profile
-  string needs re-running.
+- **R0 changes a shipped shape, and it MOVES a constraint rather than adding a
+  branch.** The "an `sh:or` branch only adds ways to pass" argument belonged to
+  the reverted fourth-profile approach and does not apply here. What makes R0 safe
+  is narrower and worth stating exactly: **the default active pack set is
+  `["vv40"]`, and the constraint landed in vv40** — so a default invocation loads
+  it precisely where core's sat. Verified, not argued: 64 packages, 59 conforming
+  before and after, no package changing verdict.
 - **A valid package is still not a correct one.** This spec fixes where fields
   come from; it does not improve extraction. Groundedness of 0.988 measures
   whether numbers in a rationale appear in the source, not whether a level is

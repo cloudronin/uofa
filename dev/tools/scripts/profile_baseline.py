@@ -41,8 +41,26 @@ def packages() -> list[pathlib.Path]:
     return out
 
 
-def shape_files() -> list[pathlib.Path]:
-    return sorted((_ROOT / "packs").rglob("*.ttl"))
+def pack_for(rel: str) -> str:
+    """Which pack this package is validated under.
+
+    Shapes are NOT all loaded at once: `all_shacl_schemas` returns core plus the
+    ACTIVE packs, defaulting to `vv40`. Loading all seven shape files -- which the
+    first version of this harness did -- validates every package against every
+    standard's constraints, which no real invocation does and which would have
+    made this instrument disagree with the tool it exists to protect.
+    """
+    parts = rel.split("/")
+    if parts[0] == "packs" and len(parts) > 1 and parts[1] != "core":
+        return parts[1]
+    return "vv40"          # the open-core baseline, same default as the CLI
+
+
+def shape_files(pack: str) -> list[pathlib.Path]:
+    """Core + one pack, exactly as `paths.all_shacl_schemas` assembles it."""
+    out = [_ROOT / "packs" / "core" / "shapes" / "uofa_shacl.ttl"]
+    out += sorted((_ROOT / "packs" / pack / "shapes").glob("*.ttl"))
+    return [p for p in out if p.exists()]
 
 
 def check_one(path: pathlib.Path, shapes: list[pathlib.Path]) -> dict:
@@ -68,13 +86,14 @@ def main() -> int:
     ap.add_argument("--diff", type=pathlib.Path, default=None)
     args = ap.parse_args()
 
-    shapes = shape_files()
     pkgs = packages()
-    print(f"\n  {len(pkgs)} packages x {len(shapes)} shape files\n")
+    print(f"\n  {len(pkgs)} packages, each under core + its own pack\n")
     now = {}
     for p in pkgs:
         rel = str(p.relative_to(_ROOT))
-        now[rel] = check_one(p, shapes)
+        pack = pack_for(rel)
+        now[rel] = check_one(p, shape_files(pack))
+        now[rel]["pack"] = pack
     args.out.write_text(json.dumps(now, indent=2, sort_keys=True) + "\n")
 
     conf = sum(1 for v in now.values() if v.get("conforms") is True)
