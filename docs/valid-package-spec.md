@@ -326,6 +326,51 @@ correct:**
 The null control is the check that would have caught both unreachable acceptance
 tables, and it is the one this spec twice failed to specify.
 
+## What this investigation learned about its own instruments
+
+Six defects were found in the *measuring* apparatus during the work that produced
+this spec — not in the extractors, in the things watching them. They are recorded
+because they are why R5 and R6 exist, and because five of the six were mine.
+
+| what was measured | what it actually measured | how it surfaced |
+|---|---|---|
+| K7 at 15/20 on train | a corpus regenerated **three times** since | re-ran it before quoting it |
+| the shape's "open targeting question" | my harness loading all 7 shape files, which no invocation does | asked the user, who knew |
+| baseline 55 of 64 conforming | the same over-strict harness — the truth is **59** | corrected the harness |
+| keyless factor `status` "valid" | a test asserting the same underscore the code emitted | `uofa import` rejected all 12 rows |
+| "keyless degrades without scikit-learn" | nothing — the blocker used `find_module`, dead in 3.12 | checked that the block worked |
+| model rationale groundedness 0/0 | a dict shape the scorer silently skips | 0/0 was implausible on 13 rationales |
+
+**Three of these produced a confident number that was wrong**, and none of them
+raised an error. That is the shape of the risk this spec is written against: not
+an extractor that fails loudly, but an instrument that reports success.
+
+### What it implies for the requirements
+
+**R5 (every field records its class) is not bookkeeping.** Two of the six above
+were quantities that looked like extraction and were not — a stale corpus, a
+harness default. Once packages are validating, "how much of this was read?" stops
+being answerable by inspection, and the only defence is that each value says where
+it came from at the time it was produced.
+
+**R6 (the null control) is the one that keeps catching things.** It would have
+caught both unreachable acceptance tables — a rate that is 0 by construction is
+obvious the moment an empty extractor is scored beside a real one. This project
+puts a null model against every other metric and skipped it here twice.
+
+**And the discipline that found four of the six: run the check with the thing
+removed.** The CI failures this session — a gitignored fixture, two colliding
+`conftest` modules, a missing `pdflatex` — were all cases where the local
+environment was a *superset* of the target's, so the cheap local check could not
+reproduce the failure. A check whose environment is richer than the target's
+cannot falsify anything about the target.
+
+**One more, and it is the one that generalises furthest:** the keyless extractor
+was tested as far as producing a spreadsheet and never through `uofa import` to a
+package — the only artefact anyone wants. Every test passed while every workbook
+was unimportable. **Test the pipeline, not the step**, and prefer the check that
+can fail.
+
 ## Risks
 
 - **R3 makes validation easier to pass.** Mitigated by R5: profile and per-class

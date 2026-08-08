@@ -977,3 +977,54 @@ about the target. Where a script depends on an external binary, a file outside
 the repo, or a module name that could collide, the test must be run **with that
 thing removed** — which is cheap, and is the only version of the check that can
 fail.
+
+### Six instruments wrong in one session — 2026-08-08
+
+The day's work moved from evaluating extractors to packaging their output, and
+the defects found were almost all in the *measuring* apparatus rather than in
+what it measured.
+
+| the instrument | what it actually reported | caught by |
+|---|---|---|
+| K7's 15/20 | a train split regenerated three times since | re-running before quoting |
+| "the vv40 shape cannot target UnitOfAssurance" | my harness loading all 7 shape files | asking the user |
+| baseline 55/64 conforming | the same over-strict harness; truth is 59 | fixing the harness |
+| keyless factor `status` passing its test | a test asserting the same underscore the code emitted | `uofa import` rejecting all 12 rows |
+| "keyless degrades without scikit-learn" | nothing; `find_module` is dead in 3.12 | checking that the block blocked |
+| rationale groundedness 0/0 | a dict shape the scorer silently skips | 0/0 being implausible on 13 rationales |
+
+**Three produced a confident number that was wrong and none raised an error.**
+
+**Pattern #4 twice in one day, both mine.** A check that cannot fail: the sklearn
+blocker that did not block, and the test that restated the code it was testing.
+The second is the more insidious — `assert status == "not_assessed"` against code
+emitting `"not_assessed"` is green forever and says nothing. It now checks
+`VALID_FACTOR_STATUSES`, which is what the importer reads. **A test that restates
+the implementation cannot catch the implementation being wrong.**
+
+**Pattern #5 for the fifth time.** `_merge_json_results` guards for a bare value
+when merging `credibility_factors` and not when merging `assessment_summary` or
+`decision`. One un-wrapped field lost a whole document — elemance, 28,310 tokens,
+the only real paper over the 24k chunking threshold, so no short paper could have
+shown it.
+
+**Pattern #6 for the third time — two of my own requirements contradicting.**
+The valid-package spec set "keyless 5/5 at Minimal" while its own R4 forbade the
+fabrication that alone could reach it; the next draft left `bindsRequirement`
+absent in the harness while requiring it for Minimal, making every target 0
+before anything ran. Both would have been caught by a null control, which this
+project runs against every other metric and skipped here twice. Acceptance is now
+a boundary — which of Minimal's six fields each path produces — because **a
+target expressed as a rate invites engineering the rate.**
+
+**A new pattern, #9: the instrument is a superset of the target.** Three CI
+failures in one session — a gitignored fixture, two colliding `conftest` modules,
+a missing `pdflatex` — all passed locally because the local environment had
+something CI did not. A check whose environment is richer than the target's
+cannot falsify anything about the target. The cheap version of the fix is to run
+the check with the thing removed, which is how four of the six above were found.
+
+**And #10, the one that generalises furthest: test the pipeline, not the step.**
+The keyless extractor was exercised as far as producing a spreadsheet and never
+through `uofa import` to a package — the only artefact anyone wants. Every test
+passed while every workbook was unimportable on twelve rows.
