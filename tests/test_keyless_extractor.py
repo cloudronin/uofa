@@ -56,7 +56,23 @@ def test_credibility_factors_are_named_but_never_scored():
         assert row["achieved_level"].value is None
         assert row["required_level"].value is None
         assert row["rationale"].value is None
-        assert row["status"].value == "not_assessed"
+
+
+def test_the_status_is_a_value_the_importer_accepts():
+    """Checked against the vocabulary, not against another hardcoded string.
+
+    The first version of this test asserted "not_assessed" -- the same underscore
+    the extractor emitted -- so the test and the bug agreed with each other and
+    every keyless workbook was rejected by `uofa import` with twelve errors. A
+    test that restates the code cannot catch the code being wrong.
+    """
+    from uofa_cli.excel_constants import VALID_FACTOR_STATUSES
+
+    res = KX.extract(_VV40, "vv40")
+    for row in res.credibility_factors:
+        assert row["status"].value in VALID_FACTOR_STATUSES, (
+            f"{row['status'].value!r} is not one of {VALID_FACTOR_STATUSES}; "
+            f"uofa import rejects the whole workbook")
 
 
 def test_the_checklist_is_not_reported_as_high_confidence():
