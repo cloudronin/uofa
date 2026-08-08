@@ -32,7 +32,33 @@ extractor was told the standard, which it is, and not whether it read anything.
 a discriminating control for this property. K8's analogous row is; the difference
 is vocabulary, and assuming it generalised was wrong.
 
-## Why the route is a shape, not the term
+## The route is definitional, and the first version's premise was wrong
+
+This was written to match the SHAPE of a context-of-use claim -- model + used
+for + purpose -- on the reasoning that the statement sits away from the term
+that names it. That generalised from Bologna, where it is true, and measured on
+the train set it is wrong:
+
+    route                     V&V 40 hit@3   7009A silent
+    shape (the first版)             3/20          3/10
+    name the term (control)        11/20          8/10
+    definitional                   15/20          9/10
+    definitional + shape           16/20          3/10
+
+Most papers DO name it: "the context of use is...", "we define the COU as...",
+"the intended application is...". The definitional route -- the term or a
+synonym followed by a copula -- beats both the shape route and the control, on
+retrieval and on restraint.
+
+Adding the shape route back buys one more hit and collapses restraint from 9/10
+to 3/10. Fabricating a context of use on a document whose standard has no such
+concept is the worse error, so the trade is refused.
+
+Chosen on the TRAIN set. The holdout was contaminated for this candidate by
+debugging against two of its bundles, and holdout figures are reported both over
+all ten and over the eight never opened.
+
+## What the shape route was for
 
 The sentences containing the phrase "context of use" are ABOUT the context of
 use, not the statement of it. In Bologna all four say things like "starting from
@@ -124,8 +150,27 @@ _ABOUT = re.compile(
     r"^\s*(starting from|based on|according to)\b", re.I)
 
 
+# The term, or a synonym, followed by a copula: a sentence DEFINING the context
+# of use rather than referring to one. `_ABOUT` still removes the referring kind.
+_DEFN = re.compile(
+    r"\b(context of use|COU|intended (use|application)|question of interest)\b"
+    r"[^.]{0,40}?\b(is|are|was|were|comprises?|covers?|will be|shall be)\b", re.I)
+
+
 def find_context_of_use(sents: list[str], pool: list[int]) -> list[int]:
-    """Sentence indices stating a context of use, best-first by parts matched."""
+    """Sentence indices defining a context of use, best-first.
+
+    Definitional statements first, since they carry it 15 times in 20 on the
+    train set against 11 for naming the term alone. The shape route is NOT
+    appended: it adds one hit and drops 7009A restraint from 9/10 to 3/10.
+    """
+    return [i for i in pool
+            if _DEFN.search(" ".join(sents[i].split()))
+            and not _ABOUT.search(" ".join(sents[i].split()))]
+
+
+def find_by_shape(sents: list[str], pool: list[int]) -> list[int]:
+    """The first version's route, kept so the comparison stays reproducible."""
     scored: list[tuple[int, int]] = []
     for i in pool:
         s = " ".join(sents[i].split())
