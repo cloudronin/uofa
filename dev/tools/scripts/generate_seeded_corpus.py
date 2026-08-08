@@ -355,6 +355,46 @@ def _family(model: str) -> str:
     return "anthropic" if m.startswith("claude") else "openai"
 
 
+def _fix_brackets(text: str) -> str:
+    """Close each container with the bracket it was opened with.
+
+    A plan response opened `"deviation": {` and closed it with `]`, which is not
+    a trailing comma or a bad escape and survived both existing repairs. Salvage
+    then truncated to the last parseable point, which was before the field, and
+    the paper was discarded.
+
+    Tracked with a stack rather than pattern-matched, so a mismatch is corrected
+    using what was actually open at that depth. String literals are skipped --
+    a brace inside prose is not a container.
+    """
+    out, stack, i, n = [], [], 0, len(text)
+    while i < n:
+        c = text[i]
+        if c == '"':                       # copy the whole string literal
+            j = i + 1
+            while j < n:
+                if text[j] == "\\":
+                    j += 2
+                    continue
+                if text[j] == '"':
+                    break
+                j += 1
+            out.append(text[i:j + 1])
+            i = j + 1
+            continue
+        if c in "{[":
+            stack.append("}" if c == "{" else "]")
+        elif c in "}]":
+            if stack:
+                want = stack.pop()
+                if c != want:
+                    c = want               # the mismatch, corrected
+            # an unopened closer is left alone; salvage handles that
+        out.append(c)
+        i += 1
+    return "".join(out)
+
+
 def parse_or_salvage(raw: str) -> tuple[dict, int]:
     """Parse the response; if it was cut off mid-structure, recover what closed.
 
@@ -391,6 +431,7 @@ def parse_or_salvage(raw: str) -> tuple[dict, int]:
     # whole run was regenerated to produce was in the discarded half.
     repaired = re.sub(r'\\(?!["\\/bfnrtu])', r"\\\\", raw)
     repaired = re.sub(r",(\s*[}\]])", r"\1", repaired)
+    repaired = _fix_brackets(repaired)
     if repaired != raw:
         try:
             return _parse_json_response(repaired), 0

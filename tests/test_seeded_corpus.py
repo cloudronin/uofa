@@ -7,6 +7,7 @@ factors, and prose that reaches LaTeX unescaped.
 """
 from __future__ import annotations
 
+import json
 import pathlib
 import subprocess
 import sys
@@ -451,3 +452,25 @@ def test_factor_matching_survives_a_dropped_article(factor, key, want):
     "test samples" still does not match a "test conditions" row.
     """
     assert G.factor_matches(factor, key) is want
+
+
+@pytest.mark.parametrize("bad,note", [
+    ('{"a": {"b": 1], "sections": [1]}', "object closed with a bracket"),
+    ('{"a": [1, 2}, "sections": [1]}', "array closed with a brace"),
+])
+def test_mismatched_brackets_are_repaired(bad, note):
+    """A plan response opened `"deviation": {` and closed it with `]`.
+
+    Neither existing repair touches that, so salvage truncated to before the
+    field and discarded the paper. The stack corrects a closer using what was
+    actually open at that depth.
+    """
+    got, lost = G.parse_or_salvage(bad)
+    assert got.get("sections"), note
+    assert lost == 0
+
+
+def test_bracket_repair_leaves_valid_json_alone():
+    """Including brackets inside string literals, which are not containers."""
+    ok = '{"a": [1, 2], "b": {"c": "a } and ] inside a string"}}'
+    assert json.loads(G._fix_brackets(ok)) == json.loads(ok)
