@@ -773,7 +773,9 @@ def generate_one(idx: int, seed_tag: str, out_root: pathlib.Path, backend,
                 device=device, concern=concern, method=method,
                 n_models=rng.choice([2, 2, 3]), n_mech=rng.choice([2, 3, 3, 4]),
                 scope="\n".join(f"- {f}" for f in scope),
-                standard_rules=_VV40_RULES if standard == "V&V40" else _7009A_RULES),
+                standard_rules=_VV40_RULES if standard == "V&V40" else _7009A_RULES,
+                decision_rule=(_REJECT_RULE if decision_for(idx) == "not accepted"
+                               else _ACCEPT_RULE)),
                 save_to=_raw("plan"))
             rep["tokens_in"] += ti; rep["tokens_out"] += to
             # Same repair path as the write step. A checkpoint paper died on a

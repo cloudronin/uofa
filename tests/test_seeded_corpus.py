@@ -505,3 +505,28 @@ def test_context_of_use_is_null_on_7009a_by_rule():
     src = (_ROOT / "dev" / "tools" / "scripts" / "generate_seeded_corpus.py").read_text()
     assert 'if standard == "V&V40" else None' in src
     assert "cou_fabricated_and_discarded" in src
+
+
+def test_every_prompt_placeholder_is_supplied_at_its_call_site():
+    """A placeholder added to a prompt but not passed is a KeyError per paper.
+
+    `{decision_rule}` was added to PLAN_PROMPT while the format() call was left
+    untouched -- an edit that silently did not match. Five papers then failed at
+    $0.00 each with KeyError: 'decision_rule', and the reasons were lost because
+    the run's output had been piped through `tail -4`.
+
+    Cheap to catch here: every field the prompt names must be a keyword the call
+    site passes.
+    """
+    import re
+    src = (_ROOT / "dev" / "tools" / "scripts" / "generate_seeded_corpus.py").read_text()
+    for prompt_name in ("PLAN_PROMPT", "WRITE_PROMPT", "GOLD_PROMPT"):
+        prompt = getattr(G, prompt_name)
+        # {{...}} is a literal brace in the JSON skeleton, not a placeholder
+        fields = {m for m in re.findall(r"(?<!\{)\{([a-z_]+)\}(?!\})", prompt)}
+        call = re.search(rf"{prompt_name}\.format\((.*?)\)\s*,?\s*(?:save_to|max_tokens)",
+                         src, re.S)
+        assert call, f"no format() call found for {prompt_name}"
+        passed = set(re.findall(r"(\w+)\s*=", call.group(1)))
+        missing = fields - passed
+        assert not missing, f"{prompt_name} names {missing} but the call site omits them"
