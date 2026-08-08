@@ -29,7 +29,7 @@ import and are out of scope.
 | `bindsModel` | always | K3c by NAME | **0.42 / 0.41**, against a naive 0.37 / 0.36 — thin but consistent | probably |
 | `bindsDataset` | always | K3c by NAME | **0.09 / 0.16** vs 0.02 / 0.00 — weak, real | unknown |
 | `bindsRequirement` | always | K3c by NAME | **0.026, below a naive 0.039** — does not work | unknown |
-| `hasContextOfUse` | **V&V 40 only** (0/1 vs 39/33/50) | **K7 definitional** | **15/20 train, 3/4 clean holdout** vs control 11/20, 1/4 | **no** |
+| `hasContextOfUse` | **V&V 40 only** (0/1 vs 39/33/50) | **K7 definitional** | retrieval **9/20 train, tied with its control**; restraint on 7009A **9/10, 4/4** | **no** |
 | `hasDecisionRecord` | thin everywhere (0–8) | K5 section extraction | **fails** — 0.033 against a 0.833 control | unknown |
 
 **Four rows are solved, one is a bug fix, two are measured negatives, and two are
@@ -41,7 +41,7 @@ verdicts from *cannot tell* into *can tell*.
 
 | row | at 5 real documents | at 40 seeded |
 |---|---|---|
-| `hasContextOfUse` | not evaluable, n=4 | **works** — and K7 did not exist before |
+| `hasContextOfUse` | not evaluable, n=4 | **split** — retrieval ties its control, restraint works |
 | `bindsModel` | evaluable, unknown | **thin pass** — 0.42 vs a naive 0.37 |
 | `hasValidationResult` | not demonstrated, n=24, p=0.135 | **not demonstrated**, n=100, p=0.094 |
 | `hasDecisionRecord` | not evaluable, n=5 | **fails**, 0.033 vs 0.833 |

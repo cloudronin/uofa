@@ -584,7 +584,7 @@ must carry most of a result's keywords rather than merely sit near one.
 
 | candidate | verdict | detail |
 |---|---|---|
-| **K7** | **works** | 15/20 train, 3/4 on the uncontaminated holdout, control 11/20 and 1/4. 7009A restraint 13/14. |
+| **K7** | ~~works~~ **retrieval ties its control** | Corrected 2026-08-08 — 15/20 was measured on a train split regenerated three times afterwards. On the current corpus K7 is 9/20 and its control is also 9/20. 7009A restraint 9/10 and 4/4 holds. |
 | **K9** | **not demonstrated, and now convincingly** | 18/100 against a control's 13/100, p = 0.094 |
 | **K3c** | **fails on counts** | 0/3 properties better on train, 1/3 on holdout |
 | **K5** | **untestable — the corpus's fault** | all 40 papers accept, so a constant scores 1.000 |
@@ -712,3 +712,41 @@ before it was tested, from nothing more than looking at what gold had recorded a
 a requirement "name". By this point the pattern is reliable enough to use as a
 prior: *when a number is better than expected, check the matcher before
 believing it.*
+
+### K7, corrected — a number that outlived its corpus — 2026-08-08
+
+Wiring the candidates into a single extractor meant reading each recorded verdict
+back off the corpus. Three of four reproduced exactly: K5 still fails at 0.033
+against a 0.833 constant, K3c still returns 0.418 / 0.088 / 0.026. K7 did not.
+
+| | recorded | reruns today |
+|---|---|---|
+| K7 retrieval, train | 15/20 | **9/20** |
+| its control (name the term) | 11/20 | **9/20** |
+| K7, holdout | 3/4 clean | 4/6 raw — reconciles, unchanged |
+| 7009A restraint | 13/14 | 9/10 + 4/4 — unchanged |
+
+The script is untouched since the run: `git log` shows one commit, no working-tree
+diff. What moved was the corpus underneath it. K7 was committed at 22:05, and the
+train split was regenerated at **22:38, 23:27 and 01:40** — decision variance, a
+call-site fix, then entity names in the gold. K7 was never re-run against any of
+them, and the margin it was credited with belonged to papers that no longer exist.
+
+The half that survives is the more interesting half. **Restraint reproduces
+exactly**: on NASA-STD-7009A, which defines no context of use, K7 returns nothing
+on 9 of 10 train and 4 of 4 holdout documents. Knowing when a property does not
+apply is a different capability from finding it, it is the one that separates an
+extractor from a text generator, and only the retrieval half was stale.
+
+**The pattern, which is #1 in a new dress.** Every earlier instance was a
+threshold from one population applied to another. This is a *measurement* from one
+population reported against another — the same defect with the arrow reversed, and
+harder to see, because nothing about a stale number looks stale. The corpus is a
+dependency of every verdict measured on it, and regenerating it silently
+invalidates them all.
+
+**What to do about it, cheaply:** the corpus has a content hash. Every candidate's
+recorded result should carry the hash of the split it was measured on, and any
+verdict whose hash does not match the current corpus should be printed as stale
+rather than read as a result. Until that exists, a corpus regeneration means
+re-running every candidate, and this one did not.
