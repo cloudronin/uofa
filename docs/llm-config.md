@@ -10,6 +10,13 @@ For API-key handling and the threat model see [security.md](security.md).
 
 Highest priority first:
 
+**Or no LLM at all.** `uofa extract --keyless` needs none of the configuration
+below — no key, no backend, no network. It fills only the fields with a route
+measured to beat a null model and leaves the rest blank, so it is the right
+starting point when you want to see the shape of a package before deciding what
+to spend. See the `--keyless` section in the README for what it fills and what
+each field is worth.
+
 1. **Command-line flags** — `--extract-backend` / `--extract-model` for
    extract; `--explain-backend` / `--explain-model` for explain
 2. **Project `[llm]`** — `<project_root>/uofa.toml`

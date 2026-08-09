@@ -368,6 +368,60 @@ uofa extract path/to/evidence/ --pack vv40 \
 # requires ANTHROPIC_API_KEY in environment
 ```
 
+### `--keyless` — extraction with no model at all
+
+```bash
+uofa extract path/to/evidence/ --pack vv40 --keyless -o extracted.xlsx
+```
+
+No API key, no network, no spend. Fills only the fields with a route measured to
+beat a null model that reads nothing, and **leaves the rest blank rather than
+guessing** — every blank is stated in the run output instead of being left to
+infer from an empty cell.
+
+What it fills, and what each is worth on the evaluation corpus:
+
+| field | route | measured |
+|---|---|---|
+| validation results | trained classifier | recall@5 **0.438** vs a 0.125 control |
+| decision outcome | trained classifier | **0.917** balanced; 5 of 6 rejections vs 0 |
+| model & dataset names | named-entity patterns | 0.418 / 0.088 |
+| context of use | definitional match | V&V 40 only — correctly silent on 7009A |
+| **per-factor levels** | — | **left blank**: the best keyless route scores 0.100 end to end, and a wrong level validates |
+
+On the five real papers it produces a conforming package for the three V&V 40
+documents. The two NASA-STD-7009A documents fail, and **correctly**: 7009A
+defines no context of use, so there is nothing to derive a bound requirement
+from, and the package says so rather than inventing one.
+
+Needs `scikit-learn` for the two trained routes; without it they report
+themselves unavailable and the run says which fields went unattempted.
+
+### What `uofa import` now records
+
+Every imported package carries, and prints on every run:
+
+```
+field provenance: 1 defaulted, 1 derived, 2 extracted, 6 run-context
+```
+
+* **extracted** — read from the document
+* **run-context** — supplied by the run: who ran it, when, the input filenames,
+  the hash and signature
+* **defaulted** / **derived** — filled in for you, or computed
+
+This is the only way to ask how much of a package was actually *read*. A
+conforming package can be mostly about the run that produced it, and before this
+the two were indistinguishable.
+
+Two related behaviours:
+
+* **The declared profile is derived**, not asserted — a package declares the
+  highest profile its content satisfies, not the one the extractor hoped for.
+* **The pack set is recorded**, so a package validates the same way for everyone.
+  Without `--pack`, `uofa shacl` uses what the package records and warns when it
+  has to assume.
+
 ---
 
 ## Domain Packs
