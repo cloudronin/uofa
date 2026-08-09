@@ -461,10 +461,28 @@ numbers look better.
 
 *Fails if:* a validating package cannot be asked how much of it was read.
 
-### R6 — the null control, and what the batch harness supplies
+### R6 — the null control, and what the batch harness supplies — **DONE**
 
-**The null control.** An extractor that reads nothing and emits nothing, run
-through R1–R3, scores **0 of 5** — Minimal needs three document-derived fields
+**Measured, in `dev/tools/scripts/validity_control.py`:**
+
+| extractor | imports | C2 | profile | extracted | run-context | defaulted |
+|---|---|---|---|---|---|---|
+| **null** | **NO** | **✗** | — | **0** | 0 | 0 |
+| keyless | yes | ✓ | Minimal | 2 | 6 | 2 |
+| model (gpt-5) | yes | ✓ | Complete | 4 | 6 | 1 |
+
+The null fails, which is the result that makes the other two rows readable:
+nothing downstream is inventing enough content to carry an empty extraction over
+the line.
+
+**And the `extracted` column is the one to read.** Both real extractors validate
+on **six run-context fields** — facts about the run, not about the evidence —
+against two and four extracted ones. A package can be conforming and be mostly
+about itself. That was invisible before R5 and is the single most useful thing
+this table shows.
+
+**The null control, as originally specified.** An extractor that reads nothing
+and emits nothing, run through R1–R3, scores **0 of 5** — Minimal needs three document-derived fields
 that no run-context default can supply. This must be *measured and printed*
 beside the two extractors, not asserted. Every other metric in this project
 carries a null model, and the one that was skipped here is the one that would
