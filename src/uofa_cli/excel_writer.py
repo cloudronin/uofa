@@ -181,6 +181,17 @@ def _write_entities_sheet(ws, entities: list[dict[str, FieldExtraction]]) -> Non
             "name": 2,
             "description": 4,
         }
+        # Column 3 is Identifier/URI, and nothing above supplies one -- so the
+        # template's help text stayed in the first data row and became the
+        # entity's identifier. The synthesized Requirement is inserted at index
+        # 0 and lands exactly there, so `bindsRequirement` came out as
+        # "Stable URI or local ID" and the package VALIDATED on it.
+        #
+        # That is the defect already on this project's record, where
+        # wasDerivedFrom was satisfied for 27 of 27 packages by the template's
+        # "DOI, report number, or URI". A blank here fails validation naming the
+        # field, which is the honest outcome.
+        ws.cell(row=row, column=3).value = None
         for field_name, col in field_map.items():
             fe = entity.get(field_name)
             if fe is None or fe.value is None:
