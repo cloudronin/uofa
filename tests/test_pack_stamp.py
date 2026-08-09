@@ -100,17 +100,34 @@ def test_the_cli_default_is_none_so_no_flag_stays_distinguishable():
     assert "args.active_packs = _pre_args.pack or args.pack or None" in src
 
 
-def test_the_shipped_7009a_examples_are_stamped():
-    """They are the artefacts demonstrating the standard, and the fallback's worst case.
+def test_the_7009a_examples_split_two_ways_and_only_one_is_a_package():
+    """Two are overlays needing no stamp; one is a real package that needs one.
 
-    Unstamped, they resolve to the `vv40` default and are validated against a
-    standard they do not follow.
+    R0b-2 first tried to stamp all three, broke the rule engine, and was then
+    closed on the reasoning that "they are not packages". That was over-general
+    and came from the same detection bug twice: a scan checking only `@type`
+    while these files use compacted `type`. cou1 and cou2 really are
+    weakener-annotation overlays with no `UnitOfAssurance` node — which is why
+    `uofa shacl` passes them vacuously — but `uofa-aero-fatigue-minimal` carries
+    one and is a genuine package.
+
+    So R0b-2 is not closed, it is SMALLER: one file, not three. This test states
+    which is which so the next attempt does not repeat either error.
     """
     root = pathlib.Path(paths.__file__).parent.parent.parent
-    examples = sorted((root / "packs" / "nasa-7009b" / "examples").rglob("*.jsonld"))
+    examples = {f.name: f for f in
+                (root / "packs" / "nasa-7009b" / "examples").rglob("*.jsonld")}
     if not examples:
         pytest.skip("nasa-7009b examples not present")
-    for f in examples:
-        assert paths.packs_recorded_in(f) == ["nasa-7009b"], (
-            f"{f.name} records {paths.packs_recorded_in(f)}; unstamped it would "
-            f"validate as vv40")
+
+    def is_package(f):
+        nodes = json.loads(f.read_text())
+        nodes = nodes.get("@graph") or [nodes]
+        return any("UnitOfAssurance" in str(n.get("@type") or n.get("type") or "")
+                   for n in nodes if isinstance(n, dict))
+
+    packages = {n for n, f in examples.items() if is_package(f)}
+    assert packages == {"uofa-aero-fatigue-minimal.jsonld"}, (
+        f"the package/overlay split moved: {sorted(packages)}. R0b-2 stamps the "
+        f"packages and leaves the overlays alone; if this set changed, so does "
+        f"the work.")

@@ -134,7 +134,7 @@ a list. Grep for it; there were three call sites at the time of writing.
 *Fails if:* `uofa shacl` on an unstamped package prints no warning, or
 `--pack vv40` prints one.
 
-### R0b-2 — restamp the shipped 7009A examples — **CLOSED, the task was wrong**
+### R0b-2 — stamp the one shipped 7009A package — **REOPENED, smaller than first written**
 
 The three packages under `packs/nasa-7009b/examples/` are the artefacts that
 demonstrate the standard, and they are exactly the ones the fallback gets wrong:
@@ -155,7 +155,20 @@ Step 3 is the point. If a package's verdict *changes*, the stamp disagreed with
 how it was actually being validated, and that is worth knowing before the file is
 re-signed rather than after.
 
-**Closed, not deferred.** The three files are **not packages**. They contain no
+**Correction, 2026-08-08.** This was closed on the reasoning that the three files
+are not packages. That was over-general, and it came from the same detection bug
+twice: a scan checking only `@type` while these files use compacted `type`.
+
+**Two of the three are overlays; one is a real package.** `uofa-aero-cou1` and
+`uofa-aero-cou2` carry no `UnitOfAssurance` node — which is why `uofa shacl`
+passes them vacuously — but **`uofa-aero-fatigue-minimal` is a genuine package
+and does need the stamp.** So R0b-2 is not closed; it is one file instead of
+three. `tests/test_pack_stamp.py` pins which is which so the next attempt repeats
+neither error.
+
+The paragraph below is kept because its reasoning holds for the two overlays.
+
+**On the two overlays.** They are **not packages**. They contain no
 `uofa:UnitOfAssurance` node — they are weakener-annotation overlays referencing a
 package IRI that lives elsewhere, which is why `uofa shacl` reports them
 conforming (vacuously, finding nothing to check) and why there was nothing to

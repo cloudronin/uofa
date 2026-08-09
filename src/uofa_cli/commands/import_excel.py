@@ -34,6 +34,30 @@ def add_arguments(parser):
                         help="engineer public key for verifying a SIP-bundle engineerDecision on import")
 
 
+def _print_provenance_counts(output: Path) -> None:
+    """Per-class field counts. See R5 in docs/valid-package-spec.md."""
+    import collections
+    import json
+
+    try:
+        blob = json.loads(output.read_text())
+    except (OSError, ValueError):
+        return
+    node = blob if "fieldProvenance" in blob else next(
+        (n for n in (blob.get("@graph") or []) if isinstance(n, dict)
+         and "fieldProvenance" in n), None)
+    if not node:
+        return
+    counts = collections.Counter((node.get("fieldProvenance") or {}).values())
+    if not counts:
+        return
+    parts = ", ".join(f"{n} {cls}" for cls, n in sorted(counts.items()))
+    info(f"  field provenance: {parts}")
+    if not counts.get("extracted"):
+        info("  NOTHING in this package was read from the document — every "
+             "field came from the run, a default, or a synthesis.")
+
+
 def run(args) -> int:
     # ── Project-aware defaults ───────────────────────────────
     project_root = paths.find_project_root()
@@ -215,6 +239,13 @@ def _sign_and_check(args, output: Path, packs, project_root) -> int:
         sha256_hex, sig_hex = sign_file(output, key, None)
         result_line("Signed", True)
         info(f"  SHA-256: {sha256_hex[:16]}...")
+
+    # R5. Always, not under a verbose flag. A conforming package says nothing
+    # today about how much of it was READ, and three separate failures on
+    # 2026-08-08 looked exactly like a clean pass: one validated on an assessor
+    # the model invented, one on the template's help text, one via a warned
+    # auto-synthesis. This is the line that tells them apart.
+    _print_provenance_counts(output)
 
     if args.check:
         from uofa_cli.commands import check

@@ -70,6 +70,34 @@ def resolve_criteria_set(standards_reference: str, base_uri: str) -> str:
     return f"{base_uri}/criteria/{slugify(standards_reference)}"
 
 
+def _provenance(summary: dict, packs: list[str]) -> dict:
+    """Which class each field came from. See R5 in docs/valid-package-spec.md.
+
+    Only fields whose origin this mapper actually knows are listed. A field
+    absent from this map is not thereby "extracted" -- it is unclassified, and
+    saying so is the point. Guessing a class would recreate the problem the map
+    exists to solve.
+    """
+    out = {
+        "wasAttributedTo": "run-context",
+        "validatedWithPacks": "run-context",
+        "wasDerivedFrom": "run-context",
+        "hash": "run-context",
+        "signature": "run-context",
+        "generatedAtTime": "run-context",
+    }
+    if summary.get("_project_name_defaulted"):
+        out["name"] = "defaulted"
+    elif summary.get("project_name"):
+        out["name"] = "extracted"
+    if summary.get("assessor_name"):
+        out["statedAssessor"] = "extracted"
+    for f in ("cou_name", "cou_description", "model_risk_level"):
+        if summary.get(f):
+            out[f] = "extracted"
+    return out
+
+
 def _operator_identity() -> str | None:
     """Who is running this, for prov:wasAttributedTo.
 
@@ -139,6 +167,18 @@ def map_to_jsonld(
         # standard does not resolve uniquely: ASME-VV40-2018 is claimed by vv40,
         # disposition and surrogate alike.
         "validatedWithPacks": list(packs),
+        # R5. How each field got here: extracted from the document, supplied by
+        # the run, defaulted, or synthesized. A package validating on six
+        # run-context fields and two extracted ones is a different artefact from
+        # one validating on eight extracted fields, and without this they are
+        # indistinguishable -- which is what would let R1-R3 become a way to make
+        # the numbers look better rather than the packages truer.
+        #
+        # Three findings on 2026-08-08 pointed here independently: a package that
+        # validated because the model invented an assessor, one that validated on
+        # the template's help text, and one that reaches Minimal via a warned
+        # auto-synthesis. All three look identical to a conforming package today.
+        "fieldProvenance": _provenance(summary, packs),
         "name": f"{summary['project_name']} \u2014 {summary['cou_name']}",
     }
 

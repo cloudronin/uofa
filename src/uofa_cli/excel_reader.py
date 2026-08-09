@@ -265,6 +265,7 @@ def _read_summary(ws, errors: list, warnings: list | None = None,
     source_doc = _cell_value(ws, row, 11)     # K
     has_uq = _cell_value(ws, row, 12)         # L
 
+    _project_name_defaulted = False
     # R2. A missing project name defaults to the workbook's own stem rather than
     # refusing the import.
     #
@@ -279,6 +280,7 @@ def _read_summary(ws, errors: list, warnings: list | None = None,
     # keep it distinguishable from something the extractor actually found.
     if not project_name:
         project_name = Path(source).stem if source else "untitled-assessment"
+        _project_name_defaulted = True
         if warnings is not None:
             warnings.append(
                 f"Sheet '{sheet}', cell {_cell_ref(1, row)}: no Project Name — "
@@ -331,6 +333,8 @@ def _read_summary(ws, errors: list, warnings: list | None = None,
 
     return {
         "project_name": project_name,
+        # R5: whether the name was read or filled in for the user.
+        "_project_name_defaulted": _project_name_defaulted,
         "cou_name": cou_name,
         "cou_description": cou_description,
         "profile": profile,
