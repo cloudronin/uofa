@@ -70,6 +70,31 @@ def resolve_criteria_set(standards_reference: str, base_uri: str) -> str:
     return f"{base_uri}/criteria/{slugify(standards_reference)}"
 
 
+def _operator_identity() -> str | None:
+    """Who is running this, for prov:wasAttributedTo.
+
+    Order: an explicit --assessor, the [assessment] assessor config key, then
+    `git config user.name`, then $USER. Returns None when nothing identifies the
+    operator, and None is the right answer -- the package then fails validation
+    naming the missing field, rather than validating on a name the extractor
+    made up.
+    """
+    import os
+    import subprocess
+
+    env = os.environ.get("UOFA_ASSESSOR")
+    if env:
+        return env.strip()
+    try:
+        r = subprocess.run(["git", "config", "user.name"],
+                           capture_output=True, text=True, timeout=5)
+        if r.returncode == 0 and r.stdout.strip():
+            return r.stdout.strip()
+    except (OSError, subprocess.SubprocessError):
+        pass
+    return os.environ.get("USER") or None
+
+
 def map_to_jsonld(
     data: dict, packs: list[str], source_path: Path, base_uri: str | None = None
 ) -> dict:
@@ -156,8 +181,22 @@ def map_to_jsonld(
     if summary.get("source_document"):
         doc["wasDerivedFrom"] = summary["source_document"]
 
+    # R1. `wasAttributedTo` is WHO RAN THE TOOL, which an extractor cannot know.
+    #
+    # It used to come from the spreadsheet's Assessor Name, and that single line
+    # decided whether a package validated: of five real papers extracted by
+    # gpt-5, the two that passed SHACL were exactly the two where the model had
+    # invented an assessor. Validity turned on a guess about a person.
+    #
+    # A document MAY state who performed the assessment -- NTRS credibility
+    # reports often do -- and reading that is legitimate evidence. Using it as
+    # the operator's identity is not. It is recorded as `statedAssessor`, an
+    # extracted fact, and the two stay distinguishable.
     if summary.get("assessor_name"):
-        doc["wasAttributedTo"] = f"{base}/org/{slugify(summary['assessor_name'])}"
+        doc["statedAssessor"] = summary["assessor_name"]
+    operator = _operator_identity()
+    if operator:
+        doc["wasAttributedTo"] = f"{base}/org/{slugify(operator)}"
 
     # ── Credibility Factors (Complete profile) ───────────────
     # Include ALL factors (assessed AND not-assessed) so the rule engine

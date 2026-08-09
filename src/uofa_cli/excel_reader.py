@@ -147,7 +147,8 @@ def read_workbook(xlsx_path: Path, packs: list[str]) -> dict:
 
     # ── Read Assessment Summary (row 3) ──────────────────────
     ws = wb[SHEET_NAMES["summary"]]
-    summary = _read_summary(ws, errors, warnings=warnings)
+    summary = _read_summary(ws, errors, warnings=warnings,
+                            source=xlsx_path)
     profile = summary.get("profile", "Minimal")
 
     # Credibility Factors is only required for Complete profile
@@ -223,7 +224,8 @@ def _find_header_row(ws, header_keyword: str, search_col: int = 1, max_row: int 
     return 2  # default
 
 
-def _read_summary(ws, errors: list, warnings: list | None = None) -> dict:
+def _read_summary(ws, errors: list, warnings: list | None = None,
+                  source: Path | None = None) -> dict:
     """Read Assessment Summary sheet.
 
     Finds the header row (containing "Project Name") and reads data from
@@ -263,9 +265,25 @@ def _read_summary(ws, errors: list, warnings: list | None = None) -> dict:
     source_doc = _cell_value(ws, row, 11)     # K
     has_uq = _cell_value(ws, row, 12)         # L
 
-    # Required for Minimal
+    # R2. A missing project name defaults to the workbook's own stem rather than
+    # refusing the import.
+    #
+    # The keyless extractor leaves it blank on purpose -- it is a name for the
+    # assessment, not a fact in the paper, and inventing one is the thing that
+    # whole path exists to avoid. But refusing the import means the user never
+    # sees a package at all, and a name is the one blank a default can fill
+    # truthfully: the file it came from. Renaming it is the intended next step;
+    # never seeing the package is not.
+    #
+    # It is recorded as `defaulted`, not as a reading, so R5's per-class counts
+    # keep it distinguishable from something the extractor actually found.
     if not project_name:
-        errors.append(f"Sheet '{sheet}', cell {_cell_ref(1, row)} (Project Name) is required for Minimal profile")
+        project_name = Path(source).stem if source else "untitled-assessment"
+        if warnings is not None:
+            warnings.append(
+                f"Sheet '{sheet}', cell {_cell_ref(1, row)}: no Project Name — "
+                f"defaulted to {project_name!r} from the filename. Rename it to "
+                f"something meaningful before signing.")
     if not cou_name:
         errors.append(f"Sheet '{sheet}', cell {_cell_ref(2, row)} (COU Name) is required")
 
