@@ -600,6 +600,45 @@ package — the only artefact anyone wants. Every test passed while every workbo
 was unimportable. **Test the pipeline, not the step**, and prefer the check that
 can fail.
 
+## The re-run: the prediction was wrong
+
+This document predicted that validity would **drop** before it improved — that
+the two gpt-5 packages passing on invented assessors would fail once R1 removed
+them, and an implementation showing no dip had kept the fabrication.
+
+Measured, on the same five papers through the finished pipeline:
+
+| | before | after |
+|---|---|---|
+| gpt-5 | 2 of 5 | **5 of 5** |
+| keyless | 0 of 5 | **3 of 5** |
+
+**No dip. It went up, and the prediction was simply wrong.**
+
+**Why, and it is a distinction worth keeping.** R1 does not *delete* the
+attribution, it *substitutes* the source: `wasAttributedTo` now comes from the
+operator running the tool instead of from a name a model made up. So all five
+gained a legitimate value where two had held an invented one. I predicted the
+effect of removing a field and then built the supplying of it correctly. The
+prediction was about a different change than the one implemented.
+
+**What the dip test was actually for still holds**, and R6 now does that job
+properly: an empty extractor does **not** validate. That is the check that
+detects downstream invention, and it is a control rather than a forecast.
+
+**Keyless at 3 of 5 is the more interesting number.** The three that pass are the
+V&V 40 papers; the two that fail are the 7009A ones, and they fail *correctly*.
+Keyless emits no context of use on a 7009A document because the standard defines
+none — so there is nothing for the Requirement synthesis to derive from, and
+`bindsRequirement` is genuinely absent. The package cannot reach Minimal and says
+so. **A 7009A document gives a keyless extractor nothing to bind a requirement
+to**, which is a fact about the standard, not a defect in the extractor.
+
+**And the column that matters is still `extracted`.** Every passing package above
+carries **six run-context fields** against two to five extracted ones. Validity
+improved; how much of these packages was read from the evidence did not change at
+all.
+
 ## Risks
 
 - **R3 makes validation easier to pass.** Mitigated by R5: profile and per-class
