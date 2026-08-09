@@ -231,7 +231,18 @@ non-zero on any package that stops conforming, and also reports packages that
 *start* conforming — silently making validation easier is how a shape stops
 meaning anything.
 
-Baseline: **64 packages, 59 conforming, 5 not.**
+Baseline: **64 packages, 59 conforming, 5 not — and of the 59, two pass
+vacuously.**
+
+A shape targeting `uofa:UnitOfAssurance` conforms on a file containing no such
+node: it finds nothing to check and reports success. Three of the shipped
+`nasa-7009b` "examples" are weakener-annotation overlays referencing a package
+IRI that lives elsewhere, and `uofa shacl` calls them conforming. Without the
+column, a pass on an empty file and a pass on a full package read identically —
+`control_constant_list` scoring 1.000 in a new place.
+
+**57 of 64 are real packages that met their profile**, and that is the number the
+R0 regression result rests on.
 
 ---
 

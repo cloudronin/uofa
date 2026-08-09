@@ -63,6 +63,41 @@ def shape_files(pack: str) -> list[pathlib.Path]:
     return [p for p in out if p.exists()]
 
 
+def has_target(path: pathlib.Path) -> bool:
+    """Whether the shape has anything to validate here.
+
+    A SHACL shape targeting `uofa:UnitOfAssurance` conforms VACUOUSLY on a file
+    containing no such node -- it finds nothing to check and reports success.
+    Three of the shipped nasa-7009b "examples" are exactly that: weakener
+    annotation overlays that reference a package IRI living elsewhere, and
+    `uofa shacl` calls them conforming.
+
+    Without this column, "59 of 64 conforming" cannot be read: a pass on a file
+    with nothing in it and a pass on a fully-populated package look identical.
+    That is `control_constant_list` scoring 1.000 in a new place -- a measure
+    rewarding emptiness.
+
+    Detection checks BOTH `@type` and `type`. The packages that matter are
+    compacted JSON-LD aliasing `type` to `@type` via their `@context`, and a
+    first version of this check looked only at `@type` and reported that ZERO of
+    64 packages had a target -- while five of them were failing validation,
+    which requires a target to fail on. An implausible number is the signal;
+    5 failures against 0 targets cannot both be true.
+    """
+    import json
+    try:
+        blob = json.loads(path.read_text())
+    except (OSError, ValueError):
+        return False
+    for node in (blob.get("@graph") or [blob]):
+        if not isinstance(node, dict):
+            continue
+        t = node.get("@type") or node.get("type") or ""
+        if "UnitOfAssurance" in str(t):
+            return True
+    return False
+
+
 def check_one(path: pathlib.Path, shapes: list[pathlib.Path]) -> dict:
     from uofa_cli.shacl_friendly import run_shacl_multi
     try:
@@ -94,12 +129,18 @@ def main() -> int:
         pack = pack_for(rel)
         now[rel] = check_one(p, shape_files(pack))
         now[rel]["pack"] = pack
+        now[rel]["has_target"] = has_target(p)
     args.out.write_text(json.dumps(now, indent=2, sort_keys=True) + "\n")
 
     conf = sum(1 for v in now.values() if v.get("conforms") is True)
     nonc = sum(1 for v in now.values() if v.get("conforms") is False)
     err = sum(1 for v in now.values() if v.get("conforms") is None)
+    vac = sum(1 for v in now.values()
+              if v.get("conforms") is True and not v.get("has_target"))
     print(f"  conforming {conf}   non-conforming {nonc}   unreadable {err}")
+    print(f"  ...of the conforming, {vac} have NO UnitOfAssurance node and pass")
+    print(f"     vacuously — the shape found nothing to check. {conf - vac} are")
+    print(f"     packages that actually met their profile.")
     print(f"  wrote {args.out}")
 
     if args.diff:
