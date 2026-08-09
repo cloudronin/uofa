@@ -1081,3 +1081,53 @@ harness, then repeated the identical error reasoning about the nasa-7009b
 examples, concluded "these are not packages", and closed R0b-2 on it. One of the
 three **is** a package. **A bug fixed in an instrument is not thereby fixed in
 the head that wrote it.**
+
+### The packaging requirements, built — and a prediction that failed — 2026-08-08
+
+The spec ([valid-package-spec.md](valid-package-spec.md)) is now fully
+implemented. What each change was actually for:
+
+| | the fix | what it was fixing |
+|---|---|---|
+| R0 | `hasContextOfUse` moved from core to `packs/vv40` | core called itself standards-agnostic while requiring a V&V 40 concept, making 7009A unvalidatable at any profile |
+| R0b | packages record `validatedWithPacks` | validation was relative to a flag the operator remembered; the default silently applied V&V 40 to everything |
+| R0b-1 | the pack default moved from parser to resolver | with the default applied at parse time, "was a flag given?" was unanswerable, so the fallback warning could never fire |
+| R0c | core 0.5.0 → 0.6.0, vv40 pins `>=0.6.0` | new core with old vv40 would have dropped the requirement entirely |
+| R1 | `wasAttributedTo` from the run, `statedAssessor` for what the document says | validity turned on whether a model invented a person |
+| R2 | `project_name` defaults to the file stem | a blank name refused the import outright, so the user never saw a package |
+| R3 | the profile is **derived**, not asserted | every package declared `Complete` because the extractor writes "Complete" |
+| R4b | the writer clears the identifier column | the template's help text became `bindsRequirement` and satisfied its minCount |
+| R5 | every field records its class; counts always printed | a conforming package said nothing about how much of it was read |
+| R6 | the null control, measured | every other metric here has one; this one's absence let two impossible acceptance tables ship |
+
+**The prediction this document made about itself was wrong.** It said validity
+would drop before improving — that the two gpt-5 packages passing on invented
+assessors would fail once R1 removed them, and no dip meant the fabrication
+survived. Measured: gpt-5 **2 of 5 → 5 of 5**, keyless **0 of 5 → 3 of 5**. No
+dip.
+
+The reason is worth keeping: R1 does not *delete* the attribution, it
+*substitutes the source*. All five gained a legitimate value where two had held a
+fabricated one. **I predicted the effect of removing a field and then implemented
+supplying it correctly** — a forecast about a different change than the one built.
+What the dip was meant to detect is now a control instead: an empty extractor does
+not validate, and R6 checks that every run.
+
+**Pattern #12: a forecast is not a control.** A predicted number can be satisfied
+by a mechanism other than the one predicted, and the prediction cannot tell the
+difference. A null model can. Where this document said "if X does not happen the
+fabrication survived", it should have said "the null control must fail" — which is
+falsifiable in the way the forecast only appeared to be.
+
+**The finding that did not move.** Every passing package carries **six
+run-context fields** against two to five extracted. Validity improved; how much
+of these packages was read from the evidence did not change at all. A package can
+be conforming and be mostly about the run that produced it, and before R5 that
+was structurally invisible.
+
+**Keyless at 3 of 5, and the two failures are correct.** The three passing are
+V&V 40. The two failing are 7009A: keyless emits no context of use there because
+the standard defines none, so the Requirement synthesis has nothing to derive
+from and `bindsRequirement` is genuinely absent. **A 7009A document gives a
+keyless extractor nothing to bind a requirement to** — a fact about the standard,
+not a defect in the tool.
