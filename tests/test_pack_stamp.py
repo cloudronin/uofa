@@ -81,3 +81,36 @@ def test_every_pack_declares_its_standards():
     for manifest in sorted(root.glob("*/pack.json")):
         d = json.loads(manifest.read_text())
         assert "standards" in d, f"{manifest.parent.name} declares no standards key"
+
+
+def test_the_cli_default_is_none_so_no_flag_stays_distinguishable():
+    """The default belongs to the resolver, not the parser.
+
+    `cli.py` used to set `args.active_packs = ... or ["vv40"]`, applying the
+    default at parse time. A command then could not tell an explicit
+    `--pack vv40` from a defaulted one, so the warning that says "no pack
+    recorded, I assumed vv40" was unreachable — and an unstamped 7009A package
+    validated as V&V 40 in silence, which is the defect the stamp exists to
+    close.
+    """
+    src = (pathlib.Path(paths.__file__).parent / "cli.py").read_text()
+    assert 'args.pack or ["vv40"]' not in src, (
+        "the parser is applying the pack default again; None is the only value "
+        "that keeps 'no flag was given' answerable")
+    assert "args.active_packs = _pre_args.pack or args.pack or None" in src
+
+
+def test_the_shipped_7009a_examples_are_stamped():
+    """They are the artefacts demonstrating the standard, and the fallback's worst case.
+
+    Unstamped, they resolve to the `vv40` default and are validated against a
+    standard they do not follow.
+    """
+    root = pathlib.Path(paths.__file__).parent.parent.parent
+    examples = sorted((root / "packs" / "nasa-7009b" / "examples").rglob("*.jsonld"))
+    if not examples:
+        pytest.skip("nasa-7009b examples not present")
+    for f in examples:
+        assert paths.packs_recorded_in(f) == ["nasa-7009b"], (
+            f"{f.name} records {paths.packs_recorded_in(f)}; unstamped it would "
+            f"validate as vv40")

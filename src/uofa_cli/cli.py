@@ -129,7 +129,13 @@ def _run():
     # Resolve active pack(s) and thread them explicitly on args (P2d-3). The
     # process global is gone; commands read args.active_packs (via
     # paths.resolve_active_packs) and pass it down explicitly.
-    args.active_packs = _pre_args.pack or args.pack or ["vv40"]
+    # None, NOT ["vv40"]. The default belongs to paths.resolve_active_packs,
+    # which applies it after consulting the pack set a package records. Baking
+    # it in here destroyed the only signal for "no flag was given", so a command
+    # could not tell an explicit `--pack vv40` from a defaulted one -- and the
+    # warning that says "no pack recorded, I assumed vv40" was unreachable.
+    # Nothing reads args.active_packs directly; every consumer resolves.
+    args.active_packs = _pre_args.pack or args.pack or None
 
     # Resolve repo root early so commands can use paths.*
     try:

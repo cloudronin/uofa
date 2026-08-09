@@ -134,7 +134,7 @@ a list. Grep for it; there were three call sites at the time of writing.
 *Fails if:* `uofa shacl` on an unstamped package prints no warning, or
 `--pack vv40` prints one.
 
-### R0b-2 — restamp the shipped 7009A examples **(open, and it needs a signature)**
+### R0b-2 — restamp the shipped 7009A examples **(ATTEMPTED, REVERTED, still open)**
 
 The three packages under `packs/nasa-7009b/examples/` are the artefacts that
 demonstrate the standard, and they are exactly the ones the fallback gets wrong:
@@ -155,8 +155,38 @@ Step 3 is the point. If a package's verdict *changes*, the stamp disagreed with
 how it was actually being validated, and that is worth knowing before the file is
 re-signed rather than after.
 
+**What happened on the first attempt, and why it was reverted.** The stamp went
+in, the three files re-signed, hash and signature verified, and
+`profile_baseline --diff` reported **no verdict change** — every check that had
+been specified passed. Two tests outside that set then failed:
+`TestWeakenerPins::test_aero_cou1_accept_fires_w_ar_02` and its cou2 pair, with
+`uofa rules` reporting **"Inferred 0 new triples (1 total)"**. The rule engine
+was seeing an empty graph.
+
+The cause is in the stamping script, not in the idea. It looked for a node typed
+`uofa:UnitOfAssurance` to attach the stamp to; **these packages contain no such
+node at graph level**, so it fell through to a `target = d` default and stamped
+the top-level document beside `hash` and `signature`. Re-signing over that
+structure produced a file that verifies and validates and that the rule engine
+cannot read.
+
+**Three things this says for the retry:**
+
+1. **Find out where the stamp actually belongs in these files first.** They are
+   not shaped like the packages `excel_mapper` emits — no `@context`, full IRIs,
+   18 graph nodes, no `UnitOfAssurance` node found by type. That difference is
+   worth understanding before writing to them.
+2. **A fall-through default in a script that edits signed artefacts is the bug.**
+   `target = d` silently did something plausible instead of failing. It should
+   raise.
+3. **The specified checks were insufficient and passing them proved nothing.**
+   Hash, signature, and the 64-package validation diff were all green on a file
+   that had been broken. C2 and C1 do not exercise C3, and the acceptance for
+   this item must include `uofa rules` — which is the third of the three checks
+   `uofa check` runs, and the one nobody thought to name.
+
 *Fails if:* a shipped example validates differently with and without `--pack
-nasa-7009b`.
+nasa-7009b` — or if C1 and C2 pass on it while C3 sees an empty graph.
 
 ### R0c — the version bump — **DONE, and it is not the version I first wrote**
 
