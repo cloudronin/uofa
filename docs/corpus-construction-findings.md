@@ -1,129 +1,131 @@
-# Corpus construction: findings
+# Findings: corpus, extraction, and packaging
 
-Running record for building the seeded evaluation corpus. Companion to
-[`keyless-extract-findings.md`](keyless-extract-findings.md), which records the
-candidate evaluations this corpus exists to serve, and to
-[`seeded-corpus-spec.md`](seeded-corpus-spec.md), which holds the requirements.
+Running record for the work that built a seeded evaluation corpus, measured what
+extraction is worth with and without a language model, and made the resulting
+packages validate honestly. Companion to
+[keyless-hybrid-ceiling.md](keyless-hybrid-ceiling.md), which holds the
+measurement deliverable, [valid-package-spec.md](valid-package-spec.md), which
+holds the packaging requirements and their status, and
+[seeded-corpus-spec.md](seeded-corpus-spec.md), which holds R1–R9.
 
-**The split:** the spec says what the corpus must be. This says what was learned
-building it, including the things that were wrong on the way. Append here as new
-results land; do not rewrite history, add a dated entry.
+**The split:** the specs say what things must be. This says what was learned
+building them, including what was wrong on the way. Append as new results land;
+do not rewrite history, add a dated entry.
+
+**How to read it:** the thirteen patterns below are the transferable part and
+each is drawn from more than one instance. Everything after them is the evidence,
+in date order.
 
 ---
 
 ## The recurring patterns
 
-These transfer beyond this corpus, and each was found more than once. They are
-first because they are the most reusable thing in the document.
+Thirteen, each found more than once. They are first because they are the most
+reusable thing in the document, and the dated entries below are the evidence.
 
-### 1. A threshold taken from one population, applied to another — six times
+**Most of them are not about code.** Nine of the thirteen are defects in the
+*measuring* apparatus — a threshold, a matcher, a harness, a test, a forecast.
+The recurring failure in this work is not a component that breaks loudly; it is
+an instrument that reports success. Three separate numbers this project acted on
+turned out to describe the tool rather than the thing, and none of them raised an
+error.
 
-Every one rejected or accepted the wrong thing, and every one was fixed by
-measuring the population it would actually be applied to.
+### About measurement
 
-| threshold | set to | reality | what it did |
-|---|---|---|---|
-| diversity floor | mean >0.60 / max >0.85 | real 0.141 / 0.261 | would have passed a corpus 4× more homogeneous than real |
-| hyphenation floor (per paper) | 0.040 | real spans 0.007–0.083 | rejected opensim **and** elemance |
-| two-column floor (per paper) | 0.80 | real spans 0.089–1.000 | rejected the same two |
-| hyphenation ceiling | *absent* | real max 0.083 | passed a paper at 0.319 |
-| gradation validator | `[0-5]` | R6 *requires* private scales | rejected a paper's 0–12 index three times |
-| selection agreement ceiling | 0.95 | real 0.961 | **rejected its own reference** |
+**1. A threshold from one population applied to another — six times.**
+A diversity floor 4× looser than real. A hyphenation floor rejecting 2 of 5 real
+papers. A gradation validator rejecting the deviation its own spec required. A
+selection-agreement ceiling that **rejected its own reference**. Every one was
+fixed by measuring the population it would be applied to. *The first test of any
+band is whether it accepts its own reference.*
 
-**The rule:** a band must be re-derived whenever the measurement behind it
-changes, and the first test of any band is whether it accepts its own reference.
+**2. The defect is one step upstream of the symptom — eight times.**
+91% of gold levels "not stated" (the write prompt never specified the table). A
+table of device parameters (a trailing comma truncating the real one). Two
+candidates "failing" (both read PDFs with `read_text()` and scored binary
+garbage). *When a component fails, look at what feeds it before looking at it.*
 
-A second rule fell out of the same pattern: *per-paper* checks and *corpus-level*
-checks answer different questions. Per paper: did this pathology occur at all —
-so the floor must sit below every real value. Corpus level: is the rate the real
-rate — that is where a two-sided band belongs.
+**3. Explaining a number before checking what produced it — twice, both flattering.**
+An agreement figure got two confident explanations before either was tested, and
+both excused the corpus. The real cause was granularity — per-scope results
+against a document-level band. Running the check cost $0.15.
 
-### 2. The defect is often one step upstream of the symptom — eight times
+**4. A check satisfiable without checking anything — five times.**
+`na_rate` scored 0.000 while 91% of levels said "not stated", because a string
+the `_NA` set didn't list. A test asserting `status == "not_assessed"` against
+code emitting `"not_assessed"` — green forever, catching nothing. An import
+blocker using `find_module`, dead in Python 3.12, so the dependency imported
+anyway and "degrades gracefully" was never tested. *A test that restates the
+implementation cannot catch the implementation being wrong.*
 
-| symptom | what it looked like | actual cause |
-|---|---|---|
-| 91% of gold levels "not stated" | gold's prompt | the write prompt never specified the table |
-| the table was device parameters | the write prompt just fixed | a trailing comma truncating the real table away |
-| table coverage 0.15, 0.05, 0.39 | the writer under-delivering | a validator discarding valid rows |
-| selection agreement 0.631 | the corpus being ambiguous | gold and annotator asked different questions |
-| selection agreement 0.765 | the corpus again | my own `factor-not-scored` drop |
-| a table "omitting" a factor | the writer | a substring match and one dropped article |
-| K5 and K3c failing outright | the candidates | both called `read_text()` on PDFs |
-| K5 "failing" | the candidate | the criterion was unreachable at a 1.000 control |
+**5. A fix added in one place and not the other — six times.**
+`--save-raw` wrote after parsing; fixed in the generator, then cost another $0.46
+run in the agreement script. `_merge_json_results` guarded `credibility_factors`
+for a bare value and not `assessment_summary` or `decision` — one un-wrapped
+field lost a whole document. A version assertion hardcoded in one test while its
+neighbour four hundred lines above carried a comment explaining that exact fix.
+*Grep for the other call site.*
 
-Each number was real. Each attribution was wrong. Twice the symptom pointed
-directly at a component that had just been corrected, and twice it pointed at a
-candidate that was reading binary garbage.
+**6. Two of my own requirements contradicting — three times.**
+`_GRADATION` bounded to `[0-5]` while R6 required private scales. An acceptance
+table needing a fabrication its own R4 forbade. A harness leaving
+`bindsRequirement` absent while acceptance required it, making every target 0
+before anything ran. *Ask which requirement governs the specific thing measured.*
 
-**The predictive value is the point.** By the eighth instance this had become the
-first thing worth checking: when a component fails, look at what feeds it before
-looking at it.
+**7. Fixing one measure by breaking another.**
+Dropping unscored factors took `na_rate` to 0 and drove selection agreement
+0.891 → 0.765. *When a filter improves one measure, check the measure that
+filter's information could distort.*
 
-### 3. Explaining a number before checking what produced it — twice, both flattering
+### About instruments
 
-Same-sentence agreement came in at 0.508 against a 0.708 baseline. Two
-explanations were offered before either was tested, and both were wrong in the
-direction that excused the corpus:
+**8. A negative about one implementation reported as a negative about the task.**
+Three properties were recorded as having "no keyless route" on one hand-written
+matcher each, while the strongest keyless method here — a trained classifier —
+had been applied to one property of nine. Applied to the other three, two beat
+their controls. *Before recording something as impossible, try the method that
+already works elsewhere in the same codebase.*
 
-* *"the band does not transfer because our papers have more scopes"* — **refuted**:
-  elemance has 8 scopes and the *highest* agreement of the five real papers
-  (6/6), while single-scope bologna has the lowest (7/12).
-* the actual cause was granularity — per-scope comparison reported against a
-  document-level band. Measured the baseline's way: **0.773**, in band.
+**9. The instrument is a superset of the target — three times in one day.**
+A gitignored fixture, two colliding `conftest` modules, a missing `pdflatex`:
+each passed locally and failed in CI, and in every case the local environment had
+something CI did not. *A check whose environment is richer than the target's
+cannot falsify anything about the target. Run it with the thing removed.*
 
-Running D1 against the real papers cost about **$0.15** and settled it.
+**10. Test the pipeline, not the step.**
+The keyless extractor was exercised as far as producing a spreadsheet and never
+through `uofa import` to a package — the only artefact anyone wants. Every test
+passed while every workbook was unimportable on twelve rows.
 
-### 4. A check that can be satisfied without checking anything — three times
+**11. A bug fixed in an instrument is not thereby fixed in the head that wrote it.**
+A scan checking only `@type` while real packages use compacted `type` reported
+*zero of 64 packages have a target* while five were failing validation — which
+requires a target. The impossibility caught it; no check did. I fixed it in the
+harness, then made the identical error an hour later reasoning about three
+example files, and closed a task on the strength of it.
 
-* K8's and K9's kill criteria, satisfiable at any sample size (recorded in the
-  companion doc).
-* `na_rate` scored **0.000 and passed** while 91% of levels said `"not stated"` —
-  a string the `_NA` set happened not to list. The check was satisfied by the
-  *wording* of its own failure.
+**12. A forecast is not a control.**
+The valid-package spec predicted validity would drop before improving and that no
+dip meant fabrication survived. It went up, and the fabrication was gone anyway,
+because the fix *substituted* an attribution source rather than deleting a field.
+*A predicted number can be satisfied by a mechanism other than the one predicted,
+and the prediction cannot tell. A null model can.* Where a spec says "if X does
+not happen, Y survived", it should say "the null control must fail".
 
-### 5. A fix added in one place and not the other — three times
+**13. A full sweep is not a slower version of a targeted one.**
+A provenance record corrupted the graph it documented, and C1, C2 and C3 all
+stayed green — the only thing that caught it was one e2e test asserting no
+traceback reaches stderr, out of 2,681. *When a change touches a shared
+serialisation path, the set of tests that could notice is not knowable in
+advance.*
 
-* `--save-raw` wrote *after* parsing, so the one response worth inspecting was
-  the only one not kept. Fixed in the generator; the agreement script then cost
-  another $0.46 run for the same reason.
-* `parse_or_salvage` repaired the write step's JSON for hours while the plan step
-  still used the raw parser, and a paper died on it.
-* The agreement script parsed the annotator's JSON with the raw parser, so **one
-  trailing comma in thirty responses refused the entire verdict** — and that
-  response recovered 13 factors once repaired.
+### The one that generalises furthest
 
-Each repair was written once and needed twice. Grep for the other call site.
-
-### 6. Two of my own requirements contradicting each other — twice
-
-* `_GRADATION` was bounded to `[0-5]` and therefore **rejected the private
-  numeric scale R6 requires**. A paper was regenerated three times while its
-  writer had produced the full grid correctly every time.
-* Counting ambiguous findings as N/A made **R8** (every assessed factor scored)
-  contradict **R5** (10–20% reported ambiguously, which by definition have no
-  gradation). The corpus was being penalised for having the property R5 asks
-  for.
-
-Both were resolved by asking which requirement governs the specific thing being
-measured — not by loosening a threshold until the conflict stopped showing.
-
-### 7. Fixing one measure by breaking another
-
-Dropping findings whose factor the summary table never scores took `na_rate` to
-0 and drove selection agreement **0.891 → 0.765** (AC1 0.876 → 0.702), with
-annotator-only rising 6 → 18. Sixteen of those eighteen were exactly the dropped
-findings.
-
-The drop removed gold entries using table knowledge the independent annotator
-does not have — the same asymmetry corrected an hour earlier for out-of-scope
-findings, recreated immediately. And the entries were not even wrong: **two
-readers found evidence for those factors in the prose**, so the paper assesses
-them and its *table* is incomplete.
-
-The lesson is narrow and useful: when a filter improves one measure, check the
-measure that filter's information could distort.
-
----
+**A finding does not propagate to the places that repeat it.** `control_constant_list`
+— a function that prints the standard's checklist and reads nothing — was shown
+to score **1.000 on the real corpus** months ago. The README's headline
+extraction claim still rested on that same detection metric until 2026-08-09.
+Recording a result is not the same as retiring the claims it invalidates.
 
 ## What the gates actually catch
 

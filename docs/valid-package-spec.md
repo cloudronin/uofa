@@ -1,6 +1,15 @@
 # Making both extractors produce a valid package
 
-**Status:** specification, not yet implemented. Revised 2026-08-08 after review;
+**Companion:** [corpus-construction-findings.md](corpus-construction-findings.md)
+holds the running record of what was learned building this — including the
+thirteen recurring patterns, several of which this document is a direct response
+to, and the two acceptance tables it shipped that were unreachable.
+
+**Status:** every requirement below is implemented. Text kept from the drafting
+stage where it records how a requirement was reasoned about; status is marked
+per requirement.
+
+**Originally:** specification, not yet implemented. Revised 2026-08-08 after review;
 the first draft's acceptance criteria were unreachable and its headline was
 wrong. Every number here was measured against the five real papers.
 

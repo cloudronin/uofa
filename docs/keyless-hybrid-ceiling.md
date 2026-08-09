@@ -1,5 +1,11 @@
 # The hybrid ceiling
 
+**Companions:** [corpus-construction-findings.md](corpus-construction-findings.md)
+records what was learned producing these numbers — including three that turned
+out to measure the tooling rather than the thing — and
+[valid-package-spec.md](valid-package-spec.md) covers whether the output
+validates, which is a separate question from whether it is right.
+
 **What a keyless pipeline can fill, at what quality, and what still needs a
 model.** One row per required property, never a fraction: "nine of thirteen
 covered" is a useless sentence when the remaining four carry the substance.
