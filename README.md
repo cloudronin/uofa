@@ -355,10 +355,43 @@ uofa import extracted.xlsx --sign --key keys/research.key --check --pack vv40
 
 The extract prompt is a `=== SECTION ===` key-value format (v4-kv) that produces structurally valid output without the brace-counting failures of nested JSON. Typical wall time: 3-10 min per evidence folder on Apple Silicon depending on document size, all local — no API spend.
 
-Validated end-to-end against:
-- The FDA Morrison case study (vv40, F1 = 1.000)
-- An aero HPT blade case (nasa-7009b, F1 = 0.973)
-- A 50-bundle synthetic eval corpus stratified across (standard × domain × quality × format) — all 19 factors detected at 100% rate, mean F1 = 0.964 dev / 0.954 test, zero bundle crashes. See [docs/extract_eval_v1.md](docs/extract_eval_v1.md) for the writeup.
+### What extraction is actually worth
+
+This section used to report **F1 = 1.000** on the Morrison case, **0.973** on an
+aero HPT blade, and **0.964 dev / 0.954 test** across a 50-bundle synthetic
+corpus, with "all 19 factors detected at 100% rate".
+
+**Those numbers measure detection, and detection cannot discriminate here.**
+`control_constant_list` — a function that prints the standard's checklist and
+reads nothing at all — scores **1.000 on the real corpus** and 0.960 on the
+synthetic one. A published credibility assessment enumerates every factor and
+scores absent evidence rather than omitting the row; that is what the artefact
+*is*. So any evaluation built on detection ranks a null model at the top, and
+this is not a corpus defect that a better corpus fixes.
+
+The same eval reported `mean overall F1 0.964 — PASS` while **37 of 45 packages
+failed the SHACL shape**.
+
+Measured on **five real journal papers** with gpt-5 (2026-08-08), against
+annotated gold:
+
+| | measured | its control |
+|---|---|---|
+| validation results found, recall@5 | **11 of 24** (0.458) | 1 of 24 |
+| rationale claims traceable to the source | **83 of 84** (0.988) | — |
+| per-factor levels filled | 65 of 65 | — |
+| **packages that validate** | **5 of 5** | a null extractor: **0** |
+
+Two cautions that belong with those figures. **Groundedness is not
+correctness** — 0.988 says the numbers in a rationale appear in the document, not
+that the level assigned is right. And **per-factor levels are reported as filled,
+not as correct**: the papers grade a letter within a range (`b` of `a-c`) while
+the template takes an integer, and scoring one against the other would measure
+the mapping rather than the extractor.
+
+The full method and the seeded-corpus work behind it are in
+[docs/keyless-hybrid-ceiling.md](docs/keyless-hybrid-ceiling.md) and
+[docs/extract_eval_v1.md](docs/extract_eval_v1.md).
 
 To use a remote backend instead (faster, costs money):
 
