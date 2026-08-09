@@ -2,7 +2,35 @@
 
 All notable changes to this project are documented here.
 
-## [Unreleased]
+## [0.11.0] — 2026-08-09
+
+### Added — keyless extraction, and packages that say what they are
+
+- **`uofa extract --keyless`**: extraction with no API key, no network and no model. Fills only fields with a route measured to beat a null model that reads nothing, and leaves the rest blank rather than guessing — every blank named in the run output. Ships its labelled training data (9,740 sentences, 0.55 MB) rather than a fitted estimator, so the classifier survives scikit-learn upgrades and can be read by anyone asking what it was taught. Validation results recall@5 **0.438** against a 0.125 control; decision outcome **0.917** balanced accuracy catching 5 of 6 rejections against a constant's 0. Per-factor levels are deliberately **not** emitted: the best keyless route reaches 0.100 end to end, and a wrong level validates exactly as well as a right one.
+- **Field provenance on every package** (`uofa import` prints it always): each field records whether it was `extracted`, `run-context`, `defaulted` or `derived`. A conforming package can be mostly about the run that produced it, and this is the only place that shows.
+- **Derived profile**: a package declares the highest profile its content satisfies rather than the one the extractor asserted. Every prior extraction declared `ProfileComplete` because the writer emitted "Complete". A package satisfying none now fails naming the missing fields instead of declaring a lower one it also does not meet.
+- **Recorded pack set** (`validatedWithPacks`): a package carries the packs it was built under, so it validates the same way for everyone. Without `--pack`, `uofa shacl` uses the record and warns when it must assume.
+
+### Changed — core is now standards-agnostic (**core pack 0.5.0 → 0.6.0**)
+
+- `uofa:hasContextOfUse` **moved out of core** into `packs/vv40`. Core described itself as "Standards-agnostic" while every `UnitOfAssurance` profile required an ASME V&V 40 concept — so **no NASA-STD-7009A document could produce a valid package at any profile** except by inventing the field. Core now requires only what every standard shares. Behaviour for V&V 40 packages is unchanged, since `vv40` is the default active pack.
+- **`packs/vv40` declares `coreCompatibility >=0.6.0`.** New core with an old vv40 would drop the context-of-use requirement entirely; this refuses that pairing.
+- `prov:wasAttributedTo` is supplied by the run (operator identity), never from an extracted assessor name. A document that states who performed the assessment is still read, as `statedAssessor`.
+- A missing Project Name defaults to the workbook stem with a warning instead of refusing the import.
+
+### Fixed
+
+- **The entity Identifier column kept the template's help text**, so `bindsRequirement` came out as `"Stable URI or local ID"` and satisfied its `minCount`. The same defect previously satisfied `wasDerivedFrom` for 27 of 27 packages with `"DOI, report number, or URI"`.
+- `_merge_json_results` guarded a bare value when merging `credibility_factors` but not `assessment_summary` or `decision`; one un-wrapped field lost an entire chunked document.
+- Two colliding `conftest` modules made `from conftest import ...` resolve to whichever imported first, failing two tests in any full run.
+- The corpus dry-run crashed where no `pdflatex` exists instead of reporting that the render path went unchecked.
+
+### Documentation
+
+- README restructured to lead with the demo, then the on-ramp (extract → **review** → import → check), with relative links made absolute so they resolve on PyPI.
+- **Extraction claims corrected.** The README reported `F1 = 1.000` / `0.964` figures that measure *detection* — and `control_constant_list`, which prints the standard's checklist and reads nothing, scores **1.000** on that. Replaced with measurements against annotated gold, each beside its control.
+
+## Previously unreleased
 
 ### Added — Surrogate pack + Surrogate Interrogation Probe (SIP)
 
