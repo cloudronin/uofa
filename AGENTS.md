@@ -406,10 +406,126 @@ A change that violates this rule is out of scope by default and tracked per
 
 ---
 
+## 13. Numbers, checks, and the ways they lie
+
+This repo measures things, and the recurring failure is not a component that
+breaks loudly — it is an instrument that reports success. Of thirteen patterns in
+[docs/corpus-construction-findings.md](docs/corpus-construction-findings.md),
+**nine are defects in the measuring apparatus rather than the code it measured.**
+Three produced confident numbers that were acted on and were wrong, and none of
+them raised an error.
+
+### Recording a result is not retiring the claims it invalidates
+
+- **Rule:** When a measurement invalidates a published claim, grep the repo for
+  that claim and fix every instance in the same change. `README.md`, the site
+  under `site/src/content/`, and `docs/*.md` all restate results independently.
+  **Why:** `control_constant_list` — a function that prints the standard's
+  checklist and reads nothing — was shown to score **1.000 on detection** and the
+  result was written down. The README's headline extraction claim still rested on
+  that same detection metric **three months later**, and `site/.../install.md`
+  advertised `assert F1 >= 0.95` on it. A finding does not propagate to the places
+  that repeat it.
+
+### A check that cannot fail
+
+- **Rule:** After writing a check, make it fail on purpose once. If you cannot,
+  it is not a check.
+  **Why:** A test asserted `status == "not_assessed"` against code emitting
+  `"not_assessed"` — green forever, and every workbook was unimportable. An import
+  blocker used `find_module`, dead since Python 3.12, so the dependency imported
+  anyway and "degrades gracefully without scikit-learn" was never tested. **A test
+  that restates the implementation cannot catch the implementation being wrong**;
+  assert against the vocabulary, the schema, or the constant the consumer reads.
+
+- **Rule:** Never wrap a lookup in `except Exception`. Name the exceptions you
+  expect.
+  **Why:** `packs_recorded_in` caught bare `Exception` and called `pathlib.Path`
+  in a module importing only `Path`. Every call raised `NameError` and returned
+  `None` — "no pack recorded" for every package in the repo, which is
+  *indistinguishable from the correct answer* for the ones that genuinely have
+  none. A catch-all around a lookup turns a bug into a plausible default.
+
+### Your environment is richer than the target's
+
+- **Rule:** When a check depends on an external binary, a gitignored file, or a
+  module name that could collide, run it **with that thing removed**. That is the
+  only version of the check that can fail.
+  **Why:** Three CI failures in one day, all green locally: a gitignored
+  `extracted.xlsx` the paid run had produced, two colliding `conftest` modules
+  (`tests/` and `tests/space/`) that only race when both are collected, and a
+  missing `pdflatex`. In every case the local environment was a *superset* of
+  CI's.
+
+- **Rule:** Run the full suite before pushing anything that touches a shared
+  serialisation path, import path, or shape file. A targeted run is not a faster
+  full run.
+  **Why:** A provenance record put vocabulary term names in JSON-LD key position
+  and made every package unparseable. **C1, C2 and C3 all stayed green.** The only
+  thing that caught it was one e2e test asserting no Python traceback reaches
+  stderr — one test out of 2,681, which no reasoning about "related tests" would
+  have selected.
+
+### Numbers that describe the tooling
+
+- **Rule:** A verdict measured on a corpus that has since been regenerated is not
+  a result. Re-run it before quoting it.
+  **Why:** A candidate was recorded at 15/20 against a control's 11/20. The script
+  was untouched; the train split had been regenerated **three times** in the hours
+  after. Re-run, it scored 9/20 against a control's 9/20 — the margin belonged to
+  papers that no longer existed. Nothing in the tooling said the number was stale.
+
+- **Rule:** Before recording a property as unextractable, try the method that
+  already works elsewhere in this codebase.
+  **Why:** Three properties were written off on one hand-written regex each, while
+  the strongest method here — TF-IDF into logistic regression — had been applied
+  to one property of nine. Applied to the other three, two beat their controls. **A
+  negative about one implementation is not a negative about the task.**
+
+- **Rule:** When a number is better than you expected, check the matcher before
+  believing it.
+  **Why:** An entity matcher counted fragments — `"balance"` matched a twenty-word
+  clause — and reported 0.657 where the truth was 0.42. The same substring bug was
+  then written a second and third time, in a different script and in a test.
+
+### Forecasts, controls, and what validates
+
+- **Rule:** Express an expectation as a **null control**, never as a predicted
+  number. Where you would write "if X does not happen, the bug survives", write
+  "the null control must fail".
+  **Why:** A spec predicted validity would *drop* before improving and that no dip
+  meant fabrication survived. It went up, and the fabrication was gone anyway —
+  the fix *substituted* an attribution source rather than deleting a field. **A
+  predicted number can be satisfied by a mechanism other than the one predicted,
+  and the prediction cannot tell the difference.** A null model can.
+
+- **Rule:** `sh:minCount` requires a field to be **present**, not **correct**.
+  Never emit a plausible value to satisfy one.
+  **Why:** 14 turbomachinery models labelled `"Class II"` validated while packages
+  honestly writing `"Turbomachinery (Centrifugal Pump)"` failed. `wasDerivedFrom`
+  was satisfied for **27 of 27** packages by the template's own help text, `"DOI,
+  report number, or URI"` — and the identical defect later made `bindsRequirement`
+  come out as `"Stable URI or local ID"`. The constraint rewards fabrication and
+  punishes accuracy; a blank that fails loudly is the correct output.
+
+- **Rule:** Test the pipeline, not the step. A component is not done until its
+  output has been through the command that consumes it.
+  **Why:** The keyless extractor was exercised as far as producing a spreadsheet
+  and never through `uofa import` to a package — the only artefact anyone wants.
+  Every test passed while every workbook was rejected on twelve rows.
+
+---
+
 ## Quick reference
 
 - **Validate before pushing:** `pytest tests/ -q` and (for CLI changes)
-  `uofa check packs/vv40/examples/morrison/morrison.jsonld`
+  `uofa check packs/vv40/examples/morrison/morrison.jsonld`. The **full** suite —
+  a targeted run is not a faster full run (§13)
+- **Make every new check fail once**, on purpose. A check that cannot fail is not
+  a check (§13)
+- **When a result invalidates a claim,** grep for that claim and fix it in the
+  same change — README, `site/src/content/`, and `docs/` restate results
+  independently (§13)
 - **Before tagging a release:** `python dev/tools/scripts/release_check.py --tag vX.Y.Z`
 - **Sign your commits:** `git commit -s -m "..."`
 - **Stage by name:** `git add <specific files>`, never `git add .`
