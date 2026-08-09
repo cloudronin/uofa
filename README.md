@@ -6,91 +6,89 @@
 
 The **Unit of Assurance** is the smallest independently verifiable bundle of credibility evidence for computational modeling and simulation (CM&S). It packages the **credibility decision** — who judged what, against what criteria, using what evidence, with what result — as a signed, provenance-linked, machine-verifiable engineering artifact.
 
-## Conference Attendees: Run the 30-Second Demo
-
 ```bash
 pip install uofa
-uofa demo
 ```
 
-The bundled fixture exercises the full C1 (signature + integrity) +
-C2 (SHACL) + C3 (Jena rule engine) pipeline against a small pre-computed
-UofA artifact — no Java install, no LLM runtime, no internet required.
-Use it to verify "yes, this tool actually does what the speaker claimed"
-in under a minute.
-
-When you're ready to encode your own evidence, see the Quick Start below.
-
-## Quick Start: Create Your Own UofA
-
-```bash
-# 1. Install the uofa CLI (one command — bundles Python deps, the rule
-#    engine JAR, and an OpenJDK 17 JRE inside the wheel; no Java or Maven
-#    install required).
-pip install uofa
-
-# 2. Import from Excel (fastest on-ramp for practitioners)
-uofa import my-assessment.xlsx --sign --key keys/research.key --check
-
-# — OR — scaffold from a JSON-LD template
-uofa init my-project
-# Edit my-project/my-project-cou1.jsonld — fill in your project details
-uofa sign my-project/my-project-cou1.jsonld --key my-project/keys/my-project.key
-uofa check my-project/my-project-cou1.jsonld
-```
-
-Platform wheels are published for macOS (arm64), Linux (x86_64 + aarch64),
-and Windows (x86_64). Intel-Mac users install the `py3-none-any` wheel and
-provide a system Java 17 (`brew install openjdk@17`). The `uofa[extract]`
-extra adds the LLM-backed prose-to-UofA pipeline; see `uofa setup --help`
-for one-time runtime installation.
-
-**New to UofA?** See the [Onboarding Guide](docs/onboarding.md) for a step-by-step walkthrough (and a zero-install Codespaces option), or study the [Morrison demo](#live-demo-morrison-blood-pump-fda-vv-40-case-study) below.
+One command. The wheel bundles the Python dependencies, the rule-engine JAR, and an OpenJDK 17 JRE — no Java or Maven install required.
 
 ---
 
-## Interrogate a Surrogate (SIP)
-
-UofA's shift-left front door for **physics-AI surrogates** (ROMs, PINNs, operator-learning, data-driven emulators, ML closures). Point it at your surrogate and get a principled, auditable read on **when to trust it** — run it yourself in minutes.
-
-`uofa interrogate` is a **measurement instrument, not a verdict.** It runs your surrogate against a benchmark, compares to a supplied reference, and emits a **signed, provenance-bearing evidence bundle** plus an at-a-glance comparison — per-QoI residuals, envelope coverage, physics-constraint residuals, UQ calibration. It **never** prints pass/fail: measure-don't-judge is the firewall. The output is trust-calibration evidence *for you to judge*.
-
-**What you supply** (your surrogate stays behind one thin adapter — UofA never imports your ML framework):
-
-| Input | Flag | What it is |
-|---|---|---|
-| Adapter | `--adapter` | a tiny `ModelAdapter` wrapping your model's `predict` (ONNX / torch / sklearn / remote) |
-| Benchmark | `--benchmark` | the evaluation inputs (`.npz` / `.json`) |
-| Reference | `--reference` | the truth to compare against — **supplied, never generated** |
-| Scope | `--scope` | the declared training envelope + evaluation point |
+## See it work — 30 seconds
 
 ```bash
-# guided setup — or non-interactively for CI/containers:
-#   uofa interrogate init --yes --scope sip_scope.json --output-names lift_coefficient
-uofa interrogate init --model my_surrogate.onnx
-
-# measure → signed evidence bundle + verdict-free comparison
-uofa interrogate \
-  --adapter sip_adapter.py:GeneratedAdapter \
-  --benchmark bench.npz --reference truth.npz --scope sip_scope.json \
-  -o evidence.json --key keys/research.key
+uofa demo
 ```
 
-**Try it now** on a committed surrogate evidence package (no model or data needed) — the surrogate pack's weakener catalog flags where the credibility evidence is incomplete:
+Runs the full **C1** (signature + integrity) + **C2** (SHACL) + **C3** (Jena rule engine) pipeline against a bundled fixture. No Java install, no LLM runtime, no internet.
+
+---
+
+## The on-ramp: an evidence folder to a validated package
+
+Four steps. Each is checkable, and the tool tells you what it could not do rather than filling the gap.
+
+### 1. Extract — evidence documents to a spreadsheet
 
 ```bash
-uofa rules packs/surrogate/examples/airfrans/cou1/uofa-surrogate-airfrans-cou1.jsonld --pack surrogate
+uofa extract path/to/evidence/ --pack vv40 -o extracted.xlsx
 ```
 
-**Reading the output.** Residuals, coverage, and UQ are *measurements*; the pack's weakeners flag *evidence gaps* (e.g. an evaluation point outside the declared envelope, an unlinked residual). **Zero weakeners is not a guarantee of accuracy** — it means the evidence package is complete and auditable, and the trust decision is yours (`uofa decision sign`). In the appliance, a stock-Qwen explanation rides on top as **reference annotation** (decode, clearly labeled) — it explains the flags, it never adjudicates them.
-
-**The appliance (one command).** The concept appliance bundles the core + the surrogate pack + a stock explainer in one container; the two-container demo feeds it live signals from a PhysicsNeMo-CFD container through the SIP interface:
+Reads PDF, DOCX, XLSX, CSV and TXT and produces a pre-filled workbook. By default this uses a local model (`qwen3.5:4b` via Ollama, 3–10 min per folder, no API spend). To use a remote backend:
 
 ```bash
-docker compose up        # signals-in → explained, signed, verdict-free evidence-out
+uofa extract path/to/evidence/ --pack vv40 \
+    --extract-backend anthropic --extract-model claude-sonnet-4-6 -o extracted.xlsx
+# requires ANTHROPIC_API_KEY
 ```
 
-See [Domain Packs](#domain-packs) for the `--pack surrogate` catalog, and `docs/UofA_PostRefactor_Phase_A_Implementation_Plan.md` for the appliance build.
+**Or with no model at all:**
+
+```bash
+uofa extract path/to/evidence/ --pack vv40 --keyless -o extracted.xlsx
+```
+
+No API key, no network, no spend. It fills only the fields with a route measured to beat a null model that reads nothing, and **leaves the rest blank rather than guessing** — every blank is named in the run output. See [what extraction is worth](#what-extraction-is-actually-worth) below.
+
+### 2. Review the spreadsheet — this step is not optional
+
+The workbook is a draft, not an answer. Cells are colour-coded by confidence: **green** ≥ 0.85, **yellow** 0.50–0.84, uncoloured below that. Hover a cell for its source document.
+
+Check the per-factor levels and rationales first — they are where an extractor is most often wrong, and where a wrong value does the most damage, because a plausible level validates just as well as a correct one.
+
+### 3. Import and sign
+
+```bash
+uofa import extracted.xlsx -o my-cou.jsonld --sign --key keys/my.key
+```
+
+Every import prints where each field came from:
+
+```
+field provenance: 1 defaulted, 1 derived, 2 extracted, 6 run-context
+```
+
+* **extracted** — read from your documents
+* **run-context** — supplied by the run: who ran it, when, the input filenames, the hash and signature
+* **defaulted** / **derived** — filled in for you, or computed
+
+This is how you ask **how much of a package was actually read**. A conforming package can be mostly about the run that produced it, and that is worth knowing before you rely on it.
+
+The declared profile is *derived* from what the package contains, not asserted — it claims what it earned. If it satisfies no profile, import says which fields are missing rather than declaring a lower one it also does not meet.
+
+### 4. Check
+
+```bash
+uofa check my-cou.jsonld
+```
+
+| | |
+|---|---|
+| **C1 Integrity** | hash + signature over the canonicalized graph |
+| **C2 SHACL** | required fields for the declared profile |
+| **C3 Rules** | 23 weakener patterns via the Jena rule engine |
+
+`uofa check` runs all three. Add `--explain` for plain-language findings.
 
 ---
 
@@ -107,6 +105,23 @@ UofA addresses this through three contributions:
 | **C1 — Decision as artifact** | Captures the credibility decision as a portable, tool-independent object with provenance lineage and integrity guarantees | JSON-LD + PROV-DM + SHA-256 hash + ed25519 digital signatures |
 | **C2 — Completeness enforcement** | Defines what a UofA must contain at each rigor level and enforces it as a computable constraint | SHACL profiles (Minimal / Complete) with format-validated integrity fields |
 | **C3 — Quality gates** | Detects substantive credibility gaps — missing UQ, orphan claims, acceptance criteria gaps — including compound risks that no individual query can find | Jena forward-chaining rule engine with compound inference |
+
+---
+
+---
+
+## Standards Alignment
+
+UofA is grounded in existing standards rather than inventing new ones:
+
+- **ASME V&V 40-2018** — Credibility factors, model risk framework, and the Context of Use (COU) concept that drives per-factor assessment
+- **FDA 2023 Final Guidance on CM&S Credibility** — Regulatory expectations for credibility evidence in medical device submissions
+- **NASA-STD-7009B** — CMS credibility assessment standard for models and simulations
+- **W3C PROV-DM / PROV-O** — Provenance data model for artifact lineage
+- **W3C SHACL** — Shapes Constraint Language for RDF graph validation
+- **JSON-LD 1.1** — Linked data serialization that stays human-readable
+
+---
 
 ---
 
@@ -163,7 +178,56 @@ The catalog includes 23 weakener patterns spanning epistemic, aleatory, ontologi
 
 The compound rules fire on the output of the core rules — this is chained forward-chaining inference that standalone SPARQL queries cannot produce. Same model, same data, same rules: the rule engine reasons about the *interactions* between gaps, not just the gaps themselves.
 
-**Want to see the same divergence mechanism in aerospace?** A parallel NASA-STD-7009B case study on an HPT turbine-blade CHT model lives at [docs/examples/hpt-blade-cht.md](docs/examples/hpt-blade-cht.md).
+**Want to see the same divergence mechanism in aerospace?** A parallel NASA-STD-7009B case study on an HPT turbine-blade CHT model lives at [docs/examples/hpt-blade-cht.md](https://github.com/cloudronin/uofa/blob/main/docs/examples/hpt-blade-cht.md).
+
+---
+
+---
+
+## The Jena Rule Engine (C3)
+
+Quality gap detection uses [Apache Jena](https://jena.apache.org/) forward-chaining rules, not just SPARQL queries. The rule engine operates in two levels:
+
+**Level 1 — Core detection rules** (21 patterns) match structural patterns against the evidence graph. Categories include epistemic (W-EP-*), aleatory (W-AL-*), ontological (W-ON-*), structural (W-SI-*), consistency (W-CON-*), provenance (W-PROV-*), and argumentation (W-AR-*). Run `uofa catalog` for the full list with descriptions.
+
+**Level 2 — Compound inference rules** (2 active) fire on the output of Level 1 rules:
+
+| Rule | What it detects |
+|---|---|
+| COMPOUND-01 | Critical + High weakeners coexist → escalated compound risk |
+| COMPOUND-03 | Declared assurance level contradicts detected Critical gaps |
+
+(COMPOUND-02 ships in the rules file but is currently commented out pending design review; `uofa catalog` filters it from listing output.)
+
+The compound rules are the key differentiator versus SPARQL. They reason about the *interactions* between gaps — something that requires chained forward-chaining inference. All weakener rules evaluate in a single Jena forward-chaining pass, so compound rules can reason over the full weakener set.
+
+For the data shape (Minimal vs. Complete profiles, CredibilityFactor, WeakenerAnnotation), see [docs/profiles.md](https://github.com/cloudronin/uofa/blob/main/docs/profiles.md).
+
+---
+
+---
+
+## Integrity Verification
+
+Every UofA carries a real cryptographic hash and digital signature — not placeholders.
+
+| Level | What it checks | Mechanism |
+|---|---|---|
+| **Format gate** | Hash and signature are well-formed | SHACL `sh:pattern` regex on both Minimal and Complete profiles |
+| **Content verification** | Hash matches the canonical document content | `uofa verify` recomputes SHA-256 from JSON canonical form |
+| **Cryptographic signature** | Document was signed by the declared authority | ed25519 signature verification against the repo public key |
+
+```bash
+# Mint a sealed UofA (sign after edits)
+uofa sign packs/vv40/examples/morrison/cou1/uofa-morrison-cou1.jsonld --key keys/research.key
+
+# Verify integrity
+uofa verify packs/vv40/examples/morrison/cou1/uofa-morrison-cou1.jsonld
+```
+
+Placeholder strings (e.g., `sha256:placeholder...`) **fail** SHACL validation by design — a UofA claiming ProfileComplete must carry a real hash.
+
+---
 
 ---
 
@@ -234,60 +298,6 @@ The full report includes a per-divergence "Divergence Explanations" block with t
 
 ---
 
-## Standards Alignment
-
-UofA is grounded in existing standards rather than inventing new ones:
-
-- **ASME V&V 40-2018** — Credibility factors, model risk framework, and the Context of Use (COU) concept that drives per-factor assessment
-- **FDA 2023 Final Guidance on CM&S Credibility** — Regulatory expectations for credibility evidence in medical device submissions
-- **NASA-STD-7009B** — CMS credibility assessment standard for models and simulations
-- **W3C PROV-DM / PROV-O** — Provenance data model for artifact lineage
-- **W3C SHACL** — Shapes Constraint Language for RDF graph validation
-- **JSON-LD 1.1** — Linked data serialization that stays human-readable
-
----
-
-## Integrity Verification
-
-Every UofA carries a real cryptographic hash and digital signature — not placeholders.
-
-| Level | What it checks | Mechanism |
-|---|---|---|
-| **Format gate** | Hash and signature are well-formed | SHACL `sh:pattern` regex on both Minimal and Complete profiles |
-| **Content verification** | Hash matches the canonical document content | `uofa verify` recomputes SHA-256 from JSON canonical form |
-| **Cryptographic signature** | Document was signed by the declared authority | ed25519 signature verification against the repo public key |
-
-```bash
-# Mint a sealed UofA (sign after edits)
-uofa sign packs/vv40/examples/morrison/cou1/uofa-morrison-cou1.jsonld --key keys/research.key
-
-# Verify integrity
-uofa verify packs/vv40/examples/morrison/cou1/uofa-morrison-cou1.jsonld
-```
-
-Placeholder strings (e.g., `sha256:placeholder...`) **fail** SHACL validation by design — a UofA claiming ProfileComplete must carry a real hash.
-
----
-
-## The Jena Rule Engine (C3)
-
-Quality gap detection uses [Apache Jena](https://jena.apache.org/) forward-chaining rules, not just SPARQL queries. The rule engine operates in two levels:
-
-**Level 1 — Core detection rules** (21 patterns) match structural patterns against the evidence graph. Categories include epistemic (W-EP-*), aleatory (W-AL-*), ontological (W-ON-*), structural (W-SI-*), consistency (W-CON-*), provenance (W-PROV-*), and argumentation (W-AR-*). Run `uofa catalog` for the full list with descriptions.
-
-**Level 2 — Compound inference rules** (2 active) fire on the output of Level 1 rules:
-
-| Rule | What it detects |
-|---|---|
-| COMPOUND-01 | Critical + High weakeners coexist → escalated compound risk |
-| COMPOUND-03 | Declared assurance level contradicts detected Critical gaps |
-
-(COMPOUND-02 ships in the rules file but is currently commented out pending design review; `uofa catalog` filters it from listing output.)
-
-The compound rules are the key differentiator versus SPARQL. They reason about the *interactions* between gaps — something that requires chained forward-chaining inference. All weakener rules evaluate in a single Jena forward-chaining pass, so compound rules can reason over the full weakener set.
-
-For the data shape (Minimal vs. Complete profiles, CredibilityFactor, WeakenerAnnotation), see [docs/profiles.md](docs/profiles.md).
-
 ---
 
 ## Plain-language explanations: `--explain`
@@ -320,42 +330,122 @@ cached output: `uofa explain --from-file cache.json`.
 
 Full documentation:
 
-- **[docs/explain.md](docs/explain.md)** — usage, output formats, caching, limitations
-- **[docs/llm-config.md](docs/llm-config.md)** — `[llm]` section, supported backends, precedence
-- **[docs/security.md](docs/security.md)** — API key handling, threat model
+- **[docs/explain.md](https://github.com/cloudronin/uofa/blob/main/docs/explain.md)** — usage, output formats, caching, limitations
+- **[docs/llm-config.md](https://github.com/cloudronin/uofa/blob/main/docs/llm-config.md)** — `[llm]` section, supported backends, precedence
+- **[docs/security.md](https://github.com/cloudronin/uofa/blob/main/docs/security.md)** — API key handling, threat model
 
 ---
 
-## Excel Import: The Practitioner On-Ramp
+---
 
-Simulation engineers fill an Excel workbook, run one command, and get a signed, validated JSON-LD evidence package. The import pipeline handles URI generation, factor standard assignment, provenance tracking, and optional signing + validation in a single invocation.
+## Domain Packs
+
+SHACL shapes, Jena rules, templates, and extraction prompts are organized into **domain packs** under `packs/`. The `core` pack ships with standards-agnostic credibility assessment rules (23 weakener patterns). The `vv40` pack provides the ASME V&V 40-2018 factor taxonomy (13 factors), and the `nasa-7009b` pack provides the NASA-STD-7009B factor taxonomy (19 factors, including 6 NASA-only lifecycle factors).
 
 ```bash
-pip install -e '.[excel]'    # one-time: adds openpyxl dependency
-
-# Import from Excel → JSON-LD, sign, and validate in one step
-uofa import my-assessment.xlsx --sign --key keys/research.key --check --pack vv40
+uofa packs            # list installed packs + counts
+uofa check FILE --pack vv40                  # use V&V 40
+uofa check FILE --pack vv40 --pack nasa-7009b  # combine packs
 ```
 
-The Excel template has 5 sheets: **Assessment Summary**, **Model & Data**, **Validation Results**, **Credibility Factors**, and **Decision**. Each pack provides a pre-populated template with locked factor names and dropdown validation. See `packs/vv40/templates/uofa-starter-filled.xlsx` for a complete filled example.
+The `--pack` flag on any command switches the active pack(s). Multiple packs can be specified to combine factor taxonomies and rules. Per-project rules files next to the input file still take precedence over the pack default. See [`packs/README.md`](https://github.com/cloudronin/uofa/blob/main/packs/README.md) for the full pack contract.
 
 ---
 
-## Document Extract: From Evidence Folder to Excel
+---
 
-Point `uofa extract` at a folder of evidence documents (PDF, DOCX, XLSX, CSV, TXT, MD) and a local Ollama+qwen3.5:4b call produces a pre-filled extract Excel that you can review and import:
+## Interrogate a Surrogate (SIP)
+
+UofA's shift-left front door for **physics-AI surrogates** (ROMs, PINNs, operator-learning, data-driven emulators, ML closures). Point it at your surrogate and get a principled, auditable read on **when to trust it** — run it yourself in minutes.
+
+`uofa interrogate` is a **measurement instrument, not a verdict.** It runs your surrogate against a benchmark, compares to a supplied reference, and emits a **signed, provenance-bearing evidence bundle** plus an at-a-glance comparison — per-QoI residuals, envelope coverage, physics-constraint residuals, UQ calibration. It **never** prints pass/fail: measure-don't-judge is the firewall. The output is trust-calibration evidence *for you to judge*.
+
+**What you supply** (your surrogate stays behind one thin adapter — UofA never imports your ML framework):
+
+| Input | Flag | What it is |
+|---|---|---|
+| Adapter | `--adapter` | a tiny `ModelAdapter` wrapping your model's `predict` (ONNX / torch / sklearn / remote) |
+| Benchmark | `--benchmark` | the evaluation inputs (`.npz` / `.json`) |
+| Reference | `--reference` | the truth to compare against — **supplied, never generated** |
+| Scope | `--scope` | the declared training envelope + evaluation point |
 
 ```bash
-pip install 'uofa[extract]'        # adds litellm + pdfplumber + python-docx
-uofa setup                         # detect existing Ollama, pull qwen3.5:4b (~3 GB)
+# guided setup — or non-interactively for CI/containers:
+#   uofa interrogate init --yes --scope sip_scope.json --output-names lift_coefficient
+uofa interrogate init --model my_surrogate.onnx
 
-uofa extract path/to/evidence/ --pack vv40 -o extracted.xlsx
-uofa import extracted.xlsx --sign --key keys/research.key --check --pack vv40
+# measure → signed evidence bundle + verdict-free comparison
+uofa interrogate \
+  --adapter sip_adapter.py:GeneratedAdapter \
+  --benchmark bench.npz --reference truth.npz --scope sip_scope.json \
+  -o evidence.json --key keys/research.key
 ```
 
-The extract prompt is a `=== SECTION ===` key-value format (v4-kv) that produces structurally valid output without the brace-counting failures of nested JSON. Typical wall time: 3-10 min per evidence folder on Apple Silicon depending on document size, all local — no API spend.
+**Try it now** on a committed surrogate evidence package (no model or data needed) — the surrogate pack's weakener catalog flags where the credibility evidence is incomplete:
 
-### What extraction is actually worth
+```bash
+uofa rules packs/surrogate/examples/airfrans/cou1/uofa-surrogate-airfrans-cou1.jsonld --pack surrogate
+```
+
+**Reading the output.** Residuals, coverage, and UQ are *measurements*; the pack's weakeners flag *evidence gaps* (e.g. an evaluation point outside the declared envelope, an unlinked residual). **Zero weakeners is not a guarantee of accuracy** — it means the evidence package is complete and auditable, and the trust decision is yours (`uofa decision sign`). In the appliance, a stock-Qwen explanation rides on top as **reference annotation** (decode, clearly labeled) — it explains the flags, it never adjudicates them.
+
+**The appliance (one command).** The concept appliance bundles the core + the surrogate pack + a stock explainer in one container; the two-container demo feeds it live signals from a PhysicsNeMo-CFD container through the SIP interface:
+
+```bash
+docker compose up        # signals-in → explained, signed, verdict-free evidence-out
+```
+
+See [Domain Packs](#domain-packs) for the `--pack surrogate` catalog, and `docs/UofA_PostRefactor_Phase_A_Implementation_Plan.md` for the appliance build.
+
+---
+
+---
+
+## Working with Your Own UofA
+
+```bash
+# Full pipeline (C1 + C2 + C3) on your file
+uofa check path/to/your-uofa.jsonld
+
+# Individual steps
+uofa shacl  path/to/your-uofa.jsonld          # C2: SHACL validation
+uofa verify path/to/your-uofa.jsonld          # C1: Hash + signature check
+uofa rules  path/to/your-uofa.jsonld          # C3: Jena weakener detection
+
+# Sign with your own key
+uofa sign path/to/your-uofa.jsonld --key keys/your.key
+
+# Compare weakener profiles across two COUs
+uofa diff uofa-cou1.jsonld uofa-cou2.jsonld
+```
+
+Full command reference (extract, import, init, validate, packs, migrate, schema, …) lives in [docs/onboarding.md](https://github.com/cloudronin/uofa/blob/main/docs/onboarding.md#cli-command-reference).
+
+---
+
+---
+
+## What extraction is actually worth
+
+### With no model: `--keyless`
+
+| field | route | measured |
+|---|---|---|
+| validation results | trained classifier | recall@5 **0.438** vs a 0.125 control |
+| decision outcome | trained classifier | **0.917** balanced; 5 of 6 rejections vs 0 |
+| model & dataset names | named-entity patterns | 0.418 / 0.088 |
+| context of use | definitional match | V&V 40 only — correctly silent on 7009A |
+| **per-factor levels** | — | **left blank**: the best keyless route scores 0.100 end to end, and a wrong level validates |
+
+On five real journal papers it produces a conforming package for the three V&V 40
+documents. The two NASA-STD-7009A documents fail, and **correctly**: 7009A defines
+no context of use, so there is nothing to derive a bound requirement from, and the
+package says so rather than inventing one.
+
+The two trained routes need `scikit-learn`. Without it they report themselves
+unavailable and the run names the fields that went unattempted.
+
+### With a model
 
 This section used to report **F1 = 1.000** on the Morrison case, **0.973** on an
 aero HPT blade, and **0.964 dev / 0.954 test** across a 50-bundle synthetic
@@ -390,8 +480,8 @@ the template takes an integer, and scoring one against the other would measure
 the mapping rather than the extractor.
 
 The full method and the seeded-corpus work behind it are in
-[docs/keyless-hybrid-ceiling.md](docs/keyless-hybrid-ceiling.md) and
-[docs/extract_eval_v1.md](docs/extract_eval_v1.md).
+[docs/keyless-hybrid-ceiling.md](https://github.com/cloudronin/uofa/blob/main/docs/keyless-hybrid-ceiling.md) and
+[docs/extract_eval_v1.md](https://github.com/cloudronin/uofa/blob/main/docs/extract_eval_v1.md).
 
 To use a remote backend instead (faster, costs money):
 
@@ -400,75 +490,6 @@ uofa extract path/to/evidence/ --pack vv40 \
     --extract-backend anthropic --extract-model claude-sonnet-4-6 -o extracted.xlsx
 # requires ANTHROPIC_API_KEY in environment
 ```
-
-### `--keyless` — extraction with no model at all
-
-```bash
-uofa extract path/to/evidence/ --pack vv40 --keyless -o extracted.xlsx
-```
-
-No API key, no network, no spend. Fills only the fields with a route measured to
-beat a null model that reads nothing, and **leaves the rest blank rather than
-guessing** — every blank is stated in the run output instead of being left to
-infer from an empty cell.
-
-What it fills, and what each is worth on the evaluation corpus:
-
-| field | route | measured |
-|---|---|---|
-| validation results | trained classifier | recall@5 **0.438** vs a 0.125 control |
-| decision outcome | trained classifier | **0.917** balanced; 5 of 6 rejections vs 0 |
-| model & dataset names | named-entity patterns | 0.418 / 0.088 |
-| context of use | definitional match | V&V 40 only — correctly silent on 7009A |
-| **per-factor levels** | — | **left blank**: the best keyless route scores 0.100 end to end, and a wrong level validates |
-
-On the five real papers it produces a conforming package for the three V&V 40
-documents. The two NASA-STD-7009A documents fail, and **correctly**: 7009A
-defines no context of use, so there is nothing to derive a bound requirement
-from, and the package says so rather than inventing one.
-
-Needs `scikit-learn` for the two trained routes; without it they report
-themselves unavailable and the run says which fields went unattempted.
-
-### What `uofa import` now records
-
-Every imported package carries, and prints on every run:
-
-```
-field provenance: 1 defaulted, 1 derived, 2 extracted, 6 run-context
-```
-
-* **extracted** — read from the document
-* **run-context** — supplied by the run: who ran it, when, the input filenames,
-  the hash and signature
-* **defaulted** / **derived** — filled in for you, or computed
-
-This is the only way to ask how much of a package was actually *read*. A
-conforming package can be mostly about the run that produced it, and before this
-the two were indistinguishable.
-
-Two related behaviours:
-
-* **The declared profile is derived**, not asserted — a package declares the
-  highest profile its content satisfies, not the one the extractor hoped for.
-* **The pack set is recorded**, so a package validates the same way for everyone.
-  Without `--pack`, `uofa shacl` uses what the package records and warns when it
-  has to assume.
-
----
-
-## Domain Packs
-
-SHACL shapes, Jena rules, templates, and extraction prompts are organized into **domain packs** under `packs/`. The `core` pack ships with standards-agnostic credibility assessment rules (23 weakener patterns). The `vv40` pack provides the ASME V&V 40-2018 factor taxonomy (13 factors), and the `nasa-7009b` pack provides the NASA-STD-7009B factor taxonomy (19 factors, including 6 NASA-only lifecycle factors).
-
-```bash
-uofa packs            # list installed packs + counts
-uofa check FILE --pack vv40                  # use V&V 40
-uofa check FILE --pack vv40 --pack nasa-7009b  # combine packs
-```
-
-The `--pack` flag on any command switches the active pack(s). Multiple packs can be specified to combine factor taxonomies and rules. Per-project rules files next to the input file still take precedence over the pack default. See [`packs/README.md`](packs/README.md) for the full pack contract.
-
 ---
 
 ## Prerequisites
@@ -485,49 +506,31 @@ pip install 'uofa[extract]'  # adds litellm + pdfplumber + python-docx for `uofa
 | Java 17+ | Jena rule engine (C3) | Only on Intel macOS (where the bundled JRE doesn't ship) or in source-tree dev when running outside the wheel |
 | Maven 3.8+ | Build the Jena JAR | Only when developing on the rule engine itself |
 
-For a zero-install try-it-out path, see [docs/onboarding.md](docs/onboarding.md#zero-install-option-github-codespaces).
+For a zero-install try-it-out path, see [docs/onboarding.md](https://github.com/cloudronin/uofa/blob/main/docs/onboarding.md#zero-install-option-github-codespaces).
 
 ---
-
-## Working with Your Own UofA
-
-```bash
-# Full pipeline (C1 + C2 + C3) on your file
-uofa check path/to/your-uofa.jsonld
-
-# Individual steps
-uofa shacl  path/to/your-uofa.jsonld          # C2: SHACL validation
-uofa verify path/to/your-uofa.jsonld          # C1: Hash + signature check
-uofa rules  path/to/your-uofa.jsonld          # C3: Jena weakener detection
-
-# Sign with your own key
-uofa sign path/to/your-uofa.jsonld --key keys/your.key
-
-# Compare weakener profiles across two COUs
-uofa diff uofa-cou1.jsonld uofa-cou2.jsonld
-```
-
-Full command reference (extract, import, init, validate, packs, migrate, schema, …) lives in [docs/onboarding.md](docs/onboarding.md#cli-command-reference).
 
 ---
 
 ## Further reading
 
-- **[docs/onboarding.md](docs/onboarding.md)** — combined quick-start + architecture + contributor guide; full CLI reference
-- **[docs/profiles.md](docs/profiles.md)** — Minimal/Complete profiles, CredibilityFactor schema, WeakenerAnnotation schema
-- **[docs/architecture.md](docs/architecture.md)** — One UofA per Context of Use (the data model in tree form)
-- **[docs/examples/hpt-blade-cht.md](docs/examples/hpt-blade-cht.md)** — Aerospace companion case study (NASA-STD-7009B)
-- **[docs/explain.md](docs/explain.md)** — `--explain` flag deep dive
-- **[docs/design.md](docs/design.md)** — Research context + design principles
-- **[docs/adversarial.md](docs/adversarial.md)** — Adversarial generation tooling (research instrument)
-- **[docs/repo-layout.md](docs/repo-layout.md)** — Top-level repo orientation for contributors
+- **[docs/onboarding.md](https://github.com/cloudronin/uofa/blob/main/docs/onboarding.md)** — combined quick-start + architecture + contributor guide; full CLI reference
+- **[docs/profiles.md](https://github.com/cloudronin/uofa/blob/main/docs/profiles.md)** — Minimal/Complete profiles, CredibilityFactor schema, WeakenerAnnotation schema
+- **[docs/architecture.md](https://github.com/cloudronin/uofa/blob/main/docs/architecture.md)** — One UofA per Context of Use (the data model in tree form)
+- **[docs/examples/hpt-blade-cht.md](https://github.com/cloudronin/uofa/blob/main/docs/examples/hpt-blade-cht.md)** — Aerospace companion case study (NASA-STD-7009B)
+- **[docs/explain.md](https://github.com/cloudronin/uofa/blob/main/docs/explain.md)** — `--explain` flag deep dive
+- **[docs/design.md](https://github.com/cloudronin/uofa/blob/main/docs/design.md)** — Research context + design principles
+- **[docs/adversarial.md](https://github.com/cloudronin/uofa/blob/main/docs/adversarial.md)** — Adversarial generation tooling (research instrument)
+- **[docs/repo-layout.md](https://github.com/cloudronin/uofa/blob/main/docs/repo-layout.md)** — Top-level repo orientation for contributors
+
+---
 
 ---
 
 ## License
 
-Apache License, Version 2.0 — see [LICENSE](LICENSE) for the full text and
-[NOTICE](NOTICE) for bundled-software attributions.
+Apache License, Version 2.0 — see [LICENSE](https://github.com/cloudronin/uofa/blob/main/LICENSE) for the full text and
+[NOTICE](https://github.com/cloudronin/uofa/blob/main/NOTICE) for bundled-software attributions.
 
 The full project (UofA ontology, JSON-LD context, SHACL shapes, reference
 examples, Jena rule implementations, and the CLI) is licensed under
@@ -536,10 +539,12 @@ as enumerated in `NOTICE` (e.g., OpenJDK GPLv2-CE, Ollama MIT).
 
 ---
 
+---
+
 ## Contributing
 
 Contributions are welcome, especially real-world UofA examples from practitioners working with CM&S credibility assessment. If you are preparing a CM&S-supported regulatory submission and want to explore UofA packaging for your evidence, please reach out.
 
-For contributors, see [CONTRIBUTING.md](CONTRIBUTING.md), [docs/repo-layout.md](docs/repo-layout.md), and [docs/onboarding.md](docs/onboarding.md).
+For contributors, see [CONTRIBUTING.md](https://github.com/cloudronin/uofa/blob/main/CONTRIBUTING.md), [docs/repo-layout.md](https://github.com/cloudronin/uofa/blob/main/docs/repo-layout.md), and [docs/onboarding.md](https://github.com/cloudronin/uofa/blob/main/docs/onboarding.md).
 
 **Website:** [uofa.net](https://uofa.net)
