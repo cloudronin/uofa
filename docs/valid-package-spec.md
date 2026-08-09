@@ -105,6 +105,59 @@ them and the warning is the only change they see.
 command, with no flag given — or if an unstamped package is validated under an
 assumed standard without saying so.
 
+### R0b-1 — move the pack default out of the parser **(open)**
+
+**Why the warning cannot fire.** `cli.py:132` reads
+
+    args.active_packs = _pre_args.pack or args.pack or ["vv40"]
+
+so the default is applied at *parse* time. By the time a command runs, an
+explicit `--pack vv40` and a defaulted one are the same value, and "was a flag
+given?" is no longer answerable. The warning that tells a user "no pack recorded,
+I assumed vv40" is therefore unreachable — and until it fires, an unstamped 7009A
+package still silently validates as V&V 40, which is the defect R0b exists to
+close.
+
+**The fix is one line, and it puts the default where the resolution already is:**
+
+    args.active_packs = _pre_args.pack or args.pack or None
+
+`paths.resolve_active_packs` already falls back correctly on `None` — explicit,
+then the package's stamp, then `vv40`. The parser stops making a decision that
+belongs to the resolver, and `None` becomes the honest signal for "not asked
+for".
+
+**What to check before doing it:** anything reading `args.active_packs` directly
+rather than through `resolve_active_packs` will now see `None` where it expected
+a list. Grep for it; there were three call sites at the time of writing.
+
+*Fails if:* `uofa shacl` on an unstamped package prints no warning, or
+`--pack vv40` prints one.
+
+### R0b-2 — restamp the shipped 7009A examples **(open, and it needs a signature)**
+
+The three packages under `packs/nasa-7009b/examples/` are the artefacts that
+demonstrate the standard, and they are exactly the ones the fallback gets wrong:
+unstamped, they validate as V&V 40.
+
+**The complication:** they carry `hash` and `signature`. Adding
+`validatedWithPacks` changes the content, so both must be recomputed —
+restamping is a re-signing, not an edit. `keys/research.key` is in the repo and
+is what the test suite signs with.
+
+    1. add "validatedWithPacks": ["nasa-7009b"] to each
+    2. uofa sign <file> --key keys/research.key
+    3. re-run profile_baseline.py --diff — expect NO verdict change, since
+       nasa-7009b was already the correct pack for them
+    4. grep the tests for a pinned hash of any of the three
+
+Step 3 is the point. If a package's verdict *changes*, the stamp disagreed with
+how it was actually being validated, and that is worth knowing before the file is
+re-signed rather than after.
+
+*Fails if:* a shipped example validates differently with and without `--pack
+nasa-7009b`.
+
 ### R0c — the version bump — **DONE, and it is not the version I first wrote**
 
 An earlier draft said "core schema 0.7 → 0.8, touching `spec/context/v0.8.jsonld`".
