@@ -21,9 +21,21 @@ Use `--pack nasa-7009b` for the aerospace factor set. Extract is model-assisted,
 
 **On sensitive evidence:** extract runs fully local with a model served by Ollama, so nothing leaves your machine. A hosted model is also supported through the `--model` flag if your evidence is not sensitive and you want higher extraction quality. See [LLM configuration](/docs/llm-config/).
 
+### Or with no model at all
+
+```bash
+uofa extract ./evidence --pack vv40 --keyless -o assessment.xlsx
+```
+
+No API key, no network, no model download — the fastest way to see the shape of a package before deciding what to spend.
+
+It fills only the fields with a route measured to beat a null model that reads nothing, and **leaves the rest blank rather than guessing**. Every blank is named in the run output. Per-factor levels stay empty on purpose: the best keyless route for them is right about one time in ten, and a wrong level validates exactly as well as a right one.
+
 ## 2. Review the workbook
 
-Open `assessment.xlsx`. Each factor is on its own sheet, with confidence coloring that shows where extraction was uncertain. Check those first. Correct levels, add the acceptance criteria the model could not infer, and fill anything left blank.
+Open `assessment.xlsx`. Each factor is on its own sheet, with confidence coloring: green at 0.85 and above, yellow from 0.50, uncoloured below. Hover a cell for the document it came from.
+
+**Start with the per-factor levels, and do not let the colours reassure you.** Confidence is the extractor's own estimate, and a confidently wrong level is the most expensive kind of error here — because nothing downstream can catch it. `uofa check` verifies that a field is *present*, not that it is *correct*. A plausible wrong level produces a package that signs, validates and conforms.
 
 This step is the point of the whole on-ramp. Extract makes the gaps machine-checkable, but the engineer is the one who decides what is true. Nothing downstream trusts a value you have not reviewed.
 
@@ -35,10 +47,23 @@ One command turns the reviewed workbook into signed, validated JSON-LD, with com
 
 ```bash
 $ uofa import assessment.xlsx --pack vv40 --sign --key research.key --check
+  field provenance: 1 defaulted, 1 derived, 4 extracted, 6 run-context
   ✓ signed with ed25519
   ✓ SHACL Complete profile conforms
   → assessment.jsonld
 ```
+
+### Reading the provenance line
+
+Every import reports where each field came from:
+
+- **extracted** — read from your documents
+- **run-context** — supplied by the run: who ran it, when, the input filenames, the hash and signature
+- **defaulted** / **derived** — filled in for you, or computed from what is present
+
+This answers a question nothing else can: **how much of this package was actually read.** A package can conform and still be mostly about the run that produced it, and the counts are the only place that shows.
+
+The declared profile is *derived* from what the package contains rather than asserted, so it claims what it earned. If it satisfies no profile, import names the missing fields instead of quietly declaring a lower one it also does not meet.
 
 The result is portable, tamper-evident, and ready for the rule engine. From here, run [`uofa rules`](/reference/cli/) to detect weakeners, or [`uofa diff`](/reference/cli/) to compare two contexts of use.
 

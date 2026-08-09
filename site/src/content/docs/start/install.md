@@ -63,7 +63,9 @@ If Java is unavailable on your machine, run `uofa check FILE --skip-rules` to by
 uofa --version
 uofa packs                 # list installed domain packs
 uofa validate              # validate all bundled examples
-uofa setup verify          # optional: extract a known fixture, assert F1 >= 0.95
+uofa setup verify          # optional: extract a known fixture end-to-end
 ```
 
-If `uofa validate` reports zero failures, your install is good. `uofa setup verify` additionally confirms the local model produces good output before you point it at real evidence.
+If `uofa validate` reports zero failures, your install is good. `uofa setup verify` additionally confirms the local model runs and produces a parseable workbook before you point it at real evidence.
+
+It is a **plumbing check, not a quality measure.** It scores whether a row was produced for each factor, and a function that prints the standard's checklist and reads nothing at all scores 1.000 on that. What extraction is actually worth, measured against annotated gold with its controls, is in the [project README](https://github.com/cloudronin/uofa#what-extraction-is-actually-worth).
