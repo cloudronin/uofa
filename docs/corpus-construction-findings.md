@@ -1028,3 +1028,56 @@ the check with the thing removed, which is how four of the six above were found.
 The keyless extractor was exercised as far as producing a spreadsheet and never
 through `uofa import` to a package — the only artefact anyone wants. Every test
 passed while every workbook was unimportable on twelve rows.
+
+### Packaging: three fabrications that each looked like a clean pass — 2026-08-08
+
+The afternoon moved from measuring extractors to making their output a valid
+package. Spec and status live in
+[valid-package-spec.md](valid-package-spec.md); these are the findings.
+
+**Core was not standards-agnostic, and said it was.** `packs/core/pack.json`
+reads *"Standards-agnostic"* while every `UnitOfAssurance` profile required
+`uofa:hasContextOfUse` — an ASME V&V 40 concept NASA-STD-7009A does not define.
+No 7009A document could produce a valid package at any profile except by
+inventing the field, and two of the five real papers are 7009A. Moved to
+`packs/vv40`; core 0.5.0 → 0.6.0 with vv40 pinning `>=0.6.0`, because new core
+with old vv40 would drop the requirement entirely.
+
+**The first fix was the wrong shape and the user caught it.** I added a *second*
+standard-specific profile to core. It worked, it was proven on a real 7009A
+package, and it would have made the problem worse: a core that enumerates
+standards is not core. The right move was subtraction.
+
+**Three fabrications, each of which validated:**
+
+| what filled the field | how it surfaced |
+|---|---|
+| the model invented an **assessor name** | 2 of 5 gpt-5 packages passed SHACL, and they were exactly the 2 with an assessor |
+| the **template's help text**, `"Stable URI or local ID"` | became `bindsRequirement` and satisfied its minCount |
+| a **warned auto-synthesis** from the COU | reaches Minimal without extraction, and looks identical to a package that read it |
+
+The second is the same defect already on record — `wasDerivedFrom` satisfied for
+27 of 27 packages by *"DOI, report number, or URI"*. Its cause was narrow:
+`_write_entities_sheet` writes columns 1, 2 and 4 and never cleared column 3, so
+the template's placeholder survived in the first data row, which is exactly where
+the synthesized Requirement lands.
+
+**All three look like a conforming package**, which is why every field now
+records its class and `uofa import` prints the counts on every run:
+`field provenance: 1 defaulted, 2 extracted, 6 run-context`.
+
+**A vacuous pass is not a pass.** A shape targeting `uofa:UnitOfAssurance`
+conforms on a file with no such node — it finds nothing and reports success. Two
+of the repo's 59 conforming packages are overlays with nothing to validate. The
+regression harness now reports both figures, because "59 of 64 conforming" could
+not otherwise be read.
+
+**Pattern #11: the same detection bug, twice, an hour apart.** A scan checking
+only `@type` while real packages use compacted `type` reported *zero of 64
+packages have a target* — while five were failing validation, which requires a
+target. Five failures against zero targets cannot both be true, and that
+impossibility was the only thing that caught it; no check did. I fixed it in the
+harness, then repeated the identical error reasoning about the nasa-7009b
+examples, concluded "these are not packages", and closed R0b-2 on it. One of the
+three **is** a package. **A bug fixed in an instrument is not thereby fixed in
+the head that wrote it.**
