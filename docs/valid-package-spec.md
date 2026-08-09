@@ -105,7 +105,7 @@ them and the warning is the only change they see.
 command, with no flag given — or if an unstamped package is validated under an
 assumed standard without saying so.
 
-### R0b-1 — move the pack default out of the parser **(open)**
+### R0b-1 — move the pack default out of the parser — **DONE**
 
 **Why the warning cannot fire.** `cli.py:132` reads
 
@@ -134,7 +134,7 @@ a list. Grep for it; there were three call sites at the time of writing.
 *Fails if:* `uofa shacl` on an unstamped package prints no warning, or
 `--pack vv40` prints one.
 
-### R0b-2 — restamp the shipped 7009A examples **(ATTEMPTED, REVERTED, still open)**
+### R0b-2 — restamp the shipped 7009A examples — **CLOSED, the task was wrong**
 
 The three packages under `packs/nasa-7009b/examples/` are the artefacts that
 demonstrate the standard, and they are exactly the ones the fallback gets wrong:
@@ -154,6 +154,19 @@ is what the test suite signs with.
 Step 3 is the point. If a package's verdict *changes*, the stamp disagreed with
 how it was actually being validated, and that is worth knowing before the file is
 re-signed rather than after.
+
+**Closed, not deferred.** The three files are **not packages**. They contain no
+`uofa:UnitOfAssurance` node — they are weakener-annotation overlays referencing a
+package IRI that lives elsewhere, which is why `uofa shacl` reports them
+conforming (vacuously, finding nothing to check) and why there was nothing to
+attach a pack stamp to. Restamping them is not a smaller version of this task;
+it is a task about the wrong artefacts.
+
+What remains true is the requirement behind it: **a 7009A package must carry its
+pack stamp.** No such package currently exists in the repo to stamp. The stamp is
+written by `excel_mapper` for every package built from now on, so this closes as
+soon as a real 7009A package is produced — and the head-to-head's own gpt-5 and
+keyless outputs are the first candidates.
 
 **What happened on the first attempt, and why it was reverted.** The stamp went
 in, the three files re-signed, hash and signature verified, and
