@@ -149,6 +149,14 @@ def _provenance(summary: dict, packs: list[str]) -> dict:
     saying so is the point. Guessing a class would recreate the problem the map
     exists to solve.
     """
+    # Flat "field=class" strings, NOT a nested {field: class} map.
+    #
+    # A nested map puts vocabulary TERM NAMES in key position, and the JSON-LD
+    # @context applies inside nested objects too -- so "generatedAtTime":
+    # "run-context" was read as an xsd:dateTime literal and rdflib raised
+    # `Failed to convert Literal lexical form to value` on every package. The
+    # provenance record is metadata ABOUT fields, not more fields, and encoding
+    # it as though it were fields made the graph unparseable.
     out = {
         "wasAttributedTo": "run-context",
         "validatedWithPacks": "run-context",
@@ -166,7 +174,7 @@ def _provenance(summary: dict, packs: list[str]) -> dict:
     for f in ("cou_name", "cou_description", "model_risk_level"):
         if summary.get(f):
             out[f] = "extracted"
-    return out
+    return [f"{k}={v}" for k, v in sorted(out.items())]
 
 
 def _operator_identity() -> str | None:
@@ -382,12 +390,12 @@ def map_to_jsonld(
     derived, missing = derive_profile(doc, packs)
     if derived:
         doc["conformsToProfile"] = PROFILE_URIS[derived]
-        doc.setdefault("fieldProvenance", {})["conformsToProfile"] = "derived"
+        doc.setdefault("fieldProvenance", []).append("conformsToProfile=derived")
     else:
         # The floor. Leave the asserted value in place so `uofa shacl` fails
         # naming the gap, and record what is missing rather than silently
         # declaring a lower profile the package also does not meet.
-        doc.setdefault("fieldProvenance", {})["conformsToProfile"] = "asserted"
+        doc.setdefault("fieldProvenance", []).append("conformsToProfile=asserted")
         doc["profileShortfall"] = sorted(missing)
     return doc
 

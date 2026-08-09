@@ -48,7 +48,9 @@ def _print_provenance_counts(output: Path) -> None:
          and "fieldProvenance" in n), None)
     if not node:
         return
-    counts = collections.Counter((node.get("fieldProvenance") or {}).values())
+    entries = node.get("fieldProvenance") or []
+    counts = collections.Counter(e.split("=")[-1] for e in entries
+                                 if isinstance(e, str) and "=" in e)
     if not counts:
         return
     parts = ", ".join(f"{n} {cls}" for cls, n in sorted(counts.items()))
