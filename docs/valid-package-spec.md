@@ -134,7 +134,7 @@ a list. Grep for it; there were three call sites at the time of writing.
 *Fails if:* `uofa shacl` on an unstamped package prints no warning, or
 `--pack vv40` prints one.
 
-### R0b-2 — stamp the one shipped 7009A package — **REOPENED, smaller than first written**
+### R0b-2 — stamp the one shipped 7009A package — **DONE**
 
 The three packages under `packs/nasa-7009b/examples/` are the artefacts that
 demonstrate the standard, and they are exactly the ones the fallback gets wrong:
@@ -154,6 +154,18 @@ is what the test suite signs with.
 Step 3 is the point. If a package's verdict *changes*, the stamp disagreed with
 how it was actually being validated, and that is worth knowing before the file is
 re-signed rather than after.
+
+**Done.** `uofa-aero-fatigue-minimal.jsonld` carries
+`validatedWithPacks: ["nasa-7009b"]` and is re-signed. All three checks pass —
+**C1 integrity, C2 SHACL, and C3 rules at 42 inferred triples** — and it now
+resolves to its own pack with no `--pack` flag. Zero regressions across 64
+packages.
+
+C3 is named deliberately. The first attempt passed C1 and C2 on a file whose
+graph the rule engine read as one triple, and the acceptance criteria as written
+never mentioned C3 — so every check that had been specified was green on a broken
+artefact. It is the third of the three checks `uofa check` runs and the one
+nobody thought to name.
 
 **Correction, 2026-08-08.** This was closed on the reasoning that the three files
 are not packages. That was over-general, and it came from the same detection bug
