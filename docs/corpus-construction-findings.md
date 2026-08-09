@@ -1131,3 +1131,62 @@ the standard defines none, so the Requirement synthesis has nothing to derive
 from and `bindsRequirement` is genuinely absent. **A 7009A document gives a
 keyless extractor nothing to bind a requirement to** — a fact about the standard,
 not a defect in the tool.
+
+### The record of what was read corrupted what it described — 2026-08-09
+
+R5 added `fieldProvenance` so a reader could ask how much of a package came from
+the document. It was written as a nested map:
+
+    "fieldProvenance": {"generatedAtTime": "run-context", ...}
+
+That puts **vocabulary term names in key position**, and a JSON-LD `@context`
+applies inside nested objects. So `generatedAtTime` was read as an
+`xsd:dateTime` and rdflib raised
+
+    Failed to convert Literal lexical form to value.
+    Datatype=http://www.w3.org/2001/XMLSchema#dateTime
+
+on **every package built after R5**. The provenance record is metadata *about*
+fields, not more fields, and encoding it as though it were fields made the graph
+unparseable. It is now a flat list of `"field=class"` strings, which nothing in
+the context can type.
+
+**Three things this is worth recording for.**
+
+**C1, C2 and C3 all stayed green.** Integrity passed, SHACL passed, the rule
+engine passed. The only thing that caught it was `test_morrison_full_pipeline_e2e`
+asserting that no Python traceback reaches stderr — apparently the sole test in
+2,681 watching for that. Every targeted run I made while building R5 was clean.
+
+**The mechanism built to make packages legible is what made them unreadable.**
+That is not irony worth enjoying; it is the specific risk of adding metadata to a
+typed graph, and the same shape as the template's help text becoming
+`bindsRequirement` — content in a position where something else interprets it.
+
+**Pattern #13: a full sweep is not a slower version of a targeted one.** Every
+check I chose to run passed. The failure lived in a test I had no reason to
+select, watching for a symptom class (a traceback) rather than a behaviour. When
+a change touches a shared serialisation path, the set of tests that could
+plausibly notice is not knowable in advance, which is the argument for running
+all of them before pushing rather than the ones that seem related.
+
+### The README's F1 numbers measured detection — 2026-08-09
+
+The README reported extraction "validated end-to-end" at **F1 = 1.000** on
+Morrison, 0.973 on an aero case, and 0.964 dev / 0.954 test across 50 synthetic
+bundles.
+
+Those measure **detection** — whether a row was produced per factor — and
+`control_constant_list`, which prints the standard's checklist and reads nothing,
+scores **1.000 on the real corpus**. The headline figure was one a null model
+matches exactly. The same eval reported `mean overall F1 0.964 — PASS` while 37
+of 45 packages failed the shape.
+
+Replaced with the five-real-paper measurements, each beside its control where one
+exists: validation results 11 of 24 against a control's 1, groundedness 83 of 84,
+packages validating 5 of 5 against a null extractor's 0. The old numbers are kept
+visible rather than deleted, so a reader who saw them can tell what changed.
+
+**This was the last public claim in the repository still resting on detection**,
+three months after `control_constant_list` was written and its result recorded.
+A finding does not propagate to the places that repeat it on its own.
