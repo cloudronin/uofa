@@ -355,7 +355,7 @@ package because it lacked a name is not.
 
 *Fails if:* import refuses a package whose only defect is an unnamed project.
 
-### R3 — the declared profile is derived, with a floor
+### R3 — the declared profile is derived, with a floor — **DONE**
 
 Import computes the highest profile the content actually satisfies and declares
 that. **Order: Disposition, Complete, Minimal.**
@@ -380,6 +380,23 @@ closest profile and the fields it lacks. It must never declare nothing, and neve
 declare a profile it does not meet. Until R0 lands this is the common case for
 7009A, so the message is the primary user-facing output for those documents, not
 an edge case.
+
+**Implemented in `excel_mapper.derive_profile`.** Requirements are read from the
+shape files for core + the active packs, never hardcoded — a copy of the shape's
+requirements is a copy that drifts, which is why `PROFILE_URIS` was moved onto
+`sh:in`. The derived value is recorded as `conformsToProfile: derived` in the
+provenance map, so an earned profile and an asserted one stay distinguishable.
+
+**One ordering fact the design turns on:** `hash` and `signature` are supplied by
+`sign_file` *after* the mapper runs, so they cannot be looked for at derivation
+time and are excluded. Everything else required is present by then —
+`generatedAtTime` included, which the mapper sets itself. Getting this wrong
+would have made every profile underivable and silently pushed every package to
+the floor.
+
+**The floor** leaves the asserted value in place and records `profileShortfall`
+with the missing fields, so `uofa shacl` fails naming the gap rather than
+declaring a lower profile the package also does not meet.
 
 *Fails if:* any package declares a profile whose required fields it lacks, or a
 non-conformant package exits without naming what is missing.

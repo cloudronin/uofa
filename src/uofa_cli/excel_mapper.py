@@ -70,6 +70,77 @@ def resolve_criteria_set(standards_reference: str, base_uri: str) -> str:
     return f"{base_uri}/criteria/{slugify(standards_reference)}"
 
 
+# Supplied by `sign_file` AFTER the mapper runs, so they cannot be looked for
+# when the profile is derived. Every other required field is present by then --
+# generatedAtTime included, which is set here.
+_DEFERRED_TO_SIGNING = {"hash", "signature"}
+
+
+def _profile_requirements(packs: list[str]) -> dict[str, set[str]]:
+    """Required property names per profile body, read from the shapes.
+
+    Read, never hardcoded: a copy of the shape's requirements is a copy that
+    drifts, and this repository has already moved PROFILE_URIS off a literal
+    onto `sh:in` for that reason.
+    """
+    from rdflib import Graph, Namespace
+    from uofa_cli import paths as _paths
+
+    SH = Namespace("http://www.w3.org/ns/shacl#")
+    g = Graph()
+    for f in _paths.all_shacl_schemas(active=list(packs)):
+        try:
+            g.parse(f, format="turtle")
+        except Exception:
+            continue
+    out: dict[str, set[str]] = {}
+    for name in ("Disposition", "Complete", "Minimal"):
+        shape = next((x for x in g.subjects(None, None)
+                      if str(x).endswith(f"UnitOfAssurance_{name}Body")), None)
+        if shape is None:
+            continue
+        req, frontier = set(), [shape]
+        while frontier:
+            n = frontier.pop()
+            for prop in g.objects(n, SH.property):
+                mc = g.value(prop, SH.minCount)
+                if mc is not None and int(mc) >= 1:
+                    req.add(str(g.value(prop, SH.path)).split("#")[-1])
+            frontier.extend(g.objects(n, SH.node))
+        out[name] = req
+    return out
+
+
+def derive_profile(doc: dict, packs: list[str]) -> tuple[str | None, set[str]]:
+    """The highest profile the CONTENT satisfies, and what the closest one lacks.
+
+    Every package used to declare whatever the spreadsheet said, which is how all
+    five gpt-5 extractions came to claim ProfileComplete without containing
+    Complete's fields -- an aspiration the shape then measured as a claim.
+
+    Order is Disposition, Complete, Minimal: Disposition is CompleteBody plus
+    hasDisposition via sh:node, so it is strictly the most demanding. Ranking by
+    what a shape DEMANDS rather than by what is adopted keeps the order stable.
+
+    Returns (None, missing) when nothing is satisfied, so the caller can fail
+    loudly naming the gap rather than declaring a profile the package does not
+    meet.
+    """
+    reqs = _profile_requirements(packs)
+    present = {k for k, v in doc.items() if v not in (None, "", [], {})}
+    closest, fewest = None, None
+    for name in ("Disposition", "Complete", "Minimal"):
+        need = reqs.get(name)
+        if not need:
+            continue
+        missing = {r for r in need if r not in present} - _DEFERRED_TO_SIGNING
+        if not missing:
+            return name, set()
+        if fewest is None or len(missing) < len(fewest):
+            closest, fewest = name, missing
+    return None, (fewest or set())
+
+
 def _provenance(summary: dict, packs: list[str]) -> dict:
     """Which class each field came from. See R5 in docs/valid-package-spec.md.
 
@@ -303,6 +374,21 @@ def map_to_jsonld(
         }
     ]
 
+    # R3. The declared profile is DERIVED from what the package contains, not
+    # taken from the spreadsheet. All five gpt-5 extractions declared
+    # ProfileComplete because the extractor writes "Complete" -- an aspiration
+    # the shape then measured as a claim, and three of them failed on it. A
+    # package should declare what it earned.
+    derived, missing = derive_profile(doc, packs)
+    if derived:
+        doc["conformsToProfile"] = PROFILE_URIS[derived]
+        doc.setdefault("fieldProvenance", {})["conformsToProfile"] = "derived"
+    else:
+        # The floor. Leave the asserted value in place so `uofa shacl` fails
+        # naming the gap, and record what is missing rather than silently
+        # declaring a lower profile the package also does not meet.
+        doc.setdefault("fieldProvenance", {})["conformsToProfile"] = "asserted"
+        doc["profileShortfall"] = sorted(missing)
     return doc
 
 
