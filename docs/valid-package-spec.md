@@ -359,6 +359,43 @@ an edge case.
 *Fails if:* any package declares a profile whose required fields it lacks, or a
 non-conformant package exits without naming what is missing.
 
+### R4b — the synthesized Requirement carries the template's placeholder **(open, diagnosed)**
+
+A keyless package now imports and reports C1, C2 and C3 green — and the C2 pass
+is not real:
+
+    bindsRequirement    "Stable URI or local ID"
+
+**That is the template's own help text satisfying a minCount**, and it is the
+identical defect already on this project's record: `wasDerivedFrom` was satisfied
+for 27 of 27 packages by *"DOI, report number, or URI"*. Same failure, different
+field, alive today.
+
+**The synthesis itself is legitimate and should stay.** It dates to May 2026: an
+LLM dropped the Requirement entity, the importer hard-failed, and the fix was to
+synthesize one from `cou_name` + `cou_description` with a warning. The COU is
+real document content, so a Requirement built from it is derived, not invented.
+The synthesized row reads:
+
+    Requirement | "<the COU text>" | "Stable URI or local ID" | "Auto-synthesized from COU"
+
+Name and description are genuine. **Only the Identifier/URI column is wrong** — it
+carries the template placeholder, and `bindsRequirement` maps from that column.
+
+**The fix is narrow:** the synthesized row must leave the identifier blank, or
+mint one from the COU slug the way every other entity URI is minted. A blank
+identifier fails validation naming `bindsRequirement`, which is the honest
+outcome and the one the boundary table already predicts.
+
+**What it means for the boundary table.** That table lists keyless at 5 of
+Minimal's 6, blocked on `bindsRequirement`. That is what SHOULD be true and is
+not what happens: the field is filled with placeholder text and the package
+passes. Until R4b lands, **every validity figure in this document rests on a
+shape a help string can satisfy** — including the gpt-5 2-of-5.
+
+*Fails if:* any emitted identifier appears in the template's help row, or a
+package validates on a `bindsRequirement` no one supplied.
+
 ### R4 — no blank is filled to satisfy a count
 
 R1–R3 supply what the tool genuinely knows. Nothing authorises filling a
