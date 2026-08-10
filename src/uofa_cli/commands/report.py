@@ -209,6 +209,66 @@ def _reconcile(state) -> str:
     return f"{state.completeness_pct}% of all factors evidenced; {tail}"
 
 
+# ── shared render decisions ─────────────────────────────────────────────────
+#
+# `_render_text` and `_render_markdown` are two formattings of ONE document.
+# Everything that decides *what appears* lives here; the renderers below decide
+# only how it looks. They previously duplicated all of this, and the duplicates
+# were the honesty-critical branches -- whether sufficiency was assessed, which
+# factors are demoted, whether a risk tier is stated. Drift there produces a
+# readout that disagrees with itself about whether something was assessed, which
+# is worse than either answer alone, and it is silent: both renderers pass their
+# own tests while telling different stories.
+#
+# `_render_json` deliberately does not use these. It is a flat dump of
+# ReportState, so it has no layout decisions to share.
+
+_FACTOR_RANK = {Status.NOT_STATED: 0, Status.EVIDENCED: 1, Status.NOT_APPLICABLE: 2}
+
+
+def _sorted_factors(state) -> list:
+    """Factors in reading order: unmet first, then evidenced, then N/A."""
+    return sorted(state.factors, key=lambda f: (_FACTOR_RANK[f.status], f.name))
+
+
+def _header_rows(state) -> list[tuple[str, str]]:
+    """(label, value) pairs for the header block, in order.
+
+    Which rows appear is a decision, not formatting: a pack that assumes a risk
+    posture shows that instead of a tier, and extraction provenance is omitted
+    rather than shown empty. Returning rows keeps both renderers agreeing on
+    what the reader is told.
+    """
+    rows: list[tuple[str, str]] = [("Assessed against", state.standard)]
+    if state.risk_assumption:
+        rows.append(("Risk posture", state.risk_assumption))
+    else:
+        tier = state.risk_level if state.risk_level is not None else "Not stated"
+        rows.append(("Risk tier", str(tier)))
+    if state.extraction_provenance:
+        rows.append(("Extraction", state.extraction_provenance))
+    if state.device_class:
+        rows.append(("Device class", state.device_class))
+    return rows
+
+
+def _concerns_kind(state) -> str:
+    """Which of the three mutually exclusive concern outcomes applies.
+
+    'declined' -> sufficiency was not assessed and the readout must say so
+                  rather than imply a clean result from an absent analysis;
+    'none'     -> assessed, nothing flagged;
+    'listed'   -> assessed, concerns follow.
+
+    The wording differs per renderer; the decision must not.
+    """
+    if not state.sufficiency_assessed:
+        return "declined"
+    if not state.concerns:
+        return "none"
+    return "listed"
+
+
 def _render_text(state) -> str:
     L = []
     if state.documentation_status == "none":
@@ -218,15 +278,8 @@ def _render_text(state) -> str:
         L.append("")
     L.append(f"CREDIBILITY REPORT — {state.cou_name}")
     L.append("=" * 60)
-    L.append(f"Assessed against : {state.standard}")
-    if state.risk_assumption:
-        L.append(f"Risk posture     : {state.risk_assumption}")
-    else:
-        L.append(f"Risk tier        : {state.risk_level if state.risk_level is not None else 'Not stated'}")
-    if state.extraction_provenance:
-        L.append(f"Extraction       : {state.extraction_provenance}")
-    if state.device_class:
-        L.append(f"Device class     : {state.device_class}")
+    for label, value in _header_rows(state):
+        L.append(f"{label:<17}: {value}")
     L.append("")
     concerns_glance = _glance_severities(state) if state.sufficiency_assessed else "not assessed (heuristic mode)"
     L.append("AT A GLANCE")
@@ -237,16 +290,16 @@ def _render_text(state) -> str:
     L.append(f"  {_reconcile(state)}")
     L.append("")
     L.append("CREDIBILITY FACTORS")
-    rank = {Status.NOT_STATED: 0, Status.EVIDENCED: 1, Status.NOT_APPLICABLE: 2}
-    for f in sorted(state.factors, key=lambda f: (rank[f.status], f.name)):
+    for f in _sorted_factors(state):
         L.append(f"  [{f.status.value:<14}] {f.name}")
     L.append("")
     L.append("CONCERNS FOUND")
-    if not state.sufficiency_assessed:
+    kind = _concerns_kind(state)
+    if kind == "declined":
         L.append(f"  {_SUFFICIENCY_DECLINED}")
-    elif not state.concerns:
+    elif kind == "none":
         L.append("  None flagged.")
-    for c in state.concerns:
+    for c in state.concerns if kind == "listed" else ():
         hits = f" (seen {c.hits}x)" if c.hits > 1 else ""
         where = f"  Relates to: {', '.join(c.factors)}." if c.factors else ""
         L.append(f"  - {c.label} concern{hits}. {c.description}{where}")
@@ -266,15 +319,8 @@ def _render_markdown(state) -> str:
                  "Every factor below is unassessed as a consequence; the concerns are the "
                  "mechanical result of an absent card, not findings about a real one.\n")
     L.append(f"# Credibility report — {state.cou_name}\n")
-    L.append(f"- **Assessed against:** {state.standard}")
-    if state.risk_assumption:
-        L.append(f"- **Risk posture:** {state.risk_assumption}")
-    else:
-        L.append(f"- **Risk tier:** {state.risk_level if state.risk_level is not None else 'Not stated'}")
-    if state.extraction_provenance:
-        L.append(f"- **Extraction:** {state.extraction_provenance}")
-    if state.device_class:
-        L.append(f"- **Device class:** {state.device_class}")
+    for label, value in _header_rows(state):
+        L.append(f"- **{label}:** {value}")
     L.append("\n## At a glance\n")
     L.append(f"| Completeness | Factors evidenced | Concerns | Gate checks |")
     L.append("|---|---|---|---|")
@@ -285,15 +331,15 @@ def _render_markdown(state) -> str:
     L.append("## Credibility factors\n")
     L.append("| Factor | Status |")
     L.append("|---|---|")
-    rank = {Status.NOT_STATED: 0, Status.EVIDENCED: 1, Status.NOT_APPLICABLE: 2}
-    for f in sorted(state.factors, key=lambda f: (rank[f.status], f.name)):
+    for f in _sorted_factors(state):
         L.append(f"| {f.name} | {f.status.value} |")
     L.append("\n## Concerns found\n")
-    if not state.sufficiency_assessed:
+    kind = _concerns_kind(state)
+    if kind == "declined":
         L.append(f"_{_SUFFICIENCY_DECLINED}_")
-    elif not state.concerns:
+    elif kind == "none":
         L.append("No concerns were flagged.")
-    for c in state.concerns:
+    for c in state.concerns if kind == "listed" else ():
         hits = f" (seen {c.hits}×)" if c.hits > 1 else ""
         where = f" Relates to: {', '.join(c.factors)}." if c.factors else ""
         L.append(f"- **{c.label} concern{hits}.** {c.description}{where}")
