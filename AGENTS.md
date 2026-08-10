@@ -499,6 +499,21 @@ them raised an error.
   predicted number can be satisfied by a mechanism other than the one predicted,
   and the prediction cannot tell the difference.** A null model can.
 
+- **Rule:** A purely additive change to a file that is covered by an integrity
+  hash is not additive. Check what inlines or hashes a file before extending it;
+  prefer mechanisms that make the change unnecessary (e.g. `@vocab` fallback)
+  over versioning machinery.
+  **Why:** Adding one vocabulary term to `spec/context/v0.5.jsonld` put the
+  Morrison reference example into **`C1 Integrity ✗` while C2 and C3 stayed
+  green** — `integrity.canonicalize_and_hash` inlines the context into the
+  document *before* hashing, so the signed corpus is downstream of that file and
+  every bundle referencing it re-hashes. The addition also bought nothing: the
+  context sets `"@vocab": "https://uofa.net/vocab#"`, so undeclared terms already
+  expand to `uofa:<term>` and the rule engine sees them either way. Note the
+  evidence that this file was already frozen and the signal was missed — **no
+  pack has ever added to it**, and the `hasDisposition` term the disposition pack
+  needed sits in an unused `v0.6.jsonld` draft instead.
+
 - **Rule:** `sh:minCount` requires a field to be **present**, not **correct**.
   Never emit a plausible value to satisfy one.
   **Why:** 14 turbomachinery models labelled `"Class II"` validated while packages
