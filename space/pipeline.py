@@ -307,10 +307,27 @@ def _build_context(summary: dict, pack: str) -> dict:
     return ctx
 
 
-def _build_payload(pack, data, shacl_conforms, shacl_violations, firings, warnings) -> dict:
+def _build_payload(pack, data, shacl_conforms, shacl_violations, firings, warnings,
+                   doc=None) -> dict:
+    """Assemble the reviewer payload.
+
+    `doc` is the JSON-LD bundle. It is passed so this supplies compute_findings
+    with the SAME inputs the CLI report path does. Omitting them silently filed
+    every package-level concern under documentation and left the evaluation
+    section unable to see its own evidence: a caller that reconstructs the
+    production call path with fewer arguments is not a lighter version of it,
+    it is a different one that still returns a payload.
+    """
     statuses = {f["factor_type"]: f["status"] for f in data["factors"]}
+    doc = doc or {}
+    eval_ids = frozenset(
+        str(vr["id"]) if isinstance(vr, dict) and vr.get("id") else str(vr)
+        for vr in (doc.get("hasValidationResult") or [])
+        if (isinstance(vr, dict) and vr.get("id")) or isinstance(vr, str)
+    )
     payload = summary_mod.compute(
-        pack, statuses, {"conforms": shacl_conforms, "violations": shacl_violations}, firings
+        pack, statuses, {"conforms": shacl_conforms, "violations": shacl_violations}, firings,
+        eval_ids, str(doc.get("id") or ""),
     )
     payload["context"] = _build_context(data["summary"], pack)
     payload["warnings"] = warnings
@@ -429,7 +446,8 @@ def finalize_from_data(data, pack, work_dir, *, source_name="upload", warnings=N
         raise _StageError(FailureKind.VALIDATE_ERROR) from exc
 
     firings = _run_weakeners(jsonld_path, pack) if assess_sufficiency else []
-    payload = _build_payload(pack, data, shacl_conforms, shacl_violations, firings, warnings or [])
+    payload = _build_payload(pack, data, shacl_conforms, shacl_violations,
+                             firings, warnings or [], doc)
     if not assess_sufficiency:
         payload["context"]["sufficiency_assessed"] = False
     return payload
