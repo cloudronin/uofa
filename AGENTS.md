@@ -499,6 +499,23 @@ them raised an error.
   predicted number can be satisfied by a mechanism other than the one predicted,
   and the prediction cannot tell the difference.** A null model can.
 
+- **Rule:** Every derived committed artifact needs a regeneration-is-a-no-op
+  test.
+  **Why:** §4 tells you to regenerate derived artifacts rather than hand-edit
+  them. That instruction is only safe if regenerating reproduces what is
+  committed, and for `spec/schemas/uofa.schema.json` it did not — in **both**
+  directions at once. `uofa schema --emit json` read core shapes only while the
+  committed copy had been generated with `vv40` active, so following the
+  documented instruction **deleted** the `hasContextOfUse` definition and
+  downgraded the `deviceClass` enum. In the other direction the artifact was
+  stale: core stopped requiring `hasContextOfUse` at the Minimal profile on
+  2026-08-08 *because requiring it made 7009A documents invent the field*, and
+  that fix never reached the schema — so for the whole of 0.11.0 the shipped
+  schema kept demanding the field whose requirement had been removed for causing
+  fabrication. Nothing failed in either direction. A derived artifact with no
+  no-op test is an unverified copy of its source that everyone treats as the
+  source.
+
 - **Rule:** A purely additive change to a file that is covered by an integrity
   hash is not additive. Check what inlines or hashes a file before extending it;
   prefer mechanisms that make the change unnecessary (e.g. `@vocab` fallback)

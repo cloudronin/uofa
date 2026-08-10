@@ -2,6 +2,38 @@
 
 All notable changes to this project are documented here.
 
+## [Unreleased]
+
+### Fixed — the shipped JSON Schema still demanded a field core had removed for causing fabrication
+
+- **`spec/schemas/uofa.schema.json` required `hasContextOfUse` at the Minimal
+  profile after core had stopped requiring it.**
+
+  **Window:** the requirement was removed from core on **2026-08-08** and that
+  removal shipped in **0.11.0 (2026-08-09)** — see "core is now
+  standards-agnostic" below. The *derived* JSON Schema was never regenerated, so
+  it kept the requirement for the whole of 0.11.0 until this release.
+
+  **Effect:** anyone validating a package against the published schema — editor
+  autocomplete, a CI step, any tool consuming `uofa.schema.json` — was still told
+  that `hasContextOfUse` is mandatory at the Minimal profile. That is precisely
+  the requirement core dropped because it meant no NASA-STD-7009A document could
+  produce a valid package except by inventing the field, and two that did
+  validated on a context of use a model had made up. The fix propagated to the
+  SHACL and to core's behaviour; it did not propagate to the artifact that
+  restates it, so the incentive to fabricate survived in the schema. Packages
+  validated with `uofa check` were never affected — SHACL was correct throughout.
+  Only the standalone JSON Schema was wrong.
+
+  **Fix:** `uofa schema --emit json` now resolves active packs (it read core
+  shapes only, while the committed artifact had been generated with `vv40`
+  active, so regenerating it *also* silently deleted the `hasContextOfUse`
+  definition and downgraded the `deviceClass` enum to a bare string —
+  regeneration was lossy in one direction and stale in the other). The artifact
+  is regenerated, `deviceClass` regains vv40's `"N/A"` value, and
+  `tests/test_schema_regeneration.py` pins regeneration as a no-op so a derived
+  artifact cannot drift from its source again.
+
 ## [0.11.0] — 2026-08-09
 
 ### Added — keyless extraction, and packages that say what they are
