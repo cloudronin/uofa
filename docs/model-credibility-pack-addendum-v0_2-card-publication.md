@@ -38,6 +38,7 @@ versioned.
 | Header | model id, developer, HF revision hash, assessed date, pack + template version, raidex `backend_version` | bundle metadata |
 | Provenance line | extraction backend, provenance-stamping statement | bundle metadata |
 | Verdict tiles | [1] n/17 factors present; [2] weakener count by severity. **No composite score, ever.** | Group A / Group B outputs |
+| Package-level strip | **ADDED 2026-08-10.** A compact strip between the verdict tiles and section [1], labeled as package-level (whole-assessment) findings. | concerns whose affected node is the UnitOfAssurance |
 | [1] Factor grid | 17 presence dots, factor name on hover | Group A |
 | [2] Findings | severity-sorted weakener rows, one-line finding, prevalence note, scope sentence | Group B + cohort stats |
 | [3] Furnished evidence | RAI badge (score, coverage, constituent version, "furnished composite — assessed as evidence under [2]" framing), reported-vs-furnished table, dimension radar | raidex adapter |
@@ -58,6 +59,15 @@ versioned.
    them as such (they change as the cohort grows; the bundle does not).
 3. Semantic color appears only on severity chips and Δ values. Everything
    else neutral.
+
+3a. **Package-level findings render in their own strip, not inside [1] or [2].**
+   Core compounds fire on the UnitOfAssurance and aggregate across *every*
+   weakener, so filing them under documentation lets a benchmark gap appear as a
+   documentation Critical whose magnitude comes from evidence the documentation
+   layer never assessed — observed at 9x growing to 24x once Group-B evidence was
+   attached. They belong to the whole assessment, so they sit above both sections
+   and are labeled as such. The strip renders only when such findings exist; it
+   carries no count when empty rather than showing a reassuring zero.
 4. The scope sentence ("Findings describe the published record, not the
    model.") renders on every card unconditionally. Not configurable.
 5. The `--cou`/`--mrl` run-context inputs (A2), when supplied, render in the
