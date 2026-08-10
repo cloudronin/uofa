@@ -53,7 +53,6 @@ def _run():
     parent.add_argument("--pack", metavar="NAME", action="append",
                         help="pack(s) to use for shapes, rules, and templates (default: vv40). "
                              "May be repeated: --pack vv40 --pack nasa-7009b")
-
     parser = argparse.ArgumentParser(
         prog="uofa",
         description="Create, validate, and sign Unit of Assurance evidence packages.",

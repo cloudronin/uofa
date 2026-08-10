@@ -74,7 +74,7 @@ def add_arguments(parser):
                         help="id mode: model-card git revision (default: latest)")
     parser.add_argument("--save-bundle", metavar="PATH", type=Path, default=None,
                         help="id mode: write the generated bundle to PATH "
-                             "(default: ./<owner>__<model>.mrm-nist.jsonld)")
+                             "(default: ./<owner>__<model>.<pack>.jsonld)")
     parser.add_argument("--no-save-bundle", action="store_true",
                         help="id mode: do not keep the generated bundle")
     parser.add_argument("--extract-backend", default=None,
@@ -84,6 +84,33 @@ def add_arguments(parser):
                         help="id mode: model name on the chosen backend")
     parser.add_argument("--extract-base-url", default=None,
                         help="id mode: base URL for openai-compatible backends")
+
+    # ── assessment run-context (Group B) ──
+    # On `report`'s own parser, not the shared parent: `--cou` is already a
+    # required repeatable flag on `adversarial`, and `--yes` already exists on
+    # `setup` and `interrogate`. Beyond the collisions, a flag on the parent is
+    # accepted-and-ignored by every other subcommand, which is a small lie in a
+    # tool whose whole argument is that it does not tell them.
+    parser.add_argument("--cou", metavar="TEXT", default=None,
+                        help="state the context of use this assessment is scoped to "
+                             "(run-context; raises W-EV-COU-05 to Critical)")
+    parser.add_argument("--mrl", metavar="N", type=int, default=None,
+                        help="state the model risk level of the decision this evidence "
+                             "informs, 1-5 (run-context; enables COMPOUND-EV-01)")
+    # ── furnished evaluation evidence (mutually exclusive) ──
+    parser.add_argument("--raidex", metavar="PATH", default=None,
+                        help="ingest a local raidex results.json as Group-B evidence")
+    parser.add_argument("--raidex-hub", action="store_true",
+                        help="fetch this model's published raidex record from the "
+                             "cloudronin/raidex-results dataset")
+    parser.add_argument("--raidex-run", action="store_true",
+                        help="run `raidex eval` now and assess its output "
+                             "(needs: pip install uofa[raidex]; UNVERIFIED against a "
+                             "live run, see docs/live-run-verification.md)")
+    parser.add_argument("--raidex-args", metavar="ARGS", default=None,
+                        help="passthrough arguments for `raidex eval`, uninterpreted")
+    parser.add_argument("--raidex-yes", dest="yes", action="store_true",
+                        help="skip the --raidex-run confirmation (for CI)")
 
 
 # ── bundle → analysis payload ───────────────────────────────────────────────
@@ -597,7 +624,68 @@ def _resolve_extract_llm(args):
     return _configured_model_or_none(), None
 
 
-def _bundle_out_path(model_id: str, args) -> tuple[Path, bool]:
+
+def _apply_evidence_and_context(bundle: dict, bundle_path, args, model_id: str) -> int:
+    """Apply --cou/--mrl and any furnished evidence, then persist. 0 on success.
+
+    Persists because the saved bundle is the artifact of record: a readout that
+    depended on flags the bundle does not carry could not be reproduced from it,
+    and "re-run this bundle" is the whole re-derivability claim.
+    """
+    import sys as _sys
+
+    from uofa_cli.furnishers import attach
+
+    def note(msg: str) -> None:
+        """Progress, on stderr. `--format json` writes results to stdout and a
+        consumer piping it must get JSON, not JSON preceded by commentary."""
+        print(f"  {msg}", file=_sys.stderr)
+
+    source, err = attach.resolve_source_flags(args)
+    if err:
+        error(err)
+        return 2
+
+    changed = bool(attach.apply_run_context(
+        bundle, cou=getattr(args, "cou", None), mrl=getattr(args, "mrl", None)))
+
+    if source == "run":
+        model_ref = model_id or str(bundle.get("name") or bundle_path)
+        note(attach.preflight_statement(model_ref))
+        note(f"NOTE: {attach.RAIDEX_UNVERIFIED}")
+        if not getattr(args, "yes", False):
+            reply = input("proceed with the sweep? [y/N] ").strip().lower()
+            if reply not in ("y", "yes"):
+                note("aborted before any provider call was made")
+                return 1
+        res = attach.run_raidex(bundle, model_ref,
+                               extra_args=getattr(args, "raidex_args", "") or "")
+    elif source in ("local", "hub"):
+        res = attach.attach_raidex(bundle, local_path=getattr(args, "raidex", None),
+                                   model_id=model_id, use_hub=(source == "hub"))
+    else:
+        res = None
+
+    if res is not None:
+        if not res.ok:
+            # A furnisher that cannot supply evidence is a stated absence, not a
+            # crash: the readout still reports documentation completeness and
+            # says the evaluation section has nothing to assess.
+            note(f"no furnished evidence attached: {res.detail}")
+        else:
+            changed = True
+            excl = f", {len(res.excluded)} constituent(s) excluded" if res.excluded else ""
+            note(f"furnished evidence: {res.n_nodes} validation results "
+                 f"(coverage {res.coverage}{excl}, source {res.source})")
+            if res.live_run:
+                note(attach.RAIDEX_UNVERIFIED)
+
+    if changed:
+        bundle_path.write_text(json.dumps(bundle, indent=2), encoding="utf-8")
+    return 0
+
+
+def _bundle_out_path(model_id: str, args, pack: str = "mrm-nist") -> tuple[Path, bool]:
     """(path, kept). The generated bundle is the auditable, re-runnable source, so id
     mode keeps it by default -- but in a temp cache, NOT the working directory (a
     read-style command shouldn't litter cwd). --save-bundle PATH writes where asked;
@@ -608,7 +696,7 @@ def _bundle_out_path(model_id: str, args) -> tuple[Path, bool]:
     if args.no_save_bundle:
         return Path(tempfile.mkdtemp(prefix="uofa-report-")) / "bundle.jsonld", False
     base = Path(tempfile.gettempdir()) / "uofa-report-bundles"
-    return base / f"{model_id.replace('/', '__')}.mrm-nist.jsonld", True
+    return base / f"{model_id.replace('/', '__')}.{pack}.jsonld", True
 
 
 def _build_card_bundle(model_id: str, pack: str, args) -> Path | None:
@@ -646,7 +734,7 @@ def _build_card_bundle(model_id: str, pack: str, args) -> Path | None:
     if fetched.sha:
         bundle["_cardRevision"] = fetched.sha
 
-    out_path, kept = _bundle_out_path(model_id, args)
+    out_path, kept = _bundle_out_path(model_id, args, pack)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(json.dumps(bundle, indent=2) + "\n", encoding="utf-8")
     if kept:
@@ -682,6 +770,10 @@ def run(args) -> int:
             "bundle? (report needs the inlined or compact-@graph form, not an "
             "expanded reasoned-output dump.)"
         )
+
+    rc = _apply_evidence_and_context(bundle, bundle_path, args, value if kind == "id" else "")
+    if rc:
+        return rc
 
     # Heuristic / no-card bundles decline sufficiency: analysis_for skips the
     # weakener engine so the readout reports completeness only (the renderers
