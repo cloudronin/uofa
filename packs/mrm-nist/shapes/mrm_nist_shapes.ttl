@@ -48,3 +48,48 @@ uofa:MrmNistCredibilityFactorShape a sh:NodeShape ;
             }
         """ ;
     ] .
+
+# ── Group B: NIST AI 800-3 evaluation-sufficiency factors ────────────────────
+# The second factor group in this pack. Group A (above) asks whether the model
+# documents itself; Group B asks whether the reported numbers in that
+# documentation are credible as validation evidence.
+#
+# Firewall: this shape uses the same *required* factorStandard triple as Group A,
+# not vv40's OPTIONAL + !BOUND fallback. That is what keeps the two groups
+# mutually silent inside one pack -- a Group-A factor carries
+# "NIST-AI-RMF-1.0" and never matches here; a Group-B factor carries
+# "NIST-AI-800-3" and never matches the Group-A shape. vv40's !BOUND clause is
+# also unreachable for both, since each carries a bound standard that is not
+# ASME-VV40-2018. Do not relax either guard to OPTIONAL: the moment one group's
+# shape can see the other's factors, every Group-B factor becomes a Group-A
+# name violation and the pack reports 22 failures on a valid package.
+#
+# Presence-only, exactly like Group A. There is deliberately no
+# requiredLevel/achievedLevel range shape -- Group B has no 1-5 levels (pack
+# spec: "presence/absence like mrm-nist; levels are a later opt-in variant if
+# ever"). Keep this list in sync with AI_800_3_FACTOR_NAMES in
+# src/uofa_cli/excel_constants.py by hand; tests/test_excel_constants_derived.py
+# guards the pairing.
+uofa:AI8003CredibilityFactorShape a sh:NodeShape ;
+    sh:targetClass uofa:CredibilityFactor ;
+    sh:sparql [
+        sh:message "factorType must be one of the 6 NIST AI 800-3 evaluation-sufficiency factor names." ;
+        sh:select """
+            SELECT $this
+            WHERE {
+                $this uofa:factorType ?ft .
+                $this uofa:factorStandard ?fs .
+                FILTER (
+                    ?fs = "NIST-AI-800-3"
+                    && ?ft NOT IN (
+                        "Score and uncertainty",
+                        "Item sampling",
+                        "Harness determinism",
+                        "Null calibration",
+                        "Context-of-use relevance",
+                        "Construct validity"
+                    )
+                )
+            }
+        """ ;
+    ] .

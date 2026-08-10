@@ -1,0 +1,239 @@
+# ============================================================================
+# UofA mrm-nist pack — Group B evaluation-sufficiency weakeners (NIST AI 800-3)
+# ============================================================================
+# Spec:   docs/model-credibility-pack-spec.md §3 (+ addenda v0.1 §A1/§A2)
+# Engine: Apache Jena GenericRuleReasoner (FORWARD_RETE mode)
+# Pack:   mrm-nist v0.2.0
+#
+# These rules assess a *reported benchmark result* as validation evidence. The
+# node they fire on is uofa:ValidationResult -- the SAME node type vv40 uses for
+# a simulation validation study. That reuse is the point: a benchmark result is
+# validation evidence about a model, not a new kind of thing (pack spec §6).
+#
+# ── The firewall, and why it needs no dispatcher ────────────────────────────
+# Every rule below binds (?uofa uofa:hasValidationResult ?vr) in its body. A
+# model with a card but no reported evaluation has no such node, so these rules
+# structurally CANNOT fire -- zero Group-B weakeners, not N failures. The
+# firewall is a property of the rule bodies, not of a suppression step. Do not
+# "optimize" a rule by dropping that clause; it is load-bearing.
+# Guarded by tests/test_group_b_firewall.py, which must be made to fail on
+# purpose when edited (AGENTS.md §13).
+#
+# ── What is deliberately NOT here ──────────────────────────────────────────
+# W-EV-UQ-01 was withdrawn. Core's W-AL-01 already fires on
+# noValue(?result, uofa:hasUncertaintyQuantification) for any ValidationResult,
+# and mrm-nist runs all 23 core patterns -- so a second rule would report one
+# missing standard error twice under two IDs. The adapter populates core's
+# property instead, and W-AL-01 fires unchanged on an LLM benchmark exactly as
+# it does on a blood-pump CFD study. Seven other core rules also bind
+# hasValidationResult and legitimately fire on these nodes (notably W-AR-05:
+# raidex furnishes no comparator at all).
+#
+# BECAUSE core rules fire per node, the reporting layer MUST aggregate by
+# patternId with an affected-node count. Ten validation results must not become
+# ten rows.
+#
+# ── Absence is tested, never a falsy value ─────────────────────────────────
+# Every noValue() below assumes the extractor OMITS a property it cannot
+# furnish. Emitting `false` or "N/A" would make the triple exist and silence the
+# rule -- the failure mode AGENTS.md §13 describes as satisfying a constraint
+# with a plausible value. tests/test_group_b_rule_property_coverage.py pins the
+# rule-tested properties against what the adapter can emit.
+# ============================================================================
+
+@prefix uofa: <https://uofa.net/vocab#>.
+@prefix prov: <http://www.w3.org/ns/prov#>.
+@prefix rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#>.
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#>.
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#>.
+@prefix schema: <https://schema.org/>.
+
+# ============================================================================
+# SIMPLE WEAKENERS
+# ============================================================================
+
+# W-EV-GEN-02: Benchmark accuracy presented without a superpopulation account.
+# 800-3's core distinction: benchmark accuracy is accuracy ON THE BENCHMARK.
+# Treating it as generalized accuracy requires stating how the items relate to
+# the target population. raidex furnishes n_samples but no such account, so this
+# fires across the cohort -- that IS the finding, not a calibration error.
+[w_ev_gen02:
+    (?uofa rdf:type uofa:UnitOfAssurance)
+    (?uofa uofa:hasValidationResult ?vr)
+    noValue(?vr, uofa:samplingAccount)
+    makeSkolem(?ann, ?uofa, 'W-EV-GEN-02', ?vr)
+    ->
+    (?ann rdf:type uofa:WeakenerAnnotation)
+    (?ann uofa:patternId 'W-EV-GEN-02')
+    (?ann uofa:severity 'High')
+    (?ann uofa:affectedNode ?vr)
+    (?ann schema:description 'Reported benchmark score carries no account of how its items sample the target population - benchmark accuracy cannot be read as generalized accuracy.')
+    (?uofa uofa:hasWeakener ?ann)
+]
+
+# W-EV-DET-03: No per-model determinism floor / reproducibility statement.
+# Grounding: Seahaven TRAP 35. An eval score without a stated temperature, seed,
+# or repeat-run spread is a single draw reported as a measurement.
+[w_ev_det03:
+    (?uofa rdf:type uofa:UnitOfAssurance)
+    (?uofa uofa:hasValidationResult ?vr)
+    noValue(?vr, uofa:harnessDeterminismStatement)
+    makeSkolem(?ann, ?uofa, 'W-EV-DET-03', ?vr)
+    ->
+    (?ann rdf:type uofa:WeakenerAnnotation)
+    (?ann uofa:patternId 'W-EV-DET-03')
+    (?ann uofa:severity 'High')
+    (?ann uofa:affectedNode ?vr)
+    (?ann schema:description 'Reported evaluation states no determinism floor - sampling settings and per-model run-to-run spread are uncharacterized, so the score is one draw reported as a measurement.')
+    (?uofa uofa:hasWeakener ?ann)
+]
+
+# W-EV-NULL-04: Score not calibrated against a null / chance baseline.
+# Grounding: the Seahaven null-calibration work. Distinct from core's W-AR-05
+# (noValue comparedAgainst): a comparator is the data a result was validated
+# against; a null baseline is the comprehension-free floor the score must clear.
+# A result can carry one without the other, which is why these stay separate.
+[w_ev_null04:
+    (?uofa rdf:type uofa:UnitOfAssurance)
+    (?uofa uofa:hasValidationResult ?vr)
+    noValue(?vr, uofa:nullBaselineStatement)
+    makeSkolem(?ann, ?uofa, 'W-EV-NULL-04', ?vr)
+    ->
+    (?ann rdf:type uofa:WeakenerAnnotation)
+    (?ann uofa:patternId 'W-EV-NULL-04')
+    (?ann uofa:severity 'High')
+    (?ann uofa:affectedNode ?vr)
+    (?ann schema:description 'Reported score is not calibrated against a null, chance, or comprehension-free baseline - the floor the score must clear to mean anything is unstated.')
+    (?uofa uofa:hasWeakener ?ann)
+]
+
+# W-EV-CAP-06: Capability confound not partialled.
+# Grounding: the Seahaven capability-confound finding. A separation attributable
+# to general capability rather than to the measured construct is not evidence
+# about the construct.
+[w_ev_cap06:
+    (?uofa rdf:type uofa:UnitOfAssurance)
+    (?uofa uofa:hasValidationResult ?vr)
+    noValue(?vr, uofa:confoundControlStatement)
+    makeSkolem(?ann, ?uofa, 'W-EV-CAP-06', ?vr)
+    ->
+    (?ann rdf:type uofa:WeakenerAnnotation)
+    (?ann uofa:patternId 'W-EV-CAP-06')
+    (?ann uofa:severity 'Medium')
+    (?ann uofa:affectedNode ?vr)
+    (?ann schema:description 'No capability-confound control stated - the reported separation may be attributable to general capability rather than to the construct the benchmark claims to measure.')
+    (?uofa uofa:hasWeakener ?ann)
+]
+
+# ── W-EV-COU-05: no stated context of use, at two severities ───────────────
+#
+# TWO RULES, ONE patternId. Precedent: w_si02_no_req / w_si02_no_result in core.
+#
+# THE FINDING IS noValue(?vr, uofa:claimedCOU) -- the PUBLISHED RECORD lacking a
+# stated context of use. Both bodies carry that clause. The operator's --cou
+# flag only selects the severity; it never creates the finding. A rule that
+# discriminated solely on the flag would manufacture a Critical against a model
+# whose card properly states its COU, i.e. report on the operator's input
+# instead of on the evidence. tests/fixtures/weakeners/W-EV-COU-05/boundary
+# pins exactly that case: claimedCOU present AND --cou supplied -> no firing.
+#
+# uofa:decisionContextOfUse is the RUN-CONTEXT property bound to --cou, and is
+# deliberately NOT uofa:hasContextOfUse -- that one is already synthesized from
+# the model id on every mrm-nist bundle, so keying on it would take the Critical
+# branch unconditionally (addendum v0.1 §A2, patched).
+#
+# The two bodies are mutually exclusive by construction (one requires
+# decisionContextOfUse, the other its absence), so they can never collide on the
+# same node -- which is why the Skolem discriminates on ?vr rather than on a
+# literal, unlike w_si02_*.
+
+# Critical: an actual decision is on the table and the record does not say the
+# benchmark is relevant to it.
+[w_ev_cou05_scoped:
+    (?uofa rdf:type uofa:UnitOfAssurance)
+    (?uofa uofa:hasValidationResult ?vr)
+    noValue(?vr, uofa:claimedCOU)
+    (?uofa uofa:decisionContextOfUse ?dcou)
+    makeSkolem(?ann, ?uofa, 'W-EV-COU-05', ?vr)
+    ->
+    (?ann rdf:type uofa:WeakenerAnnotation)
+    (?ann uofa:patternId 'W-EV-COU-05')
+    (?ann uofa:severity 'Critical')
+    (?ann uofa:affectedNode ?vr)
+    (?ann schema:description 'Reported evaluation states no context-of-use relevance, and an assessment context was supplied - the score is being read against a decision the published record never claimed it informs.')
+    (?uofa uofa:hasWeakener ?ann)
+]
+
+# High: the same gap, but no specific decision is being informed. Near-universal
+# firing here is accepted as the finding (addendum v0.1 §A2, decision recorded);
+# the reporting layer renders it once with a field-prevalence note.
+[w_ev_cou05_unscoped:
+    (?uofa rdf:type uofa:UnitOfAssurance)
+    (?uofa uofa:hasValidationResult ?vr)
+    noValue(?vr, uofa:claimedCOU)
+    noValue(?uofa, uofa:decisionContextOfUse)
+    makeSkolem(?ann, ?uofa, 'W-EV-COU-05', ?vr)
+    ->
+    (?ann rdf:type uofa:WeakenerAnnotation)
+    (?ann uofa:patternId 'W-EV-COU-05')
+    (?ann uofa:severity 'High')
+    (?ann uofa:affectedNode ?vr)
+    (?ann schema:description 'Reported evaluation states no context-of-use relevance - the decision this score would inform is unstated.')
+    (?uofa uofa:hasWeakener ?ann)
+]
+
+# ============================================================================
+# COMPOUND WEAKENERS (fire on Group-B output, chained)
+# ============================================================================
+
+# COMPOUND-EV-01: a score drives a high-risk decision AND lacks BOTH uncertainty
+# and null calibration -> Critical escalation.
+#
+# uofa:decisionRiskLevel is the RUN-CONTEXT property bound to --mrl. It is
+# deliberately NOT uofa:modelRiskLevel, which every mrm-nist bundle already
+# carries as the disclosed MRM_NIST_ASSUMED_MRL = 3 posture -- keying on that
+# would make greaterThan(?mrl, 2) true for every model and this rule would fire
+# unconditionally, which is the dead-rule failure addendum v0.1 §A2 exists to
+# prevent. With no --mrl there is no triple, the rule cannot match, and the
+# readout states "MRL not supplied - compound risk escalation not assessed."
+# The honest N/A is a property of rule structure, not a special case in the
+# renderer.
+[w_compound_ev01:
+    (?uofa rdf:type uofa:UnitOfAssurance)
+    (?uofa uofa:hasValidationResult ?vr)
+    (?uofa uofa:decisionRiskLevel ?mrl)
+    greaterThan(?mrl, 2)
+    noValue(?vr, uofa:hasUncertaintyQuantification)
+    noValue(?vr, uofa:nullBaselineStatement)
+    makeSkolem(?ann, ?uofa, 'COMPOUND-EV-01', ?vr)
+    ->
+    (?ann rdf:type uofa:WeakenerAnnotation)
+    (?ann uofa:patternId 'COMPOUND-EV-01')
+    (?ann uofa:severity 'Critical')
+    (?ann uofa:affectedNode ?vr)
+    (?ann schema:description 'Score informs a high-risk decision while carrying neither an uncertainty estimate nor a null baseline - there is no basis for judging whether the reported difference is real.')
+    (?uofa uofa:hasWeakener ?ann)
+]
+
+# COMPOUND-EV-02: a generalized performance claim AND no sampling account ->
+# the generalization is unsupported by the sample that produced it.
+#
+# uofa:generalizedClaim marks a result presented as a general/aggregate claim
+# rather than a task-specific measurement. The raidex adapter sets it on the
+# composite node only (rai_score is definitionally a cross-constituent index),
+# never on individual constituents -- so this fires once per model, not ten
+# times.
+[w_compound_ev02:
+    (?uofa rdf:type uofa:UnitOfAssurance)
+    (?uofa uofa:hasValidationResult ?vr)
+    (?vr uofa:generalizedClaim ?g)
+    noValue(?vr, uofa:samplingAccount)
+    makeSkolem(?ann, ?uofa, 'COMPOUND-EV-02', ?vr)
+    ->
+    (?ann rdf:type uofa:WeakenerAnnotation)
+    (?ann uofa:patternId 'COMPOUND-EV-02')
+    (?ann uofa:severity 'Critical')
+    (?ann uofa:affectedNode ?vr)
+    (?ann schema:description 'A generalized performance claim rests on a sample with no stated relationship to the population it generalizes over - the claim is broader than the evidence supporting it.')
+    (?uofa uofa:hasWeakener ?ann)
+]
