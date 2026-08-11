@@ -124,6 +124,41 @@ only if all constituent rules settle. The catalog closes when every shipped
 rule has settled; the pack's v1.0, the public cards, and badge outreach are
 gated on closure.
 
+### The zero-prevalence settle path (amended 2026-08-11)
+
+The gold set returned **zero positive instances** for P2, P5, P6 and P7 across
+150 hand-labeled cards. Every row is a "should fire" case, so **sensitivity is
+measurable and specificity is not** — and both a working rule and one that fires
+unconditionally score 1.00. A16.7's criteria would be met trivially.
+
+This is the `PENDING_EMISSION` problem arriving from the **data** side: the
+register guaranteed the rules *can* discriminate, not that the population lets
+them.
+
+**Ruling.** Those four rules settle via:
+
+1. **Prevalence reported as the finding.** 0/150 stands as a headline empirical
+   result, and it is the two-source convergence
+   (`studies/cohort-2026-08` n=427; `studies/card-eval-reporting-2026-08` n=49)
+   confirmed at gold quality on a third population.
+2. **A bounded enrichment stratum** measuring the one direction the gold set
+   cannot: whether a rule falsely fires on a card that genuinely states the
+   property. See `studies/taxonomy-validation/ENRICHMENT-PROTOCOL.md`, which is
+   signed before any cards are pulled and whose stratum is excluded from every
+   prevalence figure.
+
+**Why both, rather than prevalence alone.** With no positives, a hallucinated
+*clear* is detectable but a false *fire* is not — and the false fire is a public
+accusation about a named vendor's card. Settling four rules with that direction
+untested is not settling them.
+
+**Honest exit.** If the declared search finds no positives for P6 or P7, the
+documented search is the evidence and those rules settle as: *positive class
+near-empty in the wild; clear-direction validated on synthetic fixtures,
+false-fire direction unvalidated for want of instances, search yield reported.*
+A rule stating its own limit is a stronger position than a specificity figure
+computed on two cards.
+
 ### Two settle paths, because two kinds of rule (recorded 2026-08-11)
 
 Criteria 1 and 2 presuppose a judge who can look at a card and say whether the
