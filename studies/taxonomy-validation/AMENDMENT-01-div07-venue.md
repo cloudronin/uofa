@@ -1,11 +1,14 @@
 # Amendment 01 (DRAFT — awaiting sign-off): W-EV-DIV-07's validation venue
 
-**Status: UNSIGNED DRAFT. Not in force.** `PREREGISTRATION.md` is frozen as of
+**Status: SIGNED 2026-08-11. In force.** `PREREGISTRATION.md` is frozen as of
 2026-08-11 and is **not modified by this file**. Until signed, DIV-07's Mode 2
 remains deferred to the deep-study cohort exactly as frozen.
 
 **Raised:** 2026-08-11
-**Signed:** ______________  (date, by the study author)
+**Signed:** 2026-08-11, by the study author
+
+DIV-07's Mode 2 runs on the modelbiome field arm's ~4,700 opportunities. The
+deep-study cohort is retained for mechanism, as already ruled.
 
 An amendment rather than an edit, because a frozen pre-registration that can be
 revised in place certifies nothing. The frozen text stands; if this is signed,
@@ -73,6 +76,20 @@ snapshot.
 on diligence. What signing decides is only whether DIV-07's Mode 2 runs on the
 modelbiome field arm (~4,700 opportunities) instead of deferring to the
 deep-study cohort.
+
+## Scope of the field arm (a scope statement, not a caveat)
+
+**The field arm's population is the July 2025 snapshot.** Claims derived from it
+attach to that snapshot, not to HuggingFace's revision history. No per-row card
+revision was recorded, so "was this card altered after scraping" is not
+answerable on this arm at all.
+
+It is answerable on the small owned 2026 pull, which therefore has a second job
+beyond recency: **it is the only arm with live-verifiable pins.** Any claim
+requiring verification against live HF belongs there and nowhere else.
+
+Stated here rather than in notes because it bounds what the arm can support, and
+a reader of a published figure should not have to reconstruct it.
 
 ## If not signed
 

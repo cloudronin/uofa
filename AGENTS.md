@@ -499,6 +499,21 @@ them raised an error.
   predicted number can be satisfied by a mechanism other than the one predicted,
   and the prediction cannot tell the difference.** A null model can.
 
+- **Rule:** A claim about an external artifact is not verified until the primary
+  artifact has been read. An API summary, a search snippet, or a null field is a
+  pointer, not a source.
+  **Why:** A corpus was characterised in a committed spec as having "no dataset
+  card" with "unclear redistribution terms", and a signature was recommended
+  against on that basis. The dataset card existed; the licence was CC-BY-4.0 and
+  the corpus had an accompanying paper. The error came from one API response
+  returning a null `cardData`, read as absence rather than as a missing field in
+  a summary. Reading the raw README took one request and reversed the
+  recommendation. This happened **twice in one session, in the same direction
+  both times** — dismissing an external artifact on secondary evidence. It is the
+  outward-facing twin of the harness rule below: there, verification consumed a
+  reconstruction of the production path; here, it consumed a summary of the
+  artifact.
+
 - **Rule:** A test harness that builds its own version of the production call
   path is testing the harness. Verification must consume the production path
   (`analysis_for`, `run()`), never a parallel reconstruction of it. If a test
