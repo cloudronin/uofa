@@ -11,8 +11,10 @@ from pathlib import Path
 
 from uofa_cli.excel_constants import (
     VV40_FACTOR_NAMES, NASA_ONLY_FACTOR_NAMES, MRM_NIST_FACTOR_NAMES,
+    AI_800_3_FACTOR_NAMES,
     ALL_FACTOR_CATEGORIES, NASA_PHASE_MAP,
     FACTOR_STANDARD_VV40, FACTOR_STANDARD_NASA, FACTOR_STANDARD_MRM_NIST,
+    FACTOR_STANDARD_AI_800_3,
     PROFILE_URIS, CONTEXT_URL, DEFAULT_BASE_URI, RESERVED_BASE_URIS,
     CRITERIA_BASE, KNOWN_CRITERIA_SETS,
 )
@@ -468,6 +470,7 @@ def _map_factor(factor: dict, packs: list[str]) -> dict:
     vv40_set = set(VV40_FACTOR_NAMES)
     nasa_only_set = set(NASA_ONLY_FACTOR_NAMES)
     mrm_nist_set = set(MRM_NIST_FACTOR_NAMES)
+    ai_800_3_set = set(AI_800_3_FACTOR_NAMES)
 
     f = {
         "type": "CredibilityFactor",
@@ -488,6 +491,13 @@ def _map_factor(factor: dict, packs: list[str]) -> dict:
         f["factorStandard"] = FACTOR_STANDARD_VV40
     elif factor["factor_type"] in mrm_nist_set:
         f["factorStandard"] = FACTOR_STANDARD_MRM_NIST
+    elif factor["factor_type"] in ai_800_3_set:
+        # Group B (evaluation sufficiency) shares the pack with Group A above but
+        # carries its own standard, so each group's shape stays silent on the
+        # other's factors. Both use a *required* factorStandard match rather than
+        # vv40's !BOUND fallback; relaxing either to OPTIONAL makes every Group-B
+        # factor a Group-A name violation.
+        f["factorStandard"] = FACTOR_STANDARD_AI_800_3
 
     if factor.get("required_level") is not None:
         f["requiredLevel"] = factor["required_level"]

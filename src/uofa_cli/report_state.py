@@ -30,7 +30,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
 
-from uofa_cli.weakener_focus import enrich_firings, expected_factors
+from uofa_cli.weakener_focus import (
+    attributable_factors, enrich_firings, expected_factors,
+)
 
 _EXCLUDED_STATUSES = ("scoped-out", "not-applicable")
 
@@ -56,7 +58,9 @@ def _headline(n_assessed: int, n_expected: int, n_missing: int,
 
 
 def compute_findings(pack: str, factor_statuses: dict[str, str], shacl: dict,
-                     firings: list[dict]) -> dict:
+                     firings: list[dict],
+                     eval_node_ids: frozenset[str] = frozenset(),
+                     uoa_id: str = "") -> dict:
     """Assemble the analysis payload (completeness + weakeners + structural).
 
     Args:
@@ -84,6 +88,8 @@ def compute_findings(pack: str, factor_statuses: dict[str, str], shacl: dict,
 
     return {
         "pack": pack,
+        "eval_node_ids": sorted(eval_node_ids),
+        "uoa_id": uoa_id,
         "completeness": {
             "assessed": assessed,
             "missing": missing,
@@ -124,6 +130,39 @@ _DEMOTING = {"Critical", "High", "Medium"}
 # "High weakener" for the invariants includes Critical (a strictly worse High).
 _HIGH = {"Critical", "High"}
 
+# Readout sections. Group A asks whether the model documents itself; Group B
+# asks whether the numbers in that documentation are credible as evidence. The
+# firewall between them is that neither section's absence produces the other's
+# failures: no card is a stated no-card, no reported evaluation is a stated N/A.
+GROUP_DOC = "documentation"
+GROUP_EVAL = "evaluation"
+# A concern whose affected node is the UnitOfAssurance itself is about the whole
+# assessment, not about either layer. Core compounds are the case that forces
+# this: COMPOUND-02 aggregates across EVERY weakener, so filing it under
+# documentation lets a benchmark gap surface as a documentation Critical whose
+# magnitude comes from evidence the documentation layer never assessed. That is
+# the merged-pack form of the wall of red the firewall exists to prevent.
+GROUP_PACKAGE = "package"
+
+# What the evaluation section can say about itself, in the order of decreasing
+# knowledge. Each is a distinct claim and they must not be collapsed:
+#   assessed        -> evidence present and analysed
+#   declined        -> evidence present, NOT analysed (heuristic/keyless tier)
+#   not-applicable  -> no reported evaluation exists to assess
+# Reporting "N/A" when evidence exists but was not read is the failure addendum
+# v0.1 A3 exists to prevent: it claims a clean absence where there is an
+# unexamined presence.
+EVAL_ASSESSED = "assessed"
+EVAL_DECLINED = "declined"
+EVAL_NOT_APPLICABLE = "not-applicable"
+# Attempted and yielded nothing usable. Distinct from not-applicable, and the
+# distinction is the point: a sweep that ran and failed is NOT a model with no
+# published evaluation. Reporting the latter for the former hides a failure
+# behind a word that reads like an absence of risk. Surfaced by a real
+# `raidex eval --offline` run returning rai_coverage "0/9" with every
+# constituent errored -- no stub produced this, because no stub failed.
+EVAL_ATTEMPTED_EMPTY = "attempted-empty"
+
 
 def sev_label(sev) -> str:
     return _SEV_LABEL.get(sev, sev or "")
@@ -157,6 +196,16 @@ class Concern:
     description: str
     factors: tuple[str, ...]
     hits: int
+    # Which readout section this concern belongs to. Trailing and defaulted so
+    # existing construction sites are unaffected.
+    #
+    # Decided by the NODE the firing affects, not by which pack declared the
+    # pattern. Core's W-AL-01 firing on a furnished benchmark result is an
+    # evaluation finding even though it is a core pattern -- that reuse is the
+    # point (one rule, two domains), and grouping by pattern ownership would
+    # file it under documentation and make the evaluation section look emptier
+    # than the evidence warrants.
+    group: str = GROUP_DOC
 
     @property
     def is_high(self) -> bool:
@@ -211,16 +260,53 @@ class ReportState:
     # declines that section instead of asserting it. Default True keeps a vetted
     # bundle off disk (and vv40/nasa) byte-identical.
     sufficiency_assessed: bool = True
+    # What the evaluation-sufficiency section can honestly say: EVAL_ASSESSED,
+    # EVAL_DECLINED (evidence present, not analysed) or EVAL_NOT_APPLICABLE (no
+    # reported evaluation exists). Default not-applicable, which keeps vv40/nasa
+    # and any card-only readout free of an evaluation section they never had.
+    eval_sufficiency: str = EVAL_NOT_APPLICABLE
+    # Whether the operator supplied --mrl / --cou. Both drive stated N/As rather
+    # than silence: with no --mrl the compound risk escalation is not assessed and
+    # the readout says so, instead of the reader assuming it was assessed and
+    # passed. They are NOT the model's own risk tier or context of use.
+    mrl_supplied: bool = False
+    cou_supplied: bool = False
+    # Whether this pack HAS an evaluation-sufficiency layer. A property of the
+    # pack, never of the evidence: a card-only model must still be TOLD its
+    # evaluation section is N/A (that is the whole point of the stated N/A),
+    # while vv40 has no such section to state anything about.
+    has_eval_layer: bool = False
 
     @property
     def has_high_weakener(self) -> bool:
         return self.open_high_count > 0
 
+    @property
+    def doc_concerns(self) -> tuple[Concern, ...]:
+        return tuple(c for c in self.concerns if c.group == GROUP_DOC)
 
-def _build_concerns(weakeners: list[dict]) -> tuple[Concern, ...]:
+    @property
+    def eval_concerns(self) -> tuple[Concern, ...]:
+        return tuple(c for c in self.concerns if c.group == GROUP_EVAL)
+
+    @property
+    def package_concerns(self) -> tuple[Concern, ...]:
+        return tuple(c for c in self.concerns if c.group == GROUP_PACKAGE)
+
+
+def _build_concerns(weakeners: list[dict],
+                    eval_node_ids: frozenset[str] = frozenset(),
+                    uoa_id: str = "") -> tuple[Concern, ...]:
     out = []
     for w in weakeners or []:
         sev = w.get("severity")
+        affected = {str(n) for n in (w.get("affected_nodes") or [])}
+        if affected & eval_node_ids:
+            group = GROUP_EVAL          # touches furnished evaluation evidence
+        elif uoa_id and uoa_id in affected:
+            group = GROUP_PACKAGE       # whole-assessment, belongs to neither layer
+        else:
+            group = GROUP_DOC
         out.append(Concern(
             pattern_id=w.get("patternId") or w.get("pattern_id") or "",
             severity=sev,
@@ -228,6 +314,7 @@ def _build_concerns(weakeners: list[dict]) -> tuple[Concern, ...]:
             description=(w.get("description") or "").strip(),
             factors=tuple(w.get("factors") or []),
             hits=w.get("hits") if isinstance(w.get("hits"), int) else 1,
+            group=group,
         ))
     out.sort(key=lambda c: (sev_rank(c.severity), c.pattern_id))
     return tuple(out)
@@ -244,7 +331,16 @@ def build_report_state(analysis: dict, gloss: dict | None = None) -> ReportState
     c = analysis.get("completeness", {}) or {}
     expected = expected_factors(pack)
 
-    concerns = _build_concerns(analysis.get("weakeners", []) or [])
+    # A pack with no Group-B factor layer has no evaluation-sufficiency section:
+    # vv40 carries ValidationResults too, but they are simulation validation
+    # studies assessed by vv40's own factors, not AI-eval evidence. Grouping them
+    # under a NIST AI 800-3 heading would file a blood-pump CFD result under a
+    # standard that has nothing to say about it.
+    has_group_b = len(attributable_factors(pack)) > len(expected_factors(pack))
+    eval_node_ids = (frozenset(analysis.get("eval_node_ids") or ())
+                     if has_group_b else frozenset())
+    concerns = _build_concerns(analysis.get("weakeners", []) or [], eval_node_ids,
+                               str(analysis.get("uoa_id") or ""))
 
     # factor name -> pattern ids of demoting (High/Moderate) concerns that target it
     targeting: dict[str, list[str]] = {}
@@ -326,6 +422,10 @@ def build_report_state(analysis: dict, gloss: dict | None = None) -> ReportState
         extraction_provenance=ctx.get("extraction_provenance") or "",
         documentation_status=ctx.get("documentation_status") or "present",
         sufficiency_assessed=ctx.get("sufficiency_assessed", True),
+        eval_sufficiency=ctx.get("eval_sufficiency") or EVAL_NOT_APPLICABLE,
+        mrl_supplied=bool(ctx.get("mrl_supplied")),
+        cou_supplied=bool(ctx.get("cou_supplied")),
+        has_eval_layer=has_group_b,
     )
 
 

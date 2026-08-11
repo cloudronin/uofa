@@ -200,10 +200,20 @@ def _extract_shape(g: Graph, shape_uri) -> dict:
     return result
 
 
-def _generate_schema(shacl_path: Path) -> dict:
-    """Generate a complete JSON Schema from the SHACL shapes file."""
+def _generate_schema(shacl_paths: Path | list[Path]) -> dict:
+    """Generate a complete JSON Schema from one or more SHACL shapes files.
+
+    Takes a *list* because pack shapes RDF-merge extra properties onto the core
+    body shapes -- `vv40_shapes.ttl` is what contributes `hasContextOfUse` to
+    `UnitOfAssurance_CompleteBody` and the `deviceClass` enum. Parsing core alone
+    yields a schema that silently lacks them, so a regeneration deletes shipped
+    constraints from the artifact (see `_run_json`).
+    """
+    if isinstance(shacl_paths, Path):
+        shacl_paths = [shacl_paths]
     g = Graph()
-    g.parse(str(shacl_path), format="turtle")
+    for path in shacl_paths:
+        g.parse(str(path), format="turtle")
 
     # Extract the main shapes
     minimal = _extract_shape(g, UOFA.UnitOfAssurance_MinimalBody)
@@ -697,14 +707,26 @@ def _run_python(args) -> int:
 
 
 def _run_json(args) -> int:
-    """Generate JSON Schema from SHACL shapes (existing behavior)."""
-    shacl = paths.shacl_schema()
-    if not shacl.exists():
-        raise FileNotFoundError(f"SHACL shapes not found: {shacl}")
+    """Generate JSON Schema from SHACL shapes (core + active packs).
+
+    Resolves active packs the same way `_run_python` does. It previously read
+    `paths.shacl_schema()` -- core only -- while the committed
+    `spec/schemas/uofa.schema.json` had been generated with vv40 active. The
+    result was a derived artifact the generator could no longer reproduce:
+    regenerating it, which AGENTS.md §4 tells contributors to do, silently
+    deleted `hasContextOfUse` (definition and Complete-profile requirement) and
+    downgraded the `deviceClass` enum to a bare string. An instruction that
+    corrupts the thing it maintains is the §13 failure shape exactly, so
+    `tests/test_schema_regeneration.py` now pins regeneration as a no-op.
+    """
+    shacl_files = paths.all_shacl_schemas(active=paths.resolve_active_packs(args))
+    missing = [p for p in shacl_files if not p.exists()]
+    if missing:
+        raise FileNotFoundError(f"SHACL shapes not found: {missing[0]}")
 
     step_header("Generating JSON Schema from SHACL shapes")
 
-    schema = _generate_schema(shacl)
+    schema = _generate_schema(shacl_files)
 
     output = args.output or (paths.find_repo_root() / "spec" / "schemas" / "uofa.schema.json")
     output.parent.mkdir(parents=True, exist_ok=True)
@@ -722,7 +744,7 @@ def _run_json(args) -> int:
 
     result_line("Schema generated", True, str(output))
     info(f"  {n_props} properties across {len(schema['oneOf'])} profiles, {n_defs} definitions")
-    info(f"  Source: {shacl}")
+    info(f"  Source: {', '.join(str(p) for p in shacl_files)}")
     info(f"  Add to your editor: set \"$schema\" in your .jsonld files")
 
     return 0

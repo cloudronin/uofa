@@ -31,6 +31,7 @@ from uofa_cli import paths
 from uofa_cli.card_bundle import MRM_NIST_RISK_ASSUMPTION
 from uofa_cli.output import error, info
 from uofa_cli.report_state import (
+    EVAL_ASSESSED, EVAL_ATTEMPTED_EMPTY, EVAL_DECLINED, EVAL_NOT_APPLICABLE,
     Status,
     assert_report_invariants,
     build_report_state,
@@ -73,7 +74,7 @@ def add_arguments(parser):
                         help="id mode: model-card git revision (default: latest)")
     parser.add_argument("--save-bundle", metavar="PATH", type=Path, default=None,
                         help="id mode: write the generated bundle to PATH "
-                             "(default: ./<owner>__<model>.mrm-nist.jsonld)")
+                             "(default: ./<owner>__<model>.<pack>.jsonld)")
     parser.add_argument("--no-save-bundle", action="store_true",
                         help="id mode: do not keep the generated bundle")
     parser.add_argument("--extract-backend", default=None,
@@ -83,6 +84,33 @@ def add_arguments(parser):
                         help="id mode: model name on the chosen backend")
     parser.add_argument("--extract-base-url", default=None,
                         help="id mode: base URL for openai-compatible backends")
+
+    # ── assessment run-context (Group B) ──
+    # On `report`'s own parser, not the shared parent: `--cou` is already a
+    # required repeatable flag on `adversarial`, and `--yes` already exists on
+    # `setup` and `interrogate`. Beyond the collisions, a flag on the parent is
+    # accepted-and-ignored by every other subcommand, which is a small lie in a
+    # tool whose whole argument is that it does not tell them.
+    parser.add_argument("--cou", metavar="TEXT", default=None,
+                        help="state the context of use this assessment is scoped to "
+                             "(run-context; raises W-EV-COU-05 to Critical)")
+    parser.add_argument("--mrl", metavar="N", type=int, default=None,
+                        help="state the model risk level of the decision this evidence "
+                             "informs, 1-5 (run-context; enables COMPOUND-EV-01)")
+    # ── furnished evaluation evidence (mutually exclusive) ──
+    parser.add_argument("--raidex", metavar="PATH", default=None,
+                        help="ingest a local raidex results.json as Group-B evidence")
+    parser.add_argument("--raidex-hub", action="store_true",
+                        help="fetch this model's published raidex record from the "
+                             "cloudronin/raidex-results dataset")
+    parser.add_argument("--raidex-run", action="store_true",
+                        help="run `raidex eval` now and assess its output "
+                             "(needs: pip install uofa[raidex]; UNVERIFIED against a "
+                             "live run, see docs/live-run-verification.md)")
+    parser.add_argument("--raidex-args", metavar="ARGS", default=None,
+                        help="passthrough arguments for `raidex eval`, uninterpreted")
+    parser.add_argument("--raidex-yes", dest="yes", action="store_true",
+                        help="skip the --raidex-run confirmation (for CI)")
 
 
 # ── bundle → analysis payload ───────────────────────────────────────────────
@@ -112,6 +140,41 @@ def _factor_statuses(bundle: dict) -> dict[str, str]:
     return out
 
 
+def eval_node_ids(bundle: dict) -> frozenset[str]:
+    """IRIs of the ValidationResult nodes that are reported-evaluation evidence.
+
+    Returned as an explicit set rather than matched on an id prefix: a firing is
+    filed under the evaluation section because of the node it affects, and
+    guessing that from a string would quietly misfile a finding the day an id
+    scheme changes. For this pack every ValidationResult is furnished evaluation
+    evidence -- nothing else emits one.
+    """
+    out = set()
+    for vr in bundle.get("hasValidationResult") or []:
+        if isinstance(vr, dict) and vr.get("id"):
+            out.add(str(vr["id"]))
+        elif isinstance(vr, str):
+            out.add(vr)
+    return frozenset(out)
+
+
+def _eval_sufficiency(bundle: dict, assessed: bool) -> str:
+    """Which of the three evaluation states applies -- see report_state.
+
+    The distinction between "no reported evaluation" and "evaluation present but
+    not analysed" is the whole point of addendum v0.1 A3. Collapsing them lets a
+    heuristic run report a clean N/A over evidence it never read.
+    """
+    if not eval_node_ids(bundle):
+        # An attempted sweep that produced nothing usable is not an absence of
+        # reported evaluation. Collapsing the two would let a total furnisher
+        # failure read as a clean "nothing to assess".
+        if bundle.get("_evaluationAttempted"):
+            return EVAL_ATTEMPTED_EMPTY
+        return EVAL_NOT_APPLICABLE
+    return EVAL_ASSESSED if assessed else EVAL_DECLINED
+
+
 def _context(bundle: dict, pack: str) -> dict:
     """Reviewer-facing context re-projected from the bundle. COU name/description
     prefer the ContextOfUse node, falling back to the UofA's own."""
@@ -138,6 +201,10 @@ def _context(bundle: dict, pack: str) -> dict:
         "extraction_provenance": bundle.get("_extractionProvenance", ""),
         "documentation_status": bundle.get("_documentationStatus", "present"),
         "sufficiency_assessed": bool(bundle.get("_sufficiencyAssessed", True)),
+        "eval_sufficiency": _eval_sufficiency(
+            bundle, bool(bundle.get("_sufficiencyAssessed", True))),
+        "mrl_supplied": bundle.get("decisionRiskLevel") is not None,
+        "cou_supplied": bool(bundle.get("decisionContextOfUse")),
     }
 
 
@@ -209,6 +276,163 @@ def _reconcile(state) -> str:
     return f"{state.completeness_pct}% of all factors evidenced; {tail}"
 
 
+def analysis_for(bundle: dict, bundle_path, pack: str, *, assess: bool | None = None) -> dict:
+    """The analysis payload for a bundle -- the single call path to compute_findings.
+
+    Exists so nothing can assemble this differently from `run`. A test harness
+    that builds the payload its own way pins whatever *it* does, not what the
+    command does: the golden set was briefly generated without `uoa_id`, so every
+    package-level concern silently landed in the documentation section and the
+    goldens recorded that as correct. A check that restates a *different*
+    implementation is worse than one that restates its own.
+
+    `assess` mirrors the sufficiency gate in `run` -- heuristic and no-card
+    bundles skip the weakener engine entirely rather than reporting an analysis
+    they did not perform.
+    """
+    if assess is None:
+        assess = bool(bundle.get("_sufficiencyAssessed", True))
+    firings = _firings(bundle_path, pack) if assess else []
+    analysis = compute_findings(
+        pack, _factor_statuses(bundle), _shacl(bundle_path, pack), firings,
+        eval_node_ids(bundle), str(bundle.get("id") or ""),
+    )
+    analysis["context"] = _context(bundle, pack)
+    return analysis
+
+
+# ── shared render decisions ─────────────────────────────────────────────────
+#
+# `_render_text` and `_render_markdown` are two formattings of ONE document.
+# Everything that decides *what appears* lives here; the renderers below decide
+# only how it looks. They previously duplicated all of this, and the duplicates
+# were the honesty-critical branches -- whether sufficiency was assessed, which
+# factors are demoted, whether a risk tier is stated. Drift there produces a
+# readout that disagrees with itself about whether something was assessed, which
+# is worse than either answer alone, and it is silent: both renderers pass their
+# own tests while telling different stories.
+#
+# `_render_json` deliberately does not use these. It is a flat dump of
+# ReportState, so it has no layout decisions to share.
+
+_FACTOR_RANK = {Status.NOT_STATED: 0, Status.EVIDENCED: 1, Status.NOT_APPLICABLE: 2}
+
+
+def _sorted_factors(state) -> list:
+    """Factors in reading order: unmet first, then evidenced, then N/A."""
+    return sorted(state.factors, key=lambda f: (_FACTOR_RANK[f.status], f.name))
+
+
+def _header_rows(state) -> list[tuple[str, str]]:
+    """(label, value) pairs for the header block, in order.
+
+    Which rows appear is a decision, not formatting: a pack that assumes a risk
+    posture shows that instead of a tier, and extraction provenance is omitted
+    rather than shown empty. Returning rows keeps both renderers agreeing on
+    what the reader is told.
+    """
+    rows: list[tuple[str, str]] = [("Assessed against", state.standard)]
+    if state.risk_assumption:
+        rows.append(("Risk posture", state.risk_assumption))
+    else:
+        tier = state.risk_level if state.risk_level is not None else "Not stated"
+        rows.append(("Risk tier", str(tier)))
+    if state.extraction_provenance:
+        rows.append(("Extraction", state.extraction_provenance))
+    if state.device_class:
+        rows.append(("Device class", state.device_class))
+    return rows
+
+
+_EVAL_NOT_APPLICABLE_LINE = (
+    "No reported evaluation to assess - sufficiency N/A. Nothing was found to "
+    "assess, which is not the same as finding nothing wrong."
+)
+_EVAL_ATTEMPTED_EMPTY_LINE = (
+    "Evaluation was attempted and produced no usable results - sufficiency "
+    "cannot be assessed. This is a furnisher failure, not an absence of "
+    "reported evaluation; see the run diagnostics above."
+)
+_EVAL_DECLINED_LINE = (
+    "Reported evaluation present - sufficiency not assessed. Run with a "
+    "furnisher (--raidex / --raidex-hub) or an LLM backend to assess it."
+)
+_MRL_NOT_SUPPLIED_LINE = (
+    "MRL not supplied - compound risk escalation not assessed. Pass --mrl to "
+    "state the risk level of the decision this evidence informs."
+)
+# Rendered once beside W-EV-COU-05 rather than as a wall. Near-universal firing
+# is the finding, not a calibration error (addendum v0.1 A2), but a reader who
+# does not know it is near-universal will read it as specific to this model.
+_COU_PREVALENCE_NOTE = "common: most published models state no context of use"
+
+
+def _has_eval_layer(state) -> bool:
+    """Whether this pack has an evaluation-sufficiency layer at all.
+
+    vv40 and nasa carry ValidationResults too -- simulation validation studies --
+    but nothing in NIST AI 800-3 speaks to a blood-pump CFD result. Rendering the
+    section for them would put those findings under a standard that has no claim
+    over them.
+    """
+    return state.has_eval_layer
+
+
+def _eval_section(state) -> tuple[str, str | None, list]:
+    """(state_word, notice, concerns) for the evaluation-sufficiency section.
+
+    `notice` and `concerns` are mutually exclusive: either the section explains
+    why it has nothing to report, or it reports. Never both, and never neither --
+    a silent empty section reads as "assessed, all clear", which is the one thing
+    an unassessed section must not imply.
+    """
+    if state.eval_sufficiency == EVAL_NOT_APPLICABLE:
+        return (EVAL_NOT_APPLICABLE, _EVAL_NOT_APPLICABLE_LINE, [])
+    if state.eval_sufficiency == EVAL_ATTEMPTED_EMPTY:
+        return (EVAL_ATTEMPTED_EMPTY, _EVAL_ATTEMPTED_EMPTY_LINE, [])
+    if state.eval_sufficiency == EVAL_DECLINED:
+        return (EVAL_DECLINED, _EVAL_DECLINED_LINE, [])
+    concerns = list(state.eval_concerns)
+    if not concerns:
+        return (EVAL_ASSESSED, "Assessed; nothing flagged.", [])
+    return (EVAL_ASSESSED, None, concerns)
+
+
+def _eval_footnotes(state) -> list[str]:
+    """Stated N/As that belong to the evaluation section, in order.
+
+    A rule that could not run is reported as not-run. Saying nothing would let a
+    reader assume the check ran and passed, which is the difference between an
+    unassessed risk and a cleared one.
+    """
+    notes = []
+    if state.eval_sufficiency == EVAL_ASSESSED and not state.mrl_supplied:
+        notes.append(_MRL_NOT_SUPPLIED_LINE)
+    return notes
+
+
+def _concern_note(concern) -> str:
+    """Reader-facing prevalence note for a concern, or empty."""
+    return _COU_PREVALENCE_NOTE if concern.pattern_id == "W-EV-COU-05" else ""
+
+
+def _concerns_kind(state) -> str:
+    """Which of the three mutually exclusive concern outcomes applies.
+
+    'declined' -> sufficiency was not assessed and the readout must say so
+                  rather than imply a clean result from an absent analysis;
+    'none'     -> assessed, nothing flagged;
+    'listed'   -> assessed, concerns follow.
+
+    The wording differs per renderer; the decision must not.
+    """
+    if not state.sufficiency_assessed:
+        return "declined"
+    if not state.concerns:
+        return "none"
+    return "listed"
+
+
 def _render_text(state) -> str:
     L = []
     if state.documentation_status == "none":
@@ -218,15 +442,8 @@ def _render_text(state) -> str:
         L.append("")
     L.append(f"CREDIBILITY REPORT — {state.cou_name}")
     L.append("=" * 60)
-    L.append(f"Assessed against : {state.standard}")
-    if state.risk_assumption:
-        L.append(f"Risk posture     : {state.risk_assumption}")
-    else:
-        L.append(f"Risk tier        : {state.risk_level if state.risk_level is not None else 'Not stated'}")
-    if state.extraction_provenance:
-        L.append(f"Extraction       : {state.extraction_provenance}")
-    if state.device_class:
-        L.append(f"Device class     : {state.device_class}")
+    for label, value in _header_rows(state):
+        L.append(f"{label:<17}: {value}")
     L.append("")
     concerns_glance = _glance_severities(state) if state.sufficiency_assessed else "not assessed (heuristic mode)"
     L.append("AT A GLANCE")
@@ -237,20 +454,40 @@ def _render_text(state) -> str:
     L.append(f"  {_reconcile(state)}")
     L.append("")
     L.append("CREDIBILITY FACTORS")
-    rank = {Status.NOT_STATED: 0, Status.EVIDENCED: 1, Status.NOT_APPLICABLE: 2}
-    for f in sorted(state.factors, key=lambda f: (rank[f.status], f.name)):
+    for f in _sorted_factors(state):
         L.append(f"  [{f.status.value:<14}] {f.name}")
     L.append("")
-    L.append("CONCERNS FOUND")
-    if not state.sufficiency_assessed:
+    L.append("[1] DOCUMENTATION COMPLETENESS — CONCERNS FOUND")
+    kind = _concerns_kind(state)
+    if kind == "declined":
         L.append(f"  {_SUFFICIENCY_DECLINED}")
-    elif not state.concerns:
+    elif kind == "none" or not state.doc_concerns:
         L.append("  None flagged.")
-    for c in state.concerns:
+    for c in state.doc_concerns if kind == "listed" else ():
         hits = f" (seen {c.hits}x)" if c.hits > 1 else ""
         where = f"  Relates to: {', '.join(c.factors)}." if c.factors else ""
         L.append(f"  - {c.label} concern{hits}. {c.description}{where}")
     L.append("")
+    if _has_eval_layer(state):
+        L.append("[2] EVALUATION SUFFICIENCY — NIST AI 800-3 / V&V 40 validation-evidence")
+        _word, notice, eval_concerns = _eval_section(state)
+        if notice:
+            L.append(f"  {notice}")
+        for c in eval_concerns:
+            hits = f" (seen {c.hits}x)" if c.hits > 1 else ""
+            where = f"  Relates to: {', '.join(c.factors)}." if c.factors else ""
+            note = _concern_note(c)
+            tail = f"  [{note}]" if note else ""
+            L.append(f"  - {c.label} concern{hits}. {c.description}{where}{tail}")
+        for n in _eval_footnotes(state):
+            L.append(f"  {n}")
+        L.append("")
+    if state.package_concerns:
+        L.append("PACKAGE-LEVEL CONCERNS (whole assessment, neither section alone)")
+        for c in state.package_concerns:
+            hits = f" (seen {c.hits}x)" if c.hits > 1 else ""
+            L.append(f"  - {c.label} concern{hits}. {c.description}")
+        L.append("")
     L.append("WHAT IS STILL MISSING")
     if not state.missing:
         L.append("  Nothing required is missing.")
@@ -266,15 +503,8 @@ def _render_markdown(state) -> str:
                  "Every factor below is unassessed as a consequence; the concerns are the "
                  "mechanical result of an absent card, not findings about a real one.\n")
     L.append(f"# Credibility report — {state.cou_name}\n")
-    L.append(f"- **Assessed against:** {state.standard}")
-    if state.risk_assumption:
-        L.append(f"- **Risk posture:** {state.risk_assumption}")
-    else:
-        L.append(f"- **Risk tier:** {state.risk_level if state.risk_level is not None else 'Not stated'}")
-    if state.extraction_provenance:
-        L.append(f"- **Extraction:** {state.extraction_provenance}")
-    if state.device_class:
-        L.append(f"- **Device class:** {state.device_class}")
+    for label, value in _header_rows(state):
+        L.append(f"- **{label}:** {value}")
     L.append("\n## At a glance\n")
     L.append(f"| Completeness | Factors evidenced | Concerns | Gate checks |")
     L.append("|---|---|---|---|")
@@ -285,18 +515,37 @@ def _render_markdown(state) -> str:
     L.append("## Credibility factors\n")
     L.append("| Factor | Status |")
     L.append("|---|---|")
-    rank = {Status.NOT_STATED: 0, Status.EVIDENCED: 1, Status.NOT_APPLICABLE: 2}
-    for f in sorted(state.factors, key=lambda f: (rank[f.status], f.name)):
+    for f in _sorted_factors(state):
         L.append(f"| {f.name} | {f.status.value} |")
-    L.append("\n## Concerns found\n")
-    if not state.sufficiency_assessed:
+    L.append("\n## [1] Documentation completeness — concerns found\n")
+    kind = _concerns_kind(state)
+    if kind == "declined":
         L.append(f"_{_SUFFICIENCY_DECLINED}_")
-    elif not state.concerns:
+    elif kind == "none" or not state.doc_concerns:
         L.append("No concerns were flagged.")
-    for c in state.concerns:
+    for c in state.doc_concerns if kind == "listed" else ():
         hits = f" (seen {c.hits}×)" if c.hits > 1 else ""
         where = f" Relates to: {', '.join(c.factors)}." if c.factors else ""
         L.append(f"- **{c.label} concern{hits}.** {c.description}{where}")
+    if _has_eval_layer(state):
+        L.append("\n## [2] Evaluation sufficiency — NIST AI 800-3 / V&V 40 validation-evidence\n")
+        _word, notice, eval_concerns = _eval_section(state)
+        if notice:
+            L.append(f"_{notice}_")
+        for c in eval_concerns:
+            hits = f" (seen {c.hits}×)" if c.hits > 1 else ""
+            where = f" Relates to: {', '.join(c.factors)}." if c.factors else ""
+            note = _concern_note(c)
+            tail = f" _({note})_" if note else ""
+            L.append(f"- **{c.label} concern{hits}.** {c.description}{where}{tail}")
+        for n in _eval_footnotes(state):
+            L.append(f"\n_{n}_")
+    if state.package_concerns:
+        L.append("\n## Package-level concerns\n")
+        L.append("_Whole-assessment findings; they belong to neither section alone._\n")
+        for c in state.package_concerns:
+            hits = f" (seen {c.hits}×)" if c.hits > 1 else ""
+            L.append(f"- **{c.label} concern{hits}.** {c.description}")
     L.append("\n## What is still missing\n")
     if not state.missing:
         L.append("Nothing required is missing.")
@@ -315,6 +564,10 @@ def _render_json(state) -> str:
         "documentation_status": state.documentation_status,
         "extraction_provenance": state.extraction_provenance,
         "sufficiency_assessed": state.sufficiency_assessed,
+        "eval_sufficiency": state.eval_sufficiency,
+        "has_eval_layer": state.has_eval_layer,
+        "mrl_supplied": state.mrl_supplied,
+        "cou_supplied": state.cou_supplied,
         "completeness_pct": state.completeness_pct,
         "n_evidenced": state.n_evidenced,
         "n_expected": state.n_expected,
@@ -329,7 +582,8 @@ def _render_json(state) -> str:
         ],
         "concerns": [
             {"pattern_id": c.pattern_id, "severity": c.severity, "label": c.label,
-             "description": c.description, "factors": list(c.factors), "hits": c.hits}
+             "description": c.description, "factors": list(c.factors), "hits": c.hits,
+             "group": c.group}
             for c in state.concerns
         ],
         "missing": list(state.missing),
@@ -382,7 +636,72 @@ def _resolve_extract_llm(args):
     return _configured_model_or_none(), None
 
 
-def _bundle_out_path(model_id: str, args) -> tuple[Path, bool]:
+
+def _apply_evidence_and_context(bundle: dict, bundle_path, args, model_id: str) -> int:
+    """Apply --cou/--mrl and any furnished evidence, then persist. 0 on success.
+
+    Persists because the saved bundle is the artifact of record: a readout that
+    depended on flags the bundle does not carry could not be reproduced from it,
+    and "re-run this bundle" is the whole re-derivability claim.
+    """
+    import sys as _sys
+
+    from uofa_cli.furnishers import attach
+
+    def note(msg: str) -> None:
+        """Progress, on stderr. `--format json` writes results to stdout and a
+        consumer piping it must get JSON, not JSON preceded by commentary."""
+        print(f"  {msg}", file=_sys.stderr)
+
+    source, err = attach.resolve_source_flags(args)
+    if err:
+        error(err)
+        return 2
+
+    changed = bool(attach.apply_run_context(
+        bundle, cou=getattr(args, "cou", None), mrl=getattr(args, "mrl", None)))
+
+    if source == "run":
+        model_ref = model_id or str(bundle.get("name") or bundle_path)
+        note(attach.preflight_statement(model_ref))
+        note(f"NOTE: {attach.RAIDEX_UNVERIFIED}")
+        if not getattr(args, "yes", False):
+            reply = input("proceed with the sweep? [y/N] ").strip().lower()
+            if reply not in ("y", "yes"):
+                note("aborted before any provider call was made")
+                return 1
+        res = attach.run_raidex(bundle, model_ref,
+                               extra_args=getattr(args, "raidex_args", "") or "")
+    elif source in ("local", "hub"):
+        res = attach.attach_raidex(bundle, local_path=getattr(args, "raidex", None),
+                                   model_id=model_id, use_hub=(source == "hub"))
+    else:
+        res = None
+
+    if res is not None:
+        if source == "run":
+            # Record that a sweep happened, whatever it yielded.
+            bundle["_evaluationAttempted"] = True
+            changed = True
+        if not res.ok:
+            # A furnisher that cannot supply evidence is a stated absence, not a
+            # crash: the readout still reports documentation completeness and
+            # says the evaluation section has nothing to assess.
+            note(f"no furnished evidence attached: {res.detail}")
+        else:
+            changed = True
+            excl = f", {len(res.excluded)} constituent(s) excluded" if res.excluded else ""
+            note(f"furnished evidence: {res.n_nodes} validation results "
+                 f"(coverage {res.coverage}{excl}, source {res.source})")
+            if res.live_run:
+                note(attach.RAIDEX_UNVERIFIED)
+
+    if changed:
+        bundle_path.write_text(json.dumps(bundle, indent=2), encoding="utf-8")
+    return 0
+
+
+def _bundle_out_path(model_id: str, args, pack: str = "mrm-nist") -> tuple[Path, bool]:
     """(path, kept). The generated bundle is the auditable, re-runnable source, so id
     mode keeps it by default -- but in a temp cache, NOT the working directory (a
     read-style command shouldn't litter cwd). --save-bundle PATH writes where asked;
@@ -393,7 +712,7 @@ def _bundle_out_path(model_id: str, args) -> tuple[Path, bool]:
     if args.no_save_bundle:
         return Path(tempfile.mkdtemp(prefix="uofa-report-")) / "bundle.jsonld", False
     base = Path(tempfile.gettempdir()) / "uofa-report-bundles"
-    return base / f"{model_id.replace('/', '__')}.mrm-nist.jsonld", True
+    return base / f"{model_id.replace('/', '__')}.{pack}.jsonld", True
 
 
 def _build_card_bundle(model_id: str, pack: str, args) -> Path | None:
@@ -431,7 +750,7 @@ def _build_card_bundle(model_id: str, pack: str, args) -> Path | None:
     if fetched.sha:
         bundle["_cardRevision"] = fetched.sha
 
-    out_path, kept = _bundle_out_path(model_id, args)
+    out_path, kept = _bundle_out_path(model_id, args, pack)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(json.dumps(bundle, indent=2) + "\n", encoding="utf-8")
     if kept:
@@ -468,13 +787,14 @@ def run(args) -> int:
             "expanded reasoned-output dump.)"
         )
 
-    shacl = _shacl(bundle_path, pack)
-    # Heuristic / no-card bundles decline sufficiency: skip the weakener engine so the
-    # readout reports completeness only (the renderers show the declined notice).
-    assess = bool(bundle.get("_sufficiencyAssessed", True))
-    firings = _firings(bundle_path, pack) if assess else []
-    analysis = compute_findings(pack, statuses, shacl, firings)
-    analysis["context"] = _context(bundle, pack)
+    rc = _apply_evidence_and_context(bundle, bundle_path, args, value if kind == "id" else "")
+    if rc:
+        return rc
+
+    # Heuristic / no-card bundles decline sufficiency: analysis_for skips the
+    # weakener engine so the readout reports completeness only (the renderers
+    # show the declined notice). One call path, shared with the golden harness.
+    analysis = analysis_for(bundle, bundle_path, pack)
 
     state = build_report_state(analysis)        # no gloss CLI-side: canonical names
     assert_report_invariants(state)             # never emit a contradictory report

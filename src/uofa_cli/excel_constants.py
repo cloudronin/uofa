@@ -229,8 +229,40 @@ MRM_NIST_DEFAULT_OUT_OF_SCOPE: frozenset[str] = frozenset({
     "Versioning and update policy",
 })
 
+# ── NIST AI 800-3 evaluation-sufficiency factors (Group B) ──────────────────
+# Hand-maintained; mirrors the AI-800-3 NodeShape in
+# packs/mrm-nist/shapes/mrm_nist_shapes.ttl. These assess a *reported benchmark
+# result* as validation evidence, the way vv40 assesses a simulation validation
+# study. Presence-only like Group A: no 1-5 levels, no risk tiers.
+#
+# Group A (MRM_NIST_FACTOR_NAMES, NIST-AI-RMF-1.0) asks whether the model
+# documents itself. Group B asks whether the numbers in that documentation are
+# credible. They coexist in one pack and are kept mutually silent by the
+# required-match factorStandard guard in each shape -- see the pack spec's
+# firewall section.
+AI_800_3_FACTOR_NAMES: list[str] = [
+    "Score and uncertainty",
+    "Item sampling",
+    "Harness determinism",
+    "Null calibration",
+    "Context-of-use relevance",
+    "Construct validity",
+]
+
+AI_800_3_FACTOR_CATEGORIES: list[tuple[str, str]] = [
+    ("Score and uncertainty", "800-3 — Statistical validity"),
+    ("Item sampling", "800-3 — Statistical validity"),
+    ("Harness determinism", "800-3 — Reproducibility"),
+    ("Null calibration", "800-3 — Reproducibility"),
+    ("Context-of-use relevance", "800-3 — Decision relevance"),
+    ("Construct validity", "800-3 — Decision relevance"),
+]
+
 ALL_FACTOR_CATEGORIES: list[tuple[str, str]] = (
-    VV40_FACTOR_CATEGORIES + NASA_ONLY_FACTOR_CATEGORIES + MRM_NIST_FACTOR_CATEGORIES
+    VV40_FACTOR_CATEGORIES
+    + NASA_ONLY_FACTOR_CATEGORIES
+    + MRM_NIST_FACTOR_CATEGORIES
+    + AI_800_3_FACTOR_CATEGORIES
 )
 
 # NASA category -> assessmentPhase mapping
@@ -243,6 +275,7 @@ NASA_PHASE_MAP: dict[str, str] = {
 FACTOR_STANDARD_VV40 = "ASME-VV40-2018"
 FACTOR_STANDARD_NASA = "NASA-STD-7009B"
 FACTOR_STANDARD_MRM_NIST = "NIST-AI-RMF-1.0"
+FACTOR_STANDARD_AI_800_3 = "NIST-AI-800-3"
 
 CONTEXT_URL = "https://raw.githubusercontent.com/cloudronin/uofa/main/spec/context/v0.5.jsonld"
 # Default namespace for identifiers minted by `uofa import`.

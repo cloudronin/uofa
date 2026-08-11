@@ -18,7 +18,8 @@ import pytest
 
 from uofa_cli import paths
 from uofa_cli.excel_mapper import map_to_jsonld
-from uofa_cli.weakener_focus import expected_factors
+from uofa_cli.excel_constants import AI_800_3_FACTOR_NAMES
+from uofa_cli.weakener_focus import attributable_factors, expected_factors
 
 _ROOT = paths.find_repo_root()
 sys.path.insert(0, str(_ROOT / "packs" / "mrm-nist" / "examples"))
@@ -37,12 +38,40 @@ def test_factorfocus_names_are_real_mrm_nist_factors():
     # A declared focus factor that isn't a real mrm-nist factor is a silent authoring
     # typo the loader can only drop (parallels tests/test_weakener_focus for the
     # core/vv40/nasa packs, which don't cover mrm-nist).
+    #
+    # Checked against `attributable_factors`, not `expected_factors`: since the pack
+    # gained its Group-B (NIST AI 800-3) layer, a focus entry may legitimately name
+    # an evaluation-sufficiency factor, which is attributable but deliberately not
+    # part of the completeness denominator. Widening the universe here keeps the
+    # guard exactly as strict against typos -- a misspelled name is in neither set.
     focus = paths.detection_config(paths.pack_manifest("mrm-nist")).get("factorFocus") or {}
     assert focus, "mrm-nist should declare a factorFocus map"
-    universe = set(expected_factors("mrm-nist"))
+    universe = set(attributable_factors("mrm-nist"))
     for pid, names in focus.items():
         for fac in names:
             assert fac in universe, f"mrm-nist:{pid} declares unknown factor {fac!r}"
+
+
+def test_group_b_factors_are_attributable_but_not_counted_for_completeness():
+    """The firewall, in the completeness direction.
+
+    Group-B factors must be nameable by a weakener but must never enter the
+    Group-A denominator. If they did, a model with a card and no reported
+    evaluation would score 11/23 instead of 11/17 -- marked down for evaluation
+    factors it never claimed, which is the same failure as firing benchmark
+    weakeners on a model with no benchmarks.
+    """
+    completeness = set(expected_factors("mrm-nist"))
+    attributable = set(attributable_factors("mrm-nist"))
+    group_b = set(AI_800_3_FACTOR_NAMES)
+
+    assert len(completeness) == 17
+    assert not (group_b & completeness), (
+        f"Group-B factors leaked into the completeness denominator: "
+        f"{sorted(group_b & completeness)}"
+    )
+    assert group_b <= attributable, "Group-B factors must be attributable"
+    assert completeness < attributable
 
 
 def test_each_card_partitions_all_17_factors():

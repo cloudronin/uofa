@@ -23,19 +23,52 @@ from __future__ import annotations
 
 from uofa_cli import paths
 from uofa_cli.excel_constants import (
-    MRM_NIST_FACTOR_NAMES, NASA_ALL_FACTOR_NAMES, VV40_FACTOR_NAMES,
+    AI_800_3_FACTOR_NAMES, MRM_NIST_FACTOR_NAMES, NASA_ALL_FACTOR_NAMES,
+    VV40_FACTOR_NAMES,
 )
 from uofa_cli.excel_mapper import slugify
 
 
-def expected_factors(pack: str) -> list[str]:
-    """Canonical credibility-factor names for a pack (the factor universe)."""
+def _is_model_credibility(pack: str) -> bool:
     p = (pack or "").lower()
-    if "mrm-nist" in p or "mrm_nist" in p:
+    return "mrm-nist" in p or "mrm_nist" in p or "model-credibility" in p
+
+
+def expected_factors(pack: str) -> list[str]:
+    """Canonical credibility-factor names for a pack (the *completeness* universe).
+
+    This is the denominator. `report_state` counts evidenced factors against it
+    and renders one grid entry per name, so a name added here is a name every
+    assessed model is measured against.
+
+    For the model-credibility pack that means **Group A only**. Group B
+    (evaluation sufficiency) is deliberately absent: those factors are assessed
+    by weakeners on a reported benchmark result, not by presence-counting a
+    model card. Including them would score a card-only model 11/23 instead of
+    11/17 — penalizing it for evaluation factors it never claimed, which is the
+    firewall violation the pack spec forbids in the completeness direction.
+    Use `attributable_factors` when you need the names a weakener may implicate.
+    """
+    if _is_model_credibility(pack):
         return MRM_NIST_FACTOR_NAMES
+    p = (pack or "").lower()
     if "nasa" in p:
         return NASA_ALL_FACTOR_NAMES
     return VV40_FACTOR_NAMES
+
+
+def attributable_factors(pack: str) -> list[str]:
+    """Every factor name a weakener firing may be attributed to.
+
+    Superset of `expected_factors`: it adds the factor names that exist to be
+    *implicated by a finding* rather than counted for completeness. Only the
+    factorFocus filter should use this — a Group-B focus entry filtered against
+    the completeness universe alone would be silently dropped, and the eval
+    weakeners would report into a void.
+    """
+    if _is_model_credibility(pack):
+        return MRM_NIST_FACTOR_NAMES + AI_800_3_FACTOR_NAMES
+    return expected_factors(pack)
 
 
 def resolve_factor_names(affected_nodes, slug_to_name: dict[str, str]) -> list[str]:
@@ -72,7 +105,11 @@ def enrich_firings(firings: list[dict], pack: str, root=None) -> list[dict]:
     pack-declared focus map plus affectedNode IRI resolution. Non-mutating:
     callers that re-use raw firings (e.g. the `--explain` pipeline) are
     unaffected. `pack` is the bundle's pack; the focus map merges core + pack."""
-    expected = set(expected_factors(pack))
+    # attributable_factors, not expected_factors: a firing may implicate a factor
+    # that is not part of the completeness denominator. For model-credibility that
+    # is the whole Group-B set — filtering against the Group-A universe alone
+    # would drop every W-EV-* attribution on the floor.
+    expected = set(attributable_factors(pack))
     slug_to_name = {slugify(n): n for n in expected}
     focus_map = paths.factor_focus_index([pack], root=root)
     return [
