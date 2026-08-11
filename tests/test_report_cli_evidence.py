@@ -132,7 +132,7 @@ def test_operator_context_is_distinct_from_the_models_own(bundle_path):
 
 def _stub_runner(record_path: Path):
     def run(cmd):
-        out = Path(cmd[cmd.index("--out") + 1])
+        out = Path(cmd[cmd.index("--output") + 1])
         out.write_text(record_path.read_text())
         return types.SimpleNamespace(returncode=0, stdout="", stderr="")
     return run
@@ -173,13 +173,19 @@ def test_missing_raidex_is_a_reportable_state_not_a_crash(tmp_path, monkeypatch)
     assert "--raidex-hub" in res.detail, "the other sources still work; say so"
 
 
-def test_preflight_states_no_cost_number_it_cannot_support():
-    """A preflight that under-states spend is worse than none."""
-    text = attach.preflight_statement("owner/model")
-    assert "NOT ESTIMATED" in text
-    assert attach.RAIDEX_UNVERIFIED
-    for constituent in ("bbq", "simpleqa", "wmdp"):
-        assert constituent in text
+def test_preflight_never_substitutes_a_guess_for_a_missing_estimate():
+    """Superseded: UofA no longer estimates, it relays raidex's --dry-run.
+
+    The earlier version asserted the preflight prints "NOT ESTIMATED", which was
+    right while UofA had no basis for a number. raidex ships --dry-run with real
+    per-constituent pricing, so asking the furnisher replaced refusing to answer.
+    What must NOT change is the failure mode: an unavailable estimate says so.
+    """
+    unreachable = lambda cmd: types.SimpleNamespace(  # noqa: E731
+        returncode=1, stdout="", stderr="")
+    text = attach.preflight_statement("owner/model", runner=unreachable)
+    assert "UNKNOWN" in text
+    assert "$" not in text, "no invented figure when the furnisher did not supply one"
 
 
 # ── a published lookup that finds nothing is a stated absence ───────────────
@@ -189,3 +195,86 @@ def test_model_absent_from_the_dataset_is_not_an_error(tmp_path):
     res = attach.attach_raidex(bundle, model_id="nobody/not-a-real-model", use_hub=True)
     assert not res.ok
     assert "hasValidationResult" not in bundle, "no evidence means no nodes, not empty ones"
+
+
+# ── the contract a stub cannot falsify ──────────────────────────────────────
+
+def test_subprocess_uses_raidex_actual_flag_names(tmp_path):
+    """--model is a required NAMED flag and the output flag is --output.
+
+    The original implementation used a positional model and `--out`, and every
+    stubbed test passed: a stub that ignores argv cannot falsify argv. This
+    inspects the argv actually built, which is the part that was wrong.
+    """
+    seen = {}
+
+    def capture(cmd):
+        seen["cmd"] = cmd
+        Path(cmd[cmd.index("--output") + 1]).write_text(_RECORD.read_text())
+        return types.SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    attach.run_raidex({"id": "x"}, "openai/gpt-4o-mini", runner=capture, workdir=tmp_path)
+    cmd = seen["cmd"]
+    assert cmd[:2] == ["raidex", "eval"]
+    assert "--model" in cmd and cmd[cmd.index("--model") + 1] == "openai/gpt-4o-mini"
+    assert "--output" in cmd
+    assert "--out" not in cmd, "--out is not a raidex flag; --output is"
+    assert "openai/gpt-4o-mini" not in cmd[2:3], "the model is named, not positional"
+
+
+def test_a_sweep_that_furnishes_nothing_is_not_reported_as_success(tmp_path):
+    """A failed sweep must not read as 'no reported evaluation to assess'.
+
+    Found by a real `raidex eval --offline` run: every constituent errored,
+    rai_coverage came back "0/9", and reporting success made the readout claim
+    there was nothing to assess -- a materially more reassuring statement than
+    'the sweep failed'.
+    """
+    empty = {
+        "config": {"model_id": "m/n", "backend_version": "0.1.0"},
+        "results": {k: {"value": None, "normalized": None,
+                        "error": "lm_eval exited 1: connection refused"}
+                    for k in ("bbq", "wmdp", "ethics")},
+        "composite": {"rai_score": None, "rai_coverage": "0/9", "rai_coverage_pct": 0},
+    }
+
+    def runner(cmd):
+        Path(cmd[cmd.index("--output") + 1]).write_text(json.dumps(empty))
+        return types.SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    bundle = {"id": "https://example.org/m"}
+    res = attach.run_raidex(bundle, "m/n", runner=runner, workdir=tmp_path)
+    assert not res.ok, "zero usable results is not success"
+    assert "0/9" in res.detail and "furnished no usable results" in res.detail
+    assert "hasValidationResult" not in bundle
+
+
+def test_attempted_but_empty_reads_differently_from_no_evaluation(tmp_path):
+    """The two absences are different claims and must not share a sentence."""
+    from uofa_cli.commands import report as R
+
+    bundle, _p, _s = card_bundle.card_to_bundle(
+        _CARD.read_text(), "mrm-nist", model_id="a/b", allow_llm=False)
+    bundle["_sufficiencyAssessed"] = True
+
+    assert R._eval_sufficiency(bundle, True) == "not-applicable"
+    bundle["_evaluationAttempted"] = True
+    assert R._eval_sufficiency(bundle, True) == "attempted-empty"
+
+
+def test_preflight_relays_raidex_estimate_rather_than_inventing_one():
+    """UofA does not estimate cost; it asks the furnisher, which knows."""
+    def dry(cmd):
+        assert "--dry-run" in cmd
+        return types.SimpleNamespace(
+            returncode=0, stdout="Cost estimate:\n  bbq  $0.72\n  TOTAL  $2.39\n", stderr="")
+
+    text = attach.preflight_statement("openai/gpt-4o-mini", runner=dry)
+    assert "$2.39" in text and "dry-run" in text
+    assert "not a quote" in text
+
+
+def test_preflight_says_unknown_when_the_dry_run_fails():
+    fail = lambda cmd: types.SimpleNamespace(returncode=1, stdout="", stderr="")  # noqa: E731
+    text = attach.preflight_statement("m", runner=fail)
+    assert "UNKNOWN" in text and "unbounded spend" in text

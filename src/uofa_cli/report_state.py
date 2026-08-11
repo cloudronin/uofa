@@ -155,6 +155,13 @@ GROUP_PACKAGE = "package"
 EVAL_ASSESSED = "assessed"
 EVAL_DECLINED = "declined"
 EVAL_NOT_APPLICABLE = "not-applicable"
+# Attempted and yielded nothing usable. Distinct from not-applicable, and the
+# distinction is the point: a sweep that ran and failed is NOT a model with no
+# published evaluation. Reporting the latter for the former hides a failure
+# behind a word that reads like an absence of risk. Surfaced by a real
+# `raidex eval --offline` run returning rai_coverage "0/9" with every
+# constituent errored -- no stub produced this, because no stub failed.
+EVAL_ATTEMPTED_EMPTY = "attempted-empty"
 
 
 def sev_label(sev) -> str:

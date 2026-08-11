@@ -178,31 +178,68 @@ def raidex_installed() -> tuple[bool, str]:
         return False, ""
 
 
-def preflight_statement(model_ref: str, *, judge: str = "") -> str:
-    """What a sweep will do, before it spends anything (A13.4).
+def preflight_statement(model_ref: str, *, judge: str = "", tier: str = "A+B",
+                        runner=None) -> str:
+    """What a sweep will do and cost, before it spends anything (A13.4).
 
-    Deliberately states no cost or duration number. The estimate has never been
-    checked against a real sweep, and a preflight that under-states spend is
-    worse than none: it converts an informed decision into a false assurance and
-    the user only discovers the truth mid-run. It lists what WILL happen -- which
-    is checkable now -- and says plainly that the magnitude is unknown.
+    Asks raidex via `--dry-run` rather than inventing a number. raidex knows its
+    own constituents, sample sizes and per-benchmark pricing; UofA does not, and
+    a second estimator here would drift from the thing it estimates. It also
+    reports which constituents will be skipped for want of a judge, and the
+    coverage that results -- a partial sweep is honest, and the operator should
+    see the coverage before agreeing rather than discover it in the card.
+
+    If the dry run cannot be reached, this says the cost is unknown. It never
+    substitutes a guess: an under-stated preflight turns an informed decision
+    into a false assurance the operator only tests by spending.
     """
-    judged = ", ".join(_JUDGE_REQUIRED)
-    lines = [
-        f"raidex eval {model_ref}",
-        f"  constituents : {len(_KNOWN_CONSTITUENTS)} ({', '.join(_KNOWN_CONSTITUENTS)})",
-        f"  judge needed : {judged}" + (f"  [judge: {judge}]" if judge else "  [no judge configured]"),
-        "  cost / time  : NOT ESTIMATED. A full sweep is hours of inference and",
-        "                 real judge spend. This tool has no measured basis for a",
-        "                 number and will not invent one.",
-        "  partial runs : permitted and honest - skipped constituents lower",
-        "                 rai_coverage rather than failing or leaving silent gaps.",
-    ]
-    return "\n".join(lines)
+    import subprocess
+
+    cmd = ["raidex", "eval", "--model", model_ref, "--tier", tier, "--dry-run"]
+    if judge:
+        cmd += ["--judge", judge]
+    if runner is None:
+        runner = lambda c: subprocess.run(c, capture_output=True, text=True)  # noqa: E731
+    try:
+        proc = runner(cmd)
+    except FileNotFoundError:
+        return (f"raidex eval --model {model_ref} --tier {tier}\n"
+                "  cost / time  : UNKNOWN - raidex is not installed, so its cost\n"
+                "                 estimate could not be obtained.")
+
+    out = ((getattr(proc, "stdout", "") or "") + (getattr(proc, "stderr", "") or "")).strip()
+    if getattr(proc, "returncode", 1) != 0 or not out:
+        return (f"raidex eval --model {model_ref} --tier {tier}\n"
+                "  cost / time  : UNKNOWN - raidex's own dry run did not report one.\n"
+                "                 Proceeding means agreeing to an unbounded spend.")
+    body = "\n".join(f"  {line}" for line in out.splitlines())
+    note = "\n  NOTE: costs are raidex's estimate, not a quote. Time is not estimated."
+
+    # A zero total is almost never true; it means litellm had no pricing for the
+    # model. litellm returns (0, 0) for an unknown model rather than raising, so
+    # raidex's no-pricing fallback never fires and the estimate reads $0.00 for a
+    # sweep the provider will bill. Relaying that unchallenged is the exact
+    # under-stated preflight this whole step exists to prevent, so say so.
+    total = next((ln for ln in out.splitlines() if "TOTAL" in ln.upper()), "")
+    if total and _looks_like_zero(total):
+        note = ("\n  WARNING: the estimate is $0.00, which almost certainly means no"
+                "\n  pricing is known for this model, NOT that the sweep is free."
+                "\n  Treat the cost as UNKNOWN and bound it with --limit." + note)
+    return (f"raidex eval --model {model_ref} --tier {tier}   [raidex --dry-run]\n"
+            + body + note)
+
+
+def _looks_like_zero(total_line: str) -> bool:
+    import re
+    m = re.search(r"\$\s*([0-9]+(?:\.[0-9]+)?)", total_line)
+    return m is not None and float(m.group(1)) == 0.0
+
+
+
 
 
 def run_raidex(bundle: dict, model_ref: str, *, extra_args: str = "",
-               runner=None, workdir=None) -> AttachResult:
+               tier: str = "A+B", judge: str = "", runner=None, workdir=None) -> AttachResult:
     """Run `raidex eval` and attach its output (A13.2).
 
     Orchestration, not absorption: raidex writes results.json and the SAME Phase-2
@@ -227,7 +264,14 @@ def run_raidex(bundle: dict, model_ref: str, *, extra_args: str = "",
 
     out_dir = Path(workdir or tempfile.mkdtemp(prefix="uofa-raidex-"))
     out_path = out_dir / "results.json"
-    cmd = ["raidex", "eval", model_ref, "--out", str(out_path)]
+    # Verified against raidex 0.1.4: --model is a required NAMED flag (not
+    # positional) and the output flag is --output (not --out). The stubbed
+    # version of this had both wrong and passed, because a stub that ignores
+    # argv cannot falsify argv.
+    cmd = ["raidex", "eval", "--model", model_ref, "--output", str(out_path)]
+    cmd += ["--tier", tier]
+    if judge:
+        cmd += ["--judge", judge]
     if extra_args:
         cmd += extra_args.split()
 
@@ -252,6 +296,17 @@ def run_raidex(bundle: dict, model_ref: str, *, extra_args: str = "",
                             detail=f"raidex output not ingestible: {fetched.detail}")
 
     evidence = raidex.furnish(fetched.record, str(bundle.get("id") or ""), str(out_path))
+    if not evidence.nodes:
+        # The sweep ran and furnished nothing usable. Reporting success here made
+        # the readout say "no reported evaluation to assess", which is a
+        # different and much more reassuring claim than "the sweep failed".
+        reasons = ", ".join(sorted({e["reason"] for e in evidence.excluded})) or "unknown"
+        return AttachResult(
+            ok=False, source="run", coverage=evidence.coverage,
+            excluded=tuple(evidence.excluded), live_run=True,
+            detail=(f"raidex ran but furnished no usable results "
+                    f"(coverage {evidence.coverage}; "
+                    f"{len(evidence.excluded)} constituent(s) failed: {reasons})"))
     _attach_nodes(bundle, evidence, fetched.record, live_run=True,
                   package_version=package_version)
     return AttachResult(

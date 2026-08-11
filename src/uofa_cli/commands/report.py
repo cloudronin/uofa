@@ -31,7 +31,7 @@ from uofa_cli import paths
 from uofa_cli.card_bundle import MRM_NIST_RISK_ASSUMPTION
 from uofa_cli.output import error, info
 from uofa_cli.report_state import (
-    EVAL_ASSESSED, EVAL_DECLINED, EVAL_NOT_APPLICABLE,
+    EVAL_ASSESSED, EVAL_ATTEMPTED_EMPTY, EVAL_DECLINED, EVAL_NOT_APPLICABLE,
     Status,
     assert_report_invariants,
     build_report_state,
@@ -166,6 +166,11 @@ def _eval_sufficiency(bundle: dict, assessed: bool) -> str:
     heuristic run report a clean N/A over evidence it never read.
     """
     if not eval_node_ids(bundle):
+        # An attempted sweep that produced nothing usable is not an absence of
+        # reported evaluation. Collapsing the two would let a total furnisher
+        # failure read as a clean "nothing to assess".
+        if bundle.get("_evaluationAttempted"):
+            return EVAL_ATTEMPTED_EMPTY
         return EVAL_NOT_APPLICABLE
     return EVAL_ASSESSED if assessed else EVAL_DECLINED
 
@@ -343,6 +348,11 @@ _EVAL_NOT_APPLICABLE_LINE = (
     "No reported evaluation to assess - sufficiency N/A. Nothing was found to "
     "assess, which is not the same as finding nothing wrong."
 )
+_EVAL_ATTEMPTED_EMPTY_LINE = (
+    "Evaluation was attempted and produced no usable results - sufficiency "
+    "cannot be assessed. This is a furnisher failure, not an absence of "
+    "reported evaluation; see the run diagnostics above."
+)
 _EVAL_DECLINED_LINE = (
     "Reported evaluation present - sufficiency not assessed. Run with a "
     "furnisher (--raidex / --raidex-hub) or an LLM backend to assess it."
@@ -378,6 +388,8 @@ def _eval_section(state) -> tuple[str, str | None, list]:
     """
     if state.eval_sufficiency == EVAL_NOT_APPLICABLE:
         return (EVAL_NOT_APPLICABLE, _EVAL_NOT_APPLICABLE_LINE, [])
+    if state.eval_sufficiency == EVAL_ATTEMPTED_EMPTY:
+        return (EVAL_ATTEMPTED_EMPTY, _EVAL_ATTEMPTED_EMPTY_LINE, [])
     if state.eval_sufficiency == EVAL_DECLINED:
         return (EVAL_DECLINED, _EVAL_DECLINED_LINE, [])
     concerns = list(state.eval_concerns)
@@ -667,6 +679,10 @@ def _apply_evidence_and_context(bundle: dict, bundle_path, args, model_id: str) 
         res = None
 
     if res is not None:
+        if source == "run":
+            # Record that a sweep happened, whatever it yielded.
+            bundle["_evaluationAttempted"] = True
+            changed = True
         if not res.ok:
             # A furnisher that cannot supply evidence is a stated absence, not a
             # crash: the readout still reports documentation completeness and
