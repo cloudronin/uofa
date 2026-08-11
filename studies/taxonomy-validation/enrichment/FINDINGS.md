@@ -165,9 +165,91 @@ specificity is an **upper bound**: it finds positives by their characteristic
 language, and cards phrasing a property unusually are exactly where a false fire
 is most likely.
 
-## 6. What is still unmeasured
+## 6. Labeling outcome (draft, 2026-08-11)
 
-Everything above is *candidate yield*. Specificity itself needs the labels, and
-the labeling session has not run. A candidate is a card whose eval sections
-contain characteristic language — many will label `absent`, and those stay in the
-stratum as legitimate negatives.
+`enriched_labels.csv`. **Status: `claude-assisted-draft-NOT-GOLD-until-human-
+confirmed`,** carried in every row. `session_id` and `labeled_at` are empty
+across all 147 rows, so no human labeling session is recorded yet. Every number
+below is provisional and none of it may be reported as a specificity figure until
+that changes.
+
+| Property | present | absent | unclear | Against the 15–30 target |
+|---|---:|---:|---:|---|
+| P2 uncertainty | **33** | 114 | 0 | met |
+| P5 null baseline | **22** | 121 | 4 | met |
+| P6 claimed COU | **10** | 131 | 6 | marginal |
+| P7 confound control | **10** | 133 | 4 | marginal |
+
+P2 and P5 clear the target. P6 and P7 sit on the honest-exit line — enough to
+estimate specificity, not enough for a tight interval, and §6's caveat may still
+be the right settling position for them.
+
+Two observations worth carrying into the paper:
+
+- **P5's positives are concentrated.** 13 of 22 are the SEA-LION family's single
+  chance-normalization sentence, repeated across related cards. A property whose
+  positive class is one organization's house style is thinly evidenced whatever
+  the count says.
+- **Several of the strongest P6 positives are negative COUs** — "unsuitable for
+  practical medical applications", "not intended to inform decisions central to
+  human life". The property is satisfied by a publisher ruling a use *out*, which
+  is worth stating explicitly in A16.7: a claimed context of use is a boundary,
+  and boundaries are drawn from either side.
+
+### Class rulings
+
+Five rulings covered 62 rows, each decided against the standard the gold set
+already set rather than freshly — sensitivity is measured there and specificity
+here, and two standards would measure two different properties. Full reasoning
+and anchors: `CLASS-RULINGS.md`.
+
+| Class | Rows | Ruling | Moved |
+|---|---:|---|---:|
+| SEALION | 13 | P3 **absent** — a sample size, not a population relationship | 13 |
+| STEFANIT | 10 | P4 **present** — five linked runs beat the gold anchor's best-of-5 | 0 |
+| LMEVAL-P4 | 8 | P4 **absent** — n-shot is a prompting condition (**marginal**) | 8 |
+| NVIDIA-P6 | 3 | P6 **absent** — template metadata, the category the filter excluded 1,884× | 3 |
+| TEMPLATE-EMPTY | 28 | all **absent** — stub cards | 0 |
+
+LMEVAL-P4 is the one most worth overturning if any is; it is isolated, and
+flipping it moves 8 rows and nothing else.
+
+## 7. The false-positive keepers are the durable output
+
+`tests/fixtures/specificity/cases.json` — 116 cases, **13 flagged
+`hard_assert`**.
+
+The pre-filter's false positives turned out to be the most valuable thing the
+run produced. Characteristic language present, property absent:
+
+| Lure | Actually |
+|---|---|
+| `±` inside a SentencePiece vocabulary dump | not a dispersion statement |
+| `Within ±1 Level` | a tolerance-band metric |
+| `Explained Variance` | a metric name |
+| `Out of Scope` | a classifier's label name |
+| `unsuitable for the task` | a scoring-rubric anchor |
+| `majority class` | KNN mechanics |
+| `intended for research only` | a licence term |
+| `ablation` | a repo or script name |
+
+Each is a card where reading the language as the property would populate a field
+that is not there and **silence a warranted weakener**. They are far more
+adversarial than the gold set's ordinary absences, because the language is
+present to be misread.
+
+Only the 13 mechanically-determined cases carry `hard_assert` and may fail a
+test. "Within ±1 Level is a tolerance band" is a fact about the text; "this card
+states a context of use" is a judgment awaiting confirmation, and a draft
+judgment must not fail a build.
+
+## 8. What is still unmeasured
+
+Specificity itself. The cases are committed and the harness
+(`tests/test_specificity_cases.py`) asserts the set can still test — every lure
+survives in its excerpt, nothing is promoted to gold, no case duplicates a
+verdict, and no absent case is one the search filter would have excluded anyway.
+
+But **the extractor is never run**. The prose path is backend-required and has no
+production caller yet, so the live check waits on Phase 5 wiring. Until then this
+measures that the instrument for measuring specificity is intact, not specificity.
