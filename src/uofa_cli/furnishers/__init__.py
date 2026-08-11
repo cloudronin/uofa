@@ -30,6 +30,12 @@ GROUP_B_RESULT_PROPERTIES: frozenset[str] = frozenset({
     "claimedCOU",                  # W-EV-COU-05 (both severities)
     "confoundControlStatement",    # W-EV-CAP-06
     "generalizedClaim",            # COMPOUND-EV-02
+    # Set when the subject's identity is IMMUTABLE and verifiable by the
+    # assessor -- a local checkpoint pinned by config + weight-manifest hash.
+    # Absent for every hosted endpoint, whose identity is asserted by its
+    # provider and can change under a stable name (addendum v0.4 A13.5). Its
+    # absence is what W-EV-SUB-08 reports.
+    "subjectVersionGuarantee",     # W-EV-SUB-08
 })
 
 # Core properties the Group-B path populates rather than duplicating. W-EV-UQ-01

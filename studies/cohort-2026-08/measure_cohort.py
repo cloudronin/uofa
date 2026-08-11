@@ -56,6 +56,7 @@ TRACKED = {
     "claimedCOU": "W-EV-COU-05",
     "confoundControlStatement": "W-EV-CAP-06",
     "generalizedClaim": "COMPOUND-EV-02",
+    "subjectVersionGuarantee": "W-EV-SUB-08",
 }
 
 _STDERR_RE = re.compile(r"standard error ([\d.]+)")

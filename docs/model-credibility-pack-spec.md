@@ -140,6 +140,7 @@ specialized for evaluations:
 | W-EV-COU-05 | Critical / High | benchmark used to support a decision with no stated context-of-use relevance | V&V40 COU-relevance, applied to eval |
 | W-EV-CAP-06 | Medium | separation/claim attributable to general capability, not the measured construct, with no partialling | Seahaven capability-confound |
 | W-EV-DIV-07 | High | reported score diverges from an independently furnished score for the same constituent, beyond tolerance | V&V40 output comparison applied to eval; the §6a furnisher/assessor firewall made testable |
+| W-EV-SUB-08 | High | evaluation subject not configuration-controlled: the subject carries only claimed identity, with no immutable version guarantee | NASA-STD-7009 configuration-control expectations, applied to the measured subject |
 
 **W-EV-UQ-01 withdrawn — the invariance claim is stronger without it.** This row
 originally read "reported score with no uncertainty / CI · grounding: 800-3;
@@ -183,6 +184,22 @@ The flag modulates severity; it never creates the finding. Without the absence
 clause, an operator passing `--cou` would manufacture a Critical against a model
 whose card properly states its COU, i.e. the rule would report on the operator's
 input instead of on the evidence.
+
+**W-EV-SUB-08 — the subject is not fixed, which is prior to how it varies.**
+Distinct from W-EV-DET-03, and the distinction is the whole point: DET-03 asks
+whether sampling variance *within a fixed subject* is characterized; SUB-08 asks
+whether the subject was fixed at all. A determinism floor on a subject that can
+change under its own name measures the wrong thing precisely.
+
+Fires when the `ValidationResult`'s subject carries only an **occasion pin**
+(addendum v0.2 A9.1) — a provider-asserted identifier with no immutable version
+guarantee. Every API-hosted model qualifies: **41 of the 43 published records**,
+so this fires near-universally and that is the finding, not a calibration error.
+Prevalence framing absorbs it the same way W-EV-COU-05's does.
+
+The honest statement it encodes: **a closed-weight score is evidence about an
+occasion, not about an artifact.** It can be re-performed and cannot be
+re-derived, and nothing in the assessment can promise otherwise.
 
 **W-EV-DIV-07 tolerance, as a defended constant.** Use the furnished uncertainty
 when one exists; otherwise `DIV_TOLERANCE_NORMALIZED = 5.0` points on the 0–100
