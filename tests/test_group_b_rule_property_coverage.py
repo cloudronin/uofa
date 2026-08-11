@@ -29,6 +29,7 @@ import pytest
 
 from uofa_cli import paths
 from uofa_cli.furnishers import (
+    PENDING_EMISSION,
     CORE_RESULT_PROPERTIES_POPULATED,
     GROUP_B_RESULT_PROPERTIES,
     GROUP_B_RUN_CONTEXT_PROPERTIES,
@@ -214,4 +215,85 @@ def test_every_pattern_id_has_a_factor_focus():
         f"Group-B patterns with no factorFocus: {missing}. These fire on a "
         "ValidationResult node, so IRI resolution yields no factor and the "
         "concern axis never meets the credibility-factor axis."
+    )
+
+
+def test_every_declared_property_is_actually_emitted_by_some_furnisher():
+    """Declared-emittable is not the same as emitted, and the gap is invisible.
+
+    The lint above checks rules against the DECLARED property set. It cannot see
+    whether any furnisher actually produces them, and that gap shipped:
+    `evidenceSource` was declared and consumed by W-EV-COR-09's rule body, but the
+    raidex adapter never set it -- so COR-09 could not bind a furnished result and
+    would never have fired in production. Every test passed, because the firewall
+    tests built their nodes by hand.
+
+    A rule keyed on a property nothing emits is dead code wearing a check's
+    clothes, which is the same defect as a rule testing a property nothing emits
+    (it fires always) seen from the other side.
+
+    Exercises both furnishers over real fixtures rather than inspecting source:
+    what matters is what comes out.
+    """
+    from uofa_cli.furnishers import card_prose, raidex
+
+    fixture = paths.find_repo_root() / "tests" / "fixtures" / "raidex" / \
+        "huggingface__google__gemma-3-27b-it.json"
+    fetched = raidex.fetch_record("", local_path=fixture)
+    assert fetched.ok, fetched.detail
+    furnished = raidex.furnish(fetched.record, "https://example.org/m", "x").nodes
+
+    # A response stating every optional property, so the prose side's ceiling is
+    # exercised rather than its typical output.
+    response = (
+        "=== VALIDATION_RESULT ===\n"
+        "name: MMLU\nmetric_value: 71.2\n"
+        "uncertainty: +/- 0.4\nnull_baseline: chance 25%\n"
+        "harness_determinism: greedy decoding, temperature 0\n"
+        "sampling_account: 500 of 14042 items, random\n"
+        "confound_control: capability-matched comparison\n"
+        "claimed_cou: screening triage\n"
+    )
+    reported = card_prose.parse(response, "https://example.org/m",
+                                subject_revision="005ad3404e59d602").nodes
+
+    # The matching step is part of the emission path: corroboratedBy and
+    # divergesFromFurnished only exist after a reported result is linked to a
+    # furnished one. A fixture that stops at parse() would report them missing.
+    matched_name = next(
+        (n["name"] for n in furnished
+         if (n["id"].rsplit("-", 1)[-1] in {"simpleqa", "bbq", "wmdp"})), None)
+    assert matched_name, "fixture must contain a constituent the alias table knows"
+    slug = furnished[0]["id"].rsplit("-", 1)[-1]
+    counterpart = next(n for n in furnished
+                       if n["id"].rsplit("-", 1)[-1] == "simpleqa")
+    # A reported value far enough from the furnished one to exceed tolerance.
+    divergent = card_prose.parse(
+        f"=== VALIDATION_RESULT ===\nname: SimpleQA\n"
+        f"metric_value: {float(counterpart['metricValue']) + 20}\n",
+        "https://example.org/m").nodes
+    linked, _comparisons = card_prose.match_and_compare(divergent, furnished)
+    reported = reported + linked
+
+    emitted: set[str] = set()
+    for node in furnished + reported:
+        emitted |= set(node)
+
+    declared = GROUP_B_RESULT_PROPERTIES | CORE_RESULT_PROPERTIES_POPULATED
+    never_emitted = declared - emitted
+
+    undeclared = never_emitted - set(PENDING_EMISSION)
+    assert not undeclared, (
+        f"declared Group-B properties no furnisher emits: {sorted(undeclared)}. "
+        "A rule keyed on one of these fires unconditionally, and nothing else "
+        "would say so. Either emit it, or record it in furnishers.PENDING_EMISSION "
+        "with the reason and what would change it."
+    )
+
+    # The other direction: a PENDING entry that IS now emitted is stale, and a
+    # stale entry quietly re-licenses the gap it was meant to track.
+    resolved = set(PENDING_EMISSION) & emitted
+    assert not resolved, (
+        f"PENDING_EMISSION lists properties that are now emitted: {sorted(resolved)}. "
+        "Remove them; the pending list is a liability register, not a comment."
     )

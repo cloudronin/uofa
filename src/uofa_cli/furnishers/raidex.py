@@ -258,6 +258,10 @@ def _constituent_node(base: str, key: str, entry: dict[str, Any],
     n_failed = entry.get("n_failed")
 
     node: dict[str, Any] = {
+        # Which side of the record this came from. W-EV-COR-09 and W-EV-DIV-07
+        # both key on telling a furnished measurement from a self-reported score;
+        # without it COR-09 cannot bind a furnished result and never fires.
+        "evidenceSource": "furnished",
         "id": f"{base}/validation/raidex-{key}",
         "type": "ValidationResult",
         "name": f"raidex {label}",
@@ -300,6 +304,7 @@ def _composite_node(base: str, composite: dict[str, Any],
         return None
     coverage = composite.get("rai_coverage") or ""
     node: dict[str, Any] = {
+        "evidenceSource": "furnished",
         "id": f"{base}/validation/raidex-composite",
         "type": "ValidationResult",
         "name": "raidex RAI composite",
