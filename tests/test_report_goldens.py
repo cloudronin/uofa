@@ -34,20 +34,33 @@ from uofa_cli.furnishers import raidex
 
 REPO = Path(__file__).resolve().parents[1]
 GOLDENS = REPO / "tests" / "fixtures" / "report_goldens"
-_CARD = REPO / "packs" / "mrm-nist" / "examples" / "olmo2-13b-instruct" / "card.md"
-_RAIDEX = REPO / "tests" / "fixtures" / "raidex" / "openai__gpt-5.6.json"
+# Two subjects, each chosen because it is REAL for the case it stands in.
+#
+# OLMo has a published card and is genuinely absent from the raidex cohort, so
+# "no reported evaluation to assess" is true of the world and not merely of the
+# bundle. gemma-3-27b-it has BOTH a card and a raidex record, so the evidence
+# cases pair a model card with that same model's scores.
+#
+# They previously paired OLMo's card with `openai/gpt-5.6`'s results: a bundle
+# asserting it described one model while carrying another's numbers. Nothing read
+# it as data, so nothing failed -- but a fabricated subject is a poor thing to
+# build card fixtures on, and the pack's whole argument is about not fabricating.
+_CARD_NO_EVAL = REPO / "packs" / "mrm-nist" / "examples" / "olmo2-13b-instruct" / "card.md"
+_CARD_WITH_EVAL = REPO / "tests" / "fixtures" / "model_cards" / "google__gemma-3-27b-it.md"
+_RAIDEX = REPO / "tests" / "fixtures" / "raidex" / "huggingface__google__gemma-3-27b-it.json"
 _MORRISON = REPO / "packs" / "vv40" / "examples" / "morrison" / "cou1" / "uofa-morrison-cou1.jsonld"
 
 
-def _card_bundle() -> dict:
+def _card_bundle(card_path, model_id: str) -> dict:
     bundle, _prov, _suff = card_bundle.card_to_bundle(
-        _CARD.read_text(), "mrm-nist",
-        model_id="allenai/OLMo-2-13B-Instruct", allow_llm=False)
+        card_path.read_text(), "mrm-nist", model_id=model_id, allow_llm=False)
     return bundle
 
 
 def _cases() -> dict[str, tuple[dict, str]]:
-    base = _card_bundle()
+    no_eval = _card_bundle(_CARD_NO_EVAL, "allenai/OLMo-2-13B-Instruct")
+
+    base = _card_bundle(_CARD_WITH_EVAL, "google/gemma-3-27b-it")
     fetched = raidex.fetch_record("", local_path=_RAIDEX)
     furnished = raidex.furnish(fetched.record, base["id"], _RAIDEX.name).nodes
 
@@ -65,7 +78,7 @@ def _cases() -> dict[str, tuple[dict, str]]:
     scoped["decisionRiskLevel"] = 3
 
     return {
-        "card_only": (base, "mrm-nist"),
+        "card_only": (no_eval, "mrm-nist"),
         "card_evidence_declined": (with_evidence, "mrm-nist"),
         "card_evidence_assessed": (assessed, "mrm-nist"),
         "card_evidence_scoped": (scoped, "mrm-nist"),
