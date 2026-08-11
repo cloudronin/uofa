@@ -25,9 +25,10 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 
-from uofa_cli.furnishers import raidex
+from uofa_cli.furnishers import pins, raidex
 
 # Provenance classes. The first four are the existing vocabulary; `furnished-run`
 # is added by addendum v0.4 A13.3 for evidence generated during the assessment.
@@ -112,6 +113,25 @@ def _attach_nodes(bundle: dict, evidence, record: dict, *, live_run: bool,
 
     bundle["furnisherOutputHash"] = record_hash(record)
     _stamp(bundle, "furnisherOutputHash", prov_class)
+
+    # A9.1: a furnished score pins an OCCASION, not an artifact. raidex talks to
+    # an endpoint via litellm and never sees weights, so the subject's identity
+    # is what the provider asserts -- it can change under a stable name with
+    # nothing to diff. Re-running tomorrow is a new occasion even if every byte
+    # of the config matches.
+    identity = raidex.subject_identity(record)
+    subject = identity.get("modelId") or str(bundle.get("id") or "")
+    if subject:
+        # The record's OWN eval_date, not attach time: the occasion is when the
+        # measurement happened, not when we got around to reading it.
+        measured = str((record.get("config") or {}).get("eval_date") or "")
+        pins.attach(bundle, pins.occasion_pin(
+            subject,
+            measured_at=measured or datetime.now(timezone.utc).strftime(
+                "%Y-%m-%dT%H:%M:%SZ"),
+            version_claim=identity.get("servedName") or "",
+            claimed_by="provider",
+        ))
 
 
 def attach_raidex(bundle: dict, *, local_path=None, model_id: str = "",
