@@ -1,10 +1,9 @@
 # Enrichment search protocol (DRAFT — sign before any cards are pulled)
 
-**Status: UNSIGNED.** No cards may be pulled under this protocol until signed.
-Pulling first and documenting after makes the search unfalsifiable, which is the
-whole reason it is a declared protocol rather than a hunt.
+**Status: SIGNED 2026-08-11.** In force. Cards may be pulled under it.
 
-**Signed:** ______________  (date, by the study author)
+**Signed:** 2026-08-11, by the study author, conditional on the two additions
+below (keyword-bias control, §4/§5.3 and §7; head-card ground pinned, §4).
 
 ---
 
@@ -55,7 +54,7 @@ Recorded before searching so the frame is not chosen after seeing results.
 
 | Ground | Rationale |
 |---|---|
-| Deep-study head cards | Frontier technical cards (Qwen, Gemma, Llama grade) carry the most detailed eval reporting |
+| Deep-study head models, **drawn as their modelbiome rows** | Frontier technical cards (Qwen, Gemma, Llama grade) carry the most detailed eval reporting. Pinned rows, not live HF — this is not an exception to the rule below |
 | `lmqg`-style repos | Publish raw eval artifacts alongside cards, so uncertainty is more likely stated |
 | Cards citing an arXiv paper | Paper-backed evals more often carry CIs and baselines |
 | `model-index` bearing cards | Structured results (4% of cards per the A3 study) skew toward richer reporting |
@@ -78,6 +77,27 @@ snapshot, and a card pulled live cannot be pinned the same way.
    inspectable.
 4. Stop at 30 per property or when the ground is exhausted, whichever first.
 
+### 5.3 The unfiltered micro-ground (the control for §5.1's bias)
+
+Draw **20–30 cards at random, with NO keyword filter**, from the richest ground
+(`lmqg`-style or arXiv-citing), and label them identically.
+
+This exists because the keyword pre-filter selects positives *by their
+characteristic language*, and those are the phrasings extraction finds easiest.
+Specificity measured only on keyword-found cards is therefore an **upper bound** —
+the real false-fire risk lives in cards stating a property in unusual language
+that the filter, and quite possibly the extractor, misses.
+
+Both outcomes are informative and neither is a failure:
+
+- **Positives the keyword pass missed** are the hardest and most valuable test
+  cases in the stratum. They are the only direct evidence about the unusual-
+  phrasing case.
+- **Zero yield** is evidence the filter's coverage is adequate, which converts
+  the upper bound into something closer to an estimate.
+
+Report the micro-ground's yield separately from the filtered stratum.
+
 ## 6. The honest exit
 
 If the declared search **cannot find even a handful of positive cards** for P6 or
@@ -97,5 +117,11 @@ than a specificity figure computed on two cards.
 - The enriched stratum's specificity estimate per property, with interval.
 - The search yield per ground: candidates screened, positives found. A low yield
   is a finding about publishing practice and belongs in the paper.
+- **The keyword-selection limitation, stated wherever specificity is reported.**
+  The filtered stratum finds positives by characteristic language, so its
+  specificity is an **upper bound**: cards phrasing a property unusually are
+  under-represented, and they are precisely where a false fire is most likely.
+  Report the §5.3 micro-ground's yield alongside it, since that is the only
+  measurement bearing on the gap.
 - Prevalence figures **from the gold set only**, stated as such wherever they
   appear beside enriched-stratum numbers.
