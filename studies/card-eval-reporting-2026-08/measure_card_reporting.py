@@ -46,6 +46,44 @@ ALIASES = {
 }
 
 
+# Language a card must contain for each Group-B property to be extractable at
+# all. Deliberately generous: over-matching biases toward "a card could supply
+# this", which is the conservative direction when deciding whether to build a
+# rule around it.
+PROPERTY_PROBES = {
+    "hasUncertaintyQuantification": r"std ?err|standard error|confidence interval|95% ?ci|\u00b1|\+/-|error bar",
+    "harnessDeterminismStatement": r"temperature\s*[=:]|greedy decod|do_sample|random seed|seed\s*[=:]|averaged over \d+ runs",
+    "nullBaselineStatement": r"chance level|random baseline|majority class|null baseline|chance performance",
+    "samplingAccount": r"sampled? \d+|subset of|representative sample|random sample|held-out split",
+    "confoundControlStatement": r"controll?ing for|partial(l)?ed|capability-matched|confound",
+}
+# A heading that scopes what follows to the model's OWN evaluation.
+_EVAL_HEADING = r"#+\s*[^\n]*(eval|benchmark|result|performance)"
+
+
+def _eval_scoped(text: str, pattern: str) -> tuple[bool, bool]:
+    """(mentioned anywhere, mentioned under an evaluation heading).
+
+    The distinction is load-bearing and was nearly missed. 45% of cards mention a
+    sampling setting; only 4% do so under an evaluation heading. The rest is
+    guidance for the reader ("For thinking mode, use Temperature=0.6") and says
+    nothing about how the reported scores were produced. An extractor that reads
+    the former as a determinism statement manufactures the claim W-EV-DET-03
+    tests for, out of documentation about something else entirely.
+    """
+    import re as _re
+    hits = list(_re.finditer(pattern, text, _re.I))
+    if not hits:
+        return False, False
+    heads = [(h.start(), bool(_re.match(_EVAL_HEADING, h.group(0), _re.I)))
+             for h in _re.finditer(r"#+[^\n]*", text)]
+    for m in hits:
+        prior = [is_eval for pos, is_eval in heads if pos < m.start()]
+        if prior and prior[-1]:
+            return True, True
+    return True, False
+
+
 def measure(limit: int) -> dict:
     with urllib.request.urlopen(API.format(limit=limit), timeout=60) as r:
         models = json.load(r)
@@ -71,8 +109,12 @@ def measure(limit: int) -> dict:
         n_any += bool(hits)
         for h in hits:
             per_constituent[h] += 1
+        props = {name: dict(zip(("mentioned", "eval_scoped"),
+                                _eval_scoped(fetched.text, pat)))
+                 for name, pat in PROPERTY_PROBES.items()}
         rows.append({"model": mid, "status": "ok", "words": len(fetched.text.split()),
-                     "has_markdown_table": has_table, "raidex_constituents_named": hits})
+                     "has_markdown_table": has_table, "raidex_constituents_named": hits,
+                     "property_language": props})
 
     ok = [r for r in rows if r.get("status") == "ok"]
     n = len(ok)
@@ -88,6 +130,16 @@ def measure(limit: int) -> dict:
         "pct_naming_any_raidex_constituent": round(100 * n_any / n, 1) if n else None,
         "per_constituent": dict(per_constituent),
         "aliases_searched": ALIASES,
+        "property_language_rates": {
+            name: {
+                "mentioned_anywhere": sum(
+                    1 for r in ok if r["property_language"][name]["mentioned"]),
+                "under_evaluation_heading": sum(
+                    1 for r in ok if r["property_language"][name]["eval_scoped"]),
+                "n": n,
+            }
+            for name in PROPERTY_PROBES
+        },
         "per_model": rows,
     }
 
