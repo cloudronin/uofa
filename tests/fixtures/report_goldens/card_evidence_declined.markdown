@@ -1,4 +1,4 @@
-# Credibility report — allenai/OLMo-2-13B-Instruct (model card)
+# Credibility report — google/gemma-3-27b-it (model card)
 
 - **Assessed against:** NIST AI RMF
 - **Risk posture:** Evaluated as if bound for a moderate-risk deployment (assumed MRL 3); the source card declares no context of use or risk tier.
@@ -7,28 +7,28 @@
 
 | Completeness | Factors evidenced | Concerns | Gate checks |
 |---|---|---|---|
-| 41% | 7 of 17 | not assessed (heuristic) | 0 of 2 |
+| 71% | 12 of 17 | not assessed (heuristic) | 0 of 2 |
 
-_41% of all factors evidenced; 5 factors required at Level 3 still need evidence before this is review-ready._
+_71% of all factors evidenced; 2 factors required at Level 3 still need evidence before this is review-ready._
 
 ## Credibility factors
 
 | Factor | Status |
 |---|---|
 | Affected populations | Not stated |
-| Bias and fairness analysis | Not stated |
 | Evaluation methodology | Not stated |
-| Out-of-scope use | Not stated |
-| Robustness and safety testing | Not stated |
+| Bias and fairness analysis | Evidenced |
 | Deployment setting | Evidenced |
 | Evaluation metrics | Evidenced |
 | Intended use | Evidenced |
 | Known limitations | Evidenced |
 | License and usage terms | Evidenced |
+| Mitigations and safeguards | Evidenced |
+| Monitoring and feedback | Evidenced |
+| Out-of-scope use | Evidenced |
+| Robustness and safety testing | Evidenced |
 | Task and domain context | Evidenced |
 | Test and evaluation data | Evidenced |
-| Mitigations and safeguards | Not applicable |
-| Monitoring and feedback | Not applicable |
 | Ownership and accountability | Not applicable |
 | Residual risk | Not applicable |
 | Versioning and update policy | Not applicable |
@@ -43,8 +43,5 @@ _Reported evaluation present - sufficiency not assessed. Run with a furnisher (-
 
 ## What is still missing
 
-- Out-of-scope use
 - Affected populations
 - Evaluation methodology
-- Bias and fairness analysis
-- Robustness and safety testing
