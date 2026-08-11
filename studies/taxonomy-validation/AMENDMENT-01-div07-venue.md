@@ -48,21 +48,33 @@ remains a valid second venue and is not withdrawn.
 the gold-set plan, not the panel/deterministic split, not Liang's role as the
 A16 validation corpus. This amendment concerns one rule's Mode-2 venue.
 
-## Not recommended for signature yet
+## Diligence checks: RUN 2026-08-11, both clear
 
-Two diligence checks are outstanding and are the same two blocking the A17 field
-arm (see `docs/model-credibility-pack-addendum-v0_6-field-study.md`):
+Findings attached per the ruling. Full detail in A17.3.
 
-1. **Pinning adequacy.** A CSV on a HF dataset repo with no dataset card. A
-   content hash pins the file; whether the repo's revision history is stable
-   enough to cite is unverified.
-2. **Redistribution terms.** Unstated. Whether sampled card text may be quoted in
-   a paper or shipped as a fixture is unknown.
+1. **Redistribution terms — PASS.** CC-BY-4.0, dataset card present, paper at
+   `arXiv:2508.06811`. Quoting card text and shipping fixtures are permitted with
+   attribution. The draft's "no dataset card, unclear terms" was wrong: it rested
+   on a null `cardData` in one API response that I read as absence instead of
+   re-checking the raw README.
+2. **Pinning adequacy — PASS at corpus level, one stated limit.** Repo sha
+   `4cb5d873…`, single content-hashable CSV, snapshot dates stated (models
+   2025-07-13, cards 2025-07-21). **No per-row card revision exists**, so an
+   individual card cannot be verified against live HF at the scraped version.
+   Rows pin by content hash against the pinned corpus — the same mechanism the
+   A16.3 gold set already uses.
 
-A venue that cannot be cited or quoted is not a venue for a published study,
-however rich its opportunity count. **Sign only after both clear.**
+**Both clear, so the blocking objection is withdrawn.** The remaining limit is
+narrow: claims attach to the snapshot rather than to HF's revision history, which
+is Liang's position too and acceptable for a study whose population is the
+snapshot.
 
-## If they do not clear
+**This amendment is now ready for signature** on its merits rather than blocked
+on diligence. What signing decides is only whether DIV-07's Mode 2 runs on the
+modelbiome field arm (~4,700 opportunities) instead of deferring to the
+deep-study cohort.
+
+## If not signed
 
 The freeze stands unamended and DIV-07 settles on Mode 1 plus the deep-study
 cohort, which is what it says today. That outcome is already accounted for and

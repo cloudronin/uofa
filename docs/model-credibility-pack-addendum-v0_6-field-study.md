@@ -41,21 +41,43 @@ quantizations and merges of one parent will inflate any prevalence figure with
 near-duplicate cards. Stratification must account for family, not just task and
 size, or the study reports how often a popular card was forked.
 
-## A17.3 Two diligence checks, both outstanding
+## A17.3 Diligence checks — RUN 2026-08-11, both clear
 
-Neither is a formality; either can disqualify the corpus.
+Two claims in the first draft of this section were wrong, and the checks
+corrected them. Recorded rather than quietly edited.
 
-1. **Pinning adequacy.** A CSV in a HF dataset repo with **no dataset card** and
-   128 downloads. A content hash pins the file, but A9.1's artifact-pin claim
-   requires the source be re-fetchable at a stated revision. Whether the repo's
-   history is stable enough to cite is unverified.
-2. **Redistribution terms.** Unstated in the repo. Whether card text may be
-   quoted in a paper, or shipped as a test fixture, is unknown. The underlying
-   cards carry their own model licences, which is a second layer.
+**Check 2, redistribution terms: PASSES.** The dataset is **CC-BY-4.0**, declared
+in a dataset card that **does exist** (`README.md` frontmatter), and the corpus
+has an accompanying paper (`arXiv:2508.06811`). The first draft said "no dataset
+card" and implied unattributed provenance — that came from one API response
+returning a null `cardData`, which I read as absence rather than re-checking the
+raw README. It is a published research artifact with an attribution-only licence,
+so quoting card text in a paper and shipping fixtures are both permitted with
+attribution.
 
-**A corpus that cannot be cited or quoted is not a venue for a published study**,
-however rich. If either check fails, Liang remains the only pinned corpus and
-A17's scope shrinks to what 32,111 cards support.
+**Check 1, pinning adequacy: PASSES at corpus level, with one stated limit.**
+
+| | |
+|---|---|
+| Repo revision | `4cb5d8739a8fce7c03826994dd756c244b4126bf` |
+| File | content-hashable, single CSV |
+| Snapshot dates | models 2025-07-13; card scrape completed 2025-07-21, both stated in the card |
+| **Per-row card revision** | **absent** — no `sha` / `revision` / fetch-date column |
+
+`createdAt` is the *model's* creation date, not the card's fetch date, and there
+is nothing recording which HF revision each card body came from.
+
+**Why it still clears.** The corpus file is the artifact, and it is pinned: repo
+sha plus content hash plus stated snapshot dates satisfy A9.1's non-HF artifact
+pin. Every row's text is re-derivable *from the pinned corpus* by content hash,
+which is exactly how the A16.3 gold set already pins its rows.
+
+**The limit, stated so it is not discovered later:** you cannot verify an
+individual card against live HF at the version scraped, because that version was
+not recorded. Claims are attributable to the snapshot, not to HF's history. That
+is the same position Liang leaves us in and is acceptable for a study whose
+population *is* the snapshot — but it forecloses any check of the form "was this
+card altered after scraping".
 
 ## A17.4 Consequence for W-EV-DIV-07
 
