@@ -7,9 +7,9 @@
 
 | Completeness | Factors evidenced | Concerns | Gate checks |
 |---|---|---|---|
-| 35% | 6 of 17 | 4 Critical, 8 High, 2 Moderate | 0 of 2 |
+| 35% | 6 of 17 | 4 Critical, 9 High, 2 Moderate | 0 of 2 |
 
-_35% of all factors evidenced; 6 factors required at Level 3 still need evidence; 12 high-severity concerns open before this is review-ready._
+_35% of all factors evidenced; 6 factors required at Level 3 still need evidence; 13 high-severity concerns open before this is review-ready._
 
 ## Credibility factors
 
@@ -48,13 +48,14 @@ _35% of all factors evidenced; 6 factors required at Level 3 still need evidence
 - **High concern (seen 9×).** Reported evaluation states no determinism floor - sampling settings and per-model run-to-run spread are uncharacterized, so the score is one draw reported as a measurement. Relates to: Harness determinism.
 - **High concern (seen 9×).** Reported benchmark score carries no account of how its items sample the target population - benchmark accuracy cannot be read as generalized accuracy. Relates to: Item sampling.
 - **High concern (seen 9×).** Reported score is not calibrated against a null, chance, or comprehension-free baseline - the floor the score must clear to mean anything is unstated. Relates to: Null calibration.
+- **High concern (seen 9×).** The evaluation subject is not configuration-controlled - its identity is claimed by the provider with no immutable version guarantee, so the score is evidence about an occasion rather than about a fixed artifact. Relates to: Harness determinism.
 - **Moderate concern (seen 9×).** No capability-confound control stated - the reported separation may be attributable to general capability rather than to the construct the benchmark claims to measure. Relates to: Construct validity.
 
 ## Package-level concerns
 
 _Whole-assessment findings; they belong to neither section alone._
 
-- **Critical concern (seen 24×).** Critical and High severity weakeners coexist — compounding risk escalation.
+- **Critical concern (seen 27×).** Critical and High severity weakeners coexist — compounding risk escalation.
 - **High concern.** UofA is missing bindsRequirement — incomplete profile binding.
 - **Moderate concern.** UofA conforms to ProfileComplete but declares no SensitivityAnalysis — a Complete profile is structurally expected to document sensitivity analysis alongside uncertainty quantification.
 
