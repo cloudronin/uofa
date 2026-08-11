@@ -319,3 +319,42 @@
     (?ann schema:description 'No independently furnished measurement corroborates this reported score - the furnished evidence available measures different properties, so the published number stands on a single referent.')
     (?uofa uofa:hasWeakener ?ann)
 ]
+
+# W-EV-DIV-07: a reported score disagrees with an independent measurement.
+#
+# Grounding: V&V40 output comparison, applied to evaluation -- and the §6a
+# furnisher/assessor firewall made testable. Where it fires it is the strongest
+# finding this pack can produce, because it does not report a missing property
+# but a substantive disagreement about a number someone published.
+#
+# Fires on a MATCHED pair only. `divergesFromFurnished` is set by
+# card_prose.match_and_compare when a reported result and a furnished result
+# measure the same constituent and differ by more than the tolerance
+# (DIV_TOLERANCE_NORMALIZED = 5.0, above the 4.08 cohort maximum standard error;
+# the furnished side's own uncertainty is used instead when it states one).
+#
+# An UNMATCHED reported score never carries the property, so no rule fires: the
+# alias table is exact-match only, and a fuzzy match would let "MMLU" reach
+# "wmdp" by edit distance and manufacture a disagreement between unrelated
+# measurements -- a finding a reader could not tell apart from a real one.
+# Silence on an ambiguous match is the correct output.
+#
+# Expected to be rare: across 49 cards only 8% name any constituent this
+# furnisher measures. The disjoint case belongs to W-EV-COR-09, not here.
+#
+# WHAT IT DOES NOT CLAIM. A divergence establishes that the published number and
+# an independent run disagree. It does NOT establish which is correct, and the
+# description must not imply that it does -- the finding is about the record.
+[w_ev_div07:
+    (?uofa rdf:type uofa:UnitOfAssurance)
+    (?uofa uofa:hasValidationResult ?vr)
+    (?vr uofa:divergesFromFurnished ?delta)
+    makeSkolem(?ann, ?uofa, 'W-EV-DIV-07', ?vr)
+    ->
+    (?ann rdf:type uofa:WeakenerAnnotation)
+    (?ann uofa:patternId 'W-EV-DIV-07')
+    (?ann uofa:severity 'High')
+    (?ann uofa:affectedNode ?vr)
+    (?ann schema:description 'The score reported in the published record disagrees with an independent measurement of the same benchmark by more than the measurement tolerance - the two do not agree, and which is correct is not established here.')
+    (?uofa uofa:hasWeakener ?ann)
+]

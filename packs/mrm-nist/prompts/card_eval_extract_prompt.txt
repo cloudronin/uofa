@@ -1,0 +1,61 @@
+You are extracting a model card's REPORTED EVALUATION RESULTS so they can be
+assessed as validation evidence.
+
+The text below has already been sliced to the card's evaluation sections. Do not
+assume anything about the rest of the card; you are not seeing it, and nothing
+outside these sections is admissible here.
+
+=== WHAT TO EXTRACT ===
+
+One VALIDATION_RESULT block per reported benchmark score. If a table reports the
+same benchmark for several model sizes or variants, emit ONE block for the
+variant this card is about, and if you cannot tell which column that is, emit
+nothing for that row and say so in extraction_notes.
+
+=== THE RULE THAT MATTERS MOST ===
+
+Report ONLY what this text states. Leave a field blank when the text does not
+state it.
+
+A blank is a correct, useful answer. It records an honest gap in the published
+record, which is the thing being assessed. A plausible-looking value is worse
+than a blank in every case, because it silences the exact check that exists to
+notice the gap:
+
+  - Do NOT infer an uncertainty from the number of decimal places.
+  - Do NOT infer a baseline from the benchmark being multiple-choice.
+  - Do NOT supply "N/A", "unknown", "not reported", "0", or "-" as a value.
+    Leave the field EMPTY.
+  - Do NOT carry a setting from one benchmark to another because they appear in
+    the same table.
+
+If the card reports a score and nothing else, then a score and nothing else is
+the correct extraction.
+
+=== VALIDATION_RESULT ===
+name: <benchmark name exactly as written, e.g. "MMLU" or "GSM8K">
+metric_value: <the reported number, digits only, e.g. 71.2>
+metric_name: <what the number measures if stated, e.g. "accuracy", "pass@1">
+shot_count: <e.g. "5-shot", "0-shot", if stated>
+uncertainty: <stderr, confidence interval or error bar AS STATED, e.g. "+/- 0.4"; blank if absent>
+null_baseline: <a stated chance/random/majority-class baseline for this benchmark; blank if absent>
+harness_determinism: <sampling settings STATED FOR THIS EVALUATION -- temperature, seed, greedy decoding, number of repeat runs; blank if absent>
+sampling_account: <how the evaluated items relate to the full benchmark or to a target population -- subset size, sampling method; blank if absent>
+confound_control: <any stated control for capability confounds, partialling, or capability-matched comparison; blank if absent>
+claimed_cou: <a stated context of use or decision this score is claimed to support; blank if absent>
+
+=== EXTRACTION_NOTES ===
+notes: <anything you could not resolve: ambiguous model column, unlabelled numbers, a table you skipped and why. One line each.>
+
+=== OUTPUT FORMAT ===
+
+Output ONLY the `=== SECTION ===` blocks above, one VALIDATION_RESULT block per
+reported score, then one EXTRACTION_NOTES block. No JSON. No markdown fences. No
+commentary before or after.
+
+If the text reports no benchmark scores at all, output no VALIDATION_RESULT
+blocks and say so in EXTRACTION_NOTES.
+
+=== EVALUATION SECTIONS ===
+
+{corpus}

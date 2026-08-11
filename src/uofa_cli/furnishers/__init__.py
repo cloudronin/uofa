@@ -44,6 +44,10 @@ GROUP_B_RESULT_PROPERTIES: frozenset[str] = frozenset({
     # constituent. Its absence is what W-EV-COR-09 reports -- and only when
     # furnished evidence exists to have corroborated it.
     "corroboratedBy",              # W-EV-COR-09
+    # Set when a reported score differs from its furnished counterpart by more
+    # than the tolerance. Present only on a MATCHED pair -- an unmatched reported
+    # score never carries it, because no comparison happened.
+    "divergesFromFurnished",       # W-EV-DIV-07
 })
 
 # Core properties the Group-B path populates rather than duplicating. W-EV-UQ-01
@@ -80,6 +84,19 @@ GROUP_B_RUN_CONTEXT_PROPERTIES: frozenset[str] = frozenset({
 # invalidates every signed bundle in the repo -- a one-line addition put the
 # Morrison reference example into C1 Integrity failure while C2 and C3 stayed
 # green. Adding vocabulary here costs nothing; adding it there costs the corpus.
+# Declared properties that NO furnisher emits yet, with the reason and what would
+# change it. Every entry means a rule keyed on the property's absence currently
+# fires unconditionally, so the list is a liability and should shrink.
+#
+# It exists because "declared emittable" and "actually emitted" are different
+# claims and the gap is invisible: `evidenceSource` was declared, consumed by
+# W-EV-COR-09's rule body, and never set by the raidex adapter -- COR-09 could
+# not have fired in production while every test passed, because the firewall
+# tests built their nodes by hand. Recording the pending set forces the gap to be
+# a decision rather than an oversight, and removing an entry is what completing
+# the work looks like.
+PENDING_EMISSION: dict[str, str] = {}
+
 VALUE_ONLY_FIELDS: frozenset[str] = frozenset({
     "metricValue",
     "name",
@@ -92,5 +109,6 @@ __all__ = [
     "GROUP_B_RESULT_PROPERTIES",
     "CORE_RESULT_PROPERTIES_POPULATED",
     "GROUP_B_RUN_CONTEXT_PROPERTIES",
+    "PENDING_EMISSION",
     "VALUE_ONLY_FIELDS",
 ]

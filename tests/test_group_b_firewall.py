@@ -304,3 +304,26 @@ def test_cor09_silent_on_a_corroborated_score(tmp_path):
         _vr("simpleqa-furnished", "furnished"),
     ])
     assert "W-EV-COR-09" not in fired
+
+
+@_needs_engine
+def test_sub08_silent_on_a_pinned_open_weight_subject(tmp_path):
+    """SUB-08's grounding is configuration control, so a pinned artifact clears it."""
+    from uofa_cli.furnishers import card_prose
+    pinned = card_prose.parse(
+        "=== VALIDATION_RESULT ===\nname: MMLU\nmetric_value: 78.6\n",
+        "https://example.org/m",
+        subject_revision="005ad3404e59d6023443cb575daa05336842228a").nodes
+    assert "W-EV-SUB-08" not in _fire_on_nodes(tmp_path, pinned), (
+        "fired on a subject retrievable at an immutable revision - a false "
+        "finding by the rule's own doctrine")
+
+
+@_needs_engine
+def test_sub08_still_fires_on_an_unpinnable_subject(tmp_path):
+    """The rule must keep working for API-hosted subjects, which is its whole point."""
+    from uofa_cli.furnishers import card_prose
+    unpinned = card_prose.parse(
+        "=== VALIDATION_RESULT ===\nname: MMLU\nmetric_value: 78.6\n",
+        "https://example.org/m").nodes
+    assert "W-EV-SUB-08" in _fire_on_nodes(tmp_path, unpinned)
