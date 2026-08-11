@@ -81,6 +81,24 @@ spend. The command must not discover this for the user mid-run.
 - Preflight prints the constituent list, the backend/judge configuration, and
   a rough cost/time statement, then requires confirmation (`--yes` to skip
   for CI).
+
+  **AMENDED 2026-08-11 — cost alone does not discharge this section.** Evidenced
+  by a real run: a tier-A sweep estimated at $10.65 was approved, and `bbq` alone
+  turned out to be **58,492 prompts, ETA 5h23m** for one benchmark of seven. The
+  cost figure was roughly right; nothing estimated the time, and the operator
+  discovered a day-long job mid-run — verbatim what this section says must not
+  happen.
+
+  **The preflight must print prompt counts per constituent alongside dollars.**
+  Counts are what make duration legible, and raidex already tracks `full_n` per
+  benchmark for its own `token_cost`, so surfacing it is cheap. A bounded run
+  (`--limit 150`, matching how the published cohort was produced) completed the
+  same 7 benchmarks in 17 minutes for $0.74.
+
+  Also: never relay a $0.00 estimate unchallenged. litellm returns `(0, 0)` for a
+  model it has no pricing for rather than raising, so raidex's no-pricing
+  fallback is unreachable and the estimate reads free for a sweep the provider
+  will bill.
 - Partial sweeps are permitted and honest: `rai_coverage` already expresses
   them (8/9 exists in the published dataset). A partial live run produces a
   card whose coverage says so; it does not produce an error and does not
@@ -96,11 +114,32 @@ outcome, not a degraded mode:
   telemetry, no phone-home, no uofa.net interaction. The signed bundle is
   the enterprise's internal artifact of record; `uofa verify` works offline.
 - Model-ref for local models enters the bundle as given (path or internal
-  name). `sourcePin` for a local model pins the checkpoint: config hash plus
-  weight-manifest hash where cheaply available, else path + fetch date +
-  user-stated identifier. INVESTIGATION ITEM (execution agent): what
-  checkpoint identity raidex already captures for local models; reuse rather
-  than reinvent.
+  name).
+
+  **RULED 2026-08-11 — subject identity splits by hosting, and the original
+  text was wrong for the dominant case.** It specified "config hash plus
+  weight-manifest hash". raidex talks to an *endpoint* via litellm and never
+  sees weights, and **41 of the 43 published records are hosted endpoints**, so
+  for ~95% of assessed models there are no weights to hash.
+
+  | Subject | `sourcePin` records | Nature |
+  |---|---|---|
+  | Local checkpoint | config hash + weight-manifest hash where cheaply available, else path + fetch date + user-stated identifier | verifiable by the assessor |
+  | Hosted endpoint | provider model identifier + the provider's version string where one exists + invocation timestamp | **claimed**, recorded as an assertion |
+
+  **A hosted endpoint's identity is asserted by the provider, not verified by
+  the assessor.** The bundle records the assertion and says so. `openai/gpt-5.6`
+  at two timestamps may be two systems behind one identifier, with no notice and
+  nothing to diff; writing that down as though it were a verified pin would
+  claim an assurance nobody holds.
+
+  INVESTIGATION ITEM — RESOLVED 2026-08-11: raidex captures nothing that
+  identifies a checkpoint. For a local endpoint `provenance.model` is
+  `{input, model_id, api_base, served_name}` — a URL and an operator-chosen
+  label. It pins its *datasets* by revision hash but not its *subject*, which is
+  coherent for a tool that measures a served endpoint. There is nothing to reuse
+  for subject identity; there IS `provenance.datasets` to reuse for input
+  reproducibility.
 - Internal publication is the enterprise's own concern by design: the card
   is static HTML and the bundle is a file; an internal registry page, a
   SharePoint folder, and an S3 bucket are all equally valid card stores, and

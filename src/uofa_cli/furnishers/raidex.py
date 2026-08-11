@@ -318,6 +318,58 @@ def _composite_node(base: str, composite: dict[str, Any],
     return node
 
 
+def dataset_pin(record: dict[str, Any], constituent: str) -> dict[str, str] | None:
+    """The ARTIFACT pin for a constituent's eval data, if the record carries one.
+
+    raidex 0.1.4 records `provenance.datasets[<id>] = {source, revision}`. That is
+    an artifact pin in the A9.1 sense: re-fetch the source at the revision and you
+    get identical items, so the eval INPUTS are re-derivable.
+
+    Deliberately does NOT feed `samplingAccount`. A pin says which items were
+    drawn from which dataset; W-EV-GEN-02 asks how those items relate to the
+    target population the score is read against, and how the sample was drawn.
+    Those are different questions, and answering the easy one to silence the hard
+    one is the "plausible value satisfies a constraint" failure this pack exists
+    to catch. The published cohort has no provenance block at all, so this is
+    absent there and present only on fresh runs.
+    """
+    datasets = ((record.get("provenance") or {}).get("datasets") or {})
+    pin = datasets.get(constituent)
+    if not isinstance(pin, dict) or not pin.get("source"):
+        return None
+    out = {"source": str(pin["source"])}
+    if pin.get("revision"):
+        out["revision"] = str(pin["revision"])
+    return out
+
+
+def subject_identity(record: dict[str, Any]) -> dict[str, Any]:
+    """How the measured subject is identified, and whether that is verifiable.
+
+    Hosted endpoint -> the identifier is ASSERTED by the provider. It can change
+    under a stable name with no notice and nothing to diff, so it is an occasion
+    pin (A9.1) and carries no version guarantee. Every such subject trips
+    W-EV-SUB-08, which is the honest reading: a closed-weight score is evidence
+    about an occasion, not about an artifact.
+
+    raidex never sees weights -- it talks to an endpoint via litellm -- so there
+    is no path here to a verified subject identity for a hosted model. A local
+    checkpoint pinned by config + weight-manifest hash would carry one, and that
+    pin has to come from the operator, not from raidex.
+    """
+    prov_model = ((record.get("provenance") or {}).get("model") or {})
+    config = record.get("config") or {}
+    return {
+        "modelId": prov_model.get("model_id") or config.get("model_id") or "",
+        "servedName": prov_model.get("served_name") or None,
+        "apiBase": prov_model.get("api_base") or None,
+        # Verifiable immutability is what W-EV-SUB-08 tests for. raidex cannot
+        # supply it for a hosted endpoint, and inventing one from the model
+        # string would assert an assurance nobody holds.
+        "versionGuarantee": None,
+    }
+
+
 def furnish(record: dict[str, Any], base: str, source_url: str = "") -> FurnishedEvidence:
     """Map a validated raidex record onto ValidationResult nodes."""
     results = record.get("results") or {}

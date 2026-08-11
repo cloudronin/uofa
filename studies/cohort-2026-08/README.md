@@ -41,6 +41,7 @@ corpus that has since been regenerated is not a result.
 | `nullBaselineStatement` | W-EV-NULL-04 | 0/427 · 0% |
 | `claimedCOU` | W-EV-COU-05 | 0/427 · 0% |
 | `confoundControlStatement` | W-EV-CAP-06 | 0/427 · 0% |
+| `subjectVersionGuarantee` | W-EV-SUB-08 | 0/427 · 0% |
 
 Coverage: 40 models at 9/9, 3 at 8/9.
 
@@ -57,7 +58,7 @@ uniformly would be indistinguishable from one that had not read the evidence.
 RAI composite only, never on a constituent, so COMPOUND-EV-02 fires once per
 model rather than once per result.
 
-**The five zero rows are a specification, not a complaint.** They are precisely
+**The six zero rows are a specification, not a complaint.** They are precisely
 what a raidex constituent would have to carry to clear the Group-B bar. This is
 the furnisher/assessor loop of the pack spec's §6a stated as a measurement:
 raidex furnishes evidence, the pack assesses sufficiency, and the assessment gaps
@@ -90,6 +91,33 @@ constant was first derived from four fixtures and is confirmed here against all
 sample sizes. Note `n_samples` is not constant (108 to 738), so the constant is
 anchored to the observed standard-error range, not to a sample size. The script
 re-checks this assertion on every run.
+
+## Amendment 2026-08-11 — a live run does not close these
+
+`subjectVersionGuarantee` was added to the tracked set with W-EV-SUB-08; same
+pinned revision, same snapshot, one more column.
+
+A fresh raidex 0.1.4 run carries a `provenance` block the 43 published records
+lack (`datasets` pins by revision hash, `sampling` with limit/concurrency/
+retries/timeout). It was initially reported here that this would close or
+partially close two of the zero rows. **Checked against the properties as
+specified, it closes none:**
+
+| Property | `provenance` supplies | Closes it? |
+|---|---|---|
+| `samplingAccount` | `limit`, `sample_exempt`, dataset pins | **No.** Which items from which dataset is not how those items relate to the target population, nor how the sample was drawn. |
+| `harnessDeterminismStatement` | `concurrency`, `num_retries`, `timeout` | **No.** Harness conditions, not a determinism floor: no temperature, no seed, no repeat-run spread. |
+| `subjectVersionGuarantee` | provider-asserted `model_id` | **No, correctly.** A hosted endpoint has no immutable version, so W-EV-SUB-08 should fire. |
+
+Accepting a dataset pin as a sampling account would silence the hard question by
+answering an easier one — the "plausible value satisfies a constraint" failure
+the pack exists to catch.
+
+What the block *does* supply is genuine **artifact pins for the eval inputs**
+(addendum v0.2 A9.1): re-fetch the source at the revision and get identical
+items. So the inputs are re-derivable while the subject is not, which is the
+distinction W-EV-SUB-08 encodes. The adapter records the pins as evidence and
+silences nothing.
 
 ## What this study does not do
 

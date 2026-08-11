@@ -43,6 +43,7 @@ versioned.
 | [2] Findings | severity-sorted weakener rows, one-line finding, prevalence note, scope sentence | Group B + cohort stats |
 | [3] Furnished evidence | RAI badge (score, coverage, constituent version, "furnished composite — assessed as evidence under [2]" framing), reported-vs-furnished table, dimension radar | raidex adapter |
 | Verify footer | bundle download, `uofa verify` one-liner, signature fingerprint | bundle |
+| Per-section claim line | **ADDED 2026-08-11.** [1] and [2] state "re-derives from pinned sources"; [3] states "re-performs — a fresh run may legitimately differ". | pin type per section (A9.1) |
 
 ### Data-driven constraints (impl-plan requirements)
 
@@ -182,6 +183,21 @@ pinning plus re-derivability, not trust in the submitter:
    spec's note on vocabulary additions. Plain strings and no coercion are exactly
    what `@vocab` gives for free — which is the same reason the nested-map defect
    above is avoidable without a declaration.
+
+   **RULED 2026-08-11 — two pin types, never interchangeable.** `sourcePin` was
+   one thing covering two claims that differ in what they can support:
+
+   | Pin type | Records | Claims | Supports |
+   |---|---|---|---|
+   | **artifact pin** | source URL + content hash | "this exact content was read" | **re-derivation** — re-fetch and get identical bytes |
+   | **occasion pin** | subject identifier + version claim + timestamp | "this subject was measured at this time" | **re-performance** — run it again, legitimately differ |
+
+   Model cards and eval reports carry artifact pins. **Live-run evidence carries
+   occasion pins**, because the subject is a served endpoint whose identity is
+   asserted by its provider (A13.5). The schema keeps them as distinct terms; a
+   consumer must never read an occasion pin as though re-fetching it would
+   reproduce the measurement, because it will not, and a difference is not
+   evidence of tampering.
 
    **Pin the `README.md` blob hash, not the repo `sha`.** The hub's `sha` is the
    *repo* revision and changes when any file changes, so pinning it marks a
