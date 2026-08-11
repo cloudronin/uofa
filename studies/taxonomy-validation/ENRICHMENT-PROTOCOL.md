@@ -1,9 +1,9 @@
-# Enrichment search protocol (DRAFT — sign before any cards are pulled)
+# Enrichment search protocol
 
 **Status: SIGNED 2026-08-11.** In force. Cards may be pulled under it.
 
 **Signed:** 2026-08-11, by the study author, conditional on the two additions
-below (keyword-bias control, §4/§5.3 and §7; head-card ground pinned, §4).
+below (keyword-bias control, §5a and §7; head-card ground pinned, §4).
 
 ---
 
@@ -77,7 +77,7 @@ snapshot, and a card pulled live cannot be pinned the same way.
    inspectable.
 4. Stop at 30 per property or when the ground is exhausted, whichever first.
 
-### 5.3 The unfiltered micro-ground (the control for §5.1's bias)
+### 5a. The unfiltered micro-ground (the control for the step-1 filter's bias)
 
 Draw **20–30 cards at random, with NO keyword filter**, from the richest ground
 (`lmqg`-style or arXiv-citing), and label them identically.
@@ -121,7 +121,7 @@ than a specificity figure computed on two cards.
   The filtered stratum finds positives by characteristic language, so its
   specificity is an **upper bound**: cards phrasing a property unusually are
   under-represented, and they are precisely where a false fire is most likely.
-  Report the §5.3 micro-ground's yield alongside it, since that is the only
+  Report the §5a micro-ground's yield alongside it, since that is the only
   measurement bearing on the gap.
 - Prevalence figures **from the gold set only**, stated as such wherever they
   appear beside enriched-stratum numbers.
