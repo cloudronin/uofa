@@ -151,6 +151,41 @@ established and how every core rule in this repo is already assured. They do
 not enter the panel cohort, and the study says so rather than reporting a
 precision figure that would look like a measurement.
 
+### W-EV-DIV-07 is expected-sparse, and validates in two modes (ruled 2026-08-11)
+
+DIV-07 needs both a reported score and a furnished measurement of the SAME
+constituent. Across 49 cards only 8% name any constituent this furnisher
+measures, because cards report capability and raidex measures responsible-AI
+properties. The Liang corpus will therefore present few genuine opportunities,
+and a rule that rarely triggers cannot be settled by a cohort that rarely
+triggers it. Declared now rather than discovered mid-study:
+
+**Mode 1 — mechanism (deterministic path, already satisfied).** Matching,
+tolerance selection and firing logic validate on constructed fixtures: a matched
+pair beyond tolerance fires, a matched pair inside tolerance is silent, an
+unmatched name produces no comparison, and a near-name collision must not match.
+This covers "does the rule work" and is assured the same way every core rule is.
+
+**Mode 2 — field behaviour (panel path, declared sparse).**
+
+- **The denominator is OPPORTUNITIES, not cards.** An opportunity is a matched
+  reported/furnished pair. Reporting firings per card would divide by a number
+  the rule cannot act on and understate its rate by roughly the overlap rate.
+- **Pre-register the expected opportunity count** from the frame's overlap
+  measurement before any judge call, so a small number is a prediction rather
+  than an excuse.
+- **Finding-validity may be adjudicated on single-digit instances, or deferred.**
+  If the corpus yields too few opportunities to adjudicate meaningfully, the
+  study says so and defers Mode 2 rather than reporting a rate computed on three
+  firings.
+
+**The deep-study cohort is DIV-07's natural venue.** Every model there has full
+raidex coverage, so the opportunity count is roughly 40x richer than a corpus
+sample at 8% overlap. The frame names it as the second venue rather than
+pretending the corpus can settle a rule the corpus rarely triggers. No threshold
+adjustment: declared sparsity plus a named venue, and DIV-07 settles on Mode 1
+plus whichever Mode 2 venue produces adjudicable n.
+
 **The register-empty precondition (A16.2) applies per path.** So
 `subjectVersionGuarantee` sitting in `PENDING_EMISSION` blocks SUB-08 from
 settling on the deterministic path, but does not block the panel cohort or the
