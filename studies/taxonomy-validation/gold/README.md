@@ -4,9 +4,10 @@
 [the instructions](../../../docs/A16_3_gold_labeling_instructions_v0_1.md).
 Those instructions govern; this file covers mechanics only.
 
-## Get the card texts
+## Get the sheet
 
-They are not in git (see `.gitignore` — third-party text, unclear terms):
+`gold_set.csv` is **not in git** (see `.gitignore` — it embeds third-party card
+text on unclear terms). Regenerate it:
 
 ```bash
 python studies/taxonomy-validation/gold/make_gold_set.py \
@@ -24,10 +25,14 @@ construction: this tooling samples and formats and never consults the extractor,
 because the instructions require you not see extractor output for a card you are
 labeling.
 
+**Self-contained.** The card text travels in the sheet; no file lookups.
+
 | Column | Notes |
 |---|---|
 | `card_id`, `row_hash` | `row_hash` is the A9.1 pin — it identifies which *text* was labeled, not merely which model |
-| `card_file` | the `.md` to read |
+| `eval_headings` | which headings the detector matched |
+| **`eval_sections`** | **the labeling surface.** Section scoping is binding (§1), so this is the *only* text that may support a `present` label. Median ~130 chars |
+| `card_full_for_verification` | last column. For confirming the detector did not MISS a section — which is the whole job of the 30 no-eval rows. **Never** a source for `present`: if a property appears only here, it is `absent` |
 | `stratum` | `eval-bearing` (120) or `no-eval` (30) |
 | `calibration` | `1` on the first 10 — §5's re-label set |
 | `P1..P7` | `present` / `absent` / `unclear` |
@@ -36,6 +41,10 @@ labeling.
 
 ## Order of work
 
+0. **When labels are done**, commit the completed sheet as
+   `gold_labels.csv` with the two text columns dropped. Those are yours to
+   publish; the card bodies are not, and the labels are re-attachable via
+   `row_hash`.
 1. **Calibration first.** Label the 10 `calibration=1` rows, then re-label them
    at the next session's start *before* looking at your originals. Self-agreement
    under ~90% on any property means tightening that instruction before

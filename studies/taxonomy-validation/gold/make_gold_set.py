@@ -3,9 +3,16 @@
 
     python studies/taxonomy-validation/gold/make_gold_set.py --corpus <modelcard_info.parquet>
 
-Emits:
-  gold_set.csv   one blank row per card, columns exactly per instructions §4
-  cards/<n>.md   the card text to label from, one file per row
+Emits `gold_set.csv`: one blank row per card, self-contained. The card text
+travels in the sheet, because opening 150 files to fill 150 rows is not a
+workflow.
+
+Two text columns, and the split is the instructions' own:
+
+  eval_sections              the scoped content -- the ONLY text that may
+                             support a `present` label (§1 section scoping)
+  card_full_for_verification the whole card, for confirming the detector did
+                             not miss a section. Never a source for `present`.
 
 Two properties this script exists to guarantee:
 
@@ -104,33 +111,49 @@ def build(corpus: Path, out_dir: Path) -> dict:
     # effects are checkable via session_id, but only if order is not stratum.
     sample = sample.sample(frac=1.0, random_state=SEED).reset_index(drop=True)
 
-    cards_dir = out_dir / "cards"
-    cards_dir.mkdir(parents=True, exist_ok=True)
-    for stale in cards_dir.glob("*.md"):
-        stale.unlink()
+    # Excel caps a cell at 32,767 chars. Truncate with a visible marker rather
+    # than silently, so a labeler never mistakes a cut-off card for a short one.
+    CELL_LIMIT = 30000
+
+    def _fit(text: str) -> str:
+        if len(text) <= CELL_LIMIT:
+            return text
+        return text[:CELL_LIMIT] + (
+            f"\n\n[TRUNCATED at {CELL_LIMIT:,} of {len(text):,} chars for the "
+            f"spreadsheet cell limit. If a label depends on what was cut, mark "
+            f"unclear and note it.]")
 
     rows = []
     for i, rec in sample.iterrows():
         text = rec["_text"]
         digest = _row_hash(text)
-        card_file = f"{i + 1:03d}_{digest[:8]}.md"
-        (cards_dir / card_file).write_text(text, encoding="utf-8")
+        sections = card_eval.eval_sections(text)
+        scoped = "\n\n".join(sec.text for sec in sections)
+
         row = {
+            "row_no": i + 1,
             "card_id": rec["modelId"],
             "row_hash": digest,
-            "card_file": f"cards/{card_file}",
             "task_category": rec.get("task_category", ""),
             "stratum": rec["_stratum"],
             "word_count": int(rec["_words"]),
             "calibration": 1 if i < N_CALIBRATION else 0,
-            "seen_before": "",
-            "link_only": "",
+            "eval_headings": " | ".join(sec.heading for sec in sections),
+            # THE labeling surface. Section scoping is binding (instructions §1),
+            # so this is the only content that may support a `present` label.
+            "eval_sections": _fit(scoped) if scoped else "(no evaluation section detected)",
         }
         for prop in PROPERTIES:
             row[prop] = ""
             row[f"{prop}_note"] = ""
+        row["seen_before"] = ""
+        row["link_only"] = ""
         row["session_id"] = ""
         row["labeled_at"] = ""
+        # Verification only: needed to confirm the detector did not MISS an eval
+        # section, which is the whole job of the 30 no-eval rows. Never a source
+        # for a `present` label -- if a property only appears here, it is absent.
+        row["card_full_for_verification"] = _fit(text)
         rows.append(row)
 
     sheet = out_dir / "gold_set.csv"
@@ -150,6 +173,8 @@ def build(corpus: Path, out_dir: Path) -> dict:
         "n_calibration": N_CALIBRATION,
         "properties": PROPERTIES,
         "labels_blank": True,
+        "self_contained": True,
+        "cell_limit": 30000,
         "note": ("Labels are blank by construction. This script samples and "
                  "formats; it never consults the extractor, because the "
                  "instructions require the labeler not see extractor output for "
