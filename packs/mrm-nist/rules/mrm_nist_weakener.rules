@@ -269,3 +269,53 @@
     (?ann schema:description 'The evaluation subject is not configuration-controlled - its identity is claimed by the provider with no immutable version guarantee, so the score is evidence about an occasion rather than about a fixed artifact.')
     (?uofa uofa:hasWeakener ?ann)
 ]
+
+# W-EV-COR-09: no independent referent corroborates the reported scores.
+#
+# Grounding: the V&V multiple-referent tradition -- a result gains credibility
+# from agreement with an INDEPENDENT referent, and a single unreplicated referent
+# is weaker evidence than a corroborated one. Not a new category.
+#
+# ── The firewall line this rule sits on, and which side it is written for ──
+#
+# There are two readings and only one is legitimate:
+#
+#   (a) "no independent evidence corroborates any reported score" -- a sufficiency
+#       statement about the PUBLISHED RECORD. Corroboration was possible to look
+#       for and was not found. This is what the rule fires on.
+#
+#   (b) "the furnisher did not cover this model" -- a fact about the ASSESSOR's
+#       roster, not the vendor's record. Firing on that would penalize an absence
+#       the vendor never claimed to fill, which is the wall-of-red failure the
+#       pack spec forbids.
+#
+# Reading (b) is excluded STRUCTURALLY, not by wording: the body requires a
+# furnished result to exist in the bundle. With no furnisher run, `?other` binds
+# nothing and the rule cannot match, so a card-only assessment is silent here and
+# the readout states the N/A. The honest absence falls out of rule structure, as
+# it does for COMPOUND-EV-01 and W-EV-COU-05.
+#
+# Severity Medium, deliberately below the missing-property weakeners: nobody did
+# anything wrong. The card published what it published and the furnisher measured
+# what it measures. The finding is about the EVIDENCE STATE, and the description
+# is evidence-shaped rather than fault-shaped for the same reason.
+#
+# Expected to be the common case: across 49 cards only 8% name any constituent
+# raidex measures (studies/card-eval-reporting-2026-08). Cards report capability;
+# this furnisher measures responsible-AI properties.
+[w_ev_cor09:
+    (?uofa rdf:type uofa:UnitOfAssurance)
+    (?uofa uofa:hasValidationResult ?vr)
+    (?vr uofa:evidenceSource 'reported')
+    noValue(?vr, uofa:corroboratedBy)
+    (?uofa uofa:hasValidationResult ?other)
+    (?other uofa:evidenceSource 'furnished')
+    makeSkolem(?ann, ?uofa, 'W-EV-COR-09', ?vr)
+    ->
+    (?ann rdf:type uofa:WeakenerAnnotation)
+    (?ann uofa:patternId 'W-EV-COR-09')
+    (?ann uofa:severity 'Medium')
+    (?ann uofa:affectedNode ?vr)
+    (?ann schema:description 'No independently furnished measurement corroborates this reported score - the furnished evidence available measures different properties, so the published number stands on a single referent.')
+    (?uofa uofa:hasWeakener ?ann)
+]

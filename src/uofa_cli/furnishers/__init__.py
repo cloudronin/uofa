@@ -36,6 +36,14 @@ GROUP_B_RESULT_PROPERTIES: frozenset[str] = frozenset({
     # provider and can change under a stable name (addendum v0.4 A13.5). Its
     # absence is what W-EV-SUB-08 reports.
     "subjectVersionGuarantee",     # W-EV-SUB-08
+    # Which side of the record a result came from: "reported" (extracted from the
+    # model card's own claims) or "furnished" (measured by a furnisher). The
+    # distinction is what lets corroboration be asked about at all.
+    "evidenceSource",              # W-EV-COR-09, W-EV-DIV-07
+    # Set on a REPORTED result when a FURNISHED result measures the same
+    # constituent. Its absence is what W-EV-COR-09 reports -- and only when
+    # furnished evidence exists to have corroborated it.
+    "corroboratedBy",              # W-EV-COR-09
 })
 
 # Core properties the Group-B path populates rather than duplicating. W-EV-UQ-01

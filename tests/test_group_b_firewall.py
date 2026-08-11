@@ -238,3 +238,69 @@ def test_cou_05_severity_tracks_the_flag_but_the_finding_tracks_the_record():
     assert severity_of(documented) is None, (
         "W-EV-COU-05 fired against a record that states its context of use"
     )
+
+
+# ── W-EV-COR-09: corroboration absent vs never attempted ────────────────────
+#
+# The rule sits on the firewall line. It must fire on "no independent evidence
+# corroborates any reported score" (a statement about the published record) and
+# NEVER on "the furnisher does not cover this model" (a fact about the assessor's
+# roster). The second would penalize an absence the vendor never claimed to fill.
+#
+# The exclusion is structural: the rule body requires a furnished result to exist.
+# These tests pin that it stays structural, because a wording-only guarantee
+# survives exactly until someone edits the rule body.
+
+def _vr(slug, source, **extra):
+    node = {"id": f"https://example.org/m/validation/{slug}", "type": "ValidationResult",
+            "name": slug, "metricValue": 70.0, "evidenceSource": source}
+    node.update(extra)
+    return node
+
+
+def _fire_on_nodes(tmp_path, nodes):
+    """patternIds firing on a bundle carrying `nodes`, via the production path."""
+    import json
+    from uofa_cli.commands import report as R
+    bundle, _p, _s = card_bundle.card_to_bundle(
+        _CARD.read_text(), "mrm-nist", model_id="a/b", allow_llm=False)
+    bundle["hasValidationResult"] = nodes
+    bundle["_sufficiencyAssessed"] = True
+    path = tmp_path / "b.jsonld"
+    path.write_text(json.dumps(bundle))
+    state = R.build_report_state(R.analysis_for(bundle, path, "mrm-nist"))
+    return {c.pattern_id for c in state.concerns}
+
+
+@_needs_engine
+def test_cor09_silent_when_no_furnisher_ran(tmp_path):
+    """Reported scores alone: corroboration was never ATTEMPTED, so no finding.
+
+    This is the reading the rule must not take. A card-only assessment saying
+    "nothing corroborates these scores" would be reporting the absence of a
+    furnisher run as a defect in the vendor's record.
+    """
+    fired = _fire_on_nodes(tmp_path, [_vr("mmlu", "reported"), _vr("gsm8k", "reported")])
+    assert "W-EV-COR-09" not in fired, (
+        "COR-09 fired with no furnished evidence in the bundle - it is reporting "
+        "the assessor's roster as a property of the published record")
+
+
+@_needs_engine
+def test_cor09_fires_when_furnished_evidence_corroborates_nothing(tmp_path):
+    """Both sources present, disjoint constituents: corroboration was possible to
+    look for and was not found. That is a statement about the record."""
+    fired = _fire_on_nodes(tmp_path, [_vr("mmlu", "reported"), _vr("gsm8k", "reported"),
+                             _vr("bbq", "furnished"), _vr("wmdp", "furnished")])
+    assert "W-EV-COR-09" in fired
+
+
+@_needs_engine
+def test_cor09_silent_on_a_corroborated_score(tmp_path):
+    """A reported score with a furnished counterpart is corroborated; no finding."""
+    fired = _fire_on_nodes(tmp_path, [
+        _vr("simpleqa", "reported",
+            corroboratedBy="https://example.org/m/validation/simpleqa-furnished"),
+        _vr("simpleqa-furnished", "furnished"),
+    ])
+    assert "W-EV-COR-09" not in fired
