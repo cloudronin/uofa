@@ -71,15 +71,16 @@ def build(corpus: Path, text_column: str, category_column: str | None) -> dict:
     except Exception:                                  # alias table optional here
         aliases = set()
 
-    for text in frame[text_column].fillna(""):
+    use_category = bool(category_column and category_column in frame.columns)
+    categories = frame[category_column].fillna("unknown") if use_category else None
+
+    for i, text in enumerate(frame[text_column].fillna("")):
         text = str(text)
         presence = card_eval.detect(text)
         bearing = presence.found
         eval_bearing += bearing
         no_eval += (not bearing)
-        category = "all"
-        if category_column and category_column in frame.columns:
-            category = "see per-row"          # placeholder; set below per row
+        category = str(categories.iloc[i]) if use_category else "all"
         key = f"{category}|{_band(len(text.split()))}|{'eval' if bearing else 'no-eval'}"
         strata[key] = strata.get(key, 0) + 1
 
@@ -113,8 +114,8 @@ def build(corpus: Path, text_column: str, category_column: str | None) -> dict:
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--corpus", required=True, type=Path)
-    ap.add_argument("--text-column", default="card")
-    ap.add_argument("--category-column", default=None)
+    ap.add_argument("--text-column", default="model_card")
+    ap.add_argument("--category-column", default="task_category")
     ap.add_argument("--out", default=str(Path(__file__).parent / "frame.json"))
     args = ap.parse_args()
 

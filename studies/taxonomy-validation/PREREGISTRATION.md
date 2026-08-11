@@ -1,9 +1,8 @@
 # Pre-registration: Group-B taxonomy validation
 
-**STATUS: DRAFT — NOT FROZEN.** Two things must happen before this becomes a
-pre-registration rather than a plan, and both are named in §6. Until then no
-judge may be invoked against the corpus, because a frame written after seeing
-judge output is not a frame.
+**STATUS: FROZEN 2026-08-11.** Corpus pinned, frame computed, catalog fixed. No
+judge has been invoked. Any figure reported from this study is attributable to
+the frame below, which was written before the first judge call.
 
 Implements addendum v0.5 (A16). Method discovers, empirics validate, catalog
 closes.
@@ -96,25 +95,43 @@ A rule settles iff firing precision >= 0.90, recall >= 0.80, finding-validity
 agreement vs gold >= 80%, pairwise kappa >= 0.70. Judges failing calibration are
 **replaced, not averaged**.
 
-## 6. What is NOT yet frozen — the two blocking items
+## 6. The frame, computed and pinned
 
-**(a) The corpus is not pinned.** A16.2 names Liang
-`datasetcard_info.parquet` (32,111 cards, 2023-10-01). It is not present in this
-repo or on the machine this draft was written on, so its repo revision and row
-content hash — the A9.1 artifact pin — are unrecorded. **An unpinned corpus
-cannot be pre-registered against:** "32,111 cards" is not a corpus, it is a
-description of one, and any figure computed later would be attributable to a
-snapshot nobody can retrieve.
+Source: `Weixin-Liang/AI-model-card-analysis-HuggingFace`, `data/modelcard_info.parquet`
+at repo commit `6bcc76fe6142`. Content pin (A9.1 non-HF fallback form):
+`sha256:79aa662d94d0112f13043f420d996347...`, 31,620,407 bytes.
 
-**(b) The sample frame's numbers are uncomputed.** Strata sizes by task category,
-word-count band and A3 detector outcome; the eval-bearing population; the
-no-eval stratum for validating negative calls; and the DIV-07 opportunity count
-all come from the corpus. `frame.py` computes them and writes `frame.json`.
+**A16.2 named the wrong file.** It said `datasetcard_info.parquet`; the repo
+contains `modelcard_info.parquet` (and a separate `model_info.parquet`). Dataset
+cards and model cards are different objects, and this pack assesses model cards —
+pre-registering against the wrong one would have validated the instrument on a
+population it is not for. The row count A16.2 quoted (32,111) matches the model-
+card file exactly, so the count was right and only the filename was wrong.
 
-**To freeze:** obtain the corpus, run `python studies/taxonomy-validation/frame.py
---corpus <path>`, commit `frame.json` with the pin, change this file's status
-line, and hash the directory. Only then may a judge be invoked.
+| | |
+|---|---|
+| Cards | **32,111** |
+| Eval-bearing (A3 detector) | **21,181** (65.96%) |
+| No-eval stratum | **10,930** |
+| DIV-07 opportunity cards | **24** (0.07%) |
 
-Recording the gap rather than drafting around it: a pre-registration with a
-placeholder frame is a plan wearing a pre-registration's name, and the whole
-value of the artifact is that it was fixed before the result was visible.
+Strata (task category x word-count band x detector outcome) are in `frame.json`.
+
+### The DIV-07 number settles its venue
+
+**24 cards in 32,111 name any constituent this furnisher measures — 0.07%.** The
+true opportunity count is lower still, since a named benchmark may yield no
+extractable score.
+
+This is two orders of magnitude below the 8% measured in
+`studies/card-eval-reporting-2026-08`, and the discrepancy is not error: that
+study sampled the **most-downloaded models in 2026**, while this corpus is a
+**2023-10-01 snapshot**. SimpleQA, StrongREJECT and XSTest largely postdate it.
+The two figures describe different populations and the 8% does not transfer.
+
+**Consequence, recorded before any judge call:** the corpus cannot validate
+W-EV-DIV-07's field behaviour. Mode 2 is **deferred to the deep-study cohort**,
+where every model carries full raidex coverage, rather than adjudicated on a
+handful of instances here. DIV-07 settles on Mode 1 (mechanism, already
+satisfied) plus Mode 2 in that venue. This is the §4 ruling applied to a measured
+number instead of an anticipated one.
