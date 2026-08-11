@@ -180,8 +180,11 @@ of the five zero rows in `studies/cohort-2026-08/` — on fresh runs only. Inges
 it is a Phase 4/6 item, and it is the furnisher/assessor loop of §6a observed
 closing rather than argued.
 
-**Upstream suggestions for raidex** (each cheap, each closing a weakener on
-grounds already true):
+**Upstream suggestions for raidex** — all three filed 2026-08-11
+([#1](https://github.com/cloudronin/raidex/issues/1),
+[#2](https://github.com/cloudronin/raidex/issues/2),
+[#3](https://github.com/cloudronin/raidex/issues/3)); each cheap, each closing a
+weakener on grounds already true:
 
 1. Persist `generation_kwargs`. lm-eval logs `temperature: 0.0, do_sample: False`
    at run time; none reaches the record, so W-EV-DET-03 fires across all 427
