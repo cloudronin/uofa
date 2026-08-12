@@ -86,6 +86,36 @@ Labeling records what the card says, so the tiebreak is not which error is safer
 but which reading is accurate. **If this is overturned, 8 rows flip and nothing
 else changes** — the ruling is isolated by design.
 
+### Reconciliation with the `fxmarty` anchor — 2026-08-11, ruling upheld
+
+Recorded because the two anchors would otherwise read as inconsistent to a
+reviewer: one accepts harness-emitted conditions as `present`, the other rejects
+them. They are not inconsistent, and the distinction is what each statement
+*characterizes*.
+
+| | `fxmarty` (present) | lm-eval-harness (absent) |
+|---|---|---|
+| States | "3s per config, batch=1, len=64" | `n-shot=0, filter=none` |
+| Which is a | **measurement policy** | **prompt regime** |
+| Tells you | how the number was produced, including its repeat/duration policy | how the prompt was built |
+| Leaves open | — | seeds, repeats, decoding |
+
+`fxmarty`'s conditions are what make a latency figure characterizable as
+reproducible: run for 3 seconds per config *is* the repeat policy. `n-shot=0,
+filter=none` is silent on everything that makes a number stable or not.
+
+**The instruction sheet already carries the distinction.** Its P4 present-example
+reads (line 73):
+
+> temperature, seed, greedy decoding, **n-shot regime with sampling config**
+
+The *with* is load-bearing. An n-shot regime alone is not the example; an n-shot
+regime accompanied by a sampling config is. The 8 lm-eval rows carry the first
+half and not the second, so they fall outside the example the instructions
+already drew.
+
+**Settled.** No row moves.
+
 ## CLASS-NVIDIA-P6 (3 rows) → P6 **absent**
 
 > `| Intended Users: | Research |`
