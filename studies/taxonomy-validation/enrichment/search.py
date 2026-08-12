@@ -245,6 +245,7 @@ def scan(corpus: Path) -> dict:
     # Screened is countable now; positives come from labeling.
     ground_screened: dict[str, int] = {}
     ground_cands: dict[str, dict[str, int]] = {}
+    micro_seen: set[str] = set()     # AMENDMENT-02: one row per distinct text
     seen_micro = 0
     n_rows = n_cards = n_eval = 0
 
@@ -270,7 +271,16 @@ def scan(corpus: Path) -> dict:
             ground_screened[g] = ground_screened.get(g, 0) + 1
         # s5a: the unfiltered control, drawn from the richest ground BEFORE any
         # keyword test, so it cannot inherit the filter's bias.
-        if "arxiv-citing" in grounds or "lmqg-style" in grounds:
+        # AMENDMENT-02: dedupe by eval-text hash, as the enriched pool does.
+        # Without it the reservoir drew 27 copies of one empty template stub into
+        # a 30-row control -- stubs dominate the corpus, so a proportional draw
+        # finds them. A control that samples the same text 27 times measures one
+        # card 27 times, and its zero yield says nothing about filter coverage.
+        # `seen_micro` counts DISTINCT texts, so the reservoir probability is
+        # over the population the control is actually meant to represent.
+        if (("arxiv-citing" in grounds or "lmqg-style" in grounds)
+                and digest not in micro_seen):
+            micro_seen.add(digest)
             seen_micro += 1
             row = {"model_id": model_id, "row_hash": digest,
                    "eval_sections": scoped, "card": text,
