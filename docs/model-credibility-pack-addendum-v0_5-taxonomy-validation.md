@@ -127,6 +127,51 @@ deficiency is (a) present, (b) correctly attributed to the claimant, and
 Output: per-rule finding-validity rate, the number that decides whether a
 rule's *wording* survives even where its firing logic does.
 
+### Extractor qualification (declared 2026-08-11, BEFORE any frontier run)
+
+A16.4 adjudicates findings. A finding caused by extraction failing to read a
+property the card states is not a finding about the card, and a panel spending
+its effort on those is measuring the extractor while appearing to measure the
+rules. So an extractor must **qualify** before its findings reach the panel.
+
+**The bar, declared before the numbers exist:**
+
+| | Threshold | Applied |
+|---|---|---|
+| **False-fire rate** — extraction misses a property the card states | **≤ 10%** | per property |
+| **False-clear rate** — extraction invents a property the card omits | **≤ 5%** | per property |
+
+**Every property must clear both. No averaging across properties.** A mean would
+let a strong P2 carry a failing P6, and a rule settles per rule — a property that
+extraction cannot read is a rule that cannot be validated, whatever the other
+three do.
+
+The asymmetry is deliberate and matches the consequences. A false clear silences
+a warranted weakener: the card looks better than its record supports, and the
+error is invisible. A false fire is a public accusation of an omission the
+publisher did not commit. The false-clear bar is tighter because that error
+cannot be discovered by a reader; the false-fire bar is looser only because
+10% is already generous against the alternative of shipping nothing, and it is
+not a target.
+
+**Why this is written now.** The baseline extractor's numbers already exist
+(`ollama/qwen3.5:4b`: false-fire 46–82%, false-clear 0–11%). The frontier
+comparison has not run. A bar set after those numbers land would be a bar chosen
+to fit the result — the exact post-hoc move the whole A16 apparatus exists to
+prevent, committed at the apparatus's own gate.
+
+Recorded consequence: **the baseline fails this bar on all four properties**, on
+false-fire, by a wide margin. That is a conclusion the bar produces, not a
+premise it was built from.
+
+**Qualification record.** Results live in
+`studies/taxonomy-validation/enrichment/specificity/QUALIFICATION.md` as an
+extractor-sensitivity table — one row per configuration, each pinning model,
+prompt version and temperature, with the baseline row retained. A16.4 references
+that table to state which extractor produced the findings it adjudicated. An
+unqualified extractor's findings may still be generated and inspected; they may
+not be the basis of a settle decision.
+
 ## A16.5 Construct grounding audit
 
 Every candidate rule carries a written grounding line: the standard clause

@@ -75,10 +75,24 @@ def _populated(evidence, field: str) -> bool:
     Any, not all: the claim under test is "the card states this", and one node
     carrying it is the card stating it. Requiring every node to carry it would
     score a card reporting five benchmarks with uncertainty on one as an absence.
+
+    Booleans are handled explicitly. `hasUncertaintyQuantification` is emitted as
+    `True` (card_prose moves the stated text to `uqMethod`), and the naive
+    `str(value).strip()` test would read a hypothetical `False` as the non-empty
+    string "False" and score it populated. Today parse() only ever omits the key
+    or sets True, so the naive form happens to be right -- by accident of the
+    emission, not by construction. Anything relied on by accident is a latent
+    wrong number.
     """
     for node in getattr(evidence, "nodes", []) or []:
-        value = str(node.get(field, "") or "").strip()
-        if value:
+        if field not in node:
+            continue
+        value = node[field]
+        if isinstance(value, bool):
+            if value:
+                return True
+            continue
+        if str(value or "").strip():
             return True
     return False
 

@@ -511,6 +511,17 @@ them raised an error.
   the original shape first showed where the signal now lives; the assertion moved
   onto the log and was then failed on purpose.
 
+- **Pin inputs at read time. A hash taken at write time attests what was
+  written, not what was used.**
+  **Why:** `run_specificity.py` hashed its cases file while assembling the
+  result rather than when loading it. A relabel that landed mid-run therefore
+  produced a provenance block pinning the file's *later* state — a current hash
+  beside a stale `label_status`, internally inconsistent and perfectly
+  well-formed. Nothing looked wrong. The general form: a provenance record is a
+  claim about the inputs a computation consumed, so it must be captured at the
+  moment of consumption. Captured later, it silently attests to a different
+  artifact and is worse than no pin, because it invites trust.
+
   **A check's target can move, and the fail-it-once step is the only thing that
   notices.** Note what this is an instance of: a dependency upgrade silently
   converted a hard failure into a soft one, degrading an assurance property (the
