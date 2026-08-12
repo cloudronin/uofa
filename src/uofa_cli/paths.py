@@ -58,6 +58,27 @@ def packs_recorded_in(path) -> list[str] | None:
     return None
 
 
+# One-version rename alias. `mrm-nist` became `model-credibility` when the pack
+# grew the NIST AI 800-3 evaluation-sufficiency layer and stopped being about
+# model risk management alone.
+#
+# Discovery is filesystem-only (`list_packs` reads directory names), so without
+# this map every `--pack mrm-nist` invocation and every bundle that RECORDED
+# `mrm-nist` in its packs list would fail to resolve. A saved bundle is a pinned
+# artifact; a rename must not make it unreadable.
+#
+# ONE VERSION. Remove after the next release, by which time recorded bundles
+# have been through a regeneration cycle.
+PACK_ALIASES = {"mrm-nist": "model-credibility"}
+
+
+def canonical_pack_name(name: str) -> str:
+    """Resolve a pack name through the rename alias. Unknown names pass through
+    unchanged so a genuine typo still produces the `not found` error naming the
+    available packs, rather than being silently rewritten."""
+    return PACK_ALIASES.get(name, name)
+
+
 def resolve_active_packs(args=None) -> list[str]:
     """The active pack set for this invocation — the P2d explicit-threading accessor.
 
@@ -67,12 +88,13 @@ def resolve_active_packs(args=None) -> list[str]:
     """
     explicit = getattr(args, "active_packs", None)
     if explicit:
-        return list(explicit)
+        return [canonical_pack_name(p) for p in explicit]
     target = getattr(args, "file", None)
     if target is not None:
         recorded = packs_recorded_in(target)
         if recorded:
-            return recorded
+            # A bundle written before the rename records the old name.
+            return [canonical_pack_name(p) for p in recorded]
     return ["vv40"]
 
 
@@ -385,6 +407,7 @@ def validate_active_packs(root: Path = None, active: list[str] = None):
     root = root or find_repo_root()
     if active is None:
         active = ["vv40"]
+    active = [canonical_pack_name(p) for p in active]
     available = list_packs(root)
     core_version = None
     manifests: list[tuple[str, dict]] = []

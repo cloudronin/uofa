@@ -136,11 +136,11 @@ def _card_payload():
     from uofa_cli.card_bundle import deterministic_factor_statuses
     from uofa_cli.report_state import compute_findings
     txt = (Path(__file__).resolve().parents[2]
-           / "packs/mrm-nist/examples/twitter-roberta-sentiment/card.md").read_text(encoding="utf-8")
-    statuses = deterministic_factor_statuses(txt, "mrm-nist")
-    payload = compute_findings("mrm-nist", statuses, {"conforms": True, "violations": []}, [])
+           / "packs/model-credibility/examples/twitter-roberta-sentiment/card.md").read_text(encoding="utf-8")
+    statuses = deterministic_factor_statuses(txt, "model-credibility")
+    payload = compute_findings("model-credibility", statuses, {"conforms": True, "violations": []}, [])
     payload["context"] = {
-        "pack": "mrm-nist", "standard": "NIST AI RMF", "cou_name": "Sentiment", "cou_description": "",
+        "pack": "model-credibility", "standard": "NIST AI RMF", "cou_name": "Sentiment", "cou_description": "",
         "model_risk_level": 3, "device_class": None, "authenticity": {},
         "risk_assumption": "Evaluated as if bound for a moderate-risk deployment (assumed MRL 3).",
         "extraction_provenance": "Heuristic - approximate", "documentation_status": "present",

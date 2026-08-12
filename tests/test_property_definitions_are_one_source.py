@@ -25,7 +25,7 @@ from uofa_cli import properties  # noqa: E402
 def test_both_artifacts_match_the_property_source():
     """The whole point. Hand-edit either document and this goes red.
 
-    Fix by editing `packs/mrm-nist/properties/P*.json` and running
+    Fix by editing `packs/model-credibility/properties/P*.json` and running
     `python -m uofa_cli.properties --write`, never by editing the rendered
     region -- an edit there survives exactly until the next render.
     """

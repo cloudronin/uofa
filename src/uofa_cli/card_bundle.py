@@ -20,18 +20,18 @@ from pathlib import Path
 from uofa_cli import paths
 from uofa_cli.excel_constants import (
     ALL_FACTOR_CATEGORIES,
-    MRM_NIST_DEFAULT_OUT_OF_SCOPE,
-    MRM_NIST_FACTOR_NAMES,
+    MODEL_CREDIBILITY_DEFAULT_OUT_OF_SCOPE,
+    MODEL_CREDIBILITY_FACTOR_NAMES,
 )
 from uofa_cli.excel_mapper import map_to_jsonld, slugify
 
-# A model card declares no deployment context or risk tier, so the mrm-nist
+# A model card declares no deployment context or risk tier, so the model-credibility
 # profile assesses every card against one disclosed assumption (surfaced in the
 # reviewer/report readout so W-EP-04 fires against a STATED input, not a hidden
 # one). Single source of truth, shared by the live Space path, the curated
 # build-time run, and the `uofa report` id path.
-MRM_NIST_ASSUMED_MRL = 3
-MRM_NIST_RISK_ASSUMPTION = (
+MODEL_CREDIBILITY_ASSUMED_MRL = 3
+MODEL_CREDIBILITY_RISK_ASSUMPTION = (
     "Evaluated as if bound for a moderate-risk deployment (assumed MRL 3); "
     "the source card declares no context of use or risk tier."
 )
@@ -171,24 +171,24 @@ _DET_KEYWORDS: dict[str, tuple[str, ...]] = {
 }
 
 
-def _is_mrm_nist(pack: str) -> bool:
+def _is_model_credibility(pack: str) -> bool:
     p = (pack or "").lower()
-    return "mrm-nist" in p or "mrm_nist" in p
+    return "model-credibility" in p or "mrm_nist" in p
 
 
 def deterministic_factor_statuses(text: str, pack: str) -> dict[str, str]:
-    """Coarse, no-LLM mapping of a model card to the 17 mrm-nist factor statuses by
+    """Coarse, no-LLM mapping of a model card to the 17 model-credibility factor statuses by
     section/keyword presence. GOVERN/MANAGE organizational factors default
     scoped-out (a static card rarely performs them); everything else defaults
     not-assessed. APPROXIMATE by construction — the readout says so."""
-    if not _is_mrm_nist(pack):
-        raise ValueError("deterministic card parsing is only defined for the mrm-nist pack")
+    if not _is_model_credibility(pack):
+        raise ValueError("deterministic card parsing is only defined for the model-credibility pack")
     low = (text or "").lower()
     out: dict[str, str] = {}
-    for name in MRM_NIST_FACTOR_NAMES:
+    for name in MODEL_CREDIBILITY_FACTOR_NAMES:
         if any(k in low for k in _DET_KEYWORDS.get(name, ())):
             out[name] = "assessed"
-        elif name in MRM_NIST_DEFAULT_OUT_OF_SCOPE:
+        elif name in MODEL_CREDIBILITY_DEFAULT_OUT_OF_SCOPE:
             out[name] = "scoped-out"
         else:
             out[name] = "not-assessed"
@@ -207,9 +207,9 @@ def _statuses_to_import_dict(statuses: dict[str, str], pack: str, model_id: str,
         "cou_description": None,
         "profile": "Complete",
         "device_class": None,
-        "model_risk_level": MRM_NIST_ASSUMED_MRL if _is_mrm_nist(pack) else None,
+        "model_risk_level": MODEL_CREDIBILITY_ASSUMED_MRL if _is_model_credibility(pack) else None,
         "assurance_level": "Low",
-        "standards_reference": "NIST-AI-RMF-1.0" if _is_mrm_nist(pack) else None,
+        "standards_reference": "NIST-AI-RMF-1.0" if _is_model_credibility(pack) else None,
         "source_document": source_url or f"https://huggingface.co/{model_id}",
         "assessor_name": "UofA MRM-NIST assessment",
         "has_uq": "No",
@@ -235,7 +235,7 @@ def _prompt_path_for(pack: str) -> Path:
 
 def _llm_import_dict(text: str, pack: str, model: str | None, llm_config) -> dict:
     """Run the LLM extractor on the card text and adapt to the import dict. Forces
-    the disclosed MRL posture + source provenance for mrm-nist so the readout's
+    the disclosed MRL posture + source provenance for model-credibility so the readout's
     assumption holds regardless of model compliance. Raises on extractor failure."""
     from uofa_cli.document_reader import read_corpus
     from uofa_cli.llm_extractor import extract
@@ -245,8 +245,8 @@ def _llm_import_dict(text: str, pack: str, model: str | None, llm_config) -> dic
     corpus = read_corpus([work / "card.md"])
     result = extract(corpus, model, pack, _prompt_path_for(pack), llm_config=llm_config)
     data = result_to_import_dict(result, pack)
-    if _is_mrm_nist(pack):
-        data["summary"]["model_risk_level"] = MRM_NIST_ASSUMED_MRL
+    if _is_model_credibility(pack):
+        data["summary"]["model_risk_level"] = MODEL_CREDIBILITY_ASSUMED_MRL
         data["summary"].setdefault("standards_reference", "NIST-AI-RMF-1.0")
     return data
 

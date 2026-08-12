@@ -198,7 +198,7 @@ different measurement wearing the same hash.
 **Property definitions are rendered, not restated (2026-08-11).** The bar above
 is only meaningful if the extractor is asked for what the labeler counts. Both
 the labeling sheet and the extraction prompt now render from
-`packs/mrm-nist/properties/P*.json`, and
+`packs/model-credibility/properties/P*.json`, and
 `tests/test_property_definitions_are_one_source.py` asserts byte-identity, so
 the construct drift that invalidated the first frontier comparison cannot recur
 through discipline failure.

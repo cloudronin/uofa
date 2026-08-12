@@ -164,13 +164,13 @@ NASA_ONLY_FACTOR_CATEGORIES: list[tuple[str, str]] = [
     ("Use history", "NASA — Capability"),
 ]
 
-# ── MRM-NIST (hand-maintained; mirrors packs/mrm-nist/shapes/mrm_nist_shapes.ttl) ──
+# ── MRM-NIST (hand-maintained; mirrors packs/model-credibility/shapes/model_credibility_shapes.ttl) ──
 # NIST AI RMF documentation factor set for the model-card unit. Presence-only
 # (status assessed / not-assessed / scoped-out); no 1-5 levels and no risk tiers,
 # per the pack spec. Grouped by the four RMF functions. NOT emitted by
 # `uofa schema --emit python` (which only knows core/vv40/nasa), so keep this in
 # sync with the pack shapes file by hand.
-MRM_NIST_FACTOR_NAMES: list[str] = [
+MODEL_CREDIBILITY_FACTOR_NAMES: list[str] = [
     # GOVERN — Governance & accountability
     "Ownership and accountability",
     "Intended use",
@@ -194,7 +194,7 @@ MRM_NIST_FACTOR_NAMES: list[str] = [
     "Versioning and update policy",
 ]
 
-MRM_NIST_FACTOR_CATEGORIES: list[tuple[str, str]] = [
+MODEL_CREDIBILITY_FACTOR_CATEGORIES: list[tuple[str, str]] = [
     ("Ownership and accountability", "GOVERN — Governance & accountability"),
     ("Intended use", "GOVERN — Governance & accountability"),
     ("License and usage terms", "GOVERN — Governance & accountability"),
@@ -221,7 +221,7 @@ MRM_NIST_FACTOR_CATEGORIES: list[tuple[str, str]] = [
 # curate step flips one to assessed when a card actually documents it (e.g. OLMo
 # states a versioning/update policy). This is the v0.8 §8 open question resolved
 # the honest way for the demo.
-MRM_NIST_DEFAULT_OUT_OF_SCOPE: frozenset[str] = frozenset({
+MODEL_CREDIBILITY_DEFAULT_OUT_OF_SCOPE: frozenset[str] = frozenset({
     "Ownership and accountability",
     "Mitigations and safeguards",
     "Residual risk",
@@ -231,11 +231,11 @@ MRM_NIST_DEFAULT_OUT_OF_SCOPE: frozenset[str] = frozenset({
 
 # ── NIST AI 800-3 evaluation-sufficiency factors (Group B) ──────────────────
 # Hand-maintained; mirrors the AI-800-3 NodeShape in
-# packs/mrm-nist/shapes/mrm_nist_shapes.ttl. These assess a *reported benchmark
+# packs/model-credibility/shapes/model_credibility_shapes.ttl. These assess a *reported benchmark
 # result* as validation evidence, the way vv40 assesses a simulation validation
 # study. Presence-only like Group A: no 1-5 levels, no risk tiers.
 #
-# Group A (MRM_NIST_FACTOR_NAMES, NIST-AI-RMF-1.0) asks whether the model
+# Group A (MODEL_CREDIBILITY_FACTOR_NAMES, NIST-AI-RMF-1.0) asks whether the model
 # documents itself. Group B asks whether the numbers in that documentation are
 # credible. They coexist in one pack and are kept mutually silent by the
 # required-match factorStandard guard in each shape -- see the pack spec's
@@ -261,7 +261,7 @@ AI_800_3_FACTOR_CATEGORIES: list[tuple[str, str]] = [
 ALL_FACTOR_CATEGORIES: list[tuple[str, str]] = (
     VV40_FACTOR_CATEGORIES
     + NASA_ONLY_FACTOR_CATEGORIES
-    + MRM_NIST_FACTOR_CATEGORIES
+    + MODEL_CREDIBILITY_FACTOR_CATEGORIES
     + AI_800_3_FACTOR_CATEGORIES
 )
 
@@ -274,7 +274,7 @@ NASA_PHASE_MAP: dict[str, str] = {
 # Factor standard assignment
 FACTOR_STANDARD_VV40 = "ASME-VV40-2018"
 FACTOR_STANDARD_NASA = "NASA-STD-7009B"
-FACTOR_STANDARD_MRM_NIST = "NIST-AI-RMF-1.0"
+FACTOR_STANDARD_MODEL_CREDIBILITY = "NIST-AI-RMF-1.0"
 FACTOR_STANDARD_AI_800_3 = "NIST-AI-800-3"
 
 CONTEXT_URL = "https://raw.githubusercontent.com/cloudronin/uofa/main/spec/context/v0.5.jsonld"
@@ -329,9 +329,9 @@ KNOWN_CRITERIA_SETS = {
     "NASASTD7009": FACTOR_STANDARD_NASA,
     "NASA7009B": FACTOR_STANDARD_NASA,
     "NASA7009": FACTOR_STANDARD_NASA,
-    "NISTAIRMF10": FACTOR_STANDARD_MRM_NIST,
-    "NISTAIRMF1": FACTOR_STANDARD_MRM_NIST,
-    "NISTAIRMF": FACTOR_STANDARD_MRM_NIST,
+    "NISTAIRMF10": FACTOR_STANDARD_MODEL_CREDIBILITY,
+    "NISTAIRMF1": FACTOR_STANDARD_MODEL_CREDIBILITY,
+    "NISTAIRMF": FACTOR_STANDARD_MODEL_CREDIBILITY,
 }
 
 

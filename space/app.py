@@ -366,7 +366,7 @@ def _finalize(result, pack, status_state, warnings, source_name):
 def _run_card(model_id):
     """Card path: fetch an HF model card and report, skipping route/extract/confirm.
     Generator: yields a working state, then the result (or an error). Hard-routes
-    mrm-nist; the readout discloses extraction provenance + the MRL assumption."""
+    model-credibility; the readout discloses extraction provenance + the MRL assumption."""
     model_id = (model_id or "").strip()
     if not model_id:
         yield (_show(), _hide(), _hide(), _hide(), _hide(), gr.update(visible=False),

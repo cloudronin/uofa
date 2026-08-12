@@ -74,7 +74,7 @@ DEFAULT_MAX_TOKENS = 16384
 
 def extract(scoped_text: str, base: str, *, model: str | None = None,
             llm_config=None, source_url: str = "", subject_revision: str = "",
-            pack: str = "mrm-nist",
+            pack: str = "model-credibility",
             max_tokens: int = DEFAULT_MAX_TOKENS) -> "ReportedEvidence":
     """Run the prose extractor over a card's scoped evaluation sections.
 
@@ -119,7 +119,7 @@ def extract(scoped_text: str, base: str, *, model: str | None = None,
     return parse(response, base, source_url, subject_revision)
 
 
-def prompt_path(pack: str = "mrm-nist") -> Path:
+def prompt_path(pack: str = "model-credibility") -> Path:
     return paths.pack_dir(pack) / "prompts" / "card_eval_extract_prompt.txt"
 
 
@@ -310,7 +310,7 @@ where the evidence is weakest, which inverts the point of having the rule.
 """
 
 
-def _alias_map(pack: str = "mrm-nist") -> dict[str, str]:
+def _alias_map(pack: str = "model-credibility") -> dict[str, str]:
     import json
     path = paths.pack_dir(pack) / "data" / "constituent_aliases.json"
     return json.loads(path.read_text(encoding="utf-8"))["aliases"]
@@ -329,7 +329,7 @@ def _constituent_of(name: str, aliases: dict[str, str]) -> str | None:
 
 
 def match_and_compare(reported: list[dict[str, Any]], furnished: list[dict[str, Any]],
-                      pack: str = "mrm-nist") -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+                      pack: str = "model-credibility") -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Link reported results to furnished ones measuring the same constituent.
 
     Returns (annotated_reported, comparisons). A reported node gains

@@ -71,10 +71,10 @@ def test_profile_name_and_uri_constants_cover_the_same_profiles():
 # regeneration is committed wholesale these vanish, and the importer loses the
 # MRM-NIST factor set and starts minting user data under the wrong base URI.
 HAND_MAINTAINED = [
-    "MRM_NIST_FACTOR_NAMES",
-    "MRM_NIST_FACTOR_CATEGORIES",
-    "MRM_NIST_DEFAULT_OUT_OF_SCOPE",
-    "FACTOR_STANDARD_MRM_NIST",
+    "MODEL_CREDIBILITY_FACTOR_NAMES",
+    "MODEL_CREDIBILITY_FACTOR_CATEGORIES",
+    "MODEL_CREDIBILITY_DEFAULT_OUT_OF_SCOPE",
+    "FACTOR_STANDARD_MODEL_CREDIBILITY",
     "CRITERIA_BASE",
     "KNOWN_CRITERIA_SETS",
 ]

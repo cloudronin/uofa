@@ -3,7 +3,7 @@
 The three cards are run through the SAME live pathway as a pasted id (fetch ->
 extract -> report) when clicked - they are not static renders. The curated
 factor-status reference (the divergence baseline) lives in
-`packs/mrm-nist/examples/curated_cards.py`, not here.
+`packs/model-credibility/examples/curated_cards.py`, not here.
 """
 
 from __future__ import annotations

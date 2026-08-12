@@ -14,9 +14,9 @@ factor taxonomy, a presence-only completeness profile (SHACL), and a per-pack
 weakener→factor focus map. The core engine, shapes, and rules are untouched.
 
 ```bash
-uofa report owner/model --pack mrm-nist                          # fetch card + extract + report
-uofa report https://huggingface.co/owner/model --pack mrm-nist   # same, from a model URL
-uofa report bundle.jsonld --pack mrm-nist                        # a saved/curated bundle (deterministic)
+uofa report owner/model --pack model-credibility                          # fetch card + extract + report
+uofa report https://huggingface.co/owner/model --pack model-credibility   # same, from a model URL
+uofa report bundle.jsonld --pack model-credibility                        # a saved/curated bundle (deterministic)
 ```
 
 Given an HF model id or URL, `uofa report` fetches the card, extracts factor
@@ -43,7 +43,7 @@ to `assessed` only when a card documents them.
 | **MANAGE** — risk response & monitoring | Mitigations and safeguards †, Residual risk †, Monitoring and feedback †, Versioning and update policy † |
 
 Each factor traces to an RMF subcategory (full mapping table in the
-[pack README](https://github.com/cloudronin/uofa/blob/main/packs/mrm-nist/README.md)).
+[pack README](https://github.com/cloudronin/uofa/blob/main/packs/model-credibility/README.md)).
 
 ## SHACL profile
 

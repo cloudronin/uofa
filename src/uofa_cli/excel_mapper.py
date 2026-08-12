@@ -10,10 +10,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from uofa_cli.excel_constants import (
-    VV40_FACTOR_NAMES, NASA_ONLY_FACTOR_NAMES, MRM_NIST_FACTOR_NAMES,
+    VV40_FACTOR_NAMES, NASA_ONLY_FACTOR_NAMES, MODEL_CREDIBILITY_FACTOR_NAMES,
     AI_800_3_FACTOR_NAMES,
     ALL_FACTOR_CATEGORIES, NASA_PHASE_MAP,
-    FACTOR_STANDARD_VV40, FACTOR_STANDARD_NASA, FACTOR_STANDARD_MRM_NIST,
+    FACTOR_STANDARD_VV40, FACTOR_STANDARD_NASA, FACTOR_STANDARD_MODEL_CREDIBILITY,
     FACTOR_STANDARD_AI_800_3,
     PROFILE_URIS, CONTEXT_URL, DEFAULT_BASE_URI, RESERVED_BASE_URIS,
     CRITERIA_BASE, KNOWN_CRITERIA_SETS,
@@ -469,7 +469,7 @@ def _map_factor(factor: dict, packs: list[str]) -> dict:
     """Map a credibility factor intermediate dict to JSON-LD."""
     vv40_set = set(VV40_FACTOR_NAMES)
     nasa_only_set = set(NASA_ONLY_FACTOR_NAMES)
-    mrm_nist_set = set(MRM_NIST_FACTOR_NAMES)
+    model_credibility_set = set(MODEL_CREDIBILITY_FACTOR_NAMES)
     ai_800_3_set = set(AI_800_3_FACTOR_NAMES)
 
     f = {
@@ -482,15 +482,15 @@ def _map_factor(factor: dict, packs: list[str]) -> dict:
     # load-bearing: the vv40/nasa factor-name SHACL shapes use an
     # `(!BOUND(?fs) || ?fs = "<their-standard>")` guard, so a factor left
     # WITHOUT a factorStandard is checked against the vv40 name enum and flagged.
-    # mrm-nist names are disjoint from vv40/nasa, so they must carry their own
-    # standard to be validated by mrm_nist_shapes.ttl and ignored by the others.
+    # model-credibility names are disjoint from vv40/nasa, so they must carry their own
+    # standard to be validated by model_credibility_shapes.ttl and ignored by the others.
     if factor["factor_type"] in nasa_only_set:
         f["factorStandard"] = FACTOR_STANDARD_NASA
     elif factor["factor_type"] in vv40_set:
         # If both packs active and it's a shared factor, use VV40
         f["factorStandard"] = FACTOR_STANDARD_VV40
-    elif factor["factor_type"] in mrm_nist_set:
-        f["factorStandard"] = FACTOR_STANDARD_MRM_NIST
+    elif factor["factor_type"] in model_credibility_set:
+        f["factorStandard"] = FACTOR_STANDARD_MODEL_CREDIBILITY
     elif factor["factor_type"] in ai_800_3_set:
         # Group B (evaluation sufficiency) shares the pack with Group A above but
         # carries its own standard, so each group's shape stays silent on the

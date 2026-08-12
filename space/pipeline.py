@@ -28,7 +28,7 @@ from typing import Callable
 
 from uofa_cli import paths
 from uofa_cli.card_bundle import (
-    MRM_NIST_RISK_ASSUMPTION,
+    MODEL_CREDIBILITY_RISK_ASSUMPTION,
     assign_factor_ids as _assign_factor_ids,
     result_to_import_dict,
     unwrap_fields as _unwrap,
@@ -267,7 +267,7 @@ def _run_weakeners(jsonld_path: Path, pack: str) -> list[dict]:
     return rules_mod.parse_firings_jsonld(stdout)
 
 
-_PACK_DISPLAY = {"vv40": "ASME V&V 40", "nasa-7009b": "NASA-STD-7009B", "mrm-nist": "NIST AI RMF"}
+_PACK_DISPLAY = {"vv40": "ASME V&V 40", "nasa-7009b": "NASA-STD-7009B", "model-credibility": "NIST AI RMF"}
 
 
 def _authenticity_block() -> dict:
@@ -302,8 +302,8 @@ def _build_context(summary: dict, pack: str) -> dict:
         "standards_reference": summary.get("standards_reference"),
         "authenticity": _authenticity_block(),
     }
-    if pack == "mrm-nist":
-        ctx["risk_assumption"] = MRM_NIST_RISK_ASSUMPTION
+    if pack == "model-credibility":
+        ctx["risk_assumption"] = MODEL_CREDIBILITY_RISK_ASSUMPTION
     return ctx
 
 
@@ -518,16 +518,16 @@ def _card_extract(text, model_id, source_url, work_dir, *, model, deterministic,
         try:
             (Path(work_dir) / "card.md").write_text(text, encoding="utf-8")
             corpus = read_corpus([Path(work_dir) / "card.md"])
-            result = run_extract_stage(corpus, "mrm-nist", model=model,
+            result = run_extract_stage(corpus, "model-credibility", model=model,
                                        extract_timeout=extract_timeout, on_progress=on_progress)
-            data = result_to_import_dict(result, "mrm-nist")
-            data["summary"]["model_risk_level"] = card_bundle.MRM_NIST_ASSUMED_MRL
+            data = result_to_import_dict(result, "model-credibility")
+            data["summary"]["model_risk_level"] = card_bundle.MODEL_CREDIBILITY_ASSUMED_MRL
             data["summary"].setdefault("standards_reference", "NIST-AI-RMF-1.0")
             return data, f"{card_bundle.PROV_LLM} - {model or BUNDLED_MODEL}", True
         except _StageError:
-            data = card_bundle.deterministic_import_dict(text, "mrm-nist", model_id, source_url)
+            data = card_bundle.deterministic_import_dict(text, "model-credibility", model_id, source_url)
             return data, card_bundle.PROV_HEURISTIC_FALLBACK, False
-    data = card_bundle.deterministic_import_dict(text, "mrm-nist", model_id, source_url)
+    data = card_bundle.deterministic_import_dict(text, "model-credibility", model_id, source_url)
     return data, card_bundle.PROV_HEURISTIC, False
 
 
@@ -541,7 +541,7 @@ def card_report(
     extract_timeout: int = DEFAULT_EXTRACT_TIMEOUT,
     work_dir: Path | None = None,
 ) -> PipelineOutcome:
-    """Live id path for the mrm-nist pack: fetch the HF model card, extract factor
+    """Live id path for the model-credibility pack: fetch the HF model card, extract factor
     statuses (LLM subprocess-isolated with a deterministic fallback), and produce a
     report payload. A gated/absent card yields an honest no-card payload (declining
     sufficiency) rather than failing. Always tears down its temp dir."""
@@ -561,7 +561,7 @@ def card_report(
                 fetched.detail or f"Could not fetch a model card for {model_id}.")
 
         if fetched.status in ("notfound", "empty"):
-            data = card_bundle.deterministic_import_dict("", "mrm-nist", model_id, source_url)
+            data = card_bundle.deterministic_import_dict("", "model-credibility", model_id, source_url)
             provenance, doc_status, assess = "", "none", False
         else:
             data, provenance, assess = _card_extract(
@@ -570,7 +570,7 @@ def card_report(
                 extract_timeout=extract_timeout)
             doc_status = "present"
 
-        payload = finalize_from_data(data, "mrm-nist", work_dir, source_name=model_id,
+        payload = finalize_from_data(data, "model-credibility", work_dir, source_name=model_id,
                                      warnings=[], assess_sufficiency=assess)
         payload["context"]["extraction_provenance"] = provenance
         payload["context"]["documentation_status"] = doc_status

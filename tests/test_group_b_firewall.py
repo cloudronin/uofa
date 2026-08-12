@@ -37,7 +37,7 @@ from uofa_cli.weakener_focus import attributable_factors, expected_factors
 
 _ROOT = pathlib.Path(__file__).resolve().parents[1]
 _FIX = _ROOT / "tests" / "fixtures" / "raidex"
-_CARD = _ROOT / "packs" / "mrm-nist" / "examples" / "olmo2-13b-instruct" / "card.md"
+_CARD = _ROOT / "packs" / "model-credibility" / "examples" / "olmo2-13b-instruct" / "card.md"
 
 _HAS_JAR = paths.jar_path().exists()
 _needs_engine = pytest.mark.skipif(not _HAS_JAR, reason="weakener engine JAR not built")
@@ -47,7 +47,7 @@ GROUP_B_PREFIXES = ("W-EV-", "COMPOUND-EV-")
 
 def _card_bundle():
     bundle, _, _ = card_bundle.card_to_bundle(
-        _CARD.read_text(), "mrm-nist",
+        _CARD.read_text(), "model-credibility",
         model_id="allenai/OLMo-2-13B-Instruct", allow_llm=False)
     return bundle
 
@@ -65,7 +65,7 @@ def _fire(bundle) -> collections.Counter:
     path = pathlib.Path(tempfile.mkdtemp()) / "b.jsonld"
     path.write_text(json.dumps(bundle))
     counts: collections.Counter = collections.Counter()
-    for firing in report_mod._firings(path, "mrm-nist"):
+    for firing in report_mod._firings(path, "model-credibility"):
         pid = firing.get("patternId") or firing.get("pattern_id")
         counts[str(pid)] += 1
     return counts
@@ -129,7 +129,7 @@ def test_evidence_without_a_card_gives_an_honest_no_card_readout():
     )
 
     statuses = {f["factorType"]: f["factorStatus"] for f in bundle["hasCredibilityFactor"]}
-    assert set(statuses) == set(expected_factors("mrm-nist"))
+    assert set(statuses) == set(expected_factors("model-credibility"))
     assert not any(s == "assessed" for s in statuses.values()), (
         "furnished benchmark evidence credited a documentation factor -- running a "
         "benchmark is not documenting a model"
@@ -143,9 +143,9 @@ def test_group_b_factors_never_enter_the_completeness_denominator():
     it would score a documented model 11/23 instead of 11/17 — the same failure
     as direction 1, arriving through arithmetic instead of through a rule.
     """
-    completeness = set(expected_factors("mrm-nist"))
+    completeness = set(expected_factors("model-credibility"))
     assert not (set(AI_800_3_FACTOR_NAMES) & completeness)
-    assert set(AI_800_3_FACTOR_NAMES) <= set(attributable_factors("mrm-nist"))
+    assert set(AI_800_3_FACTOR_NAMES) <= set(attributable_factors("model-credibility"))
 
 
 @_needs_engine
@@ -155,7 +155,7 @@ def test_shacl_stays_clean_across_both_groups():
                           ("card+raidex", _with_raidex(_card_bundle()))):
         path = pathlib.Path(tempfile.mkdtemp()) / "b.jsonld"
         path.write_text(json.dumps(bundle))
-        result = report_mod._shacl(path, "mrm-nist")
+        result = report_mod._shacl(path, "model-credibility")
         offending = [v for v in result.get("violations", [])
                      if "factorType" in str(v.get("message", ""))]
         assert not offending, f"{label}: factor-name shape violations {offending}"
@@ -175,7 +175,7 @@ def test_uncertainty_findings_are_selective_not_blanket():
 
     n_results = len(bundle["hasValidationResult"])
     by_pattern = {}
-    for firing in report_mod._firings(path, "mrm-nist"):
+    for firing in report_mod._firings(path, "model-credibility"):
         pid = str(firing.get("patternId") or firing.get("pattern_id"))
         by_pattern[pid] = len(firing.get("affected_nodes") or [])
 
@@ -193,7 +193,7 @@ def test_compound_ev_01_is_silent_without_an_operator_supplied_mrl():
     """The honest N/A falls out of rule structure, not a renderer special case.
 
     Keyed on `decisionRiskLevel` (bound to --mrl), NOT `modelRiskLevel` — which
-    every mrm-nist bundle already carries as the assumed posture of 3, and which
+    every model-credibility bundle already carries as the assumed posture of 3, and which
     would therefore make this rule fire unconditionally.
     """
     bundle = _with_raidex(_card_bundle())
@@ -218,7 +218,7 @@ def test_cou_05_severity_tracks_the_flag_but_the_finding_tracks_the_record():
     def severity_of(b):
         path = pathlib.Path(tempfile.mkdtemp()) / "b.jsonld"
         path.write_text(json.dumps(b))
-        for firing in report_mod._firings(path, "mrm-nist"):
+        for firing in report_mod._firings(path, "model-credibility"):
             if str(firing.get("patternId") or firing.get("pattern_id")) == "W-EV-COU-05":
                 return firing.get("severity")
         return None
@@ -263,12 +263,12 @@ def _fire_on_nodes(tmp_path, nodes):
     import json
     from uofa_cli.commands import report as R
     bundle, _p, _s = card_bundle.card_to_bundle(
-        _CARD.read_text(), "mrm-nist", model_id="a/b", allow_llm=False)
+        _CARD.read_text(), "model-credibility", model_id="a/b", allow_llm=False)
     bundle["hasValidationResult"] = nodes
     bundle["_sufficiencyAssessed"] = True
     path = tmp_path / "b.jsonld"
     path.write_text(json.dumps(bundle))
-    state = R.build_report_state(R.analysis_for(bundle, path, "mrm-nist"))
+    state = R.build_report_state(R.analysis_for(bundle, path, "model-credibility"))
     return {c.pattern_id for c in state.concerns}
 
 

@@ -10,10 +10,10 @@ factor taxonomy, a presence-only completeness profile (SHACL), and a per-pack
 weakener→factor focus map. The core engine, shapes, and `.rules` files are untouched.
 
 ```
-uofa report owner/model --pack mrm-nist                          # fetch the card + extract + report
-uofa report https://huggingface.co/owner/model --pack mrm-nist   # same, from a model URL
-uofa report bundle.jsonld --pack mrm-nist                        # a saved/curated bundle (deterministic)
-uofa check  bundle.jsonld --pack mrm-nist                        # C1/C2/C3 on a bundle
+uofa report owner/model --pack model-credibility                          # fetch the card + extract + report
+uofa report https://huggingface.co/owner/model --pack model-credibility   # same, from a model URL
+uofa report bundle.jsonld --pack model-credibility                        # a saved/curated bundle (deterministic)
+uofa check  bundle.jsonld --pack model-credibility                        # C1/C2/C3 on a bundle
 ```
 
 ## Reporting on a live model card
@@ -36,7 +36,7 @@ maps to a bundle, and runs the same report. Honesty guardrails:
   (403) card is a hard failure; a missing/empty card (404) renders 0/N under a
   prominent "no model card published" notice (sufficiency not applicable).
 - **The generated bundle is kept by default in a temp cache** (printed, e.g.
-  `<tmpdir>/uofa-report-bundles/<owner>__<model>.mrm-nist.jsonld`) as the auditable,
+  `<tmpdir>/uofa-report-bundles/<owner>__<model>.model-credibility.jsonld`) as the auditable,
   re-runnable source — not dropped into the working directory. `--save-bundle PATH`
   writes where asked; `--no-save-bundle` discards. Re-running `uofa report
   <saved-bundle>` reproduces the readout, provenance line included.
@@ -73,10 +73,10 @@ card actually documents them).
 | | Monitoring and feedback † | Post-deployment monitoring / drift / feedback | MANAGE 4.1 |
 | | Versioning and update policy † | Version history / changelog / update policy | MANAGE 4.2 / 2.4 |
 
-† Out-of-scope-at-card-level by default (see `MRM_NIST_DEFAULT_OUT_OF_SCOPE`).
+† Out-of-scope-at-card-level by default (see `MODEL_CREDIBILITY_DEFAULT_OUT_OF_SCOPE`).
 
-Encoded as `MRM_NIST_FACTOR_NAMES` in `src/uofa_cli/excel_constants.py`; the SHACL
-factor-name enum is `shapes/mrm_nist_shapes.ttl`, scoped to factors tagged
+Encoded as `MODEL_CREDIBILITY_FACTOR_NAMES` in `src/uofa_cli/excel_constants.py`; the SHACL
+factor-name enum is `shapes/model_credibility_shapes.ttl`, scoped to factors tagged
 `factorStandard "NIST-AI-RMF-1.0"` (so it never collides with the vv40/nasa shapes).
 
 ## SHACL profile
@@ -126,7 +126,7 @@ A model card declares no deployment context or risk tier, so the profile assesse
 every card against one **disclosed assumption: a moderate-risk deployment, MRL 3**.
 `W-EP-04` therefore fires against a *stated* assumption, surfaced in the readout's
 "What this model was used for" section — not a hidden input. (Single source:
-`uofa_cli.card_bundle.MRM_NIST_RISK_ASSUMPTION`.)
+`uofa_cli.card_bundle.MODEL_CREDIBILITY_RISK_ASSUMPTION`.)
 
 ## Worked examples (suggested, run live)
 
@@ -142,7 +142,7 @@ committed `card.md` snapshots that test reads.
 | `cardiffnlp/twitter-roberta-base-sentiment` | Popular but holey | No license stated, metrics by reference |
 | `DeepChem/ChemBERTa-77M-MTR` | Ships no README | The no-card readout (0 documented); the published chirality limitation is absent because the card is |
 
-Refresh the committed card snapshots: `python packs/mrm-nist/examples/_generate.py`.
+Refresh the committed card snapshots: `python packs/model-credibility/examples/_generate.py`.
 
 ## Scope
 

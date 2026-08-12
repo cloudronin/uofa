@@ -21,14 +21,14 @@ from uofa_cli import card_bundle
 from uofa_cli.furnishers import attach, raidex
 
 REPO = Path(__file__).resolve().parents[1]
-_CARD = REPO / "packs" / "mrm-nist" / "examples" / "olmo2-13b-instruct" / "card.md"
+_CARD = REPO / "packs" / "model-credibility" / "examples" / "olmo2-13b-instruct" / "card.md"
 _RECORD = REPO / "tests" / "fixtures" / "raidex" / "openai__gpt-5.6.json"
 
 
 @pytest.fixture
 def bundle_path(tmp_path: Path) -> Path:
     bundle, _p, _s = card_bundle.card_to_bundle(
-        _CARD.read_text(), "mrm-nist", model_id="allenai/OLMo-2-13B-Instruct",
+        _CARD.read_text(), "model-credibility", model_id="allenai/OLMo-2-13B-Instruct",
         allow_llm=False)
     bundle["_sufficiencyAssessed"] = True
     path = tmp_path / "bundle.jsonld"
@@ -43,7 +43,7 @@ def _cli(*argv: str) -> subprocess.CompletedProcess:
 
 
 def _report_json(bundle_path: Path, *extra: str) -> dict:
-    proc = _cli("report", str(bundle_path), "--pack", "mrm-nist", "--format", "json", *extra)
+    proc = _cli("report", str(bundle_path), "--pack", "model-credibility", "--format", "json", *extra)
     assert proc.returncode == 0, proc.stderr or proc.stdout
     return json.loads(proc.stdout)
 
@@ -57,7 +57,7 @@ def _report_json(bundle_path: Path, *extra: str) -> dict:
 ])
 def test_evidence_sources_are_mutually_exclusive(bundle_path, flags):
     """Silently preferring one source would make the provenance line a guess."""
-    proc = _cli("report", str(bundle_path), "--pack", "mrm-nist", *flags)
+    proc = _cli("report", str(bundle_path), "--pack", "model-credibility", *flags)
     assert proc.returncode != 0
     assert "mutually exclusive" in (proc.stdout + proc.stderr)
 
@@ -73,7 +73,7 @@ def test_no_evidence_states_not_applicable(bundle_path):
 
 def test_mrl_absent_is_reported_not_assumed(bundle_path):
     """No --mrl means COMPOUND-EV-01 cannot fire, and the readout must say so."""
-    proc = _cli("report", str(bundle_path), "--pack", "mrm-nist",
+    proc = _cli("report", str(bundle_path), "--pack", "model-credibility",
                 "--raidex", str(_RECORD))
     assert proc.returncode == 0
     assert "MRL not supplied" in proc.stdout
@@ -254,7 +254,7 @@ def test_attempted_but_empty_reads_differently_from_no_evaluation(tmp_path):
     from uofa_cli.commands import report as R
 
     bundle, _p, _s = card_bundle.card_to_bundle(
-        _CARD.read_text(), "mrm-nist", model_id="a/b", allow_llm=False)
+        _CARD.read_text(), "model-credibility", model_id="a/b", allow_llm=False)
     bundle["_sufficiencyAssessed"] = True
 
     assert R._eval_sufficiency(bundle, True) == "not-applicable"

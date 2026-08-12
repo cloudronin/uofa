@@ -4,7 +4,7 @@ Verbatim HF model cards used as test inputs. **Exact bytes, never hand-edit** â€
 the point is that a real card exercises the extractor, and an edited one stops
 being evidence about anything.
 
-These live here rather than in `packs/mrm-nist/examples/` because the pack
+These live here rather than in `packs/model-credibility/examples/` because the pack
 examples are *curated* artifacts: each carries human-read factor statuses in
 `curated_cards.py`. A card needed only as raw text for a render test is a test
 fixture, not a curated demo.

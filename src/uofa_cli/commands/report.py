@@ -16,9 +16,9 @@ surface tells one story):
     no-card notice rather than a hollow all-weakeners page. The generated bundle
     is saved by default as the auditable, re-runnable source.
 
-    uofa report package.jsonld --pack mrm-nist
-    uofa report allenai/OLMo-2-1124-13B-Instruct --pack mrm-nist
-    uofa report https://huggingface.co/owner/model --pack mrm-nist --deterministic
+    uofa report package.jsonld --pack model-credibility
+    uofa report allenai/OLMo-2-1124-13B-Instruct --pack model-credibility
+    uofa report https://huggingface.co/owner/model --pack model-credibility --deterministic
 """
 
 from __future__ import annotations
@@ -29,7 +29,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from uofa_cli import paths
-from uofa_cli.card_bundle import MRM_NIST_RISK_ASSUMPTION
+from uofa_cli.card_bundle import MODEL_CREDIBILITY_RISK_ASSUMPTION
 from uofa_cli.output import error, info
 from uofa_cli.report_state import (
     EVAL_ASSESSED, EVAL_ATTEMPTED_EMPTY, EVAL_DECLINED, EVAL_NOT_APPLICABLE,
@@ -42,7 +42,7 @@ from uofa_cli.report_state import (
 
 HELP = "render a credibility report for a bundle, or for an HF model id/URL (fetch + extract)"
 
-_PACK_DISPLAY = {"vv40": "ASME V&V 40", "nasa-7009b": "NASA-STD-7009B", "mrm-nist": "NIST AI RMF"}
+_PACK_DISPLAY = {"vv40": "ASME V&V 40", "nasa-7009b": "NASA-STD-7009B", "model-credibility": "NIST AI RMF"}
 
 # Shown in place of the concerns section when sufficiency was not assessed (the
 # heuristic README scan / no-card case). A keyword scan can support completeness
@@ -195,10 +195,10 @@ def _context(bundle: dict, pack: str) -> dict:
         # A bundle read off disk is not re-verified here; report makes no
         # authenticity claim (the reviewer panel branches on this being absent).
         "authenticity": {},
-        # mrm-nist discloses its assumed risk posture; id-mode bundles carry their
+        # model-credibility discloses its assumed risk posture; id-mode bundles carry their
         # own extraction provenance + documentation status so a saved bundle
         # re-runs to the identical readout. Absent on a vetted vv40/nasa bundle.
-        "risk_assumption": MRM_NIST_RISK_ASSUMPTION if pack == "mrm-nist" else "",
+        "risk_assumption": MODEL_CREDIBILITY_RISK_ASSUMPTION if pack == "model-credibility" else "",
         "extraction_provenance": bundle.get("_extractionProvenance", ""),
         "documentation_status": bundle.get("_documentationStatus", "present"),
         "sufficiency_assessed": bool(bundle.get("_sufficiencyAssessed", True)),
@@ -702,7 +702,7 @@ def _apply_evidence_and_context(bundle: dict, bundle_path, args, model_id: str) 
     return 0
 
 
-def _bundle_out_path(model_id: str, args, pack: str = "mrm-nist") -> tuple[Path, bool]:
+def _bundle_out_path(model_id: str, args, pack: str = "model-credibility") -> tuple[Path, bool]:
     """(path, kept). The generated bundle is the auditable, re-runnable source, so id
     mode keeps it by default -- but in a temp cache, NOT the working directory (a
     read-style command shouldn't litter cwd). --save-bundle PATH writes where asked;

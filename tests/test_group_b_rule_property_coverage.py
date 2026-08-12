@@ -35,7 +35,7 @@ from uofa_cli.furnishers import (
     GROUP_B_RUN_CONTEXT_PROPERTIES,
 )
 
-PACK = "mrm-nist"
+PACK = "model-credibility"
 
 # A rule block is `[name: <body> -> <head> ]`.
 _RULE_RE = re.compile(r"\[(\w+):(.*?)\n\]", re.S)

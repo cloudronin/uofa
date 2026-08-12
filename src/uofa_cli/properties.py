@@ -12,7 +12,7 @@ neither ablations nor limitation statements, and three model families scored
 
 Neither document was edited carelessly. Two faithful paraphrases of one intent
 drift because nothing holds them together. So they no longer paraphrase: both
-RENDER from `packs/mrm-nist/properties/P*.json`, into marker-delimited regions,
+RENDER from `packs/model-credibility/properties/P*.json`, into marker-delimited regions,
 and a test asserts the committed regions are byte-identical to a fresh render.
 
 A definition changes in the JSON or it does not change.
@@ -33,7 +33,7 @@ from pathlib import Path
 from uofa_cli import paths
 
 SHEET = "docs/A16_3_gold_labeling_instructions_v0_1.md"
-PROMPT = "packs/mrm-nist/prompts/card_eval_extract_prompt.txt"
+PROMPT = "packs/model-credibility/prompts/card_eval_extract_prompt.txt"
 
 SHEET_MARKERS = ("<!-- BEGIN property-definitions -->",
                  "<!-- END property-definitions -->")
@@ -44,7 +44,7 @@ def _repo_root() -> Path:
     return Path(__file__).resolve().parents[2]
 
 
-def load(pack: str = "mrm-nist") -> list[dict]:
+def load(pack: str = "model-credibility") -> list[dict]:
     """Every property definition, ordered P1..P7."""
     directory = paths.pack_dir(pack) / "properties"
     out = [json.loads(p.read_text(encoding="utf-8"))
@@ -116,7 +116,7 @@ def write(path: Path, markers: tuple[str, str], body: str) -> None:
     path.write_text(text[:lo] + "\n" + body + text[hi:], encoding="utf-8")
 
 
-def targets(pack: str = "mrm-nist") -> list[tuple[Path, tuple[str, str], str]]:
+def targets(pack: str = "model-credibility") -> list[tuple[Path, tuple[str, str], str]]:
     props = load(pack)
     root = _repo_root()
     return [
@@ -125,7 +125,7 @@ def targets(pack: str = "mrm-nist") -> list[tuple[Path, tuple[str, str], str]]:
     ]
 
 
-def check(pack: str = "mrm-nist") -> list[str]:
+def check(pack: str = "model-credibility") -> list[str]:
     """Paths whose committed region differs from a fresh render."""
     stale = []
     for path, markers, body in targets(pack):
@@ -140,7 +140,7 @@ def check(pack: str = "mrm-nist") -> list[str]:
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--write", action="store_true")
-    ap.add_argument("--pack", default="mrm-nist")
+    ap.add_argument("--pack", default="model-credibility")
     args = ap.parse_args()
 
     if args.write:

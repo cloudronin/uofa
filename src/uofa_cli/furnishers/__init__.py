@@ -22,7 +22,7 @@ convention, because the drift it prevents is silent in both directions:
 from __future__ import annotations
 
 # Properties a furnisher may set on a ValidationResult node, each consumed by a
-# Group-B rule in packs/mrm-nist/rules/mrm_nist_weakener.rules.
+# Group-B rule in packs/model-credibility/rules/model_credibility_weakener.rules.
 GROUP_B_RESULT_PROPERTIES: frozenset[str] = frozenset({
     "samplingAccount",             # W-EV-GEN-02, COMPOUND-EV-02
     "harnessDeterminismStatement", # W-EV-DET-03
@@ -60,9 +60,9 @@ CORE_RESULT_PROPERTIES_POPULATED: frozenset[str] = frozenset({
 })
 
 # Run-context properties bound to operator flags, set on the UnitOfAssurance.
-# Both are deliberately distinct from same-meaning properties that mrm-nist
+# Both are deliberately distinct from same-meaning properties that model-credibility
 # bundles already carry with synthesized values -- `modelRiskLevel` is always the
-# disclosed MRM_NIST_ASSUMED_MRL posture, and `hasContextOfUse` is derived from
+# disclosed MODEL_CREDIBILITY_ASSUMED_MRL posture, and `hasContextOfUse` is derived from
 # the model id. Keying rules on those would make COMPOUND-EV-01 fire
 # unconditionally and pin W-EV-COU-05 to Critical forever (addendum v0.1 §A2).
 GROUP_B_RUN_CONTEXT_PROPERTIES: frozenset[str] = frozenset({

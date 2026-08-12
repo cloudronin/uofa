@@ -1,7 +1,7 @@
 """Table-driven fixture tests for the pack's Group-B weakener rules.
 
 Mirrors `tests/test_weakener_rules.py` and `tests/test_iso42001_weakener_fixtures.py`,
-with `active_packs=["mrm-nist"]` so the W-EV-* rules are loaded at all.
+with `active_packs=["model-credibility"]` so the W-EV-* rules are loaded at all.
 
 The boundary row is the reason this file exists. `W-EV-COU-05` splits severity on
 whether the operator supplied `--cou`, and an earlier draft of the rule
@@ -45,7 +45,7 @@ def _firings(fixture_path: Path) -> set[str]:
         file=fixture_path, pubkey=None, context=None, rules=None, skip_rules=False,
         build=False, raw=False, format="jsonld", output=None, strict=False,
         no_color=True, verbose=False, repo_root=None, explain=None,
-        active_packs=["mrm-nist"],
+        active_packs=["model-credibility"],
     )
     result = check_run_structured(args)
     return {r.get("patternId") for r in (result.rules.firings or []) if r.get("patternId")}

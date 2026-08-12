@@ -45,7 +45,7 @@ GOLDENS = REPO / "tests" / "fixtures" / "report_goldens"
 # asserting it described one model while carrying another's numbers. Nothing read
 # it as data, so nothing failed -- but a fabricated subject is a poor thing to
 # build card fixtures on, and the pack's whole argument is about not fabricating.
-_CARD_NO_EVAL = REPO / "packs" / "mrm-nist" / "examples" / "olmo2-13b-instruct" / "card.md"
+_CARD_NO_EVAL = REPO / "packs" / "model-credibility" / "examples" / "olmo2-13b-instruct" / "card.md"
 _CARD_WITH_EVAL = REPO / "tests" / "fixtures" / "model_cards" / "google__gemma-3-27b-it.md"
 _RAIDEX = REPO / "tests" / "fixtures" / "raidex" / "huggingface__google__gemma-3-27b-it.json"
 _MORRISON = REPO / "packs" / "vv40" / "examples" / "morrison" / "cou1" / "uofa-morrison-cou1.jsonld"
@@ -53,7 +53,7 @@ _MORRISON = REPO / "packs" / "vv40" / "examples" / "morrison" / "cou1" / "uofa-m
 
 def _card_bundle(card_path, model_id: str) -> dict:
     bundle, _prov, _suff = card_bundle.card_to_bundle(
-        card_path.read_text(), "mrm-nist", model_id=model_id, allow_llm=False)
+        card_path.read_text(), "model-credibility", model_id=model_id, allow_llm=False)
     return bundle
 
 
@@ -78,10 +78,10 @@ def _cases() -> dict[str, tuple[dict, str]]:
     scoped["decisionRiskLevel"] = 3
 
     return {
-        "card_only": (no_eval, "mrm-nist"),
-        "card_evidence_declined": (with_evidence, "mrm-nist"),
-        "card_evidence_assessed": (assessed, "mrm-nist"),
-        "card_evidence_scoped": (scoped, "mrm-nist"),
+        "card_only": (no_eval, "model-credibility"),
+        "card_evidence_declined": (with_evidence, "model-credibility"),
+        "card_evidence_assessed": (assessed, "model-credibility"),
+        "card_evidence_scoped": (scoped, "model-credibility"),
         "morrison_vv40": (json.loads(_MORRISON.read_text()), "vv40"),
     }
 

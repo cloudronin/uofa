@@ -53,7 +53,7 @@ def _section_context(s: ReviewerState) -> str:
     body = (f"<p>{_e(s.cou_description)}</p>" if s.cou_description
             else "<p>The evidence did not state a context of use in plain terms.</p>")
     device_line = f"<li><b>Device class:</b> {_e(s.device_class)}</li>" if s.device_class else ""
-    # A model card declares no risk tier, so the mrm-nist profile assesses against a
+    # A model card declares no risk tier, so the model-credibility profile assesses against a
     # disclosed assumption. Surface it as the risk line rather than presenting the
     # assumed MRL as if it were derived from a real context of use.
     if s.risk_assumption:

@@ -34,7 +34,7 @@ Each `P*.json` carries the definition once. `uofa_cli.properties` renders:
 | Target | Region | Rendered by |
 |---|---|---|
 | `docs/A16_3_gold_labeling_instructions_v0_1.md` | between `<!-- BEGIN/END property-definitions -->` | `render_sheet()` |
-| `packs/mrm-nist/prompts/card_eval_extract_prompt.txt` | between `# BEGIN/END property-fields` | `render_prompt_fields()` |
+| `packs/model-credibility/prompts/card_eval_extract_prompt.txt` | between `# BEGIN/END property-fields` | `render_prompt_fields()` |
 
 `tests/test_property_definitions_are_one_source.py` asserts the committed regions
 are byte-identical to a fresh render. Editing either artifact by hand fails the
