@@ -65,8 +65,9 @@ For each: what the claim IS, what counts, what does not.
 
 ### P5. `nullBaselineStatement` — a chance/null/comprehension-free reference
 - **The claim:** an explicit chance or null reference for a reported result.
-- **Present:** an explicit chance or null baseline for at least one reported result ("random baseline: 25%", "majority-class: 51%", "chance level shown in table").
+- **Present:** an explicit chance or null baseline for at least one reported result ("random baseline: 25%", "majority-class: 51%", "chance level shown in table"); an explicit statement that scores are normalized or calibrated against chance/null performance ("the scores for each task are normalised to account for baseline performance due to random chance") -- a CALIBRATION claim, which satisfies the property even where no chance value is printed, because the null sits at a known reference point on the normalized scale by construction.
 - **Absent:** comparisons to other models only (a rival model is a comparator, not a null); "significantly above chance" with no stated chance value MAY be `unclear` - see §3.
+- **Does NOT count:** A COMPARATIVE claim is not a calibration claim, and only the second satisfies P5. "+66% vs Random Baseline", "beyond random baseline", "significantly above chance" all assert performance RELATIVE TO an unstated null: they give the gap and never the null, so a reader cannot recover the reference. "Scores are normalised to account for baseline performance due to random chance" asserts the scoring METHODOLOGY incorporates the null. Different constructs. The test is whether the null is recoverable, not whether a number is printed.
 
 ### P6. `claimedCOU` — a stated context of use for the evidence
 - **The claim:** what decision or deployment context the reported evaluation is meant to inform.

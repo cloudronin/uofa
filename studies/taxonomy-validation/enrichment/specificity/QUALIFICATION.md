@@ -22,34 +22,36 @@ inspection. Its findings may not be the basis of a settle decision.
 
 | Extractor | P2 | P5 | P6 | P7 | Qualifies |
 |---|---:|---:|---:|---:|---|
-| `deepseek-ai/DeepSeek-V4-Pro (v2)` | 55% | 95% | 86% | 71% | no |
-| `deepseek-ai/DeepSeek-V4-Pro` | 58% | 95% | 71% | 100% | no |
-| `meta-llama/Llama-3.3-70B-Instruct-Turbo (v2)` | 18% | 80% | 86% | 100% | no |
-| `meta-llama/Llama-3.3-70B-Instruct-Turbo` | 18% | 75% | 100% | 100% | no |
+| `deepseek-ai/DeepSeek-V4-Pro (v2)` | 53% | 95% | 86% | 71% | no |
+| `deepseek-ai/DeepSeek-V4-Pro` | 56% | 95% | 71% | 100% | no |
+| `meta-llama/Llama-3.3-70B-Instruct-Turbo (v2)` | 18% | 79% | 86% | 100% | no |
+| `meta-llama/Llama-3.3-70B-Instruct-Turbo` | 18% | 74% | 100% | 100% | no |
 
 ## False-clear rate — extraction invented a property the card omits
 
 | Extractor | P2 | P5 | P6 | P7 | hard_assert |
 |---|---:|---:|---:|---:|---|
-| `deepseek-ai/DeepSeek-V4-Pro (v2)` | 11% | 17% | 0% | 0% | 13/13 |
-| `deepseek-ai/DeepSeek-V4-Pro` | 11% | 0% | 0% | 0% | 13/13 |
-| `meta-llama/Llama-3.3-70B-Instruct-Turbo (v2)` | 11% | 33% | 0% | 0% | 13/13 |
-| `meta-llama/Llama-3.3-70B-Instruct-Turbo` | 11% | 33% | 0% | 0% | 13/13 |
+| `deepseek-ai/DeepSeek-V4-Pro (v2)` | 0% | 14% | 0% | 0% | 13/13 |
+| `deepseek-ai/DeepSeek-V4-Pro` | 0% | 0% | 0% | 0% | 13/13 |
+| `meta-llama/Llama-3.3-70B-Instruct-Turbo (v2)` | 0% | 29% | 0% | 0% | 13/13 |
+| `meta-llama/Llama-3.3-70B-Instruct-Turbo` | 0% | 29% | 0% | 0% | 13/13 |
 
 ## Configuration pins
 
-| Extractor | prompt | temp | max_tokens | cases | errors | labels |
-|---|---|---:|---:|---:|---:|---|
-| `deepseek-ai/DeepSeek-V4-Pro (v2)` | `faacd0f9cea62dfa` | 0.0 | 16384 | 116 | 0 | `original` |
-| `deepseek-ai/DeepSeek-V4-Pro` | `aecc9a6f32545163` | 0.0 | 16384 | 116 | 0 | `da839f8a08e74265` |
-| `meta-llama/Llama-3.3-70B-Instruct-Turbo (v2)` | `faacd0f9cea62dfa` | 0.0 | 16384 | 116 | 0 | `original` |
-| `meta-llama/Llama-3.3-70B-Instruct-Turbo` | `aecc9a6f32545163` | 0.0 | 16384 | 116 | 0 | `da839f8a08e74265` |
+| Extractor | pin type | prompt | temp | max_tokens | cases | errors | labels |
+|---|---|---|---:|---:|---:|---:|---|
+| `deepseek-ai/DeepSeek-V4-Pro (v2)` | **prompt+model** | `faacd0f9cea62dfa` | 0.0 | 16384 | 116 | 0 | `9cc1fe5cdfc5292e` |
+| `deepseek-ai/DeepSeek-V4-Pro` | **prompt+model** | `aecc9a6f32545163` | 0.0 | 16384 | 116 | 0 | `9cc1fe5cdfc5292e` |
+| `meta-llama/Llama-3.3-70B-Instruct-Turbo (v2)` | **prompt+model** | `faacd0f9cea62dfa` | 0.0 | 16384 | 116 | 0 | `9cc1fe5cdfc5292e` |
+| `meta-llama/Llama-3.3-70B-Instruct-Turbo` | **prompt+model** | `aecc9a6f32545163` | 0.0 | 16384 | 116 | 0 | `9cc1fe5cdfc5292e` |
+
+A **code**-pinned row reproduces from the repository alone: no temperature, no seed, no prompt hash, no provider availability. A **prompt+model** row reproduces only against a specific model serving a specific prompt at a specific temperature. These are not the same guarantee and the column exists so they are not read as one.
 
 ## Why each unqualified extractor failed
 
-- **`deepseek-ai/DeepSeek-V4-Pro (v2)`** — P2 false-fire 55%; P2 false-clear 11%; P5 false-fire 95%; P5 false-clear 17%; P6 false-fire 86%; P7 false-fire 71%
-- **`deepseek-ai/DeepSeek-V4-Pro`** — P2 false-fire 58%; P2 false-clear 11%; P5 false-fire 95%; P6 false-fire 71%; P7 false-fire 100%
-- **`meta-llama/Llama-3.3-70B-Instruct-Turbo (v2)`** — P2 false-fire 18%; P2 false-clear 11%; P5 false-fire 80%; P5 false-clear 33%; P6 false-fire 86%; P7 false-fire 100%
-- **`meta-llama/Llama-3.3-70B-Instruct-Turbo`** — P2 false-fire 18%; P2 false-clear 11%; P5 false-fire 75%; P5 false-clear 33%; P6 false-fire 100%; P7 false-fire 100%
+- **`deepseek-ai/DeepSeek-V4-Pro (v2)`** — P2 false-fire 53%; P5 false-fire 95%; P5 false-clear 14%; P6 false-fire 86%; P7 false-fire 71%
+- **`deepseek-ai/DeepSeek-V4-Pro`** — P2 false-fire 56%; P5 false-fire 95%; P6 false-fire 71%; P7 false-fire 100%
+- **`meta-llama/Llama-3.3-70B-Instruct-Turbo (v2)`** — P2 false-fire 18%; P5 false-fire 79%; P5 false-clear 29%; P6 false-fire 86%; P7 false-fire 100%
+- **`meta-llama/Llama-3.3-70B-Instruct-Turbo`** — P2 false-fire 18%; P5 false-fire 74%; P5 false-clear 29%; P6 false-fire 100%; P7 false-fire 100%
 
 Rates are computed against **machine-drafted** labels (A16.3 amended 2026-08-11). They qualify an extractor; they do not settle a rule. A16.4 finding validity does.

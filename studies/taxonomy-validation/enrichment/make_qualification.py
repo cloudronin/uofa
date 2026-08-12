@@ -81,6 +81,13 @@ def build(results_dir: Path, out: Path) -> dict:
             "hard_assert_failed": len((d.get("hard_assert") or {}).get("failures") or []),
             "qualifies": qual, "fails": fails,
             "label_basis": (d.get("label_basis") or {}).get("sha256", "original"),
+            # A code-pinned row and a prompt-pinned row are categorically
+            # different reproducibility claims. A keyless route has no
+            # temperature, no seed, no prompt hash and no provider availability
+            # -- the pin IS the code. Printing both kinds in one column with no
+            # marker would invite reading them as the same guarantee.
+            "pin_type": ("code" if (ex.get("backend") or "") == "keyless"
+                         else "prompt+model"),
         })
 
     def cell(r, prop, key):
@@ -133,12 +140,18 @@ def build(results_dir: Path, out: Path) -> dict:
     L.append("")
     L.append("## Configuration pins")
     L.append("")
-    L.append("| Extractor | prompt | temp | max_tokens | cases | errors | labels |")
-    L.append("|---|---|---:|---:|---:|---:|---|")
+    L.append("| Extractor | pin type | prompt | temp | max_tokens | cases | errors | labels |")
+    L.append("|---|---|---|---:|---:|---:|---:|---|")
     for r in rows:
-        L.append(f"| `{r['model']}` | `{r['prompt_sha256']}` | {r['temperature']} "
-                 f"| {r.get('max_tokens') or '--'} | {r['n_cases']} | {r['n_errors']} "
-                 f"| `{r['label_basis']}` |")
+        L.append(f"| `{r['model']}` | **{r['pin_type']}** | `{r['prompt_sha256']}` "
+                 f"| {r['temperature']} | {r.get('max_tokens') or '--'} | {r['n_cases']} "
+                 f"| {r['n_errors']} | `{r['label_basis']}` |")
+    L.append("")
+    L.append("A **code**-pinned row reproduces from the repository alone: no "
+             "temperature, no seed, no prompt hash, no provider availability. A "
+             "**prompt+model** row reproduces only against a specific model "
+             "serving a specific prompt at a specific temperature. These are not "
+             "the same guarantee and the column exists so they are not read as one.")
     L.append("")
     L.append("## Why each unqualified extractor failed")
     L.append("")

@@ -190,3 +190,80 @@ tried, including the two whose rates were otherwise failing everything.
 **Neither number is authoritative yet.** This read is one pass by the same agent
 that drafted the labels, which is the weakest possible adjudication and is
 recorded as such. It is the input to A16.4's panel, not a substitute for it.
+
+
+---
+
+# The SEA-LION episode: operationalization drifting from construct
+
+**Adjudicated 2026-08-12.** The third drift this study has found, and the deepest.
+
+## What happened
+
+13 cards carry one sentence:
+
+> "The scores for each task is normalised to account for **baseline performance
+> due to random chance**."
+
+Checked against the **labeling sheet's Present examples** — all of which print a
+value (`random baseline: 25%`) — it fails, and I proposed flipping all 13 to
+`absent`.
+
+Checked against **the rule the property operationalizes**, it passes decisively.
+W-EV-NULL-04's Seahaven grounding asks whether a reported score is *calibrated
+against a null*. A card stating that scores are normalized for chance asserts
+exactly that calibration — arguably the property's strongest form, since the null
+then sits at a known reference point on the normalized scale by construction.
+
+**Firing NULL-04 on these cards would be a false finding by the rule's own
+grounding.** The labels were right; the sheet was too narrow.
+
+## Why this is the same error class as SUB-08, one level up
+
+W-EV-SUB-08 once fired on pinned open-weight subjects — false by its own
+grounding, because a model retrievable at an immutable revision *is*
+configuration-controlled. The rule's implementation had drifted from the
+construct it operationalized.
+
+Here the drift is between the **sheet** and the **rule**, rather than between the
+implementation and the standard. Same shape, one level up:
+
+| | drifted from | found by |
+|---|---|---|
+| SUB-08 | its own grounding | reading the rule against the standard |
+| sheet vs prompt | each other | mechanical diff of two documents |
+| **sheet vs rule** | **the construct** | **adjudicating a label against the rule it feeds** |
+
+The first two were found by comparing artifacts. This one could only be found by
+asking what the property is *for* — no diff would have surfaced it, because both
+documents agreed with each other and both were narrower than the construct.
+
+## The distinction the amendment records
+
+Not every mention of a null satisfies P5. Two claims that look alike:
+
+| Claim type | Example | P5 |
+|---|---|---|
+| **Comparative** | "+66% vs Random Baseline", "beyond random baseline", "significantly above chance" | **absent** — gives the gap, never the null; the reference is unrecoverable |
+| **Calibration** | "scores are normalised to account for baseline performance due to random chance" | **present** — the scoring methodology incorporates the null |
+
+The test is **whether the null is recoverable**, not whether a number is printed.
+
+`rmtariq/malaysian-priority-classifier` was confirmed `absent` on exactly this
+line, and `m-a-p/ChatMusician` ("a random baseline, with a score of 25%") remains
+`present`. The fence is the construct, not the presence of a digit.
+
+## What it cost and what it bought
+
+**Cost:** one sheet amendment, propagated automatically to the extraction prompt
+by the one-source machinery — the prompt hash moves to `5b1977f224f0ed6a`, so the
+next extraction run is a new pinned row.
+
+**Bought:** P5's positive class stays at 19 rather than collapsing to 6, and a
+rule that would have fired falsely on 13 published cards does not.
+
+**The methods point:** adjudication caught the study's own measuring stick
+drifting from the standard it was cut from. A validation apparatus that can audit
+its own instrument against the construct — and correct the instrument rather than
+the data — is doing its deepest job. The instinct to flip 13 labels because they
+failed a checklist was the wrong one, and the checklist was what needed changing.
