@@ -4,6 +4,45 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+### Fixed — the published weakener catalog under-reported two packs, and said nothing
+
+- **`uofa catalog` reported 35 patterns across 4 packs. The correct answer is 57
+  across 5.**
+
+  **Window:** iso42001's `W-AIMS-*` rules landed **2026-05-06**
+  (`10c83f6a`) and were under-reported from that day, through **0.9.0** and
+  **0.11.0** — roughly three months and two releases. The model-credibility
+  pack's 10 patterns were absent from the moment they were added.
+
+  **Cause:** the catalog's pattern-id grammar was `W-[A-Z]+-\d{2}`, which cannot
+  express either id shape the two packs use:
+
+  | shape | example | pack |
+  |---|---|---|
+  | word-suffixed | `W-AIMS-AUDIT-STALE` | iso42001 — **12 of its 15 rules** |
+  | three-segment | `W-EV-GEN-02` | model-credibility — all 10 |
+
+  A box-drawing decorated header (`# ── W-EV-COU-05: …`) cost one more. Neither
+  the rules nor the manifests were wrong; only the reader was.
+
+  **Effect:** the catalog is the public list of what each pack detects, published
+  to uofa.net and regenerated on every site build. Anyone consulting it to see
+  what the ISO/IEC 42001 pack looks for saw **3 rules instead of 15**. The rules
+  themselves always fired correctly — this was a reporting defect, not an engine
+  one, so no assessment was ever wrong. What was wrong is what a reader was told
+  the tool checks.
+
+  **Why it went unnoticed for three months:** it failed *silently*.
+  `_parse_rules_for_pack` returned `[]` for an unreadable pack and the pack
+  simply did not appear in the output. There was no error, no warning, and no
+  count to reconcile against — absence of a parse rendered as absence of rules.
+
+  **Fix:** the grammar now spans both shapes and decorated headers, and the
+  parser **reconciles against the manifest**: a pack that declares patternIds the
+  parser could not find now raises rather than shipping a silently under-read
+  catalog. Verified parsed == declared for all seven packs.
+
+
 ### Fixed — the shipped JSON Schema still demanded a field core had removed for causing fabrication
 
 - **`spec/schemas/uofa.schema.json` required `hasContextOfUse` at the Minimal

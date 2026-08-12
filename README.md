@@ -352,6 +352,68 @@ The `--pack` flag on any command switches the active pack(s). Multiple packs can
 
 ---
 
+## Assess a published model card
+
+Every other pack assesses an assurance package *you authored*. The
+`model-credibility` pack assesses **someone else's published model card** — and
+it answers two questions that are deliberately kept apart.
+
+```bash
+# Documentation completeness + evaluation sufficiency, from a HuggingFace id
+uofa report allenai/OLMo-2-1124-13B-Instruct --pack model-credibility
+
+# Scope the assessment to a decision you are actually making
+uofa report owner/model --pack model-credibility \
+    --cou "clinical triage screening" --mrl 3
+
+# Attach independently furnished benchmark results
+uofa report owner/model --pack model-credibility --raidex-hub
+```
+
+### The two sections, and the firewall between them
+
+| Section | Asks | Standard |
+|---|---|---|
+| **[1] Documentation completeness** | does this model document itself? | NIST AI RMF 1.0 |
+| **[3] Evaluation sufficiency** | are the reported numbers interpretable as evidence? | NIST AI 800-3 |
+
+A benchmark score with no uncertainty, no null baseline, and no stated context of
+use is **a number, not evidence**. Section [3] assesses reported results the way
+V&V 40 assesses a simulation validation study.
+
+**A card with no reported evaluation cannot produce a section [3] finding.** That
+is structural, not a convention: every evaluation-sufficiency rule body binds
+`uofa:hasValidationResult`, so there is no configuration in which a
+documentation-only card is accused of insufficient evaluation. The readout says
+*"no reported evaluation to assess"* — a different claim from finding nothing
+wrong, and it is rendered differently.
+
+### Reported, furnished, and the divergence between them
+
+`evidenceSource` separates a score the card's authors published (`reported`) from
+one an independent run produced (`furnished`). That distinction is what makes
+`W-EV-DIV-07` expressible: when a card's own number and an independent
+measurement of the same benchmark disagree beyond tolerance, that is a finding
+about the record. **It does not establish which number is correct**, and the
+rule's wording does not imply it does.
+
+### What gets pinned
+
+Assessing an artifact you do not control means recording exactly which bytes you
+read. `sourcePin` carries two kinds, and they support different claims:
+
+- **artifact pin** — re-derivation. For a HuggingFace card that is the `README.md`
+  **blob oid**, never the repo sha: a repo sha moves when *any* file changes, so
+  pinning it would mark a byte-identical card stale on a weights re-upload.
+- **occasion pin** — re-performance only. A hosted endpoint's identity is what the
+  provider asserts and can change under a stable name, so a furnished score pins
+  *when it was measured*, and says so.
+
+Full pack contract, the ten weakeners and their grounding:
+[`packs/model-credibility/README.md`](https://github.com/cloudronin/uofa/blob/main/packs/model-credibility/README.md).
+
+---
+
 ---
 
 ## Interrogate a Surrogate (SIP)
