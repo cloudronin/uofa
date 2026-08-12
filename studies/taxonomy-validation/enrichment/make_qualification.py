@@ -60,6 +60,7 @@ def build(results_dir: Path, out: Path) -> dict:
             "model": ex.get("model", path.stem),
             "prompt_sha256": ex.get("prompt_sha256", ""),
             "temperature": ex.get("temperature"),
+            "max_tokens": ex.get("max_tokens"),
             "n_cases": d.get("n_cases"), "n_errors": d.get("n_errors"),
             "cases_sha256": d.get("cases_sha256", ""),
             "rates": d.get("rates") or {},
@@ -85,6 +86,17 @@ def build(results_dir: Path, out: Path) -> dict:
     L.append("An extractor that does not qualify may still generate findings for")
     L.append("inspection. Its findings may not be the basis of a settle decision.")
     L.append("")
+    # Without this, a table of `no` reads as a capability verdict. It is not one.
+    L.append("> **These rates do NOT measure extractor capability.** The extraction")
+    L.append("> prompt and the labeling sheet define three of four properties")
+    L.append("> differently (`CONSTRUCT-DRIFT.md`, 2026-08-11), so every row below")
+    L.append("> compares two constructs. P7's 100% is the clearest case: the prompt")
+    L.append("> never asks for ablations-as-controls, which is the form most labeled")
+    L.append("> positives take. A separate read of the 20 P6/P7 misses found 13")
+    L.append("> labels sound and 7 too generous, so error sits on both sides.")
+    L.append("> The table is retained as the pinned record of what was run; it does")
+    L.append("> not support a claim about what any model can read.")
+    L.append("")
     L.append("## False-fire rate — extraction missed a property the card states")
     L.append("")
     L.append("| Extractor | " + " | ".join(SHORT[p] for p in PROPS) + " | Qualifies |")
@@ -107,11 +119,12 @@ def build(results_dir: Path, out: Path) -> dict:
     L.append("")
     L.append("## Configuration pins")
     L.append("")
-    L.append("| Extractor | prompt | temp | cases | errors | cases file |")
-    L.append("|---|---|---:|---:|---:|---|")
+    L.append("| Extractor | prompt | temp | max_tokens | cases | errors | cases file |")
+    L.append("|---|---|---:|---:|---:|---:|---|")
     for r in rows:
         L.append(f"| `{r['model']}` | `{r['prompt_sha256']}` | {r['temperature']} "
-                 f"| {r['n_cases']} | {r['n_errors']} | `{r['cases_sha256']}` |")
+                 f"| {r.get('max_tokens') or '--'} | {r['n_cases']} | {r['n_errors']} "
+                 f"| `{r['cases_sha256']}` |")
     L.append("")
     L.append("## Why each unqualified extractor failed")
     L.append("")
