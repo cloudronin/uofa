@@ -52,7 +52,16 @@ def _verdict(rates: dict) -> tuple[bool, list[str]]:
 
 def build(results_dir: Path, out: Path) -> dict:
     rows = []
-    for path in sorted(results_dir.glob("*.json")):
+    # Prefer a `.corrected.json` when one exists: it carries the same extraction
+    # outputs re-scored against corrected labels, which is the current v1 truth.
+    # The original is kept on disk but must not appear as a second row -- one
+    # extractor, one row, or the table double-counts a config.
+    paths = sorted(results_dir.glob("*.json"))
+    corrected = {q.name.replace(".corrected.json", ".json") for q in paths
+                 if q.name.endswith(".corrected.json")}
+    for path in paths:
+        if path.name in corrected:
+            continue
         d = json.loads(path.read_text(encoding="utf-8"))
         ex = d.get("extractor") or {}
         qual, fails = _verdict(d.get("rates") or {})
@@ -67,6 +76,7 @@ def build(results_dir: Path, out: Path) -> dict:
             "hard_assert_n": (d.get("hard_assert") or {}).get("n"),
             "hard_assert_failed": len((d.get("hard_assert") or {}).get("failures") or []),
             "qualifies": qual, "fails": fails,
+            "label_basis": (d.get("label_basis") or {}).get("sha256", "original"),
         })
 
     def cell(r, prop, key):
@@ -119,12 +129,12 @@ def build(results_dir: Path, out: Path) -> dict:
     L.append("")
     L.append("## Configuration pins")
     L.append("")
-    L.append("| Extractor | prompt | temp | max_tokens | cases | errors | cases file |")
+    L.append("| Extractor | prompt | temp | max_tokens | cases | errors | labels |")
     L.append("|---|---|---:|---:|---:|---:|---|")
     for r in rows:
         L.append(f"| `{r['model']}` | `{r['prompt_sha256']}` | {r['temperature']} "
                  f"| {r.get('max_tokens') or '--'} | {r['n_cases']} | {r['n_errors']} "
-                 f"| `{r['cases_sha256']}` |")
+                 f"| `{r['label_basis']}` |")
     L.append("")
     L.append("## Why each unqualified extractor failed")
     L.append("")

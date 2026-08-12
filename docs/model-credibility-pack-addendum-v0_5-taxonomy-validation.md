@@ -164,6 +164,29 @@ Recorded consequence: **the baseline fails this bar on all four properties**, on
 false-fire, by a wide margin. That is a conclusion the bar produces, not a
 premise it was built from.
 
+**Reasoning models are excluded from this table (operational scope, ruled
+2026-08-11).** A model that spends a 16k-token budget before emitting visible
+content, at multi-hour wall-clock over 116 short cases, is not a shippable
+corpus-scale extraction backend at current economics. `Qwen/Qwen3.5-9B` on
+Together returns `content: ''` with all output in a separate `reasoning` field
+and `finish_reason: length`; the row is withdrawn rather than run. If the
+economics change it enters with its own row, an honest token budget, and a
+reasoning-field-aware parser -- not by quietly raising the cap on the shared
+config.
+
+**Any parameter that can silently truncate output is part of the configuration
+pin**, alongside temperature and seed. `max_tokens` was a hidden constant until
+it truncated a reasoning model into producing nothing; a truncation is a
+different measurement wearing the same hash.
+
+**Property definitions are rendered, not restated (2026-08-11).** The bar above
+is only meaningful if the extractor is asked for what the labeler counts. Both
+the labeling sheet and the extraction prompt now render from
+`packs/mrm-nist/properties/P*.json`, and
+`tests/test_property_definitions_are_one_source.py` asserts byte-identity, so
+the construct drift that invalidated the first frontier comparison cannot recur
+through discipline failure.
+
 **Qualification record.** Results live in
 `studies/taxonomy-validation/enrichment/specificity/QUALIFICATION.md` as an
 extractor-sensitivity table — one row per configuration, each pinning model,

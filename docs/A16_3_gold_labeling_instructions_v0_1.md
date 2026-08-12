@@ -39,73 +39,48 @@ card whose assessment you have previously seen, label it anyway and mark
 
 For each: what the claim IS, what counts, what does not.
 
-### P1. `score` — a reported quantitative result
-- **Present:** at least one benchmark result with a numeric value under an
-  eval heading (table or prose: "MMLU: 78.2").
-- **Absent:** qualitative claims only ("strong performance on reasoning"),
-  or numbers only outside eval scope.
-- Note: P1 anchors the rest. If P1 is `absent`, P2–P7 are `absent` by
-  construction (there is no evaluation evidence to have properties), but
-  still record them explicitly — do not leave blanks.
+<!-- BEGIN property-definitions -->
+### P1. `score` — a reported benchmark score
+- **The claim:** a numeric evaluation result reported for this model.
+- **Present:** a benchmark name with a number attached, in prose or a table.
+- **Absent:** a benchmark named with no result; a result for a different model only.
+- P1 anchors the rest. If P1 is `absent`, P2-P7 are `absent` by construction.
 
-### P2. `uncertaintyStatement` — uncertainty attached to a reported score
-- **Present:** a stderr, CI, ±, variance across runs/seeds, or an explicit
-  statistical qualifier attached to a reported result ("71.3 ± 0.4",
-  "95% CI [69.9, 72.7]", "std across 3 seeds: 0.6").
-- **Absent:** bare point scores; "results may vary" without a quantity;
-  uncertainty stated for someone else's model in a comparison row but not
-  for the subject model.
+### P2. `hasUncertaintyQuantification` — uncertainty attached to a reported score
+- **The claim:** a quantified uncertainty attached to a reported result.
+- **Present:** a stderr, CI, ±, variance across runs/seeds, or an explicit statistical qualifier attached to a reported result ("71.3 ± 0.4", "95% CI [69.9, 72.7]", "std across 3 seeds: 0.6").
+- **Absent:** bare point scores; "results may vary" without a quantity; uncertainty stated for someone else's model in a comparison row but not for the subject model.
 
 ### P3. `samplingAccount` — how eval items relate to the claimed population
-- **The claim:** how the benchmark items were drawn and how they relate to
-  the population the score is read against.
-- **Present:** statements like "evaluated on the full test split",
-  "random 500-item subsample of X", "items stratified by difficulty",
-  or an explicit statement of subset selection and its rationale.
-- **Absent:** merely naming the dataset ("evaluated on MMLU"), item counts
-  with no account of selection ("1,500 questions"), dataset citations.
-  Naming which items came from where is not an account of how they relate
-  to the target population — this is the exact distinction that voided the
-  `provenance.sampling` claim.
+- **The claim:** how the benchmark items were drawn and how they relate to the population the score is read against.
+- **Present:** "evaluated on the full test split"; "random 500-item subsample of X"; "items stratified by difficulty"; an explicit statement of subset selection and its rationale.
+- **Absent:** merely naming the dataset ("evaluated on MMLU"); item counts with no account of selection ("1,500 questions"); dataset citations.
+- Naming which items came from where is not an account of how they relate to the target population - the exact distinction that voided the `provenance.sampling` claim.
 
 ### P4. `harnessDeterminismStatement` — the conditions the scores were produced under
-- **Present:** decoding/eval settings stated FOR the evaluation
-  (temperature, seed, greedy decoding, n-shot regime with sampling config,
-  repeat-run policy): "all evals at temperature 0, 5-shot",
-  "3 runs, greedy".
-- **Absent:** inference recommendations for users ("we suggest
-  temperature 0.6 for thinking mode") anywhere in the card, including
-  when they appear near eval content; harness version alone with no
-  settings.
+- **The claim:** the decoding and run conditions under which the reported numbers were produced.
+- **Present:** decoding/eval settings stated FOR the evaluation (temperature, seed, greedy decoding, n-shot regime with sampling config, repeat-run policy): "all evals at temperature 0, 5-shot", "3 runs, greedy".
+- **Absent:** inference recommendations for users ("we suggest temperature 0.6 for thinking mode") anywhere in the card, including when they appear near eval content; harness version alone with no settings.
+- **Does NOT count:** An n-shot value alone is a PROMPT REGIME, not a measurement policy. `n-shot=0, filter=none` in an lm-eval-harness table states how the prompt was built and is silent on repeats, seeds and decoding - it is `absent`. The present-example's "with sampling config" is load-bearing (CLASS-LMEVAL-P4, upheld 2026-08-11).
 
 ### P5. `nullBaselineStatement` — a chance/null/comprehension-free reference
-- **Present:** an explicit chance or null baseline for at least one
-  reported result ("random baseline: 25%", "majority-class: 51%",
-  "chance level shown in table").
-- **Absent:** comparisons to other models only (a rival model is a
-  comparator, not a null); "significantly above chance" with no stated
-  chance value MAY be `unclear` — see §3.
+- **The claim:** an explicit chance or null reference for a reported result.
+- **Present:** an explicit chance or null baseline for at least one reported result ("random baseline: 25%", "majority-class: 51%", "chance level shown in table").
+- **Absent:** comparisons to other models only (a rival model is a comparator, not a null); "significantly above chance" with no stated chance value MAY be `unclear` - see §3.
 
 ### P6. `claimedCOU` — a stated context of use for the evidence
-- **The claim:** what decision or deployment context the reported
-  evaluation is meant to inform.
-- **Present:** "these results support use for X / are intended to
-  demonstrate fitness for Y", or an eval section explicitly tied to an
-  intended-use statement ("we evaluate on medical QA to assess suitability
-  for clinical information retrieval").
-- **Absent:** a generic intended-use section elsewhere in the card that
-  the eval content never connects to; benchmark scores presented without
-  any statement of what they are evidence FOR. The connection must be
-  stated, not inferable.
+- **The claim:** what decision or deployment context the reported evaluation is meant to inform.
+- **Present:** "these results support use for X / are intended to demonstrate fitness for Y"; an eval section explicitly tied to an intended-use statement ("we evaluate on medical QA to assess suitability for clinical information retrieval").
+- **Absent:** a generic intended-use section elsewhere in the card that the eval content never connects to; benchmark scores presented without any statement of what they are evidence FOR.
+- The connection must be stated, not inferable.
+- **Does NOT count:** A model-level use disclaimer is NOT a claimed COU, however emphatic, and however close to the eval text it sits: "provided for research and development purposes only", "Research use only", "not intended to inform decisions central to human life", "the primary intended users are AI researchers". Each states a boundary on the MODEL with no eval result attached. Naming an audience is likewise absent. A negative COU DOES count when the evaluation is what leads to it ("...render the current model unsuitable for deployment in practical medical applications") - the test is the stated connection, not the polarity.
 
 ### P7. `confoundControlStatement` — capability confound addressed
-- **The claim:** the card addresses whether a measured separation reflects
-  the measured construct rather than general capability.
-- **Present:** capability-matched comparisons, partialling, ablations
-  offered as controls, or an explicit limitation statement doing this work
-  ("gains persist after controlling for model size").
-- **Absent:** raw cross-model comparisons; bigger-model-wins tables;
-  generic limitations boilerplate that does not touch the confound.
+- **The claim:** the card addresses whether a measured separation reflects the measured construct rather than general capability.
+- **Present:** capability-matched comparisons; partialling; ablations offered as controls; an explicit limitation statement doing this work ("gains persist after controlling for model size").
+- **Absent:** raw cross-model comparisons; bigger-model-wins tables; generic limitations boilerplate that does not touch the confound.
+- **Does NOT count:** Declaring MEMBERSHIP in an ablation is not offering one as a control. "This repository contains the evaluation results of the base model... as part of an ablation study", with only this arm's numbers and no comparison, is `absent`. The present-example requires the ablation do the confound work IN THIS CARD - as in "we compare with an ablation model that does not use transliteration" or a LoRA rank chosen "to match trainable params".
+<!-- END property-definitions -->
 
 ## 3. `unclear`, and how to use it
 

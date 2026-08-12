@@ -167,6 +167,24 @@ protocol's 15–30 target, which returns P6 and P7 to the §6 honest-exit
 conversation on a firmer basis than before: not "we could not find positives",
 but "we found them, adjudicated them, and this many survived".
 
+## Correction: the keepers claim is three-family, not two
+
+Recorded because I understated it. Reporting the qualification table as
+"two vendors" conflated two separate claims:
+
+- The **shared-config qualification table** carries two vendors (Meta,
+  DeepSeek), because the Qwen row is excluded on operational scope.
+- The **`hard_assert` keepers claim** is **three families**. The local
+  `ollama/qwen3.5:4b` row passed **13/13**, recorded in commit `cdcf3f94`
+  alongside its own pins, and its backend difference (local Ollama rather than
+  the shared OpenAI-compatible path) is the annotation, not a disqualification.
+
+So the trap set's family-independence cites **Qwen, Llama and DeepSeek**. The
+two claims travel separately and both survive: the qualification table is the
+pinned record of what was run and asserts nothing about capability, while the
+keepers result is a property of the case set that held across every extractor
+tried, including the two whose rates were otherwise failing everything.
+
 **Neither number is authoritative yet.** This read is one pass by the same agent
 that drafted the labels, which is the weakest possible adjudication and is
 recorded as such. It is the input to A16.4's panel, not a substitute for it.

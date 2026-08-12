@@ -22,26 +22,26 @@ inspection. Its findings may not be the basis of a settle decision.
 
 | Extractor | P2 | P5 | P6 | P7 | Qualifies |
 |---|---:|---:|---:|---:|---|
-| `deepseek-ai/DeepSeek-V4-Pro` | 58% | 96% | 80% | 100% | no |
-| `meta-llama/Llama-3.3-70B-Instruct-Turbo` | 18% | 77% | 100% | 100% | no |
+| `deepseek-ai/DeepSeek-V4-Pro` | 58% | 95% | 71% | 100% | no |
+| `meta-llama/Llama-3.3-70B-Instruct-Turbo` | 18% | 75% | 100% | 100% | no |
 
 ## False-clear rate — extraction invented a property the card omits
 
 | Extractor | P2 | P5 | P6 | P7 | hard_assert |
 |---|---:|---:|---:|---:|---|
 | `deepseek-ai/DeepSeek-V4-Pro` | 11% | 0% | 0% | 0% | 13/13 |
-| `meta-llama/Llama-3.3-70B-Instruct-Turbo` | 11% | 50% | 0% | 0% | 13/13 |
+| `meta-llama/Llama-3.3-70B-Instruct-Turbo` | 11% | 33% | 0% | 0% | 13/13 |
 
 ## Configuration pins
 
-| Extractor | prompt | temp | max_tokens | cases | errors | cases file |
+| Extractor | prompt | temp | max_tokens | cases | errors | labels |
 |---|---|---:|---:|---:|---:|---|
-| `deepseek-ai/DeepSeek-V4-Pro` | `aecc9a6f32545163` | 0.0 | 16384 | 116 | 0 | `4db1fd40487d50b0` |
-| `meta-llama/Llama-3.3-70B-Instruct-Turbo` | `aecc9a6f32545163` | 0.0 | 16384 | 116 | 0 | `4db1fd40487d50b0` |
+| `deepseek-ai/DeepSeek-V4-Pro` | `aecc9a6f32545163` | 0.0 | 16384 | 116 | 0 | `da839f8a08e74265` |
+| `meta-llama/Llama-3.3-70B-Instruct-Turbo` | `aecc9a6f32545163` | 0.0 | 16384 | 116 | 0 | `da839f8a08e74265` |
 
 ## Why each unqualified extractor failed
 
-- **`deepseek-ai/DeepSeek-V4-Pro`** — P2 false-fire 58%; P2 false-clear 11%; P5 false-fire 96%; P6 false-fire 80%; P7 false-fire 100%
-- **`meta-llama/Llama-3.3-70B-Instruct-Turbo`** — P2 false-fire 18%; P2 false-clear 11%; P5 false-fire 77%; P5 false-clear 50%; P6 false-fire 100%; P7 false-fire 100%
+- **`deepseek-ai/DeepSeek-V4-Pro`** — P2 false-fire 58%; P2 false-clear 11%; P5 false-fire 95%; P6 false-fire 71%; P7 false-fire 100%
+- **`meta-llama/Llama-3.3-70B-Instruct-Turbo`** — P2 false-fire 18%; P2 false-clear 11%; P5 false-fire 75%; P5 false-clear 33%; P6 false-fire 100%; P7 false-fire 100%
 
 Rates are computed against **machine-drafted** labels (A16.3 amended 2026-08-11). They qualify an extractor; they do not settle a rule. A16.4 finding validity does.

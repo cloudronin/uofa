@@ -330,6 +330,14 @@ def _attach_reported_evidence(bundle: dict, text: str, pack: str, model,
         bundle["_reportedEvidenceError"] = f"{type(exc).__name__}: {exc}"[:300]
         return
 
+    if getattr(evidence, "parse_error", ""):
+        # The extractor produced content the parser could not read. Attaching
+        # nothing here is right, but doing it silently would render as "no
+        # reported evaluation to assess" -- an assertion about the CARD made on
+        # the strength of our own parser's failure.
+        bundle["_reportedEvidenceError"] = f"parse: {evidence.parse_error}"[:300]
+        return
+
     nodes = list(getattr(evidence, "nodes", []) or [])
     if not nodes:
         return
