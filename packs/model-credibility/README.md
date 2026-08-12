@@ -1,4 +1,4 @@
-# MRM-NIST pack
+# model-credibility pack
 
 A model-level AI-documentation factor set and its SHACL profile, anchored on the
 **NIST AI RMF**. It is the *MRM documentation profile* — the documentation slice of

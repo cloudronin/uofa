@@ -553,7 +553,7 @@ def _generate_python_constants(shacl_paths: list[Path]) -> str:
     lines.append("    uofa schema --emit python -o src/uofa_cli/excel_constants.py")
     lines.append("")
     lines.append("That command writes a WHOLE FILE and this one is a hybrid: the")
-    lines.append("MRM-NIST factor set and the base-URI constants are hand-maintained")
+    lines.append("model-credibility factor set and the base-URI constants are hand-maintained")
     lines.append("and are not emitted here. Merge the derived section in rather than")
     lines.append("replacing the file, or those constants are silently lost.")
     lines.append("tests/test_excel_constants_derived.py fails if they go missing.")

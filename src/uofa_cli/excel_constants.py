@@ -4,7 +4,7 @@ DO NOT EDIT the SHACL-derived section below. Regenerate with:
     uofa schema --emit python -o src/uofa_cli/excel_constants.py
 
 That command writes a WHOLE FILE and this one is a hybrid: the
-MRM-NIST factor set and the base-URI constants are hand-maintained
+model-credibility factor set and the base-URI constants are hand-maintained
 and are not emitted here. Merge the derived section in rather than
 replacing the file, or those constants are silently lost.
 tests/test_excel_constants_derived.py fails if they go missing.
@@ -164,7 +164,7 @@ NASA_ONLY_FACTOR_CATEGORIES: list[tuple[str, str]] = [
     ("Use history", "NASA — Capability"),
 ]
 
-# ── MRM-NIST (hand-maintained; mirrors packs/model-credibility/shapes/model_credibility_shapes.ttl) ──
+# ── model-credibility (hand-maintained; mirrors packs/model-credibility/shapes/model_credibility_shapes.ttl) ──
 # NIST AI RMF documentation factor set for the model-card unit. Presence-only
 # (status assessed / not-assessed / scoped-out); no 1-5 levels and no risk tiers,
 # per the pack spec. Grouped by the four RMF functions. NOT emitted by

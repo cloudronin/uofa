@@ -172,8 +172,16 @@ _DET_KEYWORDS: dict[str, tuple[str, ...]] = {
 
 
 def _is_model_credibility(pack: str) -> bool:
-    p = (pack or "").lower()
-    return "model-credibility" in p or "mrm_nist" in p
+    """True for the model-credibility pack under either name.
+
+    Substring matching, not equality, because callers pass the pack slug and
+    occasionally a path containing it. `mrm-nist` is the pre-2026-08-12 name and
+    is accepted for one version via `paths.PACK_ALIASES`; both spellings of the
+    old slug appear in the wild (`mrm-nist` in manifests, `mrm_nist` in file
+    names), so both are matched.
+    """
+    p = (pack or "").lower().replace("_", "-")
+    return "model-credibility" in p or "mrm-nist" in p
 
 
 def deterministic_factor_statuses(text: str, pack: str) -> dict[str, str]:
@@ -211,7 +219,7 @@ def _statuses_to_import_dict(statuses: dict[str, str], pack: str, model_id: str,
         "assurance_level": "Low",
         "standards_reference": "NIST-AI-RMF-1.0" if _is_model_credibility(pack) else None,
         "source_document": source_url or f"https://huggingface.co/{model_id}",
-        "assessor_name": "UofA MRM-NIST assessment",
+        "assessor_name": "UofA model-credibility assessment",
         "has_uq": "No",
     }
     return {"summary": summary, "entities": [], "validation_results": [], "factors": factors,
