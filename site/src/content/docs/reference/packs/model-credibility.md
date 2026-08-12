@@ -1,15 +1,23 @@
 ---
-title: MRM-NIST pack
-description: A NIST AI RMF-anchored documentation factor set and SHACL profile for the model-card unit, run with the 23 core weakener patterns.
+title: model-credibility pack
+description: A NIST AI RMF documentation factor set plus a NIST AI 800-3 evaluation-sufficiency layer, for the model-card unit. 22 factors, 10 pack weakeners, 23 core patterns.
 ---
 
-The **MRM-NIST** pack is a model-level AI-documentation factor set and its SHACL
+The **model-credibility** pack is a model-level AI-documentation factor set and its SHACL
 profile, anchored on the [NIST AI RMF](https://www.nist.gov/itl/ai-risk-management-framework).
-It is the *MRM documentation profile* — the documentation slice of model risk
-management, not the full lifecycle program — applied to the **model-card unit** (one
-model's public documentation).
+It applies to the **model-card unit** (one model's public documentation) and answers
+two questions that are kept strictly apart:
 
-It runs the **23 core weakener patterns with no new rules**. The pack contributes a
+| Group | Question | Standard | Factors |
+|---|---|---|---|
+| **A — documentation completeness** | does this model document itself? | NIST AI RMF 1.0 | 17 |
+| **B — evaluation sufficiency** | are the reported numbers interpretable as evidence? | NIST AI 800-3 | 5 |
+
+Group B is the addition that renamed the pack. A benchmark score with no uncertainty,
+no null baseline and no stated context of use is a number, not evidence — and Group B
+assesses reported results the way ASME V&V 40 assesses a simulation validation study.
+
+It contributes a
 factor taxonomy, a presence-only completeness profile (SHACL), and a per-pack
 weakener→factor focus map. The core engine, shapes, and rules are untouched.
 
@@ -51,10 +59,31 @@ One completeness profile over the factor set: a factor-name enum NodeShape over
 `uofa:CredibilityFactor`, scoped to factors tagged `factorStandard "NIST-AI-RMF-1.0"`
 so it never collides with the vv40/nasa shapes. No level-range shape (presence-only).
 
-## Weakeners — the 23 core patterns, no new rules
+## Weakeners — 10 pack patterns, plus the reachable core subset
+
+The pack declares **10 patterns of its own**, all Group B:
+
+| Pattern | Severity | Fires when |
+|---|---|---|
+| `W-EV-GEN-02` | High | a score is generalized with no superpopulation account |
+| `W-EV-DET-03` | High | no determinism / repeat-run policy stated for the evaluation |
+| `W-EV-NULL-04` | High | the score is not calibrated against a null or chance baseline |
+| `W-EV-COU-05` | Critical / High | no stated context of use for the evidence (Critical when `--cou` scopes a decision) |
+| `W-EV-CAP-06` | Medium | no control for a capability confound |
+| `W-EV-DIV-07` | High | a reported score diverges from an independently furnished one beyond tolerance |
+| `W-EV-SUB-08` | Medium | the measured subject carries no version guarantee |
+| `W-EV-COR-09` | Medium | a reported result is uncorroborated where furnished evidence exists |
+| `COMPOUND-EV-01` | Critical | compound escalation at elevated risk |
+| `COMPOUND-EV-02` | High | a generalized claim with no sampling account |
+
+**The two groups are firewalled by rule structure, not by convention.** Every Group-B
+rule body binds `uofa:hasValidationResult`, so a card with no reported evaluation
+*structurally cannot* trip one — there is no configuration in which a documentation-only
+card produces an evaluation-sufficiency finding. Group A's shapes are gated on a
+matching `factorStandard`, so the two factor sets stay mutually silent.
 
 A model card carries less structure than a V&V assurance package, so only a subset of
-the catalog is reachable. That honest subset is the instrument:
+the **core** catalog is reachable. That honest subset is part of the instrument:
 
 - **Fire on a card:** `W-EP-04` (an undocumented factor at the assumed risk level — the
   main cross-card signal), `W-AL-01` (evaluation without uncertainty quantification),

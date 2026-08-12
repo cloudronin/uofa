@@ -10,7 +10,7 @@ with `PROFILE_URIS.get(profile, PROFILE_URIS["Minimal"])`, so a Disposition row
 would have been relabelled Minimal with no error anywhere.
 
 Separately, `excel_constants.py` is a hybrid: most of it is generated, but the
-MRM-NIST factor set and the base-URI constants are hand-maintained and the
+model-credibility factor set and the base-URI constants are hand-maintained and the
 generator does not emit them. Its own docstring points at a command that writes
 a whole file, so running that command and committing the result deletes them.
 
@@ -69,7 +69,7 @@ def test_profile_name_and_uri_constants_cover_the_same_profiles():
 
 # Present in the checked-in module, absent from the generator's output. If a
 # regeneration is committed wholesale these vanish, and the importer loses the
-# MRM-NIST factor set and starts minting user data under the wrong base URI.
+# model-credibility factor set and starts minting user data under the wrong base URI.
 HAND_MAINTAINED = [
     "MODEL_CREDIBILITY_FACTOR_NAMES",
     "MODEL_CREDIBILITY_FACTOR_CATEGORIES",

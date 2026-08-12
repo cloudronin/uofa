@@ -1,4 +1,4 @@
-"""Refresh the committed MRM-NIST example card snapshots (card.md).
+"""Refresh the committed model-credibility example card snapshots (card.md).
 
 Fetches each suggested example's live README via huggingface_hub and writes it to
 packs/model-credibility/examples/<key>/card.md. These snapshots are the committed reference the

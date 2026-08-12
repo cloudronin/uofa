@@ -1,4 +1,4 @@
-"""MRM-NIST pack: load gate, factorFocus typo guard, curated-card partition, and
+"""model-credibility pack: load gate, factorFocus typo guard, curated-card partition, and
 the R2 firing kill gate.
 
 The R2 gate (model-credibility-demo-build-spec.md §4/§9): at least 6 of the 23 core patterns

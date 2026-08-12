@@ -59,6 +59,26 @@ _NO_PUBKEY = Path("/nonexistent/uofa-report-unsigned.pub")
 
 
 def add_arguments(parser):
+    # The generated CLI reference (site `reference/cli.md`, from `uofa --help-all`)
+    # is the primary reference for most readers, and it carried no examples for
+    # the model-card path -- the flags were listed with nothing showing how they
+    # combine. An epilog reaches both `--help` and the published page.
+    parser.epilog = (
+        "examples:\n"
+        "  uofa report package.jsonld --pack model-credibility\n"
+        "      a saved bundle: deterministic, no extraction\n\n"
+        "  uofa report allenai/OLMo-2-1124-13B-Instruct --pack model-credibility\n"
+        "      a live HuggingFace card: fetch, extract, assess. Section [1] is\n"
+        "      documentation completeness, section [3] evaluation sufficiency.\n\n"
+        "  uofa report owner/model --pack model-credibility --cou 'clinical triage' --mrl 3\n"
+        "      scope the assessment to a decision. --cou raises W-EV-COU-05 to\n"
+        "      Critical; --mrl enables COMPOUND-EV-01. Omitting them is not a\n"
+        "      pass -- the readout states the escalation was not assessed.\n\n"
+        "  uofa report owner/model --pack model-credibility --raidex-hub\n"
+        "      attach independently furnished benchmark results, which is what\n"
+        "      makes reported-vs-furnished divergence (W-EV-DIV-07) expressible.\n"
+    )
+    parser.formatter_class = argparse.RawDescriptionHelpFormatter
     parser.add_argument("source",
                         help="a UofA bundle (.jsonld), an HF model id (owner/model), "
                              "or an HF model URL")

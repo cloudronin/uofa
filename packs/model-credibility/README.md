@@ -1,4 +1,4 @@
-# MRM-NIST pack
+# model-credibility pack
 
 A model-level AI-documentation factor set and its SHACL profile, anchored on the
 **NIST AI RMF**. It is the *MRM documentation profile* — the documentation slice of
@@ -44,7 +44,14 @@ maps to a bundle, and runs the same report. Honesty guardrails:
 The deterministic scan is coarse by design; its divergence from the curated baseline
 is bounded and tracked in `tests/test_report_card.py`, not left to surface live.
 
-## Factor set (17 factors, grouped by RMF function)
+## Factor set — 22 factors in two standards
+
+**Group A (17, NIST AI RMF 1.0)** below, grouped by RMF function. **Group B
+(5, NIST AI 800-3)** is the evaluation-sufficiency layer, documented further
+down. Each factor carries a `factorStandard`, and the SHACL profile is gated on
+it, so the two sets never collide.
+
+### Group A — documentation completeness, grouped by RMF function
 
 Presence-only: each factor is `assessed`, `not-assessed`, or `scoped-out`. There are
 **no 1–5 levels and no risk tiers** (that is the V&V40/NASA unit, not this one). The
@@ -87,11 +94,93 @@ conformance (C2) is the core UofA profile; a card-derived bundle legitimately la
 a bound requirement (and, for an undocumented model, a validation result), so those
 are reported as honest structural findings rather than papered over.
 
-## Weakeners: the 23 core patterns, no new rules
+## Group B — evaluation sufficiency (NIST AI 800-3)
 
-The pack adds **no** weakener rules. The card-derived UofA is evaluated by the 23
-core patterns. A model card carries less structure than a V&V assurance package, so
-only a subset is reachable — that subset is the honest instrument:
+Group A asks whether the model documents itself. **Group B asks whether the
+numbers it reports mean anything.** A benchmark score with no uncertainty, no
+null baseline and no stated context of use is a number, not evidence — and this
+is the layer that renamed the pack.
+
+Five factors, tagged `factorStandard "NIST-AI-800-3"`, and **ten weakener
+patterns of the pack's own**:
+
+| Pattern | Severity | Fires when | Grounding |
+|---|---|---|---|
+| `W-EV-GEN-02` | High | a score is generalized with no superpopulation account | V&V 40 applicability |
+| `W-EV-DET-03` | High | no determinism / repeat-run policy stated for the evaluation | Seahaven TRAP 35 |
+| `W-EV-NULL-04` | High | the score is not calibrated against a null or chance baseline | Seahaven null calibration |
+| `W-EV-COU-05` | Critical / High | no stated context of use for the evidence | 800-3 §; Critical when `--cou` scopes a decision |
+| `W-EV-CAP-06` | Medium | no control for a capability confound | Seahaven |
+| `W-EV-DIV-07` | High | a reported score diverges from an independently furnished one beyond tolerance | V&V 40 output comparison |
+| `W-EV-SUB-08` | Medium | the measured subject carries no version guarantee | NASA-7009 configuration control |
+| `W-EV-COR-09` | Medium | a reported result is uncorroborated where furnished evidence exists | 800-3 independence |
+| `COMPOUND-EV-01` | Critical | compound escalation at elevated declared risk | — |
+| `COMPOUND-EV-02` | High | a generalized claim with no sampling account | — |
+
+### The firewall is rule structure, not convention
+
+**Every Group-B rule body binds `uofa:hasValidationResult.`** A card with no
+reported evaluation therefore *structurally cannot* trip one — there is no flag,
+no configuration, and no card content that produces an evaluation-sufficiency
+finding on a documentation-only card. Group A's shapes are gated on a matching
+`factorStandard`, so the two factor sets stay mutually silent in the other
+direction.
+
+The readout says **"no reported evaluation to assess"**, which is a different
+claim from finding nothing wrong and is rendered differently.
+
+### Reported vs furnished
+
+`evidenceSource` separates a score the card's authors published (`reported`) from
+one an independent run produced (`furnished`). Two things depend on it:
+
+- **`W-EV-DIV-07`** is only expressible because both can exist for one
+  constituent. When they disagree beyond tolerance, that is a finding *about the
+  record*. It does **not** establish which number is correct, and the rule's
+  wording does not imply it does.
+- **`W-EV-COR-09`** fires on a reported result that furnished evidence does not
+  corroborate — and its body requires furnished evidence to exist, so it cannot
+  fire on a card nobody has independently measured.
+
+Tolerance is `DIV_TOLERANCE_NORMALIZED = 5.0` points normalized, used where the
+furnisher publishes no uncertainty of its own. The constant is derived, not
+chosen: bbq's `acc_stderr` of 0.04083 at n=150 is 4.08 points normalized, so a
+tighter bar would fire on sampling noise at the furnisher's own sample size.
+
+### Where the property definitions live
+
+`properties/P1..P7.json` is the **single source** for what each Group-B property
+means. The labeling instruction sheet and the extraction prompt both *render*
+from it, and `tests/test_property_definitions_are_one_source.py` asserts
+byte-identity.
+
+That machinery exists because they once drifted: the sheet counted "ablations
+offered as controls" while the prompt named neither ablations nor limitation
+statements, and three model families scored 100% false-fire on P7 as a direct
+result. Two faithful paraphrases of one intent drift because nothing holds them
+together. They no longer paraphrase.
+
+### Extraction routing
+
+Group-B evidence is read by structure, not by one path:
+
+| Evidence | Route | Status |
+|---|---|---|
+| table-borne (a `Stderr` column, `71.3 ± 0.4` in a cell) | **keyless field read**, no model | qualified: false-fire 2/27, false-clear 1/33 on 60 unseen cards |
+| prose-borne | LLM extraction, backend required | unresolved; 44–100% miss depending on property |
+| relational (`claimedCOU`, `confoundControlStatement`) | adjudication panel | pre-committed — extraction may propose, nothing renders without panel confirmation |
+
+The keyless route is **v1 and immutable**: its qualification row reports
+measurements of that exact logic, so its two published defects — compound
+dispersion headers (`reward_std`) unread, and a standalone `SE` metric column
+misread as standard error at a measured 3% — stay published rather than patched.
+Any improvement is v2 against a fresh holdout draw.
+
+## Weakeners — the reachable core subset
+
+Besides its own ten, the card-derived UofA is evaluated by the 23 **core** patterns.
+A model card carries less structure than a V&V assurance package, so only a subset of
+those is reachable — and that subset is part of the honest instrument:
 
 **Fire on card-derived documents**
 
@@ -144,8 +233,29 @@ committed `card.md` snapshots that test reads.
 
 Refresh the committed card snapshots: `python packs/model-credibility/examples/_generate.py`.
 
-## Scope
+## Source pinning
 
-This is the demo pack: a factor set + SHACL profile + a curated 3-card run. The
-open-model corpus study (the 32K-card scale run and its analysis) is separate and not
-part of this pack.
+Assessing an artifact you do not control means recording which bytes you read.
+`sourcePin` carries two kinds, supporting different claims:
+
+- **artifact pin** — supports *re-derivation*. For a HuggingFace card this is the
+  `README.md` **blob oid**, never the repo sha: a repo sha moves when any file in
+  the repo changes, so pinning it would mark a byte-identical card stale on a
+  weights re-upload — a badge going amber for a reason the reader cannot see.
+- **occasion pin** — supports *re-performance only*. A hosted endpoint's identity
+  is what the provider asserts and can change under a stable name with nothing to
+  diff, so a furnished score pins when it was measured and records that the
+  assessor did not verify the subject.
+
+## Scope, and what is gated
+
+This pack ships the factor sets, the SHACL profile, the ten Group-B weakeners and
+the extraction routing. **Public report cards and badges are specified but gated
+behind catalog closure** (addendum v0.5, A16.9): no rule enters the v1.0 catalog
+until its finding-validity rate is adjudicated, and no card is published before
+that.
+
+The validation apparatus — corpora, labeling protocol, extractor qualification,
+holdout gates — lives in `studies/taxonomy-validation/`. Its records pin paths
+and hashes as they were at measurement time and are deliberately **not** updated
+by later renames; see `studies/PACK-RENAME-NOTE.md`.

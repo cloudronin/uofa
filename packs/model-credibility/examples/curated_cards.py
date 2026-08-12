@@ -1,4 +1,4 @@
-"""Curated card encodings for the MRM-NIST demo (S0, the 3-card run).
+"""Curated card encodings for the model-credibility demo (S0, the 3-card run).
 
 Source-grounded, human-curated factor statuses for three real open-model cards,
 derived by reading each card's live README (fetched via huggingface_hub). This is
@@ -6,7 +6,7 @@ the "curate" half of the locked extraction choice: the factor statuses below are
 human reading of the real card text, committed with provenance — the same
 discipline as the Morrison reviewer fixtures (tests/space/fixtures/_generate.py).
 
-Per-card statuses partition the 17 MRM-NIST factors into:
+Per-card statuses partition the 17 model-credibility factors into:
   - assessed     : the card contains explicit content for the factor
   - not_assessed : the card is silent (a genuine documentation gap; fires W-EP-04
                    at the disclosed MRL 3 assumption)
@@ -268,11 +268,11 @@ def build_import_dict(card: Card) -> dict:
         "standards_reference": "NIST-AI-RMF-1.0",
         # Honest packaging provenance so the Complete profile's wasDerivedFrom /
         # wasAttributedTo are satisfied: the assessment is derived from the public
-        # HF model repo and attributed to the UofA MRM-NIST profile. This leaves
+        # HF model repo and attributed to the UofA model-credibility profile. This leaves
         # only the genuine card gaps (no bound requirement; empty card -> no
         # dataset/validation) as structural findings, which W-SI-02 also flags.
         "source_document": f"https://huggingface.co/{card.model_id}",
-        "assessor_name": "UofA MRM-NIST assessment",
+        "assessor_name": "UofA model-credibility assessment",
         "has_uq": card.has_uq,
     }
 

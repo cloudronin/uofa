@@ -10,7 +10,10 @@ contributors and for finding things during active iteration.
 | `src/uofa_cli/` | The `uofa` CLI Python package + adversarial generation pipeline | Active |
 | `src/weakener-engine/` | Apache Jena rule engine subproject (Java; produces the JAR shipped in the wheel) | Stable |
 | `tests/` | Pytest test suite + adversarial fixtures (~181 prompt snapshots) + `tests/corpus/` (Pre-Tester QA Corpus v2 builders) | Active |
-| `packs/` | Pack-specific assets (rules, shapes, examples, templates) for `core`, `vv40`, `nasa-7009b` | Active |
+| `packs/` | Pack-specific assets (rules, shapes, examples, templates, prompts) for `core`, `vv40`, `nasa-7009b`, `iso42001`, `surrogate`, `disposition`, `model-credibility` | Active |
+| `packs/model-credibility/properties/` | The **single source** for the seven Group-B property definitions. The labeling sheet and the extraction prompt both *render* from these; `tests/test_property_definitions_are_one_source.py` asserts byte-identity | Active |
+| `src/uofa_cli/furnishers/` | Group-B evidence adapters — `raidex` (structured, deterministic), `card_prose` (prose, backend-required), `table_uq` (the gated keyless table route), `pins` (A9.1 source pinning) | Active |
+| `studies/` | Committed measurement records: corpora, labeling protocols, extractor qualification, holdout gates. **Their pins state what was read at measurement time and are deliberately not updated by later renames** — see `studies/PACK-RENAME-NOTE.md` | Active |
 | `spec/` | **v0.5 schema definitions** — JSON-LD context, JSON Schema, SHACL shapes. NOT to be confused with `dev/specs/`. See [spec/specs naming](#specspecs-naming). | Stable |
 | `dev/specs/` | **Adversarial spec YAMLs** for the `uofa adversarial run` corpus generator. NOT to be confused with `spec/`. | Active |
 | `dev/tools/phase2_5/` | Phase 2.5 catalog refinement tooling (rule-tightening loop, corpus regen, audits) | Active |

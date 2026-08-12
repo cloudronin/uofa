@@ -17,11 +17,18 @@ HELP = "list all weakener patterns across active packs"
 # patternId + severity + schema:description in the tail. The variable name
 # (?ann, ?esc, ?override, …) varies across rules, so the regex binds on the
 # pattern-id and severity literals.
+# Pattern ids come in two shapes and BOTH must parse:
+#   digit-suffixed  W-AL-01, W-EV-GEN-02, COMPOUND-02, COMPOUND-EV-01
+#   word-suffixed   W-AIMS-AUDIT-STALE, W-AIMS-IMPACT-SCOPE   (iso42001)
+# and the header may be box-drawing decorated: "# -- W-EV-COU-05: ...".
+# The original grammar only expressed the two-segment form, so the entire
+# model-credibility pack -- 10 shipped rules -- was absent from the public
+# catalog, SILENTLY: the parser returned [] and the pack simply did not appear.
 _RULE_BLOCK = re.compile(
-    r"^\s*#\s*(?P<title>W-[A-Z]+-\d{2}|COMPOUND-\d{2})[^:\n]*:\s*(?P<summary>[^\n]*)$"
+    r"^\s*#\s*[─-╿\-—\s]*(?P<title>W-(?:[A-Z]+-)+(?:\d{2}|[A-Z]+)|COMPOUND-(?:[A-Z]+-)?\d{2})[^:\n]*:\s*(?P<summary>[^\n]*)$"
     r"(?:[^[]*\[\s*\w+\s*:\s*)"
     r"(?:.*?)"
-    r"\(\?\w+\s+uofa:patternId\s+'(?P<pid>W-[A-Z]+-\d{2}|COMPOUND-\d{2})'\).*?"
+    r"\(\?\w+\s+uofa:patternId\s+'(?P<pid>W-(?:[A-Z]+-)+(?:\d{2}|[A-Z]+)|COMPOUND-(?:[A-Z]+-)?\d{2})'\).*?"
     r"\(\?\w+\s+uofa:severity\s+'(?P<severity>Critical|High|Medium|Low)'\).*?"
     r"(?:\(\?\w+\s+schema:description\s+'(?P<description>[^']*)'\)|\])",
     re.DOTALL | re.MULTILINE,
@@ -79,6 +86,19 @@ def _active_with_core(args) -> list[str]:
     return ordered
 
 
+def _declared_pattern_ids(pack_name: str) -> set[str]:
+    """patternIds the manifest claims, for cross-checking what the parser found."""
+    try:
+        manifest = paths.pack_manifest(pack_name)
+    except FileNotFoundError:
+        return set()
+    out: set[str] = set()
+    for cap in manifest.get("capabilities") or []:
+        for pid in (cap.get("payload") or {}).get("patternIds") or []:
+            out.add(pid)
+    return out
+
+
 def _parse_rules_for_pack(pack_name: str) -> list[dict]:
     try:
         manifest = paths.pack_manifest(pack_name)
@@ -95,6 +115,7 @@ def _parse_rules_for_pack(pack_name: str) -> list[dict]:
         return []
 
     raw = rules_path.read_text()
+    _declared = _declared_pattern_ids(pack_name)
     # Strip comment-only rule bodies so deferred rules (e.g. COMPOUND-02,
     # commented-out block) don't appear in the active catalog. Preserves
     # header comments (they document the rule) but removes rule bodies that
@@ -120,6 +141,21 @@ def _parse_rules_for_pack(pack_name: str) -> list[dict]:
             "severity": m.group("severity"),
             "description": m.group("description") or m.group("summary") or "",
         })
+
+    # A pack whose manifest DECLARES patternIds the parser did not find is the
+    # catalog silently under-reporting a shipped pack -- which is exactly what
+    # happened: the id grammar could not express `W-EV-GEN-02` or
+    # `W-AIMS-AUDIT-STALE`, so model-credibility (10) and 12 of iso42001's 15
+    # were absent from the public catalog and nothing said so. Absence of a
+    # parse is not absence of a rule (AGENTS.md s13).
+    missing = _declared - {r["patternId"] for r in records}
+    if missing:
+        raise ValueError(
+            f"pack '{pack_name}' declares patternIds the catalog parser could "
+            f"not find: {sorted(missing)}. Either the rules file lost them or "
+            f"the id grammar in _RULE_BLOCK cannot express them. The catalog "
+            f"must not ship a pack it has silently under-read."
+        )
     return records
 
 

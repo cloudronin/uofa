@@ -212,6 +212,14 @@ def _render_help_all(
             "",
         ])
 
+        # A parser's epilog is where its worked examples live, and the generated
+        # page is the primary reference for most readers. Rendering only the
+        # option table gave them a flag list with nothing showing how the flags
+        # combine -- which is exactly what someone consults the reference for.
+        epilog = (getattr(sp, "epilog", "") or "").strip()
+        if epilog:
+            lines.extend(["```text", epilog, "```", ""])
+
         rows = _option_rows(sp)
         if rows:
             lines.extend([

@@ -79,7 +79,41 @@ packs/
       hybrid/                            # COU1 (low-risk) + COU2 (high-risk) hybrid case study
         cou1/uofa-iso42001-cou1.jsonld
         cou2/uofa-iso42001-cou2.jsonld
+  surrogate/                    # Surrogate / ML-model interrogation (3 patterns)
+    shapes/surrogate_shapes.ttl
+    rules/surrogate_weakener.rules         # 3 SIP patterns
+  disposition/                  # Profile disposition — shapes only, declares no rules
+    shapes/disposition_shapes.ttl
+  model-credibility/            # NIST AI RMF + NIST AI 800-3, for the MODEL-CARD unit
+    pack.json                              # declares 10 patternIds, all Group B
+    shapes/model_credibility_shapes.ttl    # 17 Group-A factors + 5 Group-B,
+                                           # each gated on its factorStandard
+    rules/model_credibility_weakener.rules # W-EV-* evaluation-sufficiency weakeners
+    properties/P1..P7.json                 # SINGLE SOURCE for the seven Group-B
+                                           # properties — the labeling sheet and the
+                                           # extraction prompt both RENDER from these
+    prompts/
+      model_credibility_extract_prompt.txt # Group-A factor extraction
+      card_eval_extract_prompt.txt         # Group-B reported-evidence extraction
+    examples/                              # curated model-card encodings
 ```
+
+### The model-credibility pack is different in kind
+
+The other packs assess an assurance **package a team authored**. This one assesses a
+**published model card** — someone else's artifact, not written for assessment. Two
+consequences worth knowing before reading its rules:
+
+- **Two firewalled groups.** Group A (17 factors, NIST AI RMF 1.0) asks whether the
+  model documents itself. Group B (5 factors, NIST AI 800-3) asks whether its reported
+  numbers are interpretable as evidence — a score with no uncertainty, no null baseline
+  and no stated context of use is a number, not evidence. Every Group-B rule body binds
+  `uofa:hasValidationResult`, so a card with no reported evaluation **structurally
+  cannot** trip one. The firewall is rule structure, not convention.
+- **Evidence can be furnished, not only reported.** `evidenceSource` separates a score
+  the card's authors published (`reported`) from one an independent run produced
+  (`furnished`). That distinction is what makes `W-EV-DIV-07` — reported-versus-furnished
+  divergence beyond tolerance — expressible at all.
 
 **Calibration packages** for the OOS rules live at `specs/calibration/packages/cal-aims-001..008-*.jsonld` (mirroring V&V 40's cal-021..025 convention). Each cal-aims-NNN is hybrid-construction and targets exactly one OOS rule's missing-evidence pattern.
 

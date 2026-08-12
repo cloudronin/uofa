@@ -30,8 +30,16 @@ from uofa_cli.excel_mapper import slugify
 
 
 def _is_model_credibility(pack: str) -> bool:
-    p = (pack or "").lower()
-    return "model-credibility" in p or "mrm_nist" in p or "model-credibility" in p
+    """True for the model-credibility pack under either name.
+
+    Substring matching, not equality, because callers pass the pack slug and
+    occasionally a path containing it. `mrm-nist` is the pre-2026-08-12 name and
+    is accepted for one version via `paths.PACK_ALIASES`; both spellings of the
+    old slug appear in the wild (`mrm-nist` in manifests, `mrm_nist` in file
+    names), so both are matched.
+    """
+    p = (pack or "").lower().replace("_", "-")
+    return "model-credibility" in p or "mrm-nist" in p
 
 
 def expected_factors(pack: str) -> list[str]:
