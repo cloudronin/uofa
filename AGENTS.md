@@ -522,6 +522,20 @@ them raised an error.
   moment of consumption. Captured later, it silently attests to a different
   artifact and is worse than no pin, because it invites trust.
 
+- **No aggregation, verdict, or summary may render an unmeasured or unexercised
+  thing as passed. Absence of measurement is its own state and must display as
+  one.**
+  **Why:** caught three times in one study, each time wearing a different coat.
+  A holdout arm reported PASS on 0/69 while the branch under test never executed,
+  because no case in the population could reach it. A fixture drifted from the
+  labels it copied and kept passing, asserting a stale expectation. An aggregator
+  printed a bare `yes` beside three empty columns, having scored an unmeasured
+  property as a cleared one. Same shape every time: **absence of signal rendered
+  as success**, which is strictly worse than a failure because it terminates
+  inquiry. The remedy is display, not arithmetic — the verdict became `P2 only`,
+  the arm's pass was withdrawn as vacuous, the fixture gained a source check. If
+  a thing was not measured, say so where the result is read.
+
   **A check's target can move, and the fail-it-once step is the only thing that
   notices.** Note what this is an instance of: a dependency upgrade silently
   converted a hard failure into a soft one, degrading an assurance property (the

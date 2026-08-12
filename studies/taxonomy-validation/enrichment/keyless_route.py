@@ -1,5 +1,32 @@
 """The keyless table route for P2 uncertainty, frozen for the holdout gate.
 
+## ROUTE VERSION 1 — IMMUTABLE. Gated 2026-08-12.
+
+**A gated route version is frozen permanently.** Its measured properties, good
+and bad, are what the qualification row asserts, and editing it would silently
+change what that row means.
+
+**Published defects of v1** (found by the holdout, deliberately NOT repaired):
+
+1. **Compound dispersion headers are not read.** `HEADER` is anchored, so
+   `reward_std` / `reward_mean` do not match. Cost: 2 of 27 holdout false-fires.
+2. **A standalone `SE` metric column is misread as standard error.** Measured on
+   `UE|PoE|PlE|SE|EE`, where the route returned `93.75`. Cost: 1 of 33 holdout
+   false-clears (3.0%).
+
+   **Production consequence, stated on the qualification row:** this false-clear
+   mode credits a card with an uncertainty it does not state, which **silences
+   W-AL-01 on that card**, at a measured 3%.
+
+   The obvious fix — "93.75 is too large to be a standard error" — is refused on
+   doctrine, not on difficulty. The moment the route reasons about magnitude it
+   stops being a field read and becomes inference, which is the backend's job
+   under D2. A deterministic reader that guesses is neither.
+
+**Any improvement is route v2**, and v2 qualifies against a **new holdout draw** —
+never against rows 2, 29 or 41, which caught v1. Repairing against the cases that
+found a defect is the in-sample loop the gate exists to break.
+
 **This is the route exactly as developed in-sample.** It is committed here,
 unchanged, BEFORE being scored against the holdout labels, so the gate scores a
 fixed artifact rather than one that could be adjusted after seeing which cases it
@@ -13,6 +40,12 @@ Two branches, both field reads:
             value are rows apart, so the inline branch cannot see it. This is the
             branch that was REPAIRED in-sample after eight misses, which is why
             the holdout draw over-samples it.
+
+**Branch redundancy is MEASURED SERENDIPITY, not designed coverage.** On the
+holdout's two `_`-separator rows -- where a pipeline mangled `±` into `_` -- the
+inline branch failed and the columnar branch caught both, because it keys on the
+header and never needed the glyph. That was not designed and must not be relied
+on: a future format that defeats both branches has no third to fall back to.
 
 Reading a value out of a `Stderr` column infers nothing, which is what makes this
 legitimate under D2 ("structured input reads deterministically; prose requires a

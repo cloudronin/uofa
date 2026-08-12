@@ -280,6 +280,14 @@ def card_to_bundle(text: str, pack: str, *, model_id: str, source_url: str | Non
     assign_factor_ids(bundle)
     _attach_reported_evidence(bundle, text, pack, model, llm_config,
                               allow_llm, model_id, source_url)
+    # AFTER both paths: Group-A extraction and the Group-B prose path each
+    # contribute ValidationResults, and the table route must see whichever
+    # exists. Placing this inside the prose branch meant it never ran when prose
+    # extraction returned nothing -- which is the common case, since a minimal
+    # card yields a Group-A node and no prose blocks.
+    from uofa_cli.furnishers import card_eval as _ce
+    _attach_table_uncertainty(bundle.get("hasValidationResult") or [],
+                              _ce.scoped_text(text, pack))
     return bundle, provenance, sufficiency_assessed
 
 
@@ -343,3 +351,23 @@ def _attach_reported_evidence(bundle: dict, text: str, pack: str, model,
         return
     bundle["hasValidationResult"] = list(
         bundle.get("hasValidationResult") or []) + nodes
+
+
+def _attach_table_uncertainty(nodes: list, scoped: str) -> None:
+    """Fill an uncertainty the backend missed, from the gated table route.
+
+    **Only when the card yields exactly ONE result node.** The route was gated on
+    a CARD-level question -- "do these eval tables state a dispersion" -- and a
+    `ValidationResult` is per-benchmark. A card reporting five benchmarks with a
+    stderr on one would have that value attached to all five, asserting four
+    things nobody measured. Where one node exists, card-level and node-level
+    coincide and the reading transfers exactly.
+
+    This is a real coverage limit, not a conservative default: a per-benchmark
+    route is a different instrument needing its own gate, and the multi-node case
+    stays with the backend until one exists.
+    """
+    if len(nodes) != 1:
+        return
+    from uofa_cli.furnishers import table_uq
+    table_uq.attach(nodes[0], scoped)
