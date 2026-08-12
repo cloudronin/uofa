@@ -278,4 +278,96 @@ def card_to_bundle(text: str, pack: str, *, model_id: str, source_url: str | Non
 
     bundle = map_to_jsonld(data, packs=[pack], source_path=Path(model_id))
     assign_factor_ids(bundle)
+    _attach_reported_evidence(bundle, text, pack, model, llm_config,
+                              allow_llm, model_id, source_url)
+    # AFTER both paths: Group-A extraction and the Group-B prose path each
+    # contribute ValidationResults, and the table route must see whichever
+    # exists. Placing this inside the prose branch meant it never ran when prose
+    # extraction returned nothing -- which is the common case, since a minimal
+    # card yields a Group-A node and no prose blocks.
+    from uofa_cli.furnishers import card_eval as _ce
+    _attach_table_uncertainty(bundle.get("hasValidationResult") or [],
+                              _ce.scoped_text(text, pack))
     return bundle, provenance, sufficiency_assessed
+
+
+def _attach_reported_evidence(bundle: dict, text: str, pack: str, model,
+                              llm_config, allow_llm: bool, model_id: str,
+                              source_url: str | None) -> None:
+    """Extract the card's REPORTED evaluation results as ValidationResult nodes.
+
+    The Group-B prose path's production caller. Without it `card_prose` had a
+    prompt and a parser and nothing joining them, so no card ever produced a
+    reported-evidence node and no Group-B weakener could fire on a card --
+    section [3] was permanently "no reported evaluation to assess" for every
+    model without a furnisher record.
+
+    Scoped narrowly on purpose (A16.9): this feeds the validation study's
+    finding adjudication. It touches no public card or badge surface, which stay
+    gated behind catalog closure.
+
+    Silent on absence, never on error-as-absence:
+
+    * No eval section -> nothing attached. A card with no evaluation reports no
+      evaluation, and that is a true reading, not a failure.
+    * No backend -> nothing attached. Prose is where an inferred value could pass
+      as a read one (D2), so a deterministic scan must not supply these.
+    * Extractor raises -> nothing attached, and the reason is recorded on the
+      bundle. An extraction failure is not evidence that the card is silent;
+      conflating the two would let an outage read as a clean absence, which is
+      the same error class as reporting a failed sweep as zero findings.
+
+    Existing nodes are never overwritten -- a furnisher record attached earlier
+    is independent evidence, and DIV-07 needs both sides present to compare them.
+    """
+    if not allow_llm or not (model or llm_config is not None):
+        return
+
+    from uofa_cli.furnishers import card_eval, card_prose
+
+    scoped = card_eval.scoped_text(text, pack)
+    if not scoped.strip():
+        return
+
+    try:
+        evidence = card_prose.extract(
+            scoped, str(bundle.get("id") or model_id),
+            model=model, llm_config=llm_config,
+            source_url=source_url or "", pack=pack)
+    except Exception as exc:
+        bundle["_reportedEvidenceError"] = f"{type(exc).__name__}: {exc}"[:300]
+        return
+
+    if getattr(evidence, "parse_error", ""):
+        # The extractor produced content the parser could not read. Attaching
+        # nothing here is right, but doing it silently would render as "no
+        # reported evaluation to assess" -- an assertion about the CARD made on
+        # the strength of our own parser's failure.
+        bundle["_reportedEvidenceError"] = f"parse: {evidence.parse_error}"[:300]
+        return
+
+    nodes = list(getattr(evidence, "nodes", []) or [])
+    if not nodes:
+        return
+    bundle["hasValidationResult"] = list(
+        bundle.get("hasValidationResult") or []) + nodes
+
+
+def _attach_table_uncertainty(nodes: list, scoped: str) -> None:
+    """Fill an uncertainty the backend missed, from the gated table route.
+
+    **Only when the card yields exactly ONE result node.** The route was gated on
+    a CARD-level question -- "do these eval tables state a dispersion" -- and a
+    `ValidationResult` is per-benchmark. A card reporting five benchmarks with a
+    stderr on one would have that value attached to all five, asserting four
+    things nobody measured. Where one node exists, card-level and node-level
+    coincide and the reading transfers exactly.
+
+    This is a real coverage limit, not a conservative default: a per-benchmark
+    route is a different instrument needing its own gate, and the multi-node case
+    stays with the backend until one exists.
+    """
+    if len(nodes) != 1:
+        return
+    from uofa_cli.furnishers import table_uq
+    table_uq.attach(nodes[0], scoped)

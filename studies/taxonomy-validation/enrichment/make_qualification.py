@@ -1,0 +1,209 @@
+#!/usr/bin/env python
+"""Build the extractor qualification table A16.4 references.
+
+    python studies/taxonomy-validation/enrichment/make_qualification.py
+
+Reads every `specificity/*.json` result and writes `specificity/QUALIFICATION.md`
+as an extractor-sensitivity table -- one row per configuration, each pinning
+model, prompt version and temperature.
+
+**The bar is read from the doc, not defined here.** A16.4's qualification
+section (declared 2026-08-11, before any frontier run) sets false-fire <= 10%
+and false-clear <= 5%, **per property, no averaging**. The thresholds are
+mirrored below as constants so this script can evaluate them; if they ever
+disagree with the doc the doc wins and the constants are the bug.
+
+A mean across properties would let a strong P2 carry a failing P6. Rules settle
+per rule, and a property extraction cannot read is a rule that cannot be
+validated whatever the other three do -- so `qualifies` is an AND over every
+property, and the table shows the per-property detail that produced it.
+
+The baseline row is retained on purpose. A sensitivity table with only the
+winners in it is a marketing artifact.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+from pathlib import Path
+
+# Mirrors A16.4's declared bar. The doc is authoritative.
+MAX_FALSE_FIRE = 0.10
+MAX_FALSE_CLEAR = 0.05
+
+PROPS = ["P2_uncertainty", "P5_null_baseline", "P6_claimed_cou",
+         "P7_confound_control"]
+SHORT = {p: p.split("_")[0] for p in PROPS}
+
+
+def _verdict(rates: dict) -> tuple[str, list[str]]:
+    """Which properties this config qualifies FOR. Returns (verdict, failures).
+
+    An UNMEASURED property is not a passed one. Scoring `--` as a pass let the
+    keyless route -- which has cases for P2 only -- print a bare "yes" beside
+    three empty columns, which reads as "this route qualifies" full stop. A row
+    now says what it qualifies for, or `no`, and a route with no data on a
+    property can never be read as having cleared it.
+    """
+    fails, passed, unmeasured = [], [], []
+    for prop in PROPS:
+        r = rates.get(prop) or {}
+        ff, fc = r.get("false_fire_rate"), r.get("false_clear_rate")
+        if ff is None and fc is None:
+            unmeasured.append(SHORT[prop])
+            continue
+        bad = False
+        if ff is not None and ff > MAX_FALSE_FIRE:
+            fails.append(f"{SHORT[prop]} false-fire {ff:.0%}"); bad = True
+        if fc is not None and fc > MAX_FALSE_CLEAR:
+            fails.append(f"{SHORT[prop]} false-clear {fc:.0%}"); bad = True
+        if not bad:
+            passed.append(SHORT[prop])
+    if not passed:
+        return "no", fails
+    if not fails and not unmeasured:
+        return "**yes** (all)", fails
+    return f"**{'/'.join(passed)} only**", fails
+
+
+def build(results_dir: Path, out: Path) -> dict:
+    rows = []
+    # Prefer a `.corrected.json` when one exists: it carries the same extraction
+    # outputs re-scored against corrected labels, which is the current v1 truth.
+    # The original is kept on disk but must not appear as a second row -- one
+    # extractor, one row, or the table double-counts a config.
+    paths = sorted(results_dir.glob("*.json"))
+    corrected = {q.name.replace(".corrected.json", ".json") for q in paths
+                 if q.name.endswith(".corrected.json")}
+    for path in paths:
+        if path.name in corrected:
+            continue
+        d = json.loads(path.read_text(encoding="utf-8"))
+        ex = d.get("extractor") or {}
+        qual, fails = _verdict(d.get("rates") or {})
+        rows.append({
+            # Two rows can share a model and differ only by prompt. Labelling by
+            # model alone would print the same name twice and invite reading the
+            # pair as a repeat measurement rather than a prompt comparison.
+            "model": (ex.get("model", path.stem)
+                      + (" (v2)" if ".v2." in path.name else "")),
+            "prompt_sha256": ex.get("prompt_sha256", ""),
+            "temperature": ex.get("temperature"),
+            "max_tokens": ex.get("max_tokens"),
+            "n_cases": d.get("n_cases"), "n_errors": d.get("n_errors"),
+            "cases_sha256": d.get("cases_sha256", ""),
+            "rates": d.get("rates") or {},
+            "hard_assert_n": (d.get("hard_assert") or {}).get("n"),
+            "hard_assert_failed": len((d.get("hard_assert") or {}).get("failures") or []),
+            "qualifies": qual, "fails": fails,
+            "label_basis": (d.get("label_basis") or {}).get("sha256", "original"),
+            # A code-pinned row and a prompt-pinned row are categorically
+            # different reproducibility claims. A keyless route has no
+            # temperature, no seed, no prompt hash and no provider availability
+            # -- the pin IS the code. Printing both kinds in one column with no
+            # marker would invite reading them as the same guarantee.
+            "pin_type": ("code" if (ex.get("backend") or "") == "keyless"
+                         else "prompt+model"),
+        })
+
+    def cell(r, prop, key):
+        v = (r["rates"].get(prop) or {}).get(key)
+        return "--" if v is None else f"{v:.0%}"
+
+    L = []
+    L.append("# Extractor qualification record")
+    L.append("")
+    L.append("Referenced by A16.4. Generated by `make_qualification.py` from every")
+    L.append("`specificity/*.json`; do not hand-edit.")
+    L.append("")
+    L.append(f"**Bar (A16.4, declared 2026-08-11 before any frontier run):** "
+             f"false-fire ≤ {MAX_FALSE_FIRE:.0%}, false-clear ≤ {MAX_FALSE_CLEAR:.0%}, "
+             f"**per property, no averaging.**")
+    L.append("")
+    L.append("An extractor that does not qualify may still generate findings for")
+    L.append("inspection. Its findings may not be the basis of a settle decision.")
+    L.append("")
+    # Without this, a table of `no` reads as a capability verdict. It is not one.
+    L.append("> **These rates do NOT measure extractor capability.** The extraction")
+    L.append("> prompt and the labeling sheet define three of four properties")
+    L.append("> differently (`CONSTRUCT-DRIFT.md`, 2026-08-11), so every row below")
+    L.append("> compares two constructs. P7's 100% is the clearest case: the prompt")
+    L.append("> never asks for ablations-as-controls, which is the form most labeled")
+    L.append("> positives take. A separate read of the 20 P6/P7 misses found 13")
+    L.append("> labels sound and 7 too generous, so error sits on both sides.")
+    L.append("> The table is retained as the pinned record of what was run; it does")
+    L.append("> not support a claim about what any model can read.")
+    L.append("")
+    L.append("## False-fire rate — extraction missed a property the card states")
+    L.append("")
+    L.append("| Extractor | " + " | ".join(SHORT[p] for p in PROPS) + " | Qualifies |")
+    L.append("|---|" + "---:|" * len(PROPS) + "---|")
+    for r in rows:
+        L.append(f"| `{r['model']}` | "
+                 + " | ".join(cell(r, p, "false_fire_rate") for p in PROPS)
+                 + f" | {r['qualifies']} |")
+    L.append("")
+    L.append("## False-clear rate — extraction invented a property the card omits")
+    L.append("")
+    L.append("| Extractor | " + " | ".join(SHORT[p] for p in PROPS) + " | hard_assert |")
+    L.append("|---|" + "---:|" * len(PROPS) + "---|")
+    for r in rows:
+        ha = (f"{r['hard_assert_n'] - r['hard_assert_failed']}/{r['hard_assert_n']}"
+              if r["hard_assert_n"] else "--")
+        L.append(f"| `{r['model']}` | "
+                 + " | ".join(cell(r, p, "false_clear_rate") for p in PROPS)
+                 + f" | {ha} |")
+    L.append("")
+    L.append("## Configuration pins")
+    L.append("")
+    L.append("| Extractor | pin type | prompt | temp | max_tokens | cases | errors | labels |")
+    L.append("|---|---|---|---:|---:|---:|---:|---|")
+    for r in rows:
+        L.append(f"| `{r['model']}` | **{r['pin_type']}** | `{r['prompt_sha256']}` "
+                 f"| {r['temperature']} | {r.get('max_tokens') or '--'} | {r['n_cases']} "
+                 f"| {r['n_errors']} | `{r['label_basis']}` |")
+    L.append("")
+    L.append("A **code**-pinned row reproduces from the repository alone: no "
+             "temperature, no seed, no prompt hash, no provider availability. A "
+             "**prompt+model** row reproduces only against a specific model "
+             "serving a specific prompt at a specific temperature. These are not "
+             "the same guarantee and the column exists so they are not read as one.")
+    L.append("")
+    L.append("## Why each unqualified extractor failed")
+    L.append("")
+    any_fail = False
+    for r in rows:
+        if not r["fails"]:
+            continue
+        any_fail = True
+        L.append(f"- **`{r['model']}`** — " + "; ".join(r["fails"]))
+    if not any_fail:
+        L.append("_Every recorded extractor clears the bar._")
+    L.append("")
+    L.append("Rates are computed against **machine-drafted** labels "
+             "(A16.3 amended 2026-08-11). They qualify an extractor; they do not "
+             "settle a rule. A16.4 finding validity does.")
+    L.append("")
+    out.write_text("\n".join(L))
+    return {"rows": rows, "path": out}
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--results", type=Path,
+                    default=Path(__file__).parent / "specificity")
+    ap.add_argument("--out", type=Path, default=None)
+    args = ap.parse_args()
+    out = args.out or (args.results / "QUALIFICATION.md")
+    res = build(args.results, out)
+    for r in res["rows"]:
+        v = r["qualifies"].replace("**", "")
+        print(f"  {r['model']:34s} {v:>14s}"
+              + (f"  ({r['fails'][0]}...)" if r["fails"] else ""))
+    print(f"  -> {res['path']}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

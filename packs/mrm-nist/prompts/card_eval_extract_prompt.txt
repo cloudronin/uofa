@@ -37,12 +37,18 @@ name: <benchmark name exactly as written, e.g. "MMLU" or "GSM8K">
 metric_value: <the reported number, digits only, e.g. 71.2>
 metric_name: <what the number measures if stated, e.g. "accuracy", "pass@1">
 shot_count: <e.g. "5-shot", "0-shot", if stated>
-uncertainty: <stderr, confidence interval or error bar AS STATED, e.g. "+/- 0.4"; blank if absent>
-null_baseline: <a stated chance/random/majority-class baseline for this benchmark; blank if absent>
-harness_determinism: <sampling settings STATED FOR THIS EVALUATION -- temperature, seed, greedy decoding, number of repeat runs; blank if absent>
-sampling_account: <how the evaluated items relate to the full benchmark or to a target population -- subset size, sampling method; blank if absent>
-confound_control: <any stated control for capability confounds, partialling, or capability-matched comparison; blank if absent>
-claimed_cou: <a stated context of use or decision this score is claimed to support; blank if absent>
+# BEGIN property-fields
+uncertainty: <a stderr, CI, ±, variance across runs/seeds, or an explicit statistical qualifier attached to a reported result ("71.3 ± 0.4", "95% CI [69.9, 72.7]", "std across 3 seeds: 0.6"); blank if absent>
+sampling_account: <"evaluated on the full test split"; "random 500-item subsample of X"; "items stratified by difficulty"; an explicit statement of subset selection and its rationale; blank if absent>
+harness_determinism: <decoding/eval settings stated FOR the evaluation (temperature, seed, greedy decoding, n-shot regime with sampling config, repeat-run policy): "all evals at temperature 0, 5-shot", "3 runs, greedy"; blank if absent.
+  DOES NOT COUNT: An n-shot value alone is a PROMPT REGIME, not a measurement policy. `n-shot=0, filter=none` in an lm-eval-harness table states how the prompt was built and is silent on repeats, seeds and decoding - it is `absent`. The present-example's "with sampling config" is load-bearing (CLASS-LMEVAL-P4, upheld 2026-08-11).>
+null_baseline: <an explicit chance or null baseline for at least one reported result ("random baseline: 25%", "majority-class: 51%", "chance level shown in table"); an explicit statement that scores are normalized or calibrated against chance/null performance ("the scores for each task are normalised to account for baseline performance due to random chance") -- a CALIBRATION claim, which satisfies the property even where no chance value is printed, because the null sits at a known reference point on the normalized scale by construction; blank if absent.
+  DOES NOT COUNT: A COMPARATIVE claim is not a calibration claim, and only the second satisfies P5. "+66% vs Random Baseline", "beyond random baseline", "significantly above chance" all assert performance RELATIVE TO an unstated null: they give the gap and never the null, so a reader cannot recover the reference. "Scores are normalised to account for baseline performance due to random chance" asserts the scoring METHODOLOGY incorporates the null. Different constructs. The test is whether the null is recoverable, not whether a number is printed.>
+claimed_cou: <"these results support use for X / are intended to demonstrate fitness for Y"; an eval section explicitly tied to an intended-use statement ("we evaluate on medical QA to assess suitability for clinical information retrieval"); blank if absent.
+  DOES NOT COUNT: A model-level use disclaimer is NOT a claimed COU, however emphatic, and however close to the eval text it sits: "provided for research and development purposes only", "Research use only", "not intended to inform decisions central to human life", "the primary intended users are AI researchers". Each states a boundary on the MODEL with no eval result attached. Naming an audience is likewise absent. A negative COU DOES count when the evaluation is what leads to it ("...render the current model unsuitable for deployment in practical medical applications") - the test is the stated connection, not the polarity.>
+confound_control: <capability-matched comparisons; partialling; ablations offered as controls; an explicit limitation statement doing this work ("gains persist after controlling for model size"); blank if absent.
+  DOES NOT COUNT: Declaring MEMBERSHIP in an ablation is not offering one as a control. "This repository contains the evaluation results of the base model... as part of an ablation study", with only this arm's numbers and no comparison, is `absent`. The present-example requires the ablation do the confound work IN THIS CARD - as in "we compare with an ablation model that does not use transliteration" or a LoRA rank chosen "to match trainable params".>
+# END property-fields
 
 === EXTRACTION_NOTES ===
 notes: <anything you could not resolve: ambiguous model column, unlabelled numbers, a table you skipped and why. One line each.>

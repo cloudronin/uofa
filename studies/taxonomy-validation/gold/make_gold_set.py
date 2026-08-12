@@ -20,11 +20,27 @@ Two properties this script exists to guarantee:
 same pinned corpus draws the same cards, so the sample is a pre-registered draw
 rather than a convenience selection.
 
-**Pinned per row.** Each row carries `row_hash`, the content hash of the card
-text as it appears in the frozen parquet. That is what makes a label
-re-derivable: it identifies WHICH text was labeled, not merely which model.
-Labeling from live HF would silently substitute a different artifact, which is
-why §4 says label from the parquet.
+**Content-pinned, and that is a different job from identifying a row.** Each row
+carries `row_hash`, the content hash of the card text as it appears in the frozen
+parquet. That is what makes a label re-derivable: it identifies WHICH text was
+labeled, not merely which model. Labeling from live HF would silently substitute
+a different artifact, which is why §4 says label from the parquet.
+
+**Two keys, and neither substitutes for the other:**
+
+    row_hash   pins CONTENT (the A9.1 artifact-pin job)
+    card_id    identifies a ROW
+
+`row_hash` is deliberately NOT unique. Cards whose scoped text is byte-identical
+share one hash, correctly -- in the enrichment stratum a single hash covers 27
+empty-template stubs, because they are 27 rows of the same text and a content
+hash should say so. An earlier draft of this docstring claimed rows were "pinned
+per row", which reads as a uniqueness guarantee it never had; any tool keying a
+per-row operation on `row_hash` would silently address a whole cluster.
+
+So: join on `card_id` when you mean a row (label flips, per-case results,
+reconciliation diffs), on `row_hash` when you mean the text (re-deriving a label,
+verifying nothing was substituted).
 
 Labels are written BLANK. This script samples and formats; it does not guess,
 and nothing here consults the extractor -- §"Blindness" requires the labeler

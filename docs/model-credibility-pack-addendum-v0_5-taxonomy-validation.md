@@ -71,6 +71,12 @@ channel.
 
 ## A16.3 Extraction validation (firing correctness)
 
+> **AMENDED 2026-08-11 — there is no gold set.** Both label sets are
+> machine-drafted and commit as such permanently; the confirmed-gold path is
+> dropped. This section is demoted to secondary evidence and its "gold" framing
+> is withdrawn. See *Label status* below, and A16.7's *Re-anchoring on finding
+> validity*. Original text unedited so the change is visible as a change.
+
 RQ3 methodology carried over:
 
 - **Gold set:** 100–150 cards hand-labeled by the author on the seven Group-B
@@ -85,6 +91,33 @@ RQ3 methodology carried over:
   gold/silver labels, with the mentioned-vs-eval-scoped split reported so
   scope leakage is visible per property.
 
+### Label status (amended 2026-08-11)
+
+**Both label sets are machine-drafted, and that is now their permanent,
+committed status.**
+
+| File | Rows | Status |
+|---|---:|---|
+| `studies/taxonomy-validation/gold/gold_labels.csv` | 150 | machine-drafted |
+| `studies/taxonomy-validation/enrichment/enriched_labels.csv` | 147 | machine-drafted |
+
+The directory name `gold/` is kept for path stability; it no longer denotes
+gold-standard labels and the column marker is authoritative over the path.
+
+**The confirmed-gold path is dropped, not deferred.** Earlier drafts marked
+every row `NOT-GOLD-until-human-confirmed`, which promised a confirmation step
+and made the label status read as pending. It is not pending — it is settled at
+machine-drafted. The marker now says so, and the test that asserted the pending
+state is removed in the same change, because a guard against promotion to a
+state that no longer exists guards nothing while looking like diligence.
+
+**Consequence for this section.** Precision and recall against these labels are
+**secondary** evidence, reported with their basis named. They measure agreement
+between two machine readings of the same text — informative about extraction
+consistency, not authoritative about what the card says. A16.4's
+finding-validity rate, adjudicated by the author on fired findings, is the
+settle authority.
+
 ## A16.4 Finding adjudication (firing for the right reasons)
 
 Phase 3 Stage 5 pattern: for a stratified sample of actual firings, judges
@@ -93,6 +126,90 @@ deficiency is (a) present, (b) correctly attributed to the claimant, and
 (c) correctly severity-framed. Disagreements adjudicated, not averaged.
 Output: per-rule finding-validity rate, the number that decides whether a
 rule's *wording* survives even where its firing logic does.
+
+### Extractor qualification (declared 2026-08-11, BEFORE any frontier run)
+
+A16.4 adjudicates findings. A finding caused by extraction failing to read a
+property the card states is not a finding about the card, and a panel spending
+its effort on those is measuring the extractor while appearing to measure the
+rules. So an extractor must **qualify** before its findings reach the panel.
+
+**The bar, declared before the numbers exist:**
+
+| | Threshold | Applied |
+|---|---|---|
+| **False-fire rate** — extraction misses a property the card states | **≤ 10%** | per property |
+| **False-clear rate** — extraction invents a property the card omits | **≤ 5%** | per property |
+
+**Every property must clear both. No averaging across properties.** A mean would
+let a strong P2 carry a failing P6, and a rule settles per rule — a property that
+extraction cannot read is a rule that cannot be validated, whatever the other
+three do.
+
+The asymmetry is deliberate and matches the consequences. A false clear silences
+a warranted weakener: the card looks better than its record supports, and the
+error is invisible. A false fire is a public accusation of an omission the
+publisher did not commit. The false-clear bar is tighter because that error
+cannot be discovered by a reader; the false-fire bar is looser only because
+10% is already generous against the alternative of shipping nothing, and it is
+not a target.
+
+**Why this is written now.** The baseline extractor's numbers already exist
+(`ollama/qwen3.5:4b`: false-fire 46–82%, false-clear 0–11%). The frontier
+comparison has not run. A bar set after those numbers land would be a bar chosen
+to fit the result — the exact post-hoc move the whole A16 apparatus exists to
+prevent, committed at the apparatus's own gate.
+
+Recorded consequence: **the baseline fails this bar on all four properties**, on
+false-fire, by a wide margin. That is a conclusion the bar produces, not a
+premise it was built from.
+
+**Conditional routing for P6 and P7, pre-committed 2026-08-12.** Declared before
+the per-property extraction variant runs, so it cannot be invented to fit the
+result:
+
+> **If the per-property variant also fails the relational pair (P6 `claimedCOU`,
+> P7 `confoundControlStatement`), those two become panel-confirmed-only on the
+> prose path.** Extraction may propose a finding; no `W-EV-COU-05` or
+> `W-EV-CAP-06` finding renders on any card without A16.4 panel confirmation.
+
+This is the conservative design irrespective of the result. False-fire on these
+two is the maximum-reputation-damage direction — a public assertion that a
+publisher omitted something they in fact stated — and both have resisted every
+extraction configuration tried: 71–100% false-fire across three model families,
+two prompt versions, and the prompt carrying the labeling sheet's own text
+verbatim. Panel-gating costs coverage and says why.
+
+**Reasoning models are excluded from this table (operational scope, ruled
+2026-08-11).** A model that spends a 16k-token budget before emitting visible
+content, at multi-hour wall-clock over 116 short cases, is not a shippable
+corpus-scale extraction backend at current economics. `Qwen/Qwen3.5-9B` on
+Together returns `content: ''` with all output in a separate `reasoning` field
+and `finish_reason: length`; the row is withdrawn rather than run. If the
+economics change it enters with its own row, an honest token budget, and a
+reasoning-field-aware parser -- not by quietly raising the cap on the shared
+config.
+
+**Any parameter that can silently truncate output is part of the configuration
+pin**, alongside temperature and seed. `max_tokens` was a hidden constant until
+it truncated a reasoning model into producing nothing; a truncation is a
+different measurement wearing the same hash.
+
+**Property definitions are rendered, not restated (2026-08-11).** The bar above
+is only meaningful if the extractor is asked for what the labeler counts. Both
+the labeling sheet and the extraction prompt now render from
+`packs/mrm-nist/properties/P*.json`, and
+`tests/test_property_definitions_are_one_source.py` asserts byte-identity, so
+the construct drift that invalidated the first frontier comparison cannot recur
+through discipline failure.
+
+**Qualification record.** Results live in
+`studies/taxonomy-validation/enrichment/specificity/QUALIFICATION.md` as an
+extractor-sensitivity table — one row per configuration, each pinning model,
+prompt version and temperature, with the baseline row retained. A16.4 references
+that table to state which extractor produced the findings it adjudicated. An
+unqualified extractor's findings may still be generated and inspected; they may
+not be the basis of a settle decision.
 
 ## A16.5 Construct grounding audit
 
@@ -112,6 +229,11 @@ entering the catalog only through the same validation path. This is the
 Group B.
 
 ## A16.7 Settle criteria (declared now)
+
+> **AMENDED 2026-08-11 — A16 re-anchors on finding validity.** Criterion 1 below
+> is demoted to secondary and its "adjudicated labels" basis is withdrawn. See
+> *Re-anchoring on finding validity* at the end of this section. The original
+> text stands unedited so the change is visible as a change.
 
 A rule **settles** into the v1.0 catalog iff:
 1. firing precision ≥ 0.90 and recall ≥ 0.80 against adjudicated labels, and
@@ -151,6 +273,110 @@ them.
 *clear* is detectable but a false *fire* is not — and the false fire is a public
 accusation about a named vendor's card. Settling four rules with that direction
 untested is not settling them.
+
+### Re-anchoring on finding validity (amended 2026-08-11)
+
+**Ruling.** A16's settle criteria run **primarily on A16.4 finding-validity
+rates, measured on fired findings.** Criterion 1's label-based precision/recall
+is demoted to secondary and its "adjudicated labels" basis is withdrawn.
+
+A16.4 runs **Phase-3-style**: the **panel adjudicates all fired findings**, and
+the author tie-breaks **only** on judge-split cases that pass a pre-declared
+stakes filter. Routing criteria are declared below, before any adjudication
+runs.
+
+**Why.** There are no adjudicated labels and there will not be. Both label sets
+-- `gold/gold_labels.csv` (150 rows) and `enrichment/enriched_labels.csv` (147)
+-- are **machine-drafted**, and as of this amendment they commit as such
+permanently: the confirmed-gold path is dropped rather than left standing as an
+unmet promise. A criterion resting on "adjudicated labels" would rest on drafts
+while reading as though it rested on adjudication -- the precise failure this
+study exists to catch, committed by the study's own settle rule.
+
+**What replaces it.** Adjudication of the findings the system actually emits:
+card plus rendered finding text, judged for whether the stated deficiency is
+present, correctly attributed, and correctly severity-framed (A16.4's existing
+form, unchanged). This is a better instrument, not merely an available one:
+
+- It adjudicates the **output**, not a proxy for it. A label cell that never
+  produces a finding consumes adjudication effort and decides nothing.
+- It is **auditable end to end** -- a reader sees the card, the finding, and the
+  verdict, with no intermediate labeling step to take on trust.
+- It **cannot be satisfied trivially.** A rule that fires unconditionally scores
+  1.00 against a zero-prevalence label set; it scores badly on finding validity
+  the moment a reader looks at what it said about a specific card.
+
+**What the labels are still for.** They are not withdrawn. They remain the
+committed case set (`tests/fixtures/specificity/cases.json`) that bounds the
+search, supplies extraction inputs, and records the false-positive keepers. They
+are simply not the settle authority.
+
+**What this changes elsewhere, stated rather than left to be discovered.**
+
+1. **The 0/150 prevalence headline is a machine-drafted result.** Item 1 of the
+   zero-prevalence path above says the gold set confirmed the two-source
+   convergence "at gold quality on a third population". That phrase is no longer
+   accurate and is withdrawn. The figure stands as a machine-drafted measurement
+   converging with two independently measured populations
+   (`studies/cohort-2026-08` n=427; `studies/card-eval-reporting-2026-08` n=49),
+   which is a weaker claim than the original and is the true one.
+2. **Phase 5's extractor slice moves onto the critical path.** No findings exist
+   to adjudicate until the extractor runs against real cards, so the narrow
+   backend-gated slice is what now unblocks settling. Scope is unchanged: internal
+   instrumentation only, with the public card and badge surfaces still gated
+   behind catalog closure per A16.9.
+3. **The enriched stratum's specificity estimate becomes secondary
+   instrumentation.** It measures extraction behaviour against machine-drafted
+   expectations, is reported as such, and is pinned to the extractor
+   configuration that produced it. It does not settle a rule.
+
+**Open and late-binding.** `rulings_4.csv` remains open. It binds late and
+nothing here waits on it.
+
+### A16.4 adjudication routing (declared 2026-08-11, before any adjudication)
+
+Written before the first finding is adjudicated, for the same reason the sample
+frame was written before the first judge call: a stakes filter chosen after
+seeing which findings split is not a filter, it is a preference.
+
+**Step 1 — the panel adjudicates every fired finding.** No sampling at this
+stage. Panel constitution and calibration bars are A16.3's, unchanged: three
+judges, per-judge agreement ≥80% on the calibration set, pairwise κ ≥ 0.70,
+failing judges replaced rather than averaged.
+
+**Step 2 — the author tie-breaks only on judge-split cases passing the stakes
+filter.** A *split* is any finding on which the panel does not reach unanimity
+on all three A16.4 dimensions (present / correctly attributed / correctly
+severity-framed). A split is routed to the author iff it meets **at least one**:
+
+| Criterion | Operationalized as |
+|---|---|
+| **Download-head** | subject model in the **top decile by downloads** within the fired-findings set, the decile computed on that set and recorded with the draw |
+| **High-confidence split** | judges disagree while **≥2 report confidence at or above their own calibration-set median** — a confident disagreement, not an uncertain one |
+| **Critical severity** | the finding carries `uofa:severity` = `Critical` |
+| **Safety domain** | the finding attaches to a safety-relevant evaluation dimension: `safety`, `security`, `privacy`, `machine_ethics`, or a `strongreject` / `wmdp` / `xstest` constituent |
+
+**Why a filter at all.** Author time is the scarce input. Routing every
+disagreement to the author would make the panel decorative and the author the
+de facto labeler, which is the arrangement this amendment just moved away from.
+The filter spends author attention where a wrong finding costs most: a visible
+model, a confident disagreement, a severe claim, or a safety claim.
+
+**Step 3 — unresolved splits are recorded as `contested`.** Splits that do not
+meet the filter, and filtered splits the author does not resolve, are neither
+dropped nor averaged into a rate. `contested` is a reported outcome with its own
+count.
+
+This matters for what a rate means. A rule may reach a passing finding-validity
+rate on its resolved findings while carrying many contested ones — that is a
+rule whose *wording* is unclear enough that trained judges disagree, which is
+exactly what A16.4 exists to detect. **Contested counts are reported alongside
+every finding-validity rate**, and a rule may not settle on a rate computed over
+a minority of its findings.
+
+**The numeric thresholds above bind now.** The one judgment call is the
+download-head decile; it is declared at the top decile rather than tuned, and if
+it moves, it moves by amendment with the reason recorded, not silently.
 
 **Honest exit.** If the declared search finds no positives for P6 or P7, the
 documented search is the evidence and those rules settle as: *positive class
