@@ -12,9 +12,9 @@ gold set cannot:
 **These tests do not run the extractor.** The prose path is backend-required and
 has no production caller yet, so asserting extractor behaviour would mean
 half-wiring it here. What they do assert is that the case set is still capable of
-testing it -- an excerpt that lost its lure, or a case quietly promoted from
-draft to gold, is a fixture that has stopped measuring anything while continuing
-to pass. That failure mode is the reason this file exists.
+testing it -- an excerpt that lost its lure, or an expectation that drifted
+from the label it copies, is a fixture that has stopped measuring anything while
+continuing to pass. That failure mode is the reason this file exists.
 """
 
 from __future__ import annotations
@@ -67,10 +67,11 @@ def test_every_absent_case_still_carries_its_lure(cases):
 def test_hard_assert_is_confined_to_mechanical_absences(cases):
     """Only mechanically-determined cases may ever fail a test.
 
-    Labels are a claude-assisted draft. "Within ±1 Level is a tolerance band" is
-    a fact about the text; "this card states a context of use" is a judgment
-    awaiting confirmation. Promoting a judgment into hard_assert would let a
-    draft opinion fail the build.
+    Labels are machine-drafted. "Within ±1 Level is a tolerance band" is a fact
+    about the text; "this card states a context of use" is a clause reading.
+    Promoting a reading into hard_assert would let a drafted judgment fail the
+    build -- including the four 2026-08-11 flips, which rest on a clause and
+    correctly did not earn it.
     """
     for c in cases:
         if not c["hard_assert"]:
@@ -121,6 +122,37 @@ def test_row_hashes_are_well_formed(cases):
     bad = [c["card_id"] for c in cases
            if not re.fullmatch(r"[0-9a-f]{16}", c["row_hash"])]
     assert not bad, f"row_hash must tie a label to exact text: {bad}"
+
+
+def test_expectations_match_the_committed_labels(cases):
+    """The case set's `expected` is a COPY of a label, and copies drift.
+
+    They did: correcting the labels (v3 adoption plus four adjudicated flips)
+    left eight cases asserting the pre-correction expectation, so the fixture
+    and the label file disagreed about what the same card states. A measurement
+    scored against the stale copy would have been attributed to the extractor.
+
+    Same failure as the sheet-versus-prompt drift, one layer down. The guard is
+    the same: the copy is checked against its source, every run.
+    """
+    import csv
+    csv.field_size_limit(10 ** 9)
+    labels_path = (_REPO / "studies/taxonomy-validation/enrichment/"
+                   "enriched_labels.csv")
+    if not labels_path.exists():
+        pytest.skip("labels not present")
+
+    labels = {}
+    with labels_path.open(encoding="utf-8") as fh:
+        for row in csv.DictReader(fh):
+            for prop in ENRICHED_PROPERTIES:
+                labels[(row["card_id"], prop)] = (row.get(prop) or "").strip().lower()
+
+    drift = [(c["card_id"], c["property"], c["expected"],
+              labels.get((c["card_id"], c["property"])))
+             for c in cases
+             if labels.get((c["card_id"], c["property"])) not in (None, c["expected"])]
+    assert not drift, f"cases disagree with the committed labels: {drift[:5]}"
 
 
 def test_absent_cases_survive_the_prefilters_own_exclusions(cases):
