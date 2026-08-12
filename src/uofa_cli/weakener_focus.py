@@ -23,7 +23,7 @@ from __future__ import annotations
 
 from uofa_cli import paths
 from uofa_cli.excel_constants import (
-    AI_800_3_FACTOR_NAMES, MRM_NIST_FACTOR_NAMES, NASA_ALL_FACTOR_NAMES,
+    AI_800_3_FACTOR_NAMES, MODEL_CREDIBILITY_FACTOR_NAMES, NASA_ALL_FACTOR_NAMES,
     VV40_FACTOR_NAMES,
 )
 from uofa_cli.excel_mapper import slugify
@@ -31,7 +31,7 @@ from uofa_cli.excel_mapper import slugify
 
 def _is_model_credibility(pack: str) -> bool:
     p = (pack or "").lower()
-    return "mrm-nist" in p or "mrm_nist" in p or "model-credibility" in p
+    return "model-credibility" in p or "mrm_nist" in p or "model-credibility" in p
 
 
 def expected_factors(pack: str) -> list[str]:
@@ -50,7 +50,7 @@ def expected_factors(pack: str) -> list[str]:
     Use `attributable_factors` when you need the names a weakener may implicate.
     """
     if _is_model_credibility(pack):
-        return MRM_NIST_FACTOR_NAMES
+        return MODEL_CREDIBILITY_FACTOR_NAMES
     p = (pack or "").lower()
     if "nasa" in p:
         return NASA_ALL_FACTOR_NAMES
@@ -67,7 +67,7 @@ def attributable_factors(pack: str) -> list[str]:
     weakeners would report into a void.
     """
     if _is_model_credibility(pack):
-        return MRM_NIST_FACTOR_NAMES + AI_800_3_FACTOR_NAMES
+        return MODEL_CREDIBILITY_FACTOR_NAMES + AI_800_3_FACTOR_NAMES
     return expected_factors(pack)
 
 

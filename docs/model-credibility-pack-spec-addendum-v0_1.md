@@ -82,8 +82,8 @@ uofa report owner/model --pack model-credibility \
   decision context, not the model's published record).
 
   **PATCHED 2026-08-10 — both need NEW properties; the obvious ones are already
-  occupied.** An `mrm-nist` bundle already carries `modelRiskLevel: 3` (the
-  disclosed `MRM_NIST_ASSUMED_MRL` posture, set on *every* bundle including the
+  occupied.** An `model-credibility` bundle already carries `modelRiskLevel: 3` (the
+  disclosed `MODEL_CREDIBILITY_ASSUMED_MRL` posture, set on *every* bundle including the
   heuristic path) and an already-synthesized `hasContextOfUse` derived from the
   model id. Keying on either would defeat this section: `greaterThan(?mrl, 2)`
   would be true for every model, so COMPOUND-EV-01 would fire unconditionally —
@@ -211,7 +211,7 @@ artifacts.
    the patched rule, is not an exception to anything — it never inferred.
 3. Presence/absence semantics on Group B, no 1–5 levels.
 4. No new unit type. Benchmark results are `ValidationResult` nodes.
-5. `mrm-nist` alias survives one version; `tests/test_report_card.py` must
+5. `model-credibility` alias survives one version; `tests/test_report_card.py` must
    pass unmodified against the alias before the rename lands.
 6. Rule-property coverage lint (A1) added to pack tests.
 7. **PATCHED** — the pre-defense build gate was lifted on 2026-08-10. This

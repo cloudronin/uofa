@@ -20,7 +20,7 @@ from uofa_cli import card_bundle, hf_card, paths
 from uofa_cli.commands import report
 
 _ROOT = paths.find_repo_root()
-_EX = _ROOT / "packs" / "mrm-nist" / "examples"
+_EX = _ROOT / "packs" / "model-credibility" / "examples"
 sys.path.insert(0, str(_EX))
 from curated_cards import CARDIFF  # noqa: E402
 
@@ -68,7 +68,7 @@ def _card_text() -> str:
 
 def test_deterministic_path_labels_itself_approximate_and_declines_sufficiency():
     bundle, prov, sufficiency = card_bundle.card_to_bundle(
-        _card_text(), "mrm-nist", model_id="cardiffnlp/twitter-roberta-base-sentiment",
+        _card_text(), "model-credibility", model_id="cardiffnlp/twitter-roberta-base-sentiment",
         allow_llm=False)
     assert prov == card_bundle.PROV_HEURISTIC
     assert "approximate" in prov
@@ -92,11 +92,11 @@ def _fake_extract_result():
 def test_llm_path_labels_the_model(monkeypatch):
     monkeypatch.setattr("uofa_cli.llm_extractor.extract", lambda *a, **k: _fake_extract_result())
     bundle, prov, sufficiency = card_bundle.card_to_bundle(
-        _card_text(), "mrm-nist", model_id="acme/widget", model="testbackend/m1", allow_llm=True)
+        _card_text(), "model-credibility", model_id="acme/widget", model="testbackend/m1", allow_llm=True)
     assert prov == "LLM extraction - testbackend/m1"
     assert sufficiency is True                              # LLM path assesses sufficiency
     # the disclosed posture is forced regardless of what the model returned
-    assert bundle["modelRiskLevel"] == card_bundle.MRM_NIST_ASSUMED_MRL
+    assert bundle["modelRiskLevel"] == card_bundle.MODEL_CREDIBILITY_ASSUMED_MRL
 
 
 def test_llm_failure_falls_back_to_heuristic_with_an_honest_label(monkeypatch):
@@ -104,7 +104,7 @@ def test_llm_failure_falls_back_to_heuristic_with_an_honest_label(monkeypatch):
         raise RuntimeError("backend unreachable")
     monkeypatch.setattr("uofa_cli.llm_extractor.extract", _boom)
     _bundle, prov, sufficiency = card_bundle.card_to_bundle(
-        _card_text(), "mrm-nist", model_id="acme/widget", model="testbackend/m1", allow_llm=True)
+        _card_text(), "model-credibility", model_id="acme/widget", model="testbackend/m1", allow_llm=True)
     assert prov == card_bundle.PROV_HEURISTIC_FALLBACK
     assert "fell back" in prov and "approximate" in prov
     assert sufficiency is False                            # fallback declines sufficiency too
@@ -114,7 +114,7 @@ def test_llm_failure_falls_back_to_heuristic_with_an_honest_label(monkeypatch):
 #    see test_run_id_mode_no_card_leads_with_notice) ──────────────────────────
 
 def test_empty_card_yields_zero_assessed():
-    bundle, _prov, _suff = card_bundle.card_to_bundle("", "mrm-nist", model_id="x/y", allow_llm=False)
+    bundle, _prov, _suff = card_bundle.card_to_bundle("", "model-credibility", model_id="x/y", allow_llm=False)
     statuses = {f["factorType"]: f["factorStatus"] for f in bundle["hasCredibilityFactor"]}
     assert not any(s == "assessed" for s in statuses.values())
 
@@ -129,7 +129,7 @@ def test_deterministic_vs_curated_divergence_is_the_known_gap():
     curated = {n: "assessed" for n in CARDIFF.assessed}
     curated.update({n: "not-assessed" for n in CARDIFF.not_assessed})
     curated.update({n: "scoped-out" for n in CARDIFF.scoped_out})
-    det = card_bundle.deterministic_factor_statuses(_card_text(), "mrm-nist")
+    det = card_bundle.deterministic_factor_statuses(_card_text(), "model-credibility")
     diverged = {n for n in curated if det[n] != curated[n]}
     # Bound, not equality: the gap may shrink (parser improves), but no NEW factor may
     # silently start diverging. Catches regressions without firing on benign tweaks.
@@ -142,8 +142,8 @@ def test_deterministic_vs_curated_divergence_is_the_known_gap():
 # ── id mode end to end (needs the engine) ────────────────────────────────────
 
 def _args(source, **over):
-    base = dict(source=source, format="text", output=None, active_packs=["mrm-nist"],
-                pack=["mrm-nist"], repo_root=None, deterministic=True, revision=None,
+    base = dict(source=source, format="text", output=None, active_packs=["model-credibility"],
+                pack=["model-credibility"], repo_root=None, deterministic=True, revision=None,
                 save_bundle=None, no_save_bundle=True, extract_backend=None,
                 extract_model=None, extract_base_url=None)
     base.update(over)

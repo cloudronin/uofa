@@ -69,7 +69,7 @@ class EvalPresence:
 
 
 @lru_cache(maxsize=4)
-def _detection_config(pack: str = "mrm-nist") -> dict:
+def _detection_config(pack: str = "model-credibility") -> dict:
     """Heading and benchmark patterns, from pack data rather than code (A3)."""
     path = paths.pack_dir(pack) / "data" / "eval_detection.json"
     return json.loads(path.read_text(encoding="utf-8"))
@@ -112,7 +112,7 @@ def _is_eval_heading(heading: str, patterns: list[str]) -> bool:
     return any(norm.endswith(" " + pat) for pat in pats)
 
 
-def eval_sections(card_text: str, pack: str = "mrm-nist") -> list[EvalSection]:
+def eval_sections(card_text: str, pack: str = "model-credibility") -> list[EvalSection]:
     """Sections of the card that report its own evaluation, in document order.
 
     A section runs from its heading to the next heading of the same or shallower
@@ -148,7 +148,7 @@ def eval_sections(card_text: str, pack: str = "mrm-nist") -> list[EvalSection]:
     return kept
 
 
-def detect(card_text: str, pack: str = "mrm-nist") -> EvalPresence:
+def detect(card_text: str, pack: str = "model-credibility") -> EvalPresence:
     """Presence-only detection (addendum v0.1 A3).
 
     Never emits ValidationResult nodes and never asserts sufficiency. It decides
@@ -166,7 +166,7 @@ def detect(card_text: str, pack: str = "mrm-nist") -> EvalPresence:
                         benchmarks_named=named, sections=sections)
 
 
-def scoped_text(card_text: str, pack: str = "mrm-nist") -> str:
+def scoped_text(card_text: str, pack: str = "model-credibility") -> str:
     """The card reduced to its evaluation sections, for the prose extractor.
 
     Returns "" when nothing matches, which the caller must treat as "no reported

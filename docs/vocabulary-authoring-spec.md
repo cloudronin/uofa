@@ -197,7 +197,7 @@ alone.
 
 This is not a stylistic preference. `uofa:factorType` and
 `uofa:factorStandard` are each constrained by four different shape files
-(`core`, `vv40`, `nasa-7009b`, `mrm-nist`); `uofa:achievedLevel` and
+(`core`, `vv40`, `nasa-7009b`, `model-credibility`); `uofa:achievedLevel` and
 `uofa:requiredLevel` by three (`core`, `vv40`, `nasa-7009b`). One term, several
 standards. A definition that says "the V&V 40 Table 5-1 factor name" is wrong
 the moment a NASA package uses it, and packages already do.

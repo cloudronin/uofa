@@ -1,12 +1,12 @@
 """Refresh the committed MRM-NIST example card snapshots (card.md).
 
 Fetches each suggested example's live README via huggingface_hub and writes it to
-packs/mrm-nist/examples/<key>/card.md. These snapshots are the committed reference the
+packs/model-credibility/examples/<key>/card.md. These snapshots are the committed reference the
 LLM-vs-deterministic divergence test reads (tests/test_report_card.py). The demo Space
 renders the examples LIVE (fetch + extract + report), not from any committed payload --
 so there is no static state.json/reviewer.html to regenerate here anymore.
 
-Run:  python packs/mrm-nist/examples/_generate.py
+Run:  python packs/model-credibility/examples/_generate.py
 """
 
 from __future__ import annotations

@@ -31,7 +31,7 @@ _ID = re.compile(r"\| (W-EV-[A-Z]+-\d+|COMPOUND-EV-\d+) \|")
 
 @pytest.mark.skipif(not _PREREG.exists(), reason="pre-registration not yet drafted")
 def test_frozen_catalog_is_exactly_what_the_pack_declares():
-    declared = set(paths.detection_config(paths.pack_manifest("mrm-nist"))["patternIds"])
+    declared = set(paths.detection_config(paths.pack_manifest("model-credibility"))["patternIds"])
     frozen = set(_ID.findall(_PREREG.read_text()))
 
     assert frozen, "no rules parsed from the pre-registration catalog table"

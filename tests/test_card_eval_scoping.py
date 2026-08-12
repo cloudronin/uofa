@@ -129,7 +129,7 @@ def test_real_card_slices_to_its_evaluation_sections():
 @pytest.mark.skipif(not _GEMMA.exists(), reason="gemma card fixture absent")
 def test_patterns_live_in_pack_data_not_code():
     """A3 requires the pattern list to move without a release."""
-    cfg = card_eval._detection_config("mrm-nist")
+    cfg = card_eval._detection_config("model-credibility")
     assert "evaluation" in cfg["sectionHeadings"]
     assert "mmlu" in cfg["benchmarkNames"]
 
@@ -145,7 +145,7 @@ def test_patterns_live_in_pack_data_not_code():
         patched = dict(cfg, sectionHeadings=cfg["sectionHeadings"] + ["wholly invented heading"])
         card_eval._detection_config.__wrapped__.__globals__  # noqa: B018  (exists check)
         import unittest.mock as _mock
-        with _mock.patch.object(card_eval, "_detection_config", lambda pack="mrm-nist": patched):
+        with _mock.patch.object(card_eval, "_detection_config", lambda pack="model-credibility": patched):
             found = card_eval.eval_sections(card)
         assert [s.heading for s in found] == ["Wholly Invented Heading"], (
             "adding a heading to pack data did not change behaviour, so the "

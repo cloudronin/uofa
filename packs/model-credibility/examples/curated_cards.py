@@ -22,14 +22,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from uofa_cli.excel_constants import MRM_NIST_FACTOR_NAMES
+from uofa_cli.excel_constants import MODEL_CREDIBILITY_FACTOR_NAMES
 
 # Disclosed assessment posture, shared by every card — single source of truth in
 # uofa_cli.card_bundle so the live path, the `uofa report` id path, and this
 # curated run cannot drift.
 from uofa_cli.card_bundle import (
-    MRM_NIST_ASSUMED_MRL as ASSUMED_MRL,
-    MRM_NIST_RISK_ASSUMPTION as RISK_ASSUMPTION,
+    MODEL_CREDIBILITY_ASSUMED_MRL as ASSUMED_MRL,
+    MODEL_CREDIBILITY_RISK_ASSUMPTION as RISK_ASSUMPTION,
 )
 
 
@@ -220,7 +220,7 @@ CARDS: tuple[Card, ...] = (OLMO, CARDIFF, CHEMBERTA)
 def _validate_partition(card: Card) -> None:
     """Every one of the 17 factors must appear exactly once across the three sets."""
     seen = list(card.assessed) + list(card.not_assessed) + list(card.scoped_out)
-    expected = set(MRM_NIST_FACTOR_NAMES)
+    expected = set(MODEL_CREDIBILITY_FACTOR_NAMES)
     dupes = [n for n in seen if seen.count(n) > 1]
     missing = expected - set(seen)
     extra = set(seen) - expected
@@ -251,7 +251,7 @@ def build_import_dict(card: Card) -> dict:
 
     factors = [
         {"factor_type": name, "status": status_of[name]}
-        for name in MRM_NIST_FACTOR_NAMES
+        for name in MODEL_CREDIBILITY_FACTOR_NAMES
     ]
 
     summary = {

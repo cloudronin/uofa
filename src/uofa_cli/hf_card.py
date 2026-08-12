@@ -4,7 +4,7 @@ fetch the model card. Read-side only — no engine, no extraction here.
 Source detection is conservative: a `.jsonld`/`.json` path or any existing file is a
 local bundle (the deterministic report path, untouched); an `owner/model` id or a
 `huggingface.co/owner/model` URL is the card path; everything else errors. HuggingFace
-*space* and *dataset* URLs are rejected — mrm-nist assesses model cards.
+*space* and *dataset* URLs are rejected — model-credibility assesses model cards.
 """
 
 from __future__ import annotations
@@ -56,7 +56,7 @@ def resolve_source(source: str) -> tuple[str, str]:
         if rest.startswith(("spaces/", "datasets/")):
             kind = rest.split("/", 1)[0][:-1]  # "space" | "dataset"
             return ("error",
-                    f"that is a HuggingFace {kind} URL — mrm-nist assesses model cards "
+                    f"that is a HuggingFace {kind} URL — model-credibility assesses model cards "
                     f"(huggingface.co/owner/model).")
         parts = [p for p in rest.split("/") if p]
         if not parts:

@@ -1,4 +1,4 @@
-# Spec: extend `mrm-nist` into a comprehensive model-credibility pack
+# Spec: extend `model-credibility` into a comprehensive model-credibility pack
 
 **Status:** ACTIVE — being built. The original "POST-OCTOBER, do not build before
 the praxis defense" gate was lifted by explicit decision on 2026-08-10; the code
@@ -14,9 +14,9 @@ now restated against the published records. Where this spec previously described
 machinery the implementation deliberately does not have, the spec was wrong, not
 the implementation.
 
-**Repo:** github.com/cloudronin/uofa. Target pack: `packs/mrm-nist/` (renamed on
+**Repo:** github.com/cloudronin/uofa. Target pack: `packs/model-credibility/` (renamed on
 merge — see §1). Verified against current tree: packs are `core`, `vv40`,
-`nasa-7009b`, `surrogate`, `mrm-nist`, `iso42001`, `disposition`.
+`nasa-7009b`, `surrogate`, `model-credibility`, `iso42001`, `disposition`.
 
 ---
 
@@ -27,7 +27,7 @@ single reviewer runs a single pass over a model and its published evidence, and
 gets both:
 
 - **Documentation completeness** — does this model document itself against the
-  NIST AI RMF (the current `mrm-nist` job, presence-only, 17 factors).
+  NIST AI RMF (the current `model-credibility` job, presence-only, 17 factors).
 - **Evaluation sufficiency** — are the model's *reported benchmark results*
   credible, assessed as validation evidence the way `vv40` assesses a
   simulation validation study, specialized to AI evals via NIST AI 800-3
@@ -47,15 +47,15 @@ sufficiency remain separately addressable *within* the pack. This is not the
 standard's tidiness — it is the honesty guardrail. A model with a card but no
 reported benchmarks must get a clean completeness readout, NOT a wall of
 benchmark-sufficiency weakeners for evals it never claimed. This is the same
-"plausible validates as well as correct" firewall that `mrm-nist` already
+"plausible validates as well as correct" firewall that `model-credibility` already
 implements as its heuristic-vs-LLM tiers. Keep it.
 
 ---
 
 ## 1. Pack identity after merge
 
-- **Rename** `mrm-nist` → `model-credibility` (keep `mrm-nist` as an alias in
-  the pack loader for one version so existing `--pack mrm-nist` invocations and
+- **Rename** `model-credibility` → `model-credibility` (keep `model-credibility` as an alias in
+  the pack loader for one version so existing `--pack model-credibility` invocations and
   `tests/test_report_card.py` don't break; deprecation note in README).
 - **`standards`** in `pack.json` becomes:
   `["NIST-AI-RMF-1.0", "NIST-AI-800-3", "ASME-VV40-2018"]`.
@@ -146,7 +146,7 @@ specialized for evaluations:
 originally read "reported score with no uncertainty / CI · grounding: 800-3;
 parallels W-AL-01." It does not parallel W-AL-01; it *is* W-AL-01. Core's rule
 already fires on `noValue(?result, uofa:hasUncertaintyQuantification)` for any
-`ValidationResult`, and `mrm-nist` already runs all 23 core patterns — so adding
+`ValidationResult`, and `model-credibility` already runs all 23 core patterns — so adding
 W-EV-UQ-01 would report one missing standard error twice under two IDs, which §6
 forbids.
 
@@ -236,14 +236,14 @@ finding about the record.
 | COMPOUND-EV-01 | reported score drives a high-MRL COU decision AND lacks both UQ and null calibration → Critical escalation |
 | COMPOUND-EV-02 | claimed generalized performance AND item-sampling weakener present → the generalization is unsupported by the sample |
 
-Levels: default presence/absence like `mrm-nist`, NOT 1–5. If a levels variant
+Levels: default presence/absence like `model-credibility`, NOT 1–5. If a levels variant
 is wanted later it's a separate profile, not baked in — do not over-build.
 
 ---
 
 ## 4. Extraction
 
-- Group A: existing `mrm-nist` model-card extraction, unchanged. Heuristic tier
+- Group A: existing `model-credibility` model-card extraction, unchanged. Heuristic tier
   keeps declining sufficiency.
 - Group B: new extraction target — a model's **reported evaluation evidence**
   (raidex output, eval card, results table, benchmark section of the model card,
@@ -291,7 +291,7 @@ MODEL CREDIBILITY: owner/model
   extraction: LLM - anthropic/<model>   [or Heuristic - approximate for docs only]
 
   [1] DOCUMENTATION COMPLETENESS  (NIST AI RMF, 17 factors)
-      <existing mrm-nist output>
+      <existing model-credibility output>
 
   [2] EVALUATION SUFFICIENCY  (NIST AI 800-3 / V&V40 validation-evidence)
       <Group-B weakeners, OR "no reported evaluation to assess — N/A">
@@ -318,7 +318,7 @@ sufficiency N/A. Bundle kept in temp cache, re-runnable, `--save-bundle` honored
   `"N/A"`, `null`, and absent all mean absent; none of them may become a number,
   a placeholder string, or a default. This is the same constraint AGENTS.md §13
   states as "a blank that fails loudly is the correct output."
-- **No 1–5 levels on Group B by default.** Presence/absence like `mrm-nist`;
+- **No 1–5 levels on Group B by default.** Presence/absence like `model-credibility`;
   levels are a later opt-in variant if ever.
 - **No new *unit*.** A benchmark result is validation evidence about the model,
   not a separate unit — that is the whole reason this merges into a

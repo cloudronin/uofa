@@ -8,7 +8,7 @@ Two kinds of input, kept apart because they are different claims:
   * **Run context** (`--cou`, `--mrl`) -- what the OPERATOR says this assessment
     is scoped to. Stamped `run-context`. Bound to `decisionContextOfUse` and
     `decisionRiskLevel`, deliberately NOT to the model's own `hasContextOfUse` /
-    `modelRiskLevel`, which mrm-nist bundles already carry with synthesized
+    `modelRiskLevel`, which model-credibility bundles already carry with synthesized
     values (a disclosed MRL-3 posture and a COU derived from the model id).
     Keying rules on those would make COMPOUND-EV-01 fire for every model and pin
     W-EV-COU-05 to Critical forever.

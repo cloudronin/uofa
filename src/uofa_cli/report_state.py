@@ -241,7 +241,7 @@ class ReportState:
     severity_counts: dict        # raw severity key -> count, single source for at-a-glance
     gates: dict
     authenticity: dict
-    # Optional disclosed risk-tier assumption (mrm-nist model cards declare no risk
+    # Optional disclosed risk-tier assumption (model-credibility model cards declare no risk
     # tier, so that profile assesses against an assumed MRL; surfacing it makes
     # W-EP-04 fire against a STATED assumption, not a hidden input). Empty for
     # vv40/nasa, whose risk level is derived from a real context of use.
