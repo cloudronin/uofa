@@ -185,17 +185,53 @@ extraction rather than a failure.
 
 Three things changed before this fork was written, and it is built around them:
 
-1. **P2 table-borne already clears on Llama (8%, n=24).** Aggregate P2 is
-   therefore not a usable signal — a variant could "improve P2" by moving a cell
-   that already passes. **P2 is read on its PROSE cell only** (n=9).
-2. **P5 is not interpretable.** 13 of its 15 prose positives are one house
-   sentence stating no baseline value, arguably failing the sheet's own Present
-   bar. P5 is **reported but excluded from branch selection** until its labels
-   are reviewed.
+1. **P2's covered cell is smaller than it first looked — RECOMPUTED 2026-08-12.**
+   The keyless route passed its holdout and is wired in, but only for cards
+   yielding a **single** result node (it was gated on a card-level question; a
+   `ValidationResult` is per-benchmark). What it actually covers:
+
+   | | n |
+   |---|---:|
+   | P2 positives | 34 |
+   | …table-borne | 25 |
+   | **…single-result → route covers** | **14 (41%)** |
+   | …multi-result → outside the cardinality limit | 11 |
+
+   **The P2 residue the arms compete on is 20, not 9** — 9 prose plus 11
+   multi-result table cards. It more than doubled. An earlier draft carried
+   "24 of 33 table-borne positives" as though the route covered them all; that
+   was the optimistic residue, and the arms would have been credited for a cell
+   the route does not reach.
+
+   Counting is structural — data rows carrying a numeric cell, excluding headers
+   and separators. A proxy for node count, not a run of the extractor, and
+   labeled as one.
+2. **P5 is now interpretable — the review happened and went the other way.**
+   The 13 SEA-LION rows were proposed for flipping and **kept**, on construct
+   grounds: "scores are normalised to account for baseline performance due to
+   random chance" is a CALIBRATION claim, and W-EV-NULL-04's grounding asks
+   whether a score is calibrated against a null. The **sheet** was amended, not
+   the labels. P5 stands at 19 positives and **rejoins branch selection**.
+
+   One consequence for reading v2 rows: they were scored before the amendment, so
+   their P5 numbers sit at the narrower construct. This is part of why all three
+   arms re-run at v3.
 3. **P6/P7 are prose-only (0 table positives).** "Relational" and "prose-borne"
    are perfectly confounded for them and this variant cannot separate the two.
    Both branches below are worded so neither claims to.
+4. **The population is prose PLUS uncovered table.** Not prose alone: the 11
+   multi-result table cards are unqualified ground and belong to the arms until a
+   per-benchmark route is built and gated separately. That route's holdout draw
+   already has a natural population — these same cards, which the cardinality
+   limit currently declines.
 
+## All three arms run at v3, and the baseline RE-RUNS
+
+The P5 construct moved (calibration claims now satisfy it), so the prompt is at
+`5b1977f2` and the v2 rows sit at a superseded definition. A single-pass baseline
+reusing v2 numbers would compare arms across two constructs and reintroduce the
+exact confound class this study spent a week clearing. Cheap re-run; the v2 rows
+stay in the table as the pinned record they are.
 ## Baseline to beat (v2 prompt, one call for all seven properties)
 
 | | P2 prose | P6 | P7 |
