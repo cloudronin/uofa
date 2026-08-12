@@ -499,6 +499,25 @@ them raised an error.
   predicted number can be satisfied by a mechanism other than the one predicted,
   and the prediction cannot tell the difference.** A null model can.
 
+- **Rule:** When reproducing a historical failure to write its guard, first
+  confirm the failure still manifests the same way. The guard belongs where the
+  signal is now, not where it was.
+  **Why:** A9.1's mandatory round-trip test was written faithfully to the bug it
+  guards — a non-datetime value against an `xsd:dateTime` coercion, which once
+  **raised** and made every package in the repo unparseable. Current rdflib does
+  not raise: it logs "Failed to convert Literal lexical form to value" and keeps
+  the lexical form. So a test that merely parsed would have passed forever while
+  proving nothing, because the failure had moved out from under it. Reproducing
+  the original shape first showed where the signal now lives; the assertion moved
+  onto the log and was then failed on purpose.
+
+  **A check's target can move, and the fail-it-once step is the only thing that
+  notices.** Note what this is an instance of: a dependency upgrade silently
+  converted a hard failure into a soft one, degrading an assurance property (the
+  parse fails loudly) into an unverified assumption (the parse logs politely)
+  with nothing in the suite reacting. That is the same shape as every weakener in
+  this repo, arriving in our own toolchain.
+
 - **Rule:** A claim about an external artifact is not verified until the primary
   artifact has been read. An API summary, a search snippet, or a null field is a
   pointer, not a source.

@@ -26,7 +26,8 @@ class CardFetch:
     text: str
     status: str          # "ok" | "gated" | "notfound" | "empty" | "error"
     detail: str = ""
-    sha: str | None = None
+    sha: str | None = None          # REPO revision -- moves on any file change
+    readme_oid: str | None = None   # README blob -- moves only when the CARD does
 
     @property
     def has_card(self) -> bool:
@@ -104,4 +105,30 @@ def fetch_card(model_id: str, revision: str | None = None) -> CardFetch:
         sha = model_info(model_id, revision=revision).sha
     except Exception:
         pass
-    return CardFetch(text, "ok", "", sha)
+    return CardFetch(text, "ok", "", sha, readme_oid(model_id, revision))
+
+
+def readme_oid(model_id: str, revision: str | None = None) -> str | None:
+    """The README.md blob oid — what actually pins the CARD.
+
+    `sha` above is the REPO revision: it moves when any file in the repo changes,
+    so pinning a card to it marks a byte-identical card stale on a weights
+    re-upload. Measured on google/gemma-3-27b-it, repo sha 005ad340 against
+    README blob fdce721e — two different hashes that move for different reasons.
+
+    Not computed locally from the fetched text: `ModelCard.load` strips the
+    content, so a locally derived blob oid would not match the file HF stores.
+    The pin's `contentHash` covers what we read; this covers what HF serves.
+
+    Best-effort and never fatal — a card with no reachable oid pins by content
+    hash alone, which still supports re-derivation.
+    """
+    try:
+        from huggingface_hub import HfApi
+        for entry in HfApi().list_repo_tree(model_id, revision=revision,
+                                            recursive=False):
+            if getattr(entry, "path", "") == "README.md":
+                return getattr(entry, "blob_id", None)
+    except Exception:
+        pass
+    return None
