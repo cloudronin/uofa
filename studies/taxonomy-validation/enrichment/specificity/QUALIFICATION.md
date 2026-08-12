@@ -12,22 +12,22 @@ inspection. Its findings may not be the basis of a settle decision.
 
 | Extractor | P2 | P5 | P6 | P7 | Qualifies |
 |---|---:|---:|---:|---:|---|
-| `ollama/qwen3.5:4b` | 46% | 82% | 80% | 70% | no |
+| `meta-llama/Llama-3.3-70B-Instruct-Turbo` | 18% | 77% | 100% | 100% | no |
 
 ## False-clear rate — extraction invented a property the card omits
 
 | Extractor | P2 | P5 | P6 | P7 | hard_assert |
 |---|---:|---:|---:|---:|---|
-| `ollama/qwen3.5:4b` | 11% | 0% | 0% | 7% | 13/13 |
+| `meta-llama/Llama-3.3-70B-Instruct-Turbo` | 11% | 50% | 0% | 0% | 13/13 |
 
 ## Configuration pins
 
 | Extractor | prompt | temp | cases | errors | cases file |
 |---|---|---:|---:|---:|---|
-| `ollama/qwen3.5:4b` | `aecc9a6f32545163` | 0.0 | 116 | 0 | `4db1fd40487d50b0` |
+| `meta-llama/Llama-3.3-70B-Instruct-Turbo` | `aecc9a6f32545163` | 0.0 | 116 | 0 | `4db1fd40487d50b0` |
 
 ## Why each unqualified extractor failed
 
-- **`ollama/qwen3.5:4b`** — P2 false-fire 46%; P2 false-clear 11%; P5 false-fire 82%; P6 false-fire 80%; P7 false-fire 70%; P7 false-clear 7%
+- **`meta-llama/Llama-3.3-70B-Instruct-Turbo`** — P2 false-fire 18%; P2 false-clear 11%; P5 false-fire 77%; P5 false-clear 50%; P6 false-fire 100%; P7 false-fire 100%
 
 Rates are computed against **machine-drafted** labels (A16.3 amended 2026-08-11). They qualify an extractor; they do not settle a rule. A16.4 finding validity does.

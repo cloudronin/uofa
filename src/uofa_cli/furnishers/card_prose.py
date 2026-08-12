@@ -40,7 +40,19 @@ _SENTINELS = frozenset({
     "no", "not applicable", "tbd", "?",
 })
 
-_BLOCK = re.compile(r"^===\s*([A-Z_]+)\s*===\s*$", re.M)
+# The prompt asks for `=== SECTION ===`. Models routinely emit the bare header
+# instead -- Llama-3.3-70B does it on every response -- and a parser that
+# accepts only the delimited form returns ZERO nodes for a well-formed
+# extraction. Measured: 116/116 cases scored as "reports nothing" while the
+# model was correctly reading uncertainties and seed counts.
+#
+# The section names are a closed set, so matching a bare header line is
+# unambiguous; this is not loosening the format, it is not mistaking
+# punctuation for content.
+_SECTION_NAMES = ("VALIDATION_RESULT", "EXTRACTION_NOTES")
+_BLOCK = re.compile(
+    r"^(?:===\s*(?P<delim>[A-Z_]+)\s*===|(?P<bare>"
+    + "|".join(_SECTION_NAMES) + r"))\s*:?\s*$", re.M)
 _NUMBER = re.compile(r"-?\d+(?:\.\d+)?")
 
 
@@ -50,11 +62,20 @@ class ReportedEvidence:
     nodes: list[dict[str, Any]] = field(default_factory=list)
     notes: list[str] = field(default_factory=list)
     skipped: list[dict[str, str]] = field(default_factory=list)
+    # Non-empty when the response carried extractable content the parser could
+    # not read. Distinct from "no nodes": an empty extraction is a claim that the
+    # card reports nothing, and a parse failure must never be able to make that
+    # claim on the card's behalf.
+    parse_error: str = ""
+
+
+DEFAULT_MAX_TOKENS = 16384
 
 
 def extract(scoped_text: str, base: str, *, model: str | None = None,
             llm_config=None, source_url: str = "", subject_revision: str = "",
-            pack: str = "mrm-nist") -> "ReportedEvidence":
+            pack: str = "mrm-nist",
+            max_tokens: int = DEFAULT_MAX_TOKENS) -> "ReportedEvidence":
     """Run the prose extractor over a card's scoped evaluation sections.
 
     The missing join. This module has carried a prompt and a parser since Phase
@@ -82,8 +103,12 @@ def extract(scoped_text: str, base: str, *, model: str | None = None,
 
     response = get_backend(config).generate(prompt, GenerationOptions(
         timeout_seconds=600.0,
-        # An eval section yields a handful of blocks, not a 19-factor workbook.
-        max_tokens=4096,
+        # An eval section yields a handful of blocks, so 4096 is ample for a
+        # plain instruct model -- but a REASONING model spends this budget
+        # before it emits any visible content, and runs out mid-thought. Pinned
+        # in the result because a cap that truncates is part of the
+        # configuration a number belongs to.
+        max_tokens=max_tokens,
         # Determinism where the backend honours it: this path feeds a
         # measurement, and a specificity number computed against a moving
         # extractor is not a measurement of anything.
@@ -114,9 +139,12 @@ def _clean(value: str | None) -> str:
 def _blocks(response: str) -> list[tuple[str, dict[str, str]]]:
     """Parse `=== SECTION ===` kv-blocks, preserving order and duplicates."""
     out: list[tuple[str, dict[str, str]]] = []
-    parts = _BLOCK.split(response or "")
-    # split yields [preamble, name, body, name, body, ...]
-    for name, body in zip(parts[1::2], parts[2::2]):
+    text = response or ""
+    # Two capture groups per match (delimited, bare), so split yields
+    # [preamble, delim, bare, body, delim, bare, body, ...].
+    parts = _BLOCK.split(text)
+    for delim, bare, body in zip(parts[1::3], parts[2::3], parts[3::3]):
+        name = delim or bare
         fields: dict[str, str] = {}
         key = None
         for line in body.splitlines():
@@ -133,6 +161,39 @@ def _blocks(response: str) -> list[tuple[str, dict[str, str]]]:
 def _numeric(value: str) -> float | None:
     match = _NUMBER.search(value or "")
     return float(match.group(0)) if match else None
+
+
+_FIELD_LINE = re.compile(
+    r"^\s*(?:name|metric_value|metric_name|uncertainty|null_baseline|"
+    r"harness_determinism|sampling_account|confound_control|claimed_cou)\s*:",
+    re.M)
+
+
+def _unparsed(response: str, blocks: list) -> str:
+    """Did the response clearly carry blocks the parser failed to read?
+
+    Zero nodes is a legitimate outcome -- a card may genuinely report nothing.
+    Zero nodes from a response full of `metric_value:` lines is a PARSER
+    failure wearing that outcome's clothes, and it is indistinguishable from the
+    real thing at every downstream point. Measured cost of not checking: an
+    extractor scored 0/116 on content it had read correctly.
+    """
+    if blocks:
+        return ""
+    if not (response or "").strip():
+        # Third instance of this class today. An empty completion is a FAILED
+        # CALL, and scoring it as "the card reports nothing" credits the
+        # extractor with a correct silence on every absent case and blames it
+        # for a miss on every present one -- from the same non-event.
+        # Measured: Qwen3.5-9B on Together routes all output to a `reasoning`
+        # field and returns content='', finish_reason='length'. 116 empty
+        # responses were being scored as absences.
+        return "empty response from the backend; not an extraction"
+    hits = len(_FIELD_LINE.findall(response or ""))
+    if hits >= 2:
+        return (f"response carried {hits} extractor field lines but no parseable "
+                f"block header; refusing to report this as an empty extraction")
+    return ""
 
 
 def parse(response: str, base: str, source_url: str = "",
@@ -160,7 +221,8 @@ def parse(response: str, base: str, source_url: str = "",
     skipped: list[dict[str, str]] = []
     seen: set[str] = set()
 
-    for name, fields in _blocks(response):
+    parsed = _blocks(response)
+    for name, fields in parsed:
         if name == "EXTRACTION_NOTES":
             note = _clean(fields.get("notes"))
             if note:
@@ -226,7 +288,8 @@ def parse(response: str, base: str, source_url: str = "",
         }
         nodes.append(node)
 
-    return ReportedEvidence(nodes=nodes, notes=notes, skipped=skipped)
+    return ReportedEvidence(nodes=nodes, notes=notes, skipped=skipped,
+                            parse_error=_unparsed(response, parsed))
 
 
 # ── W-EV-DIV-07: matching a reported score to a furnished one ───────────────

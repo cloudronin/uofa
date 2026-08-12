@@ -97,12 +97,29 @@ def _populated(evidence, field: str) -> bool:
     return False
 
 
-def run(model: str, limit: int | None, out_dir: Path) -> dict:
+def _config(model: str, backend: str, base_url: str, key_env: str):
+    """Build an LLMConfig when a backend is named, else let the legacy string rule.
+
+    Together, Fireworks and friends are reached through `openai-compatible` with
+    an explicit base_url -- they are not in ALLOWED_BACKENDS and should not be:
+    the backend is the protocol, the vendor is the base_url, and conflating them
+    would put a vendor list in the config schema.
+    """
+    if not backend:
+        return None
+    from uofa_cli.llm.config import LLMConfig
+    return LLMConfig(backend=backend, model=model,
+                     api_key_env=key_env or None, base_url=base_url or None)
+
+
+def run(model: str, limit: int | None, out_dir: Path, *, backend: str = "",
+        base_url: str = "", key_env: str = "", slug: str = "") -> dict:
     # Hash AT READ TIME, not when the result is written. Hashing at the end
     # pins whatever the file became during the run, so a cases file edited
     # mid-run yields a result that pins a state it never scored -- an internally
     # inconsistent provenance block that still looks well-formed. Caught exactly
     # that way: a mid-run relabel left the hash current and the status stale.
+    cfg = _config(model, backend, base_url, key_env)
     cases_sha = _sha(CASES)
     payload = json.loads(CASES.read_text(encoding="utf-8"))
     cases = payload["cases"][:limit] if limit else payload["cases"]
@@ -118,7 +135,12 @@ def run(model: str, limit: int | None, out_dir: Path) -> dict:
         try:
             evidence = card_prose.extract(
                 case["excerpt"], f"https://uofa.net/spec/{case['row_hash']}",
-                model=model, source_url=case["card_id"])
+                model=model, llm_config=cfg, source_url=case["card_id"])
+            if getattr(evidence, "parse_error", ""):
+                # Not an absence. Scoring it as one would credit the extractor
+                # with a correct silence on the `absent` cases and blame it for a
+                # miss on the `present` ones -- from the same failure.
+                raise RuntimeError(f"parse failure: {evidence.parse_error}")
             got = _populated(evidence, field)
             row["populated"] = got
             row["n_nodes"] = len(getattr(evidence, "nodes", []) or [])
@@ -160,9 +182,12 @@ def run(model: str, limit: int | None, out_dir: Path) -> dict:
         # Without this block the numbers below mean nothing.
         "extractor": {
             "model": model,
+            "backend": backend or "ollama (legacy string)",
+            "base_url": base_url or None,
             "prompt_file": str(card_prose.prompt_path().relative_to(_REPO)),
             "prompt_sha256": _sha(card_prose.prompt_path()),
             "temperature": 0.0, "seed": 20260811,
+            "max_tokens": card_prose.DEFAULT_MAX_TOKENS,
         },
         "cases_file": str(CASES.relative_to(_REPO)),
         "cases_sha256": cases_sha,
@@ -177,7 +202,7 @@ def run(model: str, limit: int | None, out_dir: Path) -> dict:
         "results": results,
     }
     out_dir.mkdir(parents=True, exist_ok=True)
-    slug = model.replace("/", "__").replace(":", "-")
+    slug = slug or model.replace("/", "__").replace(":", "-")
     path = out_dir / f"{slug}.json"
     path.write_text(json.dumps(out, indent=2) + "\n")
     return {"path": path, **out}
@@ -188,6 +213,11 @@ def main() -> int:
     ap.add_argument("--model", default="ollama/qwen3.5:4b",
                     help="extractor config; pinned into the result")
     ap.add_argument("--limit", type=int, default=None)
+    ap.add_argument("--backend", default="",
+                    help="e.g. openai-compatible; omit for the legacy model string")
+    ap.add_argument("--base-url", default="", dest="base_url")
+    ap.add_argument("--api-key-env", default="", dest="api_key_env")
+    ap.add_argument("--slug", default="", help="result filename stem")
     ap.add_argument("--out", type=Path,
                     default=Path(__file__).parent / "specificity")
     args = ap.parse_args()
@@ -195,7 +225,8 @@ def main() -> int:
     if not CASES.exists():
         raise SystemExit("run make_cases.py first")
 
-    res = run(args.model, args.limit, args.out)
+    res = run(args.model, args.limit, args.out, backend=args.backend,
+              base_url=args.base_url, key_env=args.api_key_env, slug=args.slug)
     print(f"\nextractor: {res['extractor']['model']}  "
           f"prompt {res['extractor']['prompt_sha256']}")
     print(f"cases {res['n_cases']}  errors {res['n_errors']}\n")
