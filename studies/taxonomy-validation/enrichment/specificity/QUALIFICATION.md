@@ -24,6 +24,7 @@ inspection. Its findings may not be the basis of a settle decision.
 |---|---:|---:|---:|---:|---|
 | `deepseek-ai/DeepSeek-V4-Pro (v2)` | 53% | 95% | 86% | 71% | no |
 | `deepseek-ai/DeepSeek-V4-Pro` | 56% | 95% | 71% | 100% | no |
+| `keyless/table-route` | 7% | -- | -- | -- | **P2 only** |
 | `meta-llama/Llama-3.3-70B-Instruct-Turbo (v2)` | 18% | 79% | 86% | 100% | no |
 | `meta-llama/Llama-3.3-70B-Instruct-Turbo` | 18% | 74% | 100% | 100% | no |
 
@@ -33,6 +34,7 @@ inspection. Its findings may not be the basis of a settle decision.
 |---|---:|---:|---:|---:|---|
 | `deepseek-ai/DeepSeek-V4-Pro (v2)` | 0% | 14% | 0% | 0% | 13/13 |
 | `deepseek-ai/DeepSeek-V4-Pro` | 0% | 0% | 0% | 0% | 13/13 |
+| `keyless/table-route` | 3% | -- | -- | -- | -- |
 | `meta-llama/Llama-3.3-70B-Instruct-Turbo (v2)` | 0% | 29% | 0% | 0% | 13/13 |
 | `meta-llama/Llama-3.3-70B-Instruct-Turbo` | 0% | 29% | 0% | 0% | 13/13 |
 
@@ -42,6 +44,7 @@ inspection. Its findings may not be the basis of a settle decision.
 |---|---|---|---:|---:|---:|---:|---|
 | `deepseek-ai/DeepSeek-V4-Pro (v2)` | **prompt+model** | `faacd0f9cea62dfa` | 0.0 | 16384 | 116 | 0 | `9cc1fe5cdfc5292e` |
 | `deepseek-ai/DeepSeek-V4-Pro` | **prompt+model** | `aecc9a6f32545163` | 0.0 | 16384 | 116 | 0 | `9cc1fe5cdfc5292e` |
+| `keyless/table-route` | **code** | `3647c3bc4a82121c` | None | -- | 60 | 0 | `original` |
 | `meta-llama/Llama-3.3-70B-Instruct-Turbo (v2)` | **prompt+model** | `faacd0f9cea62dfa` | 0.0 | 16384 | 116 | 0 | `9cc1fe5cdfc5292e` |
 | `meta-llama/Llama-3.3-70B-Instruct-Turbo` | **prompt+model** | `aecc9a6f32545163` | 0.0 | 16384 | 116 | 0 | `9cc1fe5cdfc5292e` |
 

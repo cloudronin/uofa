@@ -37,17 +37,34 @@ PROPS = ["P2_uncertainty", "P5_null_baseline", "P6_claimed_cou",
 SHORT = {p: p.split("_")[0] for p in PROPS}
 
 
-def _verdict(rates: dict) -> tuple[bool, list[str]]:
-    """AND over every property. Returns (qualifies, reasons it did not)."""
-    fails = []
+def _verdict(rates: dict) -> tuple[str, list[str]]:
+    """Which properties this config qualifies FOR. Returns (verdict, failures).
+
+    An UNMEASURED property is not a passed one. Scoring `--` as a pass let the
+    keyless route -- which has cases for P2 only -- print a bare "yes" beside
+    three empty columns, which reads as "this route qualifies" full stop. A row
+    now says what it qualifies for, or `no`, and a route with no data on a
+    property can never be read as having cleared it.
+    """
+    fails, passed, unmeasured = [], [], []
     for prop in PROPS:
         r = rates.get(prop) or {}
         ff, fc = r.get("false_fire_rate"), r.get("false_clear_rate")
+        if ff is None and fc is None:
+            unmeasured.append(SHORT[prop])
+            continue
+        bad = False
         if ff is not None and ff > MAX_FALSE_FIRE:
-            fails.append(f"{SHORT[prop]} false-fire {ff:.0%}")
+            fails.append(f"{SHORT[prop]} false-fire {ff:.0%}"); bad = True
         if fc is not None and fc > MAX_FALSE_CLEAR:
-            fails.append(f"{SHORT[prop]} false-clear {fc:.0%}")
-    return (not fails), fails
+            fails.append(f"{SHORT[prop]} false-clear {fc:.0%}"); bad = True
+        if not bad:
+            passed.append(SHORT[prop])
+    if not passed:
+        return "no", fails
+    if not fails and not unmeasured:
+        return "**yes** (all)", fails
+    return f"**{'/'.join(passed)} only**", fails
 
 
 def build(results_dir: Path, out: Path) -> dict:
@@ -125,7 +142,7 @@ def build(results_dir: Path, out: Path) -> dict:
     for r in rows:
         L.append(f"| `{r['model']}` | "
                  + " | ".join(cell(r, p, "false_fire_rate") for p in PROPS)
-                 + f" | {'**yes**' if r['qualifies'] else 'no'} |")
+                 + f" | {r['qualifies']} |")
     L.append("")
     L.append("## False-clear rate — extraction invented a property the card omits")
     L.append("")
@@ -157,7 +174,7 @@ def build(results_dir: Path, out: Path) -> dict:
     L.append("")
     any_fail = False
     for r in rows:
-        if r["qualifies"]:
+        if not r["fails"]:
             continue
         any_fail = True
         L.append(f"- **`{r['model']}`** — " + "; ".join(r["fails"]))
@@ -181,8 +198,9 @@ def main() -> int:
     out = args.out or (args.results / "QUALIFICATION.md")
     res = build(args.results, out)
     for r in res["rows"]:
-        print(f"  {r['model']:34s} {'QUALIFIES' if r['qualifies'] else 'no':>10s}"
-              + ("" if r["qualifies"] else f"  ({r['fails'][0]}...)"))
+        v = r["qualifies"].replace("**", "")
+        print(f"  {r['model']:34s} {v:>14s}"
+              + (f"  ({r['fails'][0]}...)" if r["fails"] else ""))
     print(f"  -> {res['path']}")
     return 0
 

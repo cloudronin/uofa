@@ -139,3 +139,74 @@ seven-flip format.
 **Status: the route remains unqualified in both directions.** It may not enter
 the qualification table and may not wire into `card_prose`. The in-sample 0/25
 stands as a development record and nothing more.
+
+
+---
+
+# GATE RESULT — passes both directions, on a route frozen first
+
+**Run 2026-08-12** against 60 author-labeled unseen cards (27 present, 33 absent,
+0 unclear). The route was **committed unchanged before scoring** (`2b3189d3`,
+`keyless_route.py`) and verified to reproduce its in-sample 0/25 first, so the
+gate scored a fixed artifact.
+
+| Direction | Result | Bar | |
+|---|---:|---|---|
+| false-fire | **2/27 (7.4%)** | ≤10% | PASS |
+| false-clear | **1/33 (3.0%)** | ≤5% | PASS |
+
+Overall agreement 57/60 (95.0%).
+
+## How this must be stated
+
+**"Route agreement with machine-drafted labels on unseen cards"** — not route
+accuracy. The holdout arbiter is machine-drafted like every other label in the
+corrected regime. For P2's lexical character that is a distinction without much
+daylight, but it is the honest phrasing and the study uses it.
+
+And per the sizing declared before the draw: 27 positives resolves to ~3.7%, so
+**7.4% is "did not fail", not "passed at 7.4%"**. The interval is wide. The gate's
+job was to catch a route that does not work, and it did not catch one.
+
+## The designed traps, and what they caught
+
+| Trap | Rows | Result |
+|---|---|---|
+| **empty `Stderr` header**, all cells blank (perplexity-only runs) | 11, 20, 53, 59 | **4/4 correct.** The route requires a *number* in the column, so a bare header yields nothing. A route matching on the header alone would have false-cleared all four. |
+| **`_` separator variant**, `±` mangled in the pipeline | 15, 48 | **2/2 correct** — and via the *columnar* branch, which never needed the glyph. The two branches covered each other. |
+| **metric-name traps** (`SE`, WER, AER, `Variation`) | 2, 6, 8, 18, 19, 24, 25, 45 | **7/8.** WER/AER/`Variation` all correctly declined. `SE` was the casualty. |
+
+## The three disagreements, diagnosed and NOT fixed
+
+**Two false-fires, one cause.** Rows 29 and 41 (`sgoodfriend` RL cards) carry
+`reward_std` / `reward_mean` columns. `HEADER` is anchored (`^std$`), so a
+**compound header** like `reward_std` does not match. Row 29 is also the author's
+recorded judgment call — a `reward_std` of literally `0`, labeled present on the
+grounds that a stated zero dispersion is still a stated dispersion.
+
+**One false-clear, and it is the designed trap working.** Row 2
+(`HaronW/EmbodiedAgent`) has metric columns `UE | PoE | PlE | SE | EE`. The route
+read `SE` as standard error and returned `93.75`.
+
+**`SE` is genuinely ambiguous from the header alone**, and the docstring's stated
+defence — anchoring, so `SE` inside `SEQ_LEN` does not match — is exactly
+insufficient here, because this `SE` *does* stand alone. A value of 93.75 is a
+strong signal it is not a standard error (dispersions are small relative to their
+metric), but that is a heuristic, not a field read, and adding it would make the
+route something other than the deterministic reader D2 licenses.
+
+**Neither is repaired.** Repairing a route against the cases that caught it is
+the in-sample loop this gate exists to break. Any change is a **new route needing
+a new gate**, and these two limitations are now published properties of this one:
+
+- compound dispersion headers (`reward_std`) are not read
+- a standalone `SE` metric column is misread as standard error
+
+## Status
+
+The route **enters the qualification table** as the first `code`-pinned row, and
+is cleared to wire into `card_prose` for **table-borne P2 only**. It remains
+silent on prose and on P6/P7 by construction.
+
+The P5 table extension is authorized behind this same gate and has not been
+built.
