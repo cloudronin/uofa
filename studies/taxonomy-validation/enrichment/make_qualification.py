@@ -66,7 +66,11 @@ def build(results_dir: Path, out: Path) -> dict:
         ex = d.get("extractor") or {}
         qual, fails = _verdict(d.get("rates") or {})
         rows.append({
-            "model": ex.get("model", path.stem),
+            # Two rows can share a model and differ only by prompt. Labelling by
+            # model alone would print the same name twice and invite reading the
+            # pair as a repeat measurement rather than a prompt comparison.
+            "model": (ex.get("model", path.stem)
+                      + (" (v2)" if ".v2." in path.name else "")),
             "prompt_sha256": ex.get("prompt_sha256", ""),
             "temperature": ex.get("temperature"),
             "max_tokens": ex.get("max_tokens"),

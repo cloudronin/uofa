@@ -25,7 +25,7 @@ Sources: `docs/A16_3_gold_labeling_instructions_v0_1.md` §2 and
 
 | | Instruction sheet — PRESENT | Extraction prompt — field description | Drift |
 |---|---|---|---|
-| **P2** | stderr, CI, ±, **variance across runs/seeds**, or an **explicit statistical qualifier** attached to a reported result | "stderr, confidence interval or error bar AS STATED" | **Yes.** Omits variance-across-seeds and the statistical-qualifier clause. The sheet's own worked example, `std across 3 seeds: 0.6`, is not covered by any of the three terms the prompt names. |
+| **P2** ~~(causal claim withdrawn 2026-08-12)~~ | stderr, CI, ±, **variance across runs/seeds**, or an **explicit statistical qualifier** attached to a reported result | "stderr, confidence interval or error bar AS STATED" | **Yes.** Omits variance-across-seeds and the statistical-qualifier clause. The sheet's own worked example, `std across 3 seeds: 0.6`, is not covered by any of the three terms the prompt names. |
 | **P3** | how items were **drawn and how they relate to the population** | "how the evaluated items relate to the full benchmark or to a target population — subset size, sampling method" | Aligned. The prompt's "subset size" is looser than the sheet, which explicitly rules out bare item counts, but the sheet is the stricter side, so it cannot cause a miss. |
 | **P4** | temperature, seed, greedy decoding, **n-shot regime with sampling config**, repeat-run policy | "temperature, seed, greedy decoding, number of repeat runs" — with `shot_count` split into its own field | **Partial.** The construct is split across two prompt fields, so a card stating only a shot count populates `shot_count` and leaves `harness_determinism` blank. Consistent with the LMEVAL-P4 ruling, and not a miss source for the enriched four. |
 | **P5** | explicit chance or null baseline, incl. **"chance level shown in table"** | "a stated chance/random/majority-class baseline for this benchmark" | **Minor.** A chance level present as a table column rather than as a stated value has no clear home in the prompt's phrasing. |
@@ -46,9 +46,11 @@ vaguer" story:
 - **P6 — 90–100% miss.** Per-score versus per-section. The extractor emits one
   block per benchmark; a COU stated once for the whole evaluation section
   belongs to none of them.
-- **P2 — 21–58% miss.** The prompt omits variance-across-seeds, which is the
-  `stefan-it` five-run mean±std family — the largest single cluster of P2
-  positives in the stratum.
+- **P2 — 21–58% miss.** ~~The prompt omits variance-across-seeds, which is the
+  `stefan-it` five-run mean±std family.~~ **WITHDRAWN 2026-08-12.** Prompt v2
+  asks for variance-across-seeds explicitly and P2 did not move (18%→18%,
+  58%→55%), so this omission was not what cost P2. The drift was real; its
+  causal role is falsified. See `PROMPT-V2-FORK.md`.
 
 ## What this does and does not establish
 

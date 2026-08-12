@@ -95,3 +95,78 @@ v2's rates are still computed against **machine-drafted** labels and still
 qualify an extractor rather than settle a rule. A16.4 finding validity,
 adjudicated on fired findings, remains the settle authority. A v2 that clears
 the bar unblocks the panel; it does not substitute for it.
+
+
+---
+
+# RESULT — Branch B, decisively (run 2026-08-12)
+
+v2 ran on both configs. Prompt `faacd0f9cea62dfa` (v1 was `aecc9a6f32545163`);
+same 116 cases, same corrected labels, same temperature, seed, `max_tokens`.
+0 errors on both.
+
+## False-fire, v1 → v2
+
+| | P2 | P5 | P6 | P7 |
+|---|---|---|---|---|
+| `Llama-3.3-70B` | 18% → **18%** | 75% → 80% | 100% → 86% | 100% → **100%** |
+| `DeepSeek-V4-Pro` | 58% → 55% | 95% → 95% | 71% → **86%** | 100% → 71% |
+
+**Branch A required both P6 and P7 below 25%. The maximum is 100%.**
+**Branch B required either at or above 50%. Every one of the four is.**
+
+## The prompt carried the sheet's own text, and it did not help
+
+This is the finding, and it is a negative one:
+
+- **P7 did not move on Llama at all** — 100% before and after asking, in the
+  sheet's own words, for ablations offered as controls and limitation statements
+  doing this work. DeepSeek improved to 71%, still 7× the bar.
+- **P6 got WORSE on DeepSeek** (71% → 86%) while improving on Llama
+  (100% → 86%). Both land at 86%. A change that moves two families in opposite
+  directions to the same place is not a fix.
+- **P5 barely moved** (75→80, 95→95), exactly as predicted for the near-control.
+  That the control behaved as declared is what licenses reading the rest.
+- **False-clear stayed flat** (11%/11%, 33%/33%, 0%/0%). The richer prompt did
+  not invite invention, so nothing was traded.
+
+## The P2 sub-hypothesis is FALSIFIED
+
+Declared in advance: *"If P2 false-fire does not improve on either config, the
+variance-across-seeds drift was not what was costing P2, and that specific claim
+in `CONSTRUCT-DRIFT.md` is withdrawn regardless of what P6/P7 do."*
+
+P2 went 18% → 18% and 58% → 55%. **Withdrawn.** The prompt now explicitly asks
+for "variance across runs/seeds" and the `stefan-it` five-run cluster is still
+being missed at the same rate, so whatever costs P2, it is not that omission.
+
+## What survives from the drift finding
+
+The drift was **real and documented** — the two artifacts did define three
+properties differently, and that remains true and worth having fixed. What is
+now withdrawn is the *causal* claim: fixing the drift did not fix the extraction.
+
+Drift was a confound that made the v1 numbers uninterpretable. It was not the
+mechanism. Both things can be true, and the honest record says so rather than
+retiring one finding to protect the other.
+
+## Consequence, per the declared branch
+
+**No further prompt surgery on the combined prompt.** The design answer is one of:
+
+- **per-property calls** — one focused invocation per property, testing the
+  instruction-overload hypothesis directly; or
+- **judge-panel-only routing** — P6 and P7 never reach a rule through automated
+  extraction, and their findings come from the A16.4 panel reading card text.
+  This costs coverage and is honest about why.
+
+That choice is a separate decision and is **not** taken here.
+
+One observation bearing on it: P6 and P7 are the two properties whose definitions
+are *relational* — a claimed COU requires a stated connection between an
+evaluation and a use; a confound control requires a comparison doing work. P2 and
+P5 are lexical by comparison: a ± or a chance value is present or it is not. If
+one-shot extraction is what fails, the failure tracks relational reading rather
+than instruction count, and per-property calls would help less than the
+instruction-overload framing predicts. That is a hypothesis, not a finding, and
+the per-property variant is what would test it.
