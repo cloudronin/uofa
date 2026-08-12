@@ -164,6 +164,22 @@ Recorded consequence: **the baseline fails this bar on all four properties**, on
 false-fire, by a wide margin. That is a conclusion the bar produces, not a
 premise it was built from.
 
+**Conditional routing for P6 and P7, pre-committed 2026-08-12.** Declared before
+the per-property extraction variant runs, so it cannot be invented to fit the
+result:
+
+> **If the per-property variant also fails the relational pair (P6 `claimedCOU`,
+> P7 `confoundControlStatement`), those two become panel-confirmed-only on the
+> prose path.** Extraction may propose a finding; no `W-EV-COU-05` or
+> `W-EV-CAP-06` finding renders on any card without A16.4 panel confirmation.
+
+This is the conservative design irrespective of the result. False-fire on these
+two is the maximum-reputation-damage direction — a public assertion that a
+publisher omitted something they in fact stated — and both have resisted every
+extraction configuration tried: 71–100% false-fire across three model families,
+two prompt versions, and the prompt carrying the labeling sheet's own text
+verbatim. Panel-gating costs coverage and says why.
+
 **Reasoning models are excluded from this table (operational scope, ruled
 2026-08-11).** A model that spends a 16k-token budget before emitting visible
 content, at multi-hour wall-clock over 116 short cases, is not a shippable

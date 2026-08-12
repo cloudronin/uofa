@@ -170,3 +170,84 @@ one-shot extraction is what fails, the failure tracks relational reading rather
 than instruction count, and per-property calls would help less than the
 instruction-overload framing predicts. That is a hypothesis, not a finding, and
 the per-property variant is what would test it.
+
+---
+
+# Per-property variant: the fork, declared 2026-08-12 before any call
+
+All four properties, both configs, one focused invocation per property. P2 and P5
+are included as **lexical controls**, not as targets: if per-property calls fix
+everything, the mechanism was instruction overload; if the lexical pair clears
+while the relational pair stays high, that is a measured boundary of single-pass
+extraction rather than a failure.
+
+## Revised by the structure split (`STRUCTURE-SPLIT.md`), which ran first
+
+Three things changed before this fork was written, and it is built around them:
+
+1. **P2 table-borne already clears on Llama (8%, n=24).** Aggregate P2 is
+   therefore not a usable signal — a variant could "improve P2" by moving a cell
+   that already passes. **P2 is read on its PROSE cell only** (n=9).
+2. **P5 is not interpretable.** 13 of its 15 prose positives are one house
+   sentence stating no baseline value, arguably failing the sheet's own Present
+   bar. P5 is **reported but excluded from branch selection** until its labels
+   are reviewed.
+3. **P6/P7 are prose-only (0 table positives).** "Relational" and "prose-borne"
+   are perfectly confounded for them and this variant cannot separate the two.
+   Both branches below are worded so neither claims to.
+
+## Baseline to beat (v2 prompt, one call for all seven properties)
+
+| | P2 prose | P6 | P7 |
+|---|---:|---:|---:|
+| `Llama-3.3-70B` | 44% | 86% | 100% |
+| `DeepSeek-V4-Pro` | 67% | 86% | 71% |
+
+Bar unchanged: false-fire ≤10%, false-clear ≤5%, per property.
+
+## Branches, read on P2-prose against P6/P7
+
+### Branch C — instruction overload. P2-prose clears (≤10%) AND P6/P7 both fall below 25%.
+
+Focus was the constraint. The combined prompt was asking for too much at once,
+and the fix is architectural: per-property extraction becomes the shipped path,
+costing 4–7× the calls. Its economics get their own decision.
+
+### Branch D — a boundary of single-pass extraction. P2-prose improves materially (≥15 points) while P6/P7 stay at or above 50%.
+
+**This is the FAccT-grade outcome if it holds.** Focus helps where the evidence
+is lexical — a `±` or a chance value is present in the sentence or it is not —
+and does not help where the property is a *relation* the reader must construct:
+a claimed COU needs a stated connection between an evaluation and a use; a
+confound control needs a comparison doing work.
+
+Stated as the finding it would be: **lexical evidence properties are extractable
+by single-pass reading; relational ones require adjudication-grade reading.**
+
+With the confound named in the same breath: P6/P7 are also the only prose-only
+properties, so "relational" and "prose-borne" cannot be separated on this
+stratum, and the claim must be written to say so.
+
+### Branch E — focus changes nothing. P2-prose does not improve materially and P6/P7 stay high.
+
+Neither overload nor relation-versus-lexical. The remaining candidates are prose
+reading itself, or the labels. **The next step would be a label review of the
+P2-prose and P6/P7 positives** on the footing the P6/P7 seven already had — not
+another extraction variant.
+
+### Mixed — P2-prose clears but one of P6/P7 lands 25–50%.
+
+Report as partial. No further variant is authorized without a new fork.
+
+## Pre-committed consequence (also written into A16.4)
+
+**If the per-property run fails the relational pair — Branch D or E — then P6 and
+P7 findings on the prose path become panel-confirmed-only.** Extraction may
+propose; no `W-EV-COU-05` or `W-EV-CAP-06` finding renders on any card without
+A16.4 panel confirmation.
+
+Written before the result exists so it cannot be invented to fit the number. It
+is also the conservative design regardless: false-fire on these two is the
+maximum-reputation-damage direction — a public accusation that a publisher
+omitted something they stated — so panel-gating them is right even if the variant
+partially recovers.
