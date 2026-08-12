@@ -535,7 +535,6 @@ them raised an error.
   inquiry. The remedy is display, not arithmetic — the verdict became `P2 only`,
   the arm's pass was withdrawn as vacuous, the fixture gained a source check. If
   a thing was not measured, say so where the result is read.
-
   **A check's target can move, and the fail-it-once step is the only thing that
   notices.** Note what this is an instance of: a dependency upgrade silently
   converted a hard failure into a soft one, degrading an assurance property (the

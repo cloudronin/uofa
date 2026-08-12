@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import argparse
 import json
+from datetime import datetime, timezone
 from pathlib import Path
 
 from uofa_cli import paths
@@ -749,6 +750,17 @@ def _build_card_bundle(model_id: str, pack: str, args) -> Path | None:
     bundle["_sufficiencyAssessed"] = sufficiency
     if fetched.sha:
         bundle["_cardRevision"] = fetched.sha
+
+    # A9.1: pin the artifact the claims were read FROM. revision is the README
+    # blob oid, never the repo sha -- see hf_card.readme_oid for why.
+    if fetched.status not in ("notfound", "empty"):
+        from uofa_cli.furnishers import pins
+        pins.attach(bundle, pins.artifact_pin(
+            source_url, fetched.text,
+            fetched_at=datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            revision=fetched.readme_oid or "",
+            revision_kind="readme-blob" if fetched.readme_oid else "",
+        ))
 
     out_path, kept = _bundle_out_path(model_id, args, pack)
     out_path.parent.mkdir(parents=True, exist_ok=True)
