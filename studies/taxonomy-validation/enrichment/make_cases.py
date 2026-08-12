@@ -19,7 +19,7 @@ The labeling produced two kinds of case, and they test opposite failures:
                     the enrichment stratum exists to measure.
 
 **`hard_assert` marks the cases a test may fail on.** Labels are a
-claude-assisted draft, not confirmed gold, so most expectations are provisional
+machine-drafted (A16.3 amended 2026-08-11), so most expectations are provisional
 and travel as data only. A case earns `hard_assert` when its reason is
 mechanically determined rather than a labeling judgment -- "Within ±1 Level" is
 a tolerance band, "Out of Scope" is a classifier label name, `±` inside a
@@ -131,7 +131,7 @@ def build(labels: Path, out: Path, candidates: Path | None = None) -> dict:
                 "matched_pattern": pat,
                 "matched_text": hit,
                 "hard_assert": bool(label == "absent" and _mechanical(reason)),
-                "label_status": "claude-assisted-draft",
+                "label_status": "machine-drafted",
                 "excerpt": excerpt,
             })
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -139,8 +139,10 @@ def build(labels: Path, out: Path, candidates: Path | None = None) -> dict:
         "source": "studies/taxonomy-validation/enrichment",
         "corpus": "modelbiome/ai_ecosystem_withmodelcards @ 4cb5d873 (CC-BY-4.0)",
         "attribution": "Card excerpts are quoted with attribution via card_id.",
-        "label_status": ("claude-assisted draft, not confirmed gold. Only "
-                         "hard_assert cases may fail a test; the rest are data."),
+        "label_status": ("machine-drafted, permanently. There is no "
+                         "confirmed-gold path; A16.4 finding validity is the "
+                         "settle authority (A16.3/A16.7 amended 2026-08-11). "
+                         "Only hard_assert cases may fail a test."),
         "n_cases": len(cases),
         "n_hard_assert": sum(c["hard_assert"] for c in cases),
         "n_skipped_no_lure": skipped,

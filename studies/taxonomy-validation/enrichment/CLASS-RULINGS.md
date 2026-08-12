@@ -1,19 +1,24 @@
 # Class rulings on the enrichment draft
 
 **Applied 2026-08-11**, covering 62 rows. Each is ruled **against the standard
-the gold set already set**, not freshly. The two strata must be labeled to one
-bar: sensitivity is measured on the gold set and specificity on this one, and a
-different standard on each measures the two against different definitions of the
-property.
+the 150-row set already set**, not freshly. Both strata must be labeled to one
+bar, or the two measure different definitions of the same property.
 
-Labels remain `claude-assisted-draft-NOT-GOLD-until-human-confirmed`. These
-rulings make the draft self-consistent; they do not confirm it.
+(That set is `gold/gold_labels.csv`. The directory name is kept for path
+stability; the labels are machine-drafted, like these. "The standard it set" is
+still the right anchor -- consistency between the two strata is what matters
+here, and that is independent of either one's status.)
+
+Labels are `machine-drafted` and remain so (A16.3 amended 2026-08-11 -- the
+confirmed-gold path is dropped). These rulings make the drafted set
+self-consistent; they do not raise its status, because there is no higher status
+to raise it to.
 
 ---
 
 ## The anchors these rulings are made against
 
-Committed gold positives, with the labeler's own notes:
+Committed positives from the 150-row set, with their notes:
 
 **P3_sampling** — all three are *population-relationship* accounts, none is a
 sample size:
@@ -41,9 +46,9 @@ produced*:
 > 100-1000 instances for each dataset**."
 
 A sample **size**, silent on how instances were drawn or how they relate to the
-target population. Every gold P3 positive is a population-relationship claim;
-none is a count. Ruling it present would admit a category the gold set excluded
-and make P3 mean something different in each stratum.
+target population. Every P3 positive in the 150-row set is a
+population-relationship claim; none is a count. Ruling it present would admit a
+category that set excluded and make P3 mean something different in each stratum.
 
 Not `unclear` either — the card is not ambiguous. It states a size and says
 nothing about the relationship. That is an absence, and absences are the labels
@@ -58,7 +63,7 @@ statement and it is the anchor for 13 of the 22 P5 positives.
 
 Five-run tables reporting `0.5409 ± 0.0222` across five linked run results.
 
-The gold anchor accepted "seed was chosen that gave the best overall F1" as
+The anchor accepted "seed was chosen that gave the best overall F1" as
 present, on the grounds that it discloses the selection procedure. A five-run
 mean±std discloses strictly more: it shows every run and aggregates rather than
 selecting. Ruling this absent while that is present would invert the standard.
@@ -73,7 +78,7 @@ lm-eval-harness output tables carrying `n-shot` and `filter` columns.
 
 Ruled absent, and this is the ruling most worth a second opinion.
 
-**For present:** the gold anchor `fxmarty` accepted harness-emitted conditions
+**For present:** the anchor `fxmarty` accepted harness-emitted conditions
 (3s/config, batch=1, len=64), so harness provenance alone does not disqualify.
 
 **For absent, which won:** P4 is *determinism*. `fxmarty`'s conditions determine

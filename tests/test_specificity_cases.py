@@ -81,10 +81,20 @@ def test_hard_assert_is_confined_to_mechanical_absences(cases):
         assert c["reason"], f"{c['card_id']}: hard_assert with no stated reason"
 
 
-def test_nothing_is_silently_promoted_to_gold(payload, cases):
-    """Draft status travels with every case, and with the file."""
-    assert "draft" in payload["label_status"].lower()
-    assert all(c["label_status"] == "claude-assisted-draft" for c in cases)
+def test_label_status_is_machine_drafted(payload, cases):
+    """Labels are machine-drafted, permanently (A16.3 amended 2026-08-11).
+
+    This replaces `test_nothing_is_silently_promoted_to_gold`, which guarded a
+    confirmation path that no longer exists. That test asserted the labels were
+    still marked pending — a guard against promotion to a state the study has
+    since dropped, which would have kept passing while protecting nothing.
+
+    What survives is narrower and true: the status is stated, and it is stated
+    as settled rather than pending, so no reader infers that confirmation is
+    still coming.
+    """
+    assert "machine-drafted" in payload["label_status"].lower()
+    assert all(c["label_status"] == "machine-drafted" for c in cases)
 
 
 def test_no_duplicate_card_property_pairs(cases):

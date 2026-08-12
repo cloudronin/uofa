@@ -167,11 +167,11 @@ is most likely.
 
 ## 6. Labeling outcome (draft, 2026-08-11)
 
-`enriched_labels.csv`. **Status: `claude-assisted-draft-NOT-GOLD-until-human-
-confirmed`,** carried in every row. `session_id` and `labeled_at` are empty
-across all 147 rows, so no human labeling session is recorded yet. Every number
-below is provisional and none of it may be reported as a specificity figure until
-that changes.
+`enriched_labels.csv`. **Status: `machine-drafted`,** carried in every row, and
+permanent -- A16.3/A16.7 were amended 2026-08-11 to drop the confirmed-gold path
+and re-anchor settling on A16.4 finding validity, adjudicated on fired findings.
+These labels are the case set, not the settle authority. Rates computed against
+them measure agreement between two machine readings of the same text.
 
 | Property | present | absent | unclear | Against the 15–30 target |
 |---|---:|---:|---:|---|
@@ -240,16 +240,86 @@ present to be misread.
 
 Only the 13 mechanically-determined cases carry `hard_assert` and may fail a
 test. "Within ±1 Level is a tolerance band" is a fact about the text; "this card
-states a context of use" is a judgment awaiting confirmation, and a draft
-judgment must not fail a build.
+states a context of use" is a judgment, and a drafted judgment must not fail a
+build.
 
-## 8. What is still unmeasured
+## 8. The case-set integrity harness
 
-Specificity itself. The cases are committed and the harness
-(`tests/test_specificity_cases.py`) asserts the set can still test — every lure
-survives in its excerpt, nothing is promoted to gold, no case duplicates a
-verdict, and no absent case is one the search filter would have excluded anyway.
+`tests/test_specificity_cases.py` asserts the set can still test something:
+every lure survives in its excerpt, the label status is stated as settled rather
+than pending, no case holds two verdicts on one property, excerpts stay minimal
+spans, and no `absent` case is one the search pre-filter would have excluded
+anyway (which would make it the filter's problem, not the extractor's).
 
-But **the extractor is never run**. The prose path is backend-required and has no
-production caller yet, so the live check waits on Phase 5 wiring. Until then this
-measures that the instrument for measuring specificity is intact, not specificity.
+Only mechanically-determined cases carry `hard_assert` and may fail a build.
+All five failure modes were broken on purpose and restored.
+
+**What remains unmeasured is finding validity** — the settle authority under
+A16.7 as amended. No finding has been adjudicated, because until the extractor
+runs against real cards there are no fired findings to adjudicate. The panel
+routing is declared (A16.4, 2026-08-11) and waiting on Phase 5's slice.
+
+## 9. First extraction measurement — 2026-08-11
+
+`card_prose.extract()` now exists (the module had carried a prompt and a parser
+since Phase 4 with nothing joining them), and the harness
+`run_specificity.py` runs it over all 116 cases.
+
+**Extractor `ollama/qwen3.5:4b`** — the configured default, pinned in the result
+along with the prompt hash, temperature 0.0 and seed. 116 cases, **0 errors**.
+
+| Property | False **clear** | False **fire** |
+|---|---:|---:|
+| P2 uncertainty | 1/9 (11%) | **15/33 (46%)** |
+| P5 null baseline | 0/4 (0%) | **18/22 (82%)** |
+| P6 claimed COU | 0/13 (0%) | **8/10 (80%)** |
+| P7 confound control | 1/15 (7%) | **7/10 (70%)** |
+
+**All 13 `hard_assert` cases passed.** The extractor was not fooled by `±` in a
+SentencePiece vocabulary dump, `Within ±1 Level`, `Out of Scope` as a classifier
+label, or `ablation` as a repo name. The keepers held.
+
+### The asymmetry is the finding
+
+The prompt's central instruction — *a blank is a correct, useful answer* — works
+almost perfectly. Invention is near zero: the extractor does not manufacture a
+property that is absent, which is the failure that would silence a warranted
+weakener.
+
+It fails in the opposite direction, hard. It **misses 46–82% of properties that
+cards genuinely state**, so the weakener fires on the majority of publishers who
+did the right thing. That is the reputation-damaging direction — a public
+accusation of an omission the card did not commit — and at this configuration it
+is disqualifying.
+
+**This is a statement about `qwen3.5:4b`, not about the rules.** A 4B local model
+is the configured default, not a production extractor, and the point of pinning
+the configuration is that this number belongs to it. The rules' own wording is
+not implicated: a rule cannot fire correctly on evidence extraction never
+delivered. Re-measuring against a frontier extractor is the obvious next
+comparison and is one flag.
+
+### Reproducible, not a single draw
+
+Two independent full runs produced **identical rates on all four properties**.
+At temperature 0 with a fixed seed the extractor is deterministic here, so this
+is an instrument reading rather than one sample of a stochastic process.
+
+### Status of these numbers
+
+Secondary instrumentation. Scored against machine-drafted labels, they measure
+agreement between two machine readings of the same text. Per A16.7 as amended,
+**they do not settle a rule** — A16.4 finding validity, adjudicated on fired
+findings, does.
+
+They are still decision-relevant: an extractor with an 82% miss rate cannot be
+the one whose findings go to the adjudication panel, or the panel will spend its
+effort on findings caused by extraction rather than by cards.
+
+### A provenance bug the run surfaced
+
+The harness first hashed the cases file when *writing* the result rather than
+when *reading* it. A relabel that landed mid-run therefore produced a result
+pinning the file's later state — a provenance block that was internally
+inconsistent (current hash, stale `label_status`) while looking well-formed.
+Fixed to hash at read time, and the run above is the clean artifact.

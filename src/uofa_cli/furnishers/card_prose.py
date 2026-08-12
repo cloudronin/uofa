@@ -52,6 +52,48 @@ class ReportedEvidence:
     skipped: list[dict[str, str]] = field(default_factory=list)
 
 
+def extract(scoped_text: str, base: str, *, model: str | None = None,
+            llm_config=None, source_url: str = "", subject_revision: str = "",
+            pack: str = "mrm-nist") -> "ReportedEvidence":
+    """Run the prose extractor over a card's scoped evaluation sections.
+
+    The missing join. This module has carried a prompt and a parser since Phase
+    4 with nothing between them, so `card_prose` had no production caller and the
+    Group-B prose path never actually ran.
+
+    Backend-required by design (D2): prose is where a plausible inferred value
+    could pass as a read one, which is exactly what a backend must be accountable
+    for. Structured furnisher input reads deterministically and does not come
+    through here.
+
+    `{corpus}` is substituted rather than `.format()`-ed -- the prompt contains
+    literal braces in its field examples, and `.format()` would raise on them or,
+    worse, silently consume one.
+    """
+    from uofa_cli.llm import GenerationOptions, get_backend
+
+    prompt = prompt_path(pack).read_text(encoding="utf-8").replace(
+        "{corpus}", scoped_text)
+
+    config = llm_config
+    if config is None:
+        from uofa_cli.llm_extractor import _legacy_model_to_config
+        config = _legacy_model_to_config(model or "")
+
+    response = get_backend(config).generate(prompt, GenerationOptions(
+        timeout_seconds=600.0,
+        # An eval section yields a handful of blocks, not a 19-factor workbook.
+        max_tokens=4096,
+        # Determinism where the backend honours it: this path feeds a
+        # measurement, and a specificity number computed against a moving
+        # extractor is not a measurement of anything.
+        temperature=0.0,
+        seed=20260811,
+        extra={"think": False},
+    ))
+    return parse(response, base, source_url, subject_revision)
+
+
 def prompt_path(pack: str = "mrm-nist") -> Path:
     return paths.pack_dir(pack) / "prompts" / "card_eval_extract_prompt.txt"
 
