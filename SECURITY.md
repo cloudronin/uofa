@@ -7,8 +7,14 @@ authenticity guarantee.**
 
 The ed25519 private key behind the project's default trust anchor
 (`keys/research.pub`) was committed to this public repository from 2026-03-29
-to 2026-08-13. For that window anyone with a clone could produce a package that
+to 2026-08-13. For that window anyone holding it could produce a package that
 passed `uofa verify` with no flags.
+
+**The key also shipped inside every published sdist** — `uofa` 0.7.0, 0.7.1,
+0.8.0, 0.9.0, 0.10.0, and 0.11.0 — so cloning was not required. Anyone who ran
+`pip download uofa` or installed with `--no-binary :all:` received it. Wheels
+are unaffected; they carry only the public half. PyPI files are immutable, so
+these sdists stay retrievable even if the releases are yanked.
 
 The key has been rotated. Every signed artifact in this repository has been
 re-signed; package hashes are unchanged, since re-signing rewrites only the
