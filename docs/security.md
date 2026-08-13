@@ -157,11 +157,32 @@ commit `a930cf40` (2026-03-29) and stayed tracked until 2026-08-13. The
 `.gitignore` rule meant to prevent this matched `keys/*.pem`, while the
 toolchain writes private keys as `*.key`, so it never fired.
 
-For that window, anyone with a clone of the repository — or a copy of any
-published sdist — held the private half of the default trust anchor and could
-mint a package that passed `uofa verify` with no flags. A passing verification
-from that period demonstrates only that the file is internally consistent, not
-who produced it.
+For that window, anyone holding the key could mint a package that passed
+`uofa verify` with no flags. A passing verification from that period
+demonstrates only that the file is internally consistent, not who produced it.
+
+### The key also shipped on PyPI
+
+**Cloning was not required.** Hatchling builds sdists from VCS-tracked files,
+and the sdist `exclude` list covered only engine and runtime artifacts — so
+`keys/research.key` was packaged into **every published source distribution**:
+
+| Release | sdist | Uploaded |
+|---|---|---|
+| 0.7.0 | `uofa-0.7.0.tar.gz` | 2026-05-03 |
+| 0.7.1 | `uofa-0.7.1.tar.gz` | 2026-05-03 |
+| 0.8.0 | `uofa-0.8.0.tar.gz` | 2026-05-04 |
+| 0.9.0 | `uofa-0.9.0.tar.gz` | 2026-05-27 |
+| 0.10.0 | `uofa-0.10.0.tar.gz` | 2026-06-02 |
+| 0.11.0 | `uofa-0.11.0.tar.gz` | 2026-08-09 |
+
+Anyone who ran `pip download uofa`, `pip install --no-binary :all: uofa`, or
+built from an sdist received the unencrypted private half of the default trust
+anchor. The wheels are unaffected — they force-include only `research.pub`.
+
+PyPI release files are immutable. Yanking a release removes it from resolver
+selection but does **not** delete the file, so these sdists remain
+retrievable. Treat the revoked key as permanently public.
 
 | | Fingerprint — `sha256(DER SubjectPublicKeyInfo)` |
 |---|---|
