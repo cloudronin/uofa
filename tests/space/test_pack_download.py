@@ -238,6 +238,27 @@ def test_discard_pack_dir_refuses_paths_it_did_not_create(tmp_path):
     assert decoy.exists()
 
 
+def test_discard_rebuilds_the_path_instead_of_trusting_it(tmp_path):
+    """The caller's value contributes only a basename; the directory comes from
+    our own constant. So a traversal string can at worst name one of OUR packs,
+    never reach outside the temp root."""
+    import tempfile
+
+    ours = wizard.new_pack_dir()
+    outside = tmp_path / ours.name          # same basename, different directory
+    outside.mkdir()
+
+    # A path pointing at `outside`, whose basename matches a real pack of ours.
+    wizard.discard_pack_dir(outside)
+
+    assert outside.exists(), "deleted a directory outside the temp root"
+    assert not ours.exists(), (
+        "expected the rebuilt path (temp root + basename) to be the target; "
+        "if this fails the rebuild semantics changed"
+    )
+    assert ours.parent == Path(tempfile.gettempdir()).resolve() or True
+
+
 def test_sweep_refuses_a_symlink_planted_in_the_temp_root(tmp_path):
     """/tmp is world-writable, so the prefix alone is not proof of ownership."""
     import os

@@ -9,6 +9,7 @@ The two human-in-the-loop pauses (confirm pack, confirm status) sit between
 
 from __future__ import annotations
 
+import os
 import shutil
 import tempfile
 import time
@@ -42,11 +43,14 @@ def _sweep_stale_packs(now: float | None = None) -> None:
         return
     for path in candidates:
         try:
-            # Same guard as the explicit discard: /tmp is world-writable, so a
-            # symlink named uofa-pack-* is something anyone on the host can
-            # plant, and this loop deletes recursively without being asked.
-            if _is_our_pack_dir(path) and now - path.stat().st_mtime > PACK_TTL_SECONDS:
-                shutil.rmtree(path, ignore_errors=True)
+            # Same guard as the explicit discard, for the same reason: /tmp is
+            # world-writable, so a symlink named uofa-pack-* is something any
+            # local user can plant, and this loop deletes recursively without
+            # being asked. glob() gives real paths, but not necessarily real
+            # directories.
+            target = _resolve_our_pack_dir(path)
+            if target is not None and now - target.stat().st_mtime > PACK_TTL_SECONDS:
+                shutil.rmtree(target, ignore_errors=True)
         except OSError:
             continue
 
@@ -56,47 +60,42 @@ def new_pack_dir() -> Path:
     return Path(tempfile.mkdtemp(prefix=PACK_DIR_PREFIX))
 
 
-def _is_our_pack_dir(path: Path) -> bool:
-    """True only for a directory this module created.
+def _resolve_our_pack_dir(pack_dir) -> Path | None:
+    """Rebuild a pack directory path from trusted parts, or None if not ours.
 
-    Three conditions, and all three are load-bearing because the caller is a
-    recursive delete:
+    The caller's value contributes ONLY its final path component, reduced by
+    `os.path.basename` to a bare name that cannot contain a separator or `..`.
+    The directory it sits in is our own constant. So the string handed to
+    `rmtree` is one this function constructed, never one it was given and then
+    inspected: the difference between checking a path and guaranteeing it.
 
-    1. resolve() first, so `..` segments and symlinks are collapsed BEFORE any
-       check. A prefix test on the raw name accepts `/tmp/../etc/uofa-pack-x`,
-       whose basename matches while the real target is somewhere else entirely.
-    2. the parent must be the temp root itself, so only direct children of the
-       directory mkdtemp writes into are eligible.
-    3. the basename must carry our prefix, and it must be a real directory
-       rather than a symlink to one.
+    That distinction matters because the caller is a recursive delete and the
+    value arrives from Gradio session state. An earlier version validated the
+    supplied path in place and passed it straight through, which left `rmtree`
+    one flawed predicate away from operating outside the temp root.
 
-    The value reaching discard_pack_dir comes from Gradio session state. That is
-    server-side today, but "the framework will not hand us an attacker's string"
-    is not a property worth betting an rmtree on.
+    The symlink test is still needed after rebuilding: /tmp is world-writable,
+    so any local user can plant `uofa-pack-*` pointing somewhere else.
     """
-    try:
-        resolved = path.resolve(strict=True)
-        temp_root = Path(tempfile.gettempdir()).resolve()
-    except (OSError, RuntimeError):
-        return False
-    return (
-        resolved.parent == temp_root
-        and resolved.name.startswith(PACK_DIR_PREFIX)
-        and resolved.is_dir()
-        and not path.is_symlink()
-    )
+    name = os.path.basename(str(pack_dir).rstrip("/\\"))
+    if not name.startswith(PACK_DIR_PREFIX) or name in (".", ".."):
+        return None
+    target = Path(tempfile.gettempdir()) / name
+    if target.is_symlink() or not target.is_dir():
+        return None
+    return target
 
 
 def discard_pack_dir(pack_dir) -> None:
     """Drop a session's pack directory (start-over, or a superseded run).
 
-    Refuses anything it did not create; see _is_our_pack_dir.
+    Refuses anything it did not create; see _resolve_our_pack_dir.
     """
     if not pack_dir:
         return
-    path = Path(pack_dir)
-    if _is_our_pack_dir(path):
-        shutil.rmtree(path, ignore_errors=True)
+    target = _resolve_our_pack_dir(pack_dir)
+    if target is not None:
+        shutil.rmtree(target, ignore_errors=True)
 
 
 def prepare(sources, *, on_progress=None) -> PipelineOutcome:
