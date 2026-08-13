@@ -199,14 +199,62 @@ def test_discard_pack_dir_removes_the_download(tmp_path, demo_key_env):
 
 
 def test_discard_pack_dir_refuses_paths_it_did_not_create(tmp_path):
-    """Start-over passes whatever is in session state. A blank or foreign value
-    must not delete something else."""
+    """Start-over passes whatever is in session state, and this deletes
+    recursively. Refuse anything we did not create.
+
+    An earlier version checked only the basename, so `/tmp/../etc/uofa-pack-x`
+    passed: the name matched while the target was elsewhere. CodeQL flagged it
+    (py/path-injection) and it was right. Every case below is one that guard
+    would have accepted or that this one must keep refusing."""
+    import os
+    import tempfile
+
     victim = tmp_path / "not-ours"
     victim.mkdir()
+
+    # Wrong basename.
     wizard.discard_pack_dir(victim)
+    # Falsy values.
     wizard.discard_pack_dir(None)
     wizard.discard_pack_dir("")
+    # Right basename, wrong location -- the case the old guard accepted.
+    decoy = tmp_path / f"{wizard.PACK_DIR_PREFIX}decoy"
+    decoy.mkdir()
+    wizard.discard_pack_dir(decoy)
+    # Traversal that resolves outside the temp root while keeping the prefix.
+    wizard.discard_pack_dir(
+        Path(tempfile.gettempdir()) / ".." / str(tmp_path.relative_to("/")) / f"{wizard.PACK_DIR_PREFIX}decoy")
+    # A symlink planted in the temp root pointing at someone else's directory.
+    link = Path(tempfile.gettempdir()) / f"{wizard.PACK_DIR_PREFIX}symlink-probe"
+    link.unlink(missing_ok=True)
+    os.symlink(victim, link)
+    try:
+        wizard.discard_pack_dir(link)
+        assert victim.exists(), "followed a symlink out of the temp root"
+    finally:
+        link.unlink(missing_ok=True)
+
     assert victim.exists()
+    assert decoy.exists()
+
+
+def test_sweep_refuses_a_symlink_planted_in_the_temp_root(tmp_path):
+    """/tmp is world-writable, so the prefix alone is not proof of ownership."""
+    import os
+    import tempfile
+
+    victim = tmp_path / "precious"
+    victim.mkdir()
+    (victim / "file.txt").write_text("keep me", encoding="utf-8")
+
+    link = Path(tempfile.gettempdir()) / f"{wizard.PACK_DIR_PREFIX}sweep-probe"
+    link.unlink(missing_ok=True)
+    os.symlink(victim, link)
+    try:
+        wizard._sweep_stale_packs(now=9e18)   # far future: everything looks stale
+        assert (victim / "file.txt").exists()
+    finally:
+        link.unlink(missing_ok=True)
 
 
 def test_sweep_drops_stale_packs_and_keeps_fresh_ones(monkeypatch):

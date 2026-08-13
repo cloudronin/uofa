@@ -42,7 +42,10 @@ def _sweep_stale_packs(now: float | None = None) -> None:
         return
     for path in candidates:
         try:
-            if path.is_dir() and now - path.stat().st_mtime > PACK_TTL_SECONDS:
+            # Same guard as the explicit discard: /tmp is world-writable, so a
+            # symlink named uofa-pack-* is something anyone on the host can
+            # plant, and this loop deletes recursively without being asked.
+            if _is_our_pack_dir(path) and now - path.stat().st_mtime > PACK_TTL_SECONDS:
                 shutil.rmtree(path, ignore_errors=True)
         except OSError:
             continue
@@ -53,12 +56,46 @@ def new_pack_dir() -> Path:
     return Path(tempfile.mkdtemp(prefix=PACK_DIR_PREFIX))
 
 
+def _is_our_pack_dir(path: Path) -> bool:
+    """True only for a directory this module created.
+
+    Three conditions, and all three are load-bearing because the caller is a
+    recursive delete:
+
+    1. resolve() first, so `..` segments and symlinks are collapsed BEFORE any
+       check. A prefix test on the raw name accepts `/tmp/../etc/uofa-pack-x`,
+       whose basename matches while the real target is somewhere else entirely.
+    2. the parent must be the temp root itself, so only direct children of the
+       directory mkdtemp writes into are eligible.
+    3. the basename must carry our prefix, and it must be a real directory
+       rather than a symlink to one.
+
+    The value reaching discard_pack_dir comes from Gradio session state. That is
+    server-side today, but "the framework will not hand us an attacker's string"
+    is not a property worth betting an rmtree on.
+    """
+    try:
+        resolved = path.resolve(strict=True)
+        temp_root = Path(tempfile.gettempdir()).resolve()
+    except (OSError, RuntimeError):
+        return False
+    return (
+        resolved.parent == temp_root
+        and resolved.name.startswith(PACK_DIR_PREFIX)
+        and resolved.is_dir()
+        and not path.is_symlink()
+    )
+
+
 def discard_pack_dir(pack_dir) -> None:
-    """Drop a session's pack directory (start-over, or a superseded run)."""
+    """Drop a session's pack directory (start-over, or a superseded run).
+
+    Refuses anything it did not create; see _is_our_pack_dir.
+    """
     if not pack_dir:
         return
     path = Path(pack_dir)
-    if path.name.startswith(PACK_DIR_PREFIX):
+    if _is_our_pack_dir(path):
         shutil.rmtree(path, ignore_errors=True)
 
 
