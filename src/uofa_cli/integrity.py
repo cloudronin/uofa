@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from pathlib import Path
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
@@ -141,19 +142,49 @@ def canonicalize_and_hash(doc: dict) -> tuple[str, str]:
     return canonical, sha256_hex
 
 
-def generate_keypair(key_path: Path):
-    """Generate ed25519 keypair and save to disk. Returns (key_path, pub_path)."""
+def generate_keypair(key_path: Path, *, force: bool = False):
+    """Generate ed25519 keypair and save to disk. Returns (key_path, pub_path).
+
+    Refuses to clobber existing key material unless ``force``. Overwriting a
+    signing key silently invalidates every package already signed with it, and
+    the damage surfaces much later as an unexplained "Signature valid: False"
+    with nothing pointing back at the cause.
+
+    Both halves are checked, not just the private one: ``pub_path`` is derived
+    with ``with_suffix``, so ``keygen keys/research`` collides only on
+    ``keys/research.pub`` while writing an extensionless private key that no
+    ``*.key`` ignore rule matches.
+
+    The private key is created 0600 rather than chmod-ed after writing, which
+    would leave a window where it is world-readable.
+    """
+    key_path = Path(key_path)
+    pub_path = key_path.with_suffix(".pub")
+
+    if not force:
+        clashes = [p for p in (key_path, pub_path) if p.exists()]
+        if clashes:
+            raise FileExistsError(
+                "refusing to overwrite existing key material: "
+                + ", ".join(str(p) for p in clashes)
+                + " — every package signed with it would stop verifying. "
+                "Pass --force to rotate deliberately."
+            )
+
     private_key = Ed25519PrivateKey.generate()
 
     key_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(key_path, "wb") as f:
+    fd = os.open(key_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "wb") as f:
         f.write(private_key.private_bytes(
             encoding=serialization.Encoding.PEM,
             format=serialization.PrivateFormat.PKCS8,
             encryption_algorithm=serialization.NoEncryption(),
         ))
+    # O_CREAT's mode is ignored when the file already existed (the --force
+    # path), so restate it unconditionally.
+    os.chmod(key_path, 0o600)
 
-    pub_path = key_path.with_suffix(".pub")
     public_key = private_key.public_key()
     with open(pub_path, "wb") as f:
         f.write(public_key.public_bytes(

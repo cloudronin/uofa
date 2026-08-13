@@ -125,8 +125,11 @@ class TestSign:
         result = run_uofa("sign", str(uofa_file), "--key", "/nonexistent/key.key")
         assert result.returncode != 0
 
-    def test_sign_missing_file_fails(self):
-        result = run_uofa("sign", "/nonexistent/file.jsonld", "--key", "keys/research.key")
+    def test_sign_missing_file_fails(self, signing_keypair):
+        # A real key, so the failure is attributable to the missing *file*.
+        # Naming a nonexistent key here would pass for the wrong reason.
+        key, _ = signing_keypair
+        result = run_uofa("sign", "/nonexistent/file.jsonld", "--key", str(key))
         assert result.returncode != 0
 
 
@@ -1146,10 +1149,10 @@ class TestImport:
         assert "generatedAtTime" in doc
         assert doc["hash"].startswith("sha256:")
 
-    def test_import_with_sign(self, tmp_path):
+    def test_import_with_sign(self, tmp_path, signing_keypair):
         """Import + sign produces real hash and signature."""
         output = tmp_path / "output.jsonld"
-        key = REPO_ROOT / "keys" / "research.key"
+        key, _ = signing_keypair
         result = run_uofa("import", str(STARTER_XLSX), "-o", str(output),
                           "--sign", "--key", str(key), "--pack", "vv40")
         assert result.returncode == 0
@@ -1159,7 +1162,7 @@ class TestImport:
         # After signing, hash should not be all zeros
         assert doc["hash"] != "sha256:" + "0" * 64
 
-    def test_import_key_check_without_explicit_sign(self, tmp_path):
+    def test_import_key_check_without_explicit_sign(self, tmp_path, signing_keypair):
         """Regression for the May-25 NAFEMS-demo bug.
 
         Previously, `uofa import FILE --key K --check` (no explicit --sign)
@@ -1181,7 +1184,7 @@ class TestImport:
         intentionally fails C2 SHACL and would mask the bug-fix signal.
         """
         output = tmp_path / "output.jsonld"
-        key = REPO_ROOT / "keys" / "research.key"
+        key, _ = signing_keypair
         result = run_uofa("import", str(STARTER_XLSX), "-o", str(output),
                           "--key", str(key), "--check", "--pack", "vv40")
         combined = result.stdout + result.stderr

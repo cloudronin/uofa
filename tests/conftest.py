@@ -39,6 +39,25 @@ def _isolate_explain_cache(monkeypatch, tmp_path):
     yield
 
 
+@pytest.fixture(scope="session")
+def signing_keypair(tmp_path_factory):
+    """A throwaway ed25519 keypair for tests that need *a* signer.
+
+    The repo deliberately ships no private key, so tests must generate their
+    own. Nothing here verifies against the repo's trust anchor
+    (`keys/research.pub`) -- these tests only need a self-consistent pair, and
+    any test that also runs `uofa check`/`verify` on the result must pass the
+    matching `--pubkey` rather than falling back to the repo default.
+
+    Session-scoped: generation is the only cost and no test mutates the key.
+    Returns `(key_path, pub_path)`, the two halves side by side, so callers
+    relying on `key.with_suffix('.pub')` resolve correctly.
+    """
+    from uofa_cli.integrity import generate_keypair
+
+    return generate_keypair(tmp_path_factory.mktemp("signing") / "test-signing.key")
+
+
 # ── the extracted corpus the pinning tests read ──────────────
 
 _EXTRACTED_JSON = pathlib.Path(__file__).parent / "fixtures" / "extract_corpus" / "extracted_rows.json"

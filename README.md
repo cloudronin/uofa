@@ -218,11 +218,12 @@ Every UofA carries a real cryptographic hash and digital signature — not place
 | **Cryptographic signature** | Document was signed by the declared authority | ed25519 signature verification against the repo public key |
 
 ```bash
-# Mint a sealed UofA (sign after edits)
-uofa sign packs/vv40/examples/morrison/cou1/uofa-morrison-cou1.jsonld --key keys/research.key
+# Sign with your own key — the project's private key is not distributed
+uofa keygen keys/my-project.key
+uofa sign my-assessment.jsonld --key keys/my-project.key
 
-# Verify integrity
-uofa verify packs/vv40/examples/morrison/cou1/uofa-morrison-cou1.jsonld
+# Verify integrity (against your key; omit --pubkey to use the repo's)
+uofa verify my-assessment.jsonld --pubkey keys/my-project.pub
 ```
 
 Placeholder strings (e.g., `sha256:placeholder...`) **fail** SHACL validation by design — a UofA claiming ProfileComplete must carry a real hash.
@@ -440,7 +441,7 @@ uofa interrogate init --model my_surrogate.onnx
 uofa interrogate \
   --adapter sip_adapter.py:GeneratedAdapter \
   --benchmark bench.npz --reference truth.npz --scope sip_scope.json \
-  -o evidence.json --key keys/research.key
+  -o evidence.json --key keys/my-project.key
 ```
 
 **Try it now** on a committed surrogate evidence package (no model or data needed) — the surrogate pack's weakener catalog flags where the credibility evidence is incomplete:

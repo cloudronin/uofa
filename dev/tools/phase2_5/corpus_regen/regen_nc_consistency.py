@@ -319,7 +319,10 @@ def main(argv: list[str] | None = None) -> int:
     )
     p.add_argument(
         "--key", type=Path, default=Path("keys/research.key"),
-        help="ed25519 private key for re-signing patched NCs.",
+        help="ed25519 private key for re-signing patched NCs. Not in the repo "
+             "(see docs/security.md); supply a maintainer's local copy. Note "
+             "this calls integrity.sign_file() directly, bypassing the "
+             "synthetic-sample refusal that `uofa sign` applies.",
     )
     p.add_argument("--dry-run", action="store_true",
                    help="report what would change without writing or symlinking.")
