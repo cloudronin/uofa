@@ -121,10 +121,23 @@ def _run_pipeline_in_tmp_layout(uofa_path: Path, active_packs: list[str] | None 
         staged_demo.mkdir(parents=True)
         staged_repo.mkdir(parents=True)
         shutil.copy(uofa_path, staged_demo / uofa_path.name)
-        for sub in ("spec", "packs", "keys"):
+        # Mirror what pyproject.toml force-includes into the wheel. `specs/`
+        # (plural, holding pack_manifest_schema.json and the SIP evidence-bundle
+        # schema) is a separate tree from `spec/` (singular) and both ship.
+        for sub in ("spec", "specs", "packs"):
             src = repo_root / sub
             if src.exists():
                 shutil.copytree(src, staged_repo / sub, symlinks=True)
+        # Public keys only. C1 verification reads `keys/*.pub` and nothing
+        # else, and the wheel force-includes only `keys/research.pub` — so
+        # copying the whole directory would both diverge from the real wheel
+        # layout and stage a maintainer's private signing key into /tmp
+        # whenever one is present on disk.
+        keys_src = repo_root / "keys"
+        if keys_src.is_dir():
+            (staged_repo / "keys").mkdir(parents=True, exist_ok=True)
+            for pubkey in keys_src.glob("*.pub"):
+                shutil.copy2(pubkey, staged_repo / "keys" / pubkey.name)
         # In source-tree dev there is no wheel-bundled JAR, so the rules
         # step falls through to repo_root/src/weakener-engine/target/...; mirror
         # that into the staged tree too. (In a real installed wheel the

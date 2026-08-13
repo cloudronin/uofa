@@ -19,7 +19,7 @@ from uofa_cli.commands import demo
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 JAVA_AVAILABLE = shutil.which("java") is not None
-JENA_JAR = REPO_ROOT / "weakener-engine" / "target" / "uofa-weakener-engine-0.1.0.jar"
+JENA_JAR = REPO_ROOT / "src" / "weakener-engine" / "target" / "uofa-weakener-engine-0.1.0.jar"
 JENA_AVAILABLE = JAVA_AVAILABLE and JENA_JAR.exists()
 
 
