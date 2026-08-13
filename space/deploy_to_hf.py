@@ -52,6 +52,8 @@ DENY = (
     "space/Dockerfile.local",
     "space/Dockerfile.base",        # built in CI -> GHCR, not by HF
     ".key",                         # never ship private keys
+    ".pem",                         # same, other conventional suffix
+    ".env",                         # dotenv files carry the demo signing key
 )
 
 
@@ -80,12 +82,24 @@ def build_operations() -> list[CommitOperationAdd]:
     return ops
 
 
+def _secrets_in(ops) -> list[str]:
+    """Paths that must never reach the Space repo, which is public.
+
+    Belt to DENY's braces: DENY is a substring filter that a renamed file can
+    slip past, and this is the last gate before a public push. The demo issuer's
+    private key reaches the Space only as a settings secret, never as a file.
+    """
+    suffixes = (".key", ".pem", ".env")
+    return [op.path_in_repo for op in ops
+            if op.path_in_repo.endswith(suffixes) or ".env." in op.path_in_repo]
+
+
 def main() -> None:
     ops = build_operations()
-    # Hard guarantee: no private key ever leaves the repo.
-    leaked = [op.path_in_repo for op in ops if op.path_in_repo.endswith(".key")]
+    # Hard guarantee: no private key or dotenv ever leaves the repo.
+    leaked = _secrets_in(ops)
     if leaked:
-        raise SystemExit(f"refusing to deploy: private key(s) in payload: {leaked}")
+        raise SystemExit(f"refusing to deploy: secret(s) in payload: {leaked}")
 
     sha = os.environ.get("GITHUB_SHA", "local")[:7]
     api = HfApi(token=os.environ["HF_TOKEN"])

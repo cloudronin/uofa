@@ -605,6 +605,18 @@ def default_pubkey(root: Path = None) -> Path:
     return root / "keys" / "research.pub"
 
 
+def demo_pubkey(root: Path = None) -> Path:
+    """Trust anchor for packages issued by the hosted demo.
+
+    Deliberately NOT the default: a demo package must never verify as a research
+    package with no flag. `uofa verify --pubkey keys/demo.pub` is the explicit
+    act of trusting the demo issuer, and every pack ships this file plus
+    instructions so the choice is visible.
+    """
+    root = root or find_repo_root()
+    return root / "keys" / "demo.pub"
+
+
 def templates_dir(root: Path = None) -> Path:
     root = root or find_repo_root()
     return root / "packs" / "core" / "templates"

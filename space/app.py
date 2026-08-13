@@ -331,14 +331,30 @@ def _render_results(p):
     return head, gaps_md, tail_md, reviewer_html
 
 
-def _finalize(result, pack, status_state, warnings, source_name):
+def _pack_update(payload):
+    """Show the download only when this run actually produced a signed pack.
+
+    Two failure shapes to keep apart: no signing key configured (the Space is
+    unsigned, as it has always been) and a run that errored. Both must leave the
+    control hidden with no value, never pointing at an earlier run's file."""
+    download = (payload or {}).get("download")
+    if not download:
+        return gr.update(value=None, visible=False)
+    return gr.update(value=download["zip_path"], visible=True)
+
+
+def _finalize(result, pack, status_state, warnings, source_name, pack_dir):
+    wizard.discard_pack_dir(pack_dir)          # supersede the previous run's file
+    pack_dir = wizard.new_pack_dir()
     outcome = wizard.finalize(
-        result, pack, status_state or {}, source_name=source_name, warnings=warnings
+        result, pack, status_state or {}, source_name=source_name, warnings=warnings,
+        pack_out_dir=pack_dir,
     )
     if not outcome.ok:
         return (_show(), _hide(), gr.update(value=f"⚠️ {outcome.user_message}", visible=True),
                 gr.update(), gr.update(), gr.update(), None, gr.update(),
-                gr.update(), gr.update(), gr.update())  # view_toggle, author_panel, reviewer_panel (no-op)
+                gr.update(), gr.update(), gr.update(),  # view_toggle, author/reviewer panel (no-op)
+                _pack_update(None), pack_dir)
 
     p = outcome.payload
     head, gaps_md, tail_md, reviewer_html = _render_results(p)
@@ -356,6 +372,8 @@ def _finalize(result, pack, status_state, warnings, source_name):
         gr.update(value="Reviewer"),          # view_toggle
         _hide(),                              # author_panel
         _show(),                              # reviewer_panel
+        _pack_update(p),                      # pack_btn
+        pack_dir,                             # pack_dir_state
     )
 
 
@@ -363,7 +381,7 @@ def _finalize(result, pack, status_state, warnings, source_name):
 # result surfaces. See the build() wiring for the exact component list.
 
 
-def _run_card(model_id):
+def _run_card(model_id, pack_dir):
     """Card path: fetch an HF model card and report, skipping route/extract/confirm.
     Generator: yields a working state, then the result (or an error). Hard-routes
     model-credibility; the readout discloses extraction provenance + the MRL assumption."""
@@ -372,22 +390,25 @@ def _run_card(model_id):
         yield (_show(), _hide(), _hide(), _hide(), _hide(), gr.update(visible=False),
                gr.update(value="⚠️ Paste a model id (owner/model) or a model URL first.", visible=True),
                gr.update(), gr.update(), gr.update(), None, gr.update(),
-               gr.update(), gr.update(), gr.update())
+               gr.update(), gr.update(), gr.update(), _pack_update(None), pack_dir)
         return
+
+    wizard.discard_pack_dir(pack_dir)          # supersede the previous run's file
+    pack_dir = wizard.new_pack_dir()
 
     yield (_hide(), _hide(), _hide(), _hide(), _hide(),
            gr.update(value=f"Fetching the public model card for **{model_id}** and analyzing it. "
                            "This can take a few minutes the first time...", visible=True),
            gr.update(value="", visible=False),
            gr.update(), gr.update(), gr.update(), None, gr.update(),
-           gr.update(), gr.update(), gr.update())
+           gr.update(), gr.update(), gr.update(), _pack_update(None), pack_dir)
 
-    outcome = wizard.card_report(model_id, model=_MODEL)
+    outcome = wizard.card_report(model_id, model=_MODEL, pack_out_dir=pack_dir)
     if not outcome.ok:
         yield (_show(), _hide(), _hide(), _hide(), _hide(), gr.update(visible=False),
                gr.update(value=f"⚠️ {outcome.user_message}", visible=True),
                gr.update(), gr.update(), gr.update(), None, gr.update(),
-               gr.update(), gr.update(), gr.update())
+               gr.update(), gr.update(), gr.update(), _pack_update(None), pack_dir)
         return
 
     p = outcome.payload
@@ -398,7 +419,8 @@ def _run_card(model_id):
            gr.update(value=head), gr.update(value=gaps_md), gr.update(value=tail_md),
            p,                                                 # summary_state
            gr.update(value=reviewer_html),
-           gr.update(value="Reviewer"), _hide(), _show())    # view_toggle, author_panel, reviewer_panel
+           gr.update(value="Reviewer"), _hide(), _show(),    # view_toggle, author_panel, reviewer_panel
+           _pack_update(p), pack_dir)                        # pack_btn, pack_dir_state
 
 
 def _capture(email, pack, summary):
@@ -420,12 +442,18 @@ def _switch_view(choice):
             gr.update(visible=reviewer_first))      # reviewer_panel
 
 
-def _start_over():
+def _start_over(pack_dir):
     """Full reset to step 1. Hiding the step groups is not enough: the result
     components (reviewer HTML, the author markdowns, the picked file) keep their
     last values, so a stale report shows through if a group ever fails to
     collapse. Blank every content surface as well as resetting the states, so
-    Start over always lands on a clean upload step."""
+    Start over always lands on a clean upload step.
+
+    The download gets the same treatment and then some: a stale *file* is worse
+    than a stale render, because the user walks away with a signed package
+    describing someone else's evidence. Clear the control and delete the
+    directory behind it."""
+    wizard.discard_pack_dir(pack_dir)
     return (
         # step groups
         _show(), _hide(), _hide(), _hide(), _hide(),   # upload, route, extract, confirm, summary
@@ -449,6 +477,8 @@ def _start_over():
         # (which actually shows summary_group) owns re-showing the reviewer panel.
         gr.update(value="Reviewer"),                   # view_toggle
         _hide(), _hide(),                              # author_panel, reviewer_panel
+        gr.update(value=None, visible=False),          # pack_btn
+        None,                                          # pack_dir_state
     )
 
 
@@ -481,6 +511,7 @@ def build() -> gr.Blocks:
         warnings_state = gr.State(None)
         source_name_state = gr.State("upload")
         summary_state = gr.State(None)
+        pack_dir_state = gr.State(None)   # this session's downloadable pack dir
 
         error_md = gr.Markdown(visible=False)
 
@@ -559,7 +590,15 @@ def build() -> gr.Blocks:
             # Reviewer is the default; Author is one toggle away.
             with gr.Group(visible=True) as reviewer_panel:
                 reviewer_html = gr.HTML()
-                pdf_btn = gr.Button("Save as PDF", size="sm")
+                with gr.Row():
+                    pdf_btn = gr.Button("Save as PDF", size="sm")
+                    # DownloadButton, not gr.File: a filebox here would read as a
+                    # second upload target next to the one in Step 1, which is the
+                    # opposite of what it does. Hidden until a run actually signs
+                    # a package -- see _pack_update. No .click handler; the
+                    # component serves whatever path is set as its value.
+                    pack_btn = gr.DownloadButton(
+                        "Download UofA package", size="sm", visible=False)
             with gr.Group(visible=False) as author_panel:
                 summary_md = gr.Markdown()      # headline (gaps-led) + indicative line
                 weakeners_md = gr.Markdown()    # weakeners + not-assessed (the gaps)
@@ -588,11 +627,12 @@ def build() -> gr.Blocks:
             upload_group, route_group, extract_group, confirm_group, summary_group,
             card_progress, error_md, summary_md, weakeners_md, structural_md,
             summary_state, reviewer_html, view_toggle, author_panel, reviewer_panel,
+            pack_btn, pack_dir_state,
         ]
-        card_btn.click(_run_card, inputs=[card_input], outputs=card_outputs)
+        card_btn.click(_run_card, inputs=[card_input, pack_dir_state], outputs=card_outputs)
         for _ex_btn, (_ex_mid, _ex_role) in zip(example_btns, curated.EXAMPLE_MODELS):
             _ex_btn.click(lambda _m=_ex_mid: _m, inputs=None, outputs=[card_input]).then(
-                _run_card, inputs=[card_input], outputs=card_outputs)
+                _run_card, inputs=[card_input, pack_dir_state], outputs=card_outputs)
 
         pack_radio.change(_enable_analyze, inputs=None, outputs=[analyze_btn])
 
@@ -605,10 +645,11 @@ def build() -> gr.Blocks:
 
         gaps_btn.click(
             _finalize,
-            inputs=[result_state, pack_radio, status_state, warnings_state, source_name_state],
+            inputs=[result_state, pack_radio, status_state, warnings_state, source_name_state,
+                    pack_dir_state],
             outputs=[confirm_group, summary_group, error_md, summary_md, weakeners_md,
                      structural_md, summary_state, reviewer_html,
-                     view_toggle, author_panel, reviewer_panel],
+                     view_toggle, author_panel, reviewer_panel, pack_btn, pack_dir_state],
         )
 
         # `.input` (user-interaction only), NOT `.change`: a programmatic reset of
@@ -624,14 +665,15 @@ def build() -> gr.Blocks:
 
         start_over_btn.click(
             _start_over,
-            inputs=None,
+            inputs=[pack_dir_state],
             outputs=[upload_group, route_group, extract_group, confirm_group, summary_group,
                      read_progress, extract_progress, card_progress,
                      error_md, confirm_intro, reviewer_html, summary_md, weakeners_md,
                      structural_md, capture_msg, email_box, file_input, card_input,
                      corpus_state, decision_state, result_state, status_state,
                      warnings_state, summary_state,
-                     view_toggle, author_panel, reviewer_panel],
+                     view_toggle, author_panel, reviewer_panel,
+                     pack_btn, pack_dir_state],
         )
 
     return demo

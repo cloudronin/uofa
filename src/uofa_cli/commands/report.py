@@ -615,6 +615,12 @@ def _render_json(state) -> str:
 
 _RENDERERS = {"text": _render_text, "markdown": _render_markdown, "json": _render_json}
 
+# Public name for the markdown renderer. The Space embeds a rendered report in
+# every downloadable pack and must use THIS renderer, not a demo-side copy: two
+# renderers is how a pack ends up describing something the CLI would not.
+# Exported rather than having another package reach for the underscore name.
+render_markdown = _render_markdown
+
 
 # ── id mode: fetch + extract -> bundle ───────────────────────────────────────
 
