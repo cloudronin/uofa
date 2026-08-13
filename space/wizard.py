@@ -80,7 +80,17 @@ def _resolve_our_pack_dir(pack_dir) -> Path | None:
     name = os.path.basename(str(pack_dir).rstrip("/\\"))
     if not name.startswith(PACK_DIR_PREFIX) or name in (".", ".."):
         return None
-    target = Path(tempfile.gettempdir()) / name
+
+    # Join to the trusted root, normalize, then require the result to still be
+    # under that root. Redundant after basename() -- which is the point: this is
+    # the containment check stated explicitly, so neither a reader nor a static
+    # analyzer has to infer it from what basename() happens to strip.
+    root = os.path.realpath(tempfile.gettempdir())
+    candidate = os.path.normpath(os.path.join(root, name))
+    if not candidate.startswith(root + os.sep):
+        return None
+
+    target = Path(candidate)
     if target.is_symlink() or not target.is_dir():
         return None
     return target
