@@ -20,7 +20,7 @@ contributors and for finding things during active iteration.
 | `dev/tools/scripts/` | Maintainer/dev utility scripts (manifest refresh, M7 export, scoring) | Stable |
 | `dev/build/` | Generated artifacts (gitignored). Includes `dev/build/adversarial/` corpora and `dev/build/phase2_5/` refinement outputs. (Top-level `build/` is reserved for Python wheel build artifacts.) | Ephemeral |
 | `docs/` | Operational documentation | Mixed |
-| `keys/` | ed25519 signing keys (research keys; production keys should be elsewhere) | Stable |
+| `keys/` | ed25519 **public** keys only — `research.pub` is the default trust anchor. Private keys are gitignored and never committed (see [security.md](security.md)) | Stable |
 | `LICENSES/` | License attribution files | Stable |
 
 ## Top-level files

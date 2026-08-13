@@ -94,8 +94,11 @@ cp packs/vv40/templates/uofa-starter-filled.xlsx my-assessment.xlsx
 # Edit my-assessment.xlsx in Excel — fill in your project details,
 # credibility factors, validation results, and decision
 
+# Generate your own signing key (the project's private key is not distributed)
+uofa keygen keys/my-project.key
+
 # Import, sign, and validate in one step
-uofa import my-assessment.xlsx --sign --key keys/research.key --check --pack vv40
+uofa import my-assessment.xlsx --sign --key keys/my-project.key --check --pack vv40
 ```
 
 The Excel template has 5 sheets: **Assessment Summary**, **Model & Data**,
@@ -919,7 +922,9 @@ sh:pattern "^(W-(EP|AL|ON|AR|SI|XX)-\\d{2}|COMPOUND-\\d{2})$" ;
 uofa schema
 ```
 
-4. **Re-sign any example files** whose weakener arrays you modified:
+4. **Re-sign any example files** whose weakener arrays you modified. This is a
+   maintainer operation — it needs a local copy of the project signing key,
+   which is not in the repo (see [security.md](security.md)):
 
 ```bash
 uofa sign packs/vv40/examples/morrison/cou1/uofa-morrison-cou1.jsonld --key keys/research.key

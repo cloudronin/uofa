@@ -485,6 +485,7 @@ uofa schema
 4. **Re-sign any example files** whose weakener arrays you modified:
 
 ```bash
+# maintainer only -- the private key is not in the repo (see docs/security.md)
 uofa sign packs/vv40/examples/morrison/cou1/uofa-morrison-cou1.jsonld --key keys/research.key
 ```
 

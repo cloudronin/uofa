@@ -1,7 +1,18 @@
-# Security model — API keys and the LLM layer
+# Security model
+
+Two kinds of secret matter in this project, and they are unrelated:
+
+- **LLM API keys** — credentials for the remote backends `--explain` and
+  `extract` optionally talk to. Covered immediately below.
+- **Package signing keys** — the ed25519 keypair behind `uofa sign` /
+  `uofa verify`. Covered in [Signing keys](#signing-keys) at the end,
+  **including a key revocation you should read if you hold any UofA
+  package signed before 2026-08-13.**
+
+## API keys and the LLM layer
 
 UofA's `--explain` and `extract` commands optionally talk to remote LLM
-backends (Anthropic, OpenAI, OpenAI-compatible). This document spells
+backends (Anthropic, OpenAI, OpenAI-compatible). This section spells
 out how the CLI handles credentials and what's in / out of scope for the
 threat model.
 
@@ -124,3 +135,79 @@ channels (config files, cache, output, logs). Verified by:
 
 What happens in your shell environment, your dotfiles, or the backend
 provider's logging is outside the CLI's control. Plan accordingly.
+
+---
+
+# Signing keys
+
+`uofa sign` produces an ed25519 signature over a package's canonical hash;
+`uofa verify`, `uofa check`, and `uofa validate --verify` check it. When no
+`--pubkey` is given they fall back to `keys/research.pub`
+(`paths.default_pubkey()`), which is force-included into the wheel — so it is
+the default trust anchor for every `pip install uofa` as well as every source
+checkout.
+
+## Key revocation — 2026-08-13
+
+**The signing key in use from 2026-03-29 to 2026-08-13 was compromised. Any
+UofA package signed in that window carries no authenticity guarantee.**
+
+The private key `keys/research.key` was committed to this public repository in
+commit `a930cf40` (2026-03-29) and stayed tracked until 2026-08-13. The
+`.gitignore` rule meant to prevent this matched `keys/*.pem`, while the
+toolchain writes private keys as `*.key`, so it never fired.
+
+For that window, anyone with a clone of the repository — or a copy of any
+published sdist — held the private half of the default trust anchor and could
+mint a package that passed `uofa verify` with no flags. A passing verification
+from that period demonstrates only that the file is internally consistent, not
+who produced it.
+
+| | Fingerprint — `sha256(DER SubjectPublicKeyInfo)` |
+|---|---|
+| **Revoked** (2026-03-29 → 2026-08-13) | `2f622df995d41f9e6bf8057e343b455debea4792a4fb5bba57ccde3f99c18617` |
+| **Current** (2026-08-13 → ) | `ec22097e31ae1b4faf4556a130b673242a1994fb607fbda11a7124c9c2550f08` |
+
+The revoked public key is retained as `keys/REVOKED-research-2026-03-29.pub` so
+you can tell the two apart:
+
+```bash
+uofa verify <package> --pubkey keys/REVOKED-research-2026-03-29.pub
+```
+
+A package that verifies against the revoked key was signed during the
+compromise window. Every signed artifact shipped in this repository has been
+re-signed with the current key; because re-signing changes only the
+`signature` field, package hashes are unchanged.
+
+**The old key is not recoverable-proof.** It remains in git history across
+every branch and release tag, in every existing clone and fork, and in
+published release artifacts. Rewriting history would not retract it, which is
+why the mitigation is rotation plus this notice rather than a history rewrite.
+
+## Where the private key lives
+
+Not in the repository. `keys/*.key` is gitignored, `uofa keygen` creates
+private keys at mode `0600`, and it refuses to overwrite existing key material
+without `--force` — silently regenerating a keypair invalidates every package
+already signed with it.
+
+Re-signing the shipped examples is a maintainer operation needing a local copy
+of the key. **Nothing in CI signs**: `uofa validate --verify` only ever reads
+the public half, so the private key is not required to build, test, or release.
+
+## If you sign your own packages
+
+Generate your own key rather than reusing the project's, and distribute the
+public half alongside your packages:
+
+```bash
+uofa keygen keys/my-project.key
+uofa sign my-assessment.jsonld --key keys/my-project.key
+uofa verify my-assessment.jsonld --pubkey keys/my-project.pub
+```
+
+Commit `my-project.pub`; keep `my-project.key` out of version control and back
+it up somewhere you can read it back from. Note that verification is only as
+meaningful as the verifier's choice of `--pubkey`: a package carries no signer
+identity, so "verified" means "verified against the key you pointed at."

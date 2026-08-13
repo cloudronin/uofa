@@ -33,7 +33,10 @@ generate_fixture = _generator.generate_fixture
 
 REPO_ROOT = Path(__file__).parent.parent
 CONTEXT_FILE = str(REPO_ROOT / "spec" / "context" / "v0.5.jsonld")
-KEY_FILE = REPO_ROOT / "keys" / "research.key"
+# No KEY_FILE constant: the repo ships no private key. Tests that need to sign
+# take the session-scoped `signing_keypair` fixture (tests/conftest.py) and must
+# pass its public half to any `uofa check`/`verify` they run, since the default
+# trust anchor is the repo's `keys/research.pub`, which cannot verify it.
 TC70_XLSX = REPO_ROOT / "packs" / "nasa-7009b" / "examples" / "starters" / "uofa-aero-hpt-blade-thermal-gaps.xlsx"
 
 JAVA_AVAILABLE = shutil.which("java") is not None
@@ -133,8 +136,14 @@ def _import_file(xlsx_path, output_path, packs):
     return result, doc
 
 
-def _import_sign_check(xlsx_path, output_path, packs):
-    """Import → rewrite context → sign → SHACL check (no Java needed)."""
+def _import_sign_check(xlsx_path, output_path, packs, key, pub):
+    """Import → rewrite context → sign → SHACL check (no Java needed).
+
+    `key`/`pub` are the two halves of the throwaway `signing_keypair`. The
+    check below must be told `--pubkey`, or it falls back to the repo's
+    `keys/research.pub` and reports sig_ok=False for a perfectly good
+    signature.
+    """
     pack_args = []
     for p in packs:
         pack_args += ["--pack", p]
@@ -150,12 +159,12 @@ def _import_sign_check(xlsx_path, output_path, packs):
     output_path.write_text(json.dumps(doc, indent=2, sort_keys=True, ensure_ascii=False) + "\n")
 
     # Sign
-    sign_r = run_uofa("sign", str(output_path), "--key", str(KEY_FILE), "--context", CONTEXT_FILE)
+    sign_r = run_uofa("sign", str(output_path), "--key", str(key), "--context", CONTEXT_FILE)
     if sign_r.returncode != 0:
         return result, sign_r, None
 
     # Check (C1+C2, skip rules)
-    check_r = run_uofa("check", str(output_path), "--skip-rules", *pack_args)
+    check_r = run_uofa("check", str(output_path), "--skip-rules", "--pubkey", str(pub), *pack_args)
     doc = json.loads(output_path.read_text())
     return result, check_r, doc
 
@@ -315,12 +324,13 @@ class TestImportRoundtrip:
     """Import → sign → C1+C2 check passes for each profile."""
 
     @pytest.fixture(params=ROUNDTRIP_IDS)
-    def roundtrip(self, request, fixture_dir, tmp_path):
+    def roundtrip(self, request, fixture_dir, tmp_path, signing_keypair):
         name = request.param
         spec = SPECS[name]
         xlsx = fixture_dir / f"{name}.xlsx"
         output = tmp_path / "output.jsonld"
-        import_r, check_r, doc = _import_sign_check(xlsx, output, spec["packs"])
+        key, pub = signing_keypair
+        import_r, check_r, doc = _import_sign_check(xlsx, output, spec["packs"], key, pub)
         return name, spec, import_r, check_r, doc
 
     def test_import_succeeds(self, roundtrip):
@@ -350,7 +360,7 @@ class TestImportWeakeners:
     """
 
     @pytest.fixture(params=WEAKENER_IDS)
-    def weakener_result(self, request, fixture_dir, tmp_path):
+    def weakener_result(self, request, fixture_dir, tmp_path, signing_keypair):
         name = request.param
         spec = SPECS[name]
 
@@ -374,7 +384,8 @@ class TestImportWeakeners:
         doc = json.loads(output.read_text())
         doc["@context"] = CONTEXT_FILE
         output.write_text(json.dumps(doc, indent=2, sort_keys=True, ensure_ascii=False) + "\n")
-        sign_r = run_uofa("sign", str(output), "--key", str(KEY_FILE), "--context", CONTEXT_FILE)
+        key, _ = signing_keypair
+        sign_r = run_uofa("sign", str(output), "--key", str(key), "--context", CONTEXT_FILE)
         assert sign_r.returncode == 0, f"{name}: sign failed: {sign_r.stderr}"
 
         # Run rules
@@ -428,17 +439,18 @@ class TestImportWeakeners:
 class TestTC70Starter:
     """The real TC-70 aerospace starter — 6 weakeners exact."""
 
-    def test_tc70_import_roundtrip(self, tmp_path):
+    def test_tc70_import_roundtrip(self, tmp_path, signing_keypair):
         """TC-70 imports and passes C1+C2."""
         if not TC70_XLSX.exists():
             pytest.skip(f"TC-70 starter not found: {TC70_XLSX}")
         output = tmp_path / "tc70.jsonld"
-        import_r, check_r, doc = _import_sign_check(TC70_XLSX, output, ["nasa-7009b"])
+        key, pub = signing_keypair
+        import_r, check_r, doc = _import_sign_check(TC70_XLSX, output, ["nasa-7009b"], key, pub)
         assert import_r.returncode == 0, f"Import failed: {import_r.stderr}"
         assert check_r.returncode == 0, f"Check failed: {check_r.stdout}"
         assert len(doc["hasCredibilityFactor"]) == 19
 
-    def test_tc70_weakener_counts(self, tmp_path):
+    def test_tc70_weakener_counts(self, tmp_path, signing_keypair):
         """TC-70 produces exactly 12 weakeners under v0.5 rules.
 
         v0.4 baseline: 6 (W-AR-02 + W-EP-04 + W-AR-05 + COMPOUND-01×2 + COMPOUND-03).
@@ -467,7 +479,8 @@ class TestTC70Starter:
         doc = json.loads(output.read_text())
         doc["@context"] = CONTEXT_FILE
         output.write_text(json.dumps(doc, indent=2, sort_keys=True, ensure_ascii=False) + "\n")
-        run_uofa("sign", str(output), "--key", str(KEY_FILE), "--context", CONTEXT_FILE)
+        key, _ = signing_keypair
+        run_uofa("sign", str(output), "--key", str(key), "--context", CONTEXT_FILE)
 
         _, parsed = _run_rules(output, ["nasa-7009b"])
         # v0.5.9 W-AL-02 schema-aligned fix: TC70 starter no longer fires

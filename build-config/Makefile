@@ -16,6 +16,10 @@ MORRISON_COU2 = packs/vv40/examples/morrison/cou2/uofa-morrison-cou2.jsonld
 ENG_DIR       = src/weakener-engine
 
 FILE ?=
+# The signing key is deliberately NOT in the repo (see docs/security.md). This
+# is where a maintainer's local copy is expected to sit; `make sign` fails
+# loudly if it is absent. Override with `make sign KEY=/path/to/other.key`.
+# Nothing in CI needs it -- verification only ever reads keys/research.pub.
 KEY  ?= keys/research.key
 
 .PHONY: all test validate morrison morrison-shacl morrison-rules morrison-verify morrison-diff
@@ -86,7 +90,7 @@ morrison-build:
 	fi
 
 morrison-sign:
-	cd $(ROOT) && uofa sign $(MORRISON_COU1) --key keys/research.key
+	cd $(ROOT) && uofa sign $(MORRISON_COU1) --key $(KEY)
 
 clean:
 	cd $(ROOT)/$(ENG_DIR) && mvn clean -q

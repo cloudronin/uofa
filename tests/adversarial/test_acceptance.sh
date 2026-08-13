@@ -16,7 +16,17 @@ cd "$(git rev-parse --show-toplevel)"
 
 SPEC=specs/confirm_existing/w_ar_05.yaml
 OUT=out/adversarial/w_ar_05
-KEY=keys/research
+
+# Throwaway key in a temp dir, never inside the repo. This used to be
+# `keys/research`, which was doubly wrong: `generate_keypair` derives the
+# public path with `with_suffix`, so it silently overwrote the committed
+# `keys/research.pub` and invalidated every signed example; and the
+# extensionless private key it wrote is not matched by the `keys/*.key`
+# ignore rule, so a plaintext private key landed in `git status`.
+# Step 6 only needs *a* key -- it asserts that signing is refused.
+KEYDIR=$(mktemp -d)
+trap 'rm -rf "$KEYDIR"' EXIT
+KEY="$KEYDIR/acceptance.key"
 
 fail() { echo "❌ $1" >&2; exit 1; }
 pass() { echo "✓ $1"; }
@@ -67,10 +77,8 @@ pass "step 5: $hits/$variants variants trigger W-AR-05"
 
 # ── Step 6: sign refuses synthetic ──────────────────────────
 V01=$(ls "$OUT"/*.jsonld | head -1)
-if ! uofa keygen "$KEY" 2>/dev/null | grep -q "Private key"; then
-    # keygen may have already produced keys — acceptable.
-    [ -f "$KEY" ] || fail "step 6: keygen failed and $KEY missing"
-fi
+uofa keygen "$KEY" >/dev/null 2>&1 || fail "step 6: keygen failed"
+[ -f "$KEY" ] || fail "step 6: keygen reported success but $KEY missing"
 sign_output=$(uofa sign "$V01" --key "$KEY" 2>&1 || true)
 echo "$sign_output" | grep -q "refusing to sign" \
     || fail "step 6: sign did NOT refuse synthetic (output: $sign_output)"

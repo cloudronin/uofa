@@ -151,11 +151,14 @@ unstamped, they validate as V&V 40.
 
 **The complication:** they carry `hash` and `signature`. Adding
 `validatedWithPacks` changes the content, so both must be recomputed —
-restamping is a re-signing, not an edit. `keys/research.key` is in the repo and
-is what the test suite signs with.
+restamping is a re-signing, not an edit. The private key is **not** in the repo;
+re-signing is a maintainer operation that needs a local copy of
+`keys/research.key` (see [security.md](security.md)). The test suite does not
+use it — tests generate their own throwaway keypair via the `signing_keypair`
+fixture.
 
     1. add "validatedWithPacks": ["nasa-7009b"] to each
-    2. uofa sign <file> --key keys/research.key
+    2. uofa sign <file> --key keys/research.key   # maintainer's local copy
     3. re-run profile_baseline.py --diff — expect NO verdict change, since
        nasa-7009b was already the correct pack for them
     4. grep the tests for a pinned hash of any of the three

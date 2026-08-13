@@ -67,7 +67,7 @@ cp packs/vv40/templates/uofa-starter-filled.xlsx my-assessment.xlsx
 # credibility factors, validation results, and decision
 
 # Import, sign, and validate in one step
-uofa import my-assessment.xlsx --sign --key keys/research.key --check --pack vv40
+uofa import my-assessment.xlsx --sign --key keys/my-project.key --check --pack vv40
 ```
 
 The Excel template has 5 sheets: **Assessment Summary**, **Model & Data**, **Validation Results**, **Credibility Factors**, and **Decision**. Factor names and categories are pre-populated; you fill in levels, rationale, and status. The import command generates URIs, assigns `factorStandard`, tracks provenance, and writes a complete JSON-LD file.
