@@ -127,25 +127,81 @@ Update the fingerprint published in `space/README.md`.
 
 ---
 
-## 4. Hardware & sleep (GPU cost)
+## 3c. Inference key (`TOGETHER_API_KEY`)
 
-The Space runs on **T4 small** (GPU) with a 15-minute idle auto-sleep. Manage via
-the Space Settings UI or the API:
+The Space carries no local model. Extraction is a hosted call configured by the
+`UOFA_SPACE_LLM_*` vars in `space/Dockerfile.base`, which are **configuration
+and live in git** so the model choice is reviewable and testable. Only the key
+is a secret.
+
+Space → **Settings → Variables and secrets → New secret**:
+
+| Name | Value |
+|---|---|
+| `TOGETHER_API_KEY` | your Together AI API key |
+
+The name is not hardcoded: `UOFA_SPACE_LLM_KEY_ENV` says which variable to read,
+so pointing the Space at Fireworks, Groq, or a self-hosted vLLM is a Dockerfile
+`ENV` change plus a differently-named secret. `openai-compatible` is the
+protocol; the vendor is whatever `base_url` names.
+
+**If the secret is missing** the Space does not crash and does not silently
+produce nothing. `llm_env.missing_key_env()` detects declared-but-keyless and
+the run fails as `FailureKind.NO_BACKEND`, naming the variable. That is exactly
+the duplicated-Space case: HuggingFace copies the *declaration* to a duplicate
+but never the *value*, so a duplicator sees a message telling them to add their
+own key, rather than a generic extraction error they would retry forever.
+
+**Duplicating the Space:** set your own `TOGETHER_API_KEY`, or set
+`UOFA_SPACE_MODEL=mock` to explore the interface with canned data and no API
+calls at all.
+
+**Set a spend cap before going live.** See §4.
+
+---
+
+## 4. Hardware & sleep
+
+**CPU is now the right tier.** The Space carries no local model: inference is a
+hosted API call, so the GPU that existed to run qwen3.5:4b has nothing to do.
 
 ```python
 from huggingface_hub import HfApi
 api = HfApi(token="hf_...")
-# change tier / sleep, or downgrade to free CPU:
-api.request_space_hardware("cloudronin/uofa-demo", hardware="t4-small", sleep_time=900)
-api.request_space_hardware("cloudronin/uofa-demo", hardware="cpu-basic")  # free, slow
-api.pause_space("cloudronin/uofa-demo")                                   # stop billing
+api.request_space_hardware("cloudronin/uofa-demo", hardware="cpu-basic")  # free
+api.pause_space("cloudronin/uofa-demo")                                   # stop entirely
 ```
 
-Notes:
-- GPU bills per hour **while awake**; it auto-sleeps after `sleep_time` seconds idle.
-- A longer `sleep_time` means fewer cold starts but more cost.
-- CPU (`cpu-basic`) is free but extraction is far slower and may hit the
-  pipeline's 12-min extract timeout — use GPU for real runs.
+What actually changes, stated precisely, because it is easy to overclaim:
+
+- **Sleep does not go away.** A free `cpu-basic` Space still sleeps, but on
+  ~48 hours of inactivity rather than the 15 minutes configured for `t4-small`.
+  For a demo visited sporadically that is the bigger practical win: it converts
+  "almost always cold" into "almost always warm". Verify the current threshold
+  against HF's docs before quoting it to a committee.
+- **Waking gets much faster.** No GPU to schedule, an image roughly 1-1.5 GB
+  instead of ~9-10 GB, and `start.sh` no longer blocks on loading 3 GB of
+  weights before Gradio listens. Measure it rather than trusting this sentence:
+  `curl -s -o /dev/null -w "%{time_total}\n" https://cloudronin-uofa-demo.hf.space/`
+  after a forced pause, before and after.
+- **True zero-sleep still needs paid hardware** (`cpu-upgrade` or above, where
+  `sleep_time` becomes configurable). That is a separate budget decision. Going
+  CPU-only makes it far cheaper than it was on GPU, so this change is a
+  prerequisite for it rather than an alternative.
+
+**Cost moves from idle time to use.** A T4 awake ~4 h/day costs roughly $70/month
+whether or not anyone runs an analysis. Hosted inference is on the order of
+$0.03-0.10 per analysis and $0 when idle. Confirm against Together's current
+price list, and **set a spend cap before going live**: the Space is public, has
+no rate limiting, and three preset example buttons are one click from a paid
+call. The failure mode changed from "slow" to "expensive".
+
+`DEFAULT_EXTRACT_TIMEOUT` stays at 720s. Its old rationale ("below Ollama's
+30-min default") is stale, but it is now the ONLY effective bound on a hung
+remote call: `LLMConfig.timeout_seconds` never applies here, because
+`llm_extractor._call_llm` hardcodes `GenerationOptions(timeout_seconds=1800.0)`
+and that always wins. It must also cover up to 3 retries and one call per file
+when the corpus is chunked.
 
 ---
 

@@ -42,11 +42,34 @@ _SAMPLE_DIR = Path(
     or paths.find_repo_root() / "packs" / "vv40" / "examples" / "morrison" / "source"
 )
 
-COLD_START_NOTE = (
-    "Your documents are read **privately inside this Space**. Nothing is stored "
-    "or sent to a third party. The first analysis after the Space wakes can take "
-    "a few minutes while the model loads."
-)
+def _cold_start_note() -> str:
+    """The pre-upload disclosure. Rendered above the file picker, deliberately.
+
+    Two claims that must not be conflated: this Space stores nothing, which
+    stays true, and nothing leaves it, which does not once a hosted model reads
+    the documents. Keeping the storage claim while dropping the transmission
+    one is the whole job here.
+    """
+    if not llm_env.is_remote(_LLM_CONFIG):
+        return (
+            "Your documents are read **privately inside this Space** by a local "
+            "model. Nothing is stored and nothing is sent to a third party. The "
+            "first analysis after the Space wakes can take a few minutes while "
+            "the model loads."
+        )
+    return (
+        f"Your documents are sent to a **hosted model** "
+        f"({llm_env.provider_label(_LLM_CONFIG)}) to be read, then discarded. "
+        "This Space stores nothing: each run uses a temporary directory that is "
+        "deleted when it finishes, and no document is logged. But the text does "
+        "leave this Space. **If your evidence is confidential, do not upload it "
+        "here** - run the CLI on your own machine instead, where the model runs "
+        "locally and nothing leaves your environment.\n\n"
+        "Pasting a public model card sends only text that is already public."
+    )
+
+
+COLD_START_NOTE = _cold_start_note()
 
 # Dark theme to match uofa.net. The Space is embedded via an <iframe>, so the
 # body needs a SOLID dark background (a transparent body would show the iframe's
@@ -249,8 +272,10 @@ def _run_extract(corpus, pack):
     """Generator: show a working message, run extraction, reveal the confirm step."""
     yield (
         _hide(), _show(), _hide(),
-        gr.update(value="Analyzing your evidence with the model. This runs "
-                        "privately and can take a few minutes.", visible=True),
+        # One source for this sentence: pipeline._reading_message branches on the
+        # same config the request will use, so the in-flight copy cannot promise
+        # privacy the backend is not providing.
+        gr.update(value=pipeline._reading_message(_LLM_CONFIG), visible=True),
         gr.update(), None, {}, gr.update(value="", visible=False),
     )
     outcome = wizard.extract(corpus, pack, model=_MODEL, llm_config=_LLM_CONFIG)
@@ -353,7 +378,7 @@ def _finalize(result, pack, status_state, warnings, source_name, pack_dir):
     pack_dir = wizard.new_pack_dir()
     outcome = wizard.finalize(
         result, pack, status_state or {}, source_name=source_name, warnings=warnings,
-        pack_out_dir=pack_dir,
+        pack_out_dir=pack_dir, llm_config=_LLM_CONFIG,
     )
     if not outcome.ok:
         return (_show(), _hide(), gr.update(value=f"⚠️ {outcome.user_message}", visible=True),

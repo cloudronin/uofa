@@ -192,6 +192,20 @@ def _run_extract(corpus, model, pack, prompt_path, llm_config, timeout, extract_
         return ("err", "extraction produced no result")
 
 
+def extraction_label(llm_config=None) -> str:
+    """How the evidence was read, for the reviewer readout and the payload.
+
+    Rendered as "How assessed:". The upload path never set this, so the one
+    flow that sends the user's OWN documents somewhere was the one that did not
+    record where they went.
+    """
+    from space import llm_env
+
+    if llm_config is None:
+        return f"LLM extraction - {BUNDLED_MODEL} (local, in this Space)"
+    return f"LLM extraction - {llm_env.provider_label(llm_config)}"
+
+
 def _effective_model(model: str | None, llm_config=None) -> str:
     """The model that will actually run, for labels and provenance.
 
@@ -375,8 +389,17 @@ def _authenticity_block(*, signed: bool = False, package_hash: str | None = None
     }
 
 
-def _build_context(summary: dict, pack: str, authenticity: dict | None = None) -> dict:
-    """Reviewer-facing context, re-projected from already-extracted fields."""
+def _build_context(summary: dict, pack: str, authenticity: dict | None = None,
+                   extraction_provenance: str | None = None) -> dict:
+    """Reviewer-facing context, re-projected from already-extracted fields.
+
+    `extraction_provenance` is rendered as "How assessed:" and is the
+    machine-readable half of the disclosure: prose on the upload page tells the
+    user where their documents go, this puts it in the payload and the readout,
+    where a reviewer reading the output later can still see it. Only the card
+    path set it before, so the upload path -- the one that sends the user's own
+    documents -- was the one saying nothing.
+    """
     ctx = {
         "project_name": summary.get("project_name"),
         "cou_name": summary.get("cou_name"),
@@ -389,13 +412,15 @@ def _build_context(summary: dict, pack: str, authenticity: dict | None = None) -
         "standards_reference": summary.get("standards_reference"),
         "authenticity": authenticity or _authenticity_block(),
     }
+    if extraction_provenance:
+        ctx["extraction_provenance"] = extraction_provenance
     if pack == "model-credibility":
         ctx["risk_assumption"] = MODEL_CREDIBILITY_RISK_ASSUMPTION
     return ctx
 
 
 def _build_payload(pack, data, shacl_conforms, shacl_violations, firings, warnings,
-                   doc=None, authenticity=None) -> dict:
+                   doc=None, authenticity=None, extraction_provenance=None) -> dict:
     """Assemble the reviewer payload.
 
     `doc` is the JSON-LD bundle. It is passed so this supplies compute_findings
@@ -416,7 +441,8 @@ def _build_payload(pack, data, shacl_conforms, shacl_violations, firings, warnin
         pack, statuses, {"conforms": shacl_conforms, "violations": shacl_violations}, firings,
         eval_ids, str(doc.get("id") or ""),
     )
-    payload["context"] = _build_context(data["summary"], pack, authenticity)
+    payload["context"] = _build_context(data["summary"], pack, authenticity,
+                                        extraction_provenance)
     payload["warnings"] = warnings
     return payload
 
@@ -652,7 +678,8 @@ def _tool_version() -> str:
 
 
 def _sign_and_pack(jsonld_path: Path, pack: str, data: dict, shacl_conforms,
-                   shacl_violations, firings, warnings, doc, out_dir: Path | None):
+                   shacl_violations, firings, warnings, doc, out_dir: Path | None,
+                   extraction_provenance=None):
     """Sign, re-check what we signed, then build the payload and the zip.
 
     Ordering is load-bearing and easy to get wrong:
@@ -673,7 +700,8 @@ def _sign_and_pack(jsonld_path: Path, pack: str, data: dict, shacl_conforms,
     key_path, key_bytes = signing_key_material()
     if key_path is None and key_bytes is None:
         payload = _build_payload(pack, data, shacl_conforms, shacl_violations,
-                                 firings, warnings, doc)
+                                 firings, warnings, doc,
+                                 extraction_provenance=extraction_provenance)
         return payload, None
 
     package_hash, _sig = package_policy.sign_package(
@@ -687,7 +715,8 @@ def _sign_and_pack(jsonld_path: Path, pack: str, data: dict, shacl_conforms,
         integrity_checked=bool(integrity_ok),
     )
     payload = _build_payload(pack, data, shacl_conforms, shacl_violations,
-                             firings, warnings, signed_doc, authenticity)
+                             firings, warnings, signed_doc, authenticity,
+                             extraction_provenance)
 
     download = None
     if out_dir is not None:
@@ -804,7 +833,8 @@ def factor_rows(result) -> list[dict]:
 
 
 def finalize_from_data(data, pack, work_dir, *, source_name="upload", warnings=None,
-                       assess_sufficiency=True, pack_out_dir=None) -> dict:
+                       assess_sufficiency=True, pack_out_dir=None,
+                       extraction_provenance=None) -> dict:
     """map -> SHACL -> (weakeners or skip) -> sign -> summary, from an import `data` dict.
 
     When `assess_sufficiency` is False the weakener engine is skipped (firings `[]`,
@@ -829,7 +859,7 @@ def finalize_from_data(data, pack, work_dir, *, source_name="upload", warnings=N
     firings = _run_weakeners(jsonld_path, pack) if assess_sufficiency else []
     payload, download = _sign_and_pack(jsonld_path, pack, data, shacl_conforms,
                                        shacl_violations, firings, warnings or [],
-                                       doc, pack_out_dir)
+                                       doc, pack_out_dir, extraction_provenance)
     if download:
         payload["download"] = download
     if not assess_sufficiency:
@@ -838,12 +868,13 @@ def finalize_from_data(data, pack, work_dir, *, source_name="upload", warnings=N
 
 
 def finalize(result, pack, factor_edits, work_dir, *, source_name="upload", warnings=None,
-             pack_out_dir=None) -> dict:
+             pack_out_dir=None, llm_config=None) -> dict:
     """Adapt -> map -> SHACL -> weakeners -> sign -> summary. Returns the payload,
     or raises _StageError(VALIDATE_ERROR) / WeakenerEngineError."""
     data = result_to_import_dict(result, pack, factor_edits)
     return finalize_from_data(data, pack, work_dir, source_name=source_name,
-                              warnings=warnings, pack_out_dir=pack_out_dir)
+                              warnings=warnings, pack_out_dir=pack_out_dir,
+                              extraction_provenance=extraction_label(llm_config))
 
 
 # ── Orchestration spine (all-in-one; used by the sample + spike) ──

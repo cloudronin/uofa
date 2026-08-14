@@ -2,25 +2,30 @@
 #
 # UofA Gap-Finder — prebuilt BASE image for the HuggingFace Docker Space.
 #
-# This image carries every heavy, slow-changing layer: the Jena rule-engine JAR,
-# the uofa wheel (open core + vv40 + nasa-7009b, with packs/spec/specs
-# force-included), JRE 17 for C3 weakeners, the pinned Ollama runtime, and the
-# ~3 GB qwen3.5:4b extract model baked in. It is built ONCE by CI
+# Carries the heavy, slow-changing layers: the Jena rule-engine JAR, the uofa
+# wheel (open core + vv40 + nasa-7009b, with packs/spec/specs force-included),
+# and JRE 17 for C3 weakeners. Built ONCE by CI
 # (.github/workflows/deploy-space.yml, `base` job) and pushed to GHCR. The
-# Space's thin Dockerfile then does only `FROM this + COPY space/`, so HF's
-# builder never re-does this work and the 30-minute build budget is never at
-# risk (baking the 3 GB model on HF's builder is what tipped cold builds past
-# the timeout — "Build error: Job timeout").
+# Space's thin Dockerfile then does only `FROM this + COPY space/`.
 #
 # Build from the REPO ROOT (needs src/, packs/, spec/, specs/, build-config/):
 #     docker build -f space/Dockerfile.base \
 #       -t ghcr.io/cloudronin/uofa-demo-base:latest .
 #
-# LAYER ORDER — the 3 GB model bake sits ABOVE the wheel install, so a change to
-# src/ (which rebuilds the wheel) re-runs only the cheap wheel + pip layers and
-# the model layer stays cached. (The old single-stage Dockerfile had this
-# inverted: the model bake was below the wheel COPY, so every src/ change
-# re-pulled 3 GB — the direct cause of the HF build timeout.)
+# INFERENCE lives at a hosted provider, configured by the UOFA_SPACE_LLM_* vars
+# below and reachable only with the API key supplied as a Space SECRET. The
+# image previously carried a pinned Ollama runtime and a baked ~3 GB qwen3.5:4b,
+# which is why so much of this file used to be about layer ordering: the model
+# sat above the wheel so a src/ change would not re-pull 3 GB. That constraint is
+# gone with the model, but the reason it existed is worth keeping in view --
+# baking 3 GB on HF's own builder is what tipped cold builds past the 30-minute
+# limit ("Build error: Job timeout"). Do not reintroduce a large bake here
+# without restoring that ordering discipline.
+#
+# The local path still works and is still supported: `space/llm_env.py` falls
+# back to it whenever no backend is configured, so `docker run` against a host
+# Ollama, and plain `python -m space.app` on a laptop, behave as they always did.
+# What changed is only what THIS image ships.
 
 # ── Stage 1: build the Jena rule-engine JAR ──────────────────────────────────
 FROM maven:3-eclipse-temurin-17 AS jar
@@ -40,54 +45,33 @@ RUN pip install --no-cache-dir hatchling \
 # ── Stage 3: runtime base ────────────────────────────────────────────────────
 FROM python:3.11-slim-bookworm
 
+# The UOFA_SPACE_LLM_* values are configuration, not secrets, so they live here
+# in git where the model choice is reviewable and testable
+# (tests/space/test_docker_assets.py asserts them). The API KEY named by
+# UOFA_SPACE_LLM_KEY_ENV is supplied only as a HuggingFace Space secret and must
+# never appear in this file, in space/, or anywhere else in the repo:
+# space/deploy_to_hf.py refuses to upload .key/.pem/.env at all.
 ENV PYTHONUNBUFFERED=1 \
     HOME=/home/user \
-    OLLAMA_HOST=127.0.0.1:11434 \
-    OLLAMA_MODELS=/home/user/.ollama/models \
-    UOFA_SPACE_MODEL=qwen3.5:4b \
+    UOFA_SPACE_LLM_BACKEND=openai-compatible \
+    UOFA_SPACE_LLM_MODEL=meta-llama/Llama-3.3-70B-Instruct-Turbo \
+    UOFA_SPACE_LLM_BASE_URL=https://api.together.xyz/v1 \
+    UOFA_SPACE_LLM_KEY_ENV=TOGETHER_API_KEY \
     GRADIO_SERVER_NAME=0.0.0.0 \
     GRADIO_SERVER_PORT=7860
 
-# JRE 17 for the rule engine (C3) + curl/zstd to fetch the pinned Ollama runtime.
+# JRE 17 for the rule engine (C3). Removing it does NOT fail loudly: the
+# weakener stage degrades to [] when Java is absent, so every run would silently
+# become a completeness-only readout with no error anywhere. ca-certificates is
+# now load-bearing too, since inference is an outbound HTTPS call.
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        openjdk-17-jre-headless curl ca-certificates zstd procps \
+        openjdk-17-jre-headless ca-certificates \
  && rm -rf /var/lib/apt/lists/*
 
-# Ollama runtime, pinned + arch-aware (matches Dockerfile.appliance).
-ARG TARGETARCH
-RUN set -eu; \
-    case "${TARGETARCH:-amd64}" in \
-      amd64) OLLAMA_ARCH=amd64 ;; \
-      arm64) OLLAMA_ARCH=arm64 ;; \
-      *) echo "unsupported TARGETARCH=${TARGETARCH}" >&2; exit 1 ;; \
-    esac; \
-    curl -fsSL "https://github.com/ollama/ollama/releases/download/v0.21.2/ollama-linux-${OLLAMA_ARCH}.tar.zst" \
-        -o /tmp/ollama.tar.zst \
- && tar -I zstd -xf /tmp/ollama.tar.zst -C /usr/local \
- && rm /tmp/ollama.tar.zst \
- && ollama --version
-
-# HF Spaces run as a non-root user (UID 1000); the baked model must live in a
-# dir that user owns, so create the user and pull the model as that user.
+# HF Spaces run as a non-root user (UID 1000).
 RUN useradd -m -u 1000 user
 
-# ── Model bake (~3 GB) ────────────────────────────────────────────────────────
-# Kept ABOVE the wheel/app-dependency layers so it caches across every src/ and
-# app change — only the cheap layers below re-run on a rebuild. Air-gap-faithful:
-# no pull at run time.
-USER user
-WORKDIR /home/user/app
-RUN set -eu; \
-    ollama serve >/tmp/ollama-build.log 2>&1 & \
-    SERVE_PID=$!; \
-    for _ in $(seq 1 60); do curl -sf http://127.0.0.1:11434/api/version >/dev/null 2>&1 && break; sleep 1; done; \
-    ollama pull qwen3.5:4b; \
-    kill "$SERVE_PID" 2>/dev/null || true
-
 # ── App dependencies: uofa[extract] (from the wheel) + Gradio + lead-capture ──
-# Installed AFTER the model bake so a wheel rebuild (any src/ change) never
-# invalidates the 3 GB model layer above.
-USER root
 COPY --from=wheel /wheels/ /wheels/
 COPY space/requirements.txt /tmp/space-requirements.txt
 RUN pip install --no-cache-dir --retries 5 --timeout 60 "$(echo /wheels/uofa-*.whl)[extract]" \

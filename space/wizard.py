@@ -141,7 +141,7 @@ def extract(corpus, pack, *, model=None, llm_config=None, extract_fn=None,
 
 
 def finalize(result, pack, factor_edits, *, source_name="upload", warnings=None,
-             pack_out_dir=None) -> PipelineOutcome:
+             pack_out_dir=None, llm_config=None) -> PipelineOutcome:
     """Adapt -> map -> check -> weakeners -> sign -> summary, in a throwaway work
     dir that is always torn down.
 
@@ -154,7 +154,7 @@ def finalize(result, pack, factor_edits, *, source_name="upload", warnings=None,
     try:
         payload = pipeline.finalize(
             result, pack, factor_edits, work_dir, source_name=source_name,
-            warnings=warnings, pack_out_dir=pack_out_dir,
+            warnings=warnings, pack_out_dir=pack_out_dir, llm_config=llm_config,
         )
         return PipelineOutcome.success(payload)
     except _StageError as exc:
