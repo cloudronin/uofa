@@ -96,16 +96,31 @@ def result_to_import_dict(result, pack: str, factor_edits: dict[str, str] | None
         ftype = f.get("factor_type")
         if not ftype:
             continue
-        factors.append({
+        extracted = f.get("status") or "not-assessed"
+        final = factor_edits.get(ftype, extracted)
+        row = {
             "factor_type": ftype,
             "category": _CATEGORY_BY_FACTOR.get(ftype),
             "required_level": f.get("required_level"),
             "achieved_level": f.get("achieved_level"),
             "acceptance_criteria": f.get("acceptance_criteria"),
             "rationale": f.get("rationale"),
-            "status": factor_edits.get(ftype, f.get("status") or "not-assessed"),
+            "status": final,
             "linked_evidence": f.get("linked_evidence"),
-        })
+        }
+        if factor_edits:
+            # Record whose judgment set this status, but only where a confirm
+            # step actually ran. `factor_edits` is seeded with EVERY extracted
+            # status and then merged as the user edits, so presence of a key
+            # proves nothing: the value has to be compared.
+            #
+            # Two classes, not three. "confirmed" is tempting and would be a
+            # claim we cannot support -- the UI pre-fills every status and the
+            # user submits the form, so an unchanged factor is one they may
+            # have read and agreed with, or scrolled past. `extracted` says
+            # only what is true: the model produced this and no human moved it.
+            row["status_provenance"] = "corrected" if final != extracted else "extracted"
+        factors.append(row)
 
     d = unwrap_fields(result.decision)
     decision = {"outcome": "Not accepted", "rationale": d.get("rationale")}  # synthetic, never shown

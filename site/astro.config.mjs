@@ -74,6 +74,7 @@ export default defineConfig({
             { label: 'What a UofA is', link: '/concepts/uofa/' },
             { label: 'C1 / C2 / C3', link: '/concepts/contributions/' },
             { label: 'Weakeners', link: '/concepts/weakeners/' },
+            { label: 'Credibility Inspector', link: '/concepts/credibility-inspector/' },
           ],
         },
         {

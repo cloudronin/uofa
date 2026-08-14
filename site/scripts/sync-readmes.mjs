@@ -19,6 +19,7 @@ const REPO_RAW = 'https://raw.githubusercontent.com/cloudronin/uofa/main';
 
 const CONFIG = {
   'README.md':              { title: 'Project README',          slug: 'readme',              sidebarHidden: true },
+  'docs/credibility-inspector.md': { title: 'Credibility Inspector', slug: 'concepts/credibility-inspector' },
   'docs/architecture.md':   { title: 'Architecture',            slug: 'docs/architecture'   },
   'docs/design.md':         { title: 'Design',                  slug: 'docs/design'         },
   'docs/onboarding.md':     { title: 'Onboarding',              slug: 'docs/onboarding'     },
