@@ -85,13 +85,13 @@ def test_local_note_claims_privacy_and_remote_note_does_not(monkeypatch):
     monkeypatch.setattr(app, "_LLM_CONFIG", remote)
     note = app._cold_start_note()
     assert "privately" not in note.lower(), "claims privacy while sending text off-box"
-    assert "api.example.com" in note, "must name where the documents go"
+    assert llm_env.provider_label(remote) in note, "must name where the documents go"
     assert "do not upload it here" in note.lower(), "must give the confidential-evidence answer"
     assert "stores nothing" in note.lower(), "the true storage claim should survive"
 
 
 def test_in_flight_message_tracks_the_backend():
-    from space import pipeline
+    from space import llm_env, pipeline
     from uofa_cli.llm.config import LLMConfig
 
     assert "privately" in pipeline._reading_message(None)
@@ -99,20 +99,21 @@ def test_in_flight_message_tracks_the_backend():
                        base_url="https://api.example.com/v1", api_key_env="K")
     msg = pipeline._reading_message(remote)
     assert "privately" not in msg.lower()
-    assert "api.example.com" in msg
+    assert llm_env.provider_label(remote) in msg
 
 
 def test_extraction_label_names_the_provider():
     """Rendered as "How assessed:" and carried in the payload, so the disclosure
     survives into the artifact rather than living only on the upload page."""
-    from space import pipeline
+    from space import llm_env, pipeline
     from uofa_cli.llm.config import LLMConfig
 
     assert "local" in pipeline.extraction_label(None)
     remote = LLMConfig(backend="openai-compatible", model="llama-x",
                        base_url="https://api.example.com/v1", api_key_env="K")
     label = pipeline.extraction_label(remote)
-    assert "llama-x" in label and "api.example.com" in label
+    assert llm_env.provider_label(remote) in label
+    assert "llama-x" in label
 
 
 def test_demo_page_and_readme_disclose_transmission():
