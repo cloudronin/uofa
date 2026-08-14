@@ -116,6 +116,32 @@ def _uofa_env() -> dict:
 LAST_RUN_COST: dict = {}
 
 
+def _model_flags(model: str) -> list[str]:
+    """Translate a --model spec into the flags `uofa extract` needs.
+
+    The legacy `--model ollama/qwen3.5:4b` form still works and is left exactly
+    as it was. It cannot express a hosted provider, though: the legacy resolver
+    splits on "/" and looks the prefix up in ALLOWED_BACKENDS, so
+    `together_ai/...` falls back to Ollama and `openai/...` would go to OpenAI
+    rather than the intended host, because there is nowhere to put a base_url.
+    Scoring a hosted model against the corpus needs the unified flags.
+
+    Accepts `<backend>@<base_url>|<model>`, e.g.
+
+        openai-compatible@https://api.together.xyz/v1|meta-llama/Llama-3.3-70B-Instruct-Turbo
+
+    The separator is not "/" precisely because model ids contain those.
+    """
+    if "@" not in model or "|" not in model:
+        return ["--model", model]
+    backend, rest = model.split("@", 1)
+    base_url, model_name = rest.split("|", 1)
+    flags = ["--extract-backend", backend, "--extract-model", model_name]
+    if base_url:
+        flags += ["--extract-base-url", base_url]
+    return flags
+
+
 def run_extraction(model: str, evidence_dir: Path, output_xlsx: Path, pack: str = "vv40") -> bool:
     """Run uofa extract and return success status.
 
@@ -128,7 +154,7 @@ def run_extraction(model: str, evidence_dir: Path, output_xlsx: Path, pack: str 
         sys.executable, "-m", "uofa_cli",
         "extract", str(evidence_dir),
         "--pack", pack,
-        "--model", model,
+        *_model_flags(model),
         "-o", str(output_xlsx),
         "--verbose",
     ]
