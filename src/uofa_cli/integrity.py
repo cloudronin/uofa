@@ -195,7 +195,7 @@ def generate_keypair(key_path: Path, *, force: bool = False):
     return key_path, pub_path
 
 
-def sign_hash(sha256_hex: str, key_path: Path) -> str:
+def sign_hash(sha256_hex: str, key_path: Path = None, *, key_bytes: bytes = None) -> str:
     """Sign the SHA-256 hex *string* with an ed25519 private key. Returns signature hex.
 
     Note: the signature is over the lowercase hex-string bytes (``sha256_hex``
@@ -203,9 +203,16 @@ def sign_hash(sha256_hex: str, key_path: Path) -> str:
     self-consistent (``verify_signature`` reconstructs the same hex string), but
     it is non-standard — an external verifier expecting ed25519-over-digest-bytes
     must hex-encode the digest first.
+
+    ``key_bytes`` supplies the PEM directly, for deployments that receive the
+    private key as a secret and must not write it to a filesystem the process
+    also serves files from. Exactly one of ``key_path`` / ``key_bytes``.
     """
-    with open(key_path, "rb") as f:
-        private_key = serialization.load_pem_private_key(f.read(), password=None)
+    if (key_path is None) == (key_bytes is None):
+        raise ValueError("sign_hash requires exactly one of key_path or key_bytes")
+
+    pem = key_bytes if key_bytes is not None else Path(key_path).read_bytes()
+    private_key = serialization.load_pem_private_key(pem, password=None)
 
     signature_bytes = private_key.sign(sha256_hex.encode("utf-8"))
     return signature_bytes.hex()
@@ -244,11 +251,16 @@ def load_and_hash(input_path: Path, context_path: Path = None) -> tuple[dict, st
     return doc, canonical, sha256_hex
 
 
-def sign_file(input_path: Path, key_path: Path, context_path: Path = None,
-              output_path: Path = None) -> tuple[str, str]:
-    """Sign a UofA file in place. Returns (hash_hex, signature_hex)."""
+def sign_file(input_path: Path, key_path: Path = None, context_path: Path = None,
+              output_path: Path = None, *, key_bytes: bytes = None) -> tuple[str, str]:
+    """Sign a UofA file in place. Returns (hash_hex, signature_hex).
+
+    Purely cryptographic by design: this signs whatever it is handed. Callers
+    that must also enforce *what may be signed* (synthetic samples, issuer-key
+    scope) should go through ``package_policy.sign_package`` instead.
+    """
     doc, canonical, sha256_hex = load_and_hash(input_path, context_path)
-    sig_hex = sign_hash(sha256_hex, key_path)
+    sig_hex = sign_hash(sha256_hex, key_path, key_bytes=key_bytes)
 
     # Re-read original (preserves original @context reference). UTF-8
     # for the same cross-platform hash-stability reason — and the

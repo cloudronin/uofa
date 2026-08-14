@@ -36,6 +36,44 @@ def text_corpus(tmp_path: Path) -> Path:
 
 
 @pytest.fixture
+def demo_key_env(tmp_path_factory, monkeypatch):
+    """Configure a throwaway demo issuer keypair for one test.
+
+    The real demo private key is a deployment secret and is deliberately not in
+    this repo, so tests cannot sign with it. They generate their own and
+    re-point the trust anchor at the matching public half -- which exercises the
+    whole mechanism (sign -> re-verify -> ship the key in the zip) without
+    anyone ever committing a private key to make a test pass.
+
+    Yields the public key path.
+    """
+    from uofa_cli import integrity, paths
+    from space import pipeline
+
+    key_dir = tmp_path_factory.mktemp("demo-key")
+    key, pub = integrity.generate_keypair(key_dir / "demo.key")
+    monkeypatch.setattr(paths, "demo_pubkey", lambda root=None: pub)
+    monkeypatch.setenv(pipeline.SIGNING_KEY_FILE_ENV, str(key))
+    monkeypatch.delenv(pipeline.SIGNING_KEY_ENV, raising=False)
+    return pub
+
+
+@pytest.fixture(autouse=True)
+def _no_ambient_signing_key(monkeypatch, request):
+    """Tests that do not ask for a key must not inherit one from the shell.
+
+    Otherwise a developer with the demo key exported would see different
+    behaviour from CI, and the unsigned-path assertions would quietly stop
+    testing the unsigned path."""
+    if "demo_key_env" in request.fixturenames:
+        return
+    from space import pipeline
+
+    monkeypatch.delenv(pipeline.SIGNING_KEY_ENV, raising=False)
+    monkeypatch.delenv(pipeline.SIGNING_KEY_FILE_ENV, raising=False)
+
+
+@pytest.fixture
 def assert_clean_state():
     """Assert a finished run left no temp dir and no /tmp debug file."""
     from space.pipeline import DEBUG_RESPONSE_FILE

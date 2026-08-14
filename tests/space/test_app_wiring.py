@@ -19,9 +19,9 @@ from space import app, wizard
 # Declared outputs arity for each handler (kept in lockstep with build()).
 N_PREPARE = 12
 N_EXTRACT = 8
-N_FINALIZE = 11      # +reviewer_html, +view_toggle/author_panel/reviewer_panel (this handler owns the view)
-N_CARD = 15          # card path: step groups + card_progress + the Step-5 result surfaces
-N_START_OVER = 27    # groups + read/extract/card progress + cleared surfaces (incl. card_input) + states + view
+N_FINALIZE = 13      # +reviewer_html, +view_toggle/author_panel/reviewer_panel, +pack_btn/pack_dir_state
+N_CARD = 17          # card path: step groups + card_progress + Step-5 surfaces + pack_btn/pack_dir_state
+N_START_OVER = 29    # groups + progress + cleared surfaces (incl. card_input) + states + view + pack_btn/pack_dir_state
 
 
 @pytest.fixture(autouse=True)
@@ -64,7 +64,7 @@ def test_finalize_arity_success_and_failure(tmp_path):
     ext = wizard.extract(prep.payload["corpus"], "vv40", model="mock")
     result = ext.payload["result"]
 
-    ok = app._finalize(result, "vv40", {"Use error": "not-assessed"}, [], "upload")
+    ok = app._finalize(result, "vv40", {"Use error": "not-assessed"}, [], "upload", None)
     assert len(ok) == N_FINALIZE
     assert ok[1]["visible"] is True  # summary_group shown
     # Author panels unchanged (engine/author regression): completeness in the tail
@@ -78,10 +78,58 @@ def test_finalize_arity_success_and_failure(tmp_path):
     assert "ri-reviewer" in ok[7]["value"] and "At a glance" in ok[7]["value"]
 
     # None result -> finalize fails gracefully, still correct arity.
-    bad = app._finalize(None, "vv40", {}, [], "upload")
+    bad = app._finalize(None, "vv40", {}, [], "upload", None)
     assert len(bad) == N_FINALIZE
     assert bad[2]["visible"] is True  # error_md shown
     assert bad[6] is None  # no summary on failure
+
+
+def test_download_control_is_hidden_until_a_pack_exists(tmp_path):
+    """Unsigned runs (no deployment key) must not show a download button at all.
+    A visible control with no file is worse than no control."""
+    prep = wizard.prepare([_src(tmp_path)])
+    ext = wizard.extract(prep.payload["corpus"], "vv40", model="mock")
+    ok = app._finalize(ext.payload["result"], "vv40", {}, [], "upload", None)
+    assert ok[11] == {"value": None, "visible": False, "__type__": "update"}
+
+
+def test_download_control_points_at_the_signed_pack(tmp_path, demo_key_env):
+    prep = wizard.prepare([_src(tmp_path)])
+    ext = wizard.extract(prep.payload["corpus"], "vv40", model="mock")
+    ok = app._finalize(ext.payload["result"], "vv40", {}, [], "upload", None)
+
+    assert ok[11]["visible"] is True
+    assert Path(ok[11]["value"]).exists()
+    assert ok[6]["context"]["authenticity"]["signed"] is True
+    wizard.discard_pack_dir(ok[12])
+
+
+def test_finalize_supersedes_the_previous_runs_pack(tmp_path, demo_key_env):
+    """Re-running must not leave the old file downloadable: a second analysis in
+    one session would otherwise hand out the first one's package."""
+    prep = wizard.prepare([_src(tmp_path)])
+    ext = wizard.extract(prep.payload["corpus"], "vv40", model="mock")
+
+    first = app._finalize(ext.payload["result"], "vv40", {}, [], "upload", None)
+    first_dir, first_zip = first[12], Path(first[11]["value"])
+    second = app._finalize(ext.payload["result"], "vv40", {}, [], "upload", first_dir)
+
+    assert not first_zip.exists(), "previous run's package survived"
+    assert Path(second[11]["value"]).exists()
+    wizard.discard_pack_dir(second[12])
+
+
+def test_start_over_deletes_the_download(tmp_path, demo_key_env):
+    prep = wizard.prepare([_src(tmp_path)])
+    ext = wizard.extract(prep.payload["corpus"], "vv40", model="mock")
+    ok = app._finalize(ext.payload["result"], "vv40", {}, [], "upload", None)
+    zip_path = Path(ok[11]["value"])
+
+    outs = app._start_over(ok[12])
+
+    assert not zip_path.exists(), "start over left a downloadable package behind"
+    assert outs[-2] == {"value": None, "visible": False, "__type__": "update"}
+    assert outs[-1] is None
 
 
 def test_pdf_print_js_targets_reviewer_host():
@@ -114,7 +162,7 @@ def test_capture_glue(monkeypatch):
 
 
 def test_start_over_arity():
-    assert len(app._start_over()) == N_START_OVER
+    assert len(app._start_over(None)) == N_START_OVER
 
 
 def test_start_over_blanks_content_not_just_groups():
@@ -122,7 +170,7 @@ def test_start_over_blanks_content_not_just_groups():
     # picked file), not only hide the step groups — otherwise a stale report
     # shows through. Asserts every gr.update among the returns that carries a
     # value sets it to empty/None (no leftover text).
-    outs = app._start_over()
+    outs = app._start_over(None)
     cleared = [o for o in outs if isinstance(o, dict) and "value" in o and o.get("value")]
     # The only non-empty value Start over sets is the view toggle default.
     assert all(o.get("value") == "Reviewer" for o in cleared), cleared
@@ -150,7 +198,7 @@ def _card_payload():
 
 
 def test_run_card_empty_input_shows_error():
-    outs = list(app._run_card("   "))
+    outs = list(app._run_card("   ", None))
     assert outs and all(len(o) == N_CARD for o in outs)
     final = outs[-1]
     assert final[0]["visible"] is True   # stayed on the start step
@@ -161,7 +209,7 @@ def test_run_card_success_reveals_results(monkeypatch):
     from space.pipeline import PipelineOutcome
     monkeypatch.setattr("space.wizard.card_report",
                         lambda *a, **k: PipelineOutcome.success(_card_payload()))
-    outs = list(app._run_card("cardiffnlp/twitter-roberta-base-sentiment"))
+    outs = list(app._run_card("cardiffnlp/twitter-roberta-base-sentiment", None))
     assert all(len(o) == N_CARD for o in outs)
     final = outs[-1]
     assert final[4]["visible"] is True            # summary_group revealed (skipped confirm)
@@ -173,7 +221,7 @@ def test_run_card_failure_returns_to_start(monkeypatch):
     from space.pipeline import FailureKind, PipelineOutcome
     monkeypatch.setattr("space.wizard.card_report",
                         lambda *a, **k: PipelineOutcome.failure(FailureKind.READ_ERROR, "gated (403)."))
-    final = list(app._run_card("acme/private"))[-1]
+    final = list(app._run_card("acme/private", None))[-1]
     assert len(final) == N_CARD
     assert final[0]["visible"] is True   # back to the start step
     assert final[6]["visible"] is True   # error_md shown

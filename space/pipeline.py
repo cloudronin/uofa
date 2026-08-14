@@ -18,10 +18,14 @@ skipped - it is fragile and lossy).
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import multiprocessing as mp
+import os
 import shutil
 import tempfile
+import time
+import zipfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
@@ -196,17 +200,21 @@ def _has_usable_factors(result) -> bool:
 # ── Validation (SHACL + weakeners) ──────────────────────────
 
 
-def _run_check(jsonld_path: Path, pack: str):
+def _run_check(jsonld_path: Path, pack: str, pubkey: Path = _NO_PUBKEY):
     """Run SHACL (C2) + integrity (C1, skipped unsigned). Returns (conforms, violations).
 
     skip_rules=True: weakeners come from the dedicated jsonld pass below, so
     the check step needs no Java and never double-runs the rule engine.
+
+    `pubkey` defaults to the nonexistent path that makes C1 skip cleanly. The
+    signing path passes the real demo pubkey to re-check the package AFTER
+    signing, so the Space validates the exact artifact it hands out.
     """
     from uofa_cli.commands import check as check_cmd
 
     args = argparse.Namespace(
         file=jsonld_path,
-        pubkey=_NO_PUBKEY,
+        pubkey=pubkey,
         context=None,
         rules=None,
         skip_rules=True,
@@ -270,25 +278,51 @@ def _run_weakeners(jsonld_path: Path, pack: str) -> list[dict]:
 _PACK_DISPLAY = {"vv40": "ASME V&V 40", "nasa-7009b": "NASA-STD-7009B", "model-credibility": "NIST AI RMF"}
 
 
-def _authenticity_block() -> dict:
-    """The public demo reads evidence live and never signs the bundle, so be
-    honest about it. A formally issued package would populate hash/signer and
-    flip these booleans; the reviewer view branches on them."""
+SIGNER_LABEL = "UofA demo issuer (keys/demo.pub)"
+
+_UNSIGNED_STATEMENT = (
+    "This evidence was assessed in an unsigned demo, so identity and "
+    "tamper-evidence were not verified. A formally issued assurance "
+    "package would carry a content hash and a cryptographic signature, "
+    "shown here for a reviewer (or a technical colleague) to re-verify."
+)
+
+_SIGNED_STATEMENT = (
+    "This package was signed by the UofA demonstration issuer key, not by a "
+    "research or production key. A valid signature means only that the file is "
+    "unmodified since this demo produced it. It is not a review, and it is not "
+    "an acceptance decision: the credibility judgment stays with the reader."
+)
+
+
+def _authenticity_block(*, signed: bool = False, package_hash: str | None = None,
+                        signer: str | None = None, integrity_checked: bool = False) -> dict:
+    """What the reader may conclude about identity and tamper-evidence.
+
+    Defaults to the unsigned demo statement, so callers that never sign (the
+    CLI report path, any failure branch) keep today's behaviour with no
+    argument. The signed branch names the key as a *demonstration* issuer,
+    because a signature that reads as endorsement is a worse claim than no
+    signature at all. The reviewer view branches on `signed`.
+    """
+    if not signed:
+        return {
+            "signed": False,
+            "integrity_checked": False,
+            "package_hash": None,
+            "signer": None,
+            "statement": _UNSIGNED_STATEMENT,
+        }
     return {
-        "signed": False,
-        "integrity_checked": False,
-        "package_hash": None,
-        "signer": None,
-        "statement": (
-            "This evidence was assessed in an unsigned demo, so identity and "
-            "tamper-evidence were not verified. A formally issued assurance "
-            "package would carry a content hash and a cryptographic signature, "
-            "shown here for a reviewer (or a technical colleague) to re-verify."
-        ),
+        "signed": True,
+        "integrity_checked": integrity_checked,
+        "package_hash": package_hash,
+        "signer": signer or SIGNER_LABEL,
+        "statement": _SIGNED_STATEMENT,
     }
 
 
-def _build_context(summary: dict, pack: str) -> dict:
+def _build_context(summary: dict, pack: str, authenticity: dict | None = None) -> dict:
     """Reviewer-facing context, re-projected from already-extracted fields."""
     ctx = {
         "project_name": summary.get("project_name"),
@@ -300,7 +334,7 @@ def _build_context(summary: dict, pack: str) -> dict:
         "device_class": summary.get("device_class"),
         "assurance_level": summary.get("assurance_level"),
         "standards_reference": summary.get("standards_reference"),
-        "authenticity": _authenticity_block(),
+        "authenticity": authenticity or _authenticity_block(),
     }
     if pack == "model-credibility":
         ctx["risk_assumption"] = MODEL_CREDIBILITY_RISK_ASSUMPTION
@@ -308,7 +342,7 @@ def _build_context(summary: dict, pack: str) -> dict:
 
 
 def _build_payload(pack, data, shacl_conforms, shacl_violations, firings, warnings,
-                   doc=None) -> dict:
+                   doc=None, authenticity=None) -> dict:
     """Assemble the reviewer payload.
 
     `doc` is the JSON-LD bundle. It is passed so this supplies compute_findings
@@ -329,9 +363,278 @@ def _build_payload(pack, data, shacl_conforms, shacl_violations, firings, warnin
         pack, statuses, {"conforms": shacl_conforms, "violations": shacl_violations}, firings,
         eval_ids, str(doc.get("id") or ""),
     )
-    payload["context"] = _build_context(data["summary"], pack)
+    payload["context"] = _build_context(data["summary"], pack, authenticity)
     payload["warnings"] = warnings
     return payload
+
+
+# ── Downloadable package (the thing the user actually takes away) ──
+#
+# The advisors' brief calls this "the signed pack (zip)". Nothing in this repo
+# has ever produced a zip: the verifiable unit is a single .jsonld whose
+# hash/signature fields are added in place. So the zip is packaging, and
+# `uofa.jsonld` inside it is the artifact. `uofa verify` stays a single-file
+# command; teaching the trust surface to parse archives would buy nothing and
+# cost zip-slip handling in the one code path that must stay boring.
+
+PACK_MEMBER_JSONLD = "uofa.jsonld"
+PACK_MEMBER_REPORT = "report.md"
+PACK_MEMBER_MANIFEST = "MANIFEST.json"
+PACK_MEMBER_PUBKEY = "keys/demo.pub"
+PACK_MEMBER_VERIFY = "VERIFY.txt"
+
+# PEM of the demo issuer's private key, supplied as a deployment secret. A path
+# is accepted too, for local development. Neither may ever be a repo file:
+# space/deploy_to_hf.py hard-refuses any *.key in its upload payload.
+SIGNING_KEY_ENV = "UOFA_DEMO_SIGNING_KEY"
+SIGNING_KEY_FILE_ENV = "UOFA_DEMO_SIGNING_KEY_FILE"
+
+_VERIFY_TXT = """\
+How to check this package
+=========================
+
+The file that carries the assurance is uofa.jsonld. Everything else in this zip
+is a convenience copy of what that file already says.
+
+    unzip <this-file>.zip
+    uofa verify {jsonld} --pubkey {pubkey}
+    uofa check  {jsonld} --pubkey {pubkey}
+
+`verify` re-computes the content hash and checks the signature. `check` also runs
+the structural (SHACL) rules. Neither needs a --pack flag: the package records
+which standards profile validated it.
+
+What a valid signature here does and does not mean
+--------------------------------------------------
+
+It means: this file has not been modified since the demo produced it.
+
+It does not mean the evidence was reviewed, accepted, or endorsed. The key that
+signed it is a DEMONSTRATION issuer key held by the demo itself, not a research
+or production key, and not anyone's decision key. The credibility judgment is
+still the reader's to make.
+
+About the public key in this zip
+--------------------------------
+
+{pubkey} is included so these commands work offline. A trust anchor shipped
+inside the artifact it validates only proves the artifact is self-consistent. To
+check it against a source this zip does not control, compare its fingerprint:
+
+    sha256sum {pubkey}
+
+against the fingerprint published at https://uofa.net and in the project repo.
+If they differ, do not trust this package.
+
+Notes
+-----
+
+- Package identifiers use the placeholder namespace {base_uri}. A formally
+  issued package would be minted under the issuing organization's own namespace.
+- MANIFEST.json lists a SHA-256 for every other file here, including this one's
+  siblings, so you can tell whether the convenience copies match. MANIFEST.json
+  is NOT itself signed: only uofa.jsonld is.
+- contextSha256 in MANIFEST.json is the digest of the JSON-LD @context that was
+  inlined into the hash. If `verify` reports a hash mismatch, compare that value
+  first: over 98% of the signed bytes are the context, so a differing context is
+  by far the most likely cause.
+"""
+
+
+def signing_key_material() -> tuple[Path | None, bytes | None]:
+    """(key_path, key_pem) for the demo issuer, or (None, None) if unconfigured.
+
+    Prefers the in-memory PEM: the hosted process serves user downloads out of a
+    temp directory, and a private key on that filesystem is one path-traversal
+    bug away from being one of them.
+    """
+    pem = os.environ.get(SIGNING_KEY_ENV)
+    if pem and pem.strip():
+        return None, pem.encode("utf-8")
+    key_file = os.environ.get(SIGNING_KEY_FILE_ENV)
+    if key_file:
+        path = Path(key_file)
+        if path.exists():
+            return path, None
+    return None, None
+
+
+def _sha256_file(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _context_digest(doc: dict) -> str | None:
+    """SHA-256 of the @context bytes that were inlined into the signed hash.
+
+    Recorded because a future verification failure is otherwise undiagnosable:
+    `uofa verify` can only say "Hash match: False", and the overwhelmingly
+    likely cause is that the verifier's copy of the context differs from the
+    one this package was signed against.
+    """
+    from uofa_cli.integrity import _local_context_for_url
+
+    ref = doc.get("@context")
+    if not isinstance(ref, str):
+        return None
+    local = _local_context_for_url(ref)
+    return _sha256_file(local) if local and local.exists() else None
+
+
+def _pack_filename(pack: str, package_hash: str) -> str:
+    stamp = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
+    return f"uofa-pack-{pack}-{stamp}-{package_hash[:8]}.zip"
+
+
+def build_downloadable_pack(jsonld_path: Path, pack: str, payload: dict,
+                            out_dir: Path, *, package_hash: str) -> dict | None:
+    """Assemble the signed pack zip. Returns {zip_path, hash, filename} or None.
+
+    Called only after `jsonld_path` has been signed, so the report rendered here
+    describes the same bytes the signature covers.
+    """
+    from uofa_cli.commands.report import render_markdown
+    from space.reviewer_state import build_reviewer_state
+
+    doc = json.loads(jsonld_path.read_text(encoding="utf-8"))
+    pubkey = paths.demo_pubkey()
+    if not pubkey.exists():
+        return None
+
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    staging = out_dir / "staging"
+    staging.mkdir(exist_ok=True)
+
+    (staging / PACK_MEMBER_REPORT).write_text(
+        render_markdown(build_reviewer_state(payload)), encoding="utf-8")
+    (staging / PACK_MEMBER_VERIFY).write_text(
+        _VERIFY_TXT.format(jsonld=PACK_MEMBER_JSONLD, pubkey=PACK_MEMBER_PUBKEY,
+                           base_uri=str(doc.get("id", "")).rsplit("/", 1)[0] or "example.org"),
+        encoding="utf-8")
+    (staging / "keys").mkdir(exist_ok=True)
+    (staging / PACK_MEMBER_PUBKEY).write_bytes(pubkey.read_bytes())
+
+    members = {
+        PACK_MEMBER_JSONLD: jsonld_path,
+        PACK_MEMBER_REPORT: staging / PACK_MEMBER_REPORT,
+        PACK_MEMBER_PUBKEY: staging / PACK_MEMBER_PUBKEY,
+        PACK_MEMBER_VERIFY: staging / PACK_MEMBER_VERIFY,
+    }
+    manifest = {
+        "packageHash": f"sha256:{package_hash}",
+        "pack": pack,
+        "validatedWithPacks": doc.get("validatedWithPacks"),
+        "signatureAlg": doc.get("signatureAlg"),
+        "canonicalizationAlg": doc.get("canonicalizationAlg"),
+        "context": doc.get("@context") if isinstance(doc.get("@context"), str) else None,
+        "contextSha256": _context_digest(doc),
+        "toolVersion": _tool_version(),
+        "signedBy": PACK_MEMBER_PUBKEY,
+        "verifiableMember": PACK_MEMBER_JSONLD,
+        "members": {name: f"sha256:{_sha256_file(p)}" for name, p in sorted(members.items())},
+    }
+    (staging / PACK_MEMBER_MANIFEST).write_text(
+        json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    members[PACK_MEMBER_MANIFEST] = staging / PACK_MEMBER_MANIFEST
+
+    zip_path = out_dir / _pack_filename(pack, package_hash)
+    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
+        for name, src in sorted(members.items()):
+            zf.write(src, arcname=name)
+    shutil.rmtree(staging, ignore_errors=True)
+
+    return {"zip_path": str(zip_path), "hash": package_hash, "filename": zip_path.name}
+
+
+def _provenance_name(source_name: str) -> str:
+    """Reduce a source label to something safe to publish inside a signed package.
+
+    `map_to_jsonld` writes this straight into provenanceChain[].sourceFile, and
+    that document is now signed and downloadable by anyone. A hosted service
+    handed `/tmp/gradio/<uuid>/QuarterlyResults-CONFIDENTIAL.pdf` would publish
+    both its own container layout and the uploader's filename.
+
+    The Gradio callers already pass bare labels ("upload", "morrison-sample"),
+    but `analyze()` passes `str(sources[0])` and any future caller passes
+    whatever it likes. Enforcing it here means the guarantee holds for the
+    document rather than for the callers that currently exist. The CLI is
+    deliberately unchanged: `uofa import` records the real path a local operator
+    ran against, which is provenance they want and control.
+    """
+    return Path(str(source_name)).name or "upload"
+
+
+def _verify_as_shipped(jsonld_path: Path) -> bool:
+    """Does the package we are about to hand out actually verify?
+
+    Deliberately the same call `uofa verify` makes (commands/verify.py), against
+    the same key that travels in the zip. Asserting "integrity checked" from
+    anything else -- SHACL conformance, or merely the fact that we just signed --
+    would put a claim in the reviewer readout that nobody had tested.
+    """
+    from uofa_cli.integrity import verify_file
+
+    pubkey = paths.demo_pubkey()
+    if not pubkey.exists():
+        return False
+    try:
+        hash_ok, sig_ok = verify_file(jsonld_path, pubkey)
+    except Exception:
+        return False
+    return bool(hash_ok and sig_ok)
+
+
+def _tool_version() -> str:
+    try:
+        from importlib.metadata import version
+        return version("uofa")
+    except Exception:
+        return "unknown"
+
+
+def _sign_and_pack(jsonld_path: Path, pack: str, data: dict, shacl_conforms,
+                   shacl_violations, firings, warnings, doc, out_dir: Path | None):
+    """Sign, re-check what we signed, then build the payload and the zip.
+
+    Ordering is load-bearing and easy to get wrong:
+      1. weakeners have already run -- the Jena engine reads this file and has
+         no reason to see hash/signature fields;
+      2. sign;
+      3. re-verify with the REAL pubkey, through the same call `uofa verify`
+         makes, so "integrity_checked" is a fact about the artifact we hand out
+         rather than a restatement of the fact that we signed it;
+      4. build the payload LAST, so the reviewer readout can state the true
+         hash and signer instead of claiming "signed" before signing happened.
+
+    Returns (payload, download_or_None). A missing key is not an error: the
+    Space degrades to the unsigned readout it has always shown.
+    """
+    from uofa_cli import package_policy
+
+    key_path, key_bytes = signing_key_material()
+    if key_path is None and key_bytes is None:
+        payload = _build_payload(pack, data, shacl_conforms, shacl_violations,
+                                 firings, warnings, doc)
+        return payload, None
+
+    package_hash, _sig = package_policy.sign_package(
+        jsonld_path, key_path, key_bytes=key_bytes)
+
+    integrity_ok = _verify_as_shipped(jsonld_path)
+
+    signed_doc = json.loads(jsonld_path.read_text(encoding="utf-8"))
+    authenticity = _authenticity_block(
+        signed=True, package_hash=f"sha256:{package_hash}",
+        integrity_checked=bool(integrity_ok),
+    )
+    payload = _build_payload(pack, data, shacl_conforms, shacl_violations,
+                             firings, warnings, signed_doc, authenticity)
+
+    download = None
+    if out_dir is not None:
+        download = build_downloadable_pack(jsonld_path, pack, payload, out_dir,
+                                           package_hash=package_hash)
+    return payload, download
 
 
 # ── Composable stages (the wizard drives these with pauses between) ──
@@ -428,16 +731,21 @@ def factor_rows(result) -> list[dict]:
 
 
 def finalize_from_data(data, pack, work_dir, *, source_name="upload", warnings=None,
-                       assess_sufficiency=True) -> dict:
-    """map -> SHACL -> (weakeners or skip) -> summary, from an import `data` dict.
+                       assess_sufficiency=True, pack_out_dir=None) -> dict:
+    """map -> SHACL -> (weakeners or skip) -> sign -> summary, from an import `data` dict.
 
     When `assess_sufficiency` is False the weakener engine is skipped (firings `[]`,
     no demotion) and the payload context is flagged so the readout reports completeness
-    only and declines the sufficiency section -- the heuristic/no-card honesty rule."""
+    only and declines the sufficiency section -- the heuristic/no-card honesty rule.
+
+    `pack_out_dir` is where the downloadable zip is written. It must NOT be
+    `work_dir`: that directory is torn down the moment this returns, and the
+    download has to outlive the request. When it is None, or no signing key is
+    configured, the run behaves exactly as it did before downloads existed."""
     try:
-        doc = map_to_jsonld(data, packs=[pack], source_path=Path(source_name))
+        doc = map_to_jsonld(data, packs=[pack], source_path=Path(_provenance_name(source_name)))
         _assign_factor_ids(doc)
-        jsonld_path = Path(work_dir) / "uofa.jsonld"
+        jsonld_path = Path(work_dir) / PACK_MEMBER_JSONLD
         jsonld_path.write_text(json.dumps(doc, indent=2), encoding="utf-8")
         shacl_conforms, shacl_violations = _run_check(jsonld_path, pack)
     except WeakenerEngineError:
@@ -446,18 +754,23 @@ def finalize_from_data(data, pack, work_dir, *, source_name="upload", warnings=N
         raise _StageError(FailureKind.VALIDATE_ERROR) from exc
 
     firings = _run_weakeners(jsonld_path, pack) if assess_sufficiency else []
-    payload = _build_payload(pack, data, shacl_conforms, shacl_violations,
-                             firings, warnings or [], doc)
+    payload, download = _sign_and_pack(jsonld_path, pack, data, shacl_conforms,
+                                       shacl_violations, firings, warnings or [],
+                                       doc, pack_out_dir)
+    if download:
+        payload["download"] = download
     if not assess_sufficiency:
         payload["context"]["sufficiency_assessed"] = False
     return payload
 
 
-def finalize(result, pack, factor_edits, work_dir, *, source_name="upload", warnings=None) -> dict:
-    """Adapt -> map -> SHACL -> weakeners -> summary. Returns the payload, or
-    raises _StageError(VALIDATE_ERROR) / WeakenerEngineError."""
+def finalize(result, pack, factor_edits, work_dir, *, source_name="upload", warnings=None,
+             pack_out_dir=None) -> dict:
+    """Adapt -> map -> SHACL -> weakeners -> sign -> summary. Returns the payload,
+    or raises _StageError(VALIDATE_ERROR) / WeakenerEngineError."""
     data = result_to_import_dict(result, pack, factor_edits)
-    return finalize_from_data(data, pack, work_dir, source_name=source_name, warnings=warnings)
+    return finalize_from_data(data, pack, work_dir, source_name=source_name,
+                              warnings=warnings, pack_out_dir=pack_out_dir)
 
 
 # ── Orchestration spine (all-in-one; used by the sample + spike) ──
@@ -540,6 +853,7 @@ def card_report(
     on_progress: Callable[[str], None] | None = None,
     extract_timeout: int = DEFAULT_EXTRACT_TIMEOUT,
     work_dir: Path | None = None,
+    pack_out_dir: Path | None = None,
 ) -> PipelineOutcome:
     """Live id path for the model-credibility pack: fetch the HF model card, extract factor
     statuses (LLM subprocess-isolated with a deterministic fallback), and produce a
@@ -571,7 +885,8 @@ def card_report(
             doc_status = "present"
 
         payload = finalize_from_data(data, "model-credibility", work_dir, source_name=model_id,
-                                     warnings=[], assess_sufficiency=assess)
+                                     warnings=[], assess_sufficiency=assess,
+                                     pack_out_dir=pack_out_dir)
         payload["context"]["extraction_provenance"] = provenance
         payload["context"]["documentation_status"] = doc_status
         return PipelineOutcome.success(payload)

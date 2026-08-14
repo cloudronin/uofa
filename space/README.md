@@ -17,17 +17,48 @@ against **ASME V&V 40** or **NASA-STD-7009B**.
 
 The flow: upload (or try the sample) → the rule router picks a standard → the
 model reads your evidence **privately, inside this Space** → you confirm what it
-understood (status only) → a free completeness + weakeners summary.
+understood (status only) → a free completeness + weakeners summary → download
+the assurance package.
 
 It reports completeness and weakeners; it does **not** stamp an Accepted /
 Not-Accepted verdict — that's a human decision.
 
+## The downloadable package
+
+"Download UofA package" gives you a zip built by the same code path as the CLI's
+`uofa import`. The file that carries the assurance is `uofa.jsonld`; the report,
+manifest, public key, and instructions beside it are convenience copies.
+
+```
+unzip uofa-pack-*.zip
+uofa verify uofa.jsonld --pubkey keys/demo.pub
+```
+
+**What a valid signature means here.** Only that the file is unmodified since
+this demo produced it. It is not a review and not an acceptance decision. The
+signing key is a *demonstration issuer key* held by the demo, not a research or
+production key, and not anyone's decision key — so a demo package can never be
+mistaken for a formally issued one (it does not verify against the default trust
+anchor; `--pubkey` is required, deliberately).
+
+The public key travels inside the zip so verification works offline. A trust
+anchor shipped inside the artifact it validates only proves self-consistency, so
+compare it against this independent copy:
+
+```
+keys/demo.pub  sha256:3605a146f4880d9f7a29db6ef5629655091d2ecd0c2b9919cbe49d90d65d83c8
+```
+
 ## Privacy
 
 Evidence is read by a local model running in this container (no third-party
-API). Each request uses a temporary directory that is deleted afterwards;
-documents and the generated bundle are never persisted, and payloads are not
-logged.
+API). Each request uses a temporary directory that is deleted afterwards, and
+payloads are not logged.
+
+One exception, by design: if you generate a package, that zip is written to a
+separate directory so it survives long enough for you to download it. It is
+deleted when you hit "Start over", when you run another analysis, and in any
+case within 30 minutes. Your uploaded documents are never retained.
 
 ## Build & run (local)
 

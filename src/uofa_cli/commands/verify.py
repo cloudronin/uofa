@@ -14,6 +14,7 @@ from pathlib import Path
 from uofa_cli.integrity import verify_file
 from uofa_cli.output import error, info, result_line, step_header, warn
 from uofa_cli import paths
+from uofa_cli.package_policy import is_synthetic as _is_synthetic
 
 HELP = "verify hash + ed25519 signature (C1 integrity)"
 
@@ -107,17 +108,6 @@ def _safe_load(path: Path) -> dict | None:
     if not isinstance(doc, dict):
         return None
     return doc
-
-
-def _is_synthetic(doc: dict | None) -> bool:
-    if not doc:
-        return False
-    if doc.get("synthetic") is True:
-        return True
-    type_val = doc.get("type") or doc.get("@type") or []
-    if isinstance(type_val, str):
-        type_val = [type_val]
-    return "uofa:SyntheticAdversarialSample" in type_val
 
 
 def _warn_on_tampering(doc: dict) -> bool:

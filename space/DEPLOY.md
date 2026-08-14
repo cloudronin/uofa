@@ -84,6 +84,49 @@ never evidence content.
 
 ---
 
+## 3b. Package signing key (`UOFA_DEMO_SIGNING_KEY`)
+
+The "Download UofA package" control signs each package with a **dedicated demo
+issuer key**. Deliberately *not* `keys/research.key`: a demo artifact must never
+be cryptographically indistinguishable from a research package, so the demo key
+is its own identity and `uofa verify` requires `--pubkey keys/demo.pub`.
+
+**Setup (one-time).** Generate the pair *outside the repo* and install the
+private half as a Space secret:
+
+```bash
+uofa keygen ~/secure/uofa-demo.key     # writes uofa-demo.key + uofa-demo.pub
+cp ~/secure/uofa-demo.pub keys/demo.pub   # public half is committed
+```
+
+Space → **Settings → Variables and secrets → New secret**:
+
+| Name | Value |
+|---|---|
+| `UOFA_DEMO_SIGNING_KEY` | the full PEM contents of `uofa-demo.key` |
+
+The PEM is read into memory at request time and never written to the container
+filesystem — the process serves user downloads out of a temp directory, and a
+private key on that filesystem is one path bug away from being one of them. For
+local development, `UOFA_DEMO_SIGNING_KEY_FILE=/path/to/demo.key` works instead.
+
+**The key can never travel as a file.** `space/deploy_to_hf.py` filters `.key`,
+`.pem`, and `.env` out of the upload set *and* hard-refuses the deploy if one
+survives (`_secrets_in`). The Space repo is public; treat anything committed
+there as published.
+
+**If the secret is unset** the Space still works: it degrades to the unsigned
+readout it had before downloads existed, and the download button stays hidden.
+That is the correct behaviour for a duplicated Space, which does not inherit
+secrets.
+
+**Rotating.** Generate a new pair, replace `keys/demo.pub`, update the secret,
+and redeploy. Packages issued under the old key stop verifying against the new
+`demo.pub` — which is the intended meaning of a rotation, not a regression.
+Update the fingerprint published in `space/README.md`.
+
+---
+
 ## 4. Hardware & sleep (GPU cost)
 
 The Space runs on **T4 small** (GPU) with a 15-minute idle auto-sleep. Manage via

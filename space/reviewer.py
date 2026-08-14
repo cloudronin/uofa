@@ -117,7 +117,11 @@ def _section_glance(s: ReviewerState) -> str:
         f"{s.severity_counts[k]} {sev_label(k)}"
         for k in ("Critical", "High", "Medium", "Low") if s.severity_counts.get(k)
     ) or "none") if s.sufficiency_assessed else "Not assessed (heuristic mode)"
-    auth_txt = "Yes" if s.authenticity.get("signed") else "No (unsigned demo)"
+    # Not a bare "Yes": at a glance, that reads as "this package was checked and
+    # approved". It was signed by the demo's own issuer key, which is a much
+    # narrower claim, and the label has to carry that or the glance overstates
+    # what the Authenticity section then carefully qualifies.
+    auth_txt = "Signed (demo key)" if s.authenticity.get("signed") else "No (unsigned demo)"
     return f"""
     <section>
       <h2>At a glance</h2>
@@ -200,21 +204,37 @@ def _section_missing(s: ReviewerState) -> str:
 
 
 def _section_authenticity(s: ReviewerState) -> str:
+    """What the reader may conclude about identity and tamper-evidence.
+
+    The statement renders in BOTH branches. An earlier version showed it only
+    when unsigned, so the signed case displayed "Verified" over a signer and a
+    hash with nothing qualifying it: the one place the demo most needed to say
+    what its signature does not mean was the one place it said nothing.
+
+    "Verified" is likewise gone. It is a verdict, and the only verdict this
+    package supports is "these bytes are unchanged".
+    """
     auth = s.authenticity
     if auth.get("signed"):
-        verdict = "Verified"
-        detail = (f"<li><b>Signed by:</b> {_e(auth.get('signer'))}</li>"
-                  f"<li><b>Content hash:</b> <code>{_e(auth.get('package_hash'))}</code></li>")
+        verdict = "Signed by the demo issuer key"
+        detail = (f"<ul><li><b>Signed by:</b> {_e(auth.get('signer'))}</li>"
+                  f"<li><b>Content hash:</b> <code>{_e(auth.get('package_hash'))}</code></li></ul>\n"
+                  f"      <p>{_e(auth.get('statement'))}</p>")
+        cmd = "uofa verify uofa.jsonld --pubkey keys/demo.pub"
+        howto = ("Download the package below and re-check it yourself. The public "
+                 "key and these instructions travel inside the zip:")
     else:
         verdict = "Unverified (demo)"
         detail = f"<p>{_e(auth.get('statement'))}</p>"
+        cmd = "uofa check &lt;package&gt;.jsonld"
+        howto = "A technical colleague can re-verify a signed package with:"
     return f"""
     <section>
       <h2>Authenticity</h2>
       <p><b>Status:</b> {verdict}</p>
       {detail}
-      <p>A technical colleague can re-verify a signed package with:</p>
-      <pre class="ri-cmd">uofa check &lt;package&gt;.jsonld</pre>
+      <p>{howto}</p>
+      <pre class="ri-cmd">{cmd}</pre>
     </section>"""
 
 
