@@ -185,6 +185,35 @@ def _run_extract(corpus, model, pack, prompt_path, llm_config, timeout, extract_
         return ("err", "extraction produced no result")
 
 
+def _effective_model(model: str | None, llm_config=None) -> str:
+    """The model that will actually run, for labels and provenance.
+
+    `model or BUNDLED_MODEL` reported qwen3.5:4b while the call went to a hosted
+    provider. That string reaches the reviewer readout as "How assessed:", so a
+    stale default there is a false statement about how the evidence was read.
+    """
+    if model:
+        return model
+    if llm_config is not None:
+        return llm_config.model
+    return BUNDLED_MODEL
+
+
+def _reading_message(llm_config=None) -> str:
+    """In-flight copy, which must not promise privacy it is not providing.
+
+    The local path reads documents inside this container and nothing leaves.
+    The hosted path sends them to a third party, and saying "privately" there
+    would be false at the exact moment the user is waiting on the request.
+    """
+    if llm_config is None:
+        return ("Analyzing your evidence with the model. This runs privately in "
+                "this Space and can take a few minutes...")
+    from space import llm_env
+    return (f"Analyzing your evidence with {llm_env.provider_label(llm_config)}. "
+            "Your documents are sent there to be read, then discarded.")
+
+
 def _prompt_path_for(pack: str) -> Path:
     pdir = paths.pack_dir(pack)
     manifest = json.loads((pdir / "pack.json").read_text(encoding="utf-8"))
@@ -718,12 +747,9 @@ def run_extract_stage(
     """Extract in an isolated subprocess with a hard timeout. Returns the
     ExtractionResult, or raises _StageError(EXTRACT_TIMEOUT/EXTRACT_ERROR/EMPTY_FACTORS)."""
     progress = on_progress or (lambda _m: None)
-    progress(
-        "Analyzing your evidence with the model. This runs privately and can "
-        "take a few minutes..."
-    )
+    progress(_reading_message(llm_config))
     status, value = _run_extract(
-        corpus, model or BUNDLED_MODEL, pack, _prompt_path_for(pack),
+        corpus, _effective_model(model, llm_config), pack, _prompt_path_for(pack),
         llm_config, extract_timeout, extract_fn,
     )
     if status == "timeout":
@@ -844,7 +870,7 @@ def analyze(
 
 
 def _card_extract(text, model_id, source_url, work_dir, *, model, deterministic,
-                  on_progress, extract_timeout):
+                  on_progress, extract_timeout, llm_config=None):
     """(import_dict, provenance, sufficiency_assessed) for a fetched card. LLM-first via
     run_extract_stage (subprocess isolation + timeout); on failure, or when
     `deterministic`, falls back to the README scan (which declines sufficiency)."""
@@ -855,11 +881,15 @@ def _card_extract(text, model_id, source_url, work_dir, *, model, deterministic,
             (Path(work_dir) / "card.md").write_text(text, encoding="utf-8")
             corpus = read_corpus([Path(work_dir) / "card.md"])
             result = run_extract_stage(corpus, "model-credibility", model=model,
+                                       llm_config=llm_config,
                                        extract_timeout=extract_timeout, on_progress=on_progress)
             data = result_to_import_dict(result, "model-credibility")
             data["summary"]["model_risk_level"] = card_bundle.MODEL_CREDIBILITY_ASSUMED_MRL
             data["summary"].setdefault("standards_reference", "NIST-AI-RMF-1.0")
-            return data, f"{card_bundle.PROV_LLM} - {model or BUNDLED_MODEL}", True
+            # Name the model that actually ran. `model or BUNDLED_MODEL` reported
+            # "qwen3.5:4b" while the call went to a hosted provider, and this
+            # string is rendered to the reviewer as "How assessed:".
+            return data, f"{card_bundle.PROV_LLM} - {_effective_model(model, llm_config)}", True
         except _StageError:
             data = card_bundle.deterministic_import_dict(text, "model-credibility", model_id, source_url)
             return data, card_bundle.PROV_HEURISTIC_FALLBACK, False
@@ -872,6 +902,7 @@ def card_report(
     *,
     revision: str | None = None,
     model: str | None = None,
+    llm_config=None,
     deterministic: bool = False,
     on_progress: Callable[[str], None] | None = None,
     extract_timeout: int = DEFAULT_EXTRACT_TIMEOUT,
@@ -903,8 +934,8 @@ def card_report(
         else:
             data, provenance, assess = _card_extract(
                 fetched.text, model_id, source_url, work_dir,
-                model=model, deterministic=deterministic, on_progress=progress,
-                extract_timeout=extract_timeout)
+                model=model, llm_config=llm_config, deterministic=deterministic,
+                on_progress=progress, extract_timeout=extract_timeout)
             doc_status = "present"
 
         payload = finalize_from_data(data, "model-credibility", work_dir, source_name=model_id,
