@@ -649,6 +649,7 @@ def _resolve_extract_llm(args):
         return None, None
     if args.extract_backend or args.extract_model or args.extract_base_url:
         from uofa_cli.llm import resolve_llm_config
+        from uofa_cli.llm.config import DEFAULT_KEY_ENV
         ov: dict = {}
         if args.extract_backend:
             ov["backend"] = args.extract_backend
@@ -656,9 +657,8 @@ def _resolve_extract_llm(args):
             ov["model"] = args.extract_model
         if args.extract_base_url:
             ov["base_url"] = args.extract_base_url
-        if ov.get("backend") in ("anthropic", "openai"):
-            ov.setdefault("api_key_env",
-                          {"anthropic": "ANTHROPIC_API_KEY", "openai": "OPENAI_API_KEY"}[ov["backend"]])
+        if ov.get("backend") in DEFAULT_KEY_ENV:
+            ov.setdefault("api_key_env", DEFAULT_KEY_ENV[ov["backend"]])
         return None, resolve_llm_config(cli_overrides=ov)
     return _configured_model_or_none(), None
 

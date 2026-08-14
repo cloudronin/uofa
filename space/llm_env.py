@@ -95,6 +95,26 @@ def space_llm_config() -> LLMConfig | None:
         return None
 
 
+def missing_key_env() -> str | None:
+    """The secret this deployment declares it needs but does not have.
+
+    Returns the env var NAME when hosted inference is configured for a remote
+    backend and its key is absent; None otherwise. That combination is precisely
+    the duplicated-Space case: HuggingFace does not copy secret VALUES to a
+    duplicate, so the image's configuration arrives intact and the key does not.
+
+    This is deliberately narrower than "space_llm_config() returned None".
+    A developer running locally with Ollama also gets None there, and must not
+    be told a secret is missing. Only a deployment that declares a remote
+    backend can be missing one.
+    """
+    backend = _env(BACKEND_ENV)
+    if not backend or backend not in REMOTE_BACKENDS:
+        return None
+    key_env = _env(KEY_ENV_ENV) or DEFAULT_KEY_ENV
+    return None if _env(key_env) else key_env
+
+
 def is_remote(config: LLMConfig | None) -> bool:
     """True when analysis text leaves this container. Drives the disclosure."""
     return bool(config and config.backend in REMOTE_BACKENDS)

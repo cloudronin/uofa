@@ -74,6 +74,7 @@ class FailureKind:
     EXTRACT_ERROR = "extract_error"
     VALIDATE_ERROR = "validate_error"
     WEAKENER_ERROR = "weakener_error"
+    NO_BACKEND = "no_backend"
     INTERNAL = "internal"
 
 
@@ -103,6 +104,12 @@ _USER_MESSAGES = {
     ),
     FailureKind.WEAKENER_ERROR: (
         "The weakener analysis didn't complete on this bundle. Please retry."
+    ),
+    FailureKind.NO_BACKEND: (
+        "This Space has no model backend configured, so it cannot read "
+        "evidence. If you duplicated it, add your own API key under "
+        "Settings -> Variables and secrets, or set UOFA_SPACE_MODEL=mock to "
+        "explore the interface with canned data."
     ),
     FailureKind.INTERNAL: "Something went wrong. Please retry, or use the sample.",
 }
@@ -747,6 +754,23 @@ def run_extract_stage(
     """Extract in an isolated subprocess with a hard timeout. Returns the
     ExtractionResult, or raises _StageError(EXTRACT_TIMEOUT/EXTRACT_ERROR/EMPTY_FACTORS)."""
     progress = on_progress or (lambda _m: None)
+
+    # A deployment that declares a remote backend but has no key cannot read
+    # anything, and with no local model in the image there is nothing to fall
+    # back to. Say so by name: the generic extract error would send a
+    # duplicator into a retry loop chasing a configuration problem.
+    if llm_config is None and model is None:
+        from space import llm_env
+        missing = llm_env.missing_key_env()
+        if missing:
+            raise _StageError(
+                FailureKind.NO_BACKEND,
+                f"This Space has no model backend configured: the secret "
+                f"{missing} is not set. If you duplicated this Space, add your "
+                f"own key under Settings -> Variables and secrets, or set "
+                f"UOFA_SPACE_MODEL=mock to explore the interface with canned data."
+            )
+
     progress(_reading_message(llm_config))
     status, value = _run_extract(
         corpus, _effective_model(model, llm_config), pack, _prompt_path_for(pack),

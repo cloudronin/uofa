@@ -17,7 +17,7 @@ from pathlib import Path
 
 import gradio as gr
 
-from space import curated, leadcapture, pipeline, reviewer, wizard
+from space import curated, leadcapture, llm_env, pipeline, reviewer, wizard
 from space.gloss import gloss_for, load_gloss
 from uofa_cli import paths
 
@@ -30,6 +30,11 @@ STATUS_CHOICES = ["assessed", "not-assessed", "scoped-out", "not-applicable"]
 _GLOSS = load_gloss()
 
 _MODEL = os.environ.get("UOFA_SPACE_MODEL") or None  # None -> bundled qwen3.5:4b
+# Resolved once at import, mirroring _MODEL. None means "use the local path",
+# which is what an unconfigured deployment and every test should get. The
+# autouse fixture in tests/space/conftest.py nulls this too, so a developer with
+# a provider key exported does not silently make the UI tests hit the network.
+_LLM_CONFIG = llm_env.space_llm_config()
 # In-container the wheel bundles packs/ under uofa_cli/_data/repo; an env var lets
 # a deployment point elsewhere without code changes.
 _SAMPLE_DIR = Path(
@@ -248,7 +253,7 @@ def _run_extract(corpus, pack):
                         "privately and can take a few minutes.", visible=True),
         gr.update(), None, {}, gr.update(value="", visible=False),
     )
-    outcome = wizard.extract(corpus, pack, model=_MODEL)
+    outcome = wizard.extract(corpus, pack, model=_MODEL, llm_config=_LLM_CONFIG)
     if not outcome.ok:
         yield (
             _show(), _hide(), _hide(), gr.update(visible=False), gr.update(),
@@ -403,7 +408,8 @@ def _run_card(model_id, pack_dir):
            gr.update(), gr.update(), gr.update(), None, gr.update(),
            gr.update(), gr.update(), gr.update(), _pack_update(None), pack_dir)
 
-    outcome = wizard.card_report(model_id, model=_MODEL, pack_out_dir=pack_dir)
+    outcome = wizard.card_report(model_id, model=_MODEL, llm_config=_LLM_CONFIG,
+                                   pack_out_dir=pack_dir)
     if not outcome.ok:
         yield (_show(), _hide(), _hide(), _hide(), _hide(), gr.update(visible=False),
                gr.update(value=f"⚠️ {outcome.user_message}", visible=True),
