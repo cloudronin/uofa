@@ -156,7 +156,12 @@ own key, rather than a generic extraction error they would retry forever.
 `UOFA_SPACE_MODEL=mock` to explore the interface with canned data and no API
 calls at all.
 
-**Set a spend cap before going live.** See §4.
+**Together offers no spend cap**, so the ceiling lives in the app:
+`space/ratelimit.py`, configured by `UOFA_SPACE_DAILY_USD` (default $5/day),
+`UOFA_SPACE_SESSION_LIMIT` (8), and `UOFA_SPACE_HOURLY_LIMIT` (60). The daily
+figure is the real cap and is backed by a ledger in the same private dataset as
+lead capture (`usage/<date>/...`), so it survives the container restarts a
+sleeping Space does constantly. See §4.
 
 ---
 
@@ -260,3 +265,45 @@ directly, and run **Try a sample evidence set** end to end.
 6. **Local image build:** Maven Central may be firewalled locally. The canonical
    `space/Dockerfile` builds fine on HF's networked builder; for a local build in
    a Maven-blocked network, inject the prebuilt jar and skip the Maven stage.
+
+---
+
+## 8. Spend guard
+
+Together AI has no spend cap, so the ceiling is enforced in `space/ratelimit.py`.
+
+| Env | Default | What it actually stops |
+|---|---|---|
+| `UOFA_SPACE_DAILY_USD` | `5.0` | **The real cap.** Dataset-backed, so it survives restarts. |
+| `UOFA_SPACE_SESSION_LIMIT` | `8` | Repeat clicking in one browser session. Not a spend cap. |
+| `UOFA_SPACE_HOURLY_LIMIT` | `60` | A burst arriving faster than the ledger refresh; the only limit left if the dataset is unreachable. |
+
+**Why three.** A session limit is the obvious control and the weakest one:
+Gradio session state is per browser session, so anything loading the page fresh
+gets a fresh counter. It stops a visitor re-running the same analysis; it does
+nothing about a crawler. The daily dollar limit is what bounds the bill, and it
+has to be durable because a sleeping Space restarts constantly -- an in-process
+counter would hand back the whole budget on every wake.
+
+**The ledger** lives in the private dataset already used for lead capture
+(`HF_DATASET_REPO` / `HF_TOKEN`), under `usage/<YYYY-MM-DD>/`. One file per run,
+uniquely named, so there is no read-modify-write race. The estimated cost is
+encoded in the **filename** (`...-<micros>u.json`), so totalling a day is one
+`list_repo_files` call with no downloads however many runs it holds. The JSON
+body carries the detail for auditing.
+
+**Cost is estimated, not billed.** `generate()` returns a bare string, so exact
+provider usage is not available without changing the shared CLI interface. The
+estimate uses the corpus token count already computed and the response length
+already held, priced through litellm's table. Measured at roughly **$0.006 per
+typical analysis** (Morrison, ~5.5k input tokens); a large multi-document upload
+approaching the 24k prompt budget lands nearer $0.03. Records store it as
+`estimated_usd` so it is never mistaken for an invoice. Reconcile against
+Together's dashboard before quoting a real figure.
+
+**If the dataset is unreachable** the guard allows and falls back to the hourly
+brake. Failing closed would take the demo down for a transient Hub outage;
+failing fully open would be the unbounded bill this exists to prevent.
+
+Nothing is limited when the backend is free (local Ollama, `mock`), so
+development and the test suite are unaffected.

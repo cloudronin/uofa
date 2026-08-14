@@ -18,9 +18,9 @@ from space import app, wizard
 
 # Declared outputs arity for each handler (kept in lockstep with build()).
 N_PREPARE = 12
-N_EXTRACT = 8
+N_EXTRACT = 9          # +runs_state (per-session metered-run counter)
 N_FINALIZE = 13      # +reviewer_html, +view_toggle/author_panel/reviewer_panel, +pack_btn/pack_dir_state
-N_CARD = 17          # card path: step groups + card_progress + Step-5 surfaces + pack_btn/pack_dir_state
+N_CARD = 18          # card path: step groups + card_progress + Step-5 surfaces + pack_btn/pack_dir_state/runs_state
 N_START_OVER = 29    # groups + progress + cleared surfaces (incl. card_input) + states + view + pack_btn/pack_dir_state
 
 
@@ -52,7 +52,7 @@ def test_stream_prepare_arity_and_reveals_route(tmp_path):
 def test_run_extract_arity_and_reveals_confirm(tmp_path):
     prep = wizard.prepare([_src(tmp_path)])
     corpus = prep.payload["corpus"]
-    outs = list(app._run_extract(corpus, "vv40"))
+    outs = list(app._run_extract(corpus, "vv40", 0))
     assert all(len(o) == N_EXTRACT for o in outs)
     final = outs[-1]
     assert final[2]["visible"] is True  # confirm_group shown
@@ -198,7 +198,7 @@ def _card_payload():
 
 
 def test_run_card_empty_input_shows_error():
-    outs = list(app._run_card("   ", None))
+    outs = list(app._run_card("   ", None, 0))
     assert outs and all(len(o) == N_CARD for o in outs)
     final = outs[-1]
     assert final[0]["visible"] is True   # stayed on the start step
@@ -209,7 +209,7 @@ def test_run_card_success_reveals_results(monkeypatch):
     from space.pipeline import PipelineOutcome
     monkeypatch.setattr("space.wizard.card_report",
                         lambda *a, **k: PipelineOutcome.success(_card_payload()))
-    outs = list(app._run_card("cardiffnlp/twitter-roberta-base-sentiment", None))
+    outs = list(app._run_card("cardiffnlp/twitter-roberta-base-sentiment", None, 0))
     assert all(len(o) == N_CARD for o in outs)
     final = outs[-1]
     assert final[4]["visible"] is True            # summary_group revealed (skipped confirm)
@@ -221,7 +221,7 @@ def test_run_card_failure_returns_to_start(monkeypatch):
     from space.pipeline import FailureKind, PipelineOutcome
     monkeypatch.setattr("space.wizard.card_report",
                         lambda *a, **k: PipelineOutcome.failure(FailureKind.READ_ERROR, "gated (403)."))
-    final = list(app._run_card("acme/private", None))[-1]
+    final = list(app._run_card("acme/private", None, 0))[-1]
     assert len(final) == N_CARD
     assert final[0]["visible"] is True   # back to the start step
     assert final[6]["visible"] is True   # error_md shown
