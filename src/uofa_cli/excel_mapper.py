@@ -478,6 +478,19 @@ def _map_factor(factor: dict, packs: list[str]) -> dict:
         "factorStatus": factor["status"],
     }
 
+    # Whose judgment set factorStatus, when the caller knows. Emitted ONLY when
+    # supplied: a package built from a spreadsheet cannot tell which cells a
+    # human touched, and the honest answer there is silence rather than a guess
+    # -- the same rule `_provenance` states for the summary fields.
+    #
+    # Not in the @context deliberately: `@vocab` maps it to
+    # uofa:statusProvenance, so this adds no term to the vocabulary and needs no
+    # new context version. That matters more than it looks -- the inlined
+    # context is ~98% of a package's hash preimage, so a context bump would
+    # invalidate every signature ever issued against the old one.
+    if factor.get("status_provenance"):
+        f["statusProvenance"] = factor["status_provenance"]
+
     # Assign factorStandard based on factor name and active packs. The stamp is
     # load-bearing: the vv40/nasa factor-name SHACL shapes use an
     # `(!BOUND(?fs) || ?fs = "<their-standard>")` guard, so a factor left
