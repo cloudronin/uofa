@@ -17,7 +17,7 @@ from pathlib import Path
 
 import gradio as gr
 
-from space import curated, leadcapture, pipeline, reviewer, wizard
+from space import curated, leadcapture, llm_env, pipeline, ratelimit, reviewer, wizard
 from space.gloss import gloss_for, load_gloss
 from uofa_cli import paths
 
@@ -30,6 +30,11 @@ STATUS_CHOICES = ["assessed", "not-assessed", "scoped-out", "not-applicable"]
 _GLOSS = load_gloss()
 
 _MODEL = os.environ.get("UOFA_SPACE_MODEL") or None  # None -> bundled qwen3.5:4b
+# Resolved once at import, mirroring _MODEL. None means "use the local path",
+# which is what an unconfigured deployment and every test should get. The
+# autouse fixture in tests/space/conftest.py nulls this too, so a developer with
+# a provider key exported does not silently make the UI tests hit the network.
+_LLM_CONFIG = llm_env.space_llm_config()
 # In-container the wheel bundles packs/ under uofa_cli/_data/repo; an env var lets
 # a deployment point elsewhere without code changes.
 _SAMPLE_DIR = Path(
@@ -37,11 +42,34 @@ _SAMPLE_DIR = Path(
     or paths.find_repo_root() / "packs" / "vv40" / "examples" / "morrison" / "source"
 )
 
-COLD_START_NOTE = (
-    "Your documents are read **privately inside this Space**. Nothing is stored "
-    "or sent to a third party. The first analysis after the Space wakes can take "
-    "a few minutes while the model loads."
-)
+def _cold_start_note() -> str:
+    """The pre-upload disclosure. Rendered above the file picker, deliberately.
+
+    Two claims that must not be conflated: this Space stores nothing, which
+    stays true, and nothing leaves it, which does not once a hosted model reads
+    the documents. Keeping the storage claim while dropping the transmission
+    one is the whole job here.
+    """
+    if not llm_env.is_remote(_LLM_CONFIG):
+        return (
+            "Your documents are read **privately inside this Space** by a local "
+            "model. Nothing is stored and nothing is sent to a third party. The "
+            "first analysis after the Space wakes can take a few minutes while "
+            "the model loads."
+        )
+    return (
+        f"Your documents are sent to a **hosted model** "
+        f"({llm_env.provider_label(_LLM_CONFIG)}) to be read, then discarded. "
+        "This Space stores nothing: each run uses a temporary directory that is "
+        "deleted when it finishes, and no document is logged. But the text does "
+        "leave this Space. **If your evidence is confidential, do not upload it "
+        "here** - run the CLI on your own machine instead, where the model runs "
+        "locally and nothing leaves your environment.\n\n"
+        "Pasting a public model card sends only text that is already public."
+    )
+
+
+COLD_START_NOTE = _cold_start_note()
 
 # Dark theme to match uofa.net. The Space is embedded via an <iframe>, so the
 # body needs a SOLID dark background (a transparent body would show the iframe's
@@ -240,19 +268,62 @@ def _enable_analyze():
 #  result_state, status_state, error_md]
 
 
-def _run_extract(corpus, pack):
-    """Generator: show a working message, run extraction, reveal the confirm step."""
+def _book(outcome, pack) -> None:
+    """Record what a completed run cost, successful or not.
+
+    Failures are booked too: a timeout or a parse error still consumed tokens
+    at the provider, and a ledger that only counted successes would under-count
+    exactly when something is going wrong repeatedly.
+
+    Tokens are estimated. `generate()` returns a bare string, so provider usage
+    is not available without changing the shared CLI interface; input comes from
+    the corpus count we already compute and output from the response length we
+    already hold. Good to roughly the right factor, which is what a budget guard
+    needs, and stored as `estimated_usd` so it is never mistaken for an invoice.
+    """
+    result = (outcome.payload or {}).get("result") if outcome.ok else None
+    inp = int(getattr(result, "corpus_tokens", 0) or 0)
+    raw = getattr(result, "raw_json", "") or ""
+    out = max(len(raw) // 4, 256)   # floor: a failed call still cost something
+    try:
+        ratelimit.record(pack=pack, input_tokens=inp, output_tokens=out,
+                         llm_config=_LLM_CONFIG)
+    except Exception:  # noqa: BLE001 - accounting must never fail a user's run
+        pass
+
+
+def _run_extract(corpus, pack, runs_used):
+    """Generator: show a working message, run extraction, reveal the confirm step.
+
+    `runs_used` is this session's metered-run count, held in gr.State. The
+    budget check runs BEFORE the model call so a refusal costs nothing, and the
+    counter advances only for calls that were actually billable."""
+    metered = llm_env.is_remote(_LLM_CONFIG)
+    allowed, refusal = ratelimit.consume(runs_used or 0, metered=metered)
+    if not allowed:
+        yield (
+            _show(), _hide(), _hide(), gr.update(visible=False), gr.update(),
+            None, {}, gr.update(value=refusal, visible=True), runs_used,
+        )
+        return
+    runs_used = (runs_used or 0) + (1 if metered else 0)
+
     yield (
         _hide(), _show(), _hide(),
-        gr.update(value="Analyzing your evidence with the model. This runs "
-                        "privately and can take a few minutes.", visible=True),
-        gr.update(), None, {}, gr.update(value="", visible=False),
+        # One source for this sentence: pipeline._reading_message branches on the
+        # same config the request will use, so the in-flight copy cannot promise
+        # privacy the backend is not providing.
+        gr.update(value=pipeline._reading_message(_LLM_CONFIG), visible=True),
+        gr.update(), None, {}, gr.update(value="", visible=False), runs_used,
     )
-    outcome = wizard.extract(corpus, pack, model=_MODEL)
+    outcome = wizard.extract(corpus, pack, model=_MODEL, llm_config=_LLM_CONFIG)
+    if metered:
+        _book(outcome, pack)
     if not outcome.ok:
         yield (
             _show(), _hide(), _hide(), gr.update(visible=False), gr.update(),
             None, {}, gr.update(value=f"⚠️ {outcome.user_message}", visible=True),
+            runs_used,
         )
         return
 
@@ -272,6 +343,7 @@ def _run_extract(corpus, pack):
         outcome.payload["result"], # result_state (drives the dynamic factor radios)
         seed,                      # status_state (seeded with extracted statuses)
         gr.update(value="", visible=False),
+        runs_used,                 # runs_state
     )
 
 
@@ -348,7 +420,7 @@ def _finalize(result, pack, status_state, warnings, source_name, pack_dir):
     pack_dir = wizard.new_pack_dir()
     outcome = wizard.finalize(
         result, pack, status_state or {}, source_name=source_name, warnings=warnings,
-        pack_out_dir=pack_dir,
+        pack_out_dir=pack_dir, llm_config=_LLM_CONFIG,
     )
     if not outcome.ok:
         return (_show(), _hide(), gr.update(value=f"⚠️ {outcome.user_message}", visible=True),
@@ -381,7 +453,7 @@ def _finalize(result, pack, status_state, warnings, source_name, pack_dir):
 # result surfaces. See the build() wiring for the exact component list.
 
 
-def _run_card(model_id, pack_dir):
+def _run_card(model_id, pack_dir, runs_used):
     """Card path: fetch an HF model card and report, skipping route/extract/confirm.
     Generator: yields a working state, then the result (or an error). Hard-routes
     model-credibility; the readout discloses extraction provenance + the MRL assumption."""
@@ -390,8 +462,18 @@ def _run_card(model_id, pack_dir):
         yield (_show(), _hide(), _hide(), _hide(), _hide(), gr.update(visible=False),
                gr.update(value="⚠️ Paste a model id (owner/model) or a model URL first.", visible=True),
                gr.update(), gr.update(), gr.update(), None, gr.update(),
-               gr.update(), gr.update(), gr.update(), _pack_update(None), pack_dir)
+               gr.update(), gr.update(), gr.update(), _pack_update(None), pack_dir, runs_used)
         return
+
+    metered = llm_env.is_remote(_LLM_CONFIG)
+    allowed, refusal = ratelimit.consume(runs_used or 0, metered=metered)
+    if not allowed:
+        yield (_show(), _hide(), _hide(), _hide(), _hide(), gr.update(visible=False),
+               gr.update(value=refusal, visible=True),
+               gr.update(), gr.update(), gr.update(), None, gr.update(),
+               gr.update(), gr.update(), gr.update(), _pack_update(None), pack_dir, runs_used)
+        return
+    runs_used = (runs_used or 0) + (1 if metered else 0)
 
     wizard.discard_pack_dir(pack_dir)          # supersede the previous run's file
     pack_dir = wizard.new_pack_dir()
@@ -401,14 +483,17 @@ def _run_card(model_id, pack_dir):
                            "This can take a few minutes the first time...", visible=True),
            gr.update(value="", visible=False),
            gr.update(), gr.update(), gr.update(), None, gr.update(),
-           gr.update(), gr.update(), gr.update(), _pack_update(None), pack_dir)
+           gr.update(), gr.update(), gr.update(), _pack_update(None), pack_dir, runs_used)
 
-    outcome = wizard.card_report(model_id, model=_MODEL, pack_out_dir=pack_dir)
+    outcome = wizard.card_report(model_id, model=_MODEL, llm_config=_LLM_CONFIG,
+                                   pack_out_dir=pack_dir)
+    if metered:
+        _book(outcome, "model-credibility")
     if not outcome.ok:
         yield (_show(), _hide(), _hide(), _hide(), _hide(), gr.update(visible=False),
                gr.update(value=f"⚠️ {outcome.user_message}", visible=True),
                gr.update(), gr.update(), gr.update(), None, gr.update(),
-               gr.update(), gr.update(), gr.update(), _pack_update(None), pack_dir)
+               gr.update(), gr.update(), gr.update(), _pack_update(None), pack_dir, runs_used)
         return
 
     p = outcome.payload
@@ -420,7 +505,7 @@ def _run_card(model_id, pack_dir):
            p,                                                 # summary_state
            gr.update(value=reviewer_html),
            gr.update(value="Reviewer"), _hide(), _show(),    # view_toggle, author_panel, reviewer_panel
-           _pack_update(p), pack_dir)                        # pack_btn, pack_dir_state
+           _pack_update(p), pack_dir, runs_used)             # pack_btn, pack_dir_state, runs_state
 
 
 def _capture(email, pack, summary):
@@ -512,6 +597,7 @@ def build() -> gr.Blocks:
         source_name_state = gr.State("upload")
         summary_state = gr.State(None)
         pack_dir_state = gr.State(None)   # this session's downloadable pack dir
+        runs_state = gr.State(0)          # metered analyses this session has run
 
         error_md = gr.Markdown(visible=False)
 
@@ -627,20 +713,20 @@ def build() -> gr.Blocks:
             upload_group, route_group, extract_group, confirm_group, summary_group,
             card_progress, error_md, summary_md, weakeners_md, structural_md,
             summary_state, reviewer_html, view_toggle, author_panel, reviewer_panel,
-            pack_btn, pack_dir_state,
+            pack_btn, pack_dir_state, runs_state,
         ]
-        card_btn.click(_run_card, inputs=[card_input, pack_dir_state], outputs=card_outputs)
+        card_btn.click(_run_card, inputs=[card_input, pack_dir_state, runs_state], outputs=card_outputs)
         for _ex_btn, (_ex_mid, _ex_role) in zip(example_btns, curated.EXAMPLE_MODELS):
             _ex_btn.click(lambda _m=_ex_mid: _m, inputs=None, outputs=[card_input]).then(
-                _run_card, inputs=[card_input, pack_dir_state], outputs=card_outputs)
+                _run_card, inputs=[card_input, pack_dir_state, runs_state], outputs=card_outputs)
 
         pack_radio.change(_enable_analyze, inputs=None, outputs=[analyze_btn])
 
         analyze_btn.click(
             _run_extract,
-            inputs=[corpus_state, pack_radio],
+            inputs=[corpus_state, pack_radio, runs_state],
             outputs=[route_group, extract_group, confirm_group, extract_progress,
-                     confirm_intro, result_state, status_state, error_md],
+                     confirm_intro, result_state, status_state, error_md, runs_state],
         )
 
         gaps_btn.click(

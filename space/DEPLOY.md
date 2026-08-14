@@ -127,25 +127,86 @@ Update the fingerprint published in `space/README.md`.
 
 ---
 
-## 4. Hardware & sleep (GPU cost)
+## 3c. Inference key (`TOGETHER_API_KEY`)
 
-The Space runs on **T4 small** (GPU) with a 15-minute idle auto-sleep. Manage via
-the Space Settings UI or the API:
+The Space carries no local model. Extraction is a hosted call configured by the
+`UOFA_SPACE_LLM_*` vars in `space/Dockerfile.base`, which are **configuration
+and live in git** so the model choice is reviewable and testable. Only the key
+is a secret.
+
+Space → **Settings → Variables and secrets → New secret**:
+
+| Name | Value |
+|---|---|
+| `TOGETHER_API_KEY` | your Together AI API key |
+
+The name is not hardcoded: `UOFA_SPACE_LLM_KEY_ENV` says which variable to read,
+so pointing the Space at Fireworks, Groq, or a self-hosted vLLM is a Dockerfile
+`ENV` change plus a differently-named secret. `openai-compatible` is the
+protocol; the vendor is whatever `base_url` names.
+
+**If the secret is missing** the Space does not crash and does not silently
+produce nothing. `llm_env.missing_key_env()` detects declared-but-keyless and
+the run fails as `FailureKind.NO_BACKEND`, naming the variable. That is exactly
+the duplicated-Space case: HuggingFace copies the *declaration* to a duplicate
+but never the *value*, so a duplicator sees a message telling them to add their
+own key, rather than a generic extraction error they would retry forever.
+
+**Duplicating the Space:** set your own `TOGETHER_API_KEY`, or set
+`UOFA_SPACE_MODEL=mock` to explore the interface with canned data and no API
+calls at all.
+
+**Together offers no spend cap**, so the ceiling lives in the app:
+`space/ratelimit.py`, configured by `UOFA_SPACE_DAILY_USD` (default $5/day),
+`UOFA_SPACE_SESSION_LIMIT` (8), and `UOFA_SPACE_HOURLY_LIMIT` (60). The daily
+figure is the real cap and is backed by a ledger in the same private dataset as
+lead capture (`usage/<date>/...`), so it survives the container restarts a
+sleeping Space does constantly. See §4.
+
+---
+
+## 4. Hardware & sleep
+
+**CPU is now the right tier.** The Space carries no local model: inference is a
+hosted API call, so the GPU that existed to run qwen3.5:4b has nothing to do.
 
 ```python
 from huggingface_hub import HfApi
 api = HfApi(token="hf_...")
-# change tier / sleep, or downgrade to free CPU:
-api.request_space_hardware("cloudronin/uofa-demo", hardware="t4-small", sleep_time=900)
-api.request_space_hardware("cloudronin/uofa-demo", hardware="cpu-basic")  # free, slow
-api.pause_space("cloudronin/uofa-demo")                                   # stop billing
+api.request_space_hardware("cloudronin/uofa-demo", hardware="cpu-basic")  # free
+api.pause_space("cloudronin/uofa-demo")                                   # stop entirely
 ```
 
-Notes:
-- GPU bills per hour **while awake**; it auto-sleeps after `sleep_time` seconds idle.
-- A longer `sleep_time` means fewer cold starts but more cost.
-- CPU (`cpu-basic`) is free but extraction is far slower and may hit the
-  pipeline's 12-min extract timeout — use GPU for real runs.
+What actually changes, stated precisely, because it is easy to overclaim:
+
+- **Sleep does not go away.** A free `cpu-basic` Space still sleeps, but on
+  ~48 hours of inactivity rather than the 15 minutes configured for `t4-small`.
+  For a demo visited sporadically that is the bigger practical win: it converts
+  "almost always cold" into "almost always warm". Verify the current threshold
+  against HF's docs before quoting it to a committee.
+- **Waking gets much faster.** No GPU to schedule, an image roughly 1-1.5 GB
+  instead of ~9-10 GB, and `start.sh` no longer blocks on loading 3 GB of
+  weights before Gradio listens. Measure it rather than trusting this sentence:
+  `curl -s -o /dev/null -w "%{time_total}\n" https://cloudronin-uofa-demo.hf.space/`
+  after a forced pause, before and after.
+- **True zero-sleep still needs paid hardware** (`cpu-upgrade` or above, where
+  `sleep_time` becomes configurable). That is a separate budget decision. Going
+  CPU-only makes it far cheaper than it was on GPU, so this change is a
+  prerequisite for it rather than an alternative.
+
+**Cost moves from idle time to use.** A T4 awake ~4 h/day costs roughly $70/month
+whether or not anyone runs an analysis. Hosted inference is on the order of
+$0.03-0.10 per analysis and $0 when idle. Confirm against Together's current
+price list, and **set a spend cap before going live**: the Space is public, has
+no rate limiting, and three preset example buttons are one click from a paid
+call. The failure mode changed from "slow" to "expensive".
+
+`DEFAULT_EXTRACT_TIMEOUT` stays at 720s. Its old rationale ("below Ollama's
+30-min default") is stale, but it is now the ONLY effective bound on a hung
+remote call: `LLMConfig.timeout_seconds` never applies here, because
+`llm_extractor._call_llm` hardcodes `GenerationOptions(timeout_seconds=1800.0)`
+and that always wins. It must also cover up to 3 retries and one call per file
+when the corpus is chunked.
 
 ---
 
@@ -204,3 +265,45 @@ directly, and run **Try a sample evidence set** end to end.
 6. **Local image build:** Maven Central may be firewalled locally. The canonical
    `space/Dockerfile` builds fine on HF's networked builder; for a local build in
    a Maven-blocked network, inject the prebuilt jar and skip the Maven stage.
+
+---
+
+## 8. Spend guard
+
+Together AI has no spend cap, so the ceiling is enforced in `space/ratelimit.py`.
+
+| Env | Default | What it actually stops |
+|---|---|---|
+| `UOFA_SPACE_DAILY_USD` | `5.0` | **The real cap.** Dataset-backed, so it survives restarts. |
+| `UOFA_SPACE_SESSION_LIMIT` | `8` | Repeat clicking in one browser session. Not a spend cap. |
+| `UOFA_SPACE_HOURLY_LIMIT` | `60` | A burst arriving faster than the ledger refresh; the only limit left if the dataset is unreachable. |
+
+**Why three.** A session limit is the obvious control and the weakest one:
+Gradio session state is per browser session, so anything loading the page fresh
+gets a fresh counter. It stops a visitor re-running the same analysis; it does
+nothing about a crawler. The daily dollar limit is what bounds the bill, and it
+has to be durable because a sleeping Space restarts constantly -- an in-process
+counter would hand back the whole budget on every wake.
+
+**The ledger** lives in the private dataset already used for lead capture
+(`HF_DATASET_REPO` / `HF_TOKEN`), under `usage/<YYYY-MM-DD>/`. One file per run,
+uniquely named, so there is no read-modify-write race. The estimated cost is
+encoded in the **filename** (`...-<micros>u.json`), so totalling a day is one
+`list_repo_files` call with no downloads however many runs it holds. The JSON
+body carries the detail for auditing.
+
+**Cost is estimated, not billed.** `generate()` returns a bare string, so exact
+provider usage is not available without changing the shared CLI interface. The
+estimate uses the corpus token count already computed and the response length
+already held, priced through litellm's table. Measured at roughly **$0.006 per
+typical analysis** (Morrison, ~5.5k input tokens); a large multi-document upload
+approaching the 24k prompt budget lands nearer $0.03. Records store it as
+`estimated_usd` so it is never mistaken for an invoice. Reconcile against
+Together's dashboard before quoting a real figure.
+
+**If the dataset is unreachable** the guard allows and falls back to the hourly
+brake. Failing closed would take the demo down for a transient Hub outage;
+failing fully open would be the unbounded bill this exists to prevent.
+
+Nothing is limited when the backend is free (local Ollama, `mock`), so
+development and the test suite are unaffected.

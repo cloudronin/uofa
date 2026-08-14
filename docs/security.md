@@ -68,6 +68,40 @@ This matters for shared workstation scenarios: a user running
 in any UofA-managed location. The key lives in their shell environment
 or password manager, accessed by the CLI only at request time.
 
+## The hosted demo (uofa.net/demo) is a different trust boundary
+
+Everything above describes the CLI, where you choose the backend and a local
+one keeps your evidence on your machine. The public demo Space does not work
+that way and should not be reasoned about as if it did.
+
+**Documents uploaded to the demo are sent to Together AI** to be read. The
+Space carries no local model: `space/Dockerfile.base` configures
+`openai-compatible` against `api.together.xyz`, and the API key reaches the
+container only as a HuggingFace Space secret, never as a repository file
+(`space/deploy_to_hf.py` refuses to upload `.key`, `.pem`, or `.env`).
+
+What the Space guarantees, and what it does not:
+
+- **It stores nothing.** Each request runs in a temporary directory that is
+  deleted when the request finishes, including on timeout and on failure. The
+  one exception is a generated download package, which is retained only until
+  you take it and in any case under 30 minutes.
+- **It does not log payloads.** `pipeline._silence_llm_logging()` sets
+  litellm's `turn_off_message_logging` in the extraction child before any call.
+  **This suppresses our logging, not the provider's.** Whether Together
+  retains prompts, and for how long, is governed by their terms; consult those
+  before uploading anything sensitive, and treat that answer as the real
+  retention policy for the demo.
+- **It cannot offer a "keep local" option.** There is no local model in the
+  image to fall back to. A toggle would either do nothing or silently swap in
+  the keyless extractor, whose factor-level accuracy is documented at 0.100
+  (`keyless_extractor.py`) -- shipping a control that quietly changes the
+  instrument is worse than shipping none. The honest local option is the CLI.
+
+The demo exists to show the flow to people evaluating the approach. Anyone
+assessing confidential evidence should run the CLI with a local backend, which
+is the configuration the rest of this document describes.
+
 ## What this does NOT protect against
 
 - **Your own env var management.** If you put your API key in a shell

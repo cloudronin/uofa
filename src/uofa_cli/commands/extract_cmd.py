@@ -82,6 +82,7 @@ def run(args) -> int:
 
     if new_flags_used:
         from uofa_cli.llm import resolve_llm_config
+        from uofa_cli.llm.config import DEFAULT_KEY_ENV
         from uofa_cli.llm.errors import ConfigError as LLMConfigError
         cli_overrides: dict = {}
         if args.extract_backend:
@@ -92,10 +93,9 @@ def run(args) -> int:
             cli_overrides["base_url"] = args.extract_base_url
         # Convention env-var defaults so users don't have to set api_key_env
         # for the common backends.
-        if cli_overrides.get("backend") in ("anthropic", "openai"):
+        if cli_overrides.get("backend") in DEFAULT_KEY_ENV:
             cli_overrides.setdefault(
-                "api_key_env",
-                {"anthropic": "ANTHROPIC_API_KEY", "openai": "OPENAI_API_KEY"}[cli_overrides["backend"]],
+                "api_key_env", DEFAULT_KEY_ENV[cli_overrides["backend"]],
             )
         try:
             llm_config = resolve_llm_config(cli_overrides=cli_overrides)

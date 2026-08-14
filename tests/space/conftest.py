@@ -73,6 +73,27 @@ def _no_ambient_signing_key(monkeypatch, request):
     monkeypatch.delenv(pipeline.SIGNING_KEY_FILE_ENV, raising=False)
 
 
+@pytest.fixture(autouse=True)
+def _no_ambient_hosted_inference(monkeypatch):
+    """Tests must never reach a paid provider.
+
+    A developer with TOGETHER_API_KEY (or the UOFA_SPACE_LLM_* vars) exported
+    would otherwise see the UI tests make live network calls, and behave
+    differently from CI. Clearing the declaration is enough: space_llm_config()
+    returns None without a backend, which is the local path every test wants.
+    """
+    from space import llm_env
+
+    for var in (llm_env.BACKEND_ENV, llm_env.MODEL_ENV,
+                llm_env.BASE_URL_ENV, llm_env.KEY_ENV_ENV):
+        monkeypatch.delenv(var, raising=False)
+    try:
+        from space import app
+    except Exception:
+        return   # gradio absent; the app-level tests are skipped anyway
+    monkeypatch.setattr(app, "_LLM_CONFIG", None, raising=False)
+
+
 @pytest.fixture
 def assert_clean_state():
     """Assert a finished run left no temp dir and no /tmp debug file."""

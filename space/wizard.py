@@ -124,9 +124,11 @@ def requires_confirmation(decision) -> bool:
     return bool(getattr(decision, "low_confidence", False))
 
 
-def extract(corpus, pack, *, model=None, extract_fn=None, extract_timeout=DEFAULT_EXTRACT_TIMEOUT, on_progress=None) -> PipelineOutcome:
+def extract(corpus, pack, *, model=None, llm_config=None, extract_fn=None,
+            extract_timeout=DEFAULT_EXTRACT_TIMEOUT, on_progress=None) -> PipelineOutcome:
     """Run extraction (subprocess + timeout). Success payload: {result, rows}."""
-    kwargs = {"model": model, "extract_timeout": extract_timeout, "on_progress": on_progress}
+    kwargs = {"model": model, "llm_config": llm_config,
+              "extract_timeout": extract_timeout, "on_progress": on_progress}
     if extract_fn is not None:
         kwargs["extract_fn"] = extract_fn
     try:
@@ -139,7 +141,7 @@ def extract(corpus, pack, *, model=None, extract_fn=None, extract_timeout=DEFAUL
 
 
 def finalize(result, pack, factor_edits, *, source_name="upload", warnings=None,
-             pack_out_dir=None) -> PipelineOutcome:
+             pack_out_dir=None, llm_config=None) -> PipelineOutcome:
     """Adapt -> map -> check -> weakeners -> sign -> summary, in a throwaway work
     dir that is always torn down.
 
@@ -152,7 +154,7 @@ def finalize(result, pack, factor_edits, *, source_name="upload", warnings=None,
     try:
         payload = pipeline.finalize(
             result, pack, factor_edits, work_dir, source_name=source_name,
-            warnings=warnings, pack_out_dir=pack_out_dir,
+            warnings=warnings, pack_out_dir=pack_out_dir, llm_config=llm_config,
         )
         return PipelineOutcome.success(payload)
     except _StageError as exc:
@@ -166,11 +168,12 @@ def finalize(result, pack, factor_edits, *, source_name="upload", warnings=None,
         shutil.rmtree(work_dir, ignore_errors=True)
 
 
-def card_report(model_id, *, model=None, deterministic=False, on_progress=None,
-                pack_out_dir=None) -> PipelineOutcome:
+def card_report(model_id, *, model=None, llm_config=None, deterministic=False,
+                on_progress=None, pack_out_dir=None) -> PipelineOutcome:
     """Live card path (no confirm step): fetch an HF model card and report. Delegates
     to pipeline.card_report, which owns its temp work dir + debug-file teardown and
     never raises past the boundary (gated/absent cards become typed outcomes)."""
     _sweep_stale_packs()
-    return pipeline.card_report(model_id, model=model, deterministic=deterministic,
-                                on_progress=on_progress, pack_out_dir=pack_out_dir)
+    return pipeline.card_report(model_id, model=model, llm_config=llm_config,
+                                deterministic=deterministic, on_progress=on_progress,
+                                pack_out_dir=pack_out_dir)

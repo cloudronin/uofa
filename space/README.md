@@ -15,10 +15,9 @@ Upload a folder of model-credibility evidence and get a fast, honest readout of
 your gaps — which credibility factors are missing and which weakeners fire —
 against **ASME V&V 40** or **NASA-STD-7009B**.
 
-The flow: upload (or try the sample) → the rule router picks a standard → the
-model reads your evidence **privately, inside this Space** → you confirm what it
-understood (status only) → a free completeness + weakeners summary → download
-the assurance package.
+The flow: upload (or try the sample) → the rule router picks a standard → a
+hosted model reads your evidence → you confirm what it understood (status only)
+→ a free completeness + weakeners summary → download the assurance package.
 
 It reports completeness and weakeners; it does **not** stamp an Accepted /
 Not-Accepted verdict — that's a human decision.
@@ -51,9 +50,27 @@ keys/demo.pub  sha256:3605a146f4880d9f7a29db6ef5629655091d2ecd0c2b9919cbe49d90d6
 
 ## Privacy
 
-Evidence is read by a local model running in this container (no third-party
-API). Each request uses a temporary directory that is deleted afterwards, and
-payloads are not logged.
+**Your documents leave this Space.** Evidence is read by a hosted model
+(Together AI), so the text of what you upload is sent there to be processed.
+Together's data-handling terms govern what happens to it in transit and at
+rest; check them before uploading anything you would not send to a third-party
+API.
+
+What remains true: this Space stores nothing. Each request uses a temporary
+directory that is deleted afterwards, and payloads are not logged by us. That
+is a claim about OUR handling, not about the provider's -- turning off our own
+logging does not stop theirs.
+
+**If your evidence is confidential, do not upload it here.** Run the CLI on
+your own machine instead, where a local model reads it and nothing leaves your
+environment:
+
+```bash
+pip install "uofa[extract]"
+uofa extract ./evidence --pack vv40
+```
+
+Pasting a public model card sends only text that is already public.
 
 One exception, by design: if you generate a package, that zip is written to a
 separate directory so it survives long enough for you to download it. It is

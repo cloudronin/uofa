@@ -429,10 +429,7 @@ def _legacy_model_to_config(model: str):
     """
     from uofa_cli.llm.config import ALLOWED_BACKENDS, LLMConfig
 
-    _DEFAULT_KEY_ENV = {
-        "anthropic": "ANTHROPIC_API_KEY",
-        "openai": "OPENAI_API_KEY",
-    }
+    from uofa_cli.llm.config import DEFAULT_KEY_ENV as _DEFAULT_KEY_ENV
 
     if "/" in model:
         backend_name, model_name = model.split("/", 1)

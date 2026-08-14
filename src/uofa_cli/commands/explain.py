@@ -159,6 +159,7 @@ def _build_options(args):
     backend = None
     if args.backend or args.model or args.base_url:
         from uofa_cli.llm import get_backend, resolve_llm_config
+        from uofa_cli.llm.config import DEFAULT_KEY_ENV
         cli_overrides: dict = {}
         if args.backend:
             cli_overrides["backend"] = args.backend
@@ -166,10 +167,9 @@ def _build_options(args):
             cli_overrides["model"] = args.model
         if args.base_url:
             cli_overrides["base_url"] = args.base_url
-        if cli_overrides.get("backend") in ("anthropic", "openai"):
+        if cli_overrides.get("backend") in DEFAULT_KEY_ENV:
             cli_overrides.setdefault(
-                "api_key_env",
-                {"anthropic": "ANTHROPIC_API_KEY", "openai": "OPENAI_API_KEY"}[cli_overrides["backend"]],
+                "api_key_env", DEFAULT_KEY_ENV[cli_overrides["backend"]],
             )
         backend = get_backend(resolve_llm_config(cli_overrides=cli_overrides))
 

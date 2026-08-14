@@ -82,6 +82,7 @@ def args_to_options(args, *, pack_name: str = "vv40") -> InterpretationOptions:
     backend = None
     if any((args.explain_backend, args.explain_model, args.explain_base_url)):
         from uofa_cli.llm import resolve_llm_config, get_backend
+        from uofa_cli.llm.config import DEFAULT_KEY_ENV
         cli_overrides: dict = {}
         if args.explain_backend:
             cli_overrides["backend"] = args.explain_backend
@@ -90,10 +91,9 @@ def args_to_options(args, *, pack_name: str = "vv40") -> InterpretationOptions:
         if args.explain_base_url:
             cli_overrides["base_url"] = args.explain_base_url
         # Convention env var defaults (mirror extract_cmd's logic)
-        if cli_overrides.get("backend") in ("anthropic", "openai"):
+        if cli_overrides.get("backend") in DEFAULT_KEY_ENV:
             cli_overrides.setdefault(
-                "api_key_env",
-                {"anthropic": "ANTHROPIC_API_KEY", "openai": "OPENAI_API_KEY"}[cli_overrides["backend"]],
+                "api_key_env", DEFAULT_KEY_ENV[cli_overrides["backend"]],
             )
         config = resolve_llm_config(cli_overrides=cli_overrides)
         backend = get_backend(config)

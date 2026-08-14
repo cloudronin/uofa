@@ -48,6 +48,26 @@ REMOTE_BACKENDS = frozenset({"anthropic", "openai", "openai-compatible"})
 # manual review at release time.
 BUNDLED_MODEL = "qwen3.5:4b"
 
+# The env var each backend reads its key from when the caller does not name one.
+# Previously this mapping was written out five times (four CLI override blocks
+# plus llm_extractor._legacy_model_to_config), and `openai-compatible` was
+# missing from all of them: `uofa extract --extract-backend openai-compatible
+# --extract-base-url https://api.together.xyz/v1 ...` failed with "requires an
+# API key" and the only way through was a uofa.toml, which meant configuring the
+# tool differently from the deployment you were trying to validate.
+#
+# The name is vendor-NEUTRAL on purpose. `openai-compatible` is a protocol, and
+# the vendor is whatever base_url points at (Together, Fireworks, vLLM, Groq);
+# baking TOGETHER_API_KEY into a protocol-level default would contradict that,
+# and would quietly stop being true the first time someone points it elsewhere.
+# Name the vendor's variable explicitly with --extract-api-key-env when it
+# differs, or export the neutral one.
+DEFAULT_KEY_ENV = {
+    "anthropic": "ANTHROPIC_API_KEY",
+    "openai": "OPENAI_API_KEY",
+    "openai-compatible": "UOFA_OPENAI_COMPATIBLE_API_KEY",
+}
+
 
 @dataclass(frozen=True)
 class LLMConfig:
