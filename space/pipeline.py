@@ -280,6 +280,23 @@ _PACK_DISPLAY = {"vv40": "ASME V&V 40", "nasa-7009b": "NASA-STD-7009B", "model-c
 
 SIGNER_LABEL = "UofA demo issuer (keys/demo.pub)"
 
+# Who produced the artifact, for prov:wasAttributedTo.
+#
+# `excel_mapper._operator_identity()` resolves UOFA_ASSESSOR -> `git config
+# user.name` -> $USER, and correctly returns None when none of those identify
+# anyone: inventing a name would be worse than omitting the field. In this
+# container none of them resolve, so packages came out with wasAttributedTo
+# missing and failed C2 on a field the CLI populates from the operator's git
+# config. Same input, different document, purely because of the environment.
+#
+# It is also incoherent with signing: the package is signed by the demo issuer
+# while declining to say who produced it, when the signature already asserts
+# exactly that. PROV-O's agent may be "a piece of software", and here it is one.
+#
+# Set as a default, so a deployment that knows its operator can still override.
+ASSESSOR_LABEL = "UofA Credibility Inspector (demo)"
+os.environ.setdefault("UOFA_ASSESSOR", ASSESSOR_LABEL)
+
 _UNSIGNED_STATEMENT = (
     "This evidence was assessed in an unsigned demo, so identity and "
     "tamper-evidence were not verified. A formally issued assurance "
@@ -403,6 +420,12 @@ is a convenience copy of what that file already says.
 `verify` re-computes the content hash and checks the signature. `check` also runs
 the structural (SHACL) rules. Neither needs a --pack flag: the package records
 which standards profile validated it.
+
+Expect `check` to report SHACL violations, and read them as findings about your
+evidence rather than faults in this package. A model card carries no requirement
+binding, no dataset binding and no validation results, so those are reported
+missing: that gap is what the tool exists to name. The section that speaks to the
+package itself is `C1 Integrity`, and that is the one that must pass.
 
 What a valid signature here does and does not mean
 --------------------------------------------------

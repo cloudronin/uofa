@@ -135,6 +135,56 @@ def test_on_disk_formatting_does_not_affect_the_hash(import_data, tmp_path):
             == integrity.canonicalize_and_hash(integrity.strip_integrity_fields(b))[1])
 
 
+def test_package_is_attributed_even_without_ambient_identity(import_data, tmp_path, monkeypatch):
+    """The divergence the in-process equality test could not see.
+
+    `excel_mapper._operator_identity()` resolves UOFA_ASSESSOR -> `git config
+    user.name` -> $USER. On a developer machine the git config answers, so both
+    build paths get the same name and the equality test above passes. In the
+    deployed container none of them resolve, wasAttributedTo comes out missing,
+    and the package fails C2 on a field a CLI run would have populated: same
+    input, different document, purely from the environment.
+
+    Caught only in production, on a real download. This simulates the container
+    rather than the developer machine, which is the environment that matters
+    for anything the Space hands out.
+    """
+    # Strip every ambient identity source EXCEPT the default space.pipeline
+    # installs at import, which is the thing under test. Deliberately no
+    # module reload: reloading swaps class identities out from under other
+    # tests (isinstance checks against _StageError start failing).
+    monkeypatch.delenv("USER", raising=False)
+    monkeypatch.setenv("HOME", str(tmp_path / "nohome"))
+    monkeypatch.setenv("PATH", "/nonexistent")   # git unreachable
+    # UOFA_ASSESSOR is deliberately NOT set here: the only thing that can
+    # supply it is the default space.pipeline installs at import, so deleting
+    # that line has to make this test fail.
+
+    work = tmp_path / "work"
+    work.mkdir()
+    pipeline.finalize_from_data(import_data, "model-credibility", work,
+                                source_name="card.md", assess_sufficiency=False)
+    doc = json.loads((work / pipeline.PACK_MEMBER_JSONLD).read_text(encoding="utf-8"))
+
+    assert doc.get("wasAttributedTo"), (
+        "package produced with no attribution. A signed package that declines "
+        "to say who produced it contradicts its own signature, and C2 fails on "
+        "a field the CLI path populates from git config."
+    )
+
+
+def test_pipeline_installs_an_assessor_default_at_import():
+    """The guarantee the test above relies on: importing space.pipeline is
+    enough for the Space to have an identity, with no deployment config."""
+    import os
+
+    assert os.environ.get("UOFA_ASSESSOR"), "no assessor default installed"
+    assert "demo" in pipeline.ASSESSOR_LABEL.lower(), (
+        "the Space must not attribute packages to something that reads as a "
+        "person or a production issuer"
+    )
+
+
 def test_space_does_not_call_integrity_sign_file_directly():
     """`integrity.sign_file` is pure cryptography: it signs whatever it is given.
 

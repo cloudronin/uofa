@@ -30,6 +30,20 @@ uofa verify uofa.jsonld --pubkey keys/demo.pub
 
 A valid signature means the file is unmodified since the demo produced it. It is **not** a review and **not** an acceptance decision. The key is a demonstration issuer key belonging to the demo, so a package from here is never mistakable for a formally issued one: it does not verify against the default trust anchor, and `--pubkey` is required on purpose.
 
+The public key travels inside the zip so verification works offline. A trust anchor shipped inside the artifact it validates only proves the artifact is self-consistent, so check it against this copy, which the zip does not control:
+
+```
+keys/demo.pub  sha256:3605a146f4880d9f7a29db6ef5629655091d2ecd0c2b9919cbe49d90d65d83c8
+```
+
+```bash
+shasum -a 256 keys/demo.pub
+```
+
+If those differ, do not trust the package.
+
+`uofa check` additionally runs the structural (SHACL) rules. On a model card it will normally report missing bindings such as `bindsRequirement` or `hasValidationResult`: a model card is not a complete assurance package, and saying so is the point of the tool. Those findings are about your evidence. `C1 Integrity` is the check that speaks to the package itself.
+
 <GapFinderEmbed />
 
 ## What it measures, and what it does not
