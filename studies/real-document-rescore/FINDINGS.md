@@ -97,6 +97,77 @@ changing it here would make the two incomparable — but it inflates the candida
 relative to a strict one-to-one reading, and the permutation null absorbs it
 only partially.
 
+## Conditions 5 and 6, measured on the real corpus
+
+Both were satisfied on synthetic and unmeasured on real when the gate verdict
+was first reported. Run 2026-08-15.
+
+### Condition 6 — the groundedness triple: nothing to check
+
+| | coverage | claim_density | groundedness |
+|---|---|---|---|
+| **real, all six papers** | **1.000** (96/96) | **0.000** (0/96) | **0.000** (0/0) |
+
+Distinctness 0.417. Every paper individually: 0 of 0 claims.
+
+**Not a measurement error.** The rationales are real, well-formed, and contain
+no figures whatsoever:
+
+> *"The software is widely used and has been validated by other users."*
+> *"The model was verified against a benchmark solution."*
+> *"The grid convergence study showed that the discretization error was small."*
+
+Not one number in 96 rationales across six engineering papers, in documents that
+are full of them.
+
+**This is the triple's whole purpose, in one row.** Read alone, `coverage 1.000`
+says every factor was addressed — complete success. Read alone,
+`groundedness 0.000` says total fabrication. Both are wrong. What actually
+happened is that every factor received a rationale and **not one of them
+contains anything a checker can check.** `groundedness` returns 0.0 rather than
+1.0 on an empty claim set by deliberate design, because making no checkable
+claim is not the same as making only true ones.
+
+It also extends the hosted-model specificity finding to its limit:
+
+| | claim_density |
+|---|---|
+| qwen3.5:4b, synthetic | 0.565 |
+| Llama-3.3-70B, synthetic | 0.199 |
+| **Llama-3.3-70B, real papers** | **0.000** |
+
+Distinctness 0.417 means roughly three in five rationales restate another in the
+same document — the same generic-prose behaviour `studies/hosted-model-specificity/`
+records for acceptance criteria, in a second field.
+
+### Condition 5 — disagreement adjudication: satisfied, and very thin
+
+    disagreement rows                                  6
+      old right / new wrong                            3
+      old wrong / new right                            3
+      of the old-right/new-wrong: gold-set gap         2
+                                  localiser error      1
+
+The condition asked for the FP/FN rates to be published rather than to clear a
+threshold, and they are. **But n = 6 disagreements is too thin to characterise
+an error profile**, and the 2-of-3 gold-set-gap split is three rows. The
+synthetic adjudication (209 rows, ≥91 of 176 gold-set errors, localiser error
+≤11.7%) remains the only one with enough rows to mean anything.
+
+Directionally consistent with synthetic — most of what the new rule "loses" is
+the gold set missing a sentence the rule found — and that is all it supports.
+
+### What this does to the verdict
+
+**Nothing.** Condition 1 failed and the conjunction was already settled. What
+changes is the claim's completeness: the gate is now **measured on all six
+conditions on the real corpus** rather than failed on one with two unmeasured.
+
+Condition 6 is arguably the more consequential finding of the two. A rationale
+with no checkable claim cannot be verified by any downstream mechanism —
+groundedness, attribution, or a human reviewer looking for the number. On real
+documents, that is every rationale.
+
 ## Limits
 
 - **n = 56 factors, 3 hits.** Small enough that the CI is the honest summary.
