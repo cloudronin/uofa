@@ -188,12 +188,20 @@ measuring a bug on half the corpus, and that is the disclosure, not a footnote.
   whole time. Its per-factor F1 is 1.000 across all 13 on both splits before the
   fix. That makes it the control on the corpus re-run: vv40 numbers should not
   move.
-- **`model-credibility`, `iso42001`, `surrogate`, `disposition`** each ship their
-  own extract prompt and were subject to the same resolver. Any extraction run
-  against them through `uofa extract` was given the V&V 40 prompt.
-  `test_extract_prompt_routing.py` parametrises the two packs with committed
-  factor-list constants; extending it to the others needs their canonical lists
-  and is filed as follow-up, not claimed as done here.
+- **`model-credibility` was affected; `iso42001`, `surrogate` and `disposition`
+  were not.** Corrected 2026-08-15 — this section originally said all four ship
+  an extract prompt and were subject to the resolver. Checked rather than
+  assumed: only `model-credibility` has a `prompt` key in its manifest. The
+  other three resolve to a directory that does not exist, so `build_prompt`
+  finds nothing to send and `uofa extract` never reached them.
+
+  `test_extract_prompt_routing.py` now covers all three prompt-bearing packs and
+  pins that the other three resolve to no file — so if one of them gains a
+  prompt later it has to join the parametrised list rather than shipping
+  untested. It also adds a per-pack check that the delivered prompt defines that
+  pack's own factors, since resolving inside `packs/<name>/` is necessary and
+  not sufficient: a prompt could live in the right directory and still be a copy
+  of another pack's.
 - **Every shipped NASA-STD-7009B example and fixture** produced through this path
   carries a 13-factor extraction. The packaged examples under
   `packs/nasa-7009b/examples/` are hand-authored and unaffected, but any

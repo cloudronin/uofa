@@ -34,8 +34,18 @@ import pytest
 from uofa_cli import excel_constants, paths
 from uofa_cli.commands import extract_cmd
 
-# Packs whose extract prompt is a distinct file with a distinct factor list.
-PACKS = ["vv40", "nasa-7009b"]
+# Every pack that resolves an extract prompt to a real file. Checked rather
+# than assumed: `iso42001`, `surrogate` and `disposition` have no `prompt` key
+# in their manifests at all, so `uofa extract` never sends them anything and
+# the routing defect could not reach them.
+PACKS = ["vv40", "nasa-7009b", "model-credibility"]
+
+# factor-name constant per pack, for the leakage check below.
+FACTOR_NAMES = {
+    "vv40": excel_constants.VV40_FACTOR_NAMES,
+    "nasa-7009b": excel_constants.NASA_ALL_FACTOR_NAMES,
+    "model-credibility": excel_constants.MODEL_CREDIBILITY_FACTOR_NAMES,
+}
 
 NASA_ONLY_FACTORS = [
     f for f in excel_constants.NASA_ALL_FACTOR_NAMES
@@ -85,6 +95,41 @@ def test_vv40_prompt_does_not_carry_the_nasa_factors():
         f"The V&V 40 prompt defines NASA-only factors {leaked}. A V&V 40 "
         f"extraction would then emit factors the pack cannot score."
     )
+
+
+@pytest.mark.parametrize("pack", PACKS)
+def test_each_prompt_defines_its_own_packs_factors(pack):
+    """Delivery is necessary and not sufficient: the right file must also be
+    the right file.
+
+    A prompt could resolve inside `packs/<name>/` and still be a copy of
+    another pack's. This checks the delivered prompt actually names the factors
+    that pack scores -- the property whose absence made every NASA extraction a
+    V&V 40 extraction.
+    """
+    body = paths.extract_prompt(pack).read_text(encoding="utf-8").lower()
+    missing = [f for f in FACTOR_NAMES[pack] if f.lower() not in body]
+    assert not missing, (
+        f"the prompt delivered for pack {pack!r} does not define "
+        f"{len(missing)} of its own factors: {missing[:5]}"
+    )
+
+
+def test_packs_without_a_prompt_resolve_to_no_file():
+    """The three packs the routing defect could not reach, pinned as such.
+
+    `iso42001`, `surrogate` and `disposition` carry no `prompt` key, so
+    `extract_prompt` falls through to the pack's `prompts/` directory and
+    `build_prompt` finds nothing to send. That is why they were never affected,
+    and it is worth pinning: if one of them gains a prompt later it joins PACKS
+    above and inherits every check in this file, rather than quietly shipping
+    untested.
+    """
+    for pack in ("iso42001", "surrogate", "disposition"):
+        assert not paths.extract_prompt(pack).is_file(), (
+            f"{pack} now resolves an extract prompt. Add it to PACKS and to "
+            f"FACTOR_NAMES so it is covered by the routing checks."
+        )
 
 
 def test_extract_prompt_accepts_a_pack_name():

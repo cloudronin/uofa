@@ -67,24 +67,55 @@ and the old segmenter was making it. The rationale span got worse — a header
 fragment instead of a sentence — and `cou_name` moved from one wrong answer to
 another.
 
-## What is not measured, and should be before anyone claims an improvement
+## Measured 2026-08-15: net neutral, and the error relocates
 
-A corpus-scale keyless re-score was attempted over the 30 dev bundles and
-**produced no interpretable signal**: the route fills 1 of 240
-`assessment_summary` fields under the new segmenter and 5 of 240 under the old,
-with zero matches at token-F1 0.6 either way. That is not evidence that the
-change is neutral — it is evidence that this harness does not exercise the
-fields in question on this corpus. The comparison is unrun, not passed.
+`dev/tools/scripts/keyless_segmenter_rescore.py`. The citation ban is lifted and
+the answer is **not an improvement**.
 
-So the standing of this change is: **a bug fix with one demonstrated correction
-on the most consequential field, one demonstrated regression on rationale span
-quality, and no corpus-scale measurement.** It is landed because the truncation
-defect is unambiguous and because one implementation is strictly better than two
-that disagree — not because the route was shown to improve.
+| | old segmenter | new segmenter |
+|---|---|---|
+| decision outcome | **3/4** | **3/4** |
+| vv40 (Morrison) COU1 | OK | OK |
+| vv40 (Morrison) COU2 | **WRONG** — said Accepted | OK |
+| nasa COU1 | OK | **WRONG** — said Not accepted |
+| nasa COU2 | OK | OK |
 
-Two follow-ups: a keyless scoring path that actually reaches these fields, and
-the rationale-span regression on morrison, which looks like span *selection*
-preferring a short header line now that headers are their own units.
+**The change fixes Morrison COU2 and breaks nasa COU1.** Net zero at 3/4 either
+way. This corrects the section above, which reported the Morrison correction
+without knowing the trade: at the time only two fixtures had been looked at.
+
+The Morrison fix is still the more consequential direction — a false `Accepted`
+on a Class III VAD that regulators did not accept is the worst error this tool
+can make, and `nasa COU1` failing the other way is the safer error. But **n = 4**,
+and a 3/4-to-3/4 result with one swap in each direction is not evidence of
+improvement in either.
+
+### Why groundedness could not be used
+
+Groundedness was the intended target: it needs no ground truth, and it is
+exactly how K2 measured the naive splitter's cost. It cannot be used on this
+route. **The keyless route emits factor rows with `rationale: None` by design** —
+coverage is 0 of 228 under both segmenters, so the triple is undefined. Its own
+`summarise()` says so: *"13 factors named, 0 scored — keyless factor scoring is
+0.100 end to end"*, and the module docstring is explicit that the blanks are the
+feature, because `uofa import` must refuse the package.
+
+That is reported rather than dropped. The first attempt at this measurement
+failed precisely by treating a route's structural zeros as a result — it scored
+`assessment_summary`, which the route also never fills, got 1 of 240 versus
+5 of 240 with no matches either way, and would have read as "neutral" to anyone
+who did not check what was being scored.
+
+### Standing of the change
+
+**A bug fix, measured, and not an improvement.** It is landed because the
+truncation defect is unambiguous and because one implementation is strictly
+better than two that silently disagree — not because the route got better. It
+did not.
+
+Open: the nasa COU1 regression, and the rationale-span degradation on Morrison,
+which looks like span *selection* preferring a short header line now that
+headers are their own units.
 
 ## A limitation of the careful segmenter, pinned rather than left to be found
 

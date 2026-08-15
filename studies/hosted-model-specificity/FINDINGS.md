@@ -88,12 +88,38 @@ questions.
 Recorded before the investigation, so the answer is not fitted to it.
 
 **Q1 — Is the criteria collapse the prompt, the model, or the temperature?**
-Arms: shipped prompt vs. one that strikes "or implied" and requires the
-criterion to quote or paraphrase a stated threshold; Llama vs. qwen on identical
-prompts; temperature 0 vs. current.
-*Threshold:* the prompt arm is the cause if striking "or implied" recovers
-corpus-wide distinct/filled to **>= 0.70** on the 13 shared factors. Below that,
-the cause is the model and the fix is not a prompt edit.
+*Threshold as declared:* the prompt arm is the cause if striking "or implied"
+recovers corpus-wide distinct/filled to **>= 0.70** on the 13 shared factors.
+
+### ANSWERED 2026-08-15: not the prompt. No API call required.
+
+The "or implied" licence exists in **one** of the two prompts. `nasa_7009b`
+line 191 asks for "the explicit level-passing criterion stated **or implied** in
+the narrative". The vv40 prompt has no such clause — it says
+`acceptance_criteria: <criterion text, optional>` and nothing more.
+
+If the licence caused the collapse, only the pack carrying it should have
+collapsed. Split by pack:
+
+| pack | "or implied"? | qwen3.5:4b | Llama-3.3-70B | change |
+|---|---|---|---|---|
+| nasa-7009b | **yes** | 0.966 | 0.518 | **−0.448** |
+| vv40 | **no** | 0.933 | 0.528 | **−0.405** |
+
+**Both collapsed, by nearly the same amount.** The pack without the licence fell
+0.405 and the pack with it fell 0.448. Striking a clause that is not present in
+the vv40 prompt cannot recover the vv40 figure, so the declared prompt arm is
+not worth running: its premise is already false.
+
+**The cause is the model, or temperature.** The remaining discriminator is
+Llama vs. qwen on identical prompts at a fixed temperature, and the practical
+consequence is that this is **not fixable by a prompt edit** — which is what the
+threshold was written to determine.
+
+The counterfactual is worth noting because it nearly went the other way: had
+only the nasa figure been examined, "or implied" would have looked like a clean
+explanation, and a prompt edit would have been shipped against a cause that was
+not there.
 
 **Q2 — Is claim_density recoverable, and at what cost to groundedness?**
 A rationale with more numbers has more that can be wrong. Any change that lifts
