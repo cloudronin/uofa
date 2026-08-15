@@ -33,6 +33,7 @@ from groundedness import (  # noqa: E402
     null_shotgun,
     permutation_null,
     score_attribution,
+    score_attribution_by_sentence,
     score_attribution_full,
     score_factor_rationales,
 )
@@ -487,6 +488,8 @@ _SRC_SENTS = [
     "Post-processing scripts were checked against hand calculations.",
 ]
 
+_BATTERY_SOURCE = "\n".join(_SRC_SENTS)
+
 _BATTERY_GT = _gt(
     Discretization_error=["gci_fine for head rise is 0.72%"],
     Numerical_solver_error=["residuals were driven below 1e-5"],
@@ -630,26 +633,50 @@ def test_the_battery_reports_every_null_and_the_sweep():
     assert names  # the battery is built from the candidate's own factor list
 
 
-@pytest.mark.xfail(strict=True, reason=(
-    "The defect this whole workstream exists to fix. A shotgun rationale -- k "
-    "random source sentences, the identical blob filed under every factor, "
-    "carrying no attribution judgment by construction -- overtakes the real "
-    "extractor once k is large enough. Measured on the shipped corpus with the "
-    "committed harness, 740 scored rationales, seed 0: extractor 0.6068, "
-    "shotgun k=12 0.6046, shotgun k=20 0.7527. Phase 3 replaces the rule with "
-    "a length-invariant one and flips this to a pass; until then the failure is "
-    "committed so the fix is visible in one diff. AGENTS.md 13, make every new "
-    "check fail once, applied prospectively."))
 def test_a_longer_rationale_cannot_buy_attribution():
-    """Length must not be worth attribution points."""
+    """Length must not be worth attribution points.
+
+    This shipped as xfail(strict=True) in Phase 1 and flipped here. The old
+    keyword-overlap rule failed it outright: on the shipped corpus, 740 scored
+    rationales, a 20-sentence shotgun blob -- k random source sentences, the
+    identical blob under every factor, carrying no attribution judgment by
+    construction -- scored 0.7527 against the extractor's 0.6068.
+
+    Sentence-index attribution takes the same shotgun to 0.0702. The sweep is
+    nearly flat in k (0.0289 / 0.0495 / 0.0646 / 0.0702 at k = 1, 5, 12, 20),
+    which is what length-invariance looks like.
+
+    The old rule is kept scored beside it in
+    `test_the_old_rule_still_fails_this`, because a repair is only legible next
+    to the defect.
+    """
     names = [f["factor_type"] for f in _BATTERY_FACTORS]
-    candidate = score_attribution(_BATTERY_FACTORS, _BATTERY_GT)
-    cand_rate = candidate[0] / candidate[1]
+    cand = score_attribution_by_sentence(
+        _BATTERY_FACTORS, _BATTERY_GT, _BATTERY_SOURCE, _SRC_SENTS)
+    cand_rate = cand.rate
 
     for k in (5, 12, 20):
         rows = null_shotgun(names, _SRC_SENTS, k)
-        right, scored = score_attribution(rows, _BATTERY_GT)
-        rate = right / scored if scored else 0.0
-        assert rate < cand_rate, (
+        res = score_attribution_by_sentence(
+            rows, _BATTERY_GT, _BATTERY_SOURCE, _SRC_SENTS)
+        assert res.rate < cand_rate, (
             f"a {k}-sentence blob carrying no attribution judgment scored "
-            f"{rate:.3f} against the extractor's {cand_rate:.3f}")
+            f"{res.rate:.3f} against the extractor's {cand_rate:.3f}")
+
+
+def test_the_old_rule_still_fails_this():
+    """The defect, kept measurable so the repair stays legible.
+
+    If this ever starts passing, either the old rule was changed -- it must not
+    be, it is the historical figure -- or the fixture stopped exercising the
+    defect, which is how the first version of this test went wrong.
+    """
+    names = [f["factor_type"] for f in _BATTERY_FACTORS]
+    right, scored = score_attribution(_BATTERY_FACTORS, _BATTERY_GT)
+    cand_rate = right / scored
+
+    rows = null_shotgun(names, _SRC_SENTS, 20)
+    r, s = score_attribution(rows, _BATTERY_GT)
+    assert r / s > cand_rate, (
+        "the old keyword-overlap rule is supposed to be buyable by length; if "
+        "it no longer is, this fixture is not exercising the defect")

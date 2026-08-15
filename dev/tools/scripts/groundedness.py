@@ -924,3 +924,163 @@ def null_battery(factors: list[dict], ground_truth: dict, sentences_: list[str],
         out[f"shotgun_k{k}"] = rate(null_shotgun(names, sentences_, k, seed))
     out["permutation"] = permutation_null(factors, ground_truth, seed=seed)["mean"]
     return out
+
+
+# ── Phase 3: attribution that length cannot buy ──────────────
+
+
+def _sentence_offsets(text: str, sents: list[str]) -> list[tuple[int, int]]:
+    """Character span of each sentence in the normalised text.
+
+    Lifted from v1_real_attribution rather than rewritten. Matching a reference
+    *inside* one sentence fails: references are what a reviewer would cite, and
+    those run across the segmenter's boundaries. Map by character offset and
+    accept every sentence the reference touches.
+    """
+    flat = _norm_ws(text)
+    offs, cur = [], 0
+    for s in sents:
+        n = _norm_ws(s)
+        i = flat.find(n, cur)
+        if i < 0:
+            i = cur
+        offs.append((i, i + len(n)))
+        cur = i + len(n)
+    return offs
+
+
+def _norm_ws(s: str) -> str:
+    return " ".join(str(s).split()).lower()
+
+
+def _is_furniture(s: str) -> bool:
+    """Heading, table row, bullet or rule -- document structure, not evidence.
+
+    Measured on the shipped corpus: 783 of the raw gold sentences are furniture,
+    because an `evidence_keywords` fragment lands in a markdown heading or a
+    table row often enough to matter. That records a location no reviewer would
+    cite and no extractor should be asked to hit, and it penalises a rule that
+    correctly finds the prose sentence carrying the same evidence.
+
+    Adjudicating the rows where the old and new rules disagreed, 91 of 176 -- at
+    least 52%, and the true figure is higher because the auto-triage was
+    conservative -- were this, not a rule error.
+
+    A defect in the reference is not a defect in what is scored against it.
+    """
+    t = s.lstrip()
+    return t.startswith(("#", "|", "*", "---", "===")) or (
+        t.startswith("-") and not t[1:2].isdigit())
+
+
+def gold_sentence_sets(ground_truth: dict, text: str, sents: list[str],
+                       drop_furniture: bool = True) -> dict[str, set[int]]:
+    """factor -> the sentence indices its reference keywords land in.
+
+    `drop_furniture=False` reproduces the raw sets, so both numbers can be
+    reported and the filter's effect on the nulls can be checked. A filter that
+    lifts the nulls is removing difficulty rather than noise.
+    """
+    flat = _norm_ws(text)
+    offs = _sentence_offsets(text, sents)
+    gold: dict[str, set[int]] = {}
+    for f in ground_truth.get("expected_factors", []):
+        name = f.get("factor_type")
+        for kw in f.get("evidence_keywords") or []:
+            n = _norm_ws(kw)
+            if len(n) < 4:
+                continue
+            start = flat.find(n)
+            if start < 0:
+                continue
+            end = start + len(n)
+            for i, (lo, hi) in enumerate(offs):
+                if lo < end and start < hi:
+                    if drop_furniture and _is_furniture(sents[i]):
+                        continue
+                    gold.setdefault(name, set()).add(i)
+    return gold
+
+
+def _token_f1(a: set[str], b: set[str]) -> float:
+    if not a or not b:
+        return 0.0
+    inter = len(a & b)
+    if not inter:
+        return 0.0
+    p, r = inter / len(b), inter / len(a)
+    return 2 * p * r / (p + r)
+
+
+def locate_sentence(text: str, sents: list[str],
+                    sent_tokens: list[set[str]] | None = None) -> int | None:
+    """Which source sentence is this text about? argmax token-F1.
+
+    F1 rather than raw overlap is what makes the rule length-invariant. Overlap
+    grows monotonically as the candidate text gets longer -- which is precisely
+    the defect being repaired -- while F1 penalises a candidate that matches a
+    sentence by simply containing everything.
+    """
+    tt = _tokens(text)
+    if not tt:
+        return None
+    toks = sent_tokens if sent_tokens is not None else [_tokens(s) for s in sents]
+    best, best_score = None, 0.0
+    for i, st in enumerate(toks):
+        score = _token_f1(st, tt)
+        if score > best_score:
+            best, best_score = i, score
+    return best
+
+
+def score_attribution_by_sentence(factors: list[dict], ground_truth: dict,
+                                  text: str, sents: list[str],
+                                  field: str = "rationale",
+                                  drop_furniture: bool = True) -> AttributionResult:
+    """Attribution scored in sentence indices, not keyword overlap.
+
+    The unit `attribution_agreement.py` and `d1_annotator_agreement.py` already
+    score in, which is what finally makes the 91.3% same-sentence agreement
+    figure commensurable with the metric.
+
+    A rationale is correctly attributed when the sentence it is most about is
+    one of the sentences its factor's evidence lives in. Length buys nothing: a
+    longer text does not become *more about* any particular sentence, because
+    token-F1 penalises the extra tokens that match nothing.
+
+    Honest cost, measured: the headline falls from 0.638 to roughly 0.418. That
+    is the price of a number a verbose null cannot reach.
+
+    `field` selects the text scored. The pre-registered primary is `rationale`;
+    `evidence_span` is reported beside it, per studies/evidence-span/.
+    """
+    res = AttributionResult()
+    gold = gold_sentence_sets(ground_truth, text, sents, drop_furniture)
+    res.gold_scorable = sum(1 for v in gold.values() if v)
+    if not gold:
+        return res
+
+    sent_tokens = [_tokens(s) for s in sents]
+    for f in factors:
+        name = f.get("factor_type")
+        value = f.get(field)
+        if name not in gold or not gold[name]:
+            if name not in gold:
+                res.extra_factor_rows += 1
+            continue
+        if not isinstance(value, str) or not value.strip():
+            continue
+        res.scored += 1
+        res.rationale_tokens.append(len(_tokens(value)))
+        predicted = locate_sentence(value, sents, sent_tokens)
+        if predicted is not None and predicted in gold[name]:
+            res.right += 1
+            if _norm_ws(value) in _norm_ws(text):
+                res.right_verbatim += 1
+        elif predicted is not None and any(predicted in g for g in gold.values()):
+            res.misfiled += 1        # localised, but to another factor's evidence
+        else:
+            res.unmatched += 1       # localised nowhere any factor's evidence lives
+
+    res.abstained = res.gold_scorable - res.scored
+    return res
