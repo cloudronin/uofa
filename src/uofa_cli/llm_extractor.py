@@ -181,6 +181,7 @@ def extract(
     token_budget: int = 24000,
     thinking: bool = False,
     llm_config=None,  # LLMConfig | None — typed as str to avoid an import cycle
+    temperature: float | None = None,
 ) -> ExtractionResult:
     """Run LLM extraction on the corpus.
 
@@ -212,7 +213,7 @@ def extract(
         raw_json = _call_and_parse_with_retry(
             prompt, model, pack_name,
             thinking=thinking, llm_config=llm_config,
-            max_attempts=3,
+            max_attempts=3, temperature=temperature,
         )
     else:
         # Chunk by file and merge
@@ -314,6 +315,7 @@ def _call_and_parse_with_retry(
     thinking: bool = False,
     llm_config=None,
     max_attempts: int = 3,
+    temperature: float | None = None,
 ) -> dict:
     """Call the LLM and parse the response, retrying on parse failure.
 
@@ -332,6 +334,7 @@ def _call_and_parse_with_retry(
     for attempt in range(1, max_attempts + 1):
         raw_response = _call_llm(
             prompt, model, pack_name, thinking=thinking, llm_config=llm_config,
+            temperature=temperature,
         )
         try:
             Path("/tmp/uofa-extract-last-raw.txt").write_text(raw_response)
@@ -358,6 +361,7 @@ def _call_llm(
     pack_name: str = "vv40",
     thinking: bool = False,
     llm_config=None,
+    temperature: float | None = None,
 ) -> str:
     """Call the LLM — routes to mock or to the unified backend abstraction.
 
@@ -390,6 +394,12 @@ def _call_llm(
     backend = get_backend(config)
 
     options = GenerationOptions(
+        # None means "whatever the backend defaults to", which is the shipped
+        # behaviour and must stay the default. Set only by experiments that
+        # need temperature held fixed -- see
+        # studies/specificity-discriminator/, where the migration changed model
+        # and sampling at once and they have never been separated.
+        temperature=temperature,
         timeout_seconds=1800.0,
         # Cap output tokens to catch runaway generation, but generous enough
         # not to truncate normal output. The extract prompt mandates per-field
