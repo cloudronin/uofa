@@ -279,9 +279,62 @@ truth with no adjudication step. Adjudicated performance would be higher and
 would measure something else — the practical ceiling of tool-plus-operator, not
 the tool. All runs are single runs without seed control.
 
-A replacement criterion, built on attribution and the groundedness triple with
-its own null battery, is under construction. It is not yet measured, and nothing
-on this page should be read as though it were.
+### On real documents, the rationales contain nothing to check
+
+Everything above is the synthetic corpus. The same extractor, run over six
+hand-annotated real engineering papers:
+
+| | coverage | claim density | groundedness |
+|---|---|---|---|
+| synthetic (development) | 1.000 | 0.188 | 0.982 |
+| **six real papers** | **1.000** | **0.000** | **0.000** |
+
+**Every factor received a rationale. Not one of the 96 rationales contains a
+single checkable number.** They read like this:
+
+> *"The grid convergence study showed that the discretization error was small."*
+> *"The software is widely used and has been validated by other users."*
+
+Well-formed, plausible, and unverifiable — in documents that are full of the
+figures they are describing. Distinctness is 0.417, so roughly three in five
+rationales restate another in the same document.
+
+This is why the triple is always reported as a triple. Read alone,
+`coverage 1.000` says every factor was addressed. Read alone,
+`groundedness 0.000` says the tool fabricated everything. Both are wrong, and
+the truth is only visible in the middle number.
+
+**What it means for a reviewer:** on a real paper this tool currently tells you
+*which* factors it thinks the evidence covers, and gives you prose that cannot
+be checked against the document. The factor mapping is the part to trust; the
+rationale is a starting point for your own reading, not a citation.
+
+### The replacement criterion was measured, and not cleared
+
+A replacement for the detection gate — attribution against a battery of nulls,
+plus the groundedness triple — was specified with numeric thresholds committed
+before it ran, and then measured on those six real papers.
+
+**It did not clear.** The margin over its own permutation null was +0.044 at
+0.5 standard deviations, against a required 0.25 and 3.0. Three correct
+attributions in 56, all from the shortest paper; five of six papers scored zero.
+
+Underneath the failed gate there is measurable capability: 5.5× the run's own
+chance level on real prose, 8.6× on synthetic, and no null reaching it at any
+rationale length. That is a characterization, not a pass.
+
+**The sample is the limit on what can be concluded.** Fifty-six factor-document
+pairs, six papers, one annotator, whose own same-sentence agreement with an
+independent second reader is 0.714. At that size nothing distinguishes a
+mechanism from noise, and no change to the tool moves that wall — only more
+annotated documents and a second annotator do.
+
+So the honest statement of what this tool's extraction is known to do: it maps
+factors at ceiling on a measure that a constant also reaches, it attributes
+evidence measurably better than chance and below the bar we set for resting a
+claim on it, and on real documents it writes rationales a checker cannot check.
+All three are published here because a tool that argues credibility should be
+evidenced rather than asserted has to hold itself to that first.
 
 ### A failure mode found by testing, not by reasoning
 
