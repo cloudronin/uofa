@@ -590,14 +590,32 @@ def template_path(root: Path = None) -> Path:
         return pack_dir(root=root) / "templates"
 
 
-def extract_prompt(root: Path = None) -> Path:
-    """Return the pack extract prompt path (for future uofa extract)."""
+def extract_prompt(pack_name: str = None, root: Path = None) -> Path:
+    """Return the extract prompt path for ``pack_name``.
+
+    ``pack_name`` used to be absent from this signature, so every call resolved
+    through ``pack_dir()`` with its ``active=["vv40"]`` default and returned the
+    V&V 40 prompt no matter which pack was being extracted. `uofa extract --pack
+    nasa-7009b` therefore sent the model a prompt that defines 13 factors and
+    never names the six NASA-STD-7009B ones, and the model returned what it was
+    asked for: 13 factors, and `standards_reference: ASME-VV40-2018` for a NASA
+    assessment.
+
+    Nothing downstream noticed. `_json_to_result` selects NASA_ALL_FACTOR_NAMES
+    from the pack name it *was* given, and the workbook writer pre-fills all 19
+    rows from the pack, so the output looked like a NASA extraction with six
+    factors the model had declined to fill in. Measured cost: 13 of 19 factors
+    in 27 of 27 NASA extractions (15 dev, 10 test, both aerospace COUs), with
+    those six factors at per-factor F1 0.000 on both splits.
+
+    See studies/nasa-prompt-routing/FINDINGS.md.
+    """
     root = root or find_repo_root()
     try:
-        manifest = pack_manifest(root=root)
-        return pack_dir(root=root) / manifest.get("prompt", "")
+        manifest = pack_manifest(pack_name, root=root)
+        return pack_dir(pack_name, root=root) / manifest.get("prompt", "")
     except (FileNotFoundError, KeyError):
-        return pack_dir(root=root) / "prompts"
+        return pack_dir(pack_name, root=root) / "prompts"
 
 
 def default_pubkey(root: Path = None) -> Path:

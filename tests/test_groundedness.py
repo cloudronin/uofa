@@ -23,9 +23,18 @@ _ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(_ROOT / "dev" / "tools" / "scripts"))
 
 from groundedness import (  # noqa: E402
+    assert_attribution_available,
+    attribution_confusion,
     checkable_claims,
     grounds,
     normalise_numbers,
+    null_battery,
+    null_document_order,
+    null_shotgun,
+    permutation_null,
+    score_attribution,
+    score_attribution_by_sentence,
+    score_attribution_full,
     score_factor_rationales,
 )
 
@@ -279,6 +288,14 @@ def test_llm_baseline_on_the_shipped_corpus():
 
     These are the numbers a candidate backend has to be compared against, and
     unlike detection F1 there is no constant function that reaches them.
+
+    The pins track the current pipeline deliberately. A check left standing red
+    as a reminder stops being a check: it alerts nobody when something *else*
+    drifts through it, and it is the vacuous-pass rule inverted -- an assertion
+    that cannot meaningfully fail because it has already failed. Where the
+    pipeline changes, these move, and the superseded figures are recorded in
+    the comment below and in studies/hosted-model-specificity/, which commits
+    the full row sets on both sides.
     """
     from extracted_corpus import extracted_corpus_by_bundle
     from groundedness import GroundednessResult, read_source_text
@@ -298,23 +315,368 @@ def test_llm_baseline_on_the_shipped_corpus():
         agg.ungrounded += res.ungrounded
 
     assert agg.factors_total == 800
-    assert agg.coverage == pytest.approx(0.974, abs=0.005)
-    assert agg.claim_density == pytest.approx(0.565, abs=0.01)
-    assert agg.groundedness == pytest.approx(0.994, abs=0.003)
-    assert (agg.claims_grounded, agg.claims_total) == (859, 864)
+    assert agg.coverage == pytest.approx(1.000, abs=0.005)
+    assert agg.claim_density == pytest.approx(0.199, abs=0.01)
+    assert agg.groundedness == pytest.approx(0.990, abs=0.003)
+    assert (agg.claims_grounded, agg.claims_total) == (198, 200)
 
-    # The triage set, hand-classified in full: three derived quantities and one
-    # out-of-bundle constant (101.325 kPa, standard atmosphere). Zero
-    # fabrications in 842 checkable claims, and zero metric artefacts -- which is
-    # what cleared the stopping rule.
+    # These pins moved on 2026-08-14 when the baseline was regenerated after the
+    # C3 hosted-model migration. Recorded here rather than only in the diff,
+    # because the direction is the point:
+    #
+    #                        qwen3.5:4b      Llama-3.3-70B
+    #   coverage                  0.974      1.000     up
+    #   groundedness              0.994      0.990     flat
+    #   claim_density             0.565      0.199     DOWN 65%
+    #   claims_total                864        200     DOWN 77%
+    #
+    # Two of the three moved the reassuring way while the number of checkable
+    # claims in the corpus fell by three quarters. That is why the triple is
+    # asserted as a triple and why groundedness is never quoted alone: on its
+    # own it reports this migration as a clean improvement.
+    #
+    # studies/hosted-model-specificity/ holds both row sets and the declared
+    # questions. Do not "fix" a future failure here by relaxing claim_density --
+    # a drop is the finding, not the noise.
+    # The triage set, hand-classified in full. Under qwen it was four items --
+    # three derived quantities and one out-of-bundle constant (101.325 kPa,
+    # standard atmosphere), zero fabrications in 864 checkable claims. It is now
+    # one, over 200 checkable claims.
+    #
+    # Read that against claim_density, not on its own: a shrinking triage set is
+    # what a shrinking denominator produces whether or not anything improved.
+    # Four in 864 is 0.46%; one in 200 is 0.50%. The artefact *rate* did not
+    # move. Only the amount of output exposed to the check did.
     #
     # If this count rises, the artefact rate is unknown again and the figure in
     # docs/keyless-extract-findings.md is no longer substantiated. Re-triage
     # before republishing it.
-    assert len(agg.ungrounded) == 4
-    assert sorted(u["factor_type"] for u in agg.ungrounded) == [
-        "Equivalency of input parameters",
-        "Numerical solver error",
-        "Output comparison",
-        "Results robustness",
+    assert len(agg.ungrounded) == 1
+    assert sorted(u["factor_type"] for u in agg.ungrounded) == ["Output comparison"]
+
+
+# ── attribution: which factor was the evidence filed under ───
+
+def _gt(**factors):
+    """ground_truth with one factor per kwarg: name -> its evidence keywords."""
+    return {"expected_factors": [
+        {"factor_type": name.replace("_", " "), "evidence_keywords": kws}
+        for name, kws in factors.items()]}
+
+
+def test_a_rationale_citing_another_factors_evidence_is_misfiled():
+    """The failure the pair table exists to name.
+
+    `score_attribution` counts this as one miss and stops. The evidence is in
+    the document; it is under the wrong heading. That is a routing defect, and
+    it is fixed differently from a rationale that cites nothing.
+    """
+    gt = _gt(Test_conditions=["calibrated thermocouples"],
+             Test_samples=["iso 9906:2012 grade 1b"])
+    rows = attribution_confusion(
+        [{"factor_type": "Test conditions",
+          "rationale": "Testing followed ISO 9906:2012 Grade 1B throughout."}], gt)
+
+    assert len(rows) == 1
+    assert rows[0]["kind"] == "misfiled"
+    assert rows[0]["matches"] == ["Test samples"]
+
+
+def test_a_rationale_matching_nothing_is_unmatched_not_misfiled():
+    """The other failure, which must never be added to the first.
+
+    Either the rationale cites evidence the annotation does not cover, or it
+    cites nothing checkable. Neither is a routing problem, and a combined
+    count would send someone to fix routing.
+    """
+    gt = _gt(Test_conditions=["calibrated thermocouples"],
+             Test_samples=["iso 9906:2012 grade 1b"])
+    rows = attribution_confusion(
+        [{"factor_type": "Test conditions",
+          "rationale": "The team considered this factor adequately addressed."}], gt)
+
+    assert len(rows) == 1
+    assert rows[0]["kind"] == "unmatched"
+    assert rows[0]["matches"] == []
+
+
+def test_a_correct_attribution_produces_no_confusion_row():
+    gt = _gt(Test_conditions=["calibrated thermocouples"])
+    assert attribution_confusion(
+        [{"factor_type": "Test conditions",
+          "rationale": "Measured with calibrated thermocouples at three stations."}],
+        gt) == []
+
+
+def test_confusion_rows_equal_the_miss_count_exactly():
+    """The invariant that keeps the table honest.
+
+    The table and the score read the same keywords under the same rule, via one
+    shared `_matches`. If they ever diverge -- a table computed by a slightly
+    different rule than the score it explains -- the pairs would describe
+    failures the headline does not have. One row per miss, always.
+    """
+    gt = _gt(Test_conditions=["calibrated thermocouples"],
+             Test_samples=["iso 9906:2012 grade 1b"],
+             Model_inputs=["material properties from coupon testing"])
+    factors = [
+        {"factor_type": "Test conditions",
+         "rationale": "Measured with calibrated thermocouples."},          # right
+        {"factor_type": "Test samples",
+         "rationale": "Material properties from coupon testing were used."},  # misfiled
+        {"factor_type": "Model inputs",
+         "rationale": "Considered adequate by the review board."},         # unmatched
     ]
+    right, scored = score_attribution(factors, gt)
+    rows = attribution_confusion(factors, gt)
+
+    assert (right, scored) == (1, 3)
+    assert len(rows) == scored - right
+    assert sorted(r["kind"] for r in rows) == ["misfiled", "unmatched"]
+
+
+def test_a_row_is_skipped_the_same_way_the_score_skips_it():
+    """Skips must agree too, or the denominators drift apart.
+
+    A factor with no reference keywords, or no rationale, is not scored -- so it
+    cannot appear as a failure either.
+    """
+    gt = _gt(Test_conditions=["calibrated thermocouples"], Unreferenced=[])
+    factors = [{"factor_type": "Unreferenced", "rationale": "Something was done."},
+               {"factor_type": "Test conditions", "rationale": None}]
+
+    assert score_attribution(factors, gt) == (0, 0)
+    assert attribution_confusion(factors, gt) == []
+
+
+# ── attribution: the nulls, and what the rule is worth ───────
+
+# A source big enough that a k=20 blob is a genuine subset rather than the
+# whole document, and a candidate that is deliberately imperfect. Both matter:
+# on a short source every shotgun contains every reference and the sweep is
+# tautological, and against a perfect candidate a null can only tie.
+_SRC_SENTS = [
+    "Grid convergence was assessed on three successively refined meshes.",
+    "GCI_fine for head rise is 0.72% and for shaft power 0.43%.",
+    "Richardson extrapolation gave an observed order of 1.94.",
+    "Residuals were driven below 1e-5 scaled for all equations.",
+    "The solver used a coupled pressure-velocity scheme.",
+    "Iteration counts averaged 340 per timestep.",
+    "The rig recorded 28.61 kPa against 28.1 kPa predicted.",
+    "Agreement across nine speed lines was within 1.8%.",
+    "Sample size was 1,250 measurement points.",
+    "Specimens were production-representative castings.",
+    "Testing followed ISO 9906:2012 Grade 1B throughout.",
+    "Ambient conditions were held at 20C plus or minus 0.5C.",
+    "Instruments carried ISO 17025 calibration certificates.",
+    "Material properties came from coupon testing at 20C.",
+    "Geometry was taken from the as-built CMM scan.",
+    "Boundary conditions were measured at the inlet plane.",
+    "An independent reviewer checked the boundary conditions.",
+    "Mesh quality metrics were logged for every run.",
+    "The turbulence model was k-omega SST throughout.",
+    "Known limitations include the neglect of cavitation.",
+    "Wall roughness was set from the surface finish specification.",
+    "The validation envelope covers 60 to 110 percent of design flow.",
+    "Cruise conditions sit outside the validated range.",
+    "Uncertainty on the measured head was 0.15 metres.",
+    "A sensitivity study varied inlet temperature by 5 kelvin.",
+    "Configuration management used Git with tagged releases.",
+    "Two review cycles preceded this assessment.",
+    "The model has six months of prior operational use.",
+    "No cavitation testing was performed for this study.",
+    "Post-processing scripts were checked against hand calculations.",
+]
+
+_BATTERY_SOURCE = "\n".join(_SRC_SENTS)
+
+_BATTERY_GT = _gt(
+    Discretization_error=["gci_fine for head rise is 0.72%"],
+    Numerical_solver_error=["residuals were driven below 1e-5"],
+    Output_comparison=["28.61 kpa against 28.1 kpa predicted"],
+    Test_samples=["sample size was 1,250 measurement points"],
+    Test_conditions=["iso 9906:2012 grade 1b"],
+    Model_inputs=["material properties came from coupon testing"],
+    Use_error=["an independent reviewer checked the boundary conditions"],
+    Model_form=["turbulence model was k-omega sst"],
+    Equivalency_of_input_parameters=["boundary conditions were measured at the inlet plane"],
+    Relevance_of_the_validation_activities_to_the_COU=[
+        "validation envelope covers 60 to 110 percent of design flow"],
+)
+
+# Six of ten match their reference; four are plausible prose that cites nothing
+# the annotation covers. That puts the candidate near the corpus figure (0.607)
+# rather than at a ceiling a null cannot exceed.
+_BATTERY_FACTORS = [
+    {"factor_type": "Discretization error",
+     "rationale": "GCI_fine for head rise is 0.72%, from three meshes."},
+    {"factor_type": "Numerical solver error",
+     "rationale": "Residuals were driven below 1e-5 scaled."},
+    {"factor_type": "Output comparison",
+     "rationale": "The rig recorded 28.61 kPa against 28.1 kPa predicted."},
+    {"factor_type": "Test samples",
+     "rationale": "Sample size was 1,250 measurement points."},
+    {"factor_type": "Test conditions",
+     "rationale": "Testing followed ISO 9906:2012 Grade 1B."},
+    {"factor_type": "Model inputs",
+     "rationale": "Material properties came from coupon testing."},
+    {"factor_type": "Use error",
+     "rationale": "The setup was reviewed and found adequate."},
+    {"factor_type": "Model form",
+     "rationale": "The physics representation is considered appropriate."},
+    {"factor_type": "Equivalency of input parameters",
+     "rationale": "Inputs were judged equivalent to the test conditions."},
+    {"factor_type": "Relevance of the validation activities to the COU",
+     "rationale": "Validation is considered relevant to the intended use."},
+]
+
+
+def test_the_record_returns_exactly_what_the_pair_returned():
+    """`score_attribution_full` may add numbers; it may not change one.
+
+    The record exists so nothing has to be recomputed by a second code path.
+    The moment its `(right, scored)` diverges from `score_attribution`, every
+    figure in the repo splits into two lineages.
+    """
+    right, scored = score_attribution(_BATTERY_FACTORS, _BATTERY_GT)
+    res = score_attribution_full(_BATTERY_FACTORS, _BATTERY_GT)
+    assert (res.right, res.scored) == (right, scored)
+
+
+def test_abstention_is_counted_wrong_not_counted_nowhere():
+    """`rate` and `rate_over_gold` must diverge when the extractor declines.
+
+    A factor with a reference and no rationale leaves `rate`'s denominator
+    entirely, so declining to answer raises the headline. `rate_over_gold`
+    is the number that does not reward silence.
+    """
+    silent = _BATTERY_FACTORS[:3] + [
+        {"factor_type": "Test samples", "rationale": None},
+        {"factor_type": "Test conditions", "rationale": "   "},
+    ]
+    res = score_attribution_full(silent, _BATTERY_GT)
+
+    assert res.scored == 3 and res.right == 3
+    assert res.rate == 1.0, "three of three scored rationales matched"
+    assert res.gold_scorable == 10
+    assert res.abstained == 7
+    assert res.rate_over_gold == pytest.approx(3 / 10)
+    assert res.rate > res.rate_over_gold, (
+        "abstention must cost something somewhere, or declining to answer is "
+        "the optimal play")
+
+
+def test_verbatim_and_loose_are_reported_as_two_numbers():
+    """A paraphrase counts, and that decision has to stay visible.
+
+    98% of sonnet's rationales are written rather than quoted, so a
+    verbatim-only rule scored it 0.422 against K6's 0.645 -- reading that as
+    "a TF-IDF classifier attributes better than sonnet" would have been wrong.
+    But merging the two hides which one a figure came from.
+    """
+    paraphrased = [{"factor_type": "Test conditions",
+                    "rationale": "Conditions followed the ISO 9906:2012 standard "
+                                 "at Grade 1B tolerance."}]
+    res = score_attribution_full(paraphrased, _BATTERY_GT)
+    assert res.right == 1, "the loose rule accepts a reworded reference"
+    assert res.right_verbatim == 0, "and the verbatim count records that it was reworded"
+    assert res.rate == 1.0 and res.rate_verbatim == 0.0
+
+
+def test_an_unmeasured_attribution_refuses_instead_of_returning_zero():
+    """AGENTS.md 13: an unmeasured thing may not render as a passed thing.
+
+    `(0, 0)` renders as an omitted row, which is indistinguishable from a run
+    where attribution was fine. The guard is the difference between "we did not
+    measure this" and silence.
+    """
+    empty = score_attribution_full(_BATTERY_FACTORS, _gt(Some_factor=[]))
+    assert empty.scored == 0
+    with pytest.raises(SystemExit, match="ATTRIBUTION NOT MEASURED"):
+        assert_attribution_available(empty)
+
+    assert_attribution_available(score_attribution_full(_BATTERY_FACTORS, _BATTERY_GT))
+
+
+def test_the_document_order_null_scores_near_zero():
+    """The constant router: walk the document, one sentence per factor.
+
+    Measured at 0.058 in the keyless pipeline against a real router's 0.62.
+    This is the one place attribution has behaved like a discriminating metric,
+    and it is why the metric is being repaired rather than discarded.
+    """
+    names = [f["factor_type"] for f in _BATTERY_FACTORS]
+    right, scored = score_attribution(
+        null_document_order(names, _SRC_SENTS), _BATTERY_GT)
+    assert scored > 0
+    assert right / scored <= 0.30
+
+
+def test_the_permutation_null_is_low_and_stable():
+    """Chance level computed on the run's own rationales.
+
+    Inherits their length and vocabulary, which a synthetic null would not --
+    and length is the confound. Measured on the shipped corpus at 0.094.
+    """
+    null = permutation_null(_BATTERY_FACTORS, _BATTERY_GT, iterations=200)
+    assert null["iterations"] == 200
+    assert null["mean"] < 0.30, f"chance level should be low, got {null['mean']}"
+
+
+def test_the_battery_reports_every_null_and_the_sweep():
+    names = [f["factor_type"] for f in _BATTERY_FACTORS]
+    battery = null_battery(_BATTERY_FACTORS, _BATTERY_GT, _SRC_SENTS)
+    assert set(battery) >= {"document_order", "first_sentence", "permutation",
+                            "shotgun_k1", "shotgun_k5", "shotgun_k12", "shotgun_k20"}
+    assert battery["shotgun_k20"] >= battery["shotgun_k1"], (
+        "the sweep must be monotone-ish in k, or it is not measuring length")
+    assert names  # the battery is built from the candidate's own factor list
+
+
+def test_a_longer_rationale_cannot_buy_attribution():
+    """Length must not be worth attribution points.
+
+    This shipped as xfail(strict=True) in Phase 1 and flipped here. The old
+    keyword-overlap rule failed it outright: on the shipped corpus, 740 scored
+    rationales, a 20-sentence shotgun blob -- k random source sentences, the
+    identical blob under every factor, carrying no attribution judgment by
+    construction -- scored 0.7527 against the extractor's 0.6068.
+
+    Sentence-index attribution takes the same shotgun to 0.0702. The sweep is
+    nearly flat in k (0.0289 / 0.0495 / 0.0646 / 0.0702 at k = 1, 5, 12, 20),
+    which is what length-invariance looks like.
+
+    The old rule is kept scored beside it in
+    `test_the_old_rule_still_fails_this`, because a repair is only legible next
+    to the defect.
+    """
+    names = [f["factor_type"] for f in _BATTERY_FACTORS]
+    cand = score_attribution_by_sentence(
+        _BATTERY_FACTORS, _BATTERY_GT, _BATTERY_SOURCE, _SRC_SENTS)
+    cand_rate = cand.rate
+
+    for k in (5, 12, 20):
+        rows = null_shotgun(names, _SRC_SENTS, k)
+        res = score_attribution_by_sentence(
+            rows, _BATTERY_GT, _BATTERY_SOURCE, _SRC_SENTS)
+        assert res.rate < cand_rate, (
+            f"a {k}-sentence blob carrying no attribution judgment scored "
+            f"{res.rate:.3f} against the extractor's {cand_rate:.3f}")
+
+
+def test_the_old_rule_still_fails_this():
+    """The defect, kept measurable so the repair stays legible.
+
+    If this ever starts passing, either the old rule was changed -- it must not
+    be, it is the historical figure -- or the fixture stopped exercising the
+    defect, which is how the first version of this test went wrong.
+    """
+    names = [f["factor_type"] for f in _BATTERY_FACTORS]
+    right, scored = score_attribution(_BATTERY_FACTORS, _BATTERY_GT)
+    cand_rate = right / scored
+
+    rows = null_shotgun(names, _SRC_SENTS, 20)
+    r, s = score_attribution(rows, _BATTERY_GT)
+    assert r / s > cand_rate, (
+        "the old keyword-overlap rule is supposed to be buyable by length; if "
+        "it no longer is, this fixture is not exercising the defect")

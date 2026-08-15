@@ -50,8 +50,11 @@ from schema_coverage import (  # noqa: E402
     validate_extracted,
 )
 from groundedness import (  # noqa: E402
+    AttributionResult,
     GroundednessResult,
-    score_attribution,
+    attribution_confusion,
+    null_battery,
+    score_attribution_full,
     field_score,
     score_field,
     read_source_text,
@@ -65,6 +68,7 @@ from score_extraction import (  # noqa: E402
     run_extraction,
     score_factors,
 )
+from uofa_cli.segmentation import sentences  # noqa: E402
 
 # Fields summed when rolling per-bundle groundedness up to the corpus. Ratios
 # are recomputed from the totals rather than averaged over bundles: a bundle
@@ -192,6 +196,9 @@ def score_bundle(
         "bundle_id": bundle_dir.name,
         "metadata": metadata,
         "pack": pack,
+        # Retained so the null controls can be scored against THIS bundle's
+        # ground truth and pack. Stripped before the JSON is written.
+        "_ground_truth_factors": gt_factors,
     }
 
     xlsx_path = bundle_dir / "extracted.xlsx"
@@ -255,9 +262,20 @@ def score_bundle(
         record["groundedness"] = grounded.as_dict()
         record["ungrounded"] = grounded.ungrounded
         # The only metric that sees which factor evidence was filed under.
-        ar, asc = score_attribution(extracted.get("credibility_factors", []),
-                                    ground_truth)
-        record["attribution"] = {"correct": ar, "scored": asc}
+        facs = extracted.get("credibility_factors", [])
+        att = score_attribution_full(facs, ground_truth)
+        record["attribution"] = att.as_dict()
+        # A count of N failures is N anonymous events. The same failures as
+        # pairs are a ranked list of confusable factors, and the misfiled /
+        # unmatched split is the difference between a routing problem and a
+        # coverage problem. Never summed in prose.
+        record["attribution_confusion"] = attribution_confusion(facs, ground_truth)
+        # A scalar with no null beside it is not interpretable, and this
+        # metric's null is the reason Phase 3 exists: a shotgun blob of k
+        # random source sentences, identical under every factor, overtakes the
+        # extractor somewhere around k=12.
+        record["attribution_nulls"] = null_battery(
+            facs, ground_truth, sentences(read_source_text(bundle_dir)))
 
         # Decision outcome, decomposed. Accuracy alone merges "read it and got
         # it right" with "guessed and got it right", and on this corpus the
@@ -272,6 +290,83 @@ def score_bundle(
     except SystemExit as exc:
         record["groundedness_error"] = str(exc)
     return record
+
+
+def score_null_controls(per_bundle: list[dict]) -> dict:
+    """What a function that reads NOTHING scores on this same corpus.
+
+    The single-bundle scorer has always printed these and refused to report a
+    bare F1 without them; the batch path did not, and a detection F1 of 0.8909
+    was reported as clearing a threshold when the checklist constant scores
+    0.9544 on the same bundles. A saturated metric reported alone is worse than
+    no metric, because it looks like evidence.
+
+    Scored per bundle against that bundle's own ground truth and its own pack,
+    so the comparison is like-for-like rather than against a figure quoted from
+    a different corpus.
+    """
+    from score_extraction import score_controls  # noqa: WPS433 - same directory
+
+    sums: dict[str, list[float]] = {}
+    for r in per_bundle:
+        if r.get("crashed"):
+            continue
+        gt = r.get("_ground_truth_factors")
+        pack = r.get("pack")
+        if not gt or not pack:
+            continue
+        try:
+            rows = score_controls(pack, gt)
+        except SystemExit:      # pack with no known factor list
+            continue
+        for name, s in rows.items():
+            sums.setdefault(name, []).append(s["overall_f1"])
+    return {name: (sum(v) / len(v)) for name, v in sums.items() if v}
+
+
+def per_factor_f1(per_bundle: list[dict], factor_names: list[str]) -> dict:
+    """F1 per credibility factor, which H2 requires "holds across the 19".
+
+    Aggregate detection rate is a mean over factors and hides the shape: a
+    model can look strong overall while missing one factor every time. Counted
+    across bundles, per factor:
+
+        TP  in ground truth as assessed, and extracted
+        FN  in ground truth as assessed, not extracted
+        FP  extracted, but not in this bundle's ground truth at all
+    """
+    tp: Counter = Counter()
+    fn: Counter = Counter()
+    fp: Counter = Counter()
+    for r in per_bundle:
+        if r.get("crashed"):
+            continue
+        fs = r.get("factor_score") or {}
+        for ft, fr in (fs.get("per_factor") or {}).items():
+            if (fr.get("ground_truth") or {}).get("expected_status") != "assessed":
+                continue
+            if fr.get("status") == "FOUND":
+                tp[ft] += 1
+            else:
+                fn[ft] += 1
+        for ft in fs.get("false_positives") or []:
+            fp[ft] += 1
+
+    out = {}
+    for ft in factor_names:
+        t, f_n, f_p = tp[ft], fn[ft], fp[ft]
+        if not (t or f_n or f_p):
+            out[ft] = {"support": 0, "precision": None, "recall": None, "f1": None}
+            continue
+        precision = t / (t + f_p) if (t + f_p) else 0.0
+        recall = t / (t + f_n) if (t + f_n) else 0.0
+        f1 = (2 * precision * recall / (precision + recall)) if (precision + recall) else 0.0
+        out[ft] = {
+            "support": t + f_n, "tp": t, "fn": f_n, "fp": f_p,
+            "precision": round(precision, 4), "recall": round(recall, 4),
+            "f1": round(f1, 4),
+        }
+    return out
 
 
 def aggregate(per_bundle: list[dict], factor_names: list[str]) -> dict:
@@ -355,8 +450,33 @@ def aggregate(per_bundle: list[dict], factor_names: list[str]) -> dict:
 
     dec = Counter(r["decision_verdict"] for r in scored if r.get("decision_verdict"))
 
-    att_ok = sum((r.get("attribution") or {}).get("correct", 0) for r in scored)
-    att_n = sum((r.get("attribution") or {}).get("scored", 0) for r in scored)
+    att = AttributionResult()
+    for r in scored:
+        a = r.get("attribution") or {}
+        att.scored += a.get("scored", 0)
+        att.right += a.get("correct", 0)
+        att.right_verbatim += a.get("correct_verbatim", 0)
+        att.gold_scorable += a.get("gold_scorable", 0)
+        att.abstained += a.get("abstained", 0)
+        att.misfiled += a.get("misfiled", 0)
+        att.unmatched += a.get("unmatched", 0)
+        att.extra_factor_rows += a.get("extra_factor_rows", 0)
+        att.rationale_tokens += a.get("rationale_tokens") or []
+
+    att_pairs = Counter()
+    for r in scored:
+        for row in r.get("attribution_confusion") or []:
+            for other in row["matches"]:
+                att_pairs[(row["filed_under"], other)] += 1
+
+    # Mean over bundles, per null. A corpus-level figure hides that the sweep
+    # crosses the candidate at a particular k, which is the number that matters.
+    null_means: dict[str, float] = {}
+    for r in scored:
+        for name, val in (r.get("attribution_nulls") or {}).items():
+            if val is not None:
+                null_means.setdefault(name, []).append(val)
+    null_means = {k: sum(v) / len(v) for k, v in null_means.items() if v}
 
     grounded = GroundednessResult()
     for r in scored:
@@ -375,8 +495,10 @@ def aggregate(per_bundle: list[dict], factor_names: list[str]) -> dict:
         "groundedness": grounded.as_dict(),
         "ungrounded": grounded.ungrounded,
         "schema": schema.as_dict(),
-        "attribution": {"correct": att_ok, "scored": att_n,
-                        "rate": att_ok / att_n if att_n else None},
+        "attribution": att.as_dict(),
+        "attribution_nulls": null_means,
+        "attribution_pairs": [{"filed_under": a, "matches": b, "n": n}
+                              for (a, b), n in att_pairs.most_common(15)],
         "decision_verdict": dict(dec),
         "extraction_cost": cost_summary,
         "min_overall_f1": min(bundle_f1) if bundle_f1 else None,
@@ -449,10 +571,16 @@ def write_markdown_summary(out_path: Path, header: dict, agg: dict) -> None:
         lines.append(f"| Groundedness | **{g['groundedness']:.3f}** | "
                      f"{g['claims_grounded']}/{g['claims_total']} claims trace to source |")
         a = agg.get("attribution") or {}
-        if a.get("rate") is not None:
-            lines.append(f"| Attribution | **{a['rate']:.3f}** | "
+        if a.get("scored"):
+            lines.append(f"| Attribution (loose) | **{a['rate']:.3f}** | "
                          f"{a['correct']}/{a['scored']} rationales cite evidence "
                          f"belonging to that factor |")
+            lines.append(f"| Attribution (verbatim) | {a['rate_verbatim']:.3f} | "
+                         f"{a['correct_verbatim']}/{a['scored']} quote the reference "
+                         f"outright rather than paraphrasing |")
+            lines.append(f"| Attribution over gold | {a['rate_over_gold']:.3f} | "
+                         f"{a['correct']}/{a['gold_scorable']}, abstention "
+                         f"({a['abstained']}) counted wrong rather than skipped |")
         if "distinctness" in g:
             lines.append(f"| Distinctness | **{g['distinctness']:.3f}** | "
                          f"{g['factors_distinct']}/{g['factors_with_rationale']} "
@@ -466,6 +594,76 @@ def write_markdown_summary(out_path: Path, header: dict, agg: dict) -> None:
         lines.append("Measures **fabrication, not attribution**: a real figure cited under the "
                      "wrong factor scores as grounded. Sign is not checked.")
         lines.append("")
+
+        nulls = agg.get("attribution_nulls") or {}
+        if a.get("scored") and nulls:
+            cand = a["rate"]
+            lines.append("#### Attribution against its nulls")
+            lines.append("")
+            lines.append("| null | rate | vs candidate |")
+            lines.append("|---|---|---|")
+            order = ["permutation", "first_sentence", "document_order",
+                     "shotgun_k1", "shotgun_k5", "shotgun_k12", "shotgun_k20"]
+            for name in [n for n in order if n in nulls] + \
+                        [n for n in nulls if n not in order]:
+                v = nulls[name]
+                mark = "**BEATS IT**" if v >= cand else f"{v - cand:+.3f}"
+                lines.append(f"| {name} | {v:.3f} | {mark} |")
+            lines.append("")
+            beaten = [n for n, v in nulls.items() if v >= cand]
+            if beaten:
+                lines.append(f"**{len(beaten)} null(s) reach or beat the candidate "
+                             f"({a['rate']:.3f}): {', '.join(sorted(beaten))}.** "
+                             "A shotgun rationale is k random source sentences, the "
+                             "identical blob filed under every factor, carrying no "
+                             "attribution judgment by construction. Whatever it "
+                             "scores is what rationale length alone buys.")
+            else:
+                lines.append(f"No null reaches the candidate ({a['rate']:.3f}) at any "
+                             "rationale length in the sweep.")
+            lines.append("")
+            lines.append(f"Candidate rationales run a median of "
+                         f"{a['rationale_tokens_median']:.0f} content tokens "
+                         f"(p90 {a['rationale_tokens_p90']:.0f}), which is where they "
+                         "sit on the sweep above.")
+            lines.append("")
+            perm = nulls.get("permutation")
+            if perm is not None:
+                lines.append(f"The permutation null ({perm:.3f}) is this run's own "
+                             "rationales with their labels shuffled, so it inherits "
+                             "their length and vocabulary. The candidate sits well "
+                             "above it, which means there is real signal here — and "
+                             "the shotgun rows mean the metric does not isolate it. "
+                             "Both are true; report them together.")
+                lines.append("")
+
+        pairs = agg.get("attribution_pairs") or []
+        if a.get("scored") and (a.get("misfiled") or a.get("unmatched")):
+            miss = a["scored"] - a["correct"]
+            lines.append("#### Where attribution fails")
+            lines.append("")
+            lines.append("Two failures, never added together — they call for opposite responses.")
+            lines.append("")
+            lines.append("| | count | share of misses |")
+            lines.append("|---|---|---|")
+            lines.append(f"| Misfiled — matches another factor's evidence | {a['misfiled']} | "
+                         f"{a['misfiled']/miss:.1%} |" if miss else "")
+            lines.append(f"| Unmatched — matches no factor's evidence | {a['unmatched']} | "
+                         f"{a['unmatched']/miss:.1%} |" if miss else "")
+            lines.append("")
+            lines.append("Misfiling is a routing problem: the evidence is in the document, under "
+                         "the wrong heading. Unmatched is a coverage or substance problem: either "
+                         "the rationale cites evidence the annotation does not cover, or it cites "
+                         "nothing checkable. A combined failure count tells you neither.")
+            lines.append("")
+            if pairs:
+                lines.append("Most confusable pairs, filed under -> evidence actually matched:")
+                lines.append("")
+                lines.append("| n | filed under | matched |")
+                lines.append("|---|---|---|")
+                for p in pairs:
+                    lines.append(f"| {p['n']} | {p['filed_under']} | {p['matches']} |")
+                lines.append("")
         lines.append("Distinctness is a fourth number, not implied by the other three: a control "
                      "quoting one sentence of the source for every factor scores coverage 1.000, "
                      "density 1.000 **and** groundedness 1.000, and only distinctness (0.000) "
@@ -604,6 +802,24 @@ def main() -> int:
         print(f"  [{i}/{len(bundles_to_score)}] {b['id']}: {status}")
 
     agg = aggregate(per_bundle, union_factors)
+    agg["null_controls"] = score_null_controls(per_bundle)
+    agg["per_factor_f1"] = per_factor_f1(per_bundle, union_factors)
+
+    # The delta is the number that means something. A bare detection F1 is
+    # reportable only beside what a constant scores on the same bundles.
+    if agg["null_controls"] and agg.get("mean_overall_f1") is not None:
+        best_name = max(agg["null_controls"], key=agg["null_controls"].get)
+        best = agg["null_controls"][best_name]
+        agg["control_comparison"] = {
+            "best_control": best_name,
+            "best_control_f1": round(best, 4),
+            "delta_vs_best_control": round(agg["mean_overall_f1"] - best, 4),
+            "beats_best_control": agg["mean_overall_f1"] > best,
+        }
+
+    # Drop the retained ground truth before serialising.
+    for r in per_bundle:
+        r.pop("_ground_truth_factors", None)
 
     output = {
         "run_at": run_at,

@@ -200,7 +200,10 @@ def extract(
     """
     if pack_prompt_path is None:
         from uofa_cli import paths
-        pack_prompt_path = paths.extract_prompt()
+        # Resolve from the pack being extracted, not from the active-pack
+        # default. Omitting pack_name here is what silently sent the V&V 40
+        # prompt to every NASA extraction; see paths.extract_prompt.
+        pack_prompt_path = paths.extract_prompt(pack_name)
 
     corpus_text = assemble_corpus_text(corpus)
 
@@ -808,8 +811,18 @@ def _validate_factor(
         fe.value = _coerce_int(fe.value, level_range)
         result[level_key] = fe
 
-    # Text fields
-    for text_key in ("acceptance_criteria", "rationale"):
+    # Text fields.
+    #
+    # `evidence_span` is the quotable sentence the prompt asks for, separate
+    # from `rationale`, which is the model's reading of it. The separation is
+    # the point: rationales are written in the filed factor's own vocabulary
+    # regardless of what evidence they quote, so anything scoring the rationale
+    # is partly scoring the label. A verbatim span is not.
+    #
+    # This list is a whitelist -- `_parse_kv_block` accepts unknown keys, but a
+    # field absent here is dropped one function later without a word, which is
+    # how a prompt change can look like it did nothing.
+    for text_key in ("acceptance_criteria", "rationale", "evidence_span"):
         result[text_key] = _to_field(factor.get(text_key, {}))
 
     # Status

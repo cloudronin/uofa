@@ -64,31 +64,15 @@ from keyless_extract_probe import (  # noqa: E402
 )
 from schema_controls import control_first_sentence  # noqa: E402
 
-# A sentence ends at .!? + whitespace + capital/quote/bullet. The lookbehind
-# excludes a digit, so "0.72%" never splits, and excludes the common
-# abbreviations that otherwise fragment engineering prose.
-_ABBREV = r"(?<!\bapprox)(?<!\bFig)(?<!\bEq)(?<!\bNo)(?<!\bvs)(?<!\bcf)(?<!\bi\.e)(?<!\be\.g)"
-_SENTENCE = re.compile(rf"(?<=[.!?]){_ABBREV}(?<!\d\.)\s+(?=[A-Z\"“(\-•])")
+# The segmenter moved to uofa_cli.segmentation so the shipped keyless route can
+# import it too -- it had its own naive splitter, which truncated "0.72%" to
+# "0.". Re-exported here under the same name so the fifteen dev components that
+# import it from this module are unchanged.
+from uofa_cli.segmentation import sentences  # noqa: E402,F401
 
 # A quotable span has to be long enough to carry evidence and short enough to be
 # a citation rather than a page dump.
 _MIN_SPAN, _MAX_SPAN = 40, 400
-
-
-def sentences(text: str) -> list[str]:
-    """Split into sentences without breaking decimals or abbreviations."""
-    out: list[str] = []
-    for block in text.split("\n"):
-        block = block.strip()
-        if not block:
-            continue
-        # Markdown table rows and bullets are single units; splitting them on
-        # punctuation produces fragments that quote as nonsense.
-        if block.startswith(("|", "-", "*", "#")):
-            out.append(block)
-            continue
-        out.extend(s.strip() for s in _SENTENCE.split(block) if s.strip())
-    return out
 
 
 def quote_for(anchor_phrases: list[str], spans: list[str],

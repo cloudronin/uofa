@@ -225,24 +225,63 @@ should run the CLI.
 
 ## 7. Limits
 
-### Extraction quality is model-dependent, and the dependence is sharp
+### The detection score does not measure extraction quality, and we can show it
 
-Scored against a held-out corpus of synthetic assessment bundles, raw extraction
-by `meta-llama/Llama-3.3-70B-Instruct-Turbo` achieves:
+Scored against a corpus of synthetic assessment bundles, raw extraction by
+`meta-llama/Llama-3.3-70B-Instruct-Turbo` gives:
 
-| split | bundles | mean overall F1 | groundedness |
-|---|---|---|---|
-| held-out test | 20 | **0.8909** | 1.000 (89/89 claims) |
-| development | 30 | 0.9035 | 1.000 (107/107 claims) |
+| split | bundles | mean overall F1 | **null control** | groundedness (coverage / claim density / grounded) |
+|---|---|---|---|---|
+| held-out test | 20 | 0.9544 | **0.9544** | 1.000 / 0.216 / 1.000 |
+| development | 30 | 0.9637 | **0.9637** | 1.000 / 0.188 / 0.982 |
+
+The null control is `control_constant_list`: emit the pack's fixed checklist of
+factor names, having read no input at all. It ties the extractor to four decimal
+places on both splits. **This metric cannot distinguish reading the document
+from not reading it**, so it can neither support nor refute a claim about
+extraction quality, and it is reported here to gate nothing.
+
+Earlier revisions of this page gave 0.8909 and 0.9035 for these splits without
+the control beside them, and described the held-out figure as clearing its
+threshold. Both numbers were real and both were misleading, in two ways worth
+stating plainly:
+
+- They sat **below** their null controls (0.9544 and 0.9637), which was not
+  disclosed because the controls were not reported.
+- On the NASA half of each corpus they were measuring a routing bug, not
+  extraction. `uofa extract --pack nasa-7009b` was sending the model the ASME
+  V&V 40 prompt, so six of the nineteen NASA factors were never asked about and
+  scored 0.000 each. Fixed; the NASA half moves 0.8385 to 0.9588 on dev and
+  0.8167 to 0.9436 on test, and the V&V 40 half does not move at all. See
+  `studies/nasa-prompt-routing/FINDINGS.md`.
+
+Both figures stay on this page. The pairing — a score, beside a control that
+equals it — is the disclosure, not a footnote to it.
+
+Groundedness is given as the triple and should be read as one. At a claim
+density of 0.19–0.22, "groundedness 1.000" describes about a fifth of the
+output, and it is close to tautological for an extractor that mostly quotes.
+
+That is not a hypothetical caution. The migration to hosted inference cut the
+corpus's checkable claims from 864 to 200 while coverage *rose* to 1.000 and
+groundedness held at 0.99. Two of the three numbers moved the reassuring way
+while three quarters of the verifiable content disappeared. Reported alone,
+either one would have described that as an improvement. The same run shows
+`acceptance_criteria` distinctness across documents falling from 0.937 to 0.443
+— the model writes one generic criterion per factor and reuses it everywhere,
+which within-bundle counts cannot see. Both are open questions with declared
+thresholds in `studies/hosted-model-specificity/FINDINGS.md`, and neither has
+been scored against gold: what is established is that the field stopped varying
+with the document, not that it is wrong.
 
 These are **raw** figures: the scorer runs extraction and compares to ground
-truth with no adjudication step. They are the numbers the extraction hypothesis
-should be judged on. Adjudicated performance would be higher and would measure
-something else — the practical ceiling of tool-plus-operator, not the tool.
+truth with no adjudication step. Adjudicated performance would be higher and
+would measure something else — the practical ceiling of tool-plus-operator, not
+the tool. All runs are single runs without seed control.
 
-Both runs are single runs without seed control, and the held-out figure clears
-its threshold by a small margin. It should be repeated before being treated as
-settled.
+A replacement criterion, built on attribution and the groundedness triple with
+its own null battery, is under construction. It is not yet measured, and nothing
+on this page should be read as though it were.
 
 ### A failure mode found by testing, not by reasoning
 

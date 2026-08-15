@@ -236,9 +236,20 @@ def _reading_message(llm_config=None) -> str:
 
 
 def _prompt_path_for(pack: str) -> Path:
-    pdir = paths.pack_dir(pack)
-    manifest = json.loads((pdir / "pack.json").read_text(encoding="utf-8"))
-    return pdir / manifest["prompt"]
+    """One definition, shared with the CLI.
+
+    This used to resolve the pack directory and read its manifest here -- the
+    correct logic, written out a second time. That duplication is why the CLI's
+    routing bug survived: `paths.extract_prompt()` took no pack name and
+    returned the V&V 40 prompt for every pack, so every NASA extraction through
+    `uofa extract` asked for 13 V&V 40 factors. The Space was unaffected because
+    it had its own copy, and nothing compared the two.
+
+    A correct duplicate does not protect the codebase; it hides the broken
+    original. Same shape as the two sentence segmenters found the same
+    afternoon. See studies/nasa-prompt-routing/FINDINGS.md.
+    """
+    return paths.extract_prompt(pack)
 
 
 def _has_usable_factors(result) -> bool:

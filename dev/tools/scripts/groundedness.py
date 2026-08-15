@@ -76,7 +76,9 @@ and `score_factors` does not read them, so nothing downstream would catch it.
 
 from __future__ import annotations
 
+import random
 import re
+import statistics
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -401,6 +403,162 @@ def score_factor_rationales(factors: list[dict], source_text: str,
     return res
 
 
+@dataclass
+class AttributionResult:
+    """What attribution scoring returns, in the shape GroundednessResult set.
+
+    `(right, scored)` was a two-integer return, and every question anyone
+    actually asked of it needed a third number that had been thrown away:
+
+    - **abstention is invisible.** A factor with no reference keywords is
+      skipped, so it leaves the denominator entirely. On the shipped corpus the
+      reported rate is 0.638 and `rate_over_gold` -- the same numerator over
+      every gold-scorable factor -- is 0.537. Abstaining inflates the headline
+      by ten points, and the two-integer return could not show it.
+    - **loose and verbatim were merged.** The rule counts a paraphrase, which is
+      right (98% of sonnet's rationales are written rather than quoted, so a
+      verbatim-only rule scored it 0.422 against K6's 0.645 and would have read
+      as "a TF-IDF classifier attributes better than sonnet"). But the two
+      numbers say different things and only one was ever reported: 0.638 loose
+      against 0.364 verbatim.
+    - **the two failure kinds were summed.** Misfiled and unmatched call for
+      opposite responses; see `attribution_confusion`.
+    - **length was not recorded**, and length is the metric's known defect: a
+      20-sentence shotgun scores 0.9284 against the extractor's 0.6383. A run
+      that does not record its own rationale lengths cannot be compared to the
+      null battery afterwards.
+
+    `rate` stays the historical number so nothing silently re-baselines. Report
+    it beside `rate_over_gold`, never alone.
+    """
+
+    scored: int = 0                 # rationales with a usable reference
+    right: int = 0                  # ... that matched, loose rule
+    right_verbatim: int = 0         # ... that quoted the reference outright
+    gold_scorable: int = 0          # factors the gold could have scored
+    abstained: int = 0              # gold-scorable factors not scored
+    misfiled: int = 0
+    unmatched: int = 0
+    extra_factor_rows: int = 0      # emitted factors absent from the gold
+    rationale_tokens: list[int] = field(default_factory=list)
+    permutation_null: float | None = None
+
+    @property
+    def rate(self) -> float:
+        """The historical figure: matched over scored. Never report alone."""
+        return self.right / self.scored if self.scored else 0.0
+
+    @property
+    def rate_verbatim(self) -> float:
+        return self.right_verbatim / self.scored if self.scored else 0.0
+
+    @property
+    def rate_over_gold(self) -> float:
+        """Matched over every factor the gold could have scored.
+
+        Abstention counted wrong rather than counted nowhere. This is the number
+        that does not improve when the extractor declines to answer.
+        """
+        return self.right / self.gold_scorable if self.gold_scorable else 0.0
+
+    @property
+    def tokens_median(self) -> float:
+        return statistics.median(self.rationale_tokens) if self.rationale_tokens else 0.0
+
+    @property
+    def tokens_p90(self) -> float:
+        if not self.rationale_tokens:
+            return 0.0
+        ordered = sorted(self.rationale_tokens)
+        return float(ordered[min(len(ordered) - 1, int(0.9 * len(ordered)))])
+
+    def as_dict(self) -> dict:
+        return {
+            "rate": self.rate,
+            "rate_verbatim": self.rate_verbatim,
+            "rate_over_gold": self.rate_over_gold,
+            "correct": self.right,
+            "correct_verbatim": self.right_verbatim,
+            "scored": self.scored,
+            "gold_scorable": self.gold_scorable,
+            "abstained": self.abstained,
+            "misfiled": self.misfiled,
+            "unmatched": self.unmatched,
+            "extra_factor_rows": self.extra_factor_rows,
+            "rationale_tokens_median": self.tokens_median,
+            "rationale_tokens_p90": self.tokens_p90,
+            # The raw lengths, not just their summary. A median of medians is
+            # not a median, and the whole point of recording length is to place
+            # the candidate on the shotgun sweep -- which needs the real
+            # distribution once bundles are pooled.
+            "rationale_tokens": list(self.rationale_tokens),
+            "permutation_null": self.permutation_null,
+        }
+
+
+def assert_attribution_available(result: AttributionResult) -> None:
+    """An unmeasured attribution may not render as a passed one.
+
+    `score_attribution` returns zeros when the ground truth carries no
+    `evidence_keywords`, and zeros render as an omitted row -- indistinguishable
+    from "not run". That is the vacuous-pass class AGENTS.md 13 already names:
+    *if a thing was not measured, say so where the result is read.*
+
+    Callers that intend to report attribution call this first, so a corpus with
+    no reference fails loudly instead of quietly reporting nothing.
+    """
+    if result.scored == 0:
+        raise SystemExit(
+            "ATTRIBUTION NOT MEASURED: no factor carried a usable reference "
+            f"(gold_scorable={result.gold_scorable}, "
+            f"extra_factor_rows={result.extra_factor_rows}). This renders as an "
+            "omitted row, which reads as a pass. Score against a corpus whose "
+            "ground truth carries evidence_keywords, or state that attribution "
+            "was not measured where the result is read."
+        )
+
+
+def score_attribution_full(factors: list[dict], ground_truth: dict) -> AttributionResult:
+    """`score_attribution`, keeping everything it used to discard.
+
+    Same rule, same numbers -- `res.right, res.scored` is exactly what
+    `score_attribution` returns, and a test pins that on the live corpus.
+    """
+    res = AttributionResult()
+    if not ground_truth:
+        return res
+    want = _keyword_table(ground_truth)
+    res.gold_scorable = sum(1 for kws in want.values() if kws)
+
+    seen: set[str] = set()
+    for f in factors:
+        name = f.get("factor_type")
+        rationale = f.get("rationale")
+        if name not in want:
+            res.extra_factor_rows += 1
+            continue
+        seen.add(name)
+        kws = want.get(name) or []
+        if not isinstance(rationale, str) or not rationale.strip() or not kws:
+            continue
+        res.scored += 1
+        res.rationale_tokens.append(len(_tokens(rationale)))
+        if _matches(rationale, kws):
+            res.right += 1
+            if any(k in " ".join(rationale.split()).lower() for k in kws):
+                res.right_verbatim += 1
+            continue
+        others = [o for o, oks in want.items()
+                  if o != name and oks and _matches(rationale, oks)]
+        if others:
+            res.misfiled += 1
+        else:
+            res.unmatched += 1
+
+    res.abstained = res.gold_scorable - res.scored
+    return res
+
+
 def score_attribution(factors: list[dict], ground_truth: dict) -> tuple[int, int]:
     """Is each rationale about the factor it was filed under?
 
@@ -443,27 +601,88 @@ def score_attribution(factors: list[dict], ground_truth: dict) -> tuple[int, int
     """
     if not ground_truth:
         return 0, 0
-    want = {f.get("factor_type"): [" ".join(str(k).split()).lower()
-                                   for k in (f.get("evidence_keywords") or [])]
-            for f in ground_truth.get("expected_factors", [])}
+    want = _keyword_table(ground_truth)
     right = scored = 0
     for f in factors:
         rationale = f.get("rationale")
-        kws = [k for k in (want.get(f.get("factor_type")) or []) if len(k) >= 4]
+        kws = want.get(f.get("factor_type")) or []
         if not isinstance(rationale, str) or not rationale.strip() or not kws:
             continue
         scored += 1
-        low = " ".join(rationale.split()).lower()
-        toks = set(re.findall(r"[a-z0-9.%-]{3,}", low))
-        for k in kws:
-            if k in low:                                  # quoted outright
-                right += 1
-                break
-            ktok = set(re.findall(r"[a-z0-9.%-]{3,}", k))
-            if ktok and len(ktok & toks) / len(ktok) >= 0.5:   # paraphrased
-                right += 1
-                break
+        if _matches(rationale, kws):
+            right += 1
     return right, scored
+
+
+def _keyword_table(ground_truth: dict) -> dict[str, list[str]]:
+    """factor -> its usable reference keywords. Shared so nothing can diverge."""
+    return {f.get("factor_type"): [k for k in
+                                   (" ".join(str(k).split()).lower()
+                                    for k in (f.get("evidence_keywords") or []))
+                                   if len(k) >= 4]
+            for f in ground_truth.get("expected_factors", [])}
+
+
+def _matches(rationale: str, keywords: list[str]) -> bool:
+    """The attribution rule itself, in one place.
+
+    Quoted outright, or at least half the keyword's content tokens present.
+    Extracted from score_attribution so attribution_confusion below asks the
+    identical question of every other factor -- a confusion table computed by a
+    slightly different rule than the score it explains is worse than no table.
+    """
+    low = " ".join(rationale.split()).lower()
+    toks = set(re.findall(r"[a-z0-9.%-]{3,}", low))
+    for k in keywords:
+        if k in low:                                      # quoted outright
+            return True
+        ktok = set(re.findall(r"[a-z0-9.%-]{3,}", k))
+        if ktok and len(ktok & toks) / len(ktok) >= 0.5:  # paraphrased
+            return True
+    return False
+
+
+def attribution_confusion(factors: list[dict], ground_truth: dict) -> list[dict]:
+    """For each attribution failure, which factor's evidence did it match instead?
+
+    `score_attribution` returns a count. A count of 142 failures is 142
+    anonymous events; the same failures resolved into pairs are a short ranked
+    list of confusable factors, and that list is actionable where the count is
+    not.
+
+    Two failure kinds, kept separate and never summed in prose:
+
+      misfiled   the rationale matches some OTHER factor's keywords. The
+                 evidence is in the document and filed under the wrong heading.
+      unmatched  it matches nothing. Either the rationale cites evidence the
+                 annotation does not cover, or it cites nothing checkable.
+
+    They call for opposite responses -- misfiling is a routing problem, and
+    unmatched is a coverage or a substance problem -- so a combined "attribution
+    failures: 142" tells you which action to take exactly never.
+
+    A rationale can match several other factors; all are recorded. This reads
+    the same `evidence_keywords` as the score, under the same rule, so a row
+    here always corresponds to a miss there.
+    """
+    if not ground_truth:
+        return []
+    want = _keyword_table(ground_truth)
+    out: list[dict] = []
+    for f in factors:
+        filed = f.get("factor_type")
+        rationale = f.get("rationale")
+        kws = want.get(filed) or []
+        if not isinstance(rationale, str) or not rationale.strip() or not kws:
+            continue
+        if _matches(rationale, kws):
+            continue
+        others = sorted(other for other, oks in want.items()
+                        if other != filed and oks and _matches(rationale, oks))
+        out.append({"filed_under": filed,
+                    "matches": others,
+                    "kind": "misfiled" if others else "unmatched"})
+    return out
 
 
 # Wording a document uses to state a verdict. Absence of all of it means the
@@ -583,3 +802,285 @@ def print_groundedness(res: GroundednessResult) -> None:
     print(f"  {'─' * 50}")
     print("  Measures fabrication, not attribution: a real number cited under the")
     print("  wrong factor scores as grounded.")
+
+
+# ── the null battery ─────────────────────────────────────────
+#
+# Every other metric in this harness is reported against a null that reads no
+# input, because that is what makes a scalar interpretable. Attribution shipped
+# without one for months, and when the nulls were finally built they
+# disqualified it: a "shotgun" rationale of k random source sentences, filed
+# identically under EVERY factor and carrying no attribution judgment at all,
+# beats the real extractor once k is large enough.
+#
+#     the real extractor   0.6383
+#     shotgun k=5          0.5884
+#     shotgun k=12         0.7740
+#     shotgun k=20         0.9284
+#
+# That is the same failure as detection F1, one metric to the right, and it is
+# why Phase 3 replaces the rule rather than tuning its threshold.
+#
+# There IS signal underneath. A label-shuffle permutation null -- the extractor's
+# own rationales, reassigned to factors at random -- scores 0.0955 +/- 0.0145, so
+# 0.638 sits about 37 standard deviations above chance. The metric is
+# unnormalised, not meaningless. Both facts have to be reported together: the
+# permutation null alone reads as "far above chance, therefore good", and the
+# length sweep alone reads as "meaningless".
+
+
+def _rationale_pool(factors: list[dict]) -> list[str]:
+    return [f["rationale"] for f in factors
+            if isinstance(f.get("rationale"), str) and f["rationale"].strip()]
+
+
+def null_document_order(factor_names: list[str], sentences_: list[str]) -> list[dict]:
+    """Walk the document in order, one sentence per factor. Reads no labels.
+
+    The constant router. Measured at 0.058 in the keyless pipeline against a
+    real router's 0.62, which is the one place attribution has behaved like a
+    discriminating metric.
+    """
+    return [{"factor_type": n, "rationale": sentences_[i % len(sentences_)]}
+            for i, n in enumerate(factor_names)] if sentences_ else []
+
+
+def null_first_sentence(factor_names: list[str], sentences_: list[str]) -> list[dict]:
+    """One sentence of the document, pasted under every factor."""
+    return [{"factor_type": n, "rationale": sentences_[0]}
+            for n in factor_names] if sentences_ else []
+
+
+def null_shotgun(factor_names: list[str], sentences_: list[str], k: int,
+                 seed: int = 0) -> list[dict]:
+    """k random source sentences, the SAME blob under every factor.
+
+    Carries zero attribution judgment by construction: every factor gets an
+    identical rationale, so nothing about it can be about which factor it was
+    filed under. Whatever it scores is what length alone buys.
+    """
+    if not sentences_:
+        return []
+    rng = random.Random(seed)
+    blob = " ".join(rng.sample(sentences_, min(k, len(sentences_))))
+    return [{"factor_type": n, "rationale": blob} for n in factor_names]
+
+
+def permutation_null(factors: list[dict], ground_truth: dict,
+                     iterations: int = 200, seed: int = 0) -> dict:
+    """Chance level for THIS run: its own rationales, labels shuffled.
+
+    Computed on the run's own rationales rather than on synthetic text, so it
+    inherits their length and vocabulary. That is the point -- a null written
+    independently would differ from the candidate in length as well as in
+    attribution, and length is the confound under investigation.
+
+    Milliseconds for 200 iterations; there is no reason to report attribution
+    without it.
+    """
+    pool = _rationale_pool(factors)
+    names = [f.get("factor_type") for f in factors]
+    if len(pool) < 2:
+        return {"mean": 0.0, "sd": 0.0, "iterations": 0}
+
+    rng = random.Random(seed)
+    rates = []
+    for _ in range(iterations):
+        shuffled = pool[:]
+        rng.shuffle(shuffled)
+        permuted = [{"factor_type": n, "rationale": r}
+                    for n, r in zip(names, shuffled)]
+        right, scored = score_attribution(permuted, ground_truth)
+        if scored:
+            rates.append(right / scored)
+    if not rates:
+        return {"mean": 0.0, "sd": 0.0, "iterations": 0}
+    return {"mean": statistics.mean(rates),
+            "sd": statistics.pstdev(rates) if len(rates) > 1 else 0.0,
+            "iterations": len(rates)}
+
+
+def null_battery(factors: list[dict], ground_truth: dict, sentences_: list[str],
+                 seed: int = 0) -> dict:
+    """Every null, plus the length sweep, in one call.
+
+    Returns {name: rate}. A candidate that any of these reaches has not
+    demonstrated attribution, and the shotgun row that reaches it tells you at
+    what rationale length it stopped meaning anything.
+    """
+    names = [f.get("factor_type") for f in factors if f.get("factor_type")]
+    if not names:
+        return {}
+
+    def rate(rows: list[dict]) -> float | None:
+        right, scored = score_attribution(rows, ground_truth)
+        return right / scored if scored else None
+
+    out = {
+        "document_order": rate(null_document_order(names, sentences_)),
+        "first_sentence": rate(null_first_sentence(names, sentences_)),
+    }
+    for k in (1, 5, 12, 20):
+        out[f"shotgun_k{k}"] = rate(null_shotgun(names, sentences_, k, seed))
+    out["permutation"] = permutation_null(factors, ground_truth, seed=seed)["mean"]
+    return out
+
+
+# ── Phase 3: attribution that length cannot buy ──────────────
+
+
+def _sentence_offsets(text: str, sents: list[str]) -> list[tuple[int, int]]:
+    """Character span of each sentence in the normalised text.
+
+    Lifted from v1_real_attribution rather than rewritten. Matching a reference
+    *inside* one sentence fails: references are what a reviewer would cite, and
+    those run across the segmenter's boundaries. Map by character offset and
+    accept every sentence the reference touches.
+    """
+    flat = _norm_ws(text)
+    offs, cur = [], 0
+    for s in sents:
+        n = _norm_ws(s)
+        i = flat.find(n, cur)
+        if i < 0:
+            i = cur
+        offs.append((i, i + len(n)))
+        cur = i + len(n)
+    return offs
+
+
+def _norm_ws(s: str) -> str:
+    return " ".join(str(s).split()).lower()
+
+
+def _is_furniture(s: str) -> bool:
+    """Heading, table row, bullet or rule -- document structure, not evidence.
+
+    Measured on the shipped corpus: 783 of the raw gold sentences are furniture,
+    because an `evidence_keywords` fragment lands in a markdown heading or a
+    table row often enough to matter. That records a location no reviewer would
+    cite and no extractor should be asked to hit, and it penalises a rule that
+    correctly finds the prose sentence carrying the same evidence.
+
+    Adjudicating the rows where the old and new rules disagreed, 91 of 176 -- at
+    least 52%, and the true figure is higher because the auto-triage was
+    conservative -- were this, not a rule error.
+
+    A defect in the reference is not a defect in what is scored against it.
+    """
+    t = s.lstrip()
+    return t.startswith(("#", "|", "*", "---", "===")) or (
+        t.startswith("-") and not t[1:2].isdigit())
+
+
+def gold_sentence_sets(ground_truth: dict, text: str, sents: list[str],
+                       drop_furniture: bool = True) -> dict[str, set[int]]:
+    """factor -> the sentence indices its reference keywords land in.
+
+    `drop_furniture=False` reproduces the raw sets, so both numbers can be
+    reported and the filter's effect on the nulls can be checked. A filter that
+    lifts the nulls is removing difficulty rather than noise.
+    """
+    flat = _norm_ws(text)
+    offs = _sentence_offsets(text, sents)
+    gold: dict[str, set[int]] = {}
+    for f in ground_truth.get("expected_factors", []):
+        name = f.get("factor_type")
+        for kw in f.get("evidence_keywords") or []:
+            n = _norm_ws(kw)
+            if len(n) < 4:
+                continue
+            start = flat.find(n)
+            if start < 0:
+                continue
+            end = start + len(n)
+            for i, (lo, hi) in enumerate(offs):
+                if lo < end and start < hi:
+                    if drop_furniture and _is_furniture(sents[i]):
+                        continue
+                    gold.setdefault(name, set()).add(i)
+    return gold
+
+
+def _token_f1(a: set[str], b: set[str]) -> float:
+    if not a or not b:
+        return 0.0
+    inter = len(a & b)
+    if not inter:
+        return 0.0
+    p, r = inter / len(b), inter / len(a)
+    return 2 * p * r / (p + r)
+
+
+def locate_sentence(text: str, sents: list[str],
+                    sent_tokens: list[set[str]] | None = None) -> int | None:
+    """Which source sentence is this text about? argmax token-F1.
+
+    F1 rather than raw overlap is what makes the rule length-invariant. Overlap
+    grows monotonically as the candidate text gets longer -- which is precisely
+    the defect being repaired -- while F1 penalises a candidate that matches a
+    sentence by simply containing everything.
+    """
+    tt = _tokens(text)
+    if not tt:
+        return None
+    toks = sent_tokens if sent_tokens is not None else [_tokens(s) for s in sents]
+    best, best_score = None, 0.0
+    for i, st in enumerate(toks):
+        score = _token_f1(st, tt)
+        if score > best_score:
+            best, best_score = i, score
+    return best
+
+
+def score_attribution_by_sentence(factors: list[dict], ground_truth: dict,
+                                  text: str, sents: list[str],
+                                  field: str = "rationale",
+                                  drop_furniture: bool = True) -> AttributionResult:
+    """Attribution scored in sentence indices, not keyword overlap.
+
+    The unit `attribution_agreement.py` and `d1_annotator_agreement.py` already
+    score in, which is what finally makes the 91.3% same-sentence agreement
+    figure commensurable with the metric.
+
+    A rationale is correctly attributed when the sentence it is most about is
+    one of the sentences its factor's evidence lives in. Length buys nothing: a
+    longer text does not become *more about* any particular sentence, because
+    token-F1 penalises the extra tokens that match nothing.
+
+    Honest cost, measured: the headline falls from 0.638 to roughly 0.418. That
+    is the price of a number a verbose null cannot reach.
+
+    `field` selects the text scored. The pre-registered primary is `rationale`;
+    `evidence_span` is reported beside it, per studies/evidence-span/.
+    """
+    res = AttributionResult()
+    gold = gold_sentence_sets(ground_truth, text, sents, drop_furniture)
+    res.gold_scorable = sum(1 for v in gold.values() if v)
+    if not gold:
+        return res
+
+    sent_tokens = [_tokens(s) for s in sents]
+    for f in factors:
+        name = f.get("factor_type")
+        value = f.get(field)
+        if name not in gold or not gold[name]:
+            if name not in gold:
+                res.extra_factor_rows += 1
+            continue
+        if not isinstance(value, str) or not value.strip():
+            continue
+        res.scored += 1
+        res.rationale_tokens.append(len(_tokens(value)))
+        predicted = locate_sentence(value, sents, sent_tokens)
+        if predicted is not None and predicted in gold[name]:
+            res.right += 1
+            if _norm_ws(value) in _norm_ws(text):
+                res.right_verbatim += 1
+        elif predicted is not None and any(predicted in g for g in gold.values()):
+            res.misfiled += 1        # localised, but to another factor's evidence
+        else:
+            res.unmatched += 1       # localised nowhere any factor's evidence lives
+
+    res.abstained = res.gold_scorable - res.scored
+    return res

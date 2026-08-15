@@ -47,9 +47,8 @@ usually wrong.
 """
 from __future__ import annotations
 
-import re
-
 from uofa_cli.llm_extractor import ExtractionResult, FieldExtraction
+from uofa_cli.segmentation import sentences as segment
 
 # Routes whose numbers are quoted above, so a reader can check one against the
 # other without leaving the file.
@@ -70,11 +69,16 @@ _CONF = {
     "files": 1.000,
 }
 
-_SENT = re.compile(r"(?<=[.!?])\s+(?=[A-Z(])")
-
 
 def _sentences(text: str) -> list[str]:
-    return [s for s in (t.strip() for t in _SENT.split(text)) if len(s) > 12]
+    """Segment, then drop fragments too short to carry evidence.
+
+    The splitter used to be local and naive -- `(?<=[.!?])\\s+(?=[A-Z(])` -- so
+    it cut inside decimals and turned "head rise is 0.72%" into "head rise is
+    0.". Every dev component already used the careful one; this route, the one
+    users run, did not. See uofa_cli.segmentation.
+    """
+    return [s for s in segment(text) if len(s) > 12]
 
 
 def _fe(value, conf: float, source: str | None = None) -> FieldExtraction:

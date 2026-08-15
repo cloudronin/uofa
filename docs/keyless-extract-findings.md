@@ -31,7 +31,21 @@ errors:
 |---|---|---|
 | `decision` | 26 | Both extract prompts instruct *"accepted, not accepted, or **conditionally accepted**"*. The shape allows only `Accepted` / `Not accepted`. **The prompt told the extractor to emit a value the schema forbids.** |
 | `deviceClass` | 25 | Core imposed FDA medical classes on every pack. **The packages that passed were the ones that lied** — 14 turbomachinery models labelled "Class II" — while packages honestly writing "Turbomachinery (Centrifugal Pump)" failed. The constraint rewarded fabrication and punished accuracy. |
-| `wasDerivedFrom` | 27/27, then 59/59 | Satisfied by the template's own help text, `"DOI, report number, or URI"`. JSON-LD coerces the string to a `file://` URI, which satisfies `nodeKind sh:IRI`. **A required property met by the instructions for meeting it.** |
+| `wasDerivedFrom` | 27/27, then 59/59 | Satisfied by the template's own help text, `"DOI, report number, or URI"`. JSON-LD coerces the string to a `file://` URI, which satisfies `nodeKind sh:IRI`. **A required property met by the instructions for meeting it.** — **Repaired 2026-08-14**, see below. |
+
+**`wasDerivedFrom` is fixed.** `_stamp_source_documents` sets the property from
+the files the pipeline actually opened, rather than asking the model for it: the
+pipeline knows their names, and a model guessing at them can only be wrong.
+Stamping it also removes the hallucinated-DOI failure mode, which is the one
+that matters for a provenance field on a credibility artefact.
+
+Verified on `bundle_vv40_cfd_001`: the imported package carries
+`wasDerivedFrom -> "appendix.md; report.md"`, and the help string appears nowhere
+in it. The 27/27 and 59/59 figures above are **historical** — they describe the
+defect as measured, not the current pipeline. The other two rows in this table
+(`decision`, `deviceClass`) were repaired earlier in the same effort.
+
+Triage: `studies/negative-control-triage/FINDINGS.md`.
 
 None of this was visible in any number the project reported. The eval scored one
 property of thirteen and never validated anything, so a package could be

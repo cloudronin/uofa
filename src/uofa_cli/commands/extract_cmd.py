@@ -190,7 +190,7 @@ def run(args) -> int:
     else:
         step_header(f"Extracting with {model}...")
 
-        pack_prompt_path = paths.extract_prompt()
+        pack_prompt_path = paths.extract_prompt(pack_name)
 
         try:
             result = extract(
