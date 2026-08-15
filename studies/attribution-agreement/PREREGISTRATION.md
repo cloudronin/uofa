@@ -60,3 +60,58 @@ Two kill criteria in this project have been run and passed while meaning
 nothing. A threshold chosen after seeing the measurement is not a gate, and the
 H2 detection-F1 gate is this month's example of what that costs. The date on
 this file is the point.
+
+---
+
+# RESULT — 2026-08-14, run after the above was committed
+
+`attribution_agreement.py --n 10`, `claude-sonnet-4-6` re-annotating against
+gpt-5's `evidence_keywords`, corpus `tests/fixtures/extract_corpus_v2/dev`.
+
+| measurement | value |
+|---|---|
+| factor selection — both annotators marked the factor | 161 / 175 (0.920) |
+| **same-sentence agreement (the declared measurement)** | **147 / 161 (0.913)** |
+| ≥50% token overlap (the rule `score_attribution` uses) | 156 / 161 (0.969) |
+
+gpt-5 marked 8 factors Claude did not; Claude marked 6 gpt-5 did not.
+
+**Branch taken: agreement >= 0.60.** 0.913 clears the declared threshold by
+0.313. None of the three `< 0.60` consequences bind. The labels track something
+in the documents rather than one model's taste, attribution figures stand as
+written, and the annotator caveat is stated once wherever they are cited rather
+than qualifying each number individually.
+
+K6's 0.615 stands as reported. The docstring's stated risk — trained on gpt-5's
+labels and tested against gpt-5's labels — is not eliminated by this, but it is
+bounded: a second family reading the same documents lands on the same sentence
+91% of the time, so the labels are not idiosyncratic in the way that would have
+made 0.615 mostly an artefact of learning one annotator's habits.
+
+## Three things this result does not settle
+
+**The corpus is single-standard.** All ten bundles are `bundle_nasa_*`. The
+figure is agreement on NASA-STD-7009B synthetic documents and is not evidence
+about V&V 40 documents or real ones.
+
+**High agreement has two explanations and this cannot separate them.** Either
+the labels are sound, or the synthetic documents are unusually unambiguous —
+they were generated to carry specific evidence, so two competent readers finding
+the same sentence may be a fact about the corpus rather than about annotation.
+The real-document assets (`docs/v1/annot_*.json`, the 23 author-written
+rationales) remain the check on that, and this result is a reason to keep them
+as corroborators rather than a reason to stop needing them.
+
+**It says nothing about the attribution rule.** As declared above: the rule is
+separately disqualified because a 20-sentence shotgun scores 0.9284 against the
+extractor's 0.6383. Sound labels measured with a broken ruler are still measured
+with a broken ruler. Phases 1 and 3 are unaffected by this result.
+
+## A note on the two thresholds
+
+This pre-registration declared 0.60. The script's own printed interpretation
+uses 0.80. The result clears both, so nothing turned on it — but had it landed
+between them, two committed thresholds would have disagreed about the same
+measurement, and the one written later would have looked chosen. Worth fixing
+before the next pre-registration: check for an existing threshold in the
+instrument before declaring one beside it.
