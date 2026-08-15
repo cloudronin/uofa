@@ -262,6 +262,18 @@ Groundedness is given as the triple and should be read as one. At a claim
 density of 0.19–0.22, "groundedness 1.000" describes about a fifth of the
 output, and it is close to tautological for an extractor that mostly quotes.
 
+That is not a hypothetical caution. The migration to hosted inference cut the
+corpus's checkable claims from 864 to 200 while coverage *rose* to 1.000 and
+groundedness held at 0.99. Two of the three numbers moved the reassuring way
+while three quarters of the verifiable content disappeared. Reported alone,
+either one would have described that as an improvement. The same run shows
+`acceptance_criteria` distinctness across documents falling from 0.937 to 0.443
+— the model writes one generic criterion per factor and reuses it everywhere,
+which within-bundle counts cannot see. Both are open questions with declared
+thresholds in `studies/hosted-model-specificity/FINDINGS.md`, and neither has
+been scored against gold: what is established is that the field stopped varying
+with the document, not that it is wrong.
+
 These are **raw** figures: the scorer runs extraction and compares to ground
 truth with no adjudication step. Adjudicated performance would be higher and
 would measure something else — the practical ceiling of tool-plus-operator, not

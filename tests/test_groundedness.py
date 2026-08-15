@@ -279,6 +279,14 @@ def test_llm_baseline_on_the_shipped_corpus():
 
     These are the numbers a candidate backend has to be compared against, and
     unlike detection F1 there is no constant function that reaches them.
+
+    The pins track the current pipeline deliberately. A check left standing red
+    as a reminder stops being a check: it alerts nobody when something *else*
+    drifts through it, and it is the vacuous-pass rule inverted -- an assertion
+    that cannot meaningfully fail because it has already failed. Where the
+    pipeline changes, these move, and the superseded figures are recorded in
+    the comment below and in studies/hosted-model-specificity/, which commits
+    the full row sets on both sides.
     """
     from extracted_corpus import extracted_corpus_by_bundle
     from groundedness import GroundednessResult, read_source_text
@@ -298,23 +306,41 @@ def test_llm_baseline_on_the_shipped_corpus():
         agg.ungrounded += res.ungrounded
 
     assert agg.factors_total == 800
-    assert agg.coverage == pytest.approx(0.974, abs=0.005)
-    assert agg.claim_density == pytest.approx(0.565, abs=0.01)
-    assert agg.groundedness == pytest.approx(0.994, abs=0.003)
-    assert (agg.claims_grounded, agg.claims_total) == (859, 864)
+    assert agg.coverage == pytest.approx(1.000, abs=0.005)
+    assert agg.claim_density == pytest.approx(0.199, abs=0.01)
+    assert agg.groundedness == pytest.approx(0.990, abs=0.003)
+    assert (agg.claims_grounded, agg.claims_total) == (198, 200)
 
-    # The triage set, hand-classified in full: three derived quantities and one
-    # out-of-bundle constant (101.325 kPa, standard atmosphere). Zero
-    # fabrications in 842 checkable claims, and zero metric artefacts -- which is
-    # what cleared the stopping rule.
+    # These pins moved on 2026-08-14 when the baseline was regenerated after the
+    # C3 hosted-model migration. Recorded here rather than only in the diff,
+    # because the direction is the point:
+    #
+    #                        qwen3.5:4b      Llama-3.3-70B
+    #   coverage                  0.974      1.000     up
+    #   groundedness              0.994      0.990     flat
+    #   claim_density             0.565      0.199     DOWN 65%
+    #   claims_total                864        200     DOWN 77%
+    #
+    # Two of the three moved the reassuring way while the number of checkable
+    # claims in the corpus fell by three quarters. That is why the triple is
+    # asserted as a triple and why groundedness is never quoted alone: on its
+    # own it reports this migration as a clean improvement.
+    #
+    # studies/hosted-model-specificity/ holds both row sets and the declared
+    # questions. Do not "fix" a future failure here by relaxing claim_density --
+    # a drop is the finding, not the noise.
+    # The triage set, hand-classified in full. Under qwen it was four items --
+    # three derived quantities and one out-of-bundle constant (101.325 kPa,
+    # standard atmosphere), zero fabrications in 864 checkable claims. It is now
+    # one, over 200 checkable claims.
+    #
+    # Read that against claim_density, not on its own: a shrinking triage set is
+    # what a shrinking denominator produces whether or not anything improved.
+    # Four in 864 is 0.46%; one in 200 is 0.50%. The artefact *rate* did not
+    # move. Only the amount of output exposed to the check did.
     #
     # If this count rises, the artefact rate is unknown again and the figure in
     # docs/keyless-extract-findings.md is no longer substantiated. Re-triage
     # before republishing it.
-    assert len(agg.ungrounded) == 4
-    assert sorted(u["factor_type"] for u in agg.ungrounded) == [
-        "Equivalency of input parameters",
-        "Numerical solver error",
-        "Output comparison",
-        "Results robustness",
-    ]
+    assert len(agg.ungrounded) == 1
+    assert sorted(u["factor_type"] for u in agg.ungrounded) == ["Output comparison"]
