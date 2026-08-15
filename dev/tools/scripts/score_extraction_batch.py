@@ -192,6 +192,9 @@ def score_bundle(
         "bundle_id": bundle_dir.name,
         "metadata": metadata,
         "pack": pack,
+        # Retained so the null controls can be scored against THIS bundle's
+        # ground truth and pack. Stripped before the JSON is written.
+        "_ground_truth_factors": gt_factors,
     }
 
     xlsx_path = bundle_dir / "extracted.xlsx"
@@ -272,6 +275,83 @@ def score_bundle(
     except SystemExit as exc:
         record["groundedness_error"] = str(exc)
     return record
+
+
+def score_null_controls(per_bundle: list[dict]) -> dict:
+    """What a function that reads NOTHING scores on this same corpus.
+
+    The single-bundle scorer has always printed these and refused to report a
+    bare F1 without them; the batch path did not, and a detection F1 of 0.8909
+    was reported as clearing a threshold when the checklist constant scores
+    0.9544 on the same bundles. A saturated metric reported alone is worse than
+    no metric, because it looks like evidence.
+
+    Scored per bundle against that bundle's own ground truth and its own pack,
+    so the comparison is like-for-like rather than against a figure quoted from
+    a different corpus.
+    """
+    from score_extraction import score_controls  # noqa: WPS433 - same directory
+
+    sums: dict[str, list[float]] = {}
+    for r in per_bundle:
+        if r.get("crashed"):
+            continue
+        gt = r.get("_ground_truth_factors")
+        pack = r.get("pack")
+        if not gt or not pack:
+            continue
+        try:
+            rows = score_controls(pack, gt)
+        except SystemExit:      # pack with no known factor list
+            continue
+        for name, s in rows.items():
+            sums.setdefault(name, []).append(s["overall_f1"])
+    return {name: (sum(v) / len(v)) for name, v in sums.items() if v}
+
+
+def per_factor_f1(per_bundle: list[dict], factor_names: list[str]) -> dict:
+    """F1 per credibility factor, which H2 requires "holds across the 19".
+
+    Aggregate detection rate is a mean over factors and hides the shape: a
+    model can look strong overall while missing one factor every time. Counted
+    across bundles, per factor:
+
+        TP  in ground truth as assessed, and extracted
+        FN  in ground truth as assessed, not extracted
+        FP  extracted, but not in this bundle's ground truth at all
+    """
+    tp: Counter = Counter()
+    fn: Counter = Counter()
+    fp: Counter = Counter()
+    for r in per_bundle:
+        if r.get("crashed"):
+            continue
+        fs = r.get("factor_score") or {}
+        for ft, fr in (fs.get("per_factor") or {}).items():
+            if (fr.get("ground_truth") or {}).get("expected_status") != "assessed":
+                continue
+            if fr.get("status") == "FOUND":
+                tp[ft] += 1
+            else:
+                fn[ft] += 1
+        for ft in fs.get("false_positives") or []:
+            fp[ft] += 1
+
+    out = {}
+    for ft in factor_names:
+        t, f_n, f_p = tp[ft], fn[ft], fp[ft]
+        if not (t or f_n or f_p):
+            out[ft] = {"support": 0, "precision": None, "recall": None, "f1": None}
+            continue
+        precision = t / (t + f_p) if (t + f_p) else 0.0
+        recall = t / (t + f_n) if (t + f_n) else 0.0
+        f1 = (2 * precision * recall / (precision + recall)) if (precision + recall) else 0.0
+        out[ft] = {
+            "support": t + f_n, "tp": t, "fn": f_n, "fp": f_p,
+            "precision": round(precision, 4), "recall": round(recall, 4),
+            "f1": round(f1, 4),
+        }
+    return out
 
 
 def aggregate(per_bundle: list[dict], factor_names: list[str]) -> dict:
@@ -604,6 +684,24 @@ def main() -> int:
         print(f"  [{i}/{len(bundles_to_score)}] {b['id']}: {status}")
 
     agg = aggregate(per_bundle, union_factors)
+    agg["null_controls"] = score_null_controls(per_bundle)
+    agg["per_factor_f1"] = per_factor_f1(per_bundle, union_factors)
+
+    # The delta is the number that means something. A bare detection F1 is
+    # reportable only beside what a constant scores on the same bundles.
+    if agg["null_controls"] and agg.get("mean_overall_f1") is not None:
+        best_name = max(agg["null_controls"], key=agg["null_controls"].get)
+        best = agg["null_controls"][best_name]
+        agg["control_comparison"] = {
+            "best_control": best_name,
+            "best_control_f1": round(best, 4),
+            "delta_vs_best_control": round(agg["mean_overall_f1"] - best, 4),
+            "beats_best_control": agg["mean_overall_f1"] > best,
+        }
+
+    # Drop the retained ground truth before serialising.
+    for r in per_bundle:
+        r.pop("_ground_truth_factors", None)
 
     output = {
         "run_at": run_at,

@@ -200,7 +200,10 @@ def extract(
     """
     if pack_prompt_path is None:
         from uofa_cli import paths
-        pack_prompt_path = paths.extract_prompt()
+        # Resolve from the pack being extracted, not from the active-pack
+        # default. Omitting pack_name here is what silently sent the V&V 40
+        # prompt to every NASA extraction; see paths.extract_prompt.
+        pack_prompt_path = paths.extract_prompt(pack_name)
 
     corpus_text = assemble_corpus_text(corpus)
 

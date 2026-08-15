@@ -69,13 +69,31 @@ there, not toward hiding one that is.
 - Dev split only. The test split is sentinel-locked (`.test_set_lock`,
   `--allow-test`) and was deliberately not touched.
 
-## Separate finding, pre-existing
+## Separate finding, pre-existing — ANSWERED, see studies/nasa-prompt-routing/
 
 **71 of 480 factors (15%) come back with no status at all**, identically in both
 arms, plus 19 more among the not-applicable ones. 90 of 480 factors carry no
 status. This predates the change and is unaffected by it, but it is a real gap
 in the extract path: the status column is the field the completeness math and
 the headline are computed from. Worth its own investigation.
+
+**Investigated 2026-08-14.** Those 90 are the six NASA-STD-7009B factors across
+the 15 nasa bundles — six times fifteen, splitting 71 `assessed` / 19
+`not_applicable`, which is this table's two numbers exactly. They carried no
+status because they had no row: `paths.extract_prompt()` took no pack name and
+returned the V&V 40 prompt for every pack, so every NASA extraction was asked
+about 13 factors and never about the other six. Fixed; the row count goes 390 to
+480 with none missing.
+
+**What that does to this study.** The before/after comparison stands — both arms
+ran on the V&V 40 prompt, so nothing between them is confounded by the routing
+bug. But the denominator is not what it says. The 480 is 390 rows the extractor
+was actually asked to produce plus 90 it was never asked about, so every rate
+quoted here over 480 is diluted by a fifth, and "the model never emitted
+`not-assessed` once in 480 factors" is properly "in 390 factors". The headline
+mean F1 of 0.9035 is likewise a mixed figure: unchanged across the arms, but on
+the nasa half it was measuring the missing block rather than extraction quality
+(nasa 0.8385 before the routing fix, 0.9588 after; vv40 0.9686 either way).
 
 ## Cost and time
 
