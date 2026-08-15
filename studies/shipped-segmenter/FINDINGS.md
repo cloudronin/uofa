@@ -106,16 +106,35 @@ failed precisely by treating a route's structural zeros as a result — it score
 5 of 240 with no matches either way, and would have read as "neutral" to anyone
 who did not check what was being scored.
 
-### Standing of the change
+### Standing of the change: an OPEN REGRESSION with a filed number
 
-**A bug fix, measured, and not an improvement.** It is landed because the
-truncation defect is unambiguous and because one implementation is strictly
-better than two that silently disagree — not because the route got better. It
-did not.
+Ruled 2026-08-15. Net zero means this **cannot be called a bug fix any more than
+it can be called an improvement**. It fixed one case and broke another, and
+until the `nasa COU1` break is understood it is an open regression, not a
+repair.
 
-Open: the nasa COU1 regression, and the rationale-span degradation on Morrison,
-which looks like span *selection* preferring a short header line now that
-headers are their own units.
+**The citation ban therefore extends rather than lifting.** Nothing may cite
+this change as a bug fix, as an improvement, or as neutral. What may be cited is
+the measurement: 3/4 to 3/4, Morrison COU2 corrected, nasa COU1 broken, n = 4.
+
+What is landed and what is justified are different things. The unification of
+two divergent segmenters is justified on its own terms — one implementation
+cannot silently disagree with itself, and the truncation defect is real and
+documented by K2. The *behavioural consequence* on the keyless route is a net
+zero with a live regression in it.
+
+Open, blocking any stronger claim:
+
+1. **The nasa COU1 regression.** The route now answers `Not accepted` where gold
+   is `Accepted`. Direction is the safer one for a credibility tool, which is
+   not a reason to leave it unexplained.
+2. **The Morrison rationale-span degradation**, which looks like span
+   *selection* preferring a short header line now that headers are their own
+   units — the same mechanism that produced the COU1 break, if so.
+3. **n = 4.** Four regression fixtures is the entire scoreable surface, because
+   the corpus bundles carry no `expected_decision`. A 3-to-3 result with one
+   swap each way is not evidence of anything at that size, and enlarging the
+   surface would require decision gold the corpus does not have.
 
 ## A limitation of the careful segmenter, pinned rather than left to be found
 

@@ -71,7 +71,34 @@ and the null beside them. The pairing is the disclosure. A reader who sees only
 
 ## Three things that must be disclosed with it
 
-### 1. "The protocol threshold" has no number
+### 1. The original gate never carried a number, and none is being back-filled
+
+State this plainly, because an unnumbered original threshold reads as either
+sloppiness or fabrication-avoided depending entirely on which the text says, and
+only this text decides it.
+
+**The original H2 gate never had a number.** Chapter 3 requires mean F1 to
+exceed "the protocol threshold" and §3.6 repeats "F1 above the protocol
+threshold" and "the required F1 thresholds". No figure is given in either place.
+The §4.5 criterion table's H2 row carries a different set entirely — the §4.3.2
+manual-versus-AI automation-lift thresholds.
+
+**No number is being supplied now.** Not in this amendment and not anywhere
+downstream. Choosing one today, having seen 0.9637, would be indistinguishable
+from having chosen it to be cleared.
+
+**And this is part of why the gate could not discriminate.** A criterion of the
+form *exceed the threshold* with no threshold cannot fail, so nothing about the
+metric's behaviour was ever tested against it. The defect that mattered —
+`control_constant_list` scoring identically to the extractor — was invisible to
+a condition that had no value to compare against. The unnumbered threshold and
+the non-discriminating metric are the same failure seen from two sides.
+
+The replacement conjunction carries its numbers, declared on disk before its
+measurement ran, in `2026-08-14-h2-replacement-thresholds.md`. That is the
+correction.
+
+### 1b. Where the missing number appears in the draft
 
 Chapter 3 says mean F1 must exceed "the protocol threshold". §3.6 says "F1 above
 the protocol threshold" and "the required F1 thresholds". **No number is stated
