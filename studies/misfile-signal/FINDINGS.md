@@ -1,5 +1,23 @@
 # The misfile signal is too weak to ship, on the labels that exist today
 
+> ## Governing rule: no rate without its denominator
+>
+> Graduated to a standing rule 2026-08-14, on its third appearance — after
+> opportunities-versus-cards, after the two shotgun probes that disagreed
+> (0.740 vs 0.9284, because one scored 447 rows and the other 376), and now
+> after 0.247 against 0.605.
+>
+> **No rate is quoted without its measurement context: corpus, base rate, n.**
+>
+> **Paired synthetic and real measurements are inseparable in every citation**,
+> and where they disagree the real number is the result, per the plan's standing
+> rule.
+>
+> This governs every figure in this file and every figure derived from it. A
+> rate detached from its denominator has repeatedly meant something different
+> from what it appeared to mean, and each time the cost was paid downstream by
+> someone reading it in good faith.
+
 Phase 4, 2026-08-14. `dev/tools/scripts/misfile_signal.py`. Bundle-level 2-fold,
 515 scored factor rows across 44 bundles, misfile base rate **0.175**.
 

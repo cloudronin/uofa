@@ -114,15 +114,54 @@ def test_the_llm_output_does_import_and_is_then_judged_on_content():
     """The contrast that makes the above meaningful.
 
     A real extraction clears import and is then scored on whether it conforms
-    and whether it says anything. It fails on content -- `decision`,
-    `hasValidationResult`, and `wasDerivedFrom` satisfied by template help text
-    -- which is a different and more useful failure than not existing.
+    and whether it says anything -- a different and more useful failure than not
+    existing.
+
+    **This assertion was inverted on 2026-08-14.** It used to require
+    `placeholder:wasDerivedFrom` to be present, pinning a defect: the property
+    was satisfied by the template's own help text, `"DOI, report number, or
+    URI"`, which JSON-LD coerces to a `file://` URI that satisfies
+    `nodeKind sh:IRI`. A required property met by the instructions for meeting
+    it, on 59 of 59 workbooks.
+
+    `_stamp_source_documents` repaired it -- `wasDerivedFrom` is now set from the
+    files the pipeline actually opened, and this bundle carries
+    `"appendix.md; report.md"`. The old assertion had become a test that the
+    defect was still there, and its own message said so: *"if this cleared, the
+    source_document prompt fix has taken effect."* It had.
+
+    The triage is filed in studies/negative-control-triage/. Note for anyone
+    reading the filename and the failure together: the tests that pin *the
+    control produces no package* are `test_the_constant_cannot_be_imported_at_all`
+    and `test_the_empty_control_cannot_be_imported_either`, and both have passed
+    throughout. This one is about the LLM's output, not the control's.
     """
     conforms, findings = validate_extracted(REAL_BUNDLE, "vv40")
     assert conforms is not None, "the LLM's output should at least import"
-    assert "placeholder:wasDerivedFrom" in findings, (
-        "if this cleared, the source_document prompt fix has taken effect and "
-        "the shipped-corpus figures in docs/keyless-extract-findings.md are stale")
+    assert "placeholder:wasDerivedFrom" not in findings, (
+        "wasDerivedFrom is placeholder-satisfied again. _stamp_source_documents "
+        "sets it from the files actually read; if the template help text is back "
+        "in the package, that stamping broke and a required provenance property "
+        "is being met by the instructions for meeting it.")
+
+
+def test_the_placeholder_detector_still_fires_when_a_placeholder_is_there():
+    """The positive control for the assertion above, which is now a negative.
+
+    `assert "placeholder:x" not in findings` passes just as happily when the
+    detector is broken as when the defect is fixed -- the vacuous-pass shape
+    AGENTS.md 13 names. So the detector is exercised on text that does contain
+    the help string, and has to find it.
+    """
+    from schema_coverage import placeholder_satisfied
+
+    clean = '{"wasDerivedFrom": "appendix.md; report.md"}'
+    assert placeholder_satisfied(clean) == []
+
+    planted = '{"wasDerivedFrom": "DOI, report number, or URI"}'
+    assert placeholder_satisfied(planted) == ["wasDerivedFrom"], (
+        "the placeholder detector no longer recognises the template help text, "
+        "so the assertion above cannot fail and is measuring nothing")
 
 
 def test_detection_f1_is_still_needed_because_coverage_cannot_separate_the_controls():

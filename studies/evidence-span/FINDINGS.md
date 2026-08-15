@@ -1,5 +1,22 @@
 # evidence_span fails its product spec twice, and is 2.7x better than the rationale
 
+> ## For the methods narrative, by name
+>
+> **The plan's own highest-value change was declared, measured, killed, and
+> recorded.** `evidence_span` is described in the plan of record as "the
+> highest-value change in the plan". It was given kill criteria before it was
+> built, measured against them twice, failed both times, and did not ship.
+>
+> Phase 3 shipped in the same week — the shotgun null collapsed from 0.7527 to
+> 0.0505 and the honest cost of 0.6068 → 0.4524 was paid and published. The two
+> decisions were independent, which is the point: the criteria decided, not the
+> expectation.
+>
+> This belongs in the methods chapter as a named instance rather than a footnote.
+> A kill criterion that has never killed anything is a description of intent; one
+> that killed the change its own author called highest-value is a description of
+> practice.
+
 Phase 2, 2026-08-14. Two arms, both against criteria declared before running
 (`DECLARATION.md`). 8 bundles, 152 factor rows,
 `meta-llama/Llama-3.3-70B-Instruct-Turbo`.

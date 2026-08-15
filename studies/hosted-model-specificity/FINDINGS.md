@@ -103,7 +103,21 @@ claim_density must report groundedness beside it.
 at or below **4** items. Lifting density by fabricating figures is the failure
 mode, and the triage set is what catches it.
 
-**Q3 — Are generic criteria actually wrong?**
+**Q3 — Is the coverage/groundedness improvement Goodhart-shaped?**
+Coverage rose to 1.000 and groundedness held at 0.990 **while the population
+being measured fell from 864 checkable claims to 200**. Both surviving numbers
+are ratios whose denominator shrank by three quarters. The metrics may have
+improved *because* the population shrank — fewer claims means fewer chances to
+be ungrounded, and every factor getting a rationale is easier when the
+rationales assert less.
+*Threshold:* none — this is a framing that must be stated wherever the triple is
+reported, not a quantity to clear. Declared here so it is read in the record
+rather than discovered by a reviewer, which is the difference between a
+disclosure and a finding against us. The ungrounded triage set is the concrete
+instance: it fell 4 to 1, which reads as improvement until divided — 4/864 is
+0.46%, 1/200 is 0.50%, and the artefact rate did not move at all.
+
+**Q4 — Are generic criteria actually wrong?**
 Both measurements are self-similarity and countability, not correctness. A
 criterion can be generic and still right; a rationale can be claim-free and
 still true. Neither is scored against gold here.
