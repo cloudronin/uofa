@@ -8,6 +8,15 @@ difference between them is the three extract prompts, restored from
 
 Raw results: `dev-before.json`, `dev-after.json`.
 
+> **Dated artifact, and the figures below predate a defect correction.** Every
+> mean-F1 number here (0.9035 dev, 0.8909 test) was measured while a
+> prompt-routing defect sent NASA-STD-7009B extractions to the V&V 40 prompt,
+> leaving six of nineteen factors unrequested. Post-correction the same measure
+> reads **0.9637 / 0.9544**. Both sets stay in the record and neither is quoted
+> alone; see `studies/nasa-prompt-routing/FINDINGS.md`. This study's own
+> conclusion — the absence-rule change moved `mean_overall_f1` by 0.004 — is
+> a within-arm comparison and is unaffected, since both arms carried the defect.
+
 ## What this corpus can and cannot test
 
 **It cannot test the change.** The absence rule governs `not-assessed`: the

@@ -39,6 +39,42 @@ extraction path removed the last source of variation the measure could observe.
 The measure is therefore reported throughout this chapter beside its null, and
 it gates nothing.[^detection]
 
+### The routing defect, disclosed with both sets of figures
+
+The defect named above is disclosed here in full, because the figures it moved
+are the figures this chapter reports.
+
+The path that resolves a prompt for an extraction run accepted no pack argument
+and fell back to the default pack. Every extraction therefore received the ASME
+V&V 40 prompt regardless of which standard was requested. The output looked
+complete — the workbook writer pre-fills all nineteen rows from the pack whatever
+the model returns — so the failure surfaced only as scores: **thirteen of
+nineteen factors populated, in twenty-seven of twenty-seven NASA documents**,
+being fifteen development bundles, ten held-out test bundles, and both aerospace
+regression cases. The six unrequested factors scored zero and the thirteen
+requested scored one, which is the entire variance the detection measure ever
+observed. The correction is three lines: the resolver takes the pack name, and
+the caller passes it.
+
+| | dev, before | dev, after | test, before | test, after |
+|---|---|---|---|---|
+| mean factor F1 | 0.9035 | **0.9637** | 0.8909 | **0.9544** |
+| V&V 40 half | 0.9686 | 0.9686 | 0.9652 | 0.9652 |
+| NASA detection | 13/19 | **19/19** | 13/19 | **19/19** |
+| factors at F1 0.000 | 6 of 19 | **none** | 6 of 19 | **none** |
+
+The V&V 40 half of each split serves as the internal control and **does not move
+at all**, to four decimal places on both splits, which is what a routing defect
+predicts and a model-quality change does not: documents that were already being
+sent to their own prompt were never affected. The aerospace regression case that
+had been failing at 0.593 resolves to 0.848 under the correct standard, and its
+companion moves from 0.839 to 0.973 — so the defect, not a regression in
+extraction quality, was the failing gate.
+
+Both sets of figures remain in the record wherever this evaluation is cited. The
+pre-correction numbers are not withdrawn; they are reported beside the reason
+they changed.
+
 ### A replacement criterion, declared and not cleared
 
 Detection having been shown non-discriminating, H2's support criterion was moved

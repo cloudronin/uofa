@@ -26,9 +26,11 @@ Three claims, each with its instrument's limit attached:
 
 ### 1. Factor detection is at ceiling, on a measure that does not discriminate
 
-Mean F1 **0.9637** development, **0.9544** held-out test. Per-factor F1
-**1.000** for all nineteen factors on both splits. Zero crashes in 50 bundles.
-All four regression cases clear.
+Mean F1 **0.9637** development, **0.9544** held-out test — against
+**0.9035** and **0.8909** before the prompt-routing correction, both figures
+carried together wherever this result is cited. Per-factor F1 **1.000** for all
+nineteen factors on both splits. Zero crashes in 50 bundles. All four regression
+cases clear.
 
 **And `control_constant_list` — a function that emits the pack's fixed checklist
 having read no input at all — scores identically. Delta +0.0000, to four decimal

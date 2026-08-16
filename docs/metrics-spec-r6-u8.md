@@ -4,17 +4,39 @@ Every measure this evaluation reports, with what it can and cannot establish, th
 null it is reported against, and where its figures come from. Consumes
 [the H2 conclusion](decisions/2026-08-15-h2-narrowed-conclusion.md).
 
-**The governing rule, first, because it applies to every row below.**
+**The governing rules, first, because they apply to every row below.**
 
-> **No rate is quoted without its measurement context — corpus, base rate, n.**
-> **Paired synthetic and real measurements are inseparable in every citation**,
-> and where they disagree the real number is the result.
+> **1. No rate is quoted without its measurement context — corpus, base rate,
+> n. Paired synthetic and real measurements are inseparable in every
+> citation**, and where they disagree the real number is the result.
+>
+> **2. Any density or groundedness figure computed over PDF-borne documents
+> states the reader's measured recovery rate.** A rate over an instrument whose
+> recovery is unstated is a **floor, not a point.**
 
-Graduated to a standing rule on its third violation: opportunities-versus-cards,
-then two shotgun probes that disagreed (0.740 against 0.9284, because one scored
-447 rows and the other 376), then 0.247 against 0.605 on differently-defined
-labels. Each time the cost was paid downstream by someone reading a figure in
-good faith.
+Rule 1 graduated to a standing rule on its third violation:
+opportunities-versus-cards, then two shotgun probes that disagreed (0.740
+against 0.9284, because one scored 447 rows and the other 376), then 0.247
+against 0.605 on differently-defined labels. Each time the cost was paid
+downstream by someone reading a figure in good faith.
+
+**Rule 1's worked instance at corpus level.** A 4B local model was the claim-density
+champion on the synthetic corpus at **0.420** and the only candidate that looked
+like a challenger to the shipped extractor. On the real corpus it scored
+**0.244**, below the floor, and failed coverage as well. Adoption on the
+synthetic figure alone would have shipped a model that fails the bar on the
+corpus that decides. The pair is the result; neither half is.
+
+**Rule 2 exists because the instrument was wrong in the direction nobody
+checked.** Before 2026-08-15 the scoring path read PDFs with `read_text`, which
+surfaces object syntax rather than prose. On one paper the broken reading carried
+761 spurious decimals *and was missing 15 of the 39 decimals that appear in the
+document's sentences* — 38% of genuine figures unfindable, so honest claims
+failed to ground. The direction was initially asserted to be optimistic and is
+**pessimistic**; the correction is dated and carries the commit hash in
+`studies/model-selection/FINDINGS.md`. The fixed reader's recovery against an
+independent reference remains unmeasured, no second extractor being available,
+so **every real-corpus density in this specification is a floor.**
 
 ---
 
@@ -26,10 +48,18 @@ ground truth marks `assessed`.
 **Null.** `control_constant_list` — the pack's fixed checklist, emitted having
 read no input.
 
-| | candidate | null | delta |
-|---|---|---|---|
-| development, 30 bundles | 0.9637 | 0.9637 | **+0.0000** |
-| held-out test, 20 bundles | 0.9544 | 0.9544 | **+0.0000** |
+| | candidate, pre-correction | candidate | null | delta |
+|---|---|---|---|---|
+| development, 30 bundles | 0.9035 | 0.9637 | 0.9637 | **+0.0000** |
+| held-out test, 20 bundles | 0.8909 | 0.9544 | 0.9544 | **+0.0000** |
+
+**Both figures, always, per U2's disclosure discipline.** The pre-correction
+column is what this measure read while a prompt-routing defect left six of
+nineteen factors unrequested on every NASA document. Repairing the routing
+removed the last variance the measure could observe, which is how it arrived at
+its null. The V&V 40 half of each split was never affected and did not move
+(0.9686 and 0.9652, before and after alike) — the internal control that
+identifies this as a routing defect rather than a change in extraction quality.
 
 **Status: reported, gates nothing.** It cannot distinguish reading the document
 from not reading it. Per-factor F1 is 1.000 for all nineteen factors on both
