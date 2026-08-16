@@ -784,11 +784,36 @@ def field_score(verdicts: dict[str, int]) -> dict[str, float]:
 
 
 def read_source_text(bundle_dir: Path) -> str:
-    """Concatenate a bundle's source documents. This is the grounding reference."""
+    """Concatenate a bundle's source documents. This is the grounding reference.
+
+    PDFs go through the reader. They used to go through `read_text(errors=
+    "ignore")`, which on a PDF returns its raw object syntax -- 1.5 MB of
+    `/Rect [ 161.802002 134.589005 ... ]`, font tables and object ids for one
+    paper. Every coordinate in that is a number, so a rationale's figures could
+    ground against typesetting geometry that no reader would call evidence.
+
+    The bias is optimistic, which is the dangerous direction: the raw reference
+    contains far MORE numbers than the prose does, so it grounds claims that
+    should have failed. Found 2026-08-15 when a triage printed the "source"
+    a claim had matched and it was a PDF link rectangle.
+
+    Only bundles with PDFs were affected -- the synthetic corpus is markdown,
+    where `read_text` is correct and this change is a no-op.
+    """
     src = Path(bundle_dir) / "source"
     if not src.is_dir():
         raise SystemExit(f"{bundle_dir} has no source/ directory to ground against")
-    return "\n".join(p.read_text(errors="ignore") for p in sorted(src.glob("*")))
+
+    parts: list[str] = []
+    for p in sorted(src.glob("*")):
+        if not p.is_file():
+            continue
+        if p.suffix.lower() == ".pdf":
+            from uofa_cli.readers.pdf_reader import read_pdf  # noqa: WPS433
+            parts.append("\n".join(c.text for c in read_pdf(p)))
+        else:
+            parts.append(p.read_text(errors="ignore"))
+    return "\n".join(parts)
 
 
 def print_groundedness(res: GroundednessResult) -> None:

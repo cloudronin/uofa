@@ -36,6 +36,70 @@ run**, recorded as such, and the verdict is computed over the arms that did with
 the absence stated. Substituting a different model mid-study would change the
 question.
 
+---
+
+## Feasibility, checked after the candidates were pinned and before any scoring
+
+Both hosted-new arms failed to run. Recorded here rather than silently repaired,
+because the two failures are different in kind and only one is a correction.
+
+### Arm 4 (frontier): the declared identifier does not exist
+
+`claude-sonnet-5-2026` returns **HTTP 404**. `claude-sonnet-5` returns **HTTP
+200**. The declared string came from `docs/llm-config.md`, which documents a
+model id that does not resolve — a defect for anyone copying that config, filed
+separately.
+
+**This is an identifier correction, not a candidate change**: the declaration
+names "the Sonnet-class backend the report card already names", and
+`claude-sonnet-5` *is* that model, correctly spelled. Arm 4 runs as
+`claude-sonnet-5`, and this paragraph is the record that the declared string was
+wrong.
+
+### Arm 3 (family-72b): no qwen-family model is serverless on this account
+
+`Qwen/Qwen2.5-72B-Instruct-Turbo` exists but is **non-serverless** — Together
+requires a paid dedicated endpoint. So do `Qwen/Qwen2.5-72B-Instruct`,
+`Qwen/Qwen2-72B`, `Qwen/QwQ-32B` and `Qwen/Qwen2.5-Coder-32B-Instruct`. All four
+were probed and all four return *"Unable to access non-serverless model"*.
+
+The resolution method that picked this candidate was flawed: it probed the model
+**list**, which includes non-serverless entries, and so checked existence rather
+than accessibility. Recorded because the same mistake is available to anyone
+resolving a candidate from a catalogue.
+
+**Resolved by direction: run it on the HF Router.** `Qwen/Qwen2.5-72B-Instruct`
+is live there via deepinfra at $0.36/M in, $0.40/M out, verified with a real
+completion. This uses the pattern the repo already has — `api_base=
+https://router.huggingface.co/v1` through the openai-compatible path, as
+`verify_hf_llama_inference.py` does — so it needs no new backend, **no HF Job,
+and no dedicated Inference Endpoint**. Serverless and pay-per-token.
+
+**The model is the declared one. The serving path is not**, and that costs one
+of arm 3's three controls:
+
+> *"same family as arm 1, ~18× the parameters, **same hosted path as arm 2** — so
+> it separates family from scale from serving."*
+
+Arm 3 now differs from arm 2 in **both model and provider**. Consequences,
+stated rather than absorbed:
+
+- **The family-versus-scale axis is still measurable.** Arm 1 and arm 3 are both
+  qwen-family, ~18× apart in scale, which is the primary question and is
+  unaffected.
+- **The serving control is lost.** Any arm 2 versus arm 3 difference now
+  confounds model with provider, and no such comparison may be reported as a
+  model effect.
+
+### How arm 3 came to be pinned to an unusable model
+
+The candidate was resolved by probing the Together **model list**, which
+includes non-serverless entries. That checked *existence* rather than
+*accessibility* — a plausible conclusion from a subset that agreed with it, and
+the same shape as the other errors catalogued in
+`docs/decisions/2026-08-15-disaggregate-before-you-conclude.md`. Recorded because
+resolving a candidate from a catalogue invites it.
+
 ## The bar — the full scorecard, not one clause
 
 A candidate passes only by clearing **all** of:
@@ -110,3 +174,39 @@ where it would read as thrashing after a failed gate.
 
 The narrowed conclusion is the defense artifact. Model selection is its **named
 future work**, and the praxis text may say exactly that in one sentence.
+
+
+---
+
+## Amendment: a repeat policy, because the study failed its own weakener
+
+Added 2026-08-15, after the first real-corpus run and before any re-score.
+
+The frontier arm produced **13 blank rationales in one run and zero in the next,
+at the same pin**, and `elemance` failed in both runs for two different reasons.
+Single-run rows for a demonstrably unstable arm are not evidence.
+
+**That is `W-EV-DET-03`** — *"no determinism / repeat-run policy stated for the
+evaluation"*, severity **High** in the model-credibility pack, the weakener this
+project fires at vendors. **The study qualifying extractors briefly failed its
+own determinism floor, and the taxonomy caught it because we applied it to
+ourselves.**
+
+### The policy
+
+1. **Minimum three runs for any hosted arm.** One run is a sample, not a row.
+2. **Report per-clause spread beside the point value.** Every clause of the
+   conjunction gets min–max across runs, not just the mean.
+3. **An arm whose spread straddles a threshold is recorded as `UNSTABLE AT THE
+   BAR`** — neither passed nor failed. Reporting whichever run happened to land
+   on the convenient side of a threshold is the thing this policy exists to stop.
+4. **The local 4B arm may cite determinism instead of repeating.** It runs at
+   fixed weights on fixed hardware; if it demonstrates run-to-run identity once,
+   that is the stronger claim and repeating adds nothing.
+
+### Filed alongside
+
+`elemance` failed twice, differently — a timeout on the family-72b arm and a
+`ValueError` on the frontier arm. **Two distinct failure modes on one document
+is a fixture question, not noise**, and both tracebacks are filed rather than
+averaged away. It is the largest paper in the set at 1,319 sentences.
