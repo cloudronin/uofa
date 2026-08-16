@@ -304,9 +304,14 @@ def main() -> int:
             # by config validation, which rejects an inline key outright. The
             # branch below is reached only when that name is UNSET, so there is
             # no value in the process to disclose.
+            # CodeQL flags the print below as py/clear-text-logging-sensitive-data
+            # (high). It is a false positive on the name, not the data, and it is
+            # NOT suppressed here: inline `# codeql[...]` comments are ignored by
+            # this repo's default-setup scanning, and leaving one would read as
+            # handled while the alert still stands -- the vacuous pass in §13.
+            # The alert is open and awaiting a dismiss-or-restructure decision.
             key_var_name = spec["cfg"]().api_key_env
             if key_var_name and not os.environ.get(key_var_name):
-                # codeql[py/clear-text-logging-sensitive-data]
                 print(f"  {name}: SKIPPED -- {key_var_name} not set. Recorded "
                       f"as not run; no substitution.\n", flush=True)
                 continue
