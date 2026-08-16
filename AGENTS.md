@@ -147,10 +147,22 @@ This repo uses conventional-commit prefixes with a mandatory scope. Look at
   **Why:** A reviewer scanning history shouldn't have to mentally separate the
   meaningful change from the byproduct.
 
-- **Rule:** Sign off commits with `git commit -s` (DCO trailer).
-  **Why:** Per CONTRIBUTING.md, this project uses the Developer Certificate of Origin
-  in lieu of a CLA. Every commit is an attestation that the contributor has the right
-  to submit the work under Apache 2.0.
+- **Rule:** DCO sign-off (`git commit -s`) is governed by
+  [CONTRIBUTING.md](CONTRIBUTING.md), which is the authority. **This file does not
+  restate it as a per-commit rule, because as of 2026-08-16 the requirement is
+  declared but not practised and not enforced.** Measured on `main`: **119 of 737
+  commits (16%) carry a `Signed-off-by` trailer**, in two bursts — 68/198 in
+  2026-05 and 50/257 in 2026-08 — with nothing before, between, or since
+  `f1f2849c` (2026-08-12). One author throughout, so the gaps are not a
+  contributor split.
+  **Why:** An unenforced mandate in a working doc is the vacuous pass of §13
+  wearing a rule's clothes: it reads as satisfied, nothing checks it, and the
+  16% that do comply make the other 84% look deliberate. Stating the measured
+  rate is honest where restating the mandate was not. **Open, and it is a
+  reconciliation not a cleanup:** CONTRIBUTING.md ties DCO to the licensing of
+  outside contributions, so either enforcement lands in CI or the licensing
+  clause changes — and until one of those happens this line is a disclosure, not
+  a permission. Do not read it as "sign-off is discouraged." See task #22.
 
 - **Rule:** Pass multi-line commit messages via heredoc, not `-m "..."`.
   **Why:** Shells mangle newlines, indentation, and special characters in `-m` strings.
