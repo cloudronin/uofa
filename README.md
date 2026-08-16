@@ -321,7 +321,7 @@ higher quality or larger context, configure a remote backend in
 ```bash
 uofa rules my-package.jsonld --explain \
     --explain-backend anthropic \
-    --explain-model claude-sonnet-5-2026
+    --explain-model claude-sonnet-5
 # requires ANTHROPIC_API_KEY in environment
 ```
 

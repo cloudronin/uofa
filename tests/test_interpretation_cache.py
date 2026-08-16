@@ -217,7 +217,7 @@ class TestPipelineIntegration:
         """Spec §4.7: switching backends produces different cached results."""
         firings = [{"patternId": "W-EP-04", "severity": "High", "hits": 1}]
         b1 = MockBackend(default_response=_canned_explanation(), backend_name="ollama", model_name="qwen3.5:4b")
-        b2 = MockBackend(default_response=_canned_explanation(), backend_name="anthropic", model_name="claude-sonnet-5-2026")
+        b2 = MockBackend(default_response=_canned_explanation(), backend_name="anthropic", model_name="claude-sonnet-5")
 
         # Warm cache with backend 1
         interpret_rules_output(

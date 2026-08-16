@@ -192,7 +192,11 @@ def _standard_suggestions() -> list[Suggestion]:
                 "[llm]\n"
                 'backend = "anthropic"\n'
                 'api_key_env = "ANTHROPIC_API_KEY"\n'
-                'model = "claude-sonnet-5-2026"\n'
+                # This string is handed to a user whose LLM is already broken.
+                # It read `claude-sonnet-5-2026` until 2026-08-16, which returns
+                # HTTP 404 -- the rescue path prescribed a config that cannot
+                # run. Pinned by test_documented_model_ids.py.
+                'model = "claude-sonnet-5"\n'
                 "See `uofa explain --help` for full configuration options."
             ),
         ),

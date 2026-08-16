@@ -123,7 +123,7 @@ def fake_litellm(monkeypatch):
 
 
 def test_litellm_backend_satisfies_protocol():
-    b = LiteLLMBackend(backend_name="anthropic", model_name="claude-sonnet-5-2026")
+    b = LiteLLMBackend(backend_name="anthropic", model_name="claude-sonnet-5")
     assert isinstance(b, LLMBackend)
 
 
@@ -172,11 +172,11 @@ def test_max_context_prefers_litellm_runtime_info(fake_litellm):
 def test_routing_anthropic(fake_litellm):
     b = LiteLLMBackend(
         backend_name="anthropic",
-        model_name="claude-sonnet-5-2026",
+        model_name="claude-sonnet-5",
         api_key="test-key",
     )
     b.generate("hello", GenerationOptions())
-    assert fake_litellm.last_kwargs["model"] == "anthropic/claude-sonnet-5-2026"
+    assert fake_litellm.last_kwargs["model"] == "anthropic/claude-sonnet-5"
     assert fake_litellm.last_kwargs["api_key"] == "test-key"
 
 
