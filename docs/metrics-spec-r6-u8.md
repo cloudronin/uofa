@@ -32,10 +32,9 @@ its own section did not cover. The repair splits the readout into two firewalled
 sections grouped by the node a finding affects, and routes every payload through
 a single construction path so a caller cannot assemble it differently.[^firewall]
 
-[^firewall]: `cloudronin/uofa` PR #45, commit `08cbfc78`, with the
-    profile-dispatch tests and firewall fixtures that landed alongside it. The
-    manuscript spans both repositories; this instance is in the pack repository
-    rather than the evaluation harness.
+[^firewall]: PR #45, commit `08cbfc78`, with the profile-dispatch tests and
+    firewall fixtures that landed alongside it — in this repository's own
+    history.
 
 **Rule 1's worked instance at corpus level.** A 4B local model was the claim-density
 champion on the synthetic corpus at **0.420** and the only candidate that looked

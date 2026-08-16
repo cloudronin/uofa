@@ -24,7 +24,7 @@ study.
 | 6 | disaggregate before you conclude | Ch3 methods narrative | [`ch3-methods-principles.md`](ch3-methods-principles.md) | **written this pass** |
 | 7 | condition 3 as leakage detector | Ch3 metrics spec | [`metrics-spec-r6-u8.md`](metrics-spec-r6-u8.md) §4 | written |
 | 8 | kill-criteria discipline (`evidence_span`) | Ch3 methodology | [`ch3-methods-principles.md`](ch3-methods-principles.md) | **written this pass** |
-| 9 | denominator rule as governing statement | Ch3 metrics spec preamble | [`metrics-spec-r6-u8.md`](metrics-spec-r6-u8.md) preamble | written, all three instances; third is cross-repo |
+| 9 | denominator rule as governing statement | Ch3 metrics spec preamble | [`metrics-spec-r6-u8.md`](metrics-spec-r6-u8.md) preamble | written, all three instances |
 | 10 | unstable at the bar + determinism irony + spread denominators | Ch3 §3.10 | [`ch3-methods-principles.md`](ch3-methods-principles.md) | **written this pass** |
 | 11 | limitations sentence | §1.8 + Ch5 | below | **written this pass** |
 | 11a | synthetic-vs-real proof case | Ch3 metrics spec preamble | [`metrics-spec-r6-u8.md`](metrics-spec-r6-u8.md) preamble | **written this pass** |
@@ -33,23 +33,28 @@ study.
 | 14 | PDF-reader lesson, fail-loud rule | Ch3 reproducibility | below | **written this pass** |
 | 14a | instrument recovery-rate discipline | Ch3 metrics spec | [`metrics-spec-r6-u8.md`](metrics-spec-r6-u8.md) preamble, rule 2 | **written this pass; unblocked by scorecard FINDINGS** |
 
-**Item 9, resolved: source supplied, cross-repo.** The checklist names three
-instances for the denominator rule. Two were in this repository. The third,
-firewall arithmetic, was flagged as unciteable on a first pass because no
-artifact *here* states its figures — and the flag was wrong in a specific and
-instructive way. **The checker was scoped to one repository; the rule is not,
-and the manuscript spans both.** The artifact exists in the pack repository, was
-supplied on request, and is now cited with its commit: the compound escalation
-that went ninefold to twenty-fourfold on evaluation-layer firings while
-rendering under documentation, repaired by the two-section firewall in
-`cloudronin/uofa` PR #45, commit `08cbfc78`.
+**Item 9, resolved: the source was here all along.** The checklist names three
+instances for the denominator rule. The third, firewall arithmetic, was flagged
+as unciteable because "no committed artifact in this repository states its
+figures." **That was false.** The artifact is commit `08cbfc78` in this
+repository's own history, merged under PR #45 with the profile-dispatch tests
+and firewall fixtures: the compound escalation that went ninefold to
+twenty-fourfold on evaluation-layer firings while rendering under documentation,
+repaired by splitting the readout into two firewalled sections.
 
-The default was right and the scope was too narrow. Refusing to quote a rate
-whose measurement context cannot be produced is the rule applying to itself; the
-correction is that "cannot be produced" was a claim about one working tree, not
-about the world. **Any future audit of this kind states its own scope**, since an
-audit that silently covers less than the rule it enforces reports a clean result
-for the wrong population — which is the denominator rule again, one level up.
+The way the flag was wrong is worth more than the instance. The check behind it
+grepped two directories of the working tree for the decimal strings belonging to
+the *other two* instances. It never searched for this instance's own terms and it
+never searched history at all, so it reported absence from a slice that could not
+have contained the thing. **A negative result is only as wide as the search that
+produced it**, and a search narrower than the claim it supports manufactures
+clean absences — the denominator rule one level up: no rate, and no *zero*,
+without the population it was computed over.
+
+The default was still right and stays the default. Refusing to quote a rate whose
+measurement context cannot be produced is the rule applying to itself. What
+changes is that such a refusal **states the scope it searched**, so a reader can
+tell whether "not found" means "not there."
 
 ---
 
