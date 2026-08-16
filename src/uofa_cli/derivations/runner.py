@@ -162,11 +162,28 @@ def _count_baseline_triples(package_path: Path, context_path: Path) -> int:
     file path that downstream stages consume.
     """
     try:
+        import json
+
         from rdflib import Graph
+
+        from uofa_cli.integrity import resolve_context
+
+        # Resolve @context from the shipped spec/context/ copy rather than
+        # letting rdflib dereference the published URL. This function swallows
+        # exceptions and returns 0, so a network failure here would have been
+        # reported as "0 derived triples" -- a wrong number rather than an
+        # error, which is the shape §13 warns about.
+        #
+        # `context_path` is threaded through rather than dropped. It was
+        # accepted and ignored before this change; resolve_context puts an
+        # explicit --context first by design, and silently substituting the
+        # tool's own choice is the exact failure its ordering exists to
+        # prevent.
+        doc = json.loads(package_path.read_text(encoding="utf-8"))
         g = Graph()
-        # rdflib needs the context inlined; skip-the-fancy by parsing the
-        # JSON-LD with rdflib directly (which does its own context resolution)
-        g.parse(str(package_path), format="json-ld")
+        g.parse(data=json.dumps(resolve_context(doc, package_path,
+                                                context_path)),
+                format="json-ld")
         return len(g)
     except Exception:
         return 0
