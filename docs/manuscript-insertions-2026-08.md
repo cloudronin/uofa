@@ -24,7 +24,7 @@ study.
 | 6 | disaggregate before you conclude | Ch3 methods narrative | [`ch3-methods-principles.md`](ch3-methods-principles.md) | **written this pass** |
 | 7 | condition 3 as leakage detector | Ch3 metrics spec | [`metrics-spec-r6-u8.md`](metrics-spec-r6-u8.md) §4 | written |
 | 8 | kill-criteria discipline (`evidence_span`) | Ch3 methodology | [`ch3-methods-principles.md`](ch3-methods-principles.md) | **written this pass** |
-| 9 | denominator rule as governing statement | Ch3 metrics spec preamble | [`metrics-spec-r6-u8.md`](metrics-spec-r6-u8.md) preamble | written; see caveat below |
+| 9 | denominator rule as governing statement | Ch3 metrics spec preamble | [`metrics-spec-r6-u8.md`](metrics-spec-r6-u8.md) preamble | written, all three instances; third is cross-repo |
 | 10 | unstable at the bar + determinism irony + spread denominators | Ch3 §3.10 | [`ch3-methods-principles.md`](ch3-methods-principles.md) | **written this pass** |
 | 11 | limitations sentence | §1.8 + Ch5 | below | **written this pass** |
 | 11a | synthetic-vs-real proof case | Ch3 metrics spec preamble | [`metrics-spec-r6-u8.md`](metrics-spec-r6-u8.md) preamble | **written this pass** |
@@ -33,14 +33,23 @@ study.
 | 14 | PDF-reader lesson, fail-loud rule | Ch3 reproducibility | below | **written this pass** |
 | 14a | instrument recovery-rate discipline | Ch3 metrics spec | [`metrics-spec-r6-u8.md`](metrics-spec-r6-u8.md) preamble, rule 2 | **written this pass; unblocked by scorecard FINDINGS** |
 
-**Caveat on item 9.** The checklist names three instances for the denominator
-rule: opportunities-versus-cards, firewall arithmetic, and the misfile
-0.605/0.247 pair. The spec carries opportunities-versus-cards, the two
-disagreeing shotgun probes, and 0.605/0.247. **Firewall arithmetic is not
-included**, because no committed artifact in this repository states its figures
-and the rule's own discipline forbids quoting a rate whose measurement context
-cannot be produced. Either supply the source and it goes in, or the three
-instances present are sufficient.
+**Item 9, resolved: source supplied, cross-repo.** The checklist names three
+instances for the denominator rule. Two were in this repository. The third,
+firewall arithmetic, was flagged as unciteable on a first pass because no
+artifact *here* states its figures — and the flag was wrong in a specific and
+instructive way. **The checker was scoped to one repository; the rule is not,
+and the manuscript spans both.** The artifact exists in the pack repository, was
+supplied on request, and is now cited with its commit: the compound escalation
+that went ninefold to twenty-fourfold on evaluation-layer firings while
+rendering under documentation, repaired by the two-section firewall in
+`cloudronin/uofa` PR #45, commit `08cbfc78`.
+
+The default was right and the scope was too narrow. Refusing to quote a rate
+whose measurement context cannot be produced is the rule applying to itself; the
+correction is that "cannot be produced" was a claim about one working tree, not
+about the world. **Any future audit of this kind states its own scope**, since an
+audit that silently covers less than the rule it enforces reports a clean result
+for the wrong population — which is the denominator rule again, one level up.
 
 ---
 
@@ -133,7 +142,11 @@ claim-density study uses `mean_overall_f1` as an unchanged control column in a
 different comparison. `credibility-inspector.md` already carried its own
 correction note and passes.
 
-**Open, manuscript-side.** D1, the U5 register check — no such script exists in
-this repository, so it runs wherever the manuscript does. D4, the read-aloud
-pass on every new paragraph. D5, grammar polish last, briefed to leave synthesis
-alone.
+**Open, and assigned to the writing session rather than to this repository.**
+D1, the U5 register check — no such script exists here, and it travels to the
+manuscript repository as part of that session's setup. D4, the read-aloud pass
+on every new paragraph. D5, grammar polish last, briefed to leave synthesis
+alone. Item 4's port to Ch5 and item 12's sentence into §3.4.x land in the same
+session.
+
+Nothing on this list now waits on a measurement.

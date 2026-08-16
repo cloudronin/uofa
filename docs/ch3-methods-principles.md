@@ -184,8 +184,17 @@ produced a single claim, which grounded. The full-range spread is an artifact of
 a ratio computed over an empty-or-singleton denominator, and the honest statement
 is not that the incumbent is wildly nondeterministic but that it produces so
 little checkable content that its grounding score is meaningless — one checkable
-claim across 288 rationales in three passes over six papers. Both arms are
-correctly labelled unstable at the bar; only one of those labels says anything
-about the model. This is the denominator rule of §3.10's preamble appearing for
-the first time at the spread layer: no rate without its population, and no
-spread without the population beneath it either.
+claim across 288 rationales in three passes over six papers.
+
+Both arms are correctly labelled unstable at the bar, and the label conceals
+that they have different diseases. **The incumbent's spread is a statement about
+the content**: the extractor produces nothing checkable, and an unstable ratio is
+simply what that condition looks like when rendered as a number. **The frontier's
+is a statement about the model**: it answers a materially different number of
+factors from one identical run to the next. The remedies do not overlap — one
+requires an extractor that says checkable things, the other an extractor that
+behaves the same way twice — so a scorecard reporting only the verdict would send
+a reader after the wrong remedy half the time. The tables in this work
+accordingly annotate which. This is the denominator rule of §3.10's preamble
+appearing for the first time at the spread layer: no rate without its population,
+and no spread without the population beneath it either.

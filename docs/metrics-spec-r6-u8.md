@@ -20,6 +20,23 @@ against 0.9284, because one scored 447 rows and the other 376), then 0.247
 against 0.605 on differently-defined labels. Each time the cost was paid
 downstream by someone reading a figure in good faith.
 
+**The firewall instance, and the most consequential of them.** In the
+model-credibility pack the evaluation-sufficiency factors were originally
+counted inside the documentation-completeness denominator, so the two profiles'
+rates cross-contaminated: a compound risk escalation rendered under
+documentation went from ninefold to twenty-fourfold **purely from
+evaluation-layer firings**, meaning a benchmark gap surfaced as a documentation
+Critical whose magnitude came entirely from evidence the documentation layer had
+never assessed. The rate was arithmetically correct and described a population
+its own section did not cover. The repair splits the readout into two firewalled
+sections grouped by the node a finding affects, and routes every payload through
+a single construction path so a caller cannot assemble it differently.[^firewall]
+
+[^firewall]: `cloudronin/uofa` PR #45, commit `08cbfc78`, with the
+    profile-dispatch tests and firewall fixtures that landed alongside it. The
+    manuscript spans both repositories; this instance is in the pack repository
+    rather than the evaluation harness.
+
 **Rule 1's worked instance at corpus level.** A 4B local model was the claim-density
 champion on the synthetic corpus at **0.420** and the only candidate that looked
 like a challenger to the shipped extractor. On the real corpus it scored

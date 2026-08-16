@@ -8,14 +8,26 @@ hand-annotated papers, prompt pinned at `e67cc74b06f2c622` (the reverted prompt
 
 ## The scorecard
 
-| arm | runs | coverage | density | groundedness | $/doc | verdict |
+| arm | runs | coverage | density ‡ | groundedness | $/doc | verdict |
 |---|---|---|---|---|---|---|
-| local-4b | 1† | 0.878 | **0.244** | 1.000 (n=38) | $0.000 | fails: density, coverage |
-| incumbent | 3 | 1.000 | **0.003** `[0.000–0.010]` | 0.333 `[0.000–1.000]` **(n = 0, 0, 1)** | $0.0139 | **UNSTABLE AT THE BAR** |
+| local-4b | 1† | 0.878 | **0.244** | 1.000 (n = 38) | $0.000 | fails: density, coverage |
+| incumbent | 3 | 1.000 | **0.003** `[0.000–0.010]` | 0.333 `[0.000–1.000]` (n = 0, 0, 1) | $0.0139 | **UNSTABLE AT THE BAR** — *content* |
 | family-72b | 3 | 1.000 | **0.048** `[0.021–0.073]` | 1.000 (n = 2, 6, 8) | $0.0057 | fails: density |
-| frontier | 3 | 0.940 `[0.854–1.000]` | **0.139** `[0.103–0.157]` | 1.000 (n = 25, 21, 8) | $0.0473 | **UNSTABLE AT THE BAR** |
+| frontier | 3 | 0.940 `[0.854–1.000]` | **0.139** `[0.103–0.157]` | 1.000 (n = 25, 21, 8) | $0.0473 | **UNSTABLE AT THE BAR** — *model* |
 
 † cites determinism in lieu of repeating, per policy §4.
+
+‡ **Every real-corpus density here is a floor, not a point.** The reader's
+recovery against an independent reference is unmeasured — see *Instrument
+recovery* below. The verdict is unaffected; the nearest miss is 1.6× with
+headroom.
+
+***content* / *model* — the same verdict label, two different diseases.** The
+incumbent's spread is a statement about the **content**: it produces nothing
+checkable, so the ratio has no population to rest on. The frontier's is a
+statement about the **model**: it answers a different number of factors on each
+identical-pin run. An arm can be unstable at the bar for either reason and the
+remedies do not overlap, so the table names which.
 
 **Exclusion, stated on the table rather than absorbed:** `elemance` failed on
 two arms for two different reasons — a timeout on `family-72b`, a `ValueError`
@@ -59,10 +71,17 @@ rationales written per run went **96 → 70 → 58**, a 40% swing in how many
 factors it answers at all, at an identical pin. Its groundedness denominators
 are 25, 21, 8 — small, but populations rather than singletons.
 
-So: `UNSTABLE AT THE BAR` is correct for both arms, and the writeup must
-distinguish **instability of the model** (frontier) from **instability of a
-ratio resting on ~one claim** (incumbent). Both fail; only one is a statement
-about the model.
+So: `UNSTABLE AT THE BAR` is correct for both arms, and the table annotates
+which disease each has. **The incumbent's spread is a statement about the
+content** — the model produces nothing checkable, and a ratio over an
+empty-or-singleton denominator is what that looks like when rendered as a
+number. **The frontier's is a statement about the model** — it answers a
+different number of factors on each identical-pin run.
+
+Same label, two diseases, and the remedies do not overlap: one is addressed by
+making the extractor say checkable things, the other by making it behave the
+same way twice. A scorecard that reported only the label would have sent the
+reader after the wrong one half the time.
 
 ## The synthetic-to-real collapse: the standing rule's proof case
 
@@ -156,5 +175,10 @@ four families of evidence behind it.
 
 ---
 
-**The study set out to pick a model and produced the evidence that no pickable
-model exists at the declared bar.**
+**Status: closed 2026-08-16.** Reopening requires the re-entry condition above,
+not a new candidate.
+
+> The study set out to pick a model and instead produced the evidence that no
+> pickable model exists at the declared bar, which is the praxis's whole
+> argument in miniature, the value was never the verdict, it was the machinery
+> that made the verdict trustworthy either way.
