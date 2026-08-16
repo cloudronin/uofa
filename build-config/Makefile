@@ -48,8 +48,16 @@ check:
 shacl:
 	cd $(ROOT) && uofa shacl $(FILE)
 
+# -n auto: the suite is ~3000 tests dominated by per-test fixed overhead, not
+# by any hot spot -- the slowest single test is 38s and the top 29 are 21% of
+# the time, while 78% of tests cost 2% of it. Parallelism is the only lever
+# that shape responds to.
+# -q rather than -v: -v emitted ~11k log lines, two per test, and buried the
+# timing information this target's own runtime analysis needed.
+# --durations: so the slow list is read off the log rather than reconstructed
+# from timestamps.
 test:
-	cd $(ROOT) && pytest tests/ -v
+	cd $(ROOT) && pytest tests/ -q -n auto --durations=25
 
 verify:
 	cd $(ROOT) && uofa verify $(FILE)
