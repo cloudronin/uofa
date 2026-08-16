@@ -156,8 +156,11 @@ def test_the_synthetic_corpus_shortfall_rate():
     s = score_per_factor_fields(rows, [])
     assert s["rows"] == 800
     assert s["required_level_present"] == 800
-    assert s["rows_below_required"] == 156
-    assert s["rows_below_required"] / s["rows_with_shortfall"] == pytest.approx(0.195, abs=0.005)
+    # Banded for the same reason as test_groundedness's triple: two
+    # regenerations at the identical pinned config gave 156 and 134 rows below
+    # required (0.195 and 0.168). A point pin here was pinning a sample.
+    assert 120 <= s["rows_below_required"] <= 170
+    assert s["rows_below_required"] / s["rows_with_shortfall"] == pytest.approx(0.181, abs=0.025)
 
     # This one is a finding, not a pin. It was `> 700` against the qwen3.5:4b
     # baseline, where 738 of 788 filled criteria were distinct across the corpus
