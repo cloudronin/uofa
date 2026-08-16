@@ -82,12 +82,12 @@ def test_cli_beats_project(hermetic_env, monkeypatch):
         model = "qwen3.5:4b"
     """)
     config = resolve_llm_config(
-        cli_overrides={"backend": "anthropic", "model": "claude-sonnet-5-2026", "api_key_env": "ANTHROPIC_API_KEY"},
+        cli_overrides={"backend": "anthropic", "model": "claude-sonnet-5", "api_key_env": "ANTHROPIC_API_KEY"},
         project_root=hermetic_env,
         user_config_path=hermetic_env / "no-such-file.toml",
     )
     assert config.backend == "anthropic"
-    assert config.model == "claude-sonnet-5-2026"
+    assert config.model == "claude-sonnet-5"
     assert config.provenance["backend"] == "cli"
 
 
@@ -119,7 +119,7 @@ def test_user_beats_bundled(hermetic_env, monkeypatch):
     user_path = _write_toml(hermetic_env / "user-config.toml", """
         [llm]
         backend = "anthropic"
-        model = "claude-sonnet-5-2026"
+        model = "claude-sonnet-5"
         api_key_env = "ANTHROPIC_API_KEY"
     """)
     config = resolve_llm_config(
@@ -158,7 +158,7 @@ def test_literal_api_key_rejected_in_project_config(hermetic_env):
     _write_toml(hermetic_env / "uofa.toml", """
         [llm]
         backend = "anthropic"
-        model = "claude-sonnet-5-2026"
+        model = "claude-sonnet-5"
         api_key = "sk-ant-leaked-this-everywhere"
     """)
     with pytest.raises(ConfigError, match="Literal `api_key`"):
@@ -172,7 +172,7 @@ def test_literal_api_key_rejected_in_user_config(hermetic_env):
     user_path = _write_toml(hermetic_env / "user-config.toml", """
         [llm]
         backend = "anthropic"
-        model = "claude-sonnet-5-2026"
+        model = "claude-sonnet-5"
         api_key = "sk-ant-also-leaked"
     """)
     with pytest.raises(ConfigError, match="Literal `api_key`"):
@@ -272,14 +272,14 @@ def test_resolve_api_key_returns_value_when_env_set(monkeypatch):
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-real-value")
     config = LLMConfig(
         backend="anthropic",
-        model="claude-sonnet-5-2026",
+        model="claude-sonnet-5",
         api_key_env="ANTHROPIC_API_KEY",
     )
     assert resolve_api_key(config) == "sk-ant-real-value"
 
 
 def test_resolve_api_key_raises_when_remote_missing_env_field():
-    config = LLMConfig(backend="anthropic", model="claude-sonnet-5-2026")
+    config = LLMConfig(backend="anthropic", model="claude-sonnet-5")
     with pytest.raises(ConfigError, match="requires an API key"):
         resolve_api_key(config)
 
@@ -288,7 +288,7 @@ def test_resolve_api_key_raises_when_env_var_unset(monkeypatch):
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     config = LLMConfig(
         backend="anthropic",
-        model="claude-sonnet-5-2026",
+        model="claude-sonnet-5",
         api_key_env="ANTHROPIC_API_KEY",
     )
     with pytest.raises(ConfigError, match="ANTHROPIC_API_KEY.*not set"):
@@ -302,7 +302,7 @@ def test_resolve_api_key_error_does_not_echo_key_value(monkeypatch):
     # (Trigger the error path by using a different env var name.)
     config = LLMConfig(
         backend="anthropic",
-        model="claude-sonnet-5-2026",
+        model="claude-sonnet-5",
         api_key_env="DOES_NOT_EXIST_VAR",
     )
     with pytest.raises(ConfigError) as exc:
@@ -333,7 +333,7 @@ def test_get_backend_anthropic_resolves_env_var(monkeypatch):
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-test-key-only")
     backend = get_backend(LLMConfig(
         backend="anthropic",
-        model="claude-sonnet-5-2026",
+        model="claude-sonnet-5",
         api_key_env="ANTHROPIC_API_KEY",
     ))
     assert isinstance(backend, LiteLLMBackend)
@@ -345,7 +345,7 @@ def test_get_backend_anthropic_raises_when_key_missing(monkeypatch):
     with pytest.raises(ConfigError):
         get_backend(LLMConfig(
             backend="anthropic",
-            model="claude-sonnet-5-2026",
+            model="claude-sonnet-5",
             api_key_env="ANTHROPIC_API_KEY",
         ))
 

@@ -128,7 +128,7 @@ is the configuration the rest of this document describes.
    ```bash
    ANTHROPIC_API_KEY=$(op read 'op://Personal/Anthropic/api key') \
        uofa rules my-package.jsonld --explain \
-       --explain-backend anthropic --explain-model claude-sonnet-5-2026
+       --explain-backend anthropic --explain-model claude-sonnet-5
    ```
 
 ### Team with one approved vendor
@@ -137,7 +137,7 @@ is the configuration the rest of this document describes.
    ```toml
    [llm]
    backend = "anthropic"
-   model = "claude-sonnet-5-2026"
+   model = "claude-sonnet-5"
    api_key_env = "ANTHROPIC_API_KEY"
    ```
 2. Use a secrets manager that injects `ANTHROPIC_API_KEY` into the

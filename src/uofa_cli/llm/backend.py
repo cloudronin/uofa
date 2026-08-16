@@ -82,7 +82,7 @@ class LLMBackend(Protocol):
 
     def model(self) -> str:
         """Model identifier as seen by the backend (e.g. "qwen3.5:4b",
-        "claude-sonnet-5-2026"). Used in cache keys and verbose output."""
+        "claude-sonnet-5"). Used in cache keys and verbose output."""
         ...
 
     # ── Capability advertisement ──────────────────────────────

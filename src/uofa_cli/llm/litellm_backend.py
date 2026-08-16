@@ -9,7 +9,7 @@ regardless of backend.
 
 Backend → litellm model-string mapping:
     backend="ollama",            model="qwen3.5:4b"            → "ollama/qwen3.5:4b" + api_base=http://127.0.0.1:11434
-    backend="anthropic",         model="claude-sonnet-5-2026"  → "anthropic/claude-sonnet-5-2026" + api_key
+    backend="anthropic",         model="claude-sonnet-5"  → "anthropic/claude-sonnet-5" + api_key
     backend="openai",            model="gpt-4o"                → "openai/gpt-4o" + api_key
     backend="openai-compatible", model="meta-llama/...",       → "openai/meta-llama/..." + api_base + api_key
                                  base_url="https://..."

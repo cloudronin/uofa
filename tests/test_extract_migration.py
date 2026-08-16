@@ -65,7 +65,7 @@ def tiny_corpus():
 @pytest.mark.parametrize("model_str,expected_backend,expected_model", [
     # Standard provider/model convention
     ("ollama/qwen3.5:4b",                    "ollama",    "qwen3.5:4b"),
-    ("anthropic/claude-sonnet-5-2026",       "anthropic", "claude-sonnet-5-2026"),
+    ("anthropic/claude-sonnet-5",       "anthropic", "claude-sonnet-5"),
     ("openai/gpt-4o",                        "openai",    "gpt-4o"),
     # Bare model names assumed Ollama (matches setup_state.model_tag default)
     ("qwen3.5:4b",                           "ollama",    "qwen3.5:4b"),
@@ -83,7 +83,7 @@ def test_legacy_model_anthropic_gets_default_api_key_env():
     """Convention env var must be set for remote backends so users on the
     legacy CLI flag (`--model anthropic/...`) get a working call without
     having to switch to the new --extract-* flags."""
-    config = _legacy_model_to_config("anthropic/claude-sonnet-5-2026")
+    config = _legacy_model_to_config("anthropic/claude-sonnet-5")
     assert config.api_key_env == "ANTHROPIC_API_KEY"
 
 
@@ -200,13 +200,13 @@ def test_call_llm_legacy_path_constructs_config_from_string():
     with patch("uofa_cli.llm.get_backend", return_value=backend) as mock_get_backend:
         _call_llm(
             "any prompt",
-            model="anthropic/claude-sonnet-5-2026",
+            model="anthropic/claude-sonnet-5",
             pack_name="vv40",
             llm_config=None,
         )
     called_with = mock_get_backend.call_args.args[0]
     assert called_with.backend == "anthropic"
-    assert called_with.model == "claude-sonnet-5-2026"
+    assert called_with.model == "claude-sonnet-5"
     assert called_with.api_key_env == "ANTHROPIC_API_KEY"
 
 

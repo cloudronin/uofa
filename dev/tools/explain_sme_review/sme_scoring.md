@@ -11,7 +11,7 @@ Spec v0.4 §8.3: explanations must be SME-rated **≥ 80% useful-and-correct** o
    Writes `sample_<backend>_<model>_<timestamp>.json`. Defaults to bundled
    Ollama / qwen3.5:4b. Override with env vars:
    ```
-   UOFA_EXPLAIN_BACKEND=anthropic UOFA_EXPLAIN_MODEL=claude-sonnet-5-2026 \
+   UOFA_EXPLAIN_BACKEND=anthropic UOFA_EXPLAIN_MODEL=claude-sonnet-5 \
        python dev/tools/explain_sme_review/generate_sample.py
    ```
 

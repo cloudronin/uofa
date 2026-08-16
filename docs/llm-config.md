@@ -52,7 +52,7 @@ Switch to Claude:
 ```toml
 [llm]
 backend = "anthropic"
-model = "claude-sonnet-5-2026"
+model = "claude-sonnet-5"
 api_key_env = "ANTHROPIC_API_KEY"
 ```
 
@@ -62,7 +62,7 @@ OpenAI-compatible endpoint (Together AI, vLLM, etc.):
 [llm]
 backend = "openai-compatible"
 base_url = "https://api.together.xyz/v1"
-model = "meta-llama/Llama-3.3-70B-Instruct"
+model = "meta-llama/Llama-3.3-70B-Instruct-Turbo"
 api_key_env = "TOGETHER_API_KEY"
 ```
 
@@ -79,7 +79,7 @@ Optional fields:
 ```toml
 [llm]
 backend = "anthropic"
-model = "claude-sonnet-5-2026"
+model = "claude-sonnet-5"
 api_key_env = "ANTHROPIC_API_KEY"
 max_tokens = 4096          # default 2048
 timeout_seconds = 60       # default 30 / 60 depending on call site
@@ -94,7 +94,7 @@ copying configs:
 # ~/.uofa/config.toml — applies to every project that doesn't override
 [llm]
 backend = "anthropic"
-model = "claude-sonnet-5-2026"
+model = "claude-sonnet-5"
 api_key_env = "ANTHROPIC_API_KEY"
 ```
 
@@ -111,7 +111,7 @@ when you want to differ for one invocation:
 # Project default = Ollama. Quick check on Claude for a single run.
 uofa rules my-package.jsonld --explain \
     --explain-backend anthropic \
-    --explain-model claude-sonnet-5-2026
+    --explain-model claude-sonnet-5
 
 # Project default = Anthropic. Pull this extract through bundled Qwen
 # specifically so evidence documents don't leave the local machine.
