@@ -72,13 +72,24 @@ _PRICE_PER_MTOK = {
     "frontier": 3.00,
 }
 
+# The NAME of the environment variable each hosted arm reads its credential
+# from -- never the credential. Single source of truth: handed to LLMConfig
+# below, and named in the skip message when the variable is unset. Kept out of
+# the LLMConfig round-trip deliberately, so no readback of `api_key_env` ever
+# reaches an output path.
+ARM_ENV_VAR = {
+    "incumbent": "UOFA_OPENAI_COMPATIBLE_API_KEY",
+    "family-72b": "HF_TOKEN",
+    "frontier": "ANTHROPIC_API_KEY",
+}
+
 ARMS = {
     "local-4b": dict(model="ollama/qwen3.5:4b", cfg=None),
     "incumbent": dict(model=None, cfg=lambda: LLMConfig(
         backend="openai-compatible",
         model="meta-llama/Llama-3.3-70B-Instruct-Turbo",
         base_url="https://api.together.xyz/v1",
-        api_key_env="UOFA_OPENAI_COMPATIBLE_API_KEY")),
+        api_key_env=ARM_ENV_VAR["incumbent"])),
     # Served through the HF Router rather than Together: no qwen-family model
     # is serverless on the Together account, and all five probed there return
     # "Unable to access non-serverless model". Same model, different serving
@@ -88,14 +99,23 @@ ARMS = {
         backend="openai-compatible",
         model="Qwen/Qwen2.5-72B-Instruct",
         base_url="https://router.huggingface.co/v1",
-        api_key_env="HF_TOKEN")),
+        api_key_env=ARM_ENV_VAR["family-72b"])),
     # The declared id claude-sonnet-5-2026 returns 404; claude-sonnet-5 is the
     # same model correctly spelled. See task #21 -- docs/llm-config.md carries
     # the broken string.
     "frontier": dict(model=None, cfg=lambda: LLMConfig(
         backend="anthropic", model="claude-sonnet-5",
-        api_key_env="ANTHROPIC_API_KEY")),
+        api_key_env=ARM_ENV_VAR["frontier"])),
 }
+
+# Fail loudly rather than skip a credential check silently. Every hosted arm
+# must name its env var; a hosted arm missing from ARM_ENV_VAR would otherwise
+# run the `.get(name) -> None` path and be treated as needing no credential.
+_hosted = {n for n, s in ARMS.items() if s["cfg"]}
+if _hosted != set(ARM_ENV_VAR):
+    raise AssertionError(
+        f"ARMS hosted arms {sorted(_hosted)} do not match "
+        f"ARM_ENV_VAR {sorted(ARM_ENV_VAR)}")
 
 
 def _prompt_hash() -> str:
@@ -299,20 +319,15 @@ def main() -> int:
             raise SystemExit(f"unknown arm {name!r}. Known: {list(ARMS)}")
         spec = ARMS[name]
         if spec["cfg"]:
-            # `api_key_env` is the env var's NAME, never its value -- the
-            # invariant is stated in src/uofa_cli/llm/config.py:17 and enforced
-            # by config validation, which rejects an inline key outright. The
-            # branch below is reached only when that name is UNSET, so there is
-            # no value in the process to disclose.
-            # CodeQL flags the print below as py/clear-text-logging-sensitive-data
-            # (high). It is a false positive on the name, not the data, and it is
-            # NOT suppressed here: inline `# codeql[...]` comments are ignored by
-            # this repo's default-setup scanning, and leaving one would read as
-            # handled while the alert still stands -- the vacuous pass in §13.
-            # The alert is open and awaiting a dismiss-or-restructure decision.
-            key_var_name = spec["cfg"]().api_key_env
-            if key_var_name and not os.environ.get(key_var_name):
-                print(f"  {name}: SKIPPED -- {key_var_name} not set. Recorded "
+            # Take the var NAME from ARM_ENV_VAR rather than reading it back off
+            # the constructed config. Identical string, one fewer indirection,
+            # and nothing named `api_key_env` reaches an output path -- which is
+            # both what the scanner needs and the clearer thing to read. The
+            # branch runs only when the variable is UNSET, so there is no value
+            # in the process to disclose either way.
+            env_var = ARM_ENV_VAR.get(name)
+            if env_var and not os.environ.get(env_var):
+                print(f"  {name}: SKIPPED -- {env_var} not set. Recorded "
                       f"as not run; no substitution.\n", flush=True)
                 continue
         # The local arm cites determinism rather than repeating: fixed weights
