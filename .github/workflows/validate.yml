@@ -1,8 +1,20 @@
 name: Validate UofA (SHACL + Integrity + Jena Rules)
 
+# Branch pushes are validated through their pull request, not twice. Before
+# this, `push:` and `pull_request:` both fired on every branch commit and ran
+# the identical SHA twice -- eight pushes in one session cost ~3.2 hours of
+# runner time for 1.6 hours of checking.
 on:
   push:
+    branches: [main]
   pull_request:
+
+# Supersede rather than queue: a rapid series of pushes cancels its own
+# earlier runs. Costs the logs of intermediate commits, which is accepted --
+# the merge commit is what gets read.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   validate:
@@ -10,9 +22,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Sizes -n auto against the real core count rather than the assumed one.
+      - name: Report runner size
+        run: 'echo "nproc=$(nproc)  mem=$(free -g | awk ''/^Mem:/{print $2}'')GB"'
+
       - name: Build and run in devcontainer
         uses: devcontainers/ci@v0.3
         with:
           push: never
           runCmd: |
-            make all 
+            make all
