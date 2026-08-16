@@ -183,7 +183,8 @@ Not written as the conclusion — that is for the praxis text — but the shape 
 evidence supports:
 
 - **The detection claim is supported at ceiling and is non-discriminating.**
-  Mean F1 0.9637 / 0.9544, per-factor 1.000 across all nineteen, zero crashes —
+  Mean F1 0.9637 / 0.9544 (0.9035 / 0.8909 before the routing correction, both
+  reported together), per-factor 1.000 across all nineteen, zero crashes —
   and `control_constant_list` scores identically, delta +0.0000. Reported with
   the null beside it, always.
 - **The attribution replacement gate was declared with numbers, measured on real

@@ -147,10 +147,22 @@ This repo uses conventional-commit prefixes with a mandatory scope. Look at
   **Why:** A reviewer scanning history shouldn't have to mentally separate the
   meaningful change from the byproduct.
 
-- **Rule:** Sign off commits with `git commit -s` (DCO trailer).
-  **Why:** Per CONTRIBUTING.md, this project uses the Developer Certificate of Origin
-  in lieu of a CLA. Every commit is an attestation that the contributor has the right
-  to submit the work under Apache 2.0.
+- **Rule:** DCO sign-off (`git commit -s`) is governed by
+  [CONTRIBUTING.md](CONTRIBUTING.md), which is the authority. **This file does not
+  restate it as a per-commit rule, because as of 2026-08-16 the requirement is
+  declared but not practised and not enforced.** Measured on `main`: **119 of 737
+  commits (16%) carry a `Signed-off-by` trailer**, in two bursts — 68/198 in
+  2026-05 and 50/257 in 2026-08 — with nothing before, between, or since
+  `f1f2849c` (2026-08-12). One author throughout, so the gaps are not a
+  contributor split.
+  **Why:** An unenforced mandate in a working doc is the vacuous pass of §13
+  wearing a rule's clothes: it reads as satisfied, nothing checks it, and the
+  16% that do comply make the other 84% look deliberate. Stating the measured
+  rate is honest where restating the mandate was not. **Open, and it is a
+  reconciliation not a cleanup:** CONTRIBUTING.md ties DCO to the licensing of
+  outside contributions, so either enforcement lands in CI or the licensing
+  clause changes — and until one of those happens this line is a disclosure, not
+  a permission. Do not read it as "sign-off is discouraged." See task #22.
 
 - **Rule:** Pass multi-line commit messages via heredoc, not `-m "..."`.
   **Why:** Shells mangle newlines, indentation, and special characters in `-m` strings.
@@ -445,6 +457,28 @@ them raised an error.
   `None` — "no pack recorded" for every package in the repo, which is
   *indistinguishable from the correct answer* for the ones that genuinely have
   none. A catch-all around a lookup turns a bug into a plausible default.
+
+### A search that reports absence
+
+- **Rule:** An audit that greps for the fingerprints of the instances it already
+  holds will miss the instance whose fingerprint it never loaded. Coverage means
+  searching for **each claim's own terms**, and searching **history**, not
+  pattern-matching the working tree against the examples in hand. A refusal
+  grounded in "not found" states the scope it searched.
+  **Why:** A denominator-rule instance was ruled unciteable because "no committed
+  artifact in this repository states its figures." The artifact was commit
+  `08cbfc78` in this repository's own history. The check had grepped two
+  directories of the working tree for the decimal strings belonging to the *other
+  two* instances — it never searched this instance's own terms and never searched
+  history at all, so it reported absence from a slice that could not have
+  contained the thing. **This is the keyword-not-claim substitution operating on
+  the audit rather than on the extraction.** Downstream it was measured as an 11×
+  error in the other direction — 45% of cards mention a sampling temperature and
+  only 4% state one for their evaluation, so matching the keyword counted
+  mentions that were not claims. Here the same substitution runs in reverse and
+  produces a false absence instead of a false presence: search by fingerprint and
+  you overcount what you have examples of, and miss entirely what you do not. A
+  search narrower than the claim it supports manufactures clean absences.
 
 ### Your environment is richer than the target's
 
