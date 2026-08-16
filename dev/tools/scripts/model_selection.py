@@ -299,10 +299,16 @@ def main() -> int:
             raise SystemExit(f"unknown arm {name!r}. Known: {list(ARMS)}")
         spec = ARMS[name]
         if spec["cfg"]:
-            env = spec["cfg"]().api_key_env
-            if env and not os.environ.get(env):
-                print(f"  {name}: SKIPPED -- {env} not set. Recorded as not run; "
-                      f"no substitution.\n", flush=True)
+            # `api_key_env` is the env var's NAME, never its value -- the
+            # invariant is stated in src/uofa_cli/llm/config.py:17 and enforced
+            # by config validation, which rejects an inline key outright. The
+            # branch below is reached only when that name is UNSET, so there is
+            # no value in the process to disclose.
+            key_var_name = spec["cfg"]().api_key_env
+            if key_var_name and not os.environ.get(key_var_name):
+                # codeql[py/clear-text-logging-sensitive-data]
+                print(f"  {name}: SKIPPED -- {key_var_name} not set. Recorded "
+                      f"as not run; no substitution.\n", flush=True)
                 continue
         # The local arm cites determinism rather than repeating: fixed weights
         # on fixed hardware, so a repeat measures the harness, not the model.
