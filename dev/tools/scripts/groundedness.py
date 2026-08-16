@@ -792,10 +792,24 @@ def read_source_text(bundle_dir: Path) -> str:
     paper. Every coordinate in that is a number, so a rationale's figures could
     ground against typesetting geometry that no reader would call evidence.
 
-    The bias is optimistic, which is the dangerous direction: the raw reference
-    contains far MORE numbers than the prose does, so it grounds claims that
-    should have failed. Found 2026-08-15 when a triage printed the "source"
-    a claim had matched and it was a PDF link rectangle.
+    Found 2026-08-15 when a triage printed the "source" a claim had matched and
+    it was a PDF link rectangle.
+
+    **The bias is PESSIMISTIC, and an earlier version of this docstring had the
+    direction backwards.** The intuition -- raw bytes carry more numbers, so
+    claims ground too easily -- is wrong, because PDF text lives in compressed
+    streams. `read_text` surfaces structure and metadata, not sentences. Measured
+    on bologna: the raw reading carries 761 spurious decimals AND is missing 15
+    of the 39 decimals that appear in the prose, so **38% of genuine figures were
+    unfindable** and honest claims failed to ground.
+
+    Confirmed by the re-score: the frontier arm's groundedness went 0.621 ->
+    1.000 when the noise was removed. Removing junk RAISED the score, which is
+    only possible if the junk was suppressing real matches.
+
+    The withdrawal of those figures was still correct. The stated reason for it
+    was not, and it was asserted with more confidence than an unmeasured
+    direction deserved.
 
     Only bundles with PDFs were affected -- the synthetic corpus is markdown,
     where `read_text` is correct and this change is a no-op.
