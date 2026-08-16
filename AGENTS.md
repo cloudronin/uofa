@@ -446,6 +446,28 @@ them raised an error.
   *indistinguishable from the correct answer* for the ones that genuinely have
   none. A catch-all around a lookup turns a bug into a plausible default.
 
+### A search that reports absence
+
+- **Rule:** An audit that greps for the fingerprints of the instances it already
+  holds will miss the instance whose fingerprint it never loaded. Coverage means
+  searching for **each claim's own terms**, and searching **history**, not
+  pattern-matching the working tree against the examples in hand. A refusal
+  grounded in "not found" states the scope it searched.
+  **Why:** A denominator-rule instance was ruled unciteable because "no committed
+  artifact in this repository states its figures." The artifact was commit
+  `08cbfc78` in this repository's own history. The check had grepped two
+  directories of the working tree for the decimal strings belonging to the *other
+  two* instances — it never searched this instance's own terms and never searched
+  history at all, so it reported absence from a slice that could not have
+  contained the thing. **This is the keyword-not-claim substitution operating on
+  the audit rather than on the extraction.** Downstream it was measured as an 11×
+  error in the other direction — 45% of cards mention a sampling temperature and
+  only 4% state one for their evaluation, so matching the keyword counted
+  mentions that were not claims. Here the same substitution runs in reverse and
+  produces a false absence instead of a false presence: search by fingerprint and
+  you overcount what you have examples of, and miss entirely what you do not. A
+  search narrower than the claim it supports manufactures clean absences.
+
 ### Your environment is richer than the target's
 
 - **Rule:** When a check depends on an external binary, a gitignored file, or a

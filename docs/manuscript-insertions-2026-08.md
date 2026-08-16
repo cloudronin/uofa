@@ -46,10 +46,21 @@ The way the flag was wrong is worth more than the instance. The check behind it
 grepped two directories of the working tree for the decimal strings belonging to
 the *other two* instances. It never searched for this instance's own terms and it
 never searched history at all, so it reported absence from a slice that could not
-have contained the thing. **A negative result is only as wide as the search that
-produced it**, and a search narrower than the claim it supports manufactures
-clean absences — the denominator rule one level up: no rate, and no *zero*,
-without the population it was computed over.
+have contained the thing.
+
+**An audit that searches for known instances' fingerprints will miss the instance
+whose fingerprint it never loaded.** Coverage means searching for each claim's
+own terms, and searching history, rather than pattern-matching the tree against
+the examples already in hand. This is the **keyword-not-claim substitution
+operating on the audit rather than on the extraction**, and the two directions
+are worth stating together. In extraction it was measured as an 11× error:
+45% of cards mention a sampling temperature and only 4% state one for their
+evaluation, so matching the keyword counted mentions that were never claims. In
+the audit the identical substitution ran in reverse and produced a false absence
+rather than a false presence. Searching by fingerprint overcounts what you hold
+examples of and misses entirely what you do not, and it is the same defect
+either way. Finding it in verification is the more useful of the two, since
+verification is what the extraction failure was supposed to be caught by.
 
 The default was still right and stays the default. Refusing to quote a rate whose
 measurement context cannot be produced is the rule applying to itself. What

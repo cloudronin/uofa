@@ -89,14 +89,30 @@ that is not being delivered.
 
 The corollary is procedural rather than analytical. Before concluding, ask which
 partition of this population would separate the proposed explanation from its
-alternatives, and compute it. It is usually cheap: five of the six instances
-recorded cost nothing beyond a grouped aggregation, and one cost two minutes of
-reading which of six tests had actually failed. The transferable claim is that
-the defence against a plausible wrong conclusion is not more analysis but a
-split, and it is the same argument the praxis makes about model credibility,
+alternatives, and compute it. It is usually cheap: six of the seven instances
+recorded cost nothing beyond a grouped aggregation or a search, and one cost two
+minutes of reading which of six tests had actually failed. The transferable claim
+is that the defence against a plausible wrong conclusion is not more analysis but
+a split, and it is the same argument the praxis makes about model credibility,
 turned on the project's own inference. A figure that has not been disaggregated
 is an assertion about a population made from a sample that was never separated
 from its alternatives.
+
+The seventh instance is the principle applied to verification rather than to
+measurement, and it is the one worth carrying furthest. An audit concluded that
+a required source did not exist in this repository; the source was in its
+history. The audit had searched for the fingerprints of the two instances it
+already held, and never for the terms of the one it was looking for, so it
+reported absence from a slice that could not have contained the thing.
+**Coverage means searching for each claim's own terms, not pattern-matching the
+corpus against the examples in hand.** It is the same keyword-for-claim
+substitution this study measured in extraction as an elevenfold error — 45% of
+model cards mention a sampling temperature and only 4% state one for their
+evaluation, so the keyword counted mentions that were never claims — running here
+in the opposite direction, producing a false absence rather than a false
+presence. Searching by fingerprint overcounts what one holds examples of and
+misses what one does not, and it had now moved one level up, into the check that
+was supposed to catch it.
 
 This principle is stated with its counter-example attached. One triage in the
 set was escalated on a premise taken from a file name rather than from the

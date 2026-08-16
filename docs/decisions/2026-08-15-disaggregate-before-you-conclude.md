@@ -2,7 +2,7 @@
 
 **Date:** 2026-08-15
 **Status:** stated principle, for the methods chapter
-**Instances:** all from a single working day, 2026-08-14/15
+**Instances:** 1–6 from a single working day, 2026-08-14/15; 7 added 2026-08-16
 
 ## The principle
 
@@ -20,8 +20,8 @@ tests actually failed.
 
 The corollary is procedural rather than analytical. **Before concluding, ask what
 partition of this population would separate my explanation from its
-alternatives, and compute it.** It is usually cheap — five of the six instances
-below cost nothing but a `groupby`.
+alternatives, and compute it.** It is usually cheap — six of the seven instances
+below cost nothing but a `groupby` or a search.
 
 ## Worked instances
 
@@ -100,6 +100,57 @@ The routing finding claimed four packs shipped extract prompts and were affected
 **Only one does.** `iso42001`, `surrogate` and `disposition` have no `prompt`
 key, so `uofa extract` never reached them.
 
+### 7. The audit that reported a clean absence, split by search terms
+
+A denominator-rule instance was ruled unciteable on the finding that "no
+committed artifact in this repository states its figures." The artifact was
+commit `08cbfc78`, in this repository's own history, merged under PR #45.
+
+The check had grepped two directories of the working tree for the decimal
+strings belonging to the **other two** instances. It never searched this
+instance's own terms — firewall, Group B, the profiles — and never searched
+history at all. It reported absence from a slice that could not have contained
+the thing.
+
+The partition that would have caught it is the one the audit skipped: search per
+claim, not per known example. **An audit that looks for the fingerprints of the
+instances it already holds will miss the instance whose fingerprint it never
+loaded.** This is the keyword-not-claim substitution operating on verification
+rather than on extraction. In extraction it was measured as an 11× error in the
+opposite direction — 45% of cards mention a sampling temperature, only 4% state
+one for their evaluation — where matching the keyword counted mentions that were
+never claims. Searching by fingerprint overcounts what you have examples of and
+misses what you do not.
+
+## The ones that were ours to own
+
+Two, and they belong here for the same reason the principle does.
+
+**The negative-control escalation (Vishnu).** Ordered on a wrong premise, and
+the premise came from the file name rather than from the failing test. The
+control was always clean. That is exactly the outcome a triage is supposed to be
+allowed to have — a triage that can only confirm the concern that prompted it is
+not a triage — and it cost about an hour to establish, against a two-minute check
+that would have prevented it.
+
+**The "other repository" provenance claim (Vishnu).** The firewall instance was
+described as living in a separate repository, as Phase 1 work in a distinct
+workstream. It was in this repository the whole time. The claim was stated
+confidently, and when it was challenged the correction was partial: the rule was
+held correctly — produce the artifact or it stays out — while the wrong narrative
+was kept and defended. It was settled by a search, not by an argument.
+
+That puts it in the same lineage as the commit-message bias claim, which asserted
+a direction without measuring it and was corrected by measuring: **asserted
+without searching, corrected by searching.** The two errors are the same error
+about different objects, one about a causal direction and one about a location,
+and both were confident, both were cheap to check, and neither was checked before
+being stated.
+
+Filed rather than smoothed over, because the principle is only worth stating if
+its counter-examples are in the same document, and it is worth less if the
+counter-examples are only ever the machine's.
+
 ## Why this belongs in the methods chapter and not the changelog
 
 The praxis argues that model credibility should be evidenced and checkable
@@ -115,14 +166,3 @@ existed.
 That is the transferable claim: *the defence against a plausible wrong conclusion
 is not more analysis, it is a split.*
 
-## The one that was mine to own
-
-The negative-control escalation was ordered on a wrong premise, and the premise
-came from the file name rather than from the failing test. The control was
-always clean. That is exactly the outcome a triage is supposed to be allowed to
-have — a triage that can only confirm the concern that prompted it is not a
-triage — and it cost about an hour to establish, against a two-minute check that
-would have prevented it.
-
-Filed as an instance rather than smoothed over, because the principle is only
-worth stating if its counter-examples are in the same document.
