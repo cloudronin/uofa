@@ -124,3 +124,86 @@ One package of 4,601 raised `decimal.InvalidOperation` during literal parsing an
 was caught by the runner's handler, counting it GEN-INVALID. So 1 of the 380
 GEN-INVALID rows is a reader exception rather than a generation failure. Immaterial
 to the rates; recorded for accuracy.
+
+---
+
+# ADJUDICATION — 2026-08-17, author ruling
+
+The two readings above were left open for the author. Ruled, and recorded here
+rather than by editing the section that posed them, so the sequence stays legible:
+the readings were framed before the ruling existed.
+
+## The framing error was mine: these are not false positives
+
+Ask what the rule is for. **W-ON-02 exists to flag a Context of Use with no stated
+applicability bounds.** The M5 negative controls *genuinely lack* those bounds.
+Nobody injected that absence — it is simply true of them.
+
+So the rule firing on 158 of them is not a rule misfiring on clean packages. It is
+the rule **correctly detecting a real, uninjected weakness** in packages that were
+labelled "negative" only in the sense that no defect was *deliberately planted*.
+Counting those firings as false positives assumes the label means "contains no
+weakness," when what it means is "contains no weakness we put there."
+
+**Independently supported by the week's own record:** the same rule fires on all
+three published case-study encodings. Unbounded contexts of use are endemic in real
+evidence. The rule keeps saying so, everywhere it looks, and it is right every time.
+
+## Both figures are legitimate; they measure different things
+
+**The 97.1% stands as the specificity figure, scoped.** It is measured on negative
+controls *constructed to carry no catalog-detectable weakness*, bounded contexts of
+use included. That construction is not cheating: **a true negative for a
+presence-checking rule must actually have the thing present.** A control that omits
+the field is not a clean package, it is a package with that defect. The scope rides
+with the number **everywhere it appears, including GATE-H3's false-positive clause**.
+
+**The M5 figure is a detection result, and gets reported as one.** On packages never
+built to be complete, the dominant rule detects genuine incompleteness at scale —
+158 of 176. It is a detection result wearing a specificity costume, and calling it
+4.5% specificity mislabels it. Reported as detection, it **supports** the catalog
+rather than indicting it.
+
+Neither reading in the section above survives intact. "Corpus correction" is right
+that the regenerated corpus is the valid specificity instrument, but wrong to treat
+the M5 firings as measuring a defective corpus — they measure real absences. "Rule
+suppression" is right that the trajectory conflates two causes, but wrong to imply
+the rule was blinded — it was pointed at a corpus where the thing it checks for is
+present.
+
+## The trajectory gets decomposed
+
+Session 1's proposal is adopted. The 0% → 97.1% story currently attributes
+everything to rule refinement when part of it is corpus redefinition. **Both
+components get stated.** The split is measurable from the committed corpora, and it
+is the same argued-versus-measured discipline the whole phase ran on.
+
+Measured at [INV-16](../../docs/investigations/INV-16-nc-trajectory-decomposition.md):
+rule refinement accounts for **4.5 points** with the corpus held fixed; the
+remainder travels with the corpus; **both were necessary and neither alone exceeds
+4.5%**. Every rule the 2026-04 record labels a predicate fix went to zero; every
+rule it labels corpus regen is unchanged to the decimal.
+
+## The placeholder problem becomes a named limitation
+
+This is the deeper finding, and it is kept as one rather than resolved away. The
+regenerated controls satisfy the rule with stubs the source code itself calls **not
+substantively meaningful**. A presence-checking rule cannot tell a real applicability
+envelope from an empty one.
+
+That is the [W-AR-05 case](../../docs/investigations/INV-15-m5-scale-and-phase3-gap-probes.md)
+from the opposite direction: there, real evidence was invisible because it was not
+structural; here, fake structure is visible and passes. **Structural capture is
+necessary but not sufficient.** Substantive sufficiency checking is future work, and
+the MECHANICAL/JUDGMENT partition already has the vocabulary for the distinction.
+
+Two independent examples of one limitation, both from committed records, is a
+limitations section that writes itself — and it strengthens the praxis by bounding
+it precisely rather than leaving the boundary to be found by a reviewer.
+
+## Status of the pre-declaration
+
+**Unamended.** All four qualifications held once the number was known, which is a
+pre-declaration working rather than a pre-declaration being lenient. The 76.4%
+continuity figure lands as declared. **P2-A remains open** — this ruling adjudicates
+the NC reading, not the re-baselining decision.

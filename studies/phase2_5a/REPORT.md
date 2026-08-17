@@ -54,6 +54,17 @@ at v0.5.15.1**. Two catalog versions, one table. Now resolved:
 | CE recall, evaluable rows | v0.5.13 holdout, 378 packages | 288/378 = 76.2% | **287/378 = 75.9%** |
 | NC clean rate | v0.5.15.1 NC holdout, 171 validated | — | **97.1%** |
 
+**Scope that rides with the 97.1% wherever it appears.** It is measured on negative
+controls *constructed to carry no catalog-detectable weakness*, bounded contexts of
+use included. That construction is correct, not convenient — a true negative for a
+presence-checking rule must actually have the property present, and a control that
+omits the field is a package with that defect, not a clean one. The same catalog
+scores **8/176 = 4.5%** on the unpatched M5 NC corpus, which is **a detection result,
+not a competing specificity figure**: those packages genuinely lack applicability
+bounds, nobody injected the absence, and W-ON-02 reporting it on 158 of 176 is the
+rule working. Decomposition of the 0% → 97.1% trajectory at
+[INV-16](../../docs/investigations/INV-16-nc-trajectory-decomposition.md).
+
 **The delta is exactly one package**, and it is attributable: W-CON-01 goes 20/20 →
 19/20. That is the single rule-body change between the v0.5.13 holdout tag and
 v0.5.15.1 — `notEqual(?status, 'not-assessed')`, added at v0.5.14. Everything else
@@ -101,7 +112,7 @@ which is what prompted the reconciliation.)*
 |---|---|---|---|
 | MECHANICAL detection | ≥95% | **35/35 = 100.0%** (Arm M, denominator 13) | **PASS** |
 | Overall detection | ≥80% | **287/378 = 75.9%** (Arm G, CE recall at v0.5.15.1) | **FAIL** |
-| False positives, per class | <10% | MECHANICAL 9 firings / JUDGMENT 1, over the 171-package holdout | PASS |
+| False positives, per class | <10% | MECHANICAL 9 firings / JUDGMENT 1, over the 171-package holdout **constructed to carry no catalog-detectable weakness** (scope above) | PASS |
 
 Reported as a split rather than resolved to one number. The MECHANICAL result is
 about patterns whose defect is expressible and injectable; the overall figure is
