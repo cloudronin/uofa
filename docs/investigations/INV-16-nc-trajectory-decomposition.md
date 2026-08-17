@@ -175,9 +175,12 @@ original analysis, corrected above.
   SHACL rejects (the D2 mismatch), so 31 packages read non-conformant today. The 0.0%
   holds on every evaluable row, but no other figure should be quoted from that corpus
   without the note.
-- **Intermediate catalog versions were not swept.** Only v0.5.7 and v0.5.15.1 were
-  measured; where between them the 4.5 points arrive is unmeasured, and the per-rule
-  table's midpoints come from the 2026-04 record rather than from this run.
+- **Intermediate catalog versions were not swept, and will not be.** Only v0.5.7 and
+  v0.5.15.1 were measured; where among the seven intervening versions the 4.5 points
+  arrive is unmeasured, and the per-rule table's midpoints come from the 2026-04
+  record rather than from this run. **Ruled future work** (Addendum G.2): the claim is
+  endpoint-to-endpoint and the decomposition is already measured, so the interior is a
+  curiosity. Free Jena time is not free author attention.
 - **Denominator conventions differ between sources.** `v0512_summary.md:23` states
   "/180 NC total"; the evidence chain at `holdout_v0515_summary.md:106-116` states
   0/176. This analysis uses 176 evaluable, matching the chain. Percentages agree to

@@ -57,6 +57,26 @@ one limitation, both from committed records, neither constructed for the argumen
 Substantive sufficiency checking is future work, and the MECHANICAL/JUDGMENT
 partition already carries the vocabulary for the distinction.
 
+**And the first direction is now counted, not anecdotal** ([INV-17](investigations/INV-17-prose-versus-property-count.md)).
+Across 14,659 judgments the prose-versus-property split recurs in **roughly 200
+cases** (332 candidates at 60% hand-verified precision, 95% CI [141, 250]), spanning
+**every absence-checking rule family measured**. W-AR-05 is its most frequent single
+member at **104 cases**. The cleanest quotation needs no gloss:
+
+> "W-AR-05 fired, yet comparator absence is not the central issue because **a
+> comparator exists in the narrative**." — judge A
+
+Say it as *"recurs in the low hundreds of judgments"* with the interval and the
+judge-A skew attached, never as a bare count.
+
+**One nuance worth a sentence**, from the same count: three of thirty sampled
+judgments call a firing a false positive because the rule's **precondition** is
+present — *"W-ON-02 is a false positive because a detailed ContextOfUse is provided"* —
+when a declared COU is exactly what makes W-ON-02 eligible to fire. The judge
+misreads which property the predicate inspects. That argues the label-class partition
+from the other side: **the LLM judge is unreliable on mechanical questions of what a
+rule reads**, which is why those patterns are scored by mutation and not by panel.
+
 ---
 
 # 2. §4.3.4 — the specificity story, with numbers

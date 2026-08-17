@@ -362,6 +362,12 @@ def _scan_outcomes(
     # parallel > 1.
     work_items: list[_PackageWork] = []
 
+    # Issue #67: specs whose `spec_path` no longer resolves, so the D1 per-COU
+    # baseline key could not be derived. Collected rather than swallowed, and
+    # reported once after the loop.
+    baseline_key_misses: list[str] = []
+    baseline_key_errors: list[tuple[str, str]] = []
+
     for per_spec in batch.get("perSpecResults", []):
         spec_id = per_spec["spec_id"]
         spec_out_dir = Path(per_spec["out_dir"])
@@ -396,13 +402,32 @@ def _scan_outcomes(
         # summary.csv. ``base_cou_key`` is None when the spec's base_cou
         # doesn't match a shipped COU (e.g., NASA cross-pack specs).
         baseline_key = None
-        try:
-            spec_path = Path(per_spec["spec_path"])
-            from uofa_cli.adversarial.spec_loader import load_spec
-            spec_obj = load_spec(spec_path)
-            baseline_key = _detect_baseline_key(str(spec_obj.base_cou))
-        except Exception:
-            pass
+        spec_path = Path(per_spec["spec_path"])
+        if not spec_path.exists():
+            # `spec_path` is the second generation-time pointer in the manifest
+            # (the first was `out_dir`, re-anchored above). It records the
+            # generator's temp dir — `/tmp/holdout_specs/ce/w-al-01.yaml` — so it
+            # resolves nowhere on every committed corpus. Issue #67.
+            #
+            # Tested with `.exists()` rather than by catching the loader's
+            # exception: `load_spec` raises SpecValidationError for a missing
+            # file, the same type it raises for a malformed one, so catching by
+            # type would relabel real spec defects as stale pointers.
+            #
+            # Still non-fatal — `baseline_key` degrades to None and only the D1
+            # per-COU columns go empty — but counted and reported after the loop,
+            # because a silently empty column is harder to notice than a loudly
+            # absent one, which is how this went unseen in the first place.
+            baseline_key_misses.append(spec_id)
+        else:
+            try:
+                from uofa_cli.adversarial.spec_loader import load_spec
+                spec_obj = load_spec(spec_path)
+                baseline_key = _detect_baseline_key(str(spec_obj.base_cou))
+            except Exception as exc:                              # noqa: BLE001
+                # A spec that exists but will not load is a different defect and
+                # must not be laundered through the stale-pointer path.
+                baseline_key_errors.append((spec_id, f"{type(exc).__name__}: {exc}"))
 
         for variant in per_spec_manifest.get("variants", []):
             variant_num = variant.get("variantNum") or variant.get("variant_num")
@@ -442,6 +467,24 @@ def _scan_outcomes(
                 package_path=package_path,
                 package_exists=package_exists,
             ))
+
+    # Issue #67: say plainly that the per-COU columns will be empty, and why.
+    # The run is still valid — every other column populates — but a reader
+    # re-deriving D1 figures must not mistake blank cells for measured zeros.
+    if baseline_key_misses:
+        shown = ", ".join(baseline_key_misses[:3])
+        more = f" (+{len(baseline_key_misses) - 3} more)" if len(baseline_key_misses) > 3 else ""
+        warn(
+            f"  per-COU baseline key not derivable for {len(baseline_key_misses)} "
+            f"of {len(batch.get('perSpecResults', []))} specs: {shown}{more}"
+        )
+        warn(
+            "  their `spec_path` records a generation-time path that no longer "
+            "resolves (issue #67), so recall_morrison_cou1/cou2, recall_min_per_cou, "
+            "recall_cou_disparity and cou_dependent_flag will be EMPTY, not zero."
+        )
+    for _spec_id, _detail in baseline_key_errors:
+        warn(f"  spec {_spec_id}: base_cou unreadable — {_detail}")
 
     # ----- Phase 2: parallel Jena -----
     # Each worker calls _run_rules_on_package, which spawns its own JVM

@@ -179,6 +179,8 @@ so they are findable from one place.
 | [INV-15](INV-15-m5-scale-and-phase3-gap-probes.md) | CLOSED | The M5 scale gap is closed (66 specs, 330 packages, 0 skipped). Four rules fire on 329/329 gap probes, and Phase 3's 6-of-6 Tier-1 result survives it — the judge schema forced the confrontation, 0/288 empty. §4 carries the W-AR-05 case as chapter material |
 | [INV-16](INV-16-nc-trajectory-decomposition.md) | CLOSED | The 0% → 97.1% NC trajectory decomposed over all four corpus×catalog cells: **rule refinement alone 4.5 points, regenerated corpus alone 0.0 points, 97.1% only where both are present** — each axis blocked by a rule the other fixes. Every rule the 2026-04 record labels a predicate fix went to zero; every rule it labels corpus regen is unchanged to the decimal. Both reproduction cells reproduced their committed figures exactly, and one sentence of the first version was falsified and is corrected in place |
 
+| [INV-17](INV-17-prose-versus-property-count.md) | CLOSED | **The W-AR-05 case is not a single instance.** Across 14,659 judgments the prose-versus-property split recurs in **roughly 200 cases** (332 candidates, 60% hand-verified precision, 95% CI [141, 250]), in every absence-checking rule family measured; W-AR-05 is the most frequent at 104 cases. Two methodological traps recorded: six rules are *defined* as "X present but Y absent" so a presence match restates their precondition, and a first pass compiled its regex with `re.X`, silently killing every multi-word marker |
+
 ## Method note
 
 Every findings file ends with a coverage statement naming what was searched, with
