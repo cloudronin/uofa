@@ -111,6 +111,33 @@ package**. That is a concrete argument for the label-class partition rather than
 abstract one, and it is in the committed judgment record rather than constructed
 for the purpose.
 
+## 4. Chapter material: the W-AR-05 case
+
+Flagged so it is not lost, per author ruling. It costs nothing because it is
+already in the committed July judgment record.
+
+On `adv-2026-p2-104-fidelity_high-v02`, judge A returned REAL-GAP at 0.84 with:
+
+> "W-AR-05 comparator absence also does not fit well because **experimental
+> comparators do exist**; what is missing is a fidelity-relevant comparison or
+> metric sensitive to the omitted rheology."
+
+**W-AR-05 fired on that package** — the validation result carries no
+`comparedAgainst`. The judge says comparators exist. **Both are true.** The
+comparator lives in the package's prose; it does not live in the property the rule
+reads.
+
+That is the thesis in one example: **evidence that exists in prose is invisible to
+machine checking until it is captured structurally.** A deterministic rule and an
+LLM judge, given the same package, disagree — not because either is wrong, but
+because one reads the graph and the other reads the narrative.
+
+It belongs in the chapter beside the three-rules finding. The three-rules finding
+shows a rule that cannot fire because the structure was never built; this shows the
+evidence *was* there and the structure still was not. Same gap, opposite ends: one
+where the corpus omits what the rule reads, one where the corpus has the substance
+and omits the encoding.
+
 ## Coverage statement
 
 **Measured.** M5 `gap_probe` tier isolated and run through `uofa adversarial
@@ -121,6 +148,9 @@ ids read from `triage/tier1_real_gap_candidates.csv` (310 rows, 6 tier-1 ids) an
 joined against `production/run-1/judgments_A.jsonl`.
 
 **Not measured.**
+- **The W-AR-05 case in §4 is a single judgment.** Whether other judgments show the
+  same prose-versus-property split is unchecked, and the chapter should either
+  present it as the one worked example it is or the pattern should be counted first.
 - **Judges B and C were not examined.** The 237/288 figure is judge A only. The
   ensemble verdict is majority-of-three, so a full check would read all three.
 - **The 237/288 count is a substring match** for rule ids in
