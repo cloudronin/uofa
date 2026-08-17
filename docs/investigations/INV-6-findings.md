@@ -7,6 +7,91 @@ Feeds: parent A4
 
 ---
 
+# ADDENDUM 2 — a reproducibility defect in the committed corpora, and the silent-null catalogue
+
+Found during Phase 2.5a Arm G. **Recorded, not fixed**, per author ruling: the
+Phase 2 corpora are frozen artifacts, so this is A4 material with a repaired
+pointer file shipping later as a disclosed patch.
+
+## The defect
+
+**`uofa adversarial analyze` produces zero rows on the committed Phase 2 corpora
+and exits 0.**
+
+```
+Warning:   (no per-spec manifest for adv-2026-p2-011-w-on-01; skipping)
+… 38 more …
+Warning: no per-package rows produced; nothing to write
+[exited with code 0]
+```
+
+Cause: `batch_manifest.json` records each spec's `out_dir` as
+`out/adversarial/phase2/…`, the path from **before `out/` was renamed to
+`dev/build/`** (Phase D, then nested under `dev/` in Phase E — see
+[docs/repo-layout.md](docs/repo-layout.md)). The analyzer resolves per-spec
+manifests through those recorded paths, finds none, and skips every spec.
+
+The data is intact. All 40 per-spec manifests are committed; only the roll-up's
+pointers are two renames stale.
+
+**Consequence for A4:** anyone re-deriving the Phase 2 numbers from the committed
+corpora — which is exactly what an audit appendix invites a reader to do — gets a
+clean exit and an empty result, with no indication that anything failed.
+
+## The working join, documented so the defect is navigable
+
+Neither manifest alone is sufficient, and they disagree in both naming convention
+and content:
+
+| Artifact | Convention | Has | Lacks |
+|---|---|---|---|
+| `batch_manifest.json` → `perSpecResults[]` | snake_case | `coverage_intent`, `target_weakener` | a usable `out_dir` |
+| `<spec>/manifest.json` | camelCase | `specId`, `shaclFailed`, `variants` | intent, target |
+
+So: **join on `spec_id` → directory name, and ignore `out_dir` entirely.** Working
+implementation in [studies/phase2_5a/run_arm_g.py](studies/phase2_5a/run_arm_g.py),
+which classifies with the shipped `classifier._classify` so the outcome labels are
+Phase 2's own rather than a reimplementation.
+
+One further trap in the same area: `package_exists` is **not** the GEN-INVALID
+signal. The files are on disk; what makes a package GEN-INVALID is that it failed
+SHACL at generation (`shaclFailed` in the per-spec manifest). Using the former
+inflated an Arm G pass from 75.9% to 78.3% by counting 40 invalid packages as
+clean detections.
+
+## The silent-null catalogue
+
+Five occasions in one session where a **clean-looking result was wrong, and nothing
+announced it.** Recorded together because the shared shape is the point, and it is
+chapter material rather than a list of mistakes.
+
+| # | What was reported | What was true | What concealed it |
+|---|---|---|---|
+| 1 | NASA HPT packages have "0 validation results" | They are `@graph`-form; a flat-JSON probe sees an empty graph | The probe returned a number, not an error |
+| 2 | Same packages "fire 17 and 20 rules" | 17 and 20 stored `WeakenerAnnotation` nodes read back; strip them and the engine reports `0 triples, 0 inferred` | Engine output looked like inference |
+| 3 | SHACL conformance "0 of 23", then "23 of 23" | Both wrong. The branch lacked `2a1d3544` (`fix(shacl): resolve @context from the shipped file`) | Neither extreme announced itself; a stale branch answers, it does not crash |
+| 4 | `uofa adversarial analyze` succeeded | Zero rows written; stale `out_dir` (this addendum) | Exit code 0 |
+| 5 | Arm G CE recall "78.3%" | 75.9%. 40 GEN-INVALID packages counted as hits | The files existed, so `package_exists` was True |
+
+**The shape.** Every one is a *measurement artifact wearing the costume of a
+result*. None threw. None exited non-zero except by accident. Four of the five were
+caught by the same move — reading the actual output or running the falsifying test
+rather than accepting the summary line — and the fifth (#5) was caught because the
+number **disagreed with two figures already in the record**, which is the argument
+for keeping prior measurements citable rather than superseded.
+
+**Why this belongs in the chapter and not only in a lessons file.** The praxis
+claims machine-checkable evidence is more trustworthy than prose-borne evidence.
+This catalogue is the honest qualifier: *machine-checkable* is not
+*self-validating*. A pipeline that returns a plausible number from a stale branch,
+a renamed directory, or a mis-specified validity predicate has produced evidence
+that is machine-readable and wrong, and no amount of automation surfaces that. The
+defence is not automation — it is the discipline of checking the instrument
+against a case whose answer is known independently. That is the same argument the
+mutation arm makes for the catalog, applied to the harness measuring it.
+
+---
+
 # ADDENDUM — re-investigated against parent spec v2.0
 
 ## Correction: the Phase 3 gate artifacts are committed, and F3 is closable
