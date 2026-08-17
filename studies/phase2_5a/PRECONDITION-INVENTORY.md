@@ -124,6 +124,40 @@ Worth stating in the report as a finding about the encodings rather than only as
 operator note: the project's own published case studies do not bound the validity
 envelope of their Contexts of Use, which is what W-ON-02 exists to catch.
 
+## The iso42001 substrates unlock nothing — a correction
+
+They were admitted on my recommendation that `iso42001` hybrid/cou2 *"would host
+W-AR-04 and W-CON-03 directly, no enrichment."* **That recommendation was wrong.**
+It came from checking one top-level JSON key per rule (`currentModelVersion` present,
+`hasEvidence` present) instead of the whole antecedent — the same
+one-keyword-for-the-whole-claim shortcut this project's ground rules exist to
+prevent. Measured:
+
+| Rule | What iso42001/cou2 has | What breaks |
+|---|---|---|
+| **W-AR-04** | `currentModelVersion` = `v1.6.0` ✓ | its single result `model-eval` carries **0** `wasGeneratedBy`, so `hasValidationResult → wasGeneratedBy → used → cfg.modelVersion` breaks at the first hop — which is also why W-EP-02 fires on its baseline |
+| **W-CON-03** | 19 `hasEvidence` nodes ✓ | **0** carry `evidenceTimestamp`, and the package has **no** `signatureTimestamp` — both halves of the antecedent absent |
+
+**Class A stays 9, Class B stays 8.** What the two substrates do add is sites on
+three patterns that were already Class A:
+
+| Pattern | 3 substrates | 5 substrates |
+|---|---|---|
+| W-ON-01 | 3 | **5** |
+| W-SI-01 | 3 | **5** |
+| W-SI-02 | 15 | **19** |
+
+Nothing else moves. Note these three were already the best-supported patterns; the
+ones that actually need `n` are the single-substrate six (W-AL-02 and W-CON-04 at
+n=1; W-EP-02, W-AL-01, W-AR-05 at n=3; W-PROV-01 at n=4), and iso42001 adds **zero**
+to every one of them.
+
+Their baselines under the core rule set are identical to each other — W-AL-01,
+W-AR-05, W-EP-02, W-ON-02, one hit each — and both are `ProfileMinimal` ISO 42001
+AI-management-system encodings (enterprise LLM retrieval; customer-facing LLM
+drafting), not CM&S case studies. If they stay in, Arm M must report their rows
+separately, and D4's "published-case substrate" framing needs a qualifying clause.
+
 ## Scope impact
 
 | | Planned | Measured |

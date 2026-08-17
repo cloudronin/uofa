@@ -17,6 +17,11 @@ SUBS = {
     "morrison/cou1": "packs/vv40/examples/morrison/cou1/uofa-morrison-cou1.jsonld",
     "morrison/cou2": "packs/vv40/examples/morrison/cou2/uofa-morrison-cou2.jsonld",
     "nagaraja/cou1": "packs/vv40/examples/nagaraja/cou1/uofa-nagaraja-cou1.jsonld",
+    # Admitted 2026-08-16 as a fourth substrate to reduce the enrichment family.
+    # Not a CM&S case study -- an ISO 42001 AI-management-system encoding -- so
+    # results from it are reported separately; see PRECONDITION-INVENTORY.md.
+    "iso42001/cou1": "packs/iso42001/examples/hybrid/cou1/uofa-iso42001-cou1.jsonld",
+    "iso42001/cou2": "packs/iso42001/examples/hybrid/cou2/uofa-iso42001-cou2.jsonld",
 }
 
 def load(p):
