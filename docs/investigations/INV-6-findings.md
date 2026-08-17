@@ -15,15 +15,19 @@ pointer file shipping later as a disclosed patch.
 
 ## The defect
 
-**`uofa adversarial analyze` produces zero rows on the committed Phase 2 corpora
-and exits 0.**
+**`uofa adversarial analyze` produces zero rows on the committed Phase 2 corpora.**
 
 ```
 Warning:   (no per-spec manifest for adv-2026-p2-011-w-on-01; skipping)
 … 38 more …
 Warning: no per-package rows produced; nothing to write
-[exited with code 0]
 ```
+
+It exits **1**, correctly. An earlier version of this addendum said it exits 0;
+that was a pipeline artifact in my own measurement, not the tool's behaviour, and
+it is entry #6 in the catalogue below. **Fixed at `548224d1`** by re-anchoring
+resolution on the batch directory the caller passes — see
+[INV-14](INV-14-analyze-pointer-fix.md).
 
 Cause: `batch_manifest.json` records each spec's `out_dir` as
 `out/adversarial/phase2/…`, the path from **before `out/` was renamed to
@@ -35,8 +39,10 @@ The data is intact. All 40 per-spec manifests are committed; only the roll-up's
 pointers are two renames stale.
 
 **Consequence for A4:** anyone re-deriving the Phase 2 numbers from the committed
-corpora — which is exactly what an audit appendix invites a reader to do — gets a
-clean exit and an empty result, with no indication that anything failed.
+corpora — which is exactly what an audit appendix invites a reader to do — got an
+empty table. The exit code said so; the 39 warning lines above it read like notes
+rather than a failure, which is how it went unnoticed. Now fixed, and the fix
+restores re-derivability of the published figures from the committed corpora.
 
 ## The working join, documented so the defect is navigable
 
@@ -76,11 +82,11 @@ chapter material rather than a list of mistakes.
 | 6 | "`analyze` exits 0 on an empty result" | **It exits 1.** Every observation came through `… \| tail`, and a pipeline reports the *last* command's status | `tail` succeeded, so the shell reported success — the measurement was about the wrong process |
 
 **The shape.** Every one is a *measurement artifact wearing the costume of a
-result*, and #6 shows the harness measuring the harness is not exempt. None threw. None exited non-zero except by accident. Four of the five were
-caught by the same move — reading the actual output or running the falsifying test
-rather than accepting the summary line — and the fifth (#5) was caught because the
-number **disagreed with two figures already in the record**, which is the argument
-for keeping prior measurements citable rather than superseded.
+result*, and #6 shows the harness measuring the harness is not exempt. None threw. Five of the six were caught by the same move — reading the actual
+output or running the falsifying test rather than accepting the summary line. The
+sixth (#5) was caught because the number **disagreed with two figures already in
+the record**, which is the argument for keeping prior measurements citable rather
+than superseded.
 
 **Why this belongs in the chapter and not only in a lessons file.** The praxis
 claims machine-checkable evidence is more trustworthy than prose-borne evidence.

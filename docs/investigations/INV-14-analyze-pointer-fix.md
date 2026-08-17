@@ -1,13 +1,14 @@
 # INV-14 — least-blast-radius fix for the stale `out_dir` pointers
 
-Status: **RECOMMENDATION, with the patch written and validated**
+Status: **LANDED** (`548224d1`), with one recommendation withdrawn on measurement
 Date: 2026-08-16
 Feeds: A4 (the disclosed patch the ruling anticipated), Phase 2 reproducibility
 
 ## The defect, scoped
 
-`uofa adversarial analyze` produces zero rows on every committed Phase 2 corpus
-and exits 0. `batch_manifest.json` records each spec's `out_dir` under the
+`uofa adversarial analyze` produces zero rows on every committed Phase 2 corpus.
+It **does** exit non-zero — see the correction below; an earlier version of this
+file said otherwise and was wrong. `batch_manifest.json` records each spec's `out_dir` under the
 generation-time output root, which has been renamed twice — `out/` → `dev/build/`
 in Phase D, then nested under `dev/` in Phase E.
 
@@ -34,7 +35,7 @@ already passes as `--in`.
 | **A** | **Re-anchor on `--in` when `out_dir` misses** | ~14 lines, one function | Code only. Frozen artifacts untouched. No behaviour change when `out_dir` is valid. Fixes all three corpora and any future rename | **RECOMMENDED** |
 | B | Rewrite `out_dir` in the committed manifests | 510 entries across 3+ frozen artifacts | Changes content hashes of frozen Phase 2 outputs; needs freeze disclosure; fixes nothing for the next rename | Rejected |
 | C | Ship a sidecar path-map file | New artifact + the same code change A needs | Strictly worse than A — same code edit, plus a file to keep in sync | Rejected |
-| D | `--rebase-paths` flag | ~10 lines + docs | Requires the operator to know the corpus is broken. The failure is **silent**, so they will not | Rejected |
+| D | `--rebase-paths` flag | ~10 lines + docs | Requires the operator to know the corpus is broken, and to know the correct root. A fix that needs the reader to already understand the defect is not a fix for a reader re-deriving figures | Rejected |
 
 B is what the ruling anticipated ("a repaired pointer file can ship later as a
 disclosed patch"). A is strictly cheaper and touches nothing frozen, so it is
@@ -138,5 +139,6 @@ committed `summary.csv`.
   and it means per-COU recall columns are empty on the committed corpora. Same
   defect class, separate decision, and it should be checked before any per-COU
   figure is quoted.
-- The patch is **uncommitted pending the author's call** on whether a code fix is
-  the right form of the disclosed patch.
+- Landed at `548224d1` after the author ruled a code fix the better form of the
+  disclosed patch. The exit-code change proposed alongside it was **not** landed,
+  because the defect it targeted does not exist.
