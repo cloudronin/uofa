@@ -51,15 +51,24 @@ One validation result loses its uncertainty quantification. Nothing else changes
 The manifest records the site, the removed triple, and a SHA-256 of the graph diff.
 
 ```bash
-uofa detect --package /tmp/demo/uofa-morrison-cou2__MUT-DEL-01__site0.jsonld \
-  --manifest /tmp/demo/manifest.json
+uofa rules /tmp/demo/uofa-morrison-cou2__MUT-DEL-01__site0.jsonld
+uofa inject verify --manifest /tmp/demo/manifest.json
 ```
 
 ```
-✓ declared flaw W-AL-01 DETECTED
+⚠ W-AL-01 [High] — 1 hit(s)          ← the detector, blind
+✓ MUT-DEL-01  W-AL-01  DETECTED  (delta +1)   ← the manifest, confirming
 ```
 
-Exit code 0. Had the rule missed it, the exit code would be 1.
+`uofa rules` is the detection step, and it is the **production** detector — the
+same command anyone runs on a real package. It has no `--manifest` flag and no
+notion that an injection happened; it reports 20 findings on this mutant and
+cannot tell you which one was planted. That is the point. A detector that could
+read the answer key would make the demonstration circular.
+
+`uofa inject verify` is what knows. It compares against the pre-injection
+baseline, so `W-AL-01` going 0 → 1 is the claim, not `W-AL-01` merely being
+present. Exit code 0; had the rule missed it, 1.
 
 ## 3. Remove the signature — the second named flaw type
 
@@ -67,8 +76,8 @@ Exit code 0. Had the rule missed it, the exit code would be 1.
 uofa inject --pattern W-SI-01 \
   --package packs/vv40/examples/morrison/cou2/uofa-morrison-cou2.jsonld \
   --out /tmp/demo
-uofa detect --package /tmp/demo/uofa-morrison-cou2__MUT-DEL-05__site0.jsonld \
-  --manifest /tmp/demo/manifest.json
+uofa rules /tmp/demo/uofa-morrison-cou2__MUT-DEL-05__site0.jsonld
+uofa inject verify --manifest /tmp/demo/manifest.json
 ```
 
 The signature is stripped *after* signing, so this models tamper rather than an
@@ -113,7 +122,7 @@ this project produces has ever instantiated. See
 uofa inject --all \
   --package packs/vv40/examples/morrison/cou2/uofa-morrison-cou2.jsonld \
   --out /tmp/battery
-uofa inject-verify --manifest /tmp/battery/manifest.json
+uofa inject verify --manifest /tmp/battery/manifest.json
 ```
 
 ```

@@ -51,7 +51,9 @@ def _cli(cmd: str, *args: str) -> subprocess.CompletedProcess:
 
 
 def findings(path) -> dict[str, int]:
-    return {m.group(1): int(m.group(3)) for m in FIRE.finditer(_cli("rules", str(path)).stdout)}
+    """Canonical, in-process. `uofa rules` is the detector; the harness never
+    passes it a manifest, because it must stay blind to what was injected."""
+    return E.findings(path, ["vv40"])
 
 
 def catch_layers(path) -> list[str]:

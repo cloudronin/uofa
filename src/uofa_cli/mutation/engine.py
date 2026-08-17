@@ -504,6 +504,25 @@ def _bind() -> tuple[ops.Operator, ...]:
     return tuple(bound)
 
 
+def findings(path: str | Path, packs=None) -> dict[str, int]:
+    """Rule-engine findings for a package, in-process.
+
+    The detection half of the loop is `uofa rules` — the production detector,
+    which predates this harness and has no notion of a manifest. That is
+    deliberate: a detector that could read the answer key would make the demo
+    circular. Scoring lives in `uofa inject verify`, which knows the manifest;
+    the detector never does.
+    """
+    import argparse
+
+    from uofa_cli.commands import rules as rules_mod
+
+    ns = argparse.Namespace(file=Path(path), rules=None, context=None, build=False,
+                            raw=False, format="summary", output=None,
+                            active_packs=packs)
+    return {f["patternId"]: f.get("hits", 1) for f in rules_mod.run_structured(ns).firings}
+
+
 def conformant(path: str | Path, pack: str = "vv40") -> bool | None:
     """Profile status via the CLI's own SHACL stage, in-process.
 
