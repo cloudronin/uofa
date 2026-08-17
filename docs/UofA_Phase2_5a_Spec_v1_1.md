@@ -26,7 +26,7 @@ the author's amendment rulings. Sources: session 1's Phase 2.5a implementation p
 | 7 | Gate treatment of enrichment unstated | Full battery gates; split reported as ecological validity | Addendum B, pre-committed before scoring |
 | 8 | Operator split projected at 13 A / 4 B | **Measured: 9 A / 8 B** (§1.2.1) | `studies/phase2_5a/PRECONDITION-INVENTORY.md` at `fed5a37e` probed all 17 antecedents against the substrates. The enrichment family doubles — standing scope escalation |
 | 9 | `iso42001` proposed as the Class A recovery path and walkthrough substrate | **Falsified and removed** (§1.2.1, §1.4) | `2ecf24cf`. The proposal rested on a top-level key check; the full antecedents break. Admitted as substrates and re-measured, iso42001 unlocks **zero** new patterns |
-| 10 | NASA HPT substrates carry "zero ValidationResults" | **False — they fire 17 and 20** (§2.1) | A flat-JSON probe against `@graph`-form packages with expanded IRIs. The three-vs-five substrate gap closes with a measurement, not a presumed zero |
+| 10 | NASA HPT substrates carry "zero ValidationResults", then "they fire 17 and 20" | **Both wrong. They are not UofA packages** (§2.1) | Three passes: JSON keys, then expanded graph, then inference. The files hold only stored `WeakenerAnnotation`s; 24 of 29 rules open on `UnitOfAssurance`, which is absent. Five substrates ruled, **three executable** |
 | 11 | W-EP-01 finding held in its weak form pending a corpus check | **Strong form established** (§1.2.1 finding 1) | `uofa:Claim` declared nowhere; 256 synthetic packages emit bare `type: "Claim"` resolving to it via `@vocab`. The rule scores 1.000 on non-schema evidence and is silent on conformant evidence |
 Positioning: this is Phase 2.5 closing its measurement debt, not a new phase. Phase 2.5 left MECHANICAL-class recall measured against a corrupt denominator (LLM generation failed to mechanically realize typed-literal and structural flaws; five patterns at 0.000, two never measurable, all as generation artifacts per INV-8/INV-11). Phase 2.5a repairs the instrument with a deterministic mutator, measures the shipped catalog once at v0.5.15.1, and exposes the loop as the committee-runnable `uofa inject` / `uofa detect` demo (parent B2).
 
@@ -227,15 +227,21 @@ One measurement, two arms, one report. Already scoped as P25-A in `PHASE2_5_STAT
 | morrison/cou1 | Yes — 3 ValidationResults, none with `wasGeneratedBy` |
 | morrison/cou2 | Yes — **3/3 results carry `wasGeneratedBy`**; sole host for W-EP-02 |
 | nagaraja/cou1 | Yes — 6 results, none with `wasGeneratedBy` |
-| nasa-hpt/take-off, /cruise | **Yes — 17 and 20 baseline firings.** An earlier "zero results" reading was a probe artifact; see below |
+| nasa-hpt/take-off, /cruise | **No — they are not UofA packages.** See below |
 
-The three case-study encodings carry the delta-scored batteries. The two HPT configurations are live substrates too — W-AR-05 fires on both — and are folded in on the measurement below rather than excluded. Per §1.2's coverage rule, any pattern that genuinely cannot be hosted anywhere is a **reported finding, not a forced operator**.
+**Five substrates ruled, three executable.** That is the finding to report, and it took three passes to reach because the first two each checked one layer and reported as if they had checked the stack.
 
-> **The HPT packages are not empty, and the presumed zero was wrong.** An earlier draft of this section recorded them as carrying no ValidationResults. That came from a flat-JSON probe against packages that are **`@graph`-form with expanded IRIs and no top-level `@context`** — the probe saw nothing because it could not read the shape, not because nothing was there. Run against core + nasa rules they fire **17** (cou1: COMPOUND-01 ×6, COMPOUND-03, W-AR-02 ×4, W-AR-05, W-EP-04, W-NASA-02) and **20** (cou2: COMPOUND-01 ×5, COMPOUND-03, W-AR-01 ×5, W-AR-05 ×2, W-EP-04 ×4, W-NASA-02).
->
-> Two consequences. First, **W-AR-05 fires on both**, so the HPT packages are live substrates for at least one Class A pattern and belong in the battery rather than in a footnote. Second, the three-vs-five gap closes with a **measurement**, not a presumption — which is the whole point of §1.2's coverage rule. Record the numbers above in the report; do not write "excluded, no results."
->
-> Substrate set for the battery is the three content-bearing case-study encodings plus whatever the HPT measurement supports. `iso42001` and `surrogate` are **out**: admitted and re-measured, iso42001 unlocked zero new patterns (Class A stayed 9, Class B stayed 8), adding only sites on W-ON-01, W-SI-01 and W-SI-02 — none of them among the six single-substrate patterns that actually need `n`.
+The aero `.jsonld` files are **weakener reports, not packages**. Their `@graph` holds 17 `WeakenerAnnotation` nodes plus one `@id`/`hasWeakener` stub (cou1), and 20 plus a stub (cou2) — no `UnitOfAssurance`, no ContextOfUse, no ValidationResult, no CredibilityFactor. **24 of the catalog's 29 rules open on `(?uofa rdf:type uofa:UnitOfAssurance)`**, so nothing binds. The apparent "17 and 20 firings" are exactly the 17 and 20 annotations already serialized in the files, read back. Strip them and the engine reports `Data graph: 0 triples / Inferred 0 new triples / 0 weakener(s) detected`. **W-AR-05 does not fire on them.**
+
+The source evidence sits beside them as `aero-evidence-cou{1,2}.zip` (CSV/PDF/DOCX/TXT plus a manifest). **No encoded HPT package is committed anywhere in the repo.** Making one requires running extraction over the zips — an LLM step, out of scope for this phase (§0 OUT).
+
+So the battery runs on the three case-study encodings, and the report states the five-vs-three gap with *this* as the ground: two of the ruled substrates have no encoded package to mutate. Not "excluded, no results," and not a presumed zero.
+
+> **Method note, earned.** Three successive readings of these two files were wrong — JSON top-level keys instead of the expanded graph, then engine output instead of inference. Each was a real check at one layer reported as a conclusion about the stack. The rule this phase adopts: **run the falsifying test first.** For a detection claim that means stripping the stored result and confirming the engine reproduces it, not reading the engine's output and assuming it inferred what it printed.
+
+`iso42001` and `surrogate` are **out** as well: admitted and re-measured, iso42001 unlocked zero new patterns (Class A stayed 9, Class B stayed 8), adding only sites on W-ON-01, W-SI-01 and W-SI-02 — none of them among the six single-substrate patterns that actually need `n`.
+
+> **Escalation to the author, outside this phase.** `site/src/content/docs/demo/nafems.mdx:138-142` instructs a reader to run `uofa rules` against these two files and frames it as "the same CLI runs against an HPT-blade thermal-analysis example" — presented as cross-domain reproduction, directly after the Morrison section where the output *is* live detection. A reader following it sees 17 and 20 weakeners and has every reason to read that as detection. It is a read-back. The same page's source table (`:154`) lists them as "HPT blade JSON-LD — Hand-authored", and the published site renders them as "The UofA package node …". This is a public claim, it is committee-facing per v2.1 §0.3 item 2, and it is not Phase 2.5a's to fix. Reported, not touched.
 
 **Delta-from-baseline scoring, all substrates.** No substrate has an empty baseline. Measured by the inventory with `uofa rules --pack vv40` on each unmutated substrate:
 
