@@ -3,7 +3,7 @@
 Status: ACTIVE
 Date: 2026-08-16
 Owner: Vishnu Vettrivel
-Supersedes: v2.0 and all earlier repair/update/prose-kit specs. Self-contained; no prior spec required to execute, though two child specs are referenced as the machines-queue work orders: UofA_Phase2_5a_Spec_v1_2.md and the session-2 brief (UofA_Decision_Record_2026-08-16.md + investigation SUMMARY.md).
+Supersedes: v2.0 and all earlier repair/update/prose-kit specs. Self-contained; no prior spec required to execute, though two child specs are referenced as the machines-queue work orders: UofA_Phase2_5a_Spec_v1_3.md and the session-2 brief (UofA_Decision_Record_2026-08-16.md + investigation SUMMARY.md).
 
 v2.1 delta from v2.0: (1) reorganized from workstreams into the three execution queues (Machines / Calendar / Writing) so the spec answers "what runs next" directly; (2) all 2026-08-16 investigation findings folded in: C1 shipped, Phase 3 completed with Tier-1 gate passed, undisclosed-change list empty, GATE-H3 unmeasured at the shipped catalog and pending P25-A, partition corrected to 21 base patterns; (3) all twelve author decisions ruled and incorporated (see Decision Record); (4) Phase 2.5a (deterministic mutator + P25-A) added as the machines-queue centerpiece; (5) substrate ruling: mutation runs on every distinct encoded package (both Morrison COUs, both NASA HPT configurations, Nagaraja), with delta-from-baseline scoring for substrates whose unmutated baseline legitimately fires.
 
@@ -41,7 +41,19 @@ Recorded with rationale in the Decision Record (2026-08-16), dated before the me
 | JUDGMENT | 4 | W-EP-04, W-AR-01, W-AR-02, W-CON-01 |
 | Excluded | 2 | COMPOUND-01, COMPOUND-03 (`label_class = COMPOSITE`/null) |
 
-**GATE-H3's MECHANICAL denominator is 17.** That figure is the pattern-set size, which scopes the mutation battery and per-class coverage; the ≥95% itself is measured on **defect instances** per A5's effective-n rule. Both numbers are live and they are not interchangeable.
+**GATE-H3 is evaluated over 13** (Decision Record addendum F). The 17 is the *partition* size, which scopes the mutation battery and per-class coverage; it is not the gate denominator. Four exclusions, each named, mechanism'd and dated before scoring:
+
+| Step | n | Excluded | Ground |
+|---|---|---|---|
+| MECHANICAL partition | **17** | — | Scopes the battery |
+| less unfireable-as-shipped | 16 | W-EP-01 | Guard names `uofa:Claim`, a class the schema never declares. **Discovered catalog defect** |
+| less architecturally unreachable | **13** | W-SI-01, W-ON-01, W-SI-02 | Deleted fields carry `sh:minCount`; the completeness profile intercepts before C3 runs. **Unreachable at the rule layer in a conformant pipeline** |
+
+A defect the schema intercepts is not a rule-engine miss — it is the completeness layer working upstream. Scoring those three as zeros would make the gate measure the architecture's layering rather than the catalog's detection, and a gate that cannot mathematically pass regardless of rule quality is a foregone conclusion wearing one.
+
+**Two conditions attached, so this is not gate-softening.** The three deletion mutants are still built and still reported, in a schema-caught table **beside** the rule-layer table, so total cross-layer detection is visible and nothing appears quietly dropped. And the A4 entry states the arithmetic plainly — denominator 13, **what the 16-version would have scored**, and why 13 is the honest framing.
+
+The ≥95% itself is measured on **defect instances** per A5's effective-n rule; pattern count and instance count are both live and are not interchangeable.
 
 *Enrichment-split treatment, pre-committed (Decision Record addendum B).* The full battery — Class A (edit a field the substrate already has) plus Class B (antecedent instantiation + violation) — evaluates GATE-H3, because the gate's question is unit detection: does the rule fire when its precondition is present and violated. The as-encoded vs enrichment-required split is **reported alongside as an ecological-validity finding, not folded into the gate arithmetic**.
 
@@ -56,8 +68,19 @@ Recorded with rationale in the Decision Record (2026-08-16), dated before the me
 ### 0.3 Pre-meeting materials (send now)
 
 1. Credibility Inspector link (uofa.net/demo): must-have 2, live today, pack download included.
-2. NAFEMS CLI reproduction page (uofa.net/demo/nafems): exact-numbers worked example, FDA-co-authored case. ⚠️ **HOLD — do not send until the two defects below are resolved.** (a) The HPT step tells the reader to run `uofa rules` against two files that contain only *stored* `WeakenerAnnotation` nodes and no `UnitOfAssurance`, so the 17 and 20 it prints are read-backs, not detections, presented directly after a section where the same command genuinely detects. (b) The published "COU 1 = 11 weakeners across 5 patterns" figure is **9/11 vacuous** — bare-IRI validation results make three `noValue` rules fire on every result (see §A3). (b) is not fixed by relabelling: the count is correct and the command reproduces; it needs its composition reported or a different figure. Both are C2's, and this page is the single most reproducible thing the committee has been pointed at, which is exactly why it has to be right.
+2. ~~NAFEMS CLI reproduction page (uofa.net/demo/nafems)~~ **PULLED from the send list** until the correction pass lands — see §0.3a. Send two solid items rather than three with a known error.
 3. One paragraph previewing the injected-flaw reframe: ground truth is the injection manifest; a deterministic mutation arm is being added that implements the prescribed test literally.
+
+### 0.3a NAFEMS page correction pass (session 2, after the mutation report lands)
+
+The page carries two independent defects, and it is the **single most reproducible artifact the committee has been pointed at** — which is exactly why it cannot go out as-is. Ruled: the link drops from the send list, and the fix becomes a queued task rather than an open flag.
+
+| # | Defect | Fix |
+|---|---|---|
+| a | The HPT step (`nafems.mdx:138-142`) tells a reader to run `uofa rules` against two files holding only stored `WeakenerAnnotation` nodes and no `UnitOfAssurance`. The 17 and 20 it prints are **read-backs, not detections** — presented directly after a section where the same command genuinely detects. The source table (`:154`) calls them "HPT blade JSON-LD — Hand-authored"; the published site renders them as "The UofA package node …" | Correct the read-back: either drop the step or relabel it as displaying stored annotations, and fix the site's package-node rendering |
+| b | The published "COU 1 = 11 weakeners across 5 patterns, COU 2 = 18 across 6" figures are committee-facing reproduction numbers, and **9 of COU 1's 11 are vacuous** — bare-IRI validation results make three `noValue` rules fire on every result (§A3) | **Restate from re-measured baselines.** Not fixable by relabelling: the count is correct and the command reproduces. Report the figure with its composition, or use a different figure |
+
+**Sequenced after the mutation report** because (b)'s replacement numbers should come from the same re-measured baselines the report establishes, not from a second independent measurement that could disagree with it.
 
 ### 0.5 C1 deploy verification (closed 2026-08-16)
 
@@ -77,7 +100,7 @@ OPEN-2 (Turman): is a live demo (Inspector and/or inject-and-detect walkthrough)
 
 ## QUEUE 1: MACHINES (Claude Code; author reads escalations only)
 
-### Session 1: Phase 2.5a (work order: UofA_Phase2_5a_Spec_v1_2.md)
+### Session 1: Phase 2.5a (work order: UofA_Phase2_5a_Spec_v1_3.md)
 
 Closes Phase 2.5's measurement debt: MECHANICAL-class recall was measured against a corrupt denominator (LLM generation failed to mechanically realize typed-literal and structural flaws; five patterns at 0.000 as generation artifacts, per INV-8/INV-11). Sequence, gates between steps per the child spec:
 

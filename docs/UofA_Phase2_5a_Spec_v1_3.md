@@ -1,4 +1,4 @@
-# UofA Phase 2.5a Spec v1.2: Deterministic Mutation Arm
+# UofA Phase 2.5a Spec v1.3: Deterministic Mutation Arm
 
 Status: READY for implementation
 Date: 2026-08-16 (v1.1 and v1.2 amendments same day, before any operator was written)
@@ -17,7 +17,7 @@ the author's amendment rulings. Sources: session 1's Phase 2.5a implementation p
 
 | # | v1.0 said | v1.1 says | Why |
 |---|---|---|---|
-| 1 | MECHANICAL set is **15** patterns | **17** — denominator for GATE-H3 | Ruling 4 (W-PROV-01) and addendum A (W-AR-03) both restore patterns to MECHANICAL |
+| 1 | MECHANICAL set is **15** patterns | **17** — the partition and battery scope (gate denominator is **13**, see v1.3 below) | Ruling 4 (W-PROV-01) and addendum A (W-AR-03) both restore patterns to MECHANICAL |
 | 2 | Typing check pending; falsification escalates | Check **RUN, diagnosis FALSIFIED**; escalation resolved here | Typing was correct; the antecedents never bind |
 | 3 | MUT-TYP-01/02/03 (datatype family) | **Deleted.** Replaced by Class B `MUT-ANT-*` | The datatype theory was the falsified one |
 | 4 | MUT-INT-02 (re-sign after mutation) | **Dropped as a finding**, not worked around | The issuer path refuses to sign synthetic packages — a positive architectural claim |
@@ -28,6 +28,8 @@ the author's amendment rulings. Sources: session 1's Phase 2.5a implementation p
 | 9 | `iso42001` proposed as the Class A recovery path and walkthrough substrate | **Falsified and removed** (§1.2.1, §1.4) | `2ecf24cf`. The proposal rested on a top-level key check; the full antecedents break. Admitted as substrates and re-measured, iso42001 unlocks **zero** new patterns |
 | 10 | NASA HPT substrates carry "zero ValidationResults", then "they fire 17 and 20" | **Both wrong. They are not UofA packages** (§2.1) | Three passes: JSON keys, then expanded graph, then inference. The files hold only stored `WeakenerAnnotation`s; 24 of 29 rules open on `UnitOfAssurance`, which is absent. Five substrates ruled, **three executable** |
 | 11 | W-EP-01 finding held in its weak form pending a corpus check | **Strong form established** (§1.2.1 finding 1) | `uofa:Claim` declared nowhere; 256 synthetic packages emit bare `type: "Claim"` resolving to it via `@vocab`. The rule scores 1.000 on non-schema evidence and is silent on conformant evidence |
+
+**v1.3 (Decision Record addendum F) — the gate denominator is 13, with four named exclusions.** 17 scopes the battery; the gate is evaluated over 13. Out: **W-EP-01** (unfireable as shipped — guard names a class the schema never declares; reported as a discovered catalog defect) and **W-SI-01, W-ON-01, W-SI-02** (architecturally unreachable — the completeness profile intercepts their defect before the rule layer runs). A defect the schema catches is not a rule-engine miss, and a gate that cannot mathematically pass regardless of rule quality is a foregone conclusion wearing one. **Two conditions:** the three deletion mutants are still built and reported in a schema-caught table beside the rule-layer table, so cross-layer detection stays visible; and A4 states the arithmetic plainly, including what the 16-denominator version would have scored. All four exclusions named, mechanism'd and dated **before** scoring — which is the only thing distinguishing this from post-hoc scoping. See §2.2.
 
 **v1.2 (Decision Record addendum E) — the SHACL-conformance split becomes the organizing structure**, not a footnote. A mutant that flunks the profile never tests the rules; it tests the schema. Changes: profile status recorded per mutant (§1.3); the corpus and report split conformant-but-flawed vs schema-caught, with **the gate scored from the conformant group only** (§2.2); operator design prefers value corruption over field deletion (§1.2.2); a one-time precondition test asserts the substrates were valid before mutation (§0.2); the manifest gains an expected-catch-layer field checked against the measured one (§1.1); and Class B enrichments must assert conformance after enrichment, before violation (§1.2.1).
 Positioning: this is Phase 2.5 closing its measurement debt, not a new phase. Phase 2.5 left MECHANICAL-class recall measured against a corrupt denominator (LLM generation failed to mechanically realize typed-literal and structural flaws; five patterns at 0.000, two never measurable, all as generation artifacts per INV-8/INV-11). Phase 2.5a repairs the instrument with a deterministic mutator, measures the shipped catalog once at v0.5.15.1, and exposes the loop as the committee-runnable `uofa inject` / `uofa detect` demo (parent B2).
@@ -46,7 +48,10 @@ IN: mutation operators covering exactly the **17 MECHANICAL patterns** of the ru
 | JUDGMENT | 4 | W-EP-04, W-AR-01, W-AR-02, W-CON-01 |
 | Excluded | 2 | COMPOUND-01, COMPOUND-03 |
 
-**GATE-H3's MECHANICAL denominator is 17.** `docs/investigations/INV-1-findings.md` §3 carries the same table as ruled. Note the distinction that has already caused one error in a parent document: **17 is the pattern-set size**, which scopes this battery; the ≥95% is measured on **defect instances** per A5's effective-n rule. Do not substitute one for the other.
+**17 is the partition size, which scopes this battery. GATE-H3 is evaluated over 13** (addendum F, §2.2). `docs/investigations/INV-1-findings.md` §3 carries the partition table as ruled. Two distinctions, both of which have already caused an error in a parent document:
+
+- **17 scopes the battery; 13 is the gate denominator.** Every one of the 17 gets an operator or a documented reason it cannot have one. Four are then excluded from the *gate*, individually named and mechanism'd — see §2.2.
+- **Pattern count is not instance count.** The ≥95% is measured on **defect instances** per A5's effective-n rule. Do not substitute one for the other.
 
 Single-fault mutants only — Class B's two edits carry one fault (§1.2). Substrates: §2.1. One measurement run at v0.5.15.1.
 
@@ -216,7 +221,7 @@ Where only the deletion form exists, keep it and let it land in the schema-caugh
 > never produced a confirmed detection at any catalog version. The conformance split
 > supplies the reason: **they cannot reach the rule layer in a conformant pipeline.**
 > Report that as the positive architectural finding v1.0 §1.3 item 4 anticipated. The
-> denominator consequence is the author's, flagged in Decision Record addendum E.
+> denominator consequence is **ruled: they leave the gate denominator, which becomes 13** (addendum F, §2.2). They do **not** leave the battery or the report — build all three deletion mutants, let the completeness layer catch them, and report that table beside the rule-layer one.
 
 **Class B enrichments must assert conformance after enrichment, before violation.**
 An enrichment that adds a non-conformant structure produces a schema-caught mutant and
@@ -326,7 +331,24 @@ Condition 2 is the one worth having. A mutation that silently *suppresses* an ex
 
 Per A5's specification: per-pattern recall with Wilson 95% CIs (n per pattern will be small-to-moderate; report n in every row), per-class rollups (MECHANICAL from Arm M; JUDGMENT from Arm G), FP characterization from clean substrates run through the same stack (the zero-injection arm: the three unmutated substrates plus, when INV-5 resolves, the external negative).
 
-Gate evaluation (GATE-H3, held as set): MECHANICAL ≥95% (Arm M, package-assessment level, **denominator 17**), JUDGMENT ≥80% (Arm G), overall ≥80%, FP <10% per class. The gate is evaluated ONCE against this run. Misses are reported as findings with root-cause per pattern; the catalog is not patched and re-run inside this phase (a fix-and-remeasure cycle is a disclosed v0.6 event, post-defense or explicitly author-approved).
+Gate evaluation (GATE-H3, held as set): MECHANICAL ≥95% (Arm M, package-assessment level, **denominator 13**), JUDGMENT ≥80% (Arm G), overall ≥80%, FP <10% per class. The gate is evaluated ONCE against this run. Misses are reported as findings with root-cause per pattern; the catalog is not patched and re-run inside this phase (a fix-and-remeasure cycle is a disclosed v0.6 event, post-defense or explicitly author-approved).
+
+**The denominator and its four exclusions (addendum F, ruled before scoring).**
+
+| Step | n | Excluded | Ground |
+|---|---|---|---|
+| MECHANICAL partition | 17 | — | Scopes the battery |
+| less unfireable-as-shipped | 16 | W-EP-01 | Guard names `uofa:Claim`, never declared by the schema. Reported as a **discovered catalog defect** |
+| less architecturally unreachable | **13** | W-SI-01, W-ON-01, W-SI-02 | Deleted fields carry `sh:minCount`; the completeness profile intercepts before C3 runs |
+
+A defect the schema intercepts is not a rule-engine miss — it is the completeness layer working upstream. Scoring those three as zeros would make the gate measure the architecture's layering rather than the catalog's detection, and a gate that cannot mathematically pass regardless of rule quality is a foregone conclusion wearing one.
+
+**Two conditions, and they are not optional — they are what makes this not gate-softening:**
+
+1. **Build and report the schema-caught demonstrations anyway.** The three deletion mutants are constructed, the completeness layer catches them, and that table appears **beside** the rule-layer table. Total system detection across layers must be visible, so a reader can see nothing was quietly dropped. A pattern excluded from the gate is not a pattern excluded from the report.
+2. **State the arithmetic plainly in A4:** denominator 13, **what the 16-version would have scored**, and why 13 is the honest framing. Both numbers, not just the favourable one.
+
+Disclosed reasoning **before** measurement is the only thing separating this from post-hoc scoping, and the record's timestamp is the evidence. The same four exclusions decided after seeing the numbers would be indistinguishable from tuning.
 
 **The conformance split decides which mutants count (Decision Record addendum E, v1.2).** The corpus and the report partition on profile status, and this partition is prior to every other rollup:
 
@@ -337,7 +359,7 @@ Gate evaluation (GATE-H3, held as set): MECHANICAL ≥95% (Arm M, package-assess
 
 The reasoning is the catalog's own job description: it exists to catch what schema validation cannot see. A mutant that flunks the profile never reached the rules, so scoring it as a rule detection measures the wrong layer and inflates the number in the direction that flatters. Both groups are reported; only one gates.
 
-This changes **which mutants count toward the gate**, not the gate, the denominator, or the substrate set — with one open arithmetic question where a pattern has no conformant form at all, flagged in addendum E and to be settled before scoring.
+This changes **which mutants count toward the gate**, not the gate itself or the substrate set. The one arithmetic question it raised — patterns with no conformant form at all — is **ruled in addendum F: the denominator becomes 13.**
 
 **Enrichment-split treatment, pre-committed (Decision Record addendum B).** The **full battery — Class A plus Class B — evaluates the gate.** The gate's question is unit detection: does the rule fire when its precondition is present and violated, which Class B mutants test legitimately.
 

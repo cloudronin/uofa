@@ -140,7 +140,60 @@ pattern the schema catches first has not been missed by the rule engine; countin
 as a miss measures the wrong layer, which is the whole point of E. But it is the
 author's call and it is not made here.
 
-## Restated: W-EP-01 and the gate denominator
+## Addendum F — the gate denominator is 13, with four named exclusions
+
+**Ruling, as issued.**
+
+**The denominator is 13, with the three schema-intercepted patterns reported as
+architecturally unreachable.** The gate's question is *"does the rule engine detect
+defects it can see."* A defect the schema intercepts before the rule layer runs is not
+a rule-engine miss; it is the completeness layer doing its job upstream. Scoring those
+three as zeros would make the gate measure **the architecture's layering rather than
+the catalog's detection**, and a gate that cannot mathematically pass regardless of
+rule quality is not a gate — it is a foregone conclusion wearing one.
+
+The three get their own labeled row: *unreachable at the rule layer in a conformant
+pipeline, defect class caught by the completeness profile*, with the measurement that
+proved it. That is a stronger sentence for those patterns than any recall figure, and
+it is the mechanism-backed version of the positive architectural claim the spec
+anticipated from the start.
+
+**Two conditions, so this cannot be read as gate-softening.**
+
+1. **The schema-caught demonstrations still run and still report.** The three deletion
+   mutants get built, the completeness layer catches them, and **that table appears
+   beside the rule-layer table**, so total system detection across layers is visible
+   and the committee sees that nothing was quietly dropped.
+2. **The audit-trail entry states the arithmetic plainly:** denominator 13, **what the
+   16-version would have scored**, and why the 13 framing is the honest one. Disclosed
+   reasoning before measurement is exactly what distinguishes this from post-hoc
+   scoping, and the timestamp will show it.
+
+**The stacked 16-vs-17 question resolves as previously ruled:** W-EP-01, whose guard
+names a class the schema never defines, stays out and is reported as a **discovered
+catalog defect**.
+
+### The final arithmetic
+
+| Step | n | Excluded | Ground |
+|---|---|---|---|
+| MECHANICAL partition | **17** | — | Rulings 3, 4 and addendum A. Scopes the battery and per-class coverage |
+| less unfireable-as-shipped | 16 | **W-EP-01** | Guard requires `uofa:Claim`; the schema declares only `AssuranceClaim` and makes it `bindsClaim`'s range. Scores 1.000 on synthetic packages typed against a class that does not exist. **Discovered catalog defect** |
+| less architecturally unreachable | **13** | **W-SI-01, W-ON-01, W-SI-02** | Pure presence/absence rules with no value to corrupt; the deleted fields carry `sh:minCount`, so the completeness profile intercepts the defect before C3 runs. **Unreachable at the rule layer in a conformant pipeline** |
+
+**GATE-H3 is evaluated over 13.** All four exclusions are individually named,
+mechanism'd, and dated **before scoring**. That last clause is the one doing the work:
+the same four exclusions decided after seeing the numbers would be indistinguishable
+from tuning, and the only thing separating the two is this record and its timestamp.
+
+### What this supersedes
+
+The "Gate denominator: 16" table in the section below is **superseded by F**. It is
+retained rather than edited, because the record of what was thought at 17:20 is part of
+what makes the 13 credible at 18:00 — a denominator that moved twice, in public, with
+reasons attached each time, is a different object from one that arrived at 13 quietly.
+
+## Restated: W-EP-01 and the gate denominator (superseded by addendum F — retained as record)
 
 The prior ruling holds and the measured 20/20 sharpens it. W-EP-01 scores **perfect
 recall on a corpus that types claims against `uofa:Claim`, a class the schema never
