@@ -1,0 +1,57 @@
+# M5 re-analysis at v0.5.15.1 — scope declared before the number exists
+
+**Date:** 2026-08-17
+**Status:** DECLARED, NOT YET MEASURED
+**Consumed by:** the Phase 2.5a report, A4, and any manuscript sentence quoting an
+M5 recall figure
+
+This file is committed **alone and before** `run_arm_m5.py` is executed. Its whole
+purpose is that the interpretation of the number is fixed while the number is still
+unknown. Writing it afterwards would be the retroactive framing that GATE-H2's own
+rationale condemns, and the same defect as retroactive thresholding arriving by a
+different door.
+
+## What is about to be measured
+
+The M5 corpus (`dev/build/adversarial/phase2/2026-04-26`, 381 specs, ~4,601
+packages) re-classified at catalog **v0.5.15.1**. No regeneration: adversarial
+packages are catalog-version-independent, so this is a re-run of the rule engine
+over committed packages at **zero LLM spend**. The `$386 / 14h` figure in
+`PHASE2_STATUS_REPORT.md:55` is for regenerating the corpus and does not apply.
+
+## The four things this figure is, declared now
+
+1. **It is a training-corpus measurement.** M5 is the corpus Phase 2.5's refinement
+   loop tuned against. Recall measured on it at v0.5.15.1 is therefore optimistic in
+   a way the v0.5.13 holdout figure is not, and every quotation of it must say so.
+   The holdout figure (**287/378 = 75.9%**, `studies/phase2_5a/REPORT.md`) remains
+   the one to cite when an unbiased estimate is wanted.
+
+2. **It is reported for like-for-like continuity, not as a replacement.** The
+   manuscript carries **73.4%** for M5 at v0.5.7. The value of re-running the same
+   corpus at v0.5.15.1 is that it isolates the catalog delta with the corpus held
+   fixed. That comparison is its only purpose.
+
+3. **It carries the evaluable-rows convention**, matching the manuscript's own
+   "73.4% (evaluable rows)". GEN-INVALID packages are excluded from the denominator,
+   determined by measured SHACL conformance rather than by file existence. Two
+   denominators are already in circulation for the holdout — 288/420 = 68.6% and
+   288/378 = 76.2%, the same measurement — so the convention is named wherever the
+   number appears.
+
+4. **It does not decide re-baselining.** P2-A (`PHASE2_STATUS_REPORT.md:54`) —
+   whether to re-baseline Phase 2 on the v0.5.15.1 catalog — **remains an open,
+   separate, authored decision**, whichever way this number lands. A measurement is
+   not a ruling. This file exists so that producing the figure cannot be read as
+   having settled the question by fait accompli.
+
+## Why take a measurement that decides nothing
+
+Because declining a free measurement of one's own training corpus is a question at
+the defense with no good answer. Taken with its scope pre-declared, it is simply the
+record being complete.
+
+## What would make this pre-declaration have failed
+
+If the paragraph above needs amending once the number is known, that is a finding
+about this file and gets recorded as one, not edited away.
