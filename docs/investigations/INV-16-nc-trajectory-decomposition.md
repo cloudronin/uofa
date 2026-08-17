@@ -25,13 +25,25 @@ at v0.5.15.1 isolates the rule-refinement component with nothing else moving.
 
 ## Result — the split
 
-| | M5 corpus, unpatched | regenerated corpus |
-|---|---|---|
-| **v0.5.7** | **0/176 = 0.0%** (committed) | not measured — see coverage |
-| **v0.5.15.1** | **8/176 = 4.5%** (measured) | **166/171 = 97.1%** (committed) |
+| | M5 corpus, unpatched | v0.5.12 hybrid | regenerated corpus |
+|---|---|---|---|
+| **v0.5.7** | **0/176 = 0.0%** | **0/148 = 0.0%** | **0/171 = 0.0%** |
+| **v0.5.15.1** | **8/176 = 4.5%** | — | **166/171 = 97.1%** |
 
 **Rule refinement, corpus held fixed: 0.0% → 4.5%, a gain of 4.5 points.**
-**The remaining 92.6 points travel with the corpus.**
+**Corpus regeneration, catalog held fixed at v0.5.7: 0.0% → 0.0%. No gain at all.**
+**The 97.1% exists in exactly one cell of four.**
+
+> **CORRECTION, 2026-08-17.** This section first read *"The remaining 92.6 points
+> travel with the corpus,"* and the fourth cell **falsifies it**. They travel with
+> neither factor: the regenerated holdout scores **0.0%** against the old catalog.
+> The wrong sentence reached for an additive split that the *"not additive"*
+> subsection below already disclaimed, and the measurement sided with the
+> subsection. Recorded rather than edited away, per
+> [the pre-declaration](../../studies/phase2_5a/FOURTH-CELL-PREDECLARATION.md), whose
+> own prediction for the hybrid cell held. **Both reproduction cells reproduced their
+> committed figures exactly** — 0/176 and 166/171, denominators included — so the
+> table is not distorted by the four-month code gap.
 
 ### Per-rule, both endpoints on the same corpus
 
@@ -87,13 +99,15 @@ packages to firing on none, and they stayed at zero when re-measured four months
 later on the corpus that motivated them. That is a working metric-gated loop and the
 narrative is entitled to it.
 
-**The components are not additive, and neither is sufficient.** Corpus regeneration
-alone leaves W-EP-01 and W-AL-02 firing on 100% of NCs — neither had a regeneration
-tool — so on the v0.5.10–v0.5.12 hybrid corpora, which are M5 plus insertions only,
-the clean rate at v0.5.7 is 0% however the corpus is patched. Rule refinement alone
-caps at 10.2%. **The 97.1% required both.** This is a decomposition of attribution,
-not of variance, and the two parts do not sum to 97.1 because they are not
-independent.
+**The components are not additive, and neither is sufficient — now measured, not
+inferred.** Corpus regeneration alone leaves **W-EP-01 firing on 171/171 = 100%** of
+the regenerated holdout at v0.5.7; no regeneration tool ever targeted it, because it
+was closed by the v0.5.8 predicate guard. Rule refinement alone caps at 10.2%,
+because W-ON-02 still fires on 158/176 of M5 and it was never rule-fixed. **The
+97.1% required both**, and the reason is symmetric: **each axis is blocked by a rule
+that only the other axis fixes.** This is a decomposition of attribution, not of
+variance, and the parts do not sum because they are not independent — the gain is
+interactive, and 0 + 4.5 does not approach 97.1 from either side.
 
 **The primary record was honest; the rollup lost the distinction.** `v0512_summary.md`
 labels each fix "predicate tighten" or "corpus regen" in its status column, states
@@ -128,12 +142,15 @@ constructed for the argument.
 
 ## Recommended statement of the trajectory
 
-> The negative-control clean rate rose from 0% to 97.1% across Phase 2.5. Measured
-> with the corpus held fixed, rule refinement accounts for 4.5 points of that: four
-> rules that fired on up to 100% of clean packages were corrected to zero and remain
-> at zero. The remainder came from regenerating the negative-control corpus, which
-> supplied fields three further rules check for presence of. Both were necessary;
-> neither alone exceeds 4.5%.
+> The negative-control clean rate rose from 0% to 97.1% across Phase 2.5. Both the
+> catalog and the negative-control corpus changed over that interval, and measuring
+> all four combinations shows the gain belongs to neither alone. Holding the corpus
+> fixed, rule refinement moves the rate from 0% to 4.5%. Holding the catalog fixed at
+> the old version, the regenerated corpus scores 0%. The 97.1% appears only where
+> both are present, because each axis is blocked by a rule the other one fixes:
+> W-EP-01 fires on every negative control at the old catalog whatever the corpus, and
+> W-ON-02 fires on 90% of the old corpus whatever the catalog. The specificity result
+> is real and it is joint.
 
 ## Coverage statement
 
@@ -144,13 +161,23 @@ constructed for the argument.
 `dev/tools/phase2_5/corpus_regen/`. Ceiling arithmetic computed over the 18 rows
 where W-ON-02 is silent.
 
+**Also measured, 2026-08-17 (`run_fourth_cell.py`).** All three NC corpora
+re-classified against the tag-`v0.5.7` catalog through the `--rules` override with
+current code, plus the regenerated holdout re-classified at v0.5.15.1 as a second
+reproduction check. Both reproduction cells matched their committed figures exactly,
+headline and denominator, and cell A additionally reproduced all ten per-rule values
+of the 2026-04 baseline table. This closed the 2×2 and falsified one sentence of the
+original analysis, corrected above.
+
 **Not measured.**
-- **The fourth cell — the regenerated corpus at v0.5.7 — was not run.** The bounded
-  inference above covers the v0.5.10–v0.5.12 hybrids, which are M5 plus insertions,
-  where W-EP-01 at 100% forces 0%. It does **not** cover the freshly generated
-  2026-04-29 holdout behind the 97.1%; that corpus came from a later pipeline and
-  what v0.5.7 would score on it is genuinely unknown. Running it would complete the
-  2×2 and costs Jena time only.
+- **The hybrid corpus is no longer schema-valid.** Cell C's denominator is 148 of
+  180: its inserted `hasSensitivityAnalysis` stubs are the inline-object form current
+  SHACL rejects (the D2 mismatch), so 31 packages read non-conformant today. The 0.0%
+  holds on every evaluable row, but no other figure should be quoted from that corpus
+  without the note.
+- **Intermediate catalog versions were not swept.** Only v0.5.7 and v0.5.15.1 were
+  measured; where between them the 4.5 points arrive is unmeasured, and the per-rule
+  table's midpoints come from the 2026-04 record rather than from this run.
 - **Denominator conventions differ between sources.** `v0512_summary.md:23` states
   "/180 NC total"; the evidence chain at `holdout_v0515_summary.md:106-116` states
   0/176. This analysis uses 176 evaluable, matching the chain. Percentages agree to

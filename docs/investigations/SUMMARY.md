@@ -177,7 +177,7 @@ so they are findable from one place.
 |---|---|---|
 | [INV-14](INV-14-analyze-pointer-fix.md) | **LANDED** (`548224d1`) | `analyze` produced zero rows on every committed corpus — stale `out_dir` pointers from two renames, 510/510 specs. Re-anchoring on `--in` fixes all three corpora and touches nothing frozen. Carries a self-correction: the "silent exit 0" I reported does not exist; `\| tail` was swallowing the status |
 | [INV-15](INV-15-m5-scale-and-phase3-gap-probes.md) | CLOSED | The M5 scale gap is closed (66 specs, 330 packages, 0 skipped). Four rules fire on 329/329 gap probes, and Phase 3's 6-of-6 Tier-1 result survives it — the judge schema forced the confrontation, 0/288 empty. §4 carries the W-AR-05 case as chapter material |
-| [INV-16](INV-16-nc-trajectory-decomposition.md) | CLOSED | The 0% → 97.1% NC trajectory decomposed: **rule refinement is 4.5 points with the corpus held fixed; the rest travels with the regenerated corpus; both were necessary**. Every rule the 2026-04 record labels a predicate fix went to zero; every rule it labels corpus regen is unchanged to the decimal |
+| [INV-16](INV-16-nc-trajectory-decomposition.md) | CLOSED | The 0% → 97.1% NC trajectory decomposed over all four corpus×catalog cells: **rule refinement alone 4.5 points, regenerated corpus alone 0.0 points, 97.1% only where both are present** — each axis blocked by a rule the other fixes. Every rule the 2026-04 record labels a predicate fix went to zero; every rule it labels corpus regen is unchanged to the decimal. Both reproduction cells reproduced their committed figures exactly, and one sentence of the first version was falsified and is corrected in place |
 
 ## Method note
 
