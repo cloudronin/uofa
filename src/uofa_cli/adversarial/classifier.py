@@ -371,8 +371,24 @@ def _scan_outcomes(
 
         per_spec_manifest_path = spec_out_dir / "manifest.json"
         if not per_spec_manifest_path.exists():
-            warn(f"  (no per-spec manifest for {spec_id}; skipping)")
-            continue
+            # `out_dir` is recorded at generation time as an absolute-ish path
+            # under the then-current output root. That root has been renamed
+            # twice (`out/` → `dev/build/` in Phase D, then nested under `dev/`
+            # in Phase E), so EVERY committed Phase 2 batch manifest points at a
+            # tree that no longer exists — 381/381, 39/39 and 90/90 across the
+            # three corpora. The packages and per-spec manifests are intact; only
+            # the pointers are stale.
+            #
+            # Re-anchor on the batch directory the caller passed, which is the
+            # ground truth for where the corpus actually is. Globbing one level
+            # covers both committed layouts (`confirm_existing/` in M5,
+            # `ce/` in the holdouts) without hard-coding either.
+            recovered = next(iter(sorted(in_dir.glob(f"*/{spec_id}/manifest.json"))), None)
+            if recovered is None:
+                warn(f"  (no per-spec manifest for {spec_id}; skipping)")
+                continue
+            per_spec_manifest_path = recovered
+            spec_out_dir = recovered.parent
         per_spec_manifest = json.loads(per_spec_manifest_path.read_text())
 
         # Detect base_cou key from spec_path → base_cou (best effort: read

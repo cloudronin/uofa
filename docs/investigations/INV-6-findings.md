@@ -61,8 +61,9 @@ clean detections.
 
 ## The silent-null catalogue
 
-Five occasions in one session where a **clean-looking result was wrong, and nothing
-announced it.** Recorded together because the shared shape is the point, and it is
+Six occasions in one session where a **clean-looking result was wrong, and nothing
+announced it.** #6 is the sharpest, because it was mine and it would have had shipped
+code blamed for a defect it does not have. Recorded together because the shared shape is the point, and it is
 chapter material rather than a list of mistakes.
 
 | # | What was reported | What was true | What concealed it |
@@ -70,11 +71,12 @@ chapter material rather than a list of mistakes.
 | 1 | NASA HPT packages have "0 validation results" | They are `@graph`-form; a flat-JSON probe sees an empty graph | The probe returned a number, not an error |
 | 2 | Same packages "fire 17 and 20 rules" | 17 and 20 stored `WeakenerAnnotation` nodes read back; strip them and the engine reports `0 triples, 0 inferred` | Engine output looked like inference |
 | 3 | SHACL conformance "0 of 23", then "23 of 23" | Both wrong. The branch lacked `2a1d3544` (`fix(shacl): resolve @context from the shipped file`) | Neither extreme announced itself; a stale branch answers, it does not crash |
-| 4 | `uofa adversarial analyze` succeeded | Zero rows written; stale `out_dir` (this addendum) | Exit code 0 |
+| 4 | `uofa adversarial analyze` succeeded | Zero rows written; stale `out_dir` (this addendum). **The tool exits 1 correctly** — see #6 | The warning line reads like a note, not a failure |
 | 5 | Arm G CE recall "78.3%" | 75.9%. 40 GEN-INVALID packages counted as hits | The files existed, so `package_exists` was True |
+| 6 | "`analyze` exits 0 on an empty result" | **It exits 1.** Every observation came through `… \| tail`, and a pipeline reports the *last* command's status | `tail` succeeded, so the shell reported success — the measurement was about the wrong process |
 
 **The shape.** Every one is a *measurement artifact wearing the costume of a
-result*. None threw. None exited non-zero except by accident. Four of the five were
+result*, and #6 shows the harness measuring the harness is not exempt. None threw. None exited non-zero except by accident. Four of the five were
 caught by the same move — reading the actual output or running the falsifying test
 rather than accepting the summary line — and the fifth (#5) was caught because the
 number **disagreed with two figures already in the record**, which is the argument
