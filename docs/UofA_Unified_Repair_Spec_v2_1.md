@@ -20,7 +20,7 @@ Execution: author + Claude Code sessions 1 and 2 + Mohammad (grammar-in-place on
 | Must-have | Covered by | Status |
 |---|---|---|
 | 1. Replace LLM-as-judge with injected flaw testing | Phase 2.5a (mutator, P25-A), W1-A2 prose, W8 | Instrument being repaired; judges already demoted by decision; prose waits on P25-A report |
-| 2. Tools that hide the complexity | Credibility Inspector (live, uofa.net/demo); pack download SHIPPED at 535dfd52 | Done except W5 manuscript rendering + one 15-min deploy check |
+| 2. Tools that hide the complexity | Credibility Inspector (live, uofa.net/demo); pack download SHIPPED at 535dfd52 | **Deploy check CLOSED 2026-08-16** — see below. Remaining: W5 manuscript rendering only |
 | 3. Simplify the hypotheses | W2, gates final (§0.1) | Unblocked, writing queue position 2 |
 | 4. Preliminary framing, prototype language, open source | W3 | Unblocked, position 3 |
 | 5. Human reviewer role and bias | W1-A7 protocol, W6 disclosure, Inspector confirm-step artifact | Protocol is writing-queue position 1 |
@@ -59,6 +59,16 @@ Recorded with rationale in the Decision Record (2026-08-16), dated before the me
 2. NAFEMS CLI reproduction page (uofa.net/demo/nafems): exact-numbers worked example, FDA-co-authored case.
 3. One paragraph previewing the injected-flaw reframe: ground truth is the injection manifest; a deterministic mutation arm is being added that implements the prescribed test literally.
 
+### 0.5 C1 deploy verification (closed 2026-08-16)
+
+Must-have 2's pack download is verified **in production**, not merely shipped. Three independent checks, recorded because "the code is committed" and "a committee member gets a package" are different claims:
+
+1. **Deployed code carries C1.** `space/pipeline.py` fetched from the running Space; `SIGNING_KEY_ENV`, `UOFA_DEMO_SIGNING_KEY` and `UOFA_DEMO_SIGNING_KEY_FILE` all present, and the signing-key handling is **byte-identical to local HEAD**.
+2. **The control exists in the live UI.** The running Gradio config carries the `Download UofA package` component.
+3. **The signing secret is set.** `UOFA_DEMO_SIGNING_KEY` confirmed in the Space's secrets, last updated 2026-08-13 — the same day as `535dfd52` (C1) and `09d19eeb` (research-key rotation), which is a consistent story rather than a coincidence.
+
+**Why check 3 was not optional.** `pipeline.py:705` is explicit: *"A missing key is not an error: the Space degrades to the unsigned readout it has always shown."* With the secret unset the function returns `(payload, None)` and the download control simply does not appear — no error, no warning, nothing a visitor or the author would notice. So an unset secret is **invisible from outside**, while §0.3 sends the committee that link described as "pack download included." A silent-degradation path on a must-have deserves a positive check, not an inference from the deploy date.
+
 ### 0.4 Open asks
 
 OPEN-2 (Turman): is a live demo (Inspector and/or inject-and-detect walkthrough) expected at the defense itself? Defense-prep calibration only; nothing builds on the answer.
@@ -90,7 +100,7 @@ Budget 9-13h paired + ~$50. Scope cap and five escalation criteria per child spe
 | Bologna read | Decision record and required-vs-achieved levels; assign to A3 external negative per decision 8 | A3's external clean package |
 | D6 measurement script (~3h) | Re-derive 384/427 from committed artifacts; verify the equality claim BOTH directions (every cleared result carries stated uncertainty AND converse) | Writing position 8 (D6 sections) |
 | PR #62 recovery | One attempt (refs/pull/62/head, reflog); success or reword recommendation | Writing position 8 (A4 appendix) |
-| Small fixes | Two datasetcard_info → modelcard_info references; bucket-2 extraction citations labeled raw/adjudicated AND synthetic/real with null columns (90 min); HF Space revision includes 535dfd52 + UOFA_DEMO_SIGNING_KEY set (15 min) | Hygiene; A9; C close-out |
+| Small fixes | ~~Two datasetcard_info → modelcard_info references~~ **DONE** (`ca24187f`); bucket-2 extraction citations labeled raw/adjudicated AND synthetic/real with null columns (90 min); ~~HF Space deploy check~~ **DONE** — see §0.5 | Hygiene; A9; C close-out |
 | B4 register script | Banned-register (fail) + prose-tic (warn) sweep over exported manuscript text | Writing positions 9-10 |
 | U-INV-1 reads | Jia & Harman §1-2, Hsueh et al. §1-2 via library proxy; extract the supporting sentences with page numbers | Writing position 7 (D4 escort citations) |
 
