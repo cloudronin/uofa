@@ -241,7 +241,13 @@ So the battery runs on the three case-study encodings, and the report states the
 
 `iso42001` and `surrogate` are **out** as well: admitted and re-measured, iso42001 unlocked zero new patterns (Class A stayed 9, Class B stayed 8), adding only sites on W-ON-01, W-SI-01 and W-SI-02 — none of them among the six single-substrate patterns that actually need `n`.
 
-> **Escalation to the author, outside this phase.** `site/src/content/docs/demo/nafems.mdx:138-142` instructs a reader to run `uofa rules` against these two files and frames it as "the same CLI runs against an HPT-blade thermal-analysis example" — presented as cross-domain reproduction, directly after the Morrison section where the output *is* live detection. A reader following it sees 17 and 20 weakeners and has every reason to read that as detection. It is a read-back. The same page's source table (`:154`) lists them as "HPT blade JSON-LD — Hand-authored", and the published site renders them as "The UofA package node …". This is a public claim, it is committee-facing per v2.1 §0.3 item 2, and it is not Phase 2.5a's to fix. Reported, not touched.
+> **Escalation to the author, outside this phase. The NAFEMS page now has two separate defects, and they are independent.**
+>
+> **(a) The HPT step reports stored annotations.** `site/src/content/docs/demo/nafems.mdx:138-142` instructs a reader to run `uofa rules` against these two files and frames it as "the same CLI runs against an HPT-blade thermal-analysis example" — cross-domain reproduction, directly after the Morrison section where the output *is* live detection. A reader sees 17 and 20 weakeners and has every reason to read that as detection. It is a read-back. The source table (`:154`) lists them as "HPT blade JSON-LD — Hand-authored", and the published site renders them as "The UofA package node …".
+>
+> **(b) The Morrison COU1 figure is 9/11 serialization artifact.** The same page publishes "COU 1 = 11 weakeners across 5 patterns, COU 2 = 18 across 6" as committee-facing reproduction figures. Nine of COU 1's eleven are the vacuous `noValue` firings described in v2.1's A3 precondition. The command reproduces and the count is real; what it measures is not what a reader would take it for.
+>
+> (b) is the harder one, because unlike (a) it is not fixed by relabelling — the number is correct and the walkthrough works. It needs the figure reported with its composition, or a different figure. Both are C2's, both are public, and both are committee-facing per v2.1 §0.3 item 2. Reported, not touched.
 
 **Delta-from-baseline scoring, all substrates.** No substrate has an empty baseline. Measured by the inventory with `uofa rules --pack vv40` on each unmutated substrate:
 

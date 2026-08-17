@@ -95,6 +95,26 @@ the catalog was tuned against the generator."** W-EP-01 scores 20/20 on a class 
 schema never declares; W-ON-02 cannot be scored in Arm M at all because every real
 encoding already violates it. Those are the same finding seen from both ends.
 
+**The controlled demonstration — added 2026-08-16, and it is stronger than either
+anecdote.** W-AL-01, W-AR-05 and W-EP-02 test `noValue(?result, <property>)`. A
+package that references its validation results as **bare IRIs** gives the rules a
+node with no properties, so all three succeed vacuously and fire on every result.
+Inline morrison/cou1's three results — same IRIs, same count, only the three
+properties the rules read, nothing else touched — and the three patterns go from
+**3/3/3 to 0/0/0**. Across the substrates, **27 of 48 baseline firings are vacuous**,
+and the split is exactly the inline/bare-IRI split.
+
+That is a controlled comparison rather than an observation: one package, one variable,
+nine weakeners appearing and disappearing on **serialization shape alone, with the
+evidence untouched**. Morrison COU1 and COU2 corroborate it from the corpus side —
+same study, nine-weakener delta on those patterns, the difference being that COU1
+references results by IRI and COU2 inlines them — though that pair carries a genuine
+confound, being two different Contexts of Use. **Lead with the inline experiment**,
+which has none, and cite the COU pair as corroboration.
+
+This is the thesis demonstrated on the project's own instrument: a defect class that
+is invisible to a generator-scored arm and obvious to a deterministic one.
+
 It is a stronger contribution than the gate number whichever way the gate lands,
 because it is exactly the class of defect that is **invisible without a deterministic
 arm and machine-checkable ground truth** — the praxis thesis demonstrated on the
