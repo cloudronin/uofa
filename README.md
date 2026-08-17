@@ -526,7 +526,10 @@ The same eval reported `mean overall F1 0.964 — PASS` while **37 of 45 package
 failed the SHACL shape**.
 
 Measured on **five real journal papers** with gpt-5 (2026-08-08), against
-annotated gold:
+annotated gold. These are **raw** extractor numbers — scored with **no adjudication
+step**, so no human corrected a result between extraction and scoring. The tool's
+confirm step lets a user fix what it read; that would raise these figures, and those
+would be a different, separately-reported number:
 
 | | measured | its control |
 |---|---|---|

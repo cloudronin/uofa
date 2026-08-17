@@ -43,6 +43,13 @@ The fix is not to annotate harder. It is to record, per excluded pair, **why**:
 absent from the document, present only in a table, or present but not locatable.
 That turns 12 silent exclusions into 12 data points.
 
+> **Label for every figure in this document (A9 item 2).** All are **raw** route
+> output with **no adjudication step** — no human corrected a routing result between
+> the run and the score. The synthetic/real label is not a footnote here but the
+> finding itself: the two corpora **invert the method ranking**, so every figure below
+> names which corpus produced it, and a number quoted without that label is not a
+> result.
+
 ## What changed since v3
 
 1. **Synthetic evaluation inverts method rankings.** K6 scores 0.829 recall@5 on

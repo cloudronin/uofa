@@ -204,7 +204,9 @@ the exact gap nothing else in this survey filled.
 Do not read step 2 as progress on the transfer question. Posters are the easy
 genre — ARED routes at 0.86 recall@5 against 0.33 for journal prose, because its
 evidence lines begin with the factor name. Adding posters raises the aggregate
-and answers nothing.
+and answers nothing. (Both figures are **raw** route output on **real** documents,
+**no adjudication step**; the contrast is between two genres of real source, not
+between synthetic and real.)
 
 ## D3: the Frontiers collection screened — 0 of 7 usable
 

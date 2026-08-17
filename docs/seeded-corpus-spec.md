@@ -148,7 +148,9 @@ standard's vocabulary, hundreds of sentences from where the factor is named.
 
 *Prevents:* the reason ARED routes at 0.86 recall@5 while journal prose routes at
 0.33 — its evidence lines *begin with the factor name*. A corpus of labelled
-evidence measures nothing.
+evidence measures nothing. (Both are **raw** route output on **real** documents with
+**no adjudication step**; the contrast is between two genres of real source, not
+between synthetic and real.)
 
 *Acceptance:* median distance between a factor's name and its evidence ≥100
 sentences; ≤2 of 13 findings contain the canonical factor name.
