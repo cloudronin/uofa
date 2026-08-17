@@ -55,3 +55,72 @@ record being complete.
 
 If the paragraph above needs amending once the number is known, that is a finding
 about this file and gets recorded as one, not edited away.
+
+---
+
+# RESULT (appended 2026-08-17, after the run)
+
+## Against the pre-declaration
+
+**CE recall @ v0.5.15.1 = 2769/3626 = 76.4%** (evaluable rows), against the
+manuscript's **73.4%** for the same corpus at v0.5.7. A **+3.0 point** catalog
+delta with the corpus held fixed, which is exactly the comparison declared above
+and its only purpose.
+
+The four declared qualifications hold unchanged. It is a training-corpus figure and
+therefore optimistic; the holdout's **75.9%** remains the number to cite for an
+unbiased estimate; it uses evaluable rows (380 GEN-INVALID excluded on measured
+conformance); and **P2-A remains open**. Nothing in this paragraph needed amending
+once the number was known.
+
+## An unanticipated second measurement, reported as a finding
+
+The run also produced an M5 **negative-control** figure, which the pre-declaration
+did not anticipate and therefore did not scope. It is reported here rather than
+quietly dropped.
+
+**NC clean rate on M5 at v0.5.15.1 = 8/176 = 4.5%**, against the headline
+**97.1%** at the same catalog version.
+
+The two figures use different NC corpora, and the corpora differ on precisely the
+field the dominant rule reads:
+
+| NC corpus | COU has envelope or constraint | COU has neither |
+|---|---|---|
+| M5 (2026-04-26) | 18 | **161** |
+| v0.5.15.1 holdout (behind the 97.1%) | **176** | 0 |
+
+W-ON-02 fires on **158 of 176** evaluable M5 NCs and is the single largest
+contributor to the 4.5%.
+
+This is the code-side mechanism recorded at INV-1 §3 row 8, now measured from the
+corpus side. `adversarial/skeleton.py:70-95` inserts placeholder
+`ApplicabilityConstraint` and `OperatingEnvelope` stubs into regenerated NC
+packages, documented in the source as *"structurally well-formed, not substantively
+meaningful"* and *"inserted to satisfy the noValue check on
+uofa:hasApplicabilityConstraint in the W-ON-02 rule predicate."*
+
+### Two readings, both defensible, not adjudicated here
+
+**Corpus correction.** A genuinely clean package *should* bound its Context of Use.
+An NC lacking an envelope is not clean — it carries a real defect that W-ON-02
+correctly detects — so adding the field fixes the corpus rather than the rule. On
+this reading the 97.1% is honest and the M5 figure measures a defective NC corpus.
+
+**Rule suppression.** The inserted value is a placeholder the source itself calls
+not substantively meaningful. On this reading the package is clean only in that the
+rule can no longer see the absence, and part of the 0% → 97.1% trajectory is corpus
+change rather than rule tightening.
+
+The distinction matters because the 97.1% is a headline specificity claim and feeds
+GATE-H3's FP clause. **Author call.** What can be said without ruling: the
+trajectory should state which portion of the gain came from rule refinement and
+which from NC regeneration, because both happened and the current framing attributes
+all of it to the first.
+
+### Measurement note
+
+One package of 4,601 raised `decimal.InvalidOperation` during literal parsing and
+was caught by the runner's handler, counting it GEN-INVALID. So 1 of the 380
+GEN-INVALID rows is a reader exception rather than a generation failure. Immaterial
+to the rates; recorded for accuracy.
