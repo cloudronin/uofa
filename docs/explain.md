@@ -117,7 +117,7 @@ To enable, you have several options:
        [llm]
        backend = "anthropic"
        api_key_env = "ANTHROPIC_API_KEY"
-       model = "claude-sonnet-5-2026"
+       model = "claude-sonnet-5"
 
 3. Use the proprietary UofA Copilot for higher-quality interpretation
    plus remediation suggestions, submission narrative generation, and

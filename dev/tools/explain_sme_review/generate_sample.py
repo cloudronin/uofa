@@ -13,7 +13,7 @@ records useful-and-correct counts in `sme_scoring.md`.
 Usage:
     python dev/tools/explain_sme_review/generate_sample.py
     # or with a remote backend for comparison (spec §10 stretch goal: 90% on Claude):
-    UOFA_EXPLAIN_BACKEND=anthropic UOFA_EXPLAIN_MODEL=claude-sonnet-5-2026 \\
+    UOFA_EXPLAIN_BACKEND=anthropic UOFA_EXPLAIN_MODEL=claude-sonnet-5 \\
         python dev/tools/explain_sme_review/generate_sample.py
 
 The script is intentionally not a pytest module — it's slow (one LLM call

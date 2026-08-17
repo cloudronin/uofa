@@ -110,7 +110,7 @@ class TestEnvelope:
             command_version="0.6.0",
             structured_output={"violations": [{"path": "p", "severity": "High"}]},
             backend_name="anthropic",
-            model_name="claude-sonnet-5-2026",
+            model_name="claude-sonnet-5",
             functions_run=[],
             explanations=[{"item": "x", "text": "y"}],
         )

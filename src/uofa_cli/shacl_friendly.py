@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from pyshacl import validate as shacl_validate
@@ -445,9 +446,25 @@ def _load_data_graph(data_path: Path) -> Graph:
     (char 0)`` even though the file is non-empty and valid. Loading
     the data graph with rdflib directly first, then handing the
     parsed Graph to pyshacl, is reliable.
+
+    The context is resolved from disk before parsing. Packages in the wild
+    carry ``@context`` as the published raw.githubusercontent URL, and rdflib
+    dereferences it for real -- so validating a package required the network,
+    and a validator that needs the internet to check a local file is broken for
+    the offline reviewer this tool is built for. It also made the result depend
+    on whatever ``main`` happened to say at that moment.
+
+    ``integrity.resolve_context`` already maps that URL to the copy shipped
+    under ``spec/context/`` (``uofa_cli/_data/repo/spec`` in a wheel); the
+    signing path has used it since packages first referenced the URL. This is
+    the same resolution, applied to validation, so both paths agree on what the
+    context IS rather than one asking the network and the other asking disk.
     """
+    from uofa_cli.integrity import resolve_context
+
+    doc = json.loads(data_path.read_text(encoding="utf-8"))
     g = Graph()
-    g.parse(str(data_path), format="json-ld")
+    g.parse(data=json.dumps(resolve_context(doc, data_path)), format="json-ld")
     return g
 
 
