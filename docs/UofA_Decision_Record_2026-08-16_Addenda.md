@@ -1,4 +1,6 @@
-# UofA Author Decision Record 2026-08-16 — Addenda C and D
+# UofA Author Decision Record 2026-08-16 — Addenda C, D and E
+
+*(Filename carries no letter range: further addenda append here rather than forcing a rename. Cited in earlier commits as `…_Addenda_C-D.md`; git tracks the rename.)*
 
 Status: RULED
 Date: 2026-08-16
@@ -61,6 +63,82 @@ measurements. W-AR-05 also gains cross-substrate `n` it otherwise lacked.
 > than silently reverted, because a ruling withdrawn on evidence belongs in the record
 > as much as one made on it. Author to confirm which way this lands; the phase
 > proceeds on three and adds the HPT pair the moment a package exists.
+
+## Addendum E — the SHACL-conformance split is Arm M's organizing structure
+
+**Ruling, as issued.**
+
+The rule catalog's job is catching defects that schema validation can't see. A mutant
+that flunks the SHACL profile never tests the rules; it tests the schema. So:
+
+1. **Record SHACL profile status for every mutant** (the full stack already runs for
+   layer attribution; this is the same data, elevated).
+2. **Split the corpus and the report on it:**
+   - **Conformant-but-flawed** (passes the profile, carries the injected defect): this
+     is the true test of the rule catalog. Headline per-pattern recall and the
+     GATE-H3 evaluation come from this group only.
+   - **Schema-caught** (mutation breaks profile conformance): report as
+     defense-in-depth evidence at the validation layer, not as rule-engine
+     detections. These confirm C2 does its job; they say nothing about C3.
+3. **Operator-design preference, applied in the redesign pass:** where a pattern can
+   be exercised by either deleting a mandatory field (likely schema-caught) or
+   corrupting a value in place (stays conformant), **prefer the corruption form**.
+   Valid-but-wrong is both the harder test and the realistic threat model: a package
+   that fails schema validation gets bounced at intake; the dangerous package
+   conforms and is still wrong. Where only the deletion form exists, keep it and let
+   it land in the schema-caught group honestly.
+4. **New precondition test, one-time:** before any scoring, assert the five unmutated
+   substrates pass `verify` and run `check` cleanly apart from their known measured
+   baselines, at the shipped catalog version. The report must be able to say
+   "mutation started from valid packages" **with a citation, not an implication**.
+5. **Manifest gains a field:** expected catch layer per mutant (schema vs rules), set
+   by the operator's design intent, compared against the measured catch layer.
+   Divergences (expected rules, caught by schema, or vice versa) are findings, and
+   cheap ones.
+
+Note the interaction with the enrichment-class operators: their added structures must
+themselves be profile-conformant, or the enrichment produces a schema-caught mutant
+and the target rule never runs. **Add a conformance assertion after enrichment, before
+violation.**
+
+None of this changes the gate, the denominator, or the substrate set. It changes
+**which mutants count toward the gate: conformant-but-flawed only.**
+
+### Flagged against E, not a change to it
+
+E's closing line holds for every pattern that *has* a conformant-but-flawed form. Three
+may not have one, and they are a specific three:
+
+| Pattern | Operator | Field | Profile-mandatory? |
+|---|---|---|---|
+| W-SI-01 | delete the signature | `uofa:signature` | **yes** — carries `sh:minCount` |
+| W-ON-01 | delete the Context of Use | `uofa:hasContextOfUse` | **yes** — carries `sh:minCount` |
+| W-SI-02 | `noValue` on required bindings | — | **yes** — flagged SHACL-mandatory since v1.0 §1.3 |
+
+Each is a pure presence/absence rule with **no value to corrupt in place**, so
+preference 3 has nothing to prefer: the deletion form is the only form, and deleting a
+`sh:minCount` field breaks conformance by construction. Under E they land in the
+schema-caught group and produce **no headline recall row**.
+
+**These are exactly the three patterns that have never produced a confirmed detection
+at any catalog version.** E supplies the explanation: they cannot reach the rule layer
+in a conformant pipeline, because the schema catches their defect first. That is the
+positive architectural claim v1.0 §1.3 item 4 anticipated, and arriving at it by
+measurement rather than assertion is a better result than a recall number would have
+been.
+
+The open question is arithmetic, and it must be settled **before scoring**, alongside
+the 16-vs-17 confirmation: with three of the sixteen unable to produce a conformant
+mutant, does the GATE-H3 denominator stay **16** (the three score zero, costing ~19
+points against a ≥95% bar), or become **13** (the three are reported as architecturally
+unreachable rather than missed)? At a ≥95% gate this is not a rounding question — it
+is the difference between a gate that can pass and one that cannot, and deciding it
+after seeing the split would be precisely the post-hoc scoping addendum C rules out.
+
+Recommendation: **13**, with the three reported as a named architectural finding. A
+pattern the schema catches first has not been missed by the rule engine; counting it
+as a miss measures the wrong layer, which is the whole point of E. But it is the
+author's call and it is not made here.
 
 ## Restated: W-EP-01 and the gate denominator
 

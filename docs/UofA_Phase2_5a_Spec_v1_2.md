@@ -1,7 +1,7 @@
-# UofA Phase 2.5a Spec v1.1: Deterministic Mutation Arm
+# UofA Phase 2.5a Spec v1.2: Deterministic Mutation Arm
 
 Status: READY for implementation
-Date: 2026-08-16 (v1.1 amendment same day, before any operator was written)
+Date: 2026-08-16 (v1.1 and v1.2 amendments same day, before any operator was written)
 Owner: Vishnu Vettrivel
 Parent specs: UofA_Unified_Repair_Spec_v2_1.md (items A2, B2, GATE-H3), UofA_Investigation_Spec_v1_0.md findings (INV-8, INV-11, INV-1)
 
@@ -28,6 +28,8 @@ the author's amendment rulings. Sources: session 1's Phase 2.5a implementation p
 | 9 | `iso42001` proposed as the Class A recovery path and walkthrough substrate | **Falsified and removed** (§1.2.1, §1.4) | `2ecf24cf`. The proposal rested on a top-level key check; the full antecedents break. Admitted as substrates and re-measured, iso42001 unlocks **zero** new patterns |
 | 10 | NASA HPT substrates carry "zero ValidationResults", then "they fire 17 and 20" | **Both wrong. They are not UofA packages** (§2.1) | Three passes: JSON keys, then expanded graph, then inference. The files hold only stored `WeakenerAnnotation`s; 24 of 29 rules open on `UnitOfAssurance`, which is absent. Five substrates ruled, **three executable** |
 | 11 | W-EP-01 finding held in its weak form pending a corpus check | **Strong form established** (§1.2.1 finding 1) | `uofa:Claim` declared nowhere; 256 synthetic packages emit bare `type: "Claim"` resolving to it via `@vocab`. The rule scores 1.000 on non-schema evidence and is silent on conformant evidence |
+
+**v1.2 (Decision Record addendum E) — the SHACL-conformance split becomes the organizing structure**, not a footnote. A mutant that flunks the profile never tests the rules; it tests the schema. Changes: profile status recorded per mutant (§1.3); the corpus and report split conformant-but-flawed vs schema-caught, with **the gate scored from the conformant group only** (§2.2); operator design prefers value corruption over field deletion (§1.2.2); a one-time precondition test asserts the substrates were valid before mutation (§0.2); the manifest gains an expected-catch-layer field checked against the measured one (§1.1); and Class B enrichments must assert conformance after enrichment, before violation (§1.2.1).
 Positioning: this is Phase 2.5 closing its measurement debt, not a new phase. Phase 2.5 left MECHANICAL-class recall measured against a corrupt denominator (LLM generation failed to mechanically realize typed-literal and structural flaws; five patterns at 0.000, two never measurable, all as generation artifacts per INV-8/INV-11). Phase 2.5a repairs the instrument with a deterministic mutator, measures the shipped catalog once at v0.5.15.1, and exposes the loop as the committee-runnable `uofa inject` / `uofa detect` demo (parent B2).
 
 Budget: 9-13h paired total (mutator 4-6h, CLI+walkthrough 1-2h, P25-A run 3-5h + ~$50 LLM spend for the generator-arm rerun if included). Hard scope cap below.
@@ -88,6 +90,23 @@ the antecedent and then violate it**.
 
 ---
 
+## 0.2 Precondition: the substrates were valid before mutation (one-time, v1.2)
+
+**Before any scoring**, assert that the unmutated substrates pass `uofa verify` and run
+`uofa check` cleanly apart from their known measured baselines, at the shipped catalog
+version v0.5.15.1. Record the output as a committed artifact.
+
+The report has to be able to say **"mutation started from valid packages" with a
+citation, not an implication.** Every recall number in Arm M rests on that premise, and
+it is currently unstated. It costs one command per substrate and it closes the gap
+between what the report asserts and what it can show — which is the same gap this
+phase exists to close everywhere else.
+
+Baselines are known and measured (§2.1), so "cleanly apart from their baselines" is a
+defined comparison, not a judgment call.
+
+---
+
 ## 1. Deliverable 1: the mutator (`uofa inject`)
 
 ### 1.1 Architecture
@@ -98,6 +117,8 @@ A mutation is a pure function: `(package_graph, target_spec) -> (mutated_graph, 
 2. Applies exactly one operator at one target site.
 3. Verifies the mutant is LIVE: canonical-graph diff against the substrate must be non-empty. Canonicalization-erased mutations are logged as EQUIVALENT and excluded from the corpus and the denominator. (Standard mutation-testing hygiene; the equivalent-mutant log is itself a reportable artifact.)
 4. Writes the mutant package plus a manifest entry derived FROM THE DIFF, never from the operator's intent: manifest records operator ID, target pattern, site (subject/predicate/object or byte range for signature mutations), the before/after values, and the canonical diff hash. The manifest is ground truth by construction; keep it mechanically derived so that property is literally true.
+
+   **v1.2 adds one field that is deliberately *not* diff-derived: `expected_catch_layer`** (`schema` | `rules`), set by the operator's **design intent**. It is compared against the measured catch layer, and **divergence in either direction is a finding**: an operator that expected the rule layer and was caught by the schema has not tested what it was written to test; one that expected the schema and reached the rules means the profile is looser than assumed. Both are cheap to detect and neither is visible without stating the intent up front. This is the one place intent belongs in the manifest, and it is safe precisely because it is never used as ground truth — only as the thing the measurement is checked against.
 5. Signature-family mutations operate on the serialized signed form (mutate AFTER signing to model tamper; also support re-sign-after-mutation variants to model fraudulent-but-valid packages where the flaw is content, not integrity).
 
 Determinism: seedable RNG for site selection when a package offers multiple valid target sites; default run enumerates ALL valid sites per operator per substrate (the corpus is small; exhaustive beats sampled at this scale).
@@ -172,6 +193,37 @@ The measurement-validity consequence is now sharp enough to state without hedgin
 
 **Class B is not a weaker test.** The gate's question is unit detection: does the rule fire when its precondition is present and violated. Class B answers exactly that question. What it cannot answer — whether such evidence occurs in packages the project's own protocol produces — is §2.2's ecological-validity split, reported separately and never folded into the gate.
 
+### 1.2.1a Operator design preference: corrupt in place, don't delete (v1.2)
+
+Where a pattern can be exercised **either** by deleting a mandatory field (likely
+schema-caught) **or** by corrupting a value in place (stays conformant), **prefer the
+corruption form.**
+
+Valid-but-wrong is both the harder test and the realistic threat model: a package that
+fails schema validation gets bounced at intake; **the dangerous package conforms and is
+still wrong.** That is the package the rule catalog exists for, and it is the only kind
+whose detection says anything about C3.
+
+Where only the deletion form exists, keep it and let it land in the schema-caught group
+**honestly** — do not contrive a conformant variant to manufacture a recall row.
+
+> **Three patterns have no corruption form, and it is the expected three.** W-SI-01
+> (delete `uofa:signature`), W-ON-01 (delete `uofa:hasContextOfUse`) and W-SI-02
+> (`noValue` on required bindings) are pure presence/absence rules with no value to
+> corrupt. Both named fields carry `sh:minCount` in `packs/core/shapes/uofa_shacl.ttl`,
+> so deleting them breaks conformance by construction. All three land schema-caught and
+> produce no headline recall row — and all three are exactly the patterns that have
+> never produced a confirmed detection at any catalog version. The conformance split
+> supplies the reason: **they cannot reach the rule layer in a conformant pipeline.**
+> Report that as the positive architectural finding v1.0 §1.3 item 4 anticipated. The
+> denominator consequence is the author's, flagged in Decision Record addendum E.
+
+**Class B enrichments must assert conformance after enrichment, before violation.**
+An enrichment that adds a non-conformant structure produces a schema-caught mutant and
+**the target rule never runs** — the enrichment would have bought nothing, and the
+pattern would score zero for a reason unrelated to the rule. Assert profile conformance
+on the enriched-but-not-yet-violated intermediate, and fail loudly if it does not hold.
+
 ### 1.2.2 MUT-INT-02: dropped as a finding, not worked around
 
 `package_policy.sign_package` calls `assert_issuable`, and `is_synthetic` (`package_policy.py:52-64`) is True for any package marked `synthetic: true`. **The production signing path refuses to sign mutants.** MUT-INT-02 (re-sign after content mutation, modelling a fraudulent-but-valid package) therefore cannot be built.
@@ -190,6 +242,8 @@ W-SI-02 zeroed because SHACL validation rejects its flaw before the rule engine 
 
    This satisfies escalation criterion 4 (stack order differs from what the manuscript describes) — it is reported here rather than discovered during scoring, and Ch3's description needs the same correction.
 2. The detection record per mutant captures WHICH layer flagged it: `caught_by: shacl | integrity | derivations | rules | none`. The `derivations` value is required even though the pre-pass is expected to be a no-op, and the report must state explicitly where it was one — an absent column and a no-op column are different claims.
+
+   **v1.2: record SHACL profile status for every mutant as a first-class field**, not as an inference from `caught_by`. The full stack already runs; this is the same data elevated. `conformant: true|false` is what §2.2 partitions the corpus on, and it must be recorded even when some later layer also fires — a mutant can be non-conformant *and* caught by the rules, and collapsing that into one column loses the distinction the split depends on.
 3. Recall is scored at the package-assessment level (was the defect flagged by ANY layer) AND reported per-layer. GATE-H3's ≥95% MECHANICAL claim is the package-assessment-level number; the per-layer table is the defense-in-depth finding for Ch4.
 4. For patterns whose flaw is SHACL-mandatory (W-SI-02 class): additionally generate the variant that bypasses the SHACL check if one exists in a realistic threat model (e.g. a profile not applied), and report both. If no realistic bypass exists, the finding is "this defect class cannot reach the rule layer in a conformant pipeline," which is a positive architectural claim, stated as such.
 
@@ -274,6 +328,17 @@ Per A5's specification: per-pattern recall with Wilson 95% CIs (n per pattern wi
 
 Gate evaluation (GATE-H3, held as set): MECHANICAL ≥95% (Arm M, package-assessment level, **denominator 17**), JUDGMENT ≥80% (Arm G), overall ≥80%, FP <10% per class. The gate is evaluated ONCE against this run. Misses are reported as findings with root-cause per pattern; the catalog is not patched and re-run inside this phase (a fix-and-remeasure cycle is a disclosed v0.6 event, post-defense or explicitly author-approved).
 
+**The conformance split decides which mutants count (Decision Record addendum E, v1.2).** The corpus and the report partition on profile status, and this partition is prior to every other rollup:
+
+| Group | Definition | What it is evidence of |
+|---|---|---|
+| **Conformant-but-flawed** | passes the profile, carries the injected defect | **The true test of the rule catalog. Headline per-pattern recall and the GATE-H3 evaluation come from this group only.** |
+| **Schema-caught** | the mutation breaks profile conformance | Defense-in-depth at the validation layer. Confirms C2 does its job; **says nothing about C3**, and is never reported as a rule-engine detection |
+
+The reasoning is the catalog's own job description: it exists to catch what schema validation cannot see. A mutant that flunks the profile never reached the rules, so scoring it as a rule detection measures the wrong layer and inflates the number in the direction that flatters. Both groups are reported; only one gates.
+
+This changes **which mutants count toward the gate**, not the gate, the denominator, or the substrate set — with one open arithmetic question where a pattern has no conformant form at all, flagged in addendum E and to be settled before scoring.
+
 **Enrichment-split treatment, pre-committed (Decision Record addendum B).** The **full battery — Class A plus Class B — evaluates the gate.** The gate's question is unit detection: does the rule fire when its precondition is present and violated, which Class B mutants test legitimately.
 
 The as-encoded vs enrichment-required split is reported **alongside**, as the **ecological-validity result**, and is **not folded into the gate arithmetic**: four rules proven to work *and* proven unable to fire on evidence the project's own protocol currently produces. Both halves of that sentence are findings, and the second one is the more important. This treatment is fixed here, before any result exists, precisely so it cannot be chosen after seeing which framing is more flattering.
@@ -292,6 +357,7 @@ The as-encoded vs enrichment-required split is reported **alongside**, as the **
 |---|---|---|
 | ~~0a~~ | **DONE.** Ruling record committed alone at `fad31cf5`, carrying addenda A and B, before the run it governs | Ordering provable; A4 cites the commit, not the file |
 | ~~0b~~ | **DONE.** §0.1 check run; `INV-8-findings.md` addendum 2 written (five findings); `INV-1-findings.md` §3 updated to the ruled 17/4 | Falsification on record ahead of any operator |
+| 0c | **§0.2 substrate-validity precondition** (v1.2): `verify` + `check` on each unmutated substrate at v0.5.15.1, output committed | "Mutation started from valid packages" becomes citable, not implied |
 | 1 | Operator registry + engine + liveness check | **All 17** MECHANICAL patterns covered or reported uncoverable — count the registry, do not trust the prose enumeration (§1.2.1) |
 | 2 | CLI wrap + inject-verify | Fresh-clone walkthrough executes end to end |
 | 3 | Arm M run | Manifest-scored results committed |

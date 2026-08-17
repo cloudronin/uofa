@@ -3,7 +3,7 @@
 Status: ACTIVE
 Date: 2026-08-16
 Owner: Vishnu Vettrivel
-Supersedes: v2.0 and all earlier repair/update/prose-kit specs. Self-contained; no prior spec required to execute, though two child specs are referenced as the machines-queue work orders: UofA_Phase2_5a_Spec_v1_1.md and the session-2 brief (UofA_Decision_Record_2026-08-16.md + investigation SUMMARY.md).
+Supersedes: v2.0 and all earlier repair/update/prose-kit specs. Self-contained; no prior spec required to execute, though two child specs are referenced as the machines-queue work orders: UofA_Phase2_5a_Spec_v1_2.md and the session-2 brief (UofA_Decision_Record_2026-08-16.md + investigation SUMMARY.md).
 
 v2.1 delta from v2.0: (1) reorganized from workstreams into the three execution queues (Machines / Calendar / Writing) so the spec answers "what runs next" directly; (2) all 2026-08-16 investigation findings folded in: C1 shipped, Phase 3 completed with Tier-1 gate passed, undisclosed-change list empty, GATE-H3 unmeasured at the shipped catalog and pending P25-A, partition corrected to 21 base patterns; (3) all twelve author decisions ruled and incorporated (see Decision Record); (4) Phase 2.5a (deterministic mutator + P25-A) added as the machines-queue centerpiece; (5) substrate ruling: mutation runs on every distinct encoded package (both Morrison COUs, both NASA HPT configurations, Nagaraja), with delta-from-baseline scoring for substrates whose unmutated baseline legitimately fires.
 
@@ -56,7 +56,7 @@ Recorded with rationale in the Decision Record (2026-08-16), dated before the me
 ### 0.3 Pre-meeting materials (send now)
 
 1. Credibility Inspector link (uofa.net/demo): must-have 2, live today, pack download included.
-2. NAFEMS CLI reproduction page (uofa.net/demo/nafems): exact-numbers worked example, FDA-co-authored case.
+2. NAFEMS CLI reproduction page (uofa.net/demo/nafems): exact-numbers worked example, FDA-co-authored case. ⚠️ **HOLD — do not send until the two defects below are resolved.** (a) The HPT step tells the reader to run `uofa rules` against two files that contain only *stored* `WeakenerAnnotation` nodes and no `UnitOfAssurance`, so the 17 and 20 it prints are read-backs, not detections, presented directly after a section where the same command genuinely detects. (b) The published "COU 1 = 11 weakeners across 5 patterns" figure is **9/11 vacuous** — bare-IRI validation results make three `noValue` rules fire on every result (see §A3). (b) is not fixed by relabelling: the count is correct and the command reproduces; it needs its composition reported or a different figure. Both are C2's, and this page is the single most reproducible thing the committee has been pointed at, which is exactly why it has to be right.
 3. One paragraph previewing the injected-flaw reframe: ground truth is the injection manifest; a deterministic mutation arm is being added that implements the prescribed test literally.
 
 ### 0.5 C1 deploy verification (closed 2026-08-16)
@@ -77,7 +77,7 @@ OPEN-2 (Turman): is a live demo (Inspector and/or inject-and-detect walkthrough)
 
 ## QUEUE 1: MACHINES (Claude Code; author reads escalations only)
 
-### Session 1: Phase 2.5a (work order: UofA_Phase2_5a_Spec_v1_1.md)
+### Session 1: Phase 2.5a (work order: UofA_Phase2_5a_Spec_v1_2.md)
 
 Closes Phase 2.5's measurement debt: MECHANICAL-class recall was measured against a corrupt denominator (LLM generation failed to mechanically realize typed-literal and structural flaws; five patterns at 0.000 as generation artifacts, per INV-8/INV-11). Sequence, gates between steps per the child spec:
 
