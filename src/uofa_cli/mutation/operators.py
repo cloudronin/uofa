@@ -56,6 +56,13 @@ class Operator:
     substrates: tuple[str, ...] = ()   # measured hosts; empty for Class B
     gate_scored: bool = True
     implemented: bool = False
+    # Addendum E ruling 3: design intent, deliberately NOT diff-derived, compared
+    # against measured. Not exclusive -- measurement shows 12 of 23 mutants are
+    # non-conformant AND rule-caught, because check.run_structured never
+    # short-circuits on a SHACL failure. So "schema+rules" is a real expectation,
+    # not a hedge, and an operator expecting it that comes back rules-only (or
+    # vice versa) is a finding either way.
+    expected_catch_layer: str = "rules"      # rules | schema+rules
     notes: str = ""
     # site discovery + application are attached by engine.py at import time
     find_sites: Callable | None = field(default=None, compare=False, repr=False)
@@ -97,6 +104,7 @@ _CLASS_A: tuple[Operator, ...] = (
     ),
     Operator(
         id="MUT-DEL-04", pattern="W-ON-01", family="deletion", class_ab="A",
+        expected_catch_layer="schema+rules",
         summary="remove hasContextOfUse from the UofA",
         antecedent="hasContextOfUse present",
         substrates=("morrison/cou1", "morrison/cou2", "nagaraja/cou1"),
@@ -104,6 +112,7 @@ _CLASS_A: tuple[Operator, ...] = (
     ),
     Operator(
         id="MUT-DEL-05", pattern="W-SI-01", family="integrity", class_ab="A",
+        expected_catch_layer="schema+rules",
         summary="strip the signature block from the signed serialization",
         antecedent="signature present",
         substrates=("morrison/cou1", "morrison/cou2", "nagaraja/cou1"),
@@ -113,6 +122,7 @@ _CLASS_A: tuple[Operator, ...] = (
     ),
     Operator(
         id="MUT-DEL-06", pattern="W-SI-02", family="deletion", class_ab="A",
+        expected_catch_layer="schema+rules",
         summary="remove one required binding (bindsRequirement or hasValidationResult)",
         antecedent="bindsRequirement or hasValidationResult present",
         substrates=("morrison/cou1", "morrison/cou2", "nagaraja/cou1"),
