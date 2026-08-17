@@ -46,11 +46,19 @@ screen results"* — becomes the only available outcome. That is a perfectly
 respectable result and the spec already provides for it. It should be **chosen**,
 though, not discovered at the end of the annotation work.
 
-**The question for the author, and it is one line:** does Bologna's assignment to A3
-remove it from the H2 annotation pool, or can one document serve both? The two uses
-measure different things — A3 measures false-positive rate on a clean *encoding*
-(H3), A10 measures extraction attribution on *prose* (H2) — so double duty is
-defensible on the measurement. It is the disclosure that has to be right either way.
+**RULED 2026-08-16: base of 4, Bologna serves both.** Morrison and Nagaraja stay
+development-tier; the held-out base remains **4** including Bologna, which also serves
+as A3's external negative. The two uses measure different things — A3 measures
+false-positive rate on a clean *encoding* (H3), A10 measures extraction attribution on
+*prose* (H2) — so double duty is sound on the measurement. If admissions cannot reach
+11 total, **disclose the measured ceiling with the screen results** per ruling 7's
+standing branch.
+
+Consequence, restated so the screening work knows what it is for: the target is
+reachable but only if **all 7** screenable candidates qualify. That is a coincidence
+rather than a plan, so the measured-ceiling branch is the likely outcome and is not a
+failure — it is the reportable result. Screen honestly against N=3 and let the count
+land where it lands.
 
 ## 2. "External negative" overstates Bologna's independence
 
