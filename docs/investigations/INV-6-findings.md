@@ -67,10 +67,14 @@ clean detections.
 
 ## The silent-null catalogue
 
-Six occasions in one session where a **clean-looking result was wrong, and nothing
-announced it.** #6 is the sharpest, because it was mine and it would have had shipped
-code blamed for a defect it does not have. Recorded together because the shared shape is the point, and it is
-chapter material rather than a list of mistakes.
+**Eight occasions** where a **clean-looking result was wrong, and nothing announced
+it.** #6 is the sharpest, because it was mine and it would have had shipped code
+blamed for a defect it does not have. Recorded together because the shared shape is
+the point, and it is chapter material rather than a list of mistakes.
+
+*Extended 2026-08-17 with #7 and #8. The first six happened in one session; the last
+two are later, which is itself the finding — the shape does not stop occurring once
+it has been named.*
 
 | # | What was reported | What was true | What concealed it |
 |---|---|---|---|
@@ -80,13 +84,34 @@ chapter material rather than a list of mistakes.
 | 4 | `uofa adversarial analyze` succeeded | Zero rows written; stale `out_dir` (this addendum). **The tool exits 1 correctly** — see #6 | The warning line reads like a note, not a failure |
 | 5 | Arm G CE recall "78.3%" | 75.9%. 40 GEN-INVALID packages counted as hits | The files existed, so `package_exists` was True |
 | 6 | "`analyze` exits 0 on an empty result" | **It exits 1.** Every observation came through `… \| tail`, and a pipeline reports the *last* command's status | `tail` succeeded, so the shell reported success — the measurement was about the wrong process |
+| 7 | `analyze` produced complete per-COU recall columns | Five columns were **empty on every committed corpus** — stale `spec_path`, degraded to `baseline_key = None` by a bare `except: pass` (issue #67) | The CSV had the right **shape**; only the values were absent, and a blank cell reads as a measured zero |
+| 8 | "786 passed" — the regression suite validated the branch | It validated the **main checkout**. The editable install resolves `uofa_cli` to `uofa_github/src/`, so a bare `pytest` inside a git worktree tests code the branch never touched | Every test genuinely passed. Nothing was broken, nothing warned; the suite was simply answering about a different tree |
 
 **The shape.** Every one is a *measurement artifact wearing the costume of a
-result*, and #6 shows the harness measuring the harness is not exempt. None threw. Five of the six were caught by the same move — reading the actual
-output or running the falsifying test rather than accepting the summary line. The
-sixth (#5) was caught because the number **disagreed with two figures already in
-the record**, which is the argument for keeping prior measurements citable rather
-than superseded.
+result*, and #6 shows the harness measuring the harness is not exempt. None threw.
+Most were caught by the same move — reading the actual output or running the
+falsifying test rather than accepting the summary line. Two were caught differently
+and those are the instructive ones: **#5** because the number **disagreed with two
+figures already in the record**, which is the argument for keeping prior measurements
+citable rather than superseded; and **#8** because a *new* test failed while the same
+code passed when run by hand, so the contradiction — not the failure — was the signal.
+
+**#8 is the hardest of the eight to catch, and worth its own sentence.** In every
+other case something was wrong: a stale branch, a bad path, a mis-specified
+predicate. In #8 **nothing was wrong at all.** The tests were correct, the code was
+correct, the suite was honestly green — it was answering a question about a different
+directory than the one being edited. A green suite is the single most trusted signal
+in the workflow, and here it carried no information about the change it appeared to
+validate. **Correctness of the instrument does not imply relevance of the
+instrument**, and only relevance was in doubt.
+
+Two consequences carried forward:
+
+1. **Run the suite as `PYTHONPATH=src python -m pytest …` inside a worktree.** A bare
+   invocation resolves the editable install to the primary checkout.
+2. **A passing test that cannot fail for the right reason is worth less than no test.**
+   The guard for #7 was written *first* and observed to fail against unpatched code
+   before it was made to pass — which is the only reason #8 surfaced.
 
 **Why this belongs in the chapter and not only in a lessons file.** The praxis
 claims machine-checkable evidence is more trustworthy than prose-borne evidence.
