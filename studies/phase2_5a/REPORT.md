@@ -44,7 +44,76 @@ are different Contexts of Use and could legitimately differ in evidence.
 
 ---
 
+## Arm G — the version-consistent pair, at no LLM cost
+
+The manuscript currently pairs **CE recall 73.4% at v0.5.7** with **NC clean 97.1%
+at v0.5.15.1**. Two catalog versions, one table. Now resolved:
+
+| | corpus | v0.5.13 (recorded) | **v0.5.15.1 (measured)** |
+|---|---|---|---|
+| CE recall, evaluable rows | v0.5.13 holdout, 378 packages | 288/378 = 76.2% | **287/378 = 75.9%** |
+| NC clean rate | v0.5.15.1 NC holdout, 171 validated | — | **97.1%** |
+
+**The delta is exactly one package**, and it is attributable: W-CON-01 goes 20/20 →
+19/20. That is the single rule-body change between the v0.5.13 holdout tag and
+v0.5.15.1 — `notEqual(?status, 'not-assessed')`, added at v0.5.14. Everything else
+in that diff is comments, and every other pattern's count is identical.
+
+Worth recording precisely because [rules:376-387](packs/core/rules/uofa_weakener.rules)
+*argues* the guard is recall-neutral: *"no CE target uses 'not-assessed' as the
+trigger, so adding the exclusion guard doesn't change the rule's CE-target firing
+behavior."* Measured, it changes it by one CE package in twenty. The argument was
+nearly right; the phase's standard is that nearly-right arguments get measured.
+
+### No generation was needed
+
+P25-A's scoping budgeted `API key + ~$30–50`, for generating a *fresh* holdout.
+That buys holdout hygiene a fixed-corpus two-version comparison does not need:
+adversarial packages are catalog-version-independent, so CE recall at v0.5.15.1 is a
+**re-classification** of committed packages. Cost: Jena time. Re-derive with
+`PYTHONPATH=src python studies/phase2_5a/run_arm_g.py`; rows in `arm_g_results.json`.
+
+### Two denominators are in circulation, and the report must name one
+
+`288/420 = 68.6%` (the Phase 2.5 status report) and `288/378 = 76.2%`
+(`summary.csv`) are **the same measurement**. The first includes 40 GEN-INVALID
+packages in the denominator; the second excludes them. The manuscript's M5 figure
+says "73.4% **(evaluable rows)**", i.e. the exclusion convention, and this report
+follows it.
+
+The 40 are the entire CE corpus for **W-ON-01 and W-SI-01** — `shaclFailed: 20` on
+both specs, every package. The generator could not produce a valid package
+exhibiting either defect, which is why the original analysis reported those two
+patterns not-measurable. It is also the same fact Arm M reaches from the other
+direction: both are `sh:minCount` fields, so the flaw and profile-conformance
+cannot coexist. **Two independent arms, one conclusion.**
+
+*(An earlier pass of this script reported 78.3% by counting those 40 as hits —
+`_classify` was called with `package_exists=True` unconditionally, and the files are
+on disk, so nothing announced the error. It disagreed with both recorded figures,
+which is what prompted the reconciliation.)*
+
 ## GATE-H3
+
+**Split verdict. MECHANICAL passes; overall fails.**
+
+| Clause | Bar | Measured | |
+|---|---|---|---|
+| MECHANICAL detection | ≥95% | **35/35 = 100.0%** (Arm M, denominator 13) | **PASS** |
+| Overall detection | ≥80% | **287/378 = 75.9%** (Arm G, CE recall at v0.5.15.1) | **FAIL** |
+| False positives, per class | <10% | MECHANICAL 9 firings / JUDGMENT 1, over the 171-package holdout | PASS |
+
+Reported as a split rather than resolved to one number. The MECHANICAL result is
+about patterns whose defect is expressible and injectable; the overall figure is
+carried by the JUDGMENT-class and generator-produced corpus, where three patterns
+(W-AR-04, W-EP-03, W-CON-03) contribute 0/20 each for the reason §"The finding"
+gives — the generator never builds the structures they read. **Those same three
+score 3/3 under Arm M once the structure exists.** The gate's two clauses are
+measuring different things, and the split is the honest way to say so.
+
+**Evaluated once.** Neither number is revisited.
+
+### The MECHANICAL half, in detail
 
 **MECHANICAL = 35/35 = 100.0%**, against a ≥95% bar. **Evaluated once.**
 
@@ -196,10 +265,16 @@ Substrate validity established in `STEP-0C-PRECONDITION.md` (all three verify an
 conform before mutation). Profile status per mutant in `conformance.json`.
 
 **Not measured.**
-- **Arm G has not run.** Every number here is Arm M. The JUDGMENT-class rollup, the
-  overall ≥80% clause of GATE-H3, and the negative-control clean rate at v0.5.15.1
-  all await it. **The version-mismatched pair the manuscript currently carries —
-  73.4% recall at v0.5.7 beside 97.1% NC at v0.5.15.1 — is not yet resolved.**
+- **Arm G ran on the v0.5.13 holdout re-classified at v0.5.15.1, not on a fresh
+  corpus.** That is the right comparison for a two-version question and it cost
+  nothing, but it is not a fresh holdout: these packages were spent at v0.5.13.
+  Since no rule was tuned against them between the two versions — the only change
+  is the W-CON-01 guard — re-measuring does not leak, but a fresh battery would
+  still be the stronger artifact if the ~$50 is ever spent.
+- **gap-probe and interaction arms are reported as counts only** (35 and 9
+  evaluable rows, no target firings). Gap probes carry no target weakener, so
+  "recall" is undefined for them; the Tier-1 gap analysis they feed is Phase 3's,
+  not this report's.
 - **Three substrates, not five.** The two NASA HPT `.jsonld` files are weakener
   reports, not packages: `@graph` of 17 (cou1) and 20 (cou2) `WeakenerAnnotation`
   nodes plus an `@id`/`hasWeakener` stub, no `UnitOfAssurance`. Stripping the stored
