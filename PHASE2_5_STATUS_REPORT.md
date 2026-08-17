@@ -59,7 +59,11 @@ Hours are **estimates** for Claude-Code-paired execution. "Gap" = can it run/pro
 
 1. **Downstream version skew (shared with Phase 2/3).** Phase 2.5's whole point was fixing the catalog's specificity (0%→97.1% NC clean), but **Phase 3 judged the pre-refinement 2026-04-26 corpus**. The refinement is validated; its *propagation* to the corpus the rest of the dissertation analyzes is not. Without a full-battery re-run on v0.5.15.1 (P25-A) + a re-judge, the refined catalog and the judged corpus describe different rule behavior. This is the single most important coherence risk across all three phases.
 
-2. **The specificity gain may have cost recall, and that trade-off is under-measured.** Tightening rules to suppress NC false-positives (the locks) can also suppress true firings on confirm_existing targets; the v0.5.13 holdout already shows CE recall **68.6%** vs. M5's 73.4%. The v0.5.15.1 endpoint did **not** re-measure CE recall, so the precision↑/recall↓ trade is only partially characterized. P25-A closes this.
+2. ~~**The specificity gain may have cost recall, and that trade-off is under-measured.**~~ **CLOSED by P25-A Arm G, 2026-08-16 (`e40d7819`).** CE recall at v0.5.15.1 is **75.9%** (287/378 evaluable rows), beside a **97.1%** NC clean rate at the same version — the version-consistent pair that replaces M5's 73.4% @ v0.5.7 standing next to 97.1% @ v0.5.15.1.
+
+   The trade-off turned out to be **one package**: W-CON-01 goes 20/20 → 19/20 between v0.5.13 and v0.5.15.1, and every other pattern's count is identical. The cause is the v0.5.14 guard `notEqual(?status,'not-assessed')`, which `rules:376-387` argued was recall-neutral. Measured, it costs one in twenty.
+
+   **Denominator warning for anyone quoting these.** The **68.6%** above and the **76.2%** elsewhere in the record are the *same measurement* — 288/420 versus 288/378. The 42-package gap is the whole CE corpus for W-ON-01 and W-SI-01, `shaclFailed: 20` on both. The evaluable-rows convention is the one M5 used and the one followed here; a figure quoted without its denominator is ambiguous by 7.6 points.
 
 3. **Generalization rests on small holdout samples for the specificity claim.** 97.1% is 166/171 validated NCs (180-package holdout); robust and seed-pinned, but the per-rule residuals (W-ON-01, W-AL-01 cluster) are single-digit counts. Honest as "no large-sample contradiction," not "proven at scale."
 
