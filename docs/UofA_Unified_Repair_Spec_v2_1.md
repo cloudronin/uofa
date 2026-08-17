@@ -70,7 +70,7 @@ The ≥95% itself is measured on **defect instances** per A5's effective-n rule;
 ### 0.3 Pre-meeting materials (send now)
 
 1. Credibility Inspector link (uofa.net/demo): must-have 2, live today, pack download included.
-2. ~~NAFEMS CLI reproduction page (uofa.net/demo/nafems)~~ **PULLED from the send list** until the correction pass lands — see §0.3a. Send two solid items rather than three with a known error.
+2. NAFEMS CLI reproduction page (uofa.net/demo/nafems) — **correction pass LANDED 2026-08-16, clear to send again.** Both defects fixed; see §0.3a.
 3. One paragraph previewing the injected-flaw reframe: ground truth is the injection manifest; a deterministic mutation arm is being added that implements the prescribed test literally.
 
 ### 0.3a NAFEMS page correction pass (session 2, after the mutation report lands)
@@ -83,6 +83,18 @@ The page carries two independent defects, and it is the **single most reproducib
 | b | The published "COU 1 = 11 weakeners across 5 patterns, COU 2 = 18 across 6" figures are committee-facing reproduction numbers, and **9 of COU 1's 11 are vacuous** — bare-IRI validation results make three `noValue` rules fire on every result (§A3) | **Restate from re-measured baselines.** Not fixable by relabelling: the count is correct and the command reproduces. Report the figure with its composition, or use a different figure |
 
 **Sequenced after the mutation report** because (b)'s replacement numbers should come from the same re-measured baselines the report establishes, not from a second independent measurement that could disagree with it.
+
+### DONE 2026-08-16 — both defects corrected
+
+Baselines taken from session 1's step-0c precondition run (`008626f2`), so the page and the Arm M report cite one measurement rather than two: morrison/cou1 **11 findings, 9 vacuous**; morrison/cou2 **18, 0 vacuous**; nagaraja/cou1 **19, 18 vacuous**.
+
+**(a) The HPT step is withdrawn, not relabelled.** It stood directly after a section where the same command performs live detection, so any label would have been read against that contrast. The page now states plainly that the two files are stored `WeakenerAnnotation` records with no `UnitOfAssurance`, that 24 of 29 rules open on that type, and that stripping the annotations yields `0 weakener(s) detected`. The source table row is corrected from "HPT blade JSON-LD — Hand-authored" to what the files actually are.
+
+**(b) The COU 1 figure is restated with its composition, not replaced.** The counts are correct and the command reproduces them, so replacing them would have been wrong; what was missing is that **9 of the 11 are vacuous** `noValue` firings on bare-IRI validation results. Corrected in five places: the demo page's claim and its expected-output block, the talk page, the research index, and `README.md` (which mirrors to the site's `/readme/` page via `sync-readmes.mjs` — the generated copy is gitignored, so the fix belongs in the source and it is there).
+
+The correction also names what the contrast does **not** support: "COU 1 is cleaner than COU 2" is not a reading these numbers sustain, since COU 2's 18 are substantive while 9 of COU 1's 11 are serialization. The `COMPOUND-01` point is unaffected and stands.
+
+`site/scripts/check-pages.mjs` asserts the exact strings "11 weakeners across 5 patterns" and "18 weakeners across 6 patterns"; both survive, because composition was added rather than the counts changed.
 
 ### 0.5 C1 deploy verification (closed 2026-08-16)
 

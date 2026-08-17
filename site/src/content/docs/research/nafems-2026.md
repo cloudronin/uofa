@@ -18,7 +18,11 @@ The talk demonstrates UofA as the atomic evidence object inside simulation evide
 
 ## Live demo
 
-The live demo runs from the frozen `v0.7.1` tag against the bundled Morrison UofA packages (hand-authored from Morrison et al. 2019). Two `uofa rules` invocations and a `uofa diff` reproduce the slide-16 output: COU 1 = 11 weakeners across 5 patterns, COU 2 = 18 weakeners across 6 patterns including 2 `COMPOUND-01` firings. Optional round-trip of the `uofa extract` → `uofa import` pipeline against a synthetic evidence folder. Optional cross-domain reproduction with the NASA-STD-7009B HPT-blade example.
+The live demo runs from the frozen `v0.7.1` tag against the bundled Morrison UofA packages (hand-authored from Morrison et al. 2019). Two `uofa rules` invocations and a `uofa diff` reproduce the slide-16 output: COU 1 = 11 weakeners across 5 patterns, COU 2 = 18 weakeners across 6 patterns including 2 `COMPOUND-01` firings. Optional round-trip of the `uofa extract` → `uofa import` pipeline against a synthetic evidence folder.
+
+**Composition of COU 1's eleven, measured 2026-08-16 at catalog v0.5.15.1.** Nine of the eleven are vacuous: COU 1 references its validation results as bare IRIs, and `W-AL-01`, `W-AR-05` and `W-EP-02` each test `noValue(?result, …)`, so all three fire on every result for want of any property to read. COU 2 inlines its results and carries none of these — its 18 are substantive. The counts reproduce exactly as printed; the composition is stated because the COU1-vs-COU2 contrast is partly serialization rather than evidence adequacy. See [/demo/nafems/](/demo/nafems/).
+
+The NASA-STD-7009B HPT-blade step has been **withdrawn** — the files it used are stored weakener reports, not UofA packages, so the command read back annotations rather than detecting them.
 
 Step-by-step at [/demo/](/demo/).
 
