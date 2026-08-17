@@ -21,6 +21,16 @@ Morrison et al. (2019) is the FDA-co-authored worked example for ASME V&V 40 cre
 
 Both COUs are bundled as signed JSON-LD UofA packages. Running the rule engine against them produces the slide-16 terminal output. COU 1 fires 11 weakeners across 5 patterns with no compound risk. COU 2 fires 18 weakeners across 6 patterns including 2 firings of `COMPOUND-01` (Critical and High coexistence). The compound inference fires only on the higher-risk COU, even though the underlying model and dataset are shared.
 
+:::caution[What COU 1's eleven are made of]
+The counts above reproduce, but **9 of COU 1's 11 are vacuous**, and a reader should know which before drawing a conclusion from the comparison.
+
+COU 1 references its three validation results as **bare IRIs**; COU 2 **inlines** its three as full objects. `W-AL-01`, `W-AR-05` and `W-EP-02` each test `noValue(?result, …)`, so against a bare IRI — a node carrying no properties at all — every one of them succeeds for want of anything to read, and fires on every result. That is 3 × 3 = 9 of COU 1's 11. Inline the same three results, changing nothing else, and those nine disappear.
+
+**COU 2's 18 are substantive**; it has none of these. So the COU1-vs-COU2 contrast on the page is partly a difference in serialization, not only in evidence adequacy. The `COMPOUND-01` point stands — compound firings are unaffected — but "COU 1 is cleaner than COU 2" is not a reading these numbers support.
+
+Measured 2026-08-16 at catalog v0.5.15.1; both packages verify, and both are profile-conformant before assessment. The rule behaviour is reported, not patched: v0.5.15.1 is frozen, and a guard for these three (mirroring the one `W-EP-01` already carries) is a v0.6 candidate.
+:::
+
 ## Reproduce in 3 minutes
 
 Prerequisites: Python 3.10+, Java 17+. If Java is unavailable, use `--skip-rules` on `uofa check` and you will still get SHACL and integrity validation.
@@ -41,7 +51,7 @@ The bundled JSON-LD UofA packages and the rule engine ship with the repo. No ext
 uofa rules packs/vv40/examples/morrison/cou1/uofa-morrison-cou1.jsonld --build
 ```
 
-Expected: **11 weakeners detected** across 5 patterns. Severity breakdown: 0 Critical / 10 High / 1 Medium.
+Expected: **11 weakeners detected** across 5 patterns. Severity breakdown: 0 Critical / 10 High / 1 Medium. Nine of the eleven are the vacuous `noValue` firings described above — `W-AL-01`, `W-AR-05` and `W-EP-02`, three each, on this package's bare-IRI validation results.
 
 | Pattern | Severity | Hits |
 |---|---|---|
@@ -133,16 +143,15 @@ uofa import morrison-roundtrip.xlsx \
 
 The default model is `ollama/qwen3.5:4b`, which runs locally. To use a hosted provider, substitute any LiteLLM-compatible model identifier (`gpt-4.1`, `claude-sonnet-4-7`, `gemini-2.5-pro`).
 
-## (Optional) Cross-domain reproduction with NASA-STD-7009B
+## (Withdrawn) The NASA-STD-7009B HPT-blade step
 
-The same CLI runs against an HPT-blade thermal-analysis example with a different domain pack:
+**This step used to appear here as a cross-domain reproduction. It was not one, and it has been withdrawn.**
 
-```bash
-uofa rules packs/nasa-7009b/examples/aerospace/uofa-aero-cou1-nasa7009b.jsonld --pack nasa-7009b
-uofa rules packs/nasa-7009b/examples/aerospace/uofa-aero-cou2-nasa7009b.jsonld --pack nasa-7009b
-```
+The two files it pointed at — `uofa-aero-cou{1,2}-nasa7009b.jsonld` — are **weakener reports, not UofA packages**. Their `@graph` holds only stored `WeakenerAnnotation` nodes (17 and 20 respectively) with no `UnitOfAssurance`, and 24 of the catalog's 29 rules open on `(?uofa rdf:type uofa:UnitOfAssurance)`. So `uofa rules` against them printed the 17 and 20 annotations already serialized in the files. Nothing was inferred: strip the stored annotations and the engine reports `0 weakener(s) detected`.
 
-The bundled HPT UofA packages were also hand-authored, drawing on NASA-STD-7009B published guidance. The aerospace evidence zips at `packs/nasa-7009b/examples/aerospace/aero-evidence-cou{1,2}.zip` are synthetic in the same sense as the Morrison source folder; they exist for pipeline-mechanics demonstration, not for extraction-performance measurement.
+Placed directly after the Morrison section, where the same command **does** perform live detection, the step invited exactly the wrong reading. That is why it is withdrawn rather than relabelled.
+
+No encoded HPT package exists in this repository. The source evidence is present as `packs/nasa-7009b/examples/aerospace/aero-evidence-cou{1,2}.zip`, and building a genuine cross-domain package from it is future work, not a demo step.
 
 ## Source-data summary
 
@@ -151,7 +160,7 @@ The bundled HPT UofA packages were also hand-authored, drawing on NASA-STD-7009B
 | Morrison COU 1 JSON-LD | `packs/vv40/examples/morrison/cou1/uofa-morrison-cou1.jsonld` | Hand-authored from Morrison et al. (2019) |
 | Morrison COU 2 JSON-LD | `packs/vv40/examples/morrison/cou2/uofa-morrison-cou2.jsonld` | Hand-authored from Morrison et al. (2019) |
 | Morrison source folder | `packs/vv40/examples/morrison/source/` | Synthetic; generated from the hand-authored UofA for pipeline-mechanics demonstration |
-| HPT blade JSON-LD | `packs/nasa-7009b/examples/aerospace/uofa-aero-cou{1,2}-nasa7009b.jsonld` | Hand-authored from NASA-STD-7009B published guidance |
+| HPT blade weakener reports | `packs/nasa-7009b/examples/aerospace/uofa-aero-cou{1,2}-nasa7009b.jsonld` | **Stored `WeakenerAnnotation` records, not UofA packages** — they carry no `UnitOfAssurance`, so the rule engine cannot assess them. See the withdrawn step above |
 | HPT blade evidence zips | `packs/nasa-7009b/examples/aerospace/aero-evidence-cou{1,2}.zip` | Synthetic; same pattern as the Morrison source folder |
 | Original Morrison paper | DOI: 10.1007/s13239-019-00420-7 | Morrison et al. (2019), *Cardiovascular Engineering and Technology* |
 

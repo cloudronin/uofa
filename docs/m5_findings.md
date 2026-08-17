@@ -1,5 +1,9 @@
 # M5 findings & M6.2 follow-up backlog
 
+> **Every recall figure in this document is measured at catalog v0.5.7 and is superseded as a current number.** The M5 headline **73.4%** appears twice below and should not be quoted as the catalog's recall. The version-consistent measurement is **75.9%** (287/378 evaluable rows) at **v0.5.15.1**, beside a **97.1%** NC clean rate at the same version — `studies/phase2_5a/REPORT.md` (`e40d7819`).
+>
+> Pairing this document's 73.4% with a v0.5.15.1 specificity figure is precisely the version mismatch A2 §3's null-control standard forbids, and retiring that pair is what P25-A was run to do. The figures below stand as the M5 record; they do not stand as current results.
+
 Living document. Two sources feed this:
 
 1. **Mid-run observations** — issues I've identified while watching M5 progress (root causes that wouldn't surface from `outcomes.csv` alone).
@@ -164,6 +168,8 @@ Notably absent: **0 COV-HIT** (target alone) and **0 COV-MISS** (zero rules firi
 | Metric | Value | Threshold (runbook §1) | Status |
 |---|---|---|---|
 | Catalog recall (HIT + HIT+) | **73.4%** | <70% triggers triage | ⚠ borderline (3.4% above threshold) |
+
+> Superseded as a current figure — see the banner at the top of this document. v0.5.7 measurement; the v0.5.15.1 figure is 75.9% (287/378 evaluable rows).
 | Catalog precision (1 − FPR) | **0.0%** | <90% triggers triage | ✗ **major finding — worst-case** |
 | Gap-probe MISS rate | **0.0%** | none documented; informational | informational only |
 

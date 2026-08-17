@@ -11,7 +11,9 @@ per requirement.
 
 **Originally:** specification, not yet implemented. Revised 2026-08-08 after review;
 the first draft's acceptance criteria were unreachable and its headline was
-wrong. Every number here was measured against the five real papers.
+wrong. Every number here was measured against the five **real** papers, as **raw**
+extractor output with **no adjudication step** — no human corrected a result between
+extraction and scoring.
 
 ---
 
