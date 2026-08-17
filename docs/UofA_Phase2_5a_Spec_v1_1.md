@@ -24,6 +24,7 @@ the author's amendment rulings. Sources: session 1's Phase 2.5a implementation p
 | 5 | Stack order "SHACL → rules → signature" | **C2 SHACL → C1 Integrity → C2.5 Derivation pre-pass → C3 Rules** | Verified against `commands/check.py`; a fourth layer v1.0 omitted |
 | 6 | "the three case-study encodings" | Five distinct encoded packages, delta-scored from baseline | Substrate ruling, v2.1 §8 delta note |
 | 7 | Gate treatment of enrichment unstated | Full battery gates; split reported as ecological validity | Addendum B, pre-committed before scoring |
+| 8 | Operator split projected at 13 A / 4 B | **Measured: 9 A / 8 B** (§1.2.1) | `studies/phase2_5a/PRECONDITION-INVENTORY.md` at `fed5a37e` probed all 17 antecedents against the substrates. The enrichment family doubles — standing scope escalation |
 Positioning: this is Phase 2.5 closing its measurement debt, not a new phase. Phase 2.5 left MECHANICAL-class recall measured against a corrupt denominator (LLM generation failed to mechanically realize typed-literal and structural flaws; five patterns at 0.000, two never measurable, all as generation artifacts per INV-8/INV-11). Phase 2.5a repairs the instrument with a deterministic mutator, measures the shipped catalog once at v0.5.15.1, and exposes the loop as the committee-runnable `uofa inject` / `uofa detect` demo (parent B2).
 
 Budget: 9-13h paired total (mutator 4-6h, CLI+walkthrough 1-2h, P25-A run 3-5h + ~$50 LLM spend for the generator-arm rerun if included). Hard scope cap below.
@@ -124,26 +125,43 @@ Implement per-operator against the corrected INV-1 MECHANICAL list. The table be
 
 Coverage requirement: every one of the 17 MECHANICAL patterns has ≥1 operator whose mutants it should catch. If a pattern's precondition cannot be violated by any operator, that is a FINDING (the pattern may be misclassified, or its rule untestable as written) — report it, do not force an operator.
 
-### 1.2.1 The two operator classes (v1.1)
+### 1.2.1 The two operator classes (v1.1, measured)
 
-§0.1's falsification splits the 17 patterns by whether the substrate can host the flaw at all. **13 + 4 = 17; confirm this arithmetic before writing the registry.**
+§0.1's falsification splits the 17 patterns by whether a substrate can host the flaw at all. **The split is measured, not projected** — `studies/phase2_5a/PRECONDITION-INVENTORY.md` (commit `fed5a37e`) expanded all three substrates through the engine's own context, probed all 17 antecedents, and cross-referenced actual baseline firings. Its numbers govern this section:
 
-**Class A — edit a field the substrate already has.** Single edit. **13 patterns:**
+| | Projected in the plan | **Measured** |
+|---|---|---|
+| Class A (single edit) | 13 | **9** |
+| Class B (enrichment) | 4 | **8** |
 
-> W-EP-01, W-EP-02 (*morrison/cou2 only* — the sole host of a `wasGeneratedBy` chain), W-AL-01, W-AL-02, W-ON-01, **W-ON-02**, W-AR-05, W-SI-01, W-SI-02, W-CON-02, W-CON-04, W-CON-05, W-PROV-01 (MUT-DEL-02 delete a provenance edge; MUT-REF-02 sever a chain mid-graph — both restored by ruling 4).
+**Class A — edit a field the substrate already has.** Single edit. **9 patterns:**
 
-> **Note for the implementer.** Session 1's plan lists this class as "13 patterns" but enumerates only 12: **W-ON-02 is absent from that list**. It is MECHANICAL, it is a `noValue` check on the COU node, and it belongs in Class A. Build it. Had the enumeration been followed literally, W-ON-02 would have been silently dropped from the registry and the step-1 gate ("every MECHANICAL pattern covered or reported uncoverable") would have passed while covering 16 of 17.
+> W-EP-02, W-AL-01, W-AR-05, W-PROV-01 (*morrison/cou2 only*); W-AL-02, W-CON-04 (*nagaraja/cou1 only*); W-ON-01, W-SI-01, W-SI-02 (*all three substrates*).
 
-**Class B — `MUT-ANT-*`, antecedent instantiation plus violation.** Two edits carrying **one fault**: the first instantiates the structure the rule reads, the second violates it. **4 patterns:**
+Six of the nine are single-substrate, with per-pattern `n` of 1–4. §2.2's wide-interval naming therefore applies to **most of Class A**, not just W-EP-02 — say so in the gate paragraph.
+
+**Class B — `MUT-ANT-*`, antecedent instantiation plus violation.** Two edits carrying **one fault**: the first instantiates the structure the rule reads, the second violates it. **8 patterns:**
 
 | ID | Target | What it must instantiate before it can violate |
 |---|---|---|
-| MUT-ANT-01 | W-EP-03 | A ValidationResult with a `prov:wasGeneratedBy` → `prov:used` → Dataset chain, then a stale `dataVintage` against `modelRevisionDate` |
-| MUT-ANT-02 | W-AR-04 | A `currentModelVersion` on the package alongside the config's `modelVersion`, then a mismatch |
+| MUT-ANT-01 | W-EP-03 | A ValidationResult with a `prov:wasGeneratedBy` → `prov:used` → Dataset chain, then a stale `dataVintage` |
+| MUT-ANT-02 | W-AR-04 | `currentModelVersion` alongside the config's `modelVersion`, then a mismatch |
 | MUT-ANT-03 | W-CON-03 | A comparable `evidenceTimestamp` / `signatureTimestamp` pair, then an inversion |
-| MUT-ANT-04 | W-AR-03 | `bindsRequirement` inlined as a typed node carrying `requiredVerificationMethod`, plus `activityType` on the generating activity, then a mismatch — the largest enrichment of the four |
+| MUT-ANT-04 | W-AR-03 | `bindsRequirement` inlined as a typed node carrying `requiredVerificationMethod`, plus `activityType` on the generating activity — the largest enrichment |
+| MUT-ANT-05 | W-CON-02 | A `referencesIdentifier` target, absent from every substrate, then break its reachability |
+| MUT-ANT-06 | W-CON-05 | A `hasVerificationActivity` node, absent from every substrate, then sever its `wasGeneratedBy` link |
+| MUT-ANT-07 | W-ON-02 | **Enrich-to-clean.** The rule is baseline-positive on all three substrates; a recall figure requires first adding `hasApplicabilityConstraint` / `hasOperatingEnvelope`, then removing one again |
+| MUT-ANT-08 | W-EP-01 | **Read finding 1 below before building this one** |
 
-Every Class B mutant carries **`enrichment: true`** in its manifest, so the report can split the rollup per §2.2. The author ruled three `MUT-ANT` operators; the fourth follows from addendum A moving W-AR-03 to MECHANICAL, which put it in the same never-instantiated set as the other three — flagged rather than assumed.
+Every Class B mutant carries **`enrichment: true`** in its manifest, so the report can split the rollup per §2.2.
+
+**Two findings from the inventory that change what the numbers mean.**
+
+*Finding 1 — W-EP-01 cannot fire on schema-conformant evidence.* Its guard requires `(?claim rdf:type uofa:Claim)`, but the context defines only `AssuranceClaim`, the SHACL shapes declare no `uofa:Claim` class, `bindsClaim`'s range is `AssuranceClaim`, and the rules perform no subclass inference. The guard was added in Phase 2.5 to cure a false-positive storm (nc_fpr 1.000 at M5) and cured it by making the rule silent on conformant packages. **This is a rule finding, reported not fixed** — v0.5.15.1 is frozen. It also carries a measurement-validity consequence the report must state plainly: a MUT-ANT-08 mutant can only make W-EP-01 fire by typing a claim against a class the schema does not define, so any recall it scores is recall **on non-conformant evidence**. Do not fold that number into the MECHANICAL rollup without the caveat attached, and do not assert the stronger form ("scores only on synthetic packages using a non-schema class") until the `dev/build/phase2_5/` corpora are checked, as the inventory's own coverage statement requires.
+
+*Finding 2 — W-ON-02 fires on every case-study encoding.* Its detection is therefore already evidenced without injection, which is what Arm M exists to show; but it cannot be injected as-is, hence the enrich-to-clean operator. Report it as a finding about the encodings, not merely an operator note: **the project's own published case studies do not bound the validity envelope of their Contexts of Use**, which is precisely what W-ON-02 exists to catch.
+
+> **Scope escalation, standing.** The enrichment family doubles, 4 → 8, against a ~16h ceiling. The inventory reports this rather than absorbing it, per §4.5. The author's call is whether to fund the wider enrichment scope, or to cut Class B to the four patterns whose enrichment was already scoped and report the other four as uncoverable-within-budget. **Do not resolve this inside the implementation.**
 
 **Class B is not a weaker test.** The gate's question is unit detection: does the rule fire when its precondition is present and violated. Class B answers exactly that question. What it cannot answer — whether such evidence occurs in packages the project's own protocol produces — is §2.2's ecological-validity split, reported separately and never folded into the gate.
 
@@ -179,7 +197,9 @@ uofa inject-verify --manifest <path> --results <path>    # scores detect output 
 
 Wrap existing entrypoints per INV-11's exposure map; plumbing only, no logic forks. README walkthrough (`docs/demo/inject-and-detect.md`): fresh-clone setup steps (honest list per INV-11's runnability assessment, including Java/Jena), then the professors' narrative verbatim: perfect package in, known flaw injected, flaw caught, manifest confirms. Three worked examples, one per letter-named flaw type (remove uncertainty → MUT-DEL-01 on W-AL-01; change version numbers → see the note below; remove signatures → MUT-DEL-03 on W-SI-01).
 
-> **v1.1 note on the middle demo — pick the Class A route.** Session 1's plan maps "change version numbers" to W-AR-04, which §1.2.1 puts in **Class B**: the demo would have to *instantiate* `currentModelVersion` before it could mismatch it. That undercuts the letter's own narrative, which is *perfect package in, known flaw injected, flaw caught* — a walkthrough that first adds a field the package never had invites the question of what else was staged. Prefer a Class A version-pin operator (MUT-VAL-01 against the W-CON version rules) for the committee-facing walkthrough, and keep the W-AR-04 Class B mutant in the battery where its enrichment flag is visible in the manifest. If no Class A version-pin site exists on any substrate, say so in the walkthrough and use the third demo type instead — do not narrate an enrichment mutant as if it were a plain injection.
+> **v1.1 note on the middle demo — it has no Class A route on the three substrates.** "Change version numbers" maps to W-AR-04, which the measured inventory puts in **Class B**: none of `morrison/cou1`, `morrison/cou2` or `nagaraja/cou1` carries `currentModelVersion`, so the demo would have to *instantiate* the field before it could mismatch it. That undercuts the letter's own narrative — *perfect package in, known flaw injected, flaw caught* — because a walkthrough that first adds a field the package never had invites the question of what else was staged. The W-CON version rules do not rescue it: W-CON-02/03/05 are Class B too, and the only Class A member of that family, W-CON-04, is not a version-pin rule.
+>
+> One clean route exists. The inventory records that **`iso42001` hybrid/cou2 carries `currentModelVersion` and `hasEvidence` directly**, which would host W-AR-04 as a single-edit Class A mutation. Using it means the walkthrough substrate is not one of the three case studies, which is a disclosure, not a defect — say which package the demo runs on and why. Otherwise substitute a Class A demo (remove uncertainty, remove signatures both qualify) and drop the version-number example from the walkthrough, noting that it lives in the battery as an enrichment mutant. **Do not narrate an enrichment mutant as if it were a plain injection** — that is the one thing this demo exists not to do.
 
 ---
 
@@ -202,7 +222,17 @@ One measurement, two arms, one report. Already scoped as P25-A in `PHASE2_5_STAT
 
 The two NASA HPT configurations therefore cannot host any result-bound operator. Per §1.2's coverage rule that is a **reported finding, not a forced operator**, and it is the substrate-level face of §0.1's coverage finding. The three content-bearing substrates carry the delta-scored batteries; all five appear in the report so the reader sees the coverage boundary rather than inferring it from an absence.
 
-**Delta-from-baseline scoring, all substrates.** No substrate has an empty baseline — `site/src/content/docs/research/nafems-2026.md:21` records COU1 at 11 weakeners across 5 patterns and COU2 at 18 across 6, including 2 COMPOUND-01. So a mutant's detection set cannot be compared against zero. `inject-verify` scores the **delta**:
+> **Open, needs closing before the report.** The step-1 inventory probed **three** substrates (`morrison/cou1`, `morrison/cou2`, `nagaraja/cou1`), which is what session 1's plan scoped. The v2.1 §8 substrate ruling names **five**. The gap is almost certainly immaterial — the NASA HPT configurations carry no ValidationResults, so every result-bound pattern is uncoverable there regardless — but "almost certainly" is not a measurement. Either probe the two HPT packages and record the zero, or state in the report that the ruling's five-package scope was executed as three with the other two excluded on the stated ground. Do not let the report imply five were probed. The inventory's own coverage statement is the model here: it names `iso42001` and `surrogate` as unevaluated rather than silently omitting them, and notes that `iso42001` hybrid/cou2 carries `currentModelVersion` and `hasEvidence` and would host W-AR-04 and W-CON-03 **directly** — i.e. as Class A, without enrichment. If the scope escalation above is resolved by cutting Class B, that observation is the cheapest route back to covering two of the cut patterns, and it should be weighed before anything is dropped.
+
+**Delta-from-baseline scoring, all substrates.** No substrate has an empty baseline. Measured by the inventory with `uofa rules --pack vv40` on each unmutated substrate:
+
+| Substrate | Firings | Patterns |
+|---|---|---|
+| morrison/cou1 | 11 | W-AL-01 (3), W-AR-05 (3), W-EP-02 (3), W-ON-02 (1), W-CON-04 (1) |
+| morrison/cou2 | 18 | W-PROV-01 (7), W-EP-04 (6), COMPOUND-01 (2), W-AL-02 (1), W-CON-04 (1), W-ON-02 (1) |
+| nagaraja/cou1 | 19 | W-AL-01 (6), W-AR-05 (6), W-EP-02 (6), W-ON-02 (1) |
+
+The Morrison figures reproduce `site/src/content/docs/research/nafems-2026.md:21` exactly (11 across 5; 18 across 6 including 2 COMPOUND-01), which is the independent check that the harness and the published record agree. These sets **are** the delta-scoring baselines. A mutant's detection set is therefore never compared against zero. `inject-verify` scores the **delta**:
 
 1. the injected finding **appears** in the mutant's detection set, **and**
 2. the baseline findings **persist undisturbed** (set equality on the remainder).
