@@ -228,7 +228,7 @@ strengths: Phase 3 gate (provable), H2 thresholds (attested, §5), GATE-H3 and t
 21-pattern scope and N=3 (all recorded 2026-08-16, before the measurements and
 admissions they govern — which is the point of the decision record).
 
-**INV-10 residual (90 min).** Label the 11 bucket-2 extraction citations
+**INV-10 residual (90 min).** *(Done at `a487d203`. The count below is wrong: the measured figure is **9 citations across 10 files** — INV-10's stated 7/11 split does not reconcile with its own table, which gives 8 bucket-1 and 9 bucket-2 rows, one of them spanning two files.)* Label the 11 bucket-2 extraction citations
 raw/adjudicated **and** synthetic/real, adding null columns where A5 requires.
 
 ---

@@ -201,6 +201,21 @@ precisely where a committee member would have found it.
 Same denominator, and now a reason that survives the CLI invocation that killed the
 first one.
 
+### Measured outcome of F's condition 2 — the exclusion changed nothing
+
+Arm M (`008626f2`) answers condition 2's requirement to state what the 16-denominator
+version would have scored: **it scores 100.0% as well.** The three excluded patterns
+contribute zero conformant instances either way, so the *rate* does not move — only the
+count of patterns contributing a row, 13 of 13 against 13 of 16.
+
+**The exclusion is therefore not outcome-determinative, and that belongs early in the
+measurement report rather than in a sensitivity note.** *"Three patterns were excluded
+on stated principle before scoring, and the exclusion turned out not to change the
+result"* is the strongest good-faith evidence the phase produces, precisely because the
+decision **could not have been reward-seeking** — it was recorded, dated and committed
+before any number existed to reward it. A favourable number would have been weaker
+evidence than this one is.
+
 **The corrected finding is the better one.** Not *"the schema catches it, so the rules
 never see it"* — a handoff — but **"both layers independently catch it."** That is
 genuine defense in depth, and it makes the schema-caught table required by F's condition

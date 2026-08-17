@@ -106,6 +106,14 @@ Must-have 2's pack download is verified **in production**, not merely shipped. T
 
 **Why check 3 was not optional.** `pipeline.py:705` is explicit: *"A missing key is not an error: the Space degrades to the unsigned readout it has always shown."* With the secret unset the function returns `(payload, None)` and the download control simply does not appear — no error, no warning, nothing a visitor or the author would notice. So an unset secret is **invisible from outside**, while §0.3 sends the committee that link described as "pack download included." A silent-degradation path on a must-have deserves a positive check, not an inference from the deploy date.
 
+### 0.6 A9 labelling pass, and the nulls deliberately not supplied (closed 2026-08-16)
+
+**Done at `a487d203`.** Every bucket-2 extraction citation now carries an explicit **raw / no-adjudication-step** label and an explicit **synthetic / real** corpus label at first mention. **9 citations across 10 files** — the "11" that earlier documents carried does not reconcile with INV-10's own table (8 bucket-1 rows, 9 bucket-2 rows, one spanning two files); the count is corrected here and in the queue entry rather than left for A4 to inherit.
+
+**Three figures were left without a null, deliberately, and this sentence is the record of that choice.** The keyless-hybrid routing figures (`0.357 recall@5, 0.607@20`) and the ARED-vs-journal-prose contrast (`0.86` vs `0.33`, in both `seeded-corpus-spec.md` and `real-corpus-supply-survey.md`) have no null control, because **none was ever measured for them**. Supplying a comparison baseline that does not exist, in order to satisfy A5's checklist, would be manufacturing rigor — which is the disease this entire workstream treats. A5's null requirement governs **headline claims**; these are contrast figures, they carry their raw and corpus labels, and that is sufficient. If a null is wanted for them later it has to be measured, not asserted.
+
+Recorded as a visible decision rather than left as an omission, because an absent null that was *chosen* and an absent null that was *overlooked* look identical in the artifact and are completely different in what they say about the work.
+
 ### 0.4 Open asks
 
 OPEN-2 (Turman): is a live demo (Inspector and/or inject-and-detect walkthrough) expected at the defense itself? Defense-prep calibration only; nothing builds on the answer.
@@ -137,7 +145,7 @@ Budget 9-13h paired + ~$50. Scope cap and five escalation criteria per child spe
 | Bologna read | Decision record and required-vs-achieved levels; assign to A3 external negative per decision 8 | A3's external clean package |
 | D6 measurement script (~3h) | Re-derive 384/427 from committed artifacts; verify the equality claim BOTH directions (every cleared result carries stated uncertainty AND converse) | Writing position 8 (D6 sections) |
 | PR #62 recovery | One attempt (refs/pull/62/head, reflog); success or reword recommendation | Writing position 8 (A4 appendix) |
-| Small fixes | ~~Two datasetcard_info → modelcard_info references~~ **DONE** (`ca24187f`); bucket-2 extraction citations labeled raw/adjudicated AND synthetic/real with null columns (90 min); ~~HF Space deploy check~~ **DONE** — see §0.5 | Hygiene; A9; C close-out |
+| Small fixes | ~~Two datasetcard_info → modelcard_info references~~ **DONE** (`ca24187f`); ~~bucket-2 extraction citations labeled raw/adjudicated AND synthetic/real~~ **DONE** (`a487d203`) — **9 citations across 10 files**, not the 11 earlier documents carried; see §0.6; ~~HF Space deploy check~~ **DONE** — see §0.5 | Hygiene; A9; C close-out |
 | B4 register script | Banned-register (fail) + prose-tic (warn) sweep over exported manuscript text | Writing positions 9-10 |
 | U-INV-1 reads | Jia & Harman §1-2, Hsueh et al. §1-2 via library proxy; extract the supporting sentences with page numbers | Writing position 7 (D4 escort citations) |
 
