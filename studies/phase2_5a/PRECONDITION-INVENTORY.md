@@ -282,6 +282,52 @@ serialization alone.
 **No catalog edits.** v0.5.15.1 is frozen and this is §4.3 territory: reported, with
 the failing case attached. A guard mirroring W-EP-01's would be a v0.6 candidate.
 
+## Finding 4 — the conformance split, measured (addendum E)
+
+All 23 Class A mutants run through `uofa shacl` at v0.5.15.1. The three substrates
+pass the profile unmutated, so every split below is caused by the mutation.
+
+| Pattern | conformant | schema-caught | Group |
+|---|---|---|---|
+| W-AL-01 | **3** | 0 | conformant-but-flawed |
+| W-AR-05 | **3** | 0 | conformant-but-flawed |
+| W-EP-02 | **3** | 0 | conformant-but-flawed |
+| W-AL-02 | **1** | 0 | conformant-but-flawed |
+| W-CON-04 | **1** | 0 | conformant-but-flawed |
+| W-ON-01 | 0 | **3** | schema-caught — no headline row |
+| W-SI-01 | 0 | **3** | schema-caught — no headline row |
+| W-SI-02 | 0 | **6** | schema-caught — no headline row |
+
+**The prediction against E was exactly right.** W-SI-01, W-ON-01 and W-SI-02 delete
+fields carrying `sh:minCount`, have no value to corrupt in place, and so break
+conformance by construction. They are also precisely the three patterns that have
+never produced a confirmed detection at any catalog version. E's explanation holds:
+**they cannot reach the rule layer in a conformant pipeline.**
+
+### The measurement vindicates E ruling 1 directly
+
+E requires profile status recorded as a first-class field rather than inferred from
+`caught_by`. This run shows why in one line: **all 23 mutants fire their target
+pattern at C3, including all 12 schema-caught ones.** Non-conformant and rule-caught
+is not a contradiction — it is the common case here. Inferring conformance from
+`caught_by` would have collapsed 12 of 23 mutants into the wrong group.
+
+### Headline battery, Class A
+
+**11 conformant-but-flawed mutants across 5 patterns**, n = 3, 3, 3, 1, 1. Every
+one fires its target. That is the entire Class A contribution to a GATE-H3 headline,
+and every row carries a wide Wilson interval — amendment A4's naming requirement
+applies to all five, not to a subset.
+
+### Input to the open denominator question
+
+Session 2 recorded a recommendation of **13** (16 less the three architecturally
+unreachable patterns) against the standing **16**. This measurement is the evidence
+that recommendation rests on: those three cannot produce a conformant-but-flawed
+mutant at all, so under E they can score no headline row, and at a ≥95% bar three
+mandatory zeros cost ~19 points. **Both denominator questions remain the author's
+and both must land before scoring.** Recorded here as input, not as a resolution.
+
 ## Scope impact
 
 | | Planned | Measured |
