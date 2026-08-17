@@ -29,7 +29,7 @@ channel.
 
 ## A16.2 Corpus, sample frame, pre-registration
 
-- **Corpus:** Liang `datasetcard_info.parquet` (32,111 cards, snapshot
+- **Corpus:** Liang `modelcard_info.parquet` (32,111 cards, snapshot
   2023-10-01), pinned by repo revision and row content hash (A9.1 artifact
   pins, non-HF fallback form).
 - **Sample frame (pre-registered before any judge call):** stratified by
