@@ -132,27 +132,72 @@ def _apply_root_prop(doc: dict, site: dict) -> dict:
     return d
 
 
-def _claim_derivation_sites(doc: dict) -> list[dict]:
-    claim = doc.get("bindsClaim")
-    if not isinstance(claim, dict):
-        return []                      # bare IRI: nothing inline to sever
-    wdf = claim.get("wasDerivedFrom")
-    if wdf is None:
-        return []
-    wdf = wdf if isinstance(wdf, list) else [wdf]
-    return [{"kind": "claim-derivation", "index": i,
-             "path": f"bindsClaim.wasDerivedFrom[{i}]"} for i in range(len(wdf))]
+_UPSTREAM = ("wasDerivedFrom", "wasGeneratedBy", "used")
 
 
-def _apply_claim_derivation(doc: dict, site: dict) -> dict:
+def _walk(node, path=""):
+    """Yield (json_path, dict) for every nested object in the document."""
+    if isinstance(node, dict):
+        yield path, node
+        for k, v in node.items():
+            yield from _walk(v, f"{path}.{k}" if path else k)
+    elif isinstance(node, list):
+        for i, v in enumerate(node):
+            yield from _walk(v, f"{path}[{i}]")
+
+
+def _provenance_sites(doc: dict) -> list[dict]:
+    """Nodes whose upstream edge can be severed to make them chain-terminal.
+
+    W-PROV-01 seeds provenance scope at the claim and extends UPSTREAM, so
+    severing the *claim's* edge removes the whole subtree from scope and the rule
+    fires LESS -- measured, see the report. An additive mutation has to make an
+    already-in-scope node terminal while leaving it reachable, which means
+    severing an edge on an INTERMEDIATE node, not on the claim.
+
+    The claim is therefore excluded as a site. Whether any intermediate site is
+    net-additive is an empirical question the site's own delta answers.
+    """
+    sites = []
+    for path, obj in _walk(doc):
+        if path in ("", "bindsClaim"):
+            continue                          # root and claim excluded
+        for prop in _UPSTREAM:
+            if obj.get(prop) is None:
+                continue
+            vals = obj[prop] if isinstance(obj[prop], list) else [obj[prop]]
+            for i in range(len(vals)):
+                sites.append({"kind": "provenance-edge", "path": f"{path}.{prop}[{i}]",
+                              "obj_path": path, "prop": prop, "index": i})
+    return sites
+
+
+def _resolve(doc: dict, path: str):
+    cur = doc
+    for part in path.split("."):
+        if not part:
+            continue
+        while "[" in part:
+            name, rest = part.split("[", 1)
+            idx, part = rest.split("]", 1)
+            if name:
+                cur = cur[name]
+            cur = cur[int(idx)]
+        if part:
+            cur = cur[part]
+    return cur
+
+
+def _apply_provenance_edge(doc: dict, site: dict) -> dict:
     d = deepcopy(doc)
-    wdf = d["bindsClaim"]["wasDerivedFrom"]
-    if isinstance(wdf, list):
-        wdf.pop(site["index"])
-        if not wdf:
-            d["bindsClaim"].pop("wasDerivedFrom")
+    obj = _resolve(d, site["obj_path"])
+    vals = obj[site["prop"]]
+    if isinstance(vals, list):
+        vals.pop(site["index"])
+        if not vals:
+            obj.pop(site["prop"])
     else:
-        d["bindsClaim"].pop("wasDerivedFrom")
+        obj.pop(site["prop"])
     return d
 
 
@@ -178,7 +223,7 @@ _HOOKS: dict[str, tuple] = {
     "MUT-DEL-06": (_root_prop_sites("bindsRequirement", "hasValidationResult"), _apply_root_prop),
     "MUT-DEL-07": (_root_prop_sites("hasSensitivityAnalysis"), _apply_root_prop),
     "MUT-DEL-08": (_root_prop_sites("hasSensitivityAnalysis"), _apply_root_prop),
-    "MUT-REF-01": (_claim_derivation_sites, _apply_claim_derivation),
+
 }
 
 

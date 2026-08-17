@@ -63,9 +63,13 @@ class Operator:
 
 
 # ── Class A: the substrate carries the field ────────────────────────────────
-# Site counts are from studies/phase2_5a/inventory.py over the three executable
-# substrates. Six of the nine are single-substrate, so most Class A rows will
-# carry wide Wilson intervals -- amendment A4 requires n in every reported row.
+# Site counts here are ENGINE-MEASURED (`engine.site_table()`), which is the
+# authority for every reported n. The step-1 inventory's probe counted elements
+# and disagreed twice: W-SI-02 15 vs 6, and W-PROV-01 4 vs 0-additive. Measured
+# denominators beat projected ones. Five of the eight are single-substrate and
+# two are n=1, so most Class A rows carry wide Wilson intervals -- amendment A4
+# requires n in every reported row and the gate paragraph names which rows clear
+# on wide intervals.
 
 _CLASS_A: tuple[Operator, ...] = (
     Operator(
@@ -112,7 +116,10 @@ _CLASS_A: tuple[Operator, ...] = (
         summary="remove one required binding (bindsRequirement or hasValidationResult)",
         antecedent="bindsRequirement or hasValidationResult present",
         substrates=("morrison/cou1", "morrison/cou2", "nagaraja/cou1"),
-        notes="15 sites total (4/4/7). NOTE: the rule emits two distinct findings "
+        notes="6 sites (2/2/2), engine-measured. The step-1 probe said 15 (4/4/7) by "
+              "counting elements; the rule fires on whole-property absence, so "
+              "bindsRequirement with one value and hasValidationResult with six are "
+              "two sites, not seven. NOTE: the rule emits two distinct findings "
               "under one patternId (rules:337, rules:350), so scoring must key on "
               "annotation identity, not patternId alone, or the two collapse. "
               "Also SHACL-mandatory, so expect caught_by=shacl — the layer-attribution "
@@ -130,20 +137,14 @@ _CLASS_A: tuple[Operator, ...] = (
         summary="remove hasSensitivityAnalysis from a ProfileComplete package",
         antecedent="conformsToProfile=ProfileComplete AND hasSensitivityAnalysis present",
         substrates=("nagaraja/cou1",),
-        notes="1 site, one substrate. Shares its field with MUT-DEL-07: on "
-              "nagaraja/cou1 a single deletion fires BOTH W-AL-02 and W-CON-04, so "
-              "these two operators are not independent there. Recorded rather than "
-              "engineered around — the coupling is a property of the catalog.",
-    ),
-    Operator(
-        id="MUT-REF-01", pattern="W-PROV-01", family="referential", class_ab="A",
-        summary="delete one prov:wasDerivedFrom edge from a claim in provenance scope",
-        antecedent="a claim carrying prov:wasDerivedFrom",
-        substrates=("morrison/cou2",),
-        notes="4 sites. Restored to the battery by ruling 4 (isFoundationalEvidence "
-              "is structural, so the label is machine-re-derivable). Already fires 7 "
-              "times on the cou2 baseline, so delta scoring must compare "
-              "(patternId, affectedNode) pairs, not pattern sets.",
+        notes="1 site, one substrate. Produces a BYTE-IDENTICAL mutant to MUT-DEL-07 "
+              "— equal diff hashes, one removed triple — because on nagaraja/cou1 "
+              "deleting hasSensitivityAnalysis fires both W-AL-02 and W-CON-04. "
+              "Scored at the MUTANT level per author ruling: one test case with two "
+              "expected findings, counted once in the denominator. The coupling is a "
+              "catalog-redundancy observation (two rules reading one field) for the "
+              "findings section, and the diff-derived manifest catches it by "
+              "construction rather than by anyone noticing.",
     ),
 )
 
@@ -217,6 +218,27 @@ _CLASS_B: tuple[Operator, ...] = (
               "encodings, not only as an operator note.",
     ),
     Operator(
+        id="MUT-REF-01", pattern="W-PROV-01", family="referential", class_ab="B",
+        summary="add a dangling node into provenance scope, or strip ALL upstream "
+                "edges from an in-scope node, so it becomes chain-terminal",
+        antecedent="an in-scope node that can be made terminal without leaving scope",
+        notes="RECLASSIFIED A→B ON MEASUREMENT, not projection. Every single-edit form "
+              "was tried on morrison/cou2 and every one is SUPPRESSING:\n"
+              "  claim-edge deletion (4 sites)         -> ΔW-PROV-01 -1 to -2\n"
+              "  intermediate-edge deletion (6 sites)  -> ΔW-PROV-01 -1 at every site\n"
+              "  isFoundationalEvidence deletion       -> NO SITE EXISTS, see below\n"
+              "The rule seeds scope at the claim and extends upstream, so severing any "
+              "edge removes the subtree below it — which held the firing terminal node "
+              "— while the severed node keeps its OTHER upstream edge and so does not "
+              "become terminal. Making it terminal needs every upstream edge gone: two "
+              "edits, hence Class B by the engine's own single-edit criterion.\n"
+              "Separately: isFoundationalEvidence — the suppression flag whose "
+              "structural-vs-dispositional reading decided this pattern's MECHANICAL "
+              "class under ruling 4 — appears in ZERO encodings across all five packs. "
+              "The ruling stands (an unused structural declaration is still structural) "
+              "but the flag that settled the classification has no instance in the corpus.",
+    ),
+    Operator(
         id="MUT-ANT-08", pattern="W-EP-01", family="antecedent", class_ab="B",
         gate_scored=False,
         summary="instantiate a claim typed uofa:Claim carrying prov:wasDerivedFrom, "
@@ -249,14 +271,21 @@ MECHANICAL_PATTERNS: frozenset[str] = frozenset({
 })
 
 
-def coverage() -> dict:
+def coverage(registry: tuple[Operator, ...] | None = None) -> dict:
     """Step-1 gate: every MECHANICAL pattern covered, counted from the registry.
 
     Counts the structure rather than a prose list, per §1.2 — which is the check
     that would have caught the plan's 13-that-enumerated-12.
+
+    Pass `engine.REGISTRY` for the *bound* view: `implemented` is only meaningful
+    there, since site-discovery and application hooks are attached at engine import.
+    Called bare it reports the declaration, and `implemented` reads 0 by
+    construction — which is itself a trap worth naming rather than leaving to be
+    rediscovered.
     """
-    covered = {op.pattern for op in REGISTRY}
-    dupes = [p for p in covered if sum(1 for op in REGISTRY if op.pattern == p) > 1]
+    registry = REGISTRY if registry is None else registry
+    covered = {op.pattern for op in registry}
+    dupes = [p for p in covered if sum(1 for op in registry if op.pattern == p) > 1]
     return {
         "registry_size": len(REGISTRY),
         "patterns_covered": len(covered),
@@ -264,11 +293,11 @@ def coverage() -> dict:
         "missing": sorted(MECHANICAL_PATTERNS - covered),
         "extra": sorted(covered - MECHANICAL_PATTERNS),
         "duplicate_patterns": sorted(dupes),
-        "class_a": sorted(op.pattern for op in REGISTRY if op.class_ab == "A"),
-        "class_b": sorted(op.pattern for op in REGISTRY if op.class_ab == "B"),
-        "gate_scored": sorted(op.pattern for op in REGISTRY if op.gate_scored),
-        "reported_separately": sorted(op.pattern for op in REGISTRY if not op.gate_scored),
-        "implemented": sorted(op.pattern for op in REGISTRY if op.implemented),
+        "class_a": sorted(op.pattern for op in registry if op.class_ab == "A"),
+        "class_b": sorted(op.pattern for op in registry if op.class_ab == "B"),
+        "gate_scored": sorted(op.pattern for op in registry if op.gate_scored),
+        "reported_separately": sorted(op.pattern for op in registry if not op.gate_scored),
+        "implemented": sorted(op.pattern for op in registry if op.implemented),
     }
 
 
