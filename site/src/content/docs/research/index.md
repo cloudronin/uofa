@@ -15,7 +15,7 @@ A coverage methodology, validated against four published defeater taxonomies (Kh
 
 | Case | Standard | Status |
 |---|---|---|
-| Morrison et al. (2019) — centrifugal blood pump | ASME V&V 40, FDA OSEL co-authored | Encoded. 2 COUs (CPB, VAD). 11 + 18 weakeners on v0.7.1; COU2 includes 2 compound firings. |
+| Morrison et al. (2019) — centrifugal blood pump | ASME V&V 40, FDA OSEL co-authored | Encoded. 2 COUs (CPB, VAD). 11 + 18 weakeners on v0.7.1; COU2 includes 2 compound firings. **9 of COU1's 11 are vacuous `noValue` firings on bare-IRI validation results** — see [the demo page](/demo/nafems/). |
 | HPT blade conjugate heat transfer | NASA-STD-7009B | Encoded. 2 COUs (take-off transient, cruise steady-state). |
 | Nagaraja et al. (2024) — pedicle screw FEA | ASME V&V 40 | In progress. Target May 2026. |
 | FDA VICTRE pipeline | ASME V&V 40 | Deferred post-defense. |

@@ -38,6 +38,19 @@
 
 ## Headline
 
+> **What these numbers are, and are not (A9 item 2).** Every figure below is **raw
+> extractor output** on the **synthetic** 50-bundle corpus (30 development + 20
+> held-out), scored against committed `ground_truth.json`. **No adjudication step**:
+> no human corrected a factor status between extraction and scoring. Adjudicated
+> figures, where they exist elsewhere, are the practical ceiling and are reported
+> separately; they are never blended with these.
+>
+> Read this table beside its null, stated at :22-28 above and not repeated per row:
+> the pack's fixed checklist, reading none of the input, scores **F1 0.960** against
+> the 0.964 headline — **+0.004**. This document is the origin of the headline that
+> was later retracted for exactly that reason, and the retraction is the disclosure
+> the table's ✓ column cannot carry on its own.
+
 | Metric | Dev | Test | Spec target | Pass |
 |---|---|---|---|---|
 | Bundles scored / total | 30 / 30 | 20 / 20 | full | ✓ |

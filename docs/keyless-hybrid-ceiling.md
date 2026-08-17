@@ -15,7 +15,9 @@ covered" is a useless sentence when the remaining four carry the substance.
 TAVI I for the risk rows only. 56 factor-document pairs, 24 annotated validation
 results, **one annotator**. Synthetic figures appear only for contrast, never as
 a result: the synthetic corpus was shown to invert the ranking between two
-methods.
+methods. All figures are **raw** route output with **no adjudication step** — the
+single annotator built the gold set, and no human corrected a routing result between
+the run and the score.
 
 `ProfileComplete` requires nine properties of the extractor. Four more —
 `hash`, `signature`, `generatedAtTime`, `wasAttributedTo` — come from signing and

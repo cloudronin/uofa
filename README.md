@@ -166,6 +166,15 @@ wheel.
 
 **What the rule engine finds on Morrison COU1 (11 weakeners across 5 patterns):**
 
+> **Nine of these eleven are vacuous, and the table below does not say so on its own.**
+> COU1 references its three validation results as **bare IRIs**. `W-AL-01`, `W-AR-05`
+> and `W-EP-02` each test `noValue(?result, …)`, so against a node carrying no
+> properties all three succeed — three hits each, nine of the eleven. Inline the same
+> results, changing nothing else, and those nine disappear; Morrison COU2 does inline
+> its results and carries none of them. Measured 2026-08-16 at catalog v0.5.15.1.
+> Reported, not patched: v0.5.15.1 is frozen, and a guard mirroring the one `W-EP-01`
+> already carries is a v0.6 candidate.
+
 | Pattern | Severity | Hits | What it detects |
 |---|---|---|---|
 | W-EP-02 | High | 3 | Validation result has no `prov:wasGeneratedBy` — generation activity is missing |
@@ -526,7 +535,10 @@ The same eval reported `mean overall F1 0.964 — PASS` while **37 of 45 package
 failed the SHACL shape**.
 
 Measured on **five real journal papers** with gpt-5 (2026-08-08), against
-annotated gold:
+annotated gold. These are **raw** extractor numbers — scored with **no adjudication
+step**, so no human corrected a result between extraction and scoring. The tool's
+confirm step lets a user fix what it read; that would raise these figures, and those
+would be a different, separately-reported number:
 
 | | measured | its control |
 |---|---|---|

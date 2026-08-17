@@ -64,6 +64,10 @@ ground truth marks `assessed`.
 **Null.** `control_constant_list` — the pack's fixed checklist, emitted having
 read no input.
 
+**Provenance of these figures (A9 item 2).** Raw extractor output on the **synthetic**
+50-bundle corpus (30 development + 20 held-out), scored against committed ground truth.
+**No adjudication step** — no human touched a status between extraction and scoring.
+
 | | candidate, pre-correction | candidate | null | delta |
 |---|---|---|---|---|
 | development, 30 bundles | 0.9035 | 0.9637 | 0.9637 | **+0.0000** |

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """Compute and pin the A16 sample frame. Run once, before any judge call.
 
-    python studies/taxonomy-validation/frame.py --corpus <datasetcard_info.parquet>
+    python studies/taxonomy-validation/frame.py --corpus <modelcard_info.parquet>
 
 Writes `frame.json`: the corpus pin, the strata, and the pre-registered expected
 counts -- including W-EV-DIV-07's opportunity count, which must be a prediction

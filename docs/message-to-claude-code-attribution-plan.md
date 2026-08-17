@@ -7,6 +7,10 @@ lead, labelled-data-not-pickle) are ratified as written.
 
 ## H2 metric moves — as a disclosed amendment, built in this order
 
+*(Figures below are **raw** extractor output on the **synthetic** 50-bundle corpus,
+**no adjudication step**. Working note, not shipped text — but the numbers are the
+same ones the shipped sections carry, so the label travels with them.)*
+
 Decision recorded: the H2 gate is amended. The pre-registered detection-F1
 gate was written before its properties were known; the re-run shows null
 controls EXCEEDING the extractor (0.9637/0.9544 vs 0.9035/0.8909), which

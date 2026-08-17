@@ -227,8 +227,11 @@ should run the CLI.
 
 ### The detection score does not measure extraction quality, and we can show it
 
-Scored against a corpus of synthetic assessment bundles, raw extraction by
-`meta-llama/Llama-3.3-70B-Instruct-Turbo` gives:
+Scored against a corpus of **synthetic** assessment bundles (30 development + 20
+held-out), **raw** extraction by `meta-llama/Llama-3.3-70B-Instruct-Turbo` gives —
+**no adjudication step**, meaning no human corrected a factor status between
+extraction and scoring, so these are the model's unaided numbers rather than the
+practical ceiling a user with the confirm step would reach:
 
 | split | bundles | mean overall F1 | **null control** | groundedness (coverage / claim density / grounded) |
 |---|---|---|---|---|
