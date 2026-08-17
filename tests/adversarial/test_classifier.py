@@ -935,3 +935,89 @@ def test_d2_annotate_idempotent(tmp_path):
     _annotate_batch_manifest_with_timing_fallback(tmp_path)
     second = json.loads(bm.read_text())
     assert first == second
+
+
+def _minimal_batch(tmp_path, spec_path: str):
+    """One spec, one variant, with a caller-chosen `spec_path` value."""
+    import json
+
+    in_dir = tmp_path / "batch"
+    spec_dir = in_dir / "confirm_existing" / "adv-test-000"
+    spec_dir.mkdir(parents=True)
+    pkg = spec_dir / "adv-test-000-v01.jsonld"
+    pkg.write_text("{}")
+    (spec_dir / "manifest.json").write_text(json.dumps({
+        "variants": [{"variantNum": 1, "packagePath": pkg.name, "tokens": 1,
+                      "shaclRetries": 0, "shaclPassed": True,
+                      "estimatedCostUsd": 0.0}],
+        "subtlety": "high",
+    }))
+    (in_dir / "batch_manifest.json").write_text(json.dumps({"perSpecResults": [{
+        "spec_id": "adv-test-000",
+        "spec_path": spec_path,
+        "out_dir": str(spec_dir),
+        "coverage_intent": "confirm_existing",
+        "target_weakener": "W-AR-01",
+        "source_taxonomy": None,
+    }]}))
+    return in_dir
+
+
+def test_issue67_stale_spec_path_is_reported_not_swallowed(tmp_path, monkeypatch, capfd):
+    """A stale `spec_path` must announce that per-COU columns will be EMPTY.
+
+    Issue #67. The failure is non-fatal by design — `baseline_key` degrades to
+    None and every other column populates — which is exactly why it went unseen
+    for two phases. The run is allowed to succeed; it is not allowed to stay
+    quiet about which columns it could not derive.
+    """
+    from uofa_cli.adversarial.classifier import _scan_outcomes
+
+    in_dir = _minimal_batch(tmp_path, spec_path="/tmp/holdout_specs/ce/w-al-01.yaml")
+    monkeypatch.setattr(
+        "uofa_cli.adversarial.classifier._run_rules_on_package",
+        lambda package_path, pack: ({"W-AR-01": 1}, {
+            "total_eval_ms": 10, "jena_load_ms": 0,
+            "jena_inference_ms": 8, "output_serialize_ms": 2,
+        }),
+    )
+
+    rows = _scan_outcomes(in_dir, pack="vv40", parallel=1)
+    out = capfd.readouterr()
+    combined = out.out + out.err
+
+    assert len(rows) == 1, "the run must still produce rows"
+    assert rows[0].base_cou_key is None
+    assert "per-COU baseline key not derivable for 1 of 1 specs" in combined
+    assert "adv-test-000" in combined, "the affected spec must be named"
+    assert "EMPTY, not zero" in combined, "blank cells must not read as measured zeros"
+
+
+def test_issue67_unreadable_spec_is_not_relabelled_as_stale_pointer(tmp_path, monkeypatch, capfd):
+    """A spec that EXISTS but will not load is a different defect, reported as one.
+
+    `load_spec` raises SpecValidationError both for a missing file and for a
+    malformed one, so catching by exception type would launder real spec defects
+    through the stale-pointer path. The classifier tests `.exists()` instead;
+    this pins that distinction.
+    """
+    from uofa_cli.adversarial.classifier import _scan_outcomes
+
+    bad = tmp_path / "malformed.yaml"
+    bad.write_text("{[not: valid yaml")
+    in_dir = _minimal_batch(tmp_path, spec_path=str(bad))
+    monkeypatch.setattr(
+        "uofa_cli.adversarial.classifier._run_rules_on_package",
+        lambda package_path, pack: ({"W-AR-01": 1}, {
+            "total_eval_ms": 10, "jena_load_ms": 0,
+            "jena_inference_ms": 8, "output_serialize_ms": 2,
+        }),
+    )
+
+    _scan_outcomes(in_dir, pack="vv40", parallel=1)
+    combined = "".join(capfd.readouterr())
+
+    assert "base_cou unreadable" in combined
+    assert "per-COU baseline key not derivable" not in combined, (
+        "an existing-but-broken spec must not be reported as a stale pointer"
+    )

@@ -148,9 +148,10 @@ ids read from `triage/tier1_real_gap_candidates.csv` (310 rows, 6 tier-1 ids) an
 joined against `production/run-1/judgments_A.jsonl`.
 
 **Not measured.**
-- **The W-AR-05 case in §4 is a single judgment.** Whether other judgments show the
-  same prose-versus-property split is unchecked, and the chapter should either
-  present it as the one worked example it is or the pattern should be counted first.
+- ~~**The W-AR-05 case in §4 is a single judgment.**~~ **Counted, 2026-08-17**
+  ([INV-17](INV-17-prose-versus-property-count.md)): the split recurs in roughly 200
+  judgments across every absence-checking rule family, W-AR-05 most often at 104
+  cases. §4 stands as the worked example; the chapter may now also state the count.
 - **Judges B and C were not examined.** The 237/288 figure is judge A only. The
   ensemble verdict is majority-of-three, so a full check would read all three.
 - **The 237/288 count is a substring match** for rule ids in

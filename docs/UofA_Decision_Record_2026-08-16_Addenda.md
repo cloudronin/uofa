@@ -319,3 +319,46 @@ praxis's own toolchain.
 
 GATE-H3 is still evaluated once, honestly, against the denominator above, and its
 result is reported whichever way it lands. It is simply not the lead.
+
+---
+
+## Addendum G — P2-A closes, and the residual queue is dispositioned
+
+Status: RULED
+Date: **2026-08-17**
+
+**One filter was applied to every item: does it change a chapter sentence before the
+defense?** Recorded because the filter did more work than any individual ruling, and
+because it is the reusable part.
+
+### G.1 — P2-A closes today, in three separate rulings
+
+P2-A ("decide whether to re-baseline Phase 2 on the v0.5.15.1 catalog") was treated
+as one decision and is actually three. Ruled separately.
+
+| Question | Ruling | Basis |
+|---|---|---|
+| **Re-baseline the figures** | **DONE** | The full battery is re-analyzed at v0.5.15.1 — all four intents, 4,601 packages, zero LLM cost (`98959943`). Every M5 number has a current-catalog counterpart and the chapter cites the version-consistent pair. |
+| **Re-judge the corpus** | **NO — declined, not deferred** | The judge panel validated the adversarial corpus's *realism*, and that corpus is frozen. After this month's reframe the detection numbers no longer route through judges at all. Re-judging buys a cleaner footnote at real cost and touches nothing load-bearing. **Future work, with the cost stated.** |
+| **Regenerate the corpus** | **NO** | Same logic as the standing ruling. The generator's blind spots are now a documented finding rather than a defect to design around, and a regenerated corpus would test a **new instrument** — that is the next paper, not this praxis. |
+
+**The decision was very nearly taken against a stale premise.** Three live documents
+still asserted that no full-battery re-run existed, which the merged run had already
+overtaken. Corrected before the ruling, not after. **That sequence — correct the
+premise, then decide — is the defect this month has been curing, applied to itself.**
+
+### G.2 — Residual dispositions
+
+| Item | Ruling | Why |
+|---|---|---|
+| **Issue #67** (stale `spec_path`, empty per-COU columns) | **Split.** Do the loud-failure half now — narrow the bare `except: pass` so the missed lookup is visible. Leave the path repair parked at point-of-use. | Instance-nine hygiene is ten minutes; no chapter sentence quotes a per-COU figure. **Guarded:** if any coverage-delta column reaches a chapter table, the path fix fires first — same shape as the contrast-variant rule at `REPORT.md:296`. |
+| **Intermediate-version curve** (where along seven catalog versions the 4.5 points arrive) | **Skip.** One line in future work. | Free Jena time is not free author attention. The chapter's claim is endpoint-to-endpoint and the decomposition is already measured; the interior is a curiosity. |
+| **v0.5.12 hybrid corpus** (31/180 non-conformant today) | **Quoting ban, stated in the audit appendix.** | So a reader who finds those numbers learns why nothing cites them, rather than inferring an oversight. |
+| **W-AR-05 as chapter material** | **Count it before the chapter uses it.** | The only residual that is genuinely load-bearing: the results structure leans on it as *the* prose-invisibility example. Grep the committed judgment records for the same shape — rule fired on absence, judge cited prose. Siblings upgrade it to a measured pattern with a count; none makes "one recorded instance" an honest label. **Either outcome beats a committee member asking "how often?" and the answer being unknown.** |
+| **Six May issues** (#15–#19, #22) | **Untouched.** | None changes a chapter sentence. |
+
+### G.3 — What this addendum does not do
+
+It does not reopen the M5 adjudication (Addendum-level ruling of 2026-08-17, recorded
+at `M5-REBASELINE-PREDECLARATION.md` §ADJUDICATION), and it does not revise the
+97.1% or its scope. It closes P2-A and empties the residual queue.
