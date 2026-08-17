@@ -505,20 +505,31 @@ def _bind() -> tuple[ops.Operator, ...]:
 
 
 def conformant(path: str | Path, pack: str = "vv40") -> bool | None:
-    """Profile status via the CLI's own SHACL stage.
+    """Profile status via the CLI's own SHACL stage, in-process.
 
-    Requires `2a1d3544` (fix(shacl): resolve @context from the shipped file) in the
-    measuring branch. Without it this returns a plausible-looking wrong answer
-    rather than failing — neither 0/23 nor 23/23 announced itself when it happened.
+    In-process on purpose. A subprocess resolves the repo root from the *package's*
+    location, so a mutant written outside the tree makes `uofa shacl` look for
+    `spec/context/v0.5.jsonld` beside the mutant and fail — which reads as
+    non-conformance unless someone checks stderr. That produced a clean-looking
+    0/23 and then a clean-looking 23/23 before it was caught. Calling
+    `shacl.run_structured` resolves paths from the process, not the argument.
+
+    Also requires `2a1d3544` (fix(shacl): resolve @context from the shipped file)
+    in the measuring branch; without it conformance readings are wrong rather than
+    absent.
+
+    Returns None only if the stage could not run — never conflated with False.
     """
-    import subprocess
-    r = subprocess.run(["python", "-m", "uofa_cli", "shacl", "--pack", pack, str(path)],
-                       capture_output=True, text=True, timeout=300)
-    if "Conforms" in r.stdout:
-        return True
-    if "violation" in r.stdout.lower():
-        return False
-    return None                      # harness fault, not a package verdict
+    import argparse
+
+    from uofa_cli.commands import shacl as shacl_mod
+
+    ns = argparse.Namespace(file=Path(path), raw=False, active_packs=[pack],
+                            explain=False, explain_format=None)
+    try:
+        return bool(shacl_mod.run_structured(ns).conforms)
+    except Exception:                                    # noqa: BLE001
+        return None                                      # harness fault, not a verdict
 
 
 REGISTRY: tuple[ops.Operator, ...] = _bind()
