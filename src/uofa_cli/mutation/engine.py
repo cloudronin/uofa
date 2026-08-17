@@ -201,6 +201,110 @@ def _apply_provenance_edge(doc: dict, site: dict) -> dict:
     return d
 
 
+# ── Class B: enrich, assert conformance, then violate ──────────────────────
+#
+# A Class B mutant is two edits and one fault. The edits are NOT equivalent and
+# must not share a baseline:
+#
+#   substrate  --enrich-->  ENRICHED-CLEAN  --violate-->  mutant
+#
+# The delta baseline is ENRICHED-CLEAN, not the substrate. Diffing a Class B
+# mutant against the raw substrate would fold the enrichment into the record and
+# the manifest would claim the enrichment as part of the injected defect, which is
+# exactly the "manifest derived from intent" failure the diff-derived rule exists
+# to prevent.
+#
+# Conformance is asserted on ENRICHED-CLEAN, before violation, per addendum E: an
+# enrichment that lands non-conformant produces a schema-caught mutant whose target
+# rule never gets a fair test, and — since addendum F — that silently removes a
+# gate-eligible pattern from a denominator already at 13. So it fails loudly.
+
+class EnrichmentNotConformant(RuntimeError):
+    """The enrichment broke the profile, so the violation would not be a fair test."""
+
+
+def _iso(day: str) -> str:
+    return f"{day}T00:00:00Z"
+
+
+def _enrich_stale_dataset(doc: dict) -> dict:
+    """W-EP-03: modelRevisionDate + a result -> activity -> dataset chain."""
+    d = deepcopy(doc)
+    base = str(d.get("id", "https://uofa.net/pkg")).rstrip("/")
+    d["modelRevisionDate"] = _iso("2026-03-01")
+    results = _results(d)
+    target = results[0] if results and isinstance(results[0], dict) else None
+    if target is None:                      # bare-IRI results: inline the first
+        iri = results[0] if results else f"{base}/result/1"
+        target = {"id": iri, "type": "ValidationResult"}
+        d["hasValidationResult"] = [target] + [r for r in results[1:]]
+    target["wasGeneratedBy"] = {
+        "id": f"{base}/activity/enriched", "type": "VerificationActivity",
+        "name": "validation run",
+        "used": {"id": f"{base}/dataset/enriched", "type": "Dataset",
+                 "name": "input dataset",
+                 "dataVintage": _iso("2026-06-01")},   # AFTER the revision: clean
+    }
+    return d
+
+
+def _violate_stale_dataset(doc: dict, site: dict) -> dict:
+    d = deepcopy(doc)
+    _results(d)[0]["wasGeneratedBy"]["used"]["dataVintage"] = _iso("2026-01-15")
+    return d
+
+
+def _enrich_version_drift(doc: dict) -> dict:
+    """W-AR-04: currentModelVersion + a used -> ModelConfiguration carrying modelVersion."""
+    d = deepcopy(doc)
+    base = str(d.get("id", "https://uofa.net/pkg")).rstrip("/")
+    d["currentModelVersion"] = "v2.1.0"
+    results = _results(d)
+    target = results[0] if results and isinstance(results[0], dict) else None
+    if target is None:
+        iri = results[0] if results else f"{base}/result/1"
+        target = {"id": iri, "type": "ValidationResult"}
+        d["hasValidationResult"] = [target] + [r for r in results[1:]]
+    target["wasGeneratedBy"] = {
+        "id": f"{base}/activity/enriched-cfg", "type": "VerificationActivity",
+        "name": "validation run",
+        "used": {"id": f"{base}/config/enriched", "type": "ModelConfiguration",
+                 "name": "solver configuration",
+                 "modelVersion": "v2.1.0"},            # MATCHES: clean
+    }
+    return d
+
+
+def _violate_version_drift(doc: dict, site: dict) -> dict:
+    d = deepcopy(doc)
+    _results(d)[0]["wasGeneratedBy"]["used"]["modelVersion"] = "v1.4.0"
+    return d
+
+
+def _enrich_future_evidence(doc: dict) -> dict:
+    """W-CON-03: signatureTimestamp + hasEvidence carrying evidenceTimestamp."""
+    d = deepcopy(doc)
+    base = str(d.get("id", "https://uofa.net/pkg")).rstrip("/")
+    d["signatureTimestamp"] = _iso("2026-05-01")
+    d["hasEvidence"] = [{"id": f"{base}/evidence/enriched", "type": "Evidence",
+                         "name": "supporting evidence",
+                         "evidenceTimestamp": _iso("2026-04-01")}]   # BEFORE: clean
+    return d
+
+
+def _violate_future_evidence(doc: dict, site: dict) -> dict:
+    d = deepcopy(doc)
+    d["hasEvidence"][0]["evidenceTimestamp"] = _iso("2026-09-01")
+    return d
+
+
+_ENRICH_HOOKS: dict[str, tuple] = {
+    "MUT-ANT-01": (_enrich_stale_dataset, _violate_stale_dataset),
+    "MUT-ANT-02": (_enrich_version_drift, _violate_version_drift),
+    "MUT-ANT-03": (_enrich_future_evidence, _violate_future_evidence),
+}
+
+
 def _apply_strip_signature(doc: dict, site: dict) -> dict:
     """W-SI-01 models tamper, so it strips the signature from the SIGNED form.
 
@@ -231,13 +335,40 @@ def _bind() -> tuple[ops.Operator, ...]:
     bound = []
     for op in ops.REGISTRY:
         hooks = _HOOKS.get(op.id)
+        enrich = _ENRICH_HOOKS.get(op.id)
         if hooks:
             find, apply_fn = hooks
             bound.append(ops.Operator(**{**op.__dict__, "implemented": True,
                                          "find_sites": find, "apply": apply_fn}))
+        elif enrich:
+            enrich_fn, violate_fn = enrich
+            # Class B always has exactly one site: the structure the operator
+            # itself instantiates. Enumerating sites over a field the substrate
+            # does not have would be meaningless.
+            bound.append(ops.Operator(**{**op.__dict__, "implemented": True,
+                                         "find_sites": lambda _doc: [{"kind": "enrichment",
+                                                                      "path": "<instantiated>"}],
+                                         "apply": violate_fn}))
         else:
             bound.append(op)
     return tuple(bound)
+
+
+def conformant(path: str | Path, pack: str = "vv40") -> bool | None:
+    """Profile status via the CLI's own SHACL stage.
+
+    Requires `2a1d3544` (fix(shacl): resolve @context from the shipped file) in the
+    measuring branch. Without it this returns a plausible-looking wrong answer
+    rather than failing — neither 0/23 nor 23/23 announced itself when it happened.
+    """
+    import subprocess
+    r = subprocess.run(["python", "-m", "uofa_cli", "shacl", "--pack", pack, str(path)],
+                       capture_output=True, text=True, timeout=300)
+    if "Conforms" in r.stdout:
+        return True
+    if "violation" in r.stdout.lower():
+        return False
+    return None                      # harness fault, not a package verdict
 
 
 REGISTRY: tuple[ops.Operator, ...] = _bind()
@@ -322,6 +453,52 @@ def mutate(operator_id: str, substrate: str | Path, site_index: int = 0,
     return MutationRecord(op.id, op.pattern, op.class_ab, str(substrate),
                           _sha256(substrate), site, d, mutant_path,
                           op.gate_scored, op.class_ab == "B")
+
+
+def mutate_enriched(operator_id: str, substrate: str | Path,
+                    out_dir: str | Path) -> tuple[MutationRecord, str]:
+    """Class B: enrich, assert conformance, then violate.
+
+    Returns (record, enriched_clean_path). The diff and the A3 delta baseline are
+    both against ENRICHED-CLEAN, never against the raw substrate — folding the
+    enrichment into the record would make the manifest claim it as part of the
+    injected defect.
+
+    Raises EnrichmentNotConformant if the enrichment breaks the profile. That is a
+    hard stop rather than a logged row: under addendum F a non-conformant
+    enrichment silently removes a gate-eligible pattern from a denominator of 13.
+    """
+    op = by_id(operator_id)
+    enrich_fn, violate_fn = _ENRICH_HOOKS[operator_id]
+    substrate = Path(substrate)
+    doc, _ = load_substrate(substrate)
+
+    out = Path(out_dir)
+    out.mkdir(parents=True, exist_ok=True)
+    enriched = enrich_fn(doc)
+    clean_path = out / f"{substrate.stem}__{op.id}__enriched-clean.jsonld"
+    clean_path.write_text(json.dumps(enriched, indent=1), encoding="utf-8")
+
+    status = conformant(clean_path)
+    if status is not True:
+        raise EnrichmentNotConformant(
+            f"{op.id}: enrichment on {substrate.stem} is "
+            f"{'non-conformant' if status is False else 'unverifiable'}; the target "
+            f"rule would never get a fair test and {op.pattern} would leave the "
+            f"gate denominator for an unrelated reason."
+        )
+
+    mutated = violate_fn(enriched, {"kind": "enrichment"})
+    d = diff_graphs(expand(enriched), expand(mutated))
+    mutant_path = None
+    if d.is_live:
+        mutant_path = str(out / f"{substrate.stem}__{op.id}__mutant.jsonld")
+        Path(mutant_path).write_text(json.dumps(mutated, indent=1), encoding="utf-8")
+
+    return (MutationRecord(op.id, op.pattern, op.class_ab, str(substrate),
+                           _sha256(substrate), {"kind": "enrichment", "path": "<instantiated>"},
+                           d, mutant_path, op.gate_scored, True),
+            str(clean_path))
 
 
 def site_table(substrates: dict[str, str]) -> dict:
