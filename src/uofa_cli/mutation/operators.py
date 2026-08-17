@@ -301,6 +301,54 @@ def coverage(registry: tuple[Operator, ...] | None = None) -> dict:
     }
 
 
+def gate_denominator(conformance_path: str = "studies/phase2_5a/conformance.json") -> dict:
+    """GATE-H3's denominator, computed from measured profile status.
+
+    Addendum F rules 13. It is computed rather than set so that a change in the
+    measurement moves the number and surfaces the contradiction, instead of the
+    number silently agreeing with a stale premise:
+
+        17  MECHANICAL partition (scopes the battery, not the gate)
+        -1  W-EP-01, unfireable as shipped
+        -3  patterns with ZERO conformant-but-flawed mutants
+        =13
+
+    The -3 term reads `conformance.json`; it is never hand-set. If the measurement
+    changes, so does the denominator, and a mismatch against the ruled 13 is a
+    finding rather than a config drift.
+
+    NOTE ON THE RATIONALE, not the arithmetic. Addendum F justifies the -3 as the
+    completeness profile "intercepting before C3 runs". **Measured, that is not what
+    the pipeline does.** `check.run_structured` runs C2 → C1 → C2.5 → C3
+    unconditionally with no short-circuit, and on a schema-caught mutant C3 runs and
+    fires the target: 12 of 23 mutants are non-conformant AND rule-layer-caught. The
+    arithmetic survives on the narrower true ground — under addendum E headline
+    recall comes from conformant-but-flawed mutants only, and these three patterns
+    admit none — but the architectural claim as worded is falsifiable with one CLI
+    invocation and should be restated before it reaches A4.
+    """
+    import json as _json
+    from pathlib import Path as _Path
+
+    data = _json.loads(_Path(conformance_path).read_text())
+    by_pattern: dict[str, list[bool]] = {}
+    for m in data["mutants"]:
+        by_pattern.setdefault(m["pattern"], []).append(m["conformant"])
+
+    no_conformant = sorted(p for p, v in by_pattern.items() if not any(v))
+    unfireable = sorted(op.pattern for op in REGISTRY if not op.gate_scored)
+    excluded = sorted(set(no_conformant) | set(unfireable))
+    return {
+        "partition": len(MECHANICAL_PATTERNS),
+        "excluded_unfireable": unfireable,
+        "excluded_no_conformant_mutant": no_conformant,
+        "denominator": len(MECHANICAL_PATTERNS) - len(excluded),
+        "gate_patterns": sorted(MECHANICAL_PATTERNS - set(excluded)),
+        "measured_from": conformance_path,
+        "catalog_version": data.get("catalog_version"),
+    }
+
+
 def by_id(operator_id: str) -> Operator:
     for op in REGISTRY:
         if op.id == operator_id:
