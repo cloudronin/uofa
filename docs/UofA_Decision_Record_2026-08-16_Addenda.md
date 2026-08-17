@@ -142,21 +142,72 @@ author's call and it is not made here.
 
 ## Addendum F — the gate denominator is 13, with four named exclusions
 
-**Ruling, as issued.**
+**Ruling, as issued.** *(The ruling stands. Its stated mechanism was falsified within
+the hour — see "Correction to F's rationale" below, which is the version that goes to
+A4. The issued text is retained unedited because F named its own reversal condition and
+the reversal is part of the record.)*
 
-**The denominator is 13, with the three schema-intercepted patterns reported as
-architecturally unreachable.** The gate's question is *"does the rule engine detect
-defects it can see."* A defect the schema intercepts before the rule layer runs is not
-a rule-engine miss; it is the completeness layer doing its job upstream. Scoring those
-three as zeros would make the gate measure **the architecture's layering rather than
-the catalog's detection**, and a gate that cannot mathematically pass regardless of
-rule quality is not a gate — it is a foregone conclusion wearing one.
+> ~~**The denominator is 13, with the three schema-intercepted patterns reported as
+> architecturally unreachable.**~~ The gate's question is *"does the rule engine detect
+> defects it can see."* ~~A defect the schema intercepts before the rule layer runs is
+> not a rule-engine miss; it is the completeness layer doing its job upstream.~~
+> Scoring those three as zeros would make the gate measure **the architecture's
+> layering rather than the catalog's detection**, and a gate that cannot mathematically
+> pass regardless of rule quality is not a gate — it is a foregone conclusion wearing
+> one.
+>
+> ~~The three get their own labeled row: *unreachable at the rule layer in a conformant
+> pipeline, defect class caught by the completeness profile*~~, with the measurement
+> that proved it.
 
-The three get their own labeled row: *unreachable at the rule layer in a conformant
-pipeline, defect class caught by the completeness profile*, with the measurement that
-proved it. That is a stronger sentence for those patterns than any recall figure, and
-it is the mechanism-backed version of the positive architectural claim the spec
-anticipated from the start.
+### Correction to F's rationale — the ruling of 13 is unaffected
+
+**F named its own reversal condition: *"if any of the three turns out to reach the rule
+layer, the exclusion is wrong and the denominator moves back."* They reach the rule
+layer.** The condition fired, and it fired on the rationale, not on the arithmetic.
+
+**Verified in the code, not inferred.** `check.run_structured` runs C2 → C1 → C2.5 → C3
+**unconditionally**: there is no early return anywhere between the SHACL stage and the
+rules stage, and the only guard on the rules stage is the `--skip-rules` flag. Nothing
+short-circuits on non-conformance. Measured corpus-wide, **12 of 23 Class A mutants are
+non-conformant *and* rule-layer-caught** — the same measurement that made the
+`caught_by` finding useful. **Nothing is intercepted.**
+
+**Provenance of the error, recorded because the record's credibility depends on it.**
+"Architecturally unreachable" and "intercepts before C3 runs" originated with me
+(session 2), inferred from a static read of `sh:minCount` in the shapes file. The read
+was correct; the inference was not. Deleting a `sh:minCount` field does break profile
+conformance — it does **not** stop the rule engine from running, because the pipeline
+has no such gate. That is the identical error class this session has been catching in
+others all afternoon: **a real check at one layer reported as a conclusion about the
+stack.** Caught by measurement rather than by review, one CLI invocation, and A4 is
+precisely where a committee member would have found it.
+
+**The corrected rationale, which is what A4 carries:**
+
+1. Addendum E scores the gate on **conformant-but-flawed mutants only**. That rule is
+   about **threat realism**, not about layering: a package that fails schema validation
+   gets bounced at intake, so detecting one says little about the dangerous case, which
+   conforms and is still wrong.
+2. W-SI-01, W-ON-01 and W-SI-02 admit **zero conformant mutants** — measured, recorded
+   in `studies/phase2_5a/conformance.json`. Their defect necessarily breaks the profile,
+   so no conformant-but-flawed mutant of them can exist.
+3. Having no gate-eligible mutant, they carry no headline recall row and leave the
+   denominator. **13.**
+4. **Separately and importantly: the rule engine does detect them.** Measured, on
+   non-conformant mutants. The exclusion is therefore a statement about *what can be
+   scored under E*, and says nothing whatever about rule quality.
+
+Same denominator, and now a reason that survives the CLI invocation that killed the
+first one.
+
+**The corrected finding is the better one.** Not *"the schema catches it, so the rules
+never see it"* — a handoff — but **"both layers independently catch it."** That is
+genuine defense in depth, and it makes the schema-caught table required by F's condition
+1 *more* interesting rather than less: it demonstrates **redundant coverage**, two
+independent layers each detecting the same defect class, which is a stronger property
+than either layer's coverage alone. The "positive architectural claim" inherited from
+spec v1.0 §1.3 item 4 needs this same edit wherever it appears.
 
 **Two conditions, so this cannot be read as gate-softening.**
 
@@ -179,7 +230,7 @@ catalog defect**.
 |---|---|---|---|
 | MECHANICAL partition | **17** | — | Rulings 3, 4 and addendum A. Scopes the battery and per-class coverage |
 | less unfireable-as-shipped | 16 | **W-EP-01** | Guard requires `uofa:Claim`; the schema declares only `AssuranceClaim` and makes it `bindsClaim`'s range. Scores 1.000 on synthetic packages typed against a class that does not exist. **Discovered catalog defect** |
-| less architecturally unreachable | **13** | **W-SI-01, W-ON-01, W-SI-02** | Pure presence/absence rules with no value to corrupt; the deleted fields carry `sh:minCount`, so the completeness profile intercepts the defect before C3 runs. **Unreachable at the rule layer in a conformant pipeline** |
+| less no-gate-eligible-mutant | **13** | **W-SI-01, W-ON-01, W-SI-02** | Pure presence/absence rules with no value to corrupt, so their defect necessarily breaks the profile: **zero conformant-but-flawed mutants exist** (measured, `studies/phase2_5a/conformance.json`). Under E only conformant mutants score, so they carry no headline row. **The rule engine does detect them** on non-conformant mutants — both layers catch independently |
 
 **GATE-H3 is evaluated over 13.** All four exclusions are individually named,
 mechanism'd, and dated **before scoring**. That last clause is the one doing the work:

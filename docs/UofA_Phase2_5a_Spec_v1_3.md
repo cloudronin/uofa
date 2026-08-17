@@ -1,7 +1,7 @@
 # UofA Phase 2.5a Spec v1.3: Deterministic Mutation Arm
 
 Status: READY for implementation
-Date: 2026-08-16 (v1.1 and v1.2 amendments same day, before any operator was written)
+Date: 2026-08-16 (amendments v1.1 through v1.3a, all same day, all before any Class B operator was written)
 Owner: Vishnu Vettrivel
 Parent specs: UofA_Unified_Repair_Spec_v2_1.md (items A2, B2, GATE-H3), UofA_Investigation_Spec_v1_0.md findings (INV-8, INV-11, INV-1)
 
@@ -31,7 +31,7 @@ the author's amendment rulings. Sources: session 1's Phase 2.5a implementation p
 
 **v1.3a (measured, `5bb1051a` / `87463323`) — E applied over all 23 Class A mutants.** Class A/B is **8/9** (W-PROV-01 moved A→B: every single-edit form suppresses rather than adds). The conformance split is measured and confirms addendum F's three exclusions from evidence rather than argument: W-ON-01, W-SI-01 and W-SI-02 produce **zero** conformant mutants. Headline Class A battery is **11 conformant-but-flawed mutants across 5 patterns**, all firing, all on wide intervals. One finding for the methods text: **all 23 mutants fire at C3, including all 12 schema-caught ones**, so inferring profile status from `caught_by` would have misfiled 12 of 23 — E's first-class-field requirement is now measured, not argued. A source-version precondition is added at §1.3: conformance readings require `2a1d3544` in the measuring branch.
 
-**v1.3 (Decision Record addendum F) — the gate denominator is 13, with four named exclusions.** 17 scopes the battery; the gate is evaluated over 13. Out: **W-EP-01** (unfireable as shipped — guard names a class the schema never declares; reported as a discovered catalog defect) and **W-SI-01, W-ON-01, W-SI-02** (architecturally unreachable — the completeness profile intercepts their defect before the rule layer runs). A defect the schema catches is not a rule-engine miss, and a gate that cannot mathematically pass regardless of rule quality is a foregone conclusion wearing one. **Two conditions:** the three deletion mutants are still built and reported in a schema-caught table beside the rule-layer table, so cross-layer detection stays visible; and A4 states the arithmetic plainly, including what the 16-denominator version would have scored. All four exclusions named, mechanism'd and dated **before** scoring — which is the only thing distinguishing this from post-hoc scoping. See §2.2.
+**v1.3 (Decision Record addendum F) — the gate denominator is 13, with four named exclusions.** 17 scopes the battery; the gate is evaluated over 13. Out: **W-EP-01** (unfireable as shipped — guard names a class the schema never declares; reported as a discovered catalog defect) and **W-SI-01, W-ON-01, W-SI-02** (no gate-eligible mutant — their defect necessarily breaks the profile, so zero conformant-but-flawed mutants exist; the rules *do* detect them on non-conformant mutants, so this is not a statement about rule quality). A gate that cannot mathematically pass regardless of rule quality is a foregone conclusion wearing one. **Two conditions:** the three deletion mutants are still built and reported in a schema-caught table beside the rule-layer table, so cross-layer detection stays visible; and A4 states the arithmetic plainly, including what the 16-denominator version would have scored. All four exclusions named, mechanism'd and dated **before** scoring — which is the only thing distinguishing this from post-hoc scoping. See §2.2.
 
 **v1.2 (Decision Record addendum E) — the SHACL-conformance split becomes the organizing structure**, not a footnote. A mutant that flunks the profile never tests the rules; it tests the schema. Changes: profile status recorded per mutant (§1.3); the corpus and report split conformant-but-flawed vs schema-caught, with **the gate scored from the conformant group only** (§2.2); operator design prefers value corruption over field deletion (§1.2.2); a one-time precondition test asserts the substrates were valid before mutation (§0.2); the manifest gains an expected-catch-layer field checked against the measured one (§1.1); and Class B enrichments must assert conformance after enrichment, before violation (§1.2.1).
 Positioning: this is Phase 2.5 closing its measurement debt, not a new phase. Phase 2.5 left MECHANICAL-class recall measured against a corrupt denominator (LLM generation failed to mechanically realize typed-literal and structural flaws; five patterns at 0.000, two never measurable, all as generation artifacts per INV-8/INV-11). Phase 2.5a repairs the instrument with a deterministic mutator, measures the shipped catalog once at v0.5.15.1, and exposes the loop as the committee-runnable `uofa inject` / `uofa detect` demo (parent B2).
@@ -176,9 +176,9 @@ Coverage requirement: every one of the 17 MECHANICAL patterns has ≥1 operator 
 | W-EP-02 | **3** | 0 | yes |
 | W-AL-02 | **1** | 0 | yes |
 | W-CON-04 | **1** | 0 | yes |
-| W-ON-01 | 0 | **3** | no — architecturally unreachable |
-| W-SI-01 | 0 | **3** | no — architecturally unreachable |
-| W-SI-02 | 0 | **6** | no — architecturally unreachable |
+| W-ON-01 | 0 | **3** | no — zero conformant mutants |
+| W-SI-01 | 0 | **3** | no — zero conformant mutants |
+| W-SI-02 | 0 | **6** | no — zero conformant mutants |
 
 **Headline Class A battery: 11 conformant-but-flawed mutants across 5 patterns, n = 3, 3, 3, 1, 1. All fire.** Every row carries a wide Wilson interval, so §2.2's wide-interval naming requirement covers **all five**, not a subset. The three substrates pass the profile unmutated, so every split above is caused by the mutation and not by the substrate.
 
@@ -360,9 +360,13 @@ Gate evaluation (GATE-H3, held as set): MECHANICAL ≥95% (Arm M, package-assess
 |---|---|---|---|
 | MECHANICAL partition | 17 | — | Scopes the battery |
 | less unfireable-as-shipped | 16 | W-EP-01 | Guard names `uofa:Claim`, never declared by the schema. Reported as a **discovered catalog defect** |
-| less architecturally unreachable | **13** | W-SI-01, W-ON-01, W-SI-02 | Deleted fields carry `sh:minCount`; the completeness profile intercepts before C3 runs |
+| less no-gate-eligible-mutant | **13** | W-SI-01, W-ON-01, W-SI-02 | Defect necessarily breaks the profile → **zero conformant mutants** (measured, `conformance.json`). **The rules do detect them** on non-conformant mutants |
 
-A defect the schema intercepts is not a rule-engine miss — it is the completeness layer working upstream. Scoring those three as zeros would make the gate measure the architecture's layering rather than the catalog's detection, and a gate that cannot mathematically pass regardless of rule quality is a foregone conclusion wearing one.
+E scores the gate on conformant-but-flawed mutants only, and that rule is about **threat realism**: a package failing schema validation gets bounced at intake, so detecting one says little about the dangerous case, which conforms and is still wrong. These three admit no conformant mutant, so they have nothing gate-eligible to score. That says nothing about rule quality — the rule engine demonstrably detects them. Scoring them as zeros would make the gate measure what the profile happens to mandate rather than what the catalog detects, and a gate that cannot mathematically pass regardless of rule quality is a foregone conclusion wearing one.
+
+> **Corrected before A4 — read this if you are writing the report.** An earlier version said the completeness profile "intercepts before C3 runs" and called the three "architecturally unreachable." **Both are false.** `check.run_structured` runs C2 → C1 → C2.5 → C3 with **no early return and no conformance guard** — the only gate on the rules stage is `--skip-rules`. Measured: **12 of 23 Class A mutants are non-conformant *and* rule-layer-caught.** Nothing is intercepted.
+>
+> The corrected finding is the better one. Not "the schema catches it so the rules never see it" (a handoff) but **"both layers independently catch it"** — genuine defense in depth. It makes the schema-caught table required beside the rule-layer table *more* interesting, not less: it demonstrates **redundant coverage**, two independent layers detecting the same defect class, which is a stronger property than either alone. Apply the same edit to the "positive architectural claim" framing inherited from v1.0 §1.3 item 4 wherever it appears in the report.
 
 **Two conditions, and they are not optional — they are what makes this not gate-softening:**
 
