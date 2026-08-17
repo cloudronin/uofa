@@ -201,6 +201,87 @@ AI-management-system encodings (enterprise LLM retrieval; customer-facing LLM
 drafting), not CM&S case studies. If they stay in, Arm M must report their rows
 separately, and D4's "published-case substrate" framing needs a qualifying clause.
 
+## Finding 3 — 27 of the 48 baseline firings are vacuous, and the catalog is discriminating on serialization shape
+
+Found while writing site discovery. **This is the largest finding of step 1 and it
+generalizes the report's lead.**
+
+Three rules — W-AL-01, W-AR-05, W-EP-02 — test `noValue(?result, <property>)` on a
+ValidationResult. When a package references its results as **bare IRIs** rather than
+inline objects, the referenced node has no properties in the graph, so every
+`noValue` succeeds vacuously and all three rules fire on every result. This is the
+same pathology W-EP-01's Phase 2.5 guard was added to fix
+([rules:29-35](packs/core/rules/uofa_weakener.rules)); **W-AL-01, W-AR-05 and W-EP-02
+carry no equivalent guard.**
+
+The correlation across the substrates is perfect:
+
+| Substrate | results | shape | W-AL-01 / W-AR-05 / W-EP-02 |
+|---|---|---|---|
+| morrison/cou1 | 3 | all bare-IRI | **3 / 3 / 3** |
+| morrison/cou2 | 3 | all inline | **0 / 0 / 0** |
+| nagaraja/cou1 | 6 | all bare-IRI | **6 / 6 / 6** |
+
+### The falsifying test
+
+morrison/cou1's three results were inlined — **same IRIs, same count, the three
+properties the rules read, nothing else altered** — and re-run:
+
+| | W-AL-01 | W-AR-05 | W-EP-02 |
+|---|---|---|---|
+| as committed (bare IRIs) | 3 | 3 | 3 |
+| results inlined | **0** | **0** | **0** |
+
+All nine firings were vacuous. (`W-SI-01` appears in the inlined run only because
+the signature was stripped to avoid asserting integrity over changed content — an
+artifact of the test, not a finding.)
+
+### Scale
+
+| Substrate | baseline firings | vacuous | substantive |
+|---|---|---|---|
+| morrison/cou1 | 11 | **9** | 2 |
+| morrison/cou2 | 18 | 0 | 18 |
+| nagaraja/cou1 | 19 | **18** | 1 |
+| **total** | **48** | **27** | **21** |
+
+### Why this is the sharpest available statement of the instrument disagreement
+
+**morrison/cou1 and morrison/cou2 encode the same study.** cou1 fires nine extra
+weakeners than cou2 does on those three patterns, and the entire difference is that
+cou1 references its validation results by IRI while cou2 inlines them. No difference
+in the underlying evidence, the study, or its adequacy. **The catalog is
+discriminating on serialization shape.**
+
+That is the same finding as W-EP-01 (fires only on a class the schema never
+declares) and W-ON-02 (fires on every real encoding), now with a controlled
+comparison behind it: same study, two encodings, nine-weakener delta from
+serialization alone.
+
+### What it changes
+
+1. **Delta-scoring baselines (amendment A3) are mostly artifacts** on two of three
+   substrates. The baseline-persistence assertion still works — vacuous findings
+   persist as reliably as substantive ones — but the report must not present these
+   baselines as detections of inadequate evidence.
+2. **A3's negative controls are exposed.** A defect-free package that references its
+   results by IRI will fire W-AL-01, W-AR-05 and W-EP-02 on every result. Any clean
+   variant built for A3 must inline, or the FP arm measures serialization style.
+   Worth checking before the external negative is encoded.
+3. **The published NAFEMS figures are affected.**
+   `site/src/content/docs/research/nafems-2026.md:21` gives "COU 1 = 11 weakeners
+   across 5 patterns, COU 2 = 18 across 6" as committee-facing reproduction figures.
+   Nine of COU 1's eleven are vacuous. The command reproduces, the count is real,
+   and what it measures is not what a reader would take it for. **C2's lane, flagged
+   not fixed.**
+4. **Arm M's recall for these three patterns is only interpretable on
+   morrison/cou2** — the one substrate where they do not already fire vacuously.
+   Which is also the only substrate hosting their mutation sites, so the battery is
+   unaffected; but the interpretation note belongs in the report.
+
+**No catalog edits.** v0.5.15.1 is frozen and this is §4.3 territory: reported, with
+the failing case attached. A guard mirroring W-EP-01's would be a v0.6 candidate.
+
 ## Scope impact
 
 | | Planned | Measured |
