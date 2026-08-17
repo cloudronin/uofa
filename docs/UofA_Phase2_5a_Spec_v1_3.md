@@ -29,6 +29,8 @@ the author's amendment rulings. Sources: session 1's Phase 2.5a implementation p
 | 10 | NASA HPT substrates carry "zero ValidationResults", then "they fire 17 and 20" | **Both wrong. They are not UofA packages** (§2.1) | Three passes: JSON keys, then expanded graph, then inference. The files hold only stored `WeakenerAnnotation`s; 24 of 29 rules open on `UnitOfAssurance`, which is absent. Five substrates ruled, **three executable** |
 | 11 | W-EP-01 finding held in its weak form pending a corpus check | **Strong form established** (§1.2.1 finding 1) | `uofa:Claim` declared nowhere; 256 synthetic packages emit bare `type: "Claim"` resolving to it via `@vocab`. The rule scores 1.000 on non-schema evidence and is silent on conformant evidence |
 
+**v1.3a (measured, `5bb1051a` / `87463323`) — E applied over all 23 Class A mutants.** Class A/B is **8/9** (W-PROV-01 moved A→B: every single-edit form suppresses rather than adds). The conformance split is measured and confirms addendum F's three exclusions from evidence rather than argument: W-ON-01, W-SI-01 and W-SI-02 produce **zero** conformant mutants. Headline Class A battery is **11 conformant-but-flawed mutants across 5 patterns**, all firing, all on wide intervals. One finding for the methods text: **all 23 mutants fire at C3, including all 12 schema-caught ones**, so inferring profile status from `caught_by` would have misfiled 12 of 23 — E's first-class-field requirement is now measured, not argued. A source-version precondition is added at §1.3: conformance readings require `2a1d3544` in the measuring branch.
+
 **v1.3 (Decision Record addendum F) — the gate denominator is 13, with four named exclusions.** 17 scopes the battery; the gate is evaluated over 13. Out: **W-EP-01** (unfireable as shipped — guard names a class the schema never declares; reported as a discovered catalog defect) and **W-SI-01, W-ON-01, W-SI-02** (architecturally unreachable — the completeness profile intercepts their defect before the rule layer runs). A defect the schema catches is not a rule-engine miss, and a gate that cannot mathematically pass regardless of rule quality is a foregone conclusion wearing one. **Two conditions:** the three deletion mutants are still built and reported in a schema-caught table beside the rule-layer table, so cross-layer detection stays visible; and A4 states the arithmetic plainly, including what the 16-denominator version would have scored. All four exclusions named, mechanism'd and dated **before** scoring — which is the only thing distinguishing this from post-hoc scoping. See §2.2.
 
 **v1.2 (Decision Record addendum E) — the SHACL-conformance split becomes the organizing structure**, not a footnote. A mutant that flunks the profile never tests the rules; it tests the schema. Changes: profile status recorded per mutant (§1.3); the corpus and report split conformant-but-flawed vs schema-caught, with **the gate scored from the conformant group only** (§2.2); operator design prefers value corruption over field deletion (§1.2.2); a one-time precondition test asserts the substrates were valid before mutation (§0.2); the manifest gains an expected-catch-layer field checked against the measured one (§1.1); and Class B enrichments must assert conformance after enrichment, before violation (§1.2.1).
@@ -158,16 +160,33 @@ Coverage requirement: every one of the 17 MECHANICAL patterns has ≥1 operator 
 
 §0.1's falsification splits the 17 patterns by whether a substrate can host the flaw at all. **The split is measured, not projected** — `studies/phase2_5a/PRECONDITION-INVENTORY.md` (commit `fed5a37e`) expanded all three substrates through the engine's own context, probed all 17 antecedents, and cross-referenced actual baseline firings. Its numbers govern this section:
 
-| | Projected in the plan | **Measured** |
-|---|---|---|
-| Class A (single edit) | 13 | **9** |
-| Class B (enrichment) | 4 | **8** |
+| | Projected in the plan | Measured (step 1) | **Measured after E** |
+|---|---|---|---|
+| Class A (single edit) | 13 | 9 | **8** |
+| Class B (enrichment) | 4 | 8 | **9** |
 
-**Class A — edit a field the substrate already has.** Single edit. **9 patterns:**
+**W-PROV-01 moved A → B on measurement**: every single-edit form *suppresses* rather than adds (claim-edge −1 to −2, intermediate-edge −1 at all six sites), and `isFoundationalEvidence` has no site in any encoding.
 
-> W-EP-02, W-AL-01, W-AR-05, W-PROV-01 (*morrison/cou2 only*); W-AL-02, W-CON-04 (*nagaraja/cou1 only*); W-ON-01, W-SI-01, W-SI-02 (*all three substrates*).
+**Class A — edit a field the substrate already has.** Single edit. **8 patterns**, and the conformance split (addendum E) partitions them measured at v0.5.15.1 over all 23 Class A mutants:
 
-Six of the nine are single-substrate, with per-pattern `n` of 1–4. §2.2's wide-interval naming therefore applies to **most of Class A**, not just W-EP-02 — say so in the gate paragraph.
+| Pattern | conformant-but-flawed | schema-caught | Gate-eligible |
+|---|---|---|---|
+| W-AL-01 | **3** | 0 | yes |
+| W-AR-05 | **3** | 0 | yes |
+| W-EP-02 | **3** | 0 | yes |
+| W-AL-02 | **1** | 0 | yes |
+| W-CON-04 | **1** | 0 | yes |
+| W-ON-01 | 0 | **3** | no — architecturally unreachable |
+| W-SI-01 | 0 | **3** | no — architecturally unreachable |
+| W-SI-02 | 0 | **6** | no — architecturally unreachable |
+
+**Headline Class A battery: 11 conformant-but-flawed mutants across 5 patterns, n = 3, 3, 3, 1, 1. All fire.** Every row carries a wide Wilson interval, so §2.2's wide-interval naming requirement covers **all five**, not a subset. The three substrates pass the profile unmutated, so every split above is caused by the mutation and not by the substrate.
+
+The zero-conformant result for W-ON-01, W-SI-01 and W-SI-02 was **predicted from the `sh:minCount` read and then measured**, which is why addendum F's exclusion of those three rests on evidence rather than on the shapes argument alone.
+
+> **Measured finding that vindicates E's first-class-field requirement.** All 23 Class A mutants fire their target at C3 — **including all 12 schema-caught ones**. Non-conformant-and-rule-caught is not an edge case here, it is the common case. **Inferring profile status from `caught_by` would have filed 12 of 23 mutants into the wrong group.** That is the concrete reason `conformant` must be recorded independently, and it is now measured rather than argued. It belongs in the methods text.
+
+> **Gate composition, worth stating plainly.** The 13 gate patterns decompose as **5 Class A conformant + 8 Class B** (Class B's 9 less W-EP-01). So **8 of the 13 rest on enrichment-class mutants** — structures the project's own encodings never instantiate. That is legitimate under addendum B, whose whole point is that the gate asks a unit-detection question, and the ecological-validity split reports the limitation alongside. But a gate that is majority-enrichment is a different object from one that is majority as-encoded, and the report should say so in the same breath as the number rather than leaving a reader to derive it.
 
 **Class B — `MUT-ANT-*`, antecedent instantiation plus violation.** Two edits carrying **one fault**: the first instantiates the structure the rule reads, the second violates it. **8 patterns:**
 
@@ -248,7 +267,9 @@ W-SI-02 zeroed because SHACL validation rejects its flaw before the rule engine 
    This satisfies escalation criterion 4 (stack order differs from what the manuscript describes) — it is reported here rather than discovered during scoring, and Ch3's description needs the same correction.
 2. The detection record per mutant captures WHICH layer flagged it: `caught_by: shacl | integrity | derivations | rules | none`. The `derivations` value is required even though the pre-pass is expected to be a no-op, and the report must state explicitly where it was one — an absent column and a no-op column are different claims.
 
-   **v1.2: record SHACL profile status for every mutant as a first-class field**, not as an inference from `caught_by`. The full stack already runs; this is the same data elevated. `conformant: true|false` is what §2.2 partitions the corpus on, and it must be recorded even when some later layer also fires — a mutant can be non-conformant *and* caught by the rules, and collapsing that into one column loses the distinction the split depends on.
+   > **Source-version precondition, before any conformance reading.** The branch taking the measurement **must contain `2a1d3544`** (`fix(shacl): resolve @context from the shipped file, not over the network`). It changes `shacl_friendly.py` and the derivations runner — i.e. the conformance path itself. Measured on a branch without it, conformance readings are artifacts of network `@context` resolution: session 1 obtained 0/23 non-conformant and then 23/23 conformant, both garbage, before spotting the staleness. Neither result announces itself as wrong, which is what makes this worth a precondition rather than a footnote. **Merge main before recording profile status**, and record the commit the measurement ran at. (A static read of the shapes file — such as the `sh:minCount` check behind §1.2.1a — is unaffected; this applies to anything that runs the stack.)
+
+   **v1.2: record SHACL profile status for every mutant as a first-class field**, not as an inference from `caught_by`. **Measured justification (§1.2.1): all 23 Class A mutants fire at C3, including all 12 schema-caught ones — inferring status from `caught_by` would misfile 12 of 23.** The full stack already runs; this is the same data elevated. `conformant: true|false` is what §2.2 partitions the corpus on, and it must be recorded even when some later layer also fires — a mutant can be non-conformant *and* caught by the rules, and collapsing that into one column loses the distinction the split depends on.
 3. Recall is scored at the package-assessment level (was the defect flagged by ANY layer) AND reported per-layer. GATE-H3's ≥95% MECHANICAL claim is the package-assessment-level number; the per-layer table is the defense-in-depth finding for Ch4.
 4. For patterns whose flaw is SHACL-mandatory (W-SI-02 class): additionally generate the variant that bypasses the SHACL check if one exists in a realistic threat model (e.g. a profile not applied), and report both. If no realistic bypass exists, the finding is "this defect class cannot reach the rule layer in a conformant pipeline," which is a positive architectural claim, stated as such.
 
