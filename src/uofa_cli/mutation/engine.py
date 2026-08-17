@@ -298,10 +298,160 @@ def _violate_future_evidence(doc: dict, site: dict) -> dict:
     return d
 
 
+def _enrich_method_match(doc: dict) -> dict:
+    """W-AR-03: inline the requirement with a method, and give the activity a type."""
+    d = deepcopy(doc)
+    base = str(d.get("id", "https://uofa.net/pkg")).rstrip("/")
+    req = d.get("bindsRequirement")
+    req_iri = req if isinstance(req, str) else (req or {}).get("id", f"{base}/req/1")
+    d["bindsRequirement"] = {"id": req_iri, "type": "Requirement",
+                             "name": "verification requirement",
+                             "requiredVerificationMethod": "mesh-convergence-study"}
+    results = _results(d)
+    target = results[0] if results and isinstance(results[0], dict) else None
+    if target is None:
+        iri = results[0] if results else f"{base}/result/1"
+        target = {"id": iri, "type": "ValidationResult"}
+        d["hasValidationResult"] = [target] + [r for r in results[1:]]
+    target["wasGeneratedBy"] = {"id": f"{base}/activity/method", "type": "VerificationActivity",
+                                "name": "verification activity",
+                                "activityType": "mesh-convergence-study"}   # MATCHES: clean
+    return d
+
+
+def _violate_method_match(doc: dict, site: dict) -> dict:
+    d = deepcopy(doc)
+    _results(d)[0]["wasGeneratedBy"]["activityType"] = "expert-review"
+    return d
+
+
+def _enrich_identifier(doc: dict) -> dict:
+    """W-CON-02: reference an identifier whose target resolves in-graph."""
+    d = deepcopy(doc)
+    base = str(d.get("id", "https://uofa.net/pkg")).rstrip("/")
+    tgt = f"{base}/identifier/enriched"
+    d["referencesIdentifier"] = {"id": tgt, "type": "Evidence",   # typed: resolves
+                                 "name": "referenced artifact"}
+    return d
+
+
+def _violate_identifier(doc: dict, site: dict) -> dict:
+    d = deepcopy(doc)
+    d["referencesIdentifier"] = d["referencesIdentifier"]["id"]   # bare IRI: resolves nowhere
+    return d
+
+
+def _enrich_verification_activity(doc: dict) -> dict:
+    """W-CON-05: declare an activity and link Evidence to it."""
+    d = deepcopy(doc)
+    base = str(d.get("id", "https://uofa.net/pkg")).rstrip("/")
+    act = f"{base}/activity/declared"
+    d["hasVerificationActivity"] = {"id": act, "type": "VerificationActivity",
+                                    "name": "declared verification"}
+    ev = d.get("hasEvidence")
+    ev = list(ev) if isinstance(ev, list) else ([ev] if ev else [])
+    ev.append({"id": f"{base}/evidence/for-activity", "type": "Evidence",
+               "name": "evidence from the activity",
+               "wasGeneratedBy": act})                             # linked: clean
+    d["hasEvidence"] = ev
+    return d
+
+
+def _violate_verification_activity(doc: dict, site: dict) -> dict:
+    d = deepcopy(doc)
+    d["hasEvidence"] = [e for e in d["hasEvidence"]
+                        if not str(e.get("id", "")).endswith("/evidence/for-activity")]
+    return d
+
+
+def _enrich_envelope(doc: dict) -> dict:
+    """W-ON-02: ENRICH-TO-CLEAN. Every substrate already violates this rule, so a
+    clean state has to be manufactured before the defect can be injected."""
+    d = deepcopy(doc)
+    cou = d.get("hasContextOfUse")
+    if not isinstance(cou, dict):
+        return d
+    cou = deepcopy(cou)
+    cou["hasOperatingEnvelope"] = {"id": f"{cou.get('id','cou')}/envelope",
+                                   "type": "OperatingEnvelope",
+                                   "name": "validity envelope"}
+    d["hasContextOfUse"] = cou
+    return d
+
+
+def _violate_envelope(doc: dict, site: dict) -> dict:
+    d = deepcopy(doc)
+    d["hasContextOfUse"].pop("hasOperatingEnvelope", None)
+    return d
+
+
+def _enrich_dangling_provenance(doc: dict) -> dict:
+    """W-PROV-01: put a terminal node in scope, suppressed by isFoundationalEvidence.
+
+    The clean state relies on the very flag whose structural-vs-dispositional
+    reading decided this pattern's MECHANICAL class under ruling 4 — and which
+    appears in zero encodings. So this operator is also the only exercise the flag
+    gets anywhere in the corpus.
+    """
+    d = deepcopy(doc)
+    base = str(d.get("id", "https://uofa.net/pkg")).rstrip("/")
+    claim = d.get("bindsClaim")
+    if not isinstance(claim, dict):
+        claim = {"id": claim or f"{base}/claim/1", "type": "AssuranceClaim",
+                 "name": "assurance claim"}
+    claim = deepcopy(claim)
+    wdf = claim.get("wasDerivedFrom")
+    wdf = list(wdf) if isinstance(wdf, list) else ([wdf] if wdf else [])
+    wdf.append({"id": f"{base}/evidence/foundational", "type": "Evidence",
+                "name": "foundational evidence",
+                "isFoundationalEvidence": True})                    # suppressed: clean
+    claim["wasDerivedFrom"] = wdf
+    d["bindsClaim"] = claim
+    return d
+
+
+def _violate_dangling_provenance(doc: dict, site: dict) -> dict:
+    d = deepcopy(doc)
+    for n in d["bindsClaim"]["wasDerivedFrom"]:
+        if isinstance(n, dict) and str(n.get("id", "")).endswith("/evidence/foundational"):
+            n.pop("isFoundationalEvidence", None)
+    return d
+
+
+def _enrich_orphan_claim(doc: dict) -> dict:
+    """W-EP-01: DEMONSTRATE, DO NOT SCORE.
+
+    Types the claim `Claim` — the class the rule's guard names and the schema never
+    declares — so the rule can bind at all. The paired contrast in the report types
+    it `AssuranceClaim`, which is what `bindsClaim`'s rdfs:range actually declares
+    and what every real encoding uses, and the rule stays silent through the same
+    violation. That contrast is the finding; the row it cannot produce is not.
+    """
+    d = deepcopy(doc)
+    base = str(d.get("id", "https://uofa.net/pkg")).rstrip("/")
+    d["bindsClaim"] = {"id": f"{base}/claim/demo", "type": "Claim",
+                       "name": "claim typed against the rule's guard",
+                       "wasDerivedFrom": {"id": f"{base}/evidence/demo",
+                                          "type": "Evidence", "name": "supporting evidence"}}
+    return d
+
+
+def _violate_orphan_claim(doc: dict, site: dict) -> dict:
+    d = deepcopy(doc)
+    d["bindsClaim"].pop("wasDerivedFrom", None)
+    return d
+
+
 _ENRICH_HOOKS: dict[str, tuple] = {
     "MUT-ANT-01": (_enrich_stale_dataset, _violate_stale_dataset),
     "MUT-ANT-02": (_enrich_version_drift, _violate_version_drift),
     "MUT-ANT-03": (_enrich_future_evidence, _violate_future_evidence),
+    "MUT-ANT-04": (_enrich_method_match, _violate_method_match),
+    "MUT-ANT-05": (_enrich_identifier, _violate_identifier),
+    "MUT-ANT-06": (_enrich_verification_activity, _violate_verification_activity),
+    "MUT-ANT-07": (_enrich_envelope, _violate_envelope),
+    "MUT-ANT-08": (_enrich_orphan_claim, _violate_orphan_claim),
+    "MUT-REF-01": (_enrich_dangling_provenance, _violate_dangling_provenance),
 }
 
 
