@@ -29,12 +29,14 @@ the author's amendment rulings. Sources: session 1's Phase 2.5a implementation p
 | 10 | NASA HPT substrates carry "zero ValidationResults", then "they fire 17 and 20" | **Both wrong. They are not UofA packages** (§2.1) | Three passes: JSON keys, then expanded graph, then inference. The files hold only stored `WeakenerAnnotation`s; 24 of 29 rules open on `UnitOfAssurance`, which is absent. Five substrates ruled, **three executable** |
 | 11 | W-EP-01 finding held in its weak form pending a corpus check | **Strong form established** (§1.2.1 finding 1) | `uofa:Claim` declared nowhere; 256 synthetic packages emit bare `type: "Claim"` resolving to it via `@vocab`. The rule scores 1.000 on non-schema evidence and is silent on conformant evidence |
 
+**v1.3b (`0f82a686`) — CLI surface is one new command, not three.** `uofa detect` deleted as a strictly weaker duplicate of `uofa rules`; `inject-verify` folded to `inject verify`. The spec-level consequence, not merely a naming change: `uofa rules` has no `--manifest` and never will, so the walkthrough's detection step is **blind by construction** rather than by maintained discipline. The deleted `detect --manifest` path would have put the answer key inside the thing being tested — a circularity risk in the middle of the committee-facing demo. Nothing measured changed: Arm M re-ran byte-identically (50 mutants, 38 conformant-but-flawed, 12 schema-caught, denominator 13). See §1.4.
+
 **v1.3a (measured, `5bb1051a` / `87463323`) — E applied over all 23 Class A mutants.** Class A/B is **8/9** (W-PROV-01 moved A→B: every single-edit form suppresses rather than adds). The conformance split is measured and confirms addendum F's three exclusions from evidence rather than argument: W-ON-01, W-SI-01 and W-SI-02 produce **zero** conformant mutants. Headline Class A battery is **11 conformant-but-flawed mutants across 5 patterns**, all firing, all on wide intervals. One finding for the methods text: **all 23 mutants fire at C3, including all 12 schema-caught ones**, so inferring profile status from `caught_by` would have misfiled 12 of 23 — E's first-class-field requirement is now measured, not argued. A source-version precondition is added at §1.3: conformance readings require `2a1d3544` in the measuring branch.
 
 **v1.3 (Decision Record addendum F) — the gate denominator is 13, with four named exclusions.** 17 scopes the battery; the gate is evaluated over 13. Out: **W-EP-01** (unfireable as shipped — guard names a class the schema never declares; reported as a discovered catalog defect) and **W-SI-01, W-ON-01, W-SI-02** (no gate-eligible mutant — their defect necessarily breaks the profile, so zero conformant-but-flawed mutants exist; the rules *do* detect them on non-conformant mutants, so this is not a statement about rule quality). A gate that cannot mathematically pass regardless of rule quality is a foregone conclusion wearing one. **Two conditions:** the three deletion mutants are still built and reported in a schema-caught table beside the rule-layer table, so cross-layer detection stays visible; and A4 states the arithmetic plainly, including what the 16-denominator version would have scored. All four exclusions named, mechanism'd and dated **before** scoring — which is the only thing distinguishing this from post-hoc scoping. See §2.2.
 
 **v1.2 (Decision Record addendum E) — the SHACL-conformance split becomes the organizing structure**, not a footnote. A mutant that flunks the profile never tests the rules; it tests the schema. Changes: profile status recorded per mutant (§1.3); the corpus and report split conformant-but-flawed vs schema-caught, with **the gate scored from the conformant group only** (§2.2); operator design prefers value corruption over field deletion (§1.2.2); a one-time precondition test asserts the substrates were valid before mutation (§0.2); the manifest gains an expected-catch-layer field checked against the measured one (§1.1); and Class B enrichments must assert conformance after enrichment, before violation (§1.2.1).
-Positioning: this is Phase 2.5 closing its measurement debt, not a new phase. Phase 2.5 left MECHANICAL-class recall measured against a corrupt denominator (LLM generation failed to mechanically realize typed-literal and structural flaws; five patterns at 0.000, two never measurable, all as generation artifacts per INV-8/INV-11). Phase 2.5a repairs the instrument with a deterministic mutator, measures the shipped catalog once at v0.5.15.1, and exposes the loop as the committee-runnable `uofa inject` / `uofa detect` demo (parent B2).
+Positioning: this is Phase 2.5 closing its measurement debt, not a new phase. Phase 2.5 left MECHANICAL-class recall measured against a corrupt denominator (LLM generation failed to mechanically realize typed-literal and structural flaws; five patterns at 0.000, two never measurable, all as generation artifacts per INV-8/INV-11). Phase 2.5a repairs the instrument with a deterministic mutator, measures the shipped catalog once at v0.5.15.1, and exposes the loop as the committee-runnable `uofa inject` / `uofa rules` / `uofa inject verify` demo (parent B2).
 
 Budget: 9-13h paired total (mutator 4-6h, CLI+walkthrough 1-2h, P25-A run 3-5h + ~$50 LLM spend for the generator-arm rerun if included). Hard scope cap below.
 
@@ -252,7 +254,7 @@ on the enriched-but-not-yet-violated intermediate, and fail loudly if it does no
 
 `package_policy.sign_package` calls `assert_issuable`, and `is_synthetic` (`package_policy.py:52-64`) is True for any package marked `synthetic: true`. **The production signing path refuses to sign mutants.** MUT-INT-02 (re-sign after content mutation, modelling a fraudulent-but-valid package) therefore cannot be built.
 
-Report this; do not engineer around it. It is a second instance of §1.3 item 4's positive architectural claim — *the production signing path cannot produce a fraudulent-but-valid package* — and it is a stronger result than the operator would have been. Consequences for the build: mutants stay honestly marked `synthetic`; signature-family operators mutate already-signed substrate bytes rather than re-signing; and the walkthrough uses `uofa check` / `uofa detect`, never `uofa verify`, on a mutant.
+Report this; do not engineer around it. It is a second instance of §1.3 item 4's positive architectural claim — *the production signing path cannot produce a fraudulent-but-valid package* — and it is a stronger result than the operator would have been. Consequences for the build: mutants stay honestly marked `synthetic`; signature-family operators mutate already-signed substrate bytes rather than re-signing; and the walkthrough uses `uofa check` / `uofa rules`, never `uofa verify`, on a mutant.
 
 ### 1.3 The layer-attribution design (W-SI-02 lesson)
 
@@ -275,12 +277,30 @@ W-SI-02 zeroed because SHACL validation rejects its flaw before the rule engine 
 
 ### 1.4 CLI surface (parent B2)
 
+**Amended v1.3b (`0f82a686`) — one new top-level command, not three.** The surface below replaces the three-command form this spec originally named. `uofa detect` is **deleted** and `inject-verify` becomes the subcommand `inject verify`. Verified: `cli.py` registers `rules` and `inject` only, and both `detect.py` and `inject_verify.py` are gone.
+
 ```
 uofa inject --pattern <pattern-id> --package <path> [--operator <mut-id>] [--site <n>] [--seed <s>] --out <dir>
 uofa inject --all --package <path> --out <dir>          # full battery on one substrate
-uofa detect --package <mutant-path>                      # existing detection, report to stdout
-uofa inject-verify --manifest <path> --results <path>    # scores detect output against manifest; exits nonzero on any miss
+uofa rules <mutant-path>                                 # the production detector, unchanged
+uofa inject verify --manifest <path>                     # scores against the manifest; nonzero on any miss
 ```
+
+> **Why the deletion is a spec matter and not a changelog entry: it makes the demo's blindness structural.**
+>
+> `uofa detect` was a strictly weaker duplicate of `uofa rules` — same engine, same findings, minus severities, the compound-inference note, `--format`, `--output`, `--rules`, `--context` and `--build`. It existed only to mirror the committee's "inject and detect" phrasing, which is a naming concern and belongs in the walkthrough's prose rather than in a second command that runs the same engine and can drift from it.
+>
+> The load-bearing consequence is the one that was nearly missed. With `detect` present, the detection step could take `--manifest` — and `inject-verify` did the same scoring at a different cardinality, so the same operation existed at two arities across two commands, **with the answer key available inside the thing being tested.** That is a circularity risk sitting in the middle of the B2 demo, the single artifact whose whole purpose is to let a committee member verify a detection without trusting anyone's judgment.
+>
+> **`uofa rules` takes `file`, `--rules`, `--context`, `--build`, `--raw`, `--format`, `--output` — and no `--manifest`.** It is the production detector, it predates this harness, and it has no way to learn what was planted. So the walkthrough's middle step is blind **by construction** rather than by a discipline someone has to maintain:
+>
+> ```bash
+> uofa inject --pattern W-AL-01 --package …/cou2.jsonld --out /tmp/demo
+> uofa rules /tmp/demo/…MUT-DEL-01__site0.jsonld          # blind: 20 findings, no idea which is planted
+> uofa inject verify --manifest /tmp/demo/manifest.json   # W-AL-01 went 0 → 1
+> ```
+>
+> Three steps onto the committee's own sentence — flaw injected, flaw caught, manifest confirms — and the middle one is **more** persuasive for not knowing the answer. A demo that cannot cheat is worth more than a demo that merely didn't.
 
 Wrap existing entrypoints per INV-11's exposure map; plumbing only, no logic forks. README walkthrough (`docs/demo/inject-and-detect.md`): fresh-clone setup steps (honest list per INV-11's runnability assessment, including Java/Jena), then the professors' narrative verbatim: perfect package in, known flaw injected, flaw caught, manifest confirms. Three worked examples, one per letter-named flaw type (remove uncertainty → MUT-DEL-01 on W-AL-01; change version numbers → see the note below; remove signatures → MUT-DEL-03 on W-SI-01).
 
@@ -298,7 +318,7 @@ One measurement, two arms, one report. Already scoped as P25-A in `PHASE2_5_STAT
 
 ### 2.1 Arms
 
-**Arm M (mutation):** full operator battery, all valid sites, scored via inject-verify. Ground truth: manifests (perfect by construction). Primary output: per-pattern recall for MECHANICAL patterns at v0.5.15.1, package-assessment level, with per-layer attribution.
+**Arm M (mutation):** full operator battery, all valid sites, scored via `inject verify`. Ground truth: manifests (perfect by construction). Primary output: per-pattern recall for MECHANICAL patterns at v0.5.15.1, package-assessment level, with per-layer attribution.
 
 **Substrates (v1.1 rebinding).** v1.0 said "the three case-study encodings," which is ambiguous where a case study has more than one CoU. The substrate ruling (v2.1 §8) binds it to **every distinct encoded package — five**: `morrison/cou1`, `morrison/cou2`, `nasa-hpt/take-off`, `nasa-hpt/cruise`, `nagaraja/cou1`. Session 1's precondition inventory qualifies what each can host:
 
@@ -337,7 +357,7 @@ So the battery runs on the three case-study encodings, and the report states the
 | morrison/cou2 | 18 | W-PROV-01 (7), W-EP-04 (6), COMPOUND-01 (2), W-AL-02 (1), W-CON-04 (1), W-ON-02 (1) |
 | nagaraja/cou1 | 19 | W-AL-01 (6), W-AR-05 (6), W-EP-02 (6), W-ON-02 (1) |
 
-The Morrison figures reproduce `site/src/content/docs/research/nafems-2026.md:21` exactly (11 across 5; 18 across 6 including 2 COMPOUND-01), which is the independent check that the harness and the published record agree. These sets **are** the delta-scoring baselines. A mutant's detection set is therefore never compared against zero. `inject-verify` scores the **delta**:
+The Morrison figures reproduce `site/src/content/docs/research/nafems-2026.md:21` exactly (11 across 5; 18 across 6 including 2 COMPOUND-01), which is the independent check that the harness and the published record agree. These sets **are** the delta-scoring baselines. A mutant's detection set is therefore never compared against zero. `inject verify` scores the **delta**:
 
 1. the injected finding **appears** in the mutant's detection set, **and**
 2. the baseline findings **persist undisturbed** (set equality on the remainder).
@@ -406,7 +426,7 @@ The as-encoded vs enrichment-required split is reported **alongside**, as the **
 | ~~0b~~ | **DONE.** §0.1 check run; `INV-8-findings.md` addendum 2 written (five findings); `INV-1-findings.md` §3 updated to the ruled 17/4 | Falsification on record ahead of any operator |
 | 0c | **§0.2 substrate-validity precondition** (v1.2): `verify` + `check` on each unmutated substrate at v0.5.15.1, output committed | "Mutation started from valid packages" becomes citable, not implied |
 | 1 | Operator registry + engine + liveness check | **All 17** MECHANICAL patterns covered or reported uncoverable — count the registry, do not trust the prose enumeration (§1.2.1) |
-| 2 | CLI wrap + inject-verify | Fresh-clone walkthrough executes end to end |
+| 2 | CLI wrap (`inject`, `inject verify`) + walkthrough | Fresh-clone walkthrough executes end to end |
 | 3 | Arm M run | Manifest-scored results committed |
 | 4 | Arm G rerun at v0.5.15.1 (+NC) | Version-consistent table committed |
 | 5 | REPORT.md + gate evaluation | A2/D8 prose can start with real numbers |
@@ -424,4 +444,4 @@ Steps 3 and 4 are parallel once step 2 lands. Do not begin manuscript A2 text be
 
 ## 5. Done-gate (phase)
 
-All five: (1) every MECHANICAL pattern has measured recall at v0.5.15.1 from Arm M with live-mutant-verified denominators; (2) `uofa inject`/`detect`/`inject-verify` run from a fresh clone per the walkthrough; (3) the three letter-named flaw demos execute; (4) REPORT.md committed with nulls, CIs, layer attribution, and the single-version recall/NC pair; (5) GATE-H3 evaluated once, result recorded whichever way it lands.
+All five: (1) every MECHANICAL pattern has measured recall at v0.5.15.1 from Arm M with live-mutant-verified denominators; (2) `uofa inject`, `uofa rules` and `uofa inject verify` run from a fresh clone per the walkthrough; (3) the three letter-named flaw demos execute; (4) REPORT.md committed with nulls, CIs, layer attribution, and the single-version recall/NC pair; (5) GATE-H3 evaluated once, result recorded whichever way it lands.
