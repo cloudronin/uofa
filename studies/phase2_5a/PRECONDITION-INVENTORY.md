@@ -67,6 +67,49 @@ W-PROV-01 only on morrison/cou2; W-AL-02 and W-CON-04 only on nagaraja/cou1. The
 per-pattern `n` will be 1-4, so amendment A4's wide-interval naming applies to most
 of Class A, not just W-EP-02.
 
+## Finding 0 — the NASA HPT substrates are weakener reports, not evidence packages
+
+The parent ruling names **five** substrate packages (both Morrison CoUs, both NASA
+HPT configs, Nagaraja). Only three are executable. `uofa-aero-cou1-nasa7009b.jsonld`
+and its cou2 sibling are **not UofA packages**:
+
+- `@graph`-form with no `@context`; **18 nodes: 17 `WeakenerAnnotation`s and one
+  stub** carrying nothing but `@id` + `hasWeakener`.
+- **No `UnitOfAssurance`, no ContextOfUse, no ValidationResult, no
+  CredibilityFactor.** Every core rule opens `(?uofa rdf:type uofa:UnitOfAssurance)`,
+  so none can bind.
+- The source evidence lives beside them in `aero-evidence-cou{1,2}.zip` as raw
+  documents (CSV, PDF, DOCX, TXT + `EVIDENCE_MANIFEST.txt`) — inputs to extraction,
+  not an encoded package. **No encoded HPT package is committed.**
+
+**Running `uofa rules` on them reports 17 and 20 weakeners, and every one is
+pre-stored rather than inferred.** Demonstrated by stripping the 17 stored
+annotations and re-running:
+
+```
+Data graph: 0 triples
+Inferred 0 new triples (0 total)
+SUMMARY: 0 weakener(s) detected
+```
+
+Two consequences.
+
+1. **They cannot be mutation substrates** — there is nothing to mutate. Making them
+   usable would require running the extraction pipeline over the zips to produce a
+   package, which is an LLM step and outside Phase 2.5a's scope. So: **five ruled,
+   three executable**, and the report states that with this as the ground.
+2. **Worth checking before any reproduction claim rests on them.** A reader who runs
+   `uofa rules` against these files sees 17 weakeners and would reasonably take that
+   for live detection. `site/src/content/docs/research/nafems-2026.md:21` offers
+   "optional cross-domain reproduction with the NASA-STD-7009B HPT-blade example" —
+   whether that walkthrough targets these files or the zips was not checked here,
+   and it should be before C2's screenshots are taken.
+
+*(This finding cost two wrong statements first: I recorded the aero packages as
+having "0 results at all" from a flat-JSON probe that could not see `@graph` form,
+then over-corrected to "they fire 17 and 20" from engine output that was reading
+stored annotations back. The inventory script now normalises both package shapes.)*
+
 ## Finding 1 — W-EP-01's guard names a class the schema does not define
 
 **This is a rule finding, not a corpus finding, and it is reported rather than

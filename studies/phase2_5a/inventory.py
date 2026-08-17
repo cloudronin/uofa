@@ -13,22 +13,38 @@ U = Namespace("https://uofa.net/vocab#")
 PROV = Namespace("http://www.w3.org/ns/prov#")
 SCHEMA = Namespace("https://schema.org/")
 
+# The five packages ruled as substrates (parent v2.1 §8). iso42001 was admitted
+# 2026-08-16 to shrink the enrichment family, measured to unlock nothing, and
+# dropped the same day -- see PRECONDITION-INVENTORY.md.
 SUBS = {
     "morrison/cou1": "packs/vv40/examples/morrison/cou1/uofa-morrison-cou1.jsonld",
     "morrison/cou2": "packs/vv40/examples/morrison/cou2/uofa-morrison-cou2.jsonld",
     "nagaraja/cou1": "packs/vv40/examples/nagaraja/cou1/uofa-nagaraja-cou1.jsonld",
-    # Admitted 2026-08-16 as a fourth substrate to reduce the enrichment family.
-    # Not a CM&S case study -- an ISO 42001 AI-management-system encoding -- so
-    # results from it are reported separately; see PRECONDITION-INVENTORY.md.
-    "iso42001/cou1": "packs/iso42001/examples/hybrid/cou1/uofa-iso42001-cou1.jsonld",
-    "iso42001/cou2": "packs/iso42001/examples/hybrid/cou2/uofa-iso42001-cou2.jsonld",
+    "aero/cou1": "packs/nasa-7009b/examples/aerospace/uofa-aero-cou1-nasa7009b.jsonld",
+    "aero/cou2": "packs/nasa-7009b/examples/aerospace/uofa-aero-cou2-nasa7009b.jsonld",
 }
 
 def load(p):
+    """Expand a package to RDF through the shipped context.
+
+    Two package shapes exist in the repo and a flat-only reader silently sees an
+    empty graph for the second, which is how an earlier pass of this inventory
+    reported the NASA HPT packages as having no ValidationResults when the engine
+    fires 17 and 20 rules on them:
+
+      flat     -- properties at the top level, `@context` present
+      @graph   -- properties inside `@graph`, `@context` absent (aero/*)
+
+    Both are normalised here before expansion.
+    """
     g = Graph()
     doc = json.loads(Path(p).read_text())
-    # inline the local context so expansion is offline and matches the engine
-    doc["@context"] = json.loads(Path("spec/context/v0.5.jsonld").read_text())["@context"]
+    ctx = json.loads(Path("spec/context/v0.5.jsonld").read_text())["@context"]
+    if "@graph" in doc:
+        # keep every node; the UoA is one of them, and the rules read the others
+        doc = {"@context": ctx, "@graph": doc["@graph"]}
+    else:
+        doc["@context"] = ctx
     g.parse(data=json.dumps(doc), format="json-ld")
     return g
 
