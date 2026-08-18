@@ -16,7 +16,7 @@
 | CLI integration | `uofa check` gains `--oos` / `--no-oos` flags + optional `oos` field in report |
 | Pack-level opt-in | vv40 ships with `oos.enabled: false` — no behavior change for existing users |
 | §5.5 backward-compat regression | **byte-identical** reports vs pre-v0.2 baseline (load-bearing test) ✓ |
-| Java JUnit tests | 13 / 13 pass (11 at v0.1; +2 covering the walkSufficiency backtracking fix — see `OOSEngineTest#backtracksWhenRequiredEvidenceIsNotFirstCandidate`) |
+| Java JUnit tests | 14 / 14 pass (11 at v0.1; +3 covering the walkSufficiency backtracking fix — see `OOSEngineTest#backtracksWhenRequiredEvidenceIsNotFirstCandidate`) |
 | Python pytest (OOS scope) | 37 / 37 pass (substrate + smoke + production-OOS §5.1–5.6) |
 | Python pytest (broader spot-check) | 67 / 67 pass on C3 + check + parse_firings paths |
 | Spec time budget | 12–18 h; actual: single AI-paired session (well under cap) |

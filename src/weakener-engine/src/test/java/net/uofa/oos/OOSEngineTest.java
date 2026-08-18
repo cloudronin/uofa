@@ -263,4 +263,59 @@ class OOSEngineTest {
                 .contains("StructuredComparisonStudy"),
             "The failing clause should be the unsatisfiable rdf:type check");
     }
+
+    /**
+     * The decisive case: a bundle that is genuinely SUFFICIENT must clear.
+     *
+     * <p>The iso42001 rules chain three separate hasSupportingEvidence clauses,
+     * each followed by its own rdf:type check. Under v0.1 every one of those
+     * three variables bound to the same first-returned evidence node, so the
+     * rule could only clear if a single node carried all three required types
+     * at once — which never happens. Those rules were in effect unconditional
+     * gap reporters for any claim they discriminated on.
+     *
+     * <p>It went unnoticed because every OOS calibration package is an
+     * out_of_scope case that SHOULD report a gap, so the rules were never
+     * exercised against a bundle that should pass. This test is that case.
+     */
+    @Test
+    void clearsABundleThatCarriesEveryRequiredEvidenceType(@TempDir Path tmp) throws Exception {
+        Path pkg = tmp.resolve("aims_sufficient.jsonld");
+        Files.writeString(pkg, ""
+            + "{\n"
+            + "  \"@context\": {\n"
+            + "    \"@vocab\": \"https://uofa.net/vocab#\",\n"
+            + "    \"aims\": \"https://uofa.net/vocab/aims#\",\n"
+            + "    \"id\": \"@id\",\n"
+            + "    \"type\": \"@type\"\n"
+            + "  },\n"
+            + "  \"id\": \"https://example.test/uofa-sufficient\",\n"
+            + "  \"type\": \"UnitOfAssurance\",\n"
+            + "  \"bindsClaim\": {\n"
+            + "    \"id\": \"https://example.test/claim/policy\",\n"
+            + "    \"type\": \"aims:AIPolicyAppropriatenessClaim\",\n"
+            + "    \"hasSupportingEvidence\": [\n"
+            + "      {\"id\": \"https://example.test/ev/policy\",  \"type\": \"aims:AIPolicy\"},\n"
+            + "      {\"id\": \"https://example.test/ev/purpose\", \"type\": \"aims:OrganizationalPurposeStatement\"},\n"
+            + "      {\"id\": \"https://example.test/ev/review\",  \"type\": \"aims:PolicyToPurposeReviewRecord\"}\n"
+            + "    ]\n"
+            + "  }\n"
+            + "}\n");
+
+        Path rules = repoRoot().resolve("packs/iso42001/rules/oos/oos_v0.1.rules");
+        Model data = JsonLdLoader.load(pkg, null);
+        List<Rule> ruleList = Rule.rulesFromURL("file:" + rules.toAbsolutePath());
+        Map<String, OOSEngine.RuleMetadata> metadata =
+            OOSEngine.CommentBlockParser.parse(rules);
+        Rule policyRule = ruleList.stream()
+            .filter(r -> "oos_aims_policy_appropriateness_warranted".equals(r.getName()))
+            .findFirst()
+            .orElseThrow();
+
+        List<OOSEngine.OOSResult> results = OOSEngine.evaluateRule(
+            policyRule, metadata.get(policyRule.getName()), data);
+        assertEquals(0, results.size(),
+            "Bundle carries AIPolicy, OrganizationalPurposeStatement AND "
+            + "PolicyToPurposeReviewRecord, so the rule must clear it");
+    }
 }
