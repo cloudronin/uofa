@@ -1,0 +1,46 @@
+// Copy to .vscode/settings.json (which stays gitignored) for schema-aware
+// editing of UofA evidence packages.
+//
+//   cp .vscode/settings.json.example .vscode/settings.json
+//
+// Sublime Text users: the equivalent lives in LSP-json.sublime-settings under
+// "userSchemas" ({"fileMatch": [...], "uri": ...}), and Sublime additionally
+// needs Packages/User/JSON.sublime-settings containing {"extensions": ["jsonld"]}
+// -- its built-in JSON syntax does not claim .jsonld, so LSP-json's source.json
+// selector never attaches without it.
+{
+  // VS Code's JSON language service does not claim .jsonld by default, so
+  // without this the files open as plain text: no folding, no outline, and no
+  // schema validation regardless of what json.schemas says.
+  "files.associations": {
+    "*.jsonld": "json"
+  },
+
+  // Relative to the workspace, so this validates against the schema in your
+  // working tree -- including a regeneration you have not committed yet.
+  // Regenerate with:  uofa schema --emit json -o spec/schemas/uofa.schema.json
+  //
+  // Outside a checkout (or in user-level settings) use the published copy
+  // instead, which the schema declares as its own $id:
+  //   "url": "https://uofa.net/schemas/uofa.schema.json"
+  //
+  // Do NOT instead put "$schema" inside the .jsonld files. canonicalizationAlg
+  // is json-sortkeys/v1, which hashes the JSON serialization, so an extra
+  // top-level key breaks both the hash and the signature -- `uofa verify` fails
+  // on both counts. The context also sets @vocab, so $schema would expand into
+  // a real triple rather than being ignored.
+  "json.schemas": [
+    {
+      "fileMatch": [
+        "**/packages/*.jsonld",
+        "packs/*/examples/**/*.jsonld",
+        "**/*.uofa.jsonld",
+        // JSON-LD context documents are not UofA instances
+        "!spec/context/*.jsonld"
+      ],
+      "url": "./spec/schemas/uofa.schema.json"
+    }
+  ],
+
+  "json.validate.enable": true
+}
