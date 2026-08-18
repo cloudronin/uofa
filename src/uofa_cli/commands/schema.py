@@ -77,6 +77,11 @@ def add_arguments(parser):
                         help="output path (default depends on --emit format)")
     parser.add_argument("--emit", choices=["json", "python"], default="json",
                         help="output format: json (JSON Schema, default) or python (import constants)")
+    parser.add_argument("--freeze", metavar="VERSION",
+                        help="freeze the generated schema to spec/schemas/<VERSION>.json "
+                             "with a versioned $id, e.g. --freeze v0.5. Frozen versions are "
+                             "published at https://uofa.net/schemas/<VERSION>.json for adopters "
+                             "to pin, and are never regenerated. Refuses to overwrite one.")
 
 
 def _collect_list(g: Graph, node) -> list:
@@ -732,6 +737,8 @@ def _nasa_categories():
 
 def run(args) -> int:
     if args.emit == "python":
+        if getattr(args, "freeze", None):
+            raise ValueError("--freeze applies to the JSON Schema only, not --emit python")
         return _run_python(args)
     return _run_json(args)
 
@@ -767,6 +774,44 @@ def _run_python(args) -> int:
     return 0
 
 
+_FROZEN_VERSION_RE = re.compile(r"^v\d+\.\d+$")
+
+
+def _freeze_target(schema: dict, version: str, args) -> tuple[dict, Path]:
+    """Retarget *schema* as an immutable published version. Returns (schema, path).
+
+    A frozen version is what an adopter pins. Its whole value is that it does not
+    move, so this refuses to overwrite one -- there is deliberately no --force.
+    Rewriting a published version silently is the failure the versioning scheme
+    exists to prevent, and a flag offering it would hand the guarantee straight
+    back. If a frozen version is genuinely wrong the remedy is a new version, or
+    a hand edit whose commit explains itself; both leave a trace.
+
+    Naming mirrors spec/context/vX.Y.jsonld so a consumer can read a package's
+    @context version and pick the matching schema without a lookup table.
+    """
+    if not _FROZEN_VERSION_RE.match(version):
+        raise ValueError(
+            f"--freeze expects a version like v0.5, got {version!r}. The naming "
+            f"mirrors spec/context/vX.Y.jsonld so the two line up."
+        )
+    if args.output:
+        raise ValueError("--freeze picks its own output path; drop --output")
+
+    target = paths.find_repo_root() / "spec" / "schemas" / f"{version}.json"
+    if target.exists():
+        raise FileExistsError(
+            f"{target.relative_to(paths.find_repo_root())} already exists and frozen "
+            f"versions are never regenerated -- adopters pin them, so rewriting one "
+            f"changes what their tooling accepts with no signal. Cut a new version "
+            f"instead, or edit the file by hand in a commit that says why."
+        )
+
+    schema = dict(schema)
+    schema["$id"] = f"https://uofa.net/schemas/{version}.json"
+    return schema, target
+
+
 def _run_json(args) -> int:
     """Generate JSON Schema from SHACL shapes (core + active packs).
 
@@ -789,7 +834,11 @@ def _run_json(args) -> int:
 
     schema = _generate_schema(shacl_files)
 
-    output = args.output or (paths.find_repo_root() / "spec" / "schemas" / "uofa.schema.json")
+    frozen = getattr(args, "freeze", None)
+    if frozen:
+        schema, output = _freeze_target(schema, frozen, args)
+    else:
+        output = args.output or (paths.find_repo_root() / "spec" / "schemas" / "uofa.schema.json")
     output.parent.mkdir(parents=True, exist_ok=True)
 
     with open(output, "w") as f:
@@ -802,6 +851,14 @@ def _run_json(args) -> int:
         for branch in schema["oneOf"]
     )
     n_defs = len(schema.get("$defs", {}))
+
+    if frozen:
+        result_line("Schema frozen", True, str(output))
+        info(f"  {n_props} properties across {len(schema['oneOf'])} profiles, {n_defs} definitions")
+        info(f"  $id: {schema['$id']}")
+        info(f"  Publishes to https://uofa.net/schemas/{frozen}.json on the next site build.")
+        info(f"  Commit it. Frozen versions are never regenerated -- adopters pin them.")
+        return 0
 
     result_line("Schema generated", True, str(output))
     info(f"  {n_props} properties across {len(schema['oneOf'])} profiles, {n_defs} definitions")
