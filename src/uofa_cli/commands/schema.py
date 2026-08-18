@@ -806,6 +806,17 @@ def _run_json(args) -> int:
     result_line("Schema generated", True, str(output))
     info(f"  {n_props} properties across {len(schema['oneOf'])} profiles, {n_defs} definitions")
     info(f"  Source: {', '.join(str(p) for p in shacl_files)}")
-    info(f"  Add to your editor: set \"$schema\" in your .jsonld files")
+    # NOT "set $schema in your .jsonld files", which this line used to say.
+    # canonicalizationAlg is json-sortkeys/v1: the hash covers the JSON
+    # serialization, so an extra top-level key changes it and `uofa verify`
+    # then reports both "Hash match" and "Signature valid" as failures. The
+    # context also sets @vocab, so $schema does not get ignored on expansion --
+    # it becomes a triple, <https://uofa.net/vocab#$schema>. Point the editor at
+    # the file from the outside instead.
+    info(f"  Editor setup: map this file by path in your editor settings")
+    info(f"    VS Code    json.schemas -> fileMatch + url")
+    info(f"    Sublime    LSP-json userSchemas -> fileMatch + uri")
+    info(f"  Do NOT set \"$schema\" inside signed .jsonld files: it changes the")
+    info(f"  canonical form and invalidates hash + signature (see `uofa verify`)")
 
     return 0
