@@ -29,7 +29,7 @@ const DOCS_PAGE = join(SITE_ROOT, 'src/content/docs/reference/vocabulary.md');
 
 // Segments this script owns. Asserted against .gitignore for the same reason as
 // the identifier segments: public/ also holds committed assets.
-const SEGMENTS = ['vocab', 'context'];
+const SEGMENTS = ['vocab', 'context', 'schemas'];
 
 function assertGitignored() {
   const gi = readFileSync(join(SITE_ROOT, '.gitignore'), 'utf8');
@@ -145,6 +145,56 @@ ${rows}
   return files.length;
 }
 
+/**
+ * Serve the generated JSON Schema from uofa.net at the URL it already claims.
+ *
+ * The destination is derived from the schema's own `$id` rather than hardcoded,
+ * so the declared identity and the published location cannot disagree. If `$id`
+ * carries a version segment (`/schemas/v0.5/uofa.schema.json`) the document goes
+ * there and the unversioned path is also written as the current alias, giving
+ * adopters something stable to pin. If `$id` is unversioned the single
+ * unversioned path IS current.
+ *
+ * Unlike the contexts there is no .json twin to write: the file is already
+ * .json, so GitHub Pages serves it as application/json without help.
+ *
+ * Publishing this is inert with respect to integrity. Nothing embeds the schema
+ * URL inside a canonicalised package, so unlike @context it carries no risk to
+ * any hash or signature.
+ */
+function publishSchemas() {
+  const src = join(REPO_ROOT, 'spec/schemas/uofa.schema.json');
+  const schema = JSON.parse(readFileSync(src, 'utf8'));
+  const id = schema.$id;
+  if (!id) throw new Error('spec/schemas/uofa.schema.json has no $id to publish under');
+
+  const url = new URL(id);
+  if (url.hostname !== 'uofa.net') {
+    throw new Error(`schema $id points at ${url.hostname}, not uofa.net: ${id}`);
+  }
+  const segments = url.pathname.replace(/^\//, '').split('/');
+  if (segments[0] !== 'schemas' || segments.some((s) => !s || s === '..')) {
+    throw new Error(`schema $id path is not a plain /schemas/... route: ${id}`);
+  }
+
+  const written = [];
+  const emit = (rel) => {
+    const abs = join(PUBLIC, rel);
+    mkdirSync(dirname(abs), { recursive: true });
+    copyFileSync(src, abs);
+    written.push(rel);
+  };
+
+  emit(segments.join('/'));
+
+  // A versioned $id also gets the unversioned path as "current".
+  const versioned = segments.findIndex((s) => /^v\d+(\.\d+)*$/.test(s));
+  if (versioned !== -1) {
+    emit(segments.filter((_, i) => i !== versioned).join('/'));
+  }
+  return written;
+}
+
 function writeDocsPage(vocab) {
   const rows = NAMESPACES.map((ns) => {
     const c = coverage(vocab.byNamespace[ns.key]);
@@ -212,9 +262,13 @@ function main() {
   }
 
   const contexts = publishContexts();
+  const schemas = publishSchemas();
   writeDocsPage(vocab);
 
-  console.log(`vocab-pages: ${summary.join(', ')}; ${contexts} context documents`);
+  console.log(
+    `vocab-pages: ${summary.join(', ')}; ${contexts} context documents; ` +
+    `schema at ${schemas.join(', ')}`
+  );
 }
 
 try {
