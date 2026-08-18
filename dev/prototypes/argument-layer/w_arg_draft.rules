@@ -1,0 +1,144 @@
+# ============================================================================
+# W-ARG — DRAFT argument-layer weakeners (PROTOTYPE, not catalog)
+# ============================================================================
+# Engine: Apache Jena GenericRuleReasoner (FORWARD_RETE mode)
+#
+# These rules operate on a reified inference step (uofa:InferenceStep) rather
+# than on evidence nodes. They exist to test whether the argument a decision
+# record asserts in prose can be checked structurally. See
+# docs/UofA_Argument_Layer_Spec_v0_1.md.
+#
+# PROFILE-GATED. Every rule requires uofa:ProfileArgument, so legacy packages
+# and the 9,115-file adversarial corpus are untouched. Conformance is opt-in
+# and enforced only once opted into.
+#
+# NOTE: makeSkolem must be in the rule BODY (before ->) in RETE mode.
+# ============================================================================
+
+@prefix uofa: <https://uofa.net/vocab#>.
+@prefix prov: <http://www.w3.org/ns/prov#>.
+@prefix rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#>.
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#>.
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#>.
+@prefix schema: <https://schema.org/>.
+
+# ============================================================================
+# W-ARG-03: Modality Substitution — necessary condition used as sufficient
+# ============================================================================
+# A conclusion asserted with claimModality 'sufficient', drawn from a ground
+# the record itself establishes as 'necessary', by a warrant that licenses no
+# such move.
+#
+# Encoding note: the naive reading of this defect is "a sufficient conclusion
+# whose ONLY grounds are necessary", which needs set-level negation. The
+# warrant is the better signal and needs none: what makes the step fallacious
+# is not the count of grounds but that nothing licenses necessity=>sufficiency.
+# 'direct-measurement' reports a measured comparison; it cannot carry a claim
+# beyond what was measured. If an author declares a warrant that does license
+# the step (e.g. 'eliminative'), this rule falls silent and the burden moves to
+# whether that warrant holds -- which is the correct place for it.
+#
+# All clauses are positive and test ORIGINAL input triples, so there is no
+# RETE ordering hazard (cf. the W-PROV-01 note in the core catalog).
+[w_arg03:
+    (?uofa rdf:type uofa:UnitOfAssurance)
+    (?uofa uofa:conformsToProfile uofa:ProfileArgument)
+    (?uofa uofa:hasInferenceStep ?i)
+    (?i uofa:supportsClaim ?c)
+    (?c uofa:claimModality 'sufficient')
+    (?i uofa:hasGround ?g)
+    (?g uofa:claimModality 'necessary')
+    (?i uofa:warrantKind 'direct-measurement')
+    makeSkolem(?ann, ?uofa, 'W-ARG-03', ?i)
+    ->
+    (?ann rdf:type uofa:WeakenerAnnotation)
+    (?ann uofa:patternId 'W-ARG-03')
+    (?ann uofa:severity 'Critical')
+    (?ann uofa:affectedNode ?i)
+    (?ann schema:description 'Inference step draws a sufficiency conclusion from a ground the record establishes as a necessary condition, warranted only by direct measurement — meeting a necessary criterion is asserted to establish fitness for purpose.')
+    (?uofa uofa:hasWeakener ?ann)
+]
+
+# ============================================================================
+# W-ARG-04: Compliance Appeal — assessment rigour offered for model behaviour
+# ============================================================================
+# A conclusion about what the model DOES (claimKind 'model-behaviour') grounded
+# in a claim about how well the assessment was CONDUCTED (claimKind
+# 'assessment-rigour'). Meeting a gradation goal is a fact about the assessment,
+# not about the model, so such a ground contributes nothing to a behavioural
+# conclusion regardless of what else is present -- which is why the existential
+# form is the right one here and no set negation is needed.
+[w_arg04:
+    (?uofa rdf:type uofa:UnitOfAssurance)
+    (?uofa uofa:conformsToProfile uofa:ProfileArgument)
+    (?uofa uofa:hasInferenceStep ?i)
+    (?i uofa:supportsClaim ?c)
+    (?c uofa:claimKind 'model-behaviour')
+    (?i uofa:hasGround ?g)
+    (?g uofa:claimKind 'assessment-rigour')
+    makeSkolem(?ann, ?uofa, 'W-ARG-04', ?i)
+    ->
+    (?ann rdf:type uofa:WeakenerAnnotation)
+    (?ann uofa:patternId 'W-ARG-04')
+    (?ann uofa:severity 'High')
+    (?ann uofa:affectedNode ?i)
+    (?ann schema:description 'Inference step offers an assessment-rigour ground for a model-behaviour conclusion — credibility factors meeting their required levels is a fact about the assessment, not evidence of what the model does.')
+    (?uofa uofa:hasWeakener ?ann)
+]
+
+# ============================================================================
+# W-ARG-01: Quantity Gap — conclusion asserts a quantity no ground speaks to
+# ============================================================================
+# The conclusion is about quantity Q. No ground of the same inference step is
+# about Q. This is the join the requirement layer calls "quantity identity"
+# (UofA_Requirement_Layer_Spec_v0_1.md, piece 1); W-ARG-01 is only ever as good
+# as that identity.
+#
+# Encoding note: this needs "NO ground", i.e. set-level negation. The obvious
+# encoding -- seed a marker with a forward rule, then noValue it -- was tried
+# and MEASURABLY FAILS: it fires on the sound control even though the marker
+# and the conclusion value are provably identical (RESULTS.md, experiment 3).
+# Jena evaluates noValue at activation, not at fixpoint. So noValue tests
+# uofa:groundQuantity, an ORIGINAL triple the producer emits.
+[w_arg01_detect:
+    (?uofa rdf:type uofa:UnitOfAssurance)
+    (?uofa uofa:conformsToProfile uofa:ProfileArgument)
+    (?uofa uofa:hasInferenceStep ?i)
+    (?i uofa:supportsClaim ?c)
+    (?c uofa:aboutQuantity ?qn)
+    (?qn uofa:quantityId ?q)
+    noValue(?i, uofa:groundQuantity, ?q)
+    makeSkolem(?ann, ?uofa, 'W-ARG-01', ?i)
+    ->
+    (?ann rdf:type uofa:WeakenerAnnotation)
+    (?ann uofa:patternId 'W-ARG-01')
+    (?ann uofa:severity 'Critical')
+    (?ann uofa:affectedNode ?i)
+    (?ann schema:description 'Inference step concludes about a quantity that none of its grounds addresses — the evidence offered does not speak to what the claim asserts.')
+    (?uofa uofa:hasWeakener ?ann)
+]
+
+# ============================================================================
+# W-ARG-02: Scope Undercoverage — conclusion reaches beyond the ground scopes
+# ============================================================================
+# The conclusion holds over population P; no ground covers P. The prototype
+# compares populationId identity only. Real coverage (numeric ranges, subset
+# containment) needs the SPARQL pre-pass pattern established by W-SURR-03 --
+# see the spec's open question on scope algebra.
+[w_arg02_detect:
+    (?uofa rdf:type uofa:UnitOfAssurance)
+    (?uofa uofa:conformsToProfile uofa:ProfileArgument)
+    (?uofa uofa:hasInferenceStep ?i)
+    (?i uofa:supportsClaim ?c)
+    (?c uofa:overScope ?sc)
+    (?sc uofa:populationId ?p)
+    noValue(?i, uofa:groundPopulation, ?p)
+    makeSkolem(?ann, ?uofa, 'W-ARG-02', ?i)
+    ->
+    (?ann rdf:type uofa:WeakenerAnnotation)
+    (?ann uofa:patternId 'W-ARG-02')
+    (?ann uofa:severity 'High')
+    (?ann uofa:affectedNode ?i)
+    (?ann schema:description 'Inference step concludes over a population none of its grounds covers — the claim reaches beyond the conditions actually evaluated.')
+    (?uofa uofa:hasWeakener ?ann)
+]
