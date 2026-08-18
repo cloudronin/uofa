@@ -178,21 +178,87 @@ function publishSchemas() {
   }
 
   const written = [];
-  const emit = (rel) => {
+  const emit = (rel, from) => {
     const abs = join(PUBLIC, rel);
     mkdirSync(dirname(abs), { recursive: true });
-    copyFileSync(src, abs);
+    copyFileSync(from, abs);
     written.push(rel);
   };
 
-  emit(segments.join('/'));
+  // The moving alias: whatever main currently generates.
+  emit(segments.join('/'), src);
 
-  // A versioned $id also gets the unversioned path as "current".
-  const versioned = segments.findIndex((s) => /^v\d+(\.\d+)*$/.test(s));
-  if (versioned !== -1) {
-    emit(segments.filter((_, i) => i !== versioned).join('/'));
+  // Frozen versions, named like the contexts (spec/schemas/vX.Y.json ->
+  // /schemas/vX.Y.json) so a consumer can read a package's @context version and
+  // pick the matching schema without a lookup table. Cut by `uofa schema
+  // --freeze vX.Y` and never regenerated -- adopters pin these.
+  const dir = join(REPO_ROOT, 'spec/schemas');
+  const frozen = readdirSync(dir).filter((f) => /^v\d+\.\d+\.json$/.test(f)).sort();
+  for (const f of frozen) {
+    const abs = join(dir, f);
+    // A frozen file whose $id does not match its own URL would publish a
+    // document claiming to be something else. Caught here as well as in the
+    // test, because the build is what actually puts it on the internet.
+    const got = JSON.parse(readFileSync(abs, 'utf8')).$id;
+    const want = `https://uofa.net/schemas/${f}`;
+    if (got !== want) {
+      throw new Error(`frozen schema ${f} declares $id ${got}, expected ${want}`);
+    }
+    emit(`schemas/${f}`, abs);
   }
+
+  writeSchemaIndex(frozen, segments.join('/'));
   return written;
+}
+
+/** Landing page for /schemas/, mirroring the /context/ one. */
+function writeSchemaIndex(frozen, currentRel) {
+  const rows = frozen.map((f) => {
+    const v = f.replace('.json', '');
+    return `      <tr><td><a href="/schemas/${esc(f)}"><code>${esc(v)}</code></a></td>
+        <td>frozen — safe to pin</td>
+        <td><a href="/context/${esc(v)}.jsonld"><code>${esc(v)}</code> context</a></td></tr>`;
+  }).join('\n');
+
+  write('schemas/index.html', `<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>JSON Schemas — UofA</title>
+<link rel="stylesheet" href="/_iri/iri.css" />
+</head>
+<body>
+<main class="iri-main">
+  <h1>JSON Schemas</h1>
+  <p class="iri-note">Generated from the SHACL shapes. Use these to validate UofA
+  evidence packages in an editor or in CI — point your tooling at a URL below.
+  Do <strong>not</strong> add <code>$schema</code> inside a package: the hash
+  covers the JSON serialization, so an extra key invalidates the signature.</p>
+  <section>
+    <h2>Pin a version</h2>
+    <p class="iri-note">Frozen versions never change. Match the version to the
+    <code>@context</code> your package declares.</p>
+    <table>
+      <thead><tr><th>Schema</th><th>Status</th><th>Matching context</th></tr></thead>
+      <tbody>
+${rows || '      <tr><td colspan="3">none yet</td></tr>'}
+      </tbody>
+    </table>
+  </section>
+  <section>
+    <h2>Track current</h2>
+    <p class="iri-note"><a href="/${esc(currentRel)}"><code>/${esc(currentRel)}</code></a>
+    always serves what <code>main</code> generates. Convenient for development,
+    but it moves — pin a version above if you need stability.</p>
+  </section>
+</main>
+<footer class="iri-foot">
+  <p>Generated from <code>spec/schemas/</code> in the repository at build time.</p>
+</footer>
+</body>
+</html>
+`);
 }
 
 function writeDocsPage(vocab) {
