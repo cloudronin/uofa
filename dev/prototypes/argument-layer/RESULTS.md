@@ -217,6 +217,73 @@ OOS rule for the argument gap still needs the claim to carry structure, so the
 representation work in the spec is a precondition for both paths rather than an
 alternative to either.
 
+## Experiment 6 — can OOSEngine carry the argument layer?
+
+Two questions were left open by experiment 5. Both are now answered.
+
+### Does binding propagation handle conclusion-bound-tested-against-grounds?
+
+**Bindings do propagate** forward across sufficiency clauses
+(`OOSEngine.walkSufficiency`, lines 178-211): each clause is resolved against
+the accumulated map, unbound variables become `Node.ANY`, and matches are bound
+via `putIfAbsent`.
+
+**But there is no backtracking.** The walk calls `data.getGraph().find(...)`,
+takes `it.next()` — the *first* triple returned — commits to it, and moves on.
+If that binding makes a later clause fail, the rule reports failure rather than
+trying the next candidate.
+
+W-ARG-01's shape is *"does **any** ground address quantity Q"*. That is exactly
+an existential over a multi-valued property, and it needs the backtracking that
+is absent. So **W-ARG-01 and W-ARG-02 are not expressible correctly in OOS
+v0.1** as it stands.
+
+### This is not hypothetical — the shipped rules have it
+
+Two packages were built from the row 16 package, both given
+`sourceTaxonomy: oos/subjective-model-form-adequacy` so
+`oos_modelform_adequacy_warranted` applies, and both given a claim with **two**
+supporting-evidence items, one of which is the required
+`uofa:StructuredComparisonStudy`. They differ only in JSON array order, which is
+semantically nothing in RDF — verified identical: both graphs carry both
+`hasSupportingEvidence` links and both type the same node
+`StructuredComparisonStudy`.
+
+| Fixture | Required evidence present? | `uofa check --oos` |
+|---|---|---|
+| `A_required_first.jsonld` | **yes** | **1 gap — "missing structured model-form comparison studies"** |
+| `B_required_second.jsonld` | **yes** | 0 gaps |
+
+Package A is a **false OUT-OF-SCOPE**: the rule reports missing exactly the
+evidence the package contains. Which of the two orderings fails depends on the
+order the Jena model returns triples, not on the document.
+
+This affects every OOS rule whose sufficiency clauses traverse a multi-valued
+property — which is all nine, since `hasSupportingEvidence` is multi-valued by
+nature. Any claim carrying more than one supporting evidence item can produce a
+spurious gap. It is a defect in the engine, not in the rules.
+
+### Does modality mismatch fit the sufficiency frame?
+
+Yes, and more cleanly than the quantity check. *"The bundle warrants this claim
+only if it contains a warrant licensing the step"* is a natural sufficiency
+clause, and because an inference step declares a single `warrantKind`, it is a
+single-valued lookup that never needs backtracking.
+
+So the split is sharper than experiment 5 suggested:
+
+| Rule | OOS-expressible today |
+|---|---|
+| W-ARG-03 modality substitution | **yes** — single-valued warrant lookup |
+| W-ARG-04 compliance appeal | yes, in its existential form |
+| W-ARG-01 quantity gap | **no** — needs backtracking over grounds |
+| W-ARG-02 scope undercoverage | **no** — same |
+
+OOS remains the right frame for "can UofA evaluate this claim at all". It cannot
+yet carry the two rules that quantify over grounds, and fixing that is an engine
+change — add candidate backtracking to `walkSufficiency`, or push the existential
+into the SPARQL pre-pass the discriminator phase already uses.
+
 ## Caveats
 
 - **The fixtures are hand-authored.** They answer "if the structure were present,
