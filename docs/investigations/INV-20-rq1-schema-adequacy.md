@@ -43,7 +43,7 @@ quantity identity that would link all three.
 | `uofa:OperatingEnvelope`, `uofa:ApplicabilityConstraint` | classes, **0** declared properties |
 | Strategy / inference / warrant element | **none**; `factorConstraintWarrants` is `owl:deprecated`, comment reads *"not used by any package or shape"* |
 | `specification`, `acceptanceThreshold`, `comparisonValue`, `comparisonMetric`, `quantityOfInterest`, `passed` | used in the corpus, **declared in neither vocabulary nor context**; reach `uofa:` only via `@vocab` |
-| `requiredVerificationMethod` | declared, read by W-AR-03, populated in **1 of 75** packages |
+| `requiredVerificationMethod` | declared, read by W-AR-03, populated in **1 of 78** packages |
 | IRI references in canonical examples | **7/7, 7/7, 6/6, 3/3, 1/1** dangling |
 | W-ON-02 | fires on **65 of 71** queue packages |
 
@@ -131,7 +131,7 @@ the tool invented. That traceability is what makes a reasoning chain defensible
 between reasoners, which is the property the corpus currently lacks.
 
 **The failure mode to design against is measured.** `requiredVerificationMethod`
-is declared, rule-read, and populated in 1 of 75 packages. Optional structure in
+is declared, rule-read, and populated in 1 of 78 packages. Optional structure in
 this project goes unpopulated. An argument layer that must be authored will be
 empty in exactly the same way; one that is derived from the V&V 40 template — the
 framework is itself an argument skeleton — leaves the author only the steps the
@@ -167,4 +167,6 @@ print({t: c.get(t) for t in ['specification','acceptanceThreshold','comparisonVa
 # the declared rule-read field nobody populates
 grep -rl requiredVerificationMethod packs/*/examples \
   dev/build/adversarial/phase2/2026-04-26/adjudication_packages/packages | wc -l   # 1
+ls packs/*/examples/*/*/*.jsonld \
+  dev/build/adversarial/phase2/2026-04-26/adjudication_packages/packages/*.jsonld | wc -l  # 78
 ```
