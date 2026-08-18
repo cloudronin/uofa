@@ -30,9 +30,9 @@ the path needs building.
 
 `uofa:AssuranceClaim` then carries **0 declared properties**.
 
-## The four conventions
+## The five conventions
 
-Same property, five populations, four mutually incompatible shapes:
+Same property, mutually incompatible shapes, none of them enforced:
 
 | Where | `bindsClaim` is |
 |---|---|
@@ -41,6 +41,7 @@ Same property, five populations, four mutually incompatible shapes:
 | `packs/vv40/examples/morrison/cou2` | inline node: prose `description`, flat `prov:wasDerivedFrom` bag of 4 IRIs, `acceptanceCriteria` whose content is also a prose `description` |
 | `packs/iso42001/examples/hybrid/cou1` | **array** of two pack-typed claims (`aims:AIPolicyAppropriatenessClaim`) with `hasSupportingEvidence`, including nested evidence nodes |
 | all **71** adjudication packages | bare IRI — **0** node definitions |
+| what the OOS rules *read* — `packs/{vv40,iso42001,surrogate}/rules/oos/oos_v0.1.rules` | a claim node with `uofa:hasSupportingEvidence` |
 
 The morrison/cou2 form is the closest thing to a structured claim in the repo,
 and it is still a bundle rather than an argument: `wasDerivedFrom` names four
@@ -49,6 +50,15 @@ inference step INV-20 describes.
 
 Nothing enforces any of this. `AssuranceClaim` has no properties, so no shape
 constrains what goes inside, and each pack solved it locally.
+
+The last row is the consequential one. Every vv40 OOS rule reaches evidence
+through `(?claim uofa:hasSupportingEvidence ?e)`, and that property is carried
+by **0 of 71** adjudication packages and **0 of 3** vv40 canonical examples —
+only the 2 iso42001 examples populate it. So the OOS subsystem is written
+against a claim interior that vv40 packages do not have, and is blocked by the
+same emptiness as the weakener catalog. Confirmed by running
+`uofa check --oos` on the row 16 package: **0 judgment-required gaps**, with no
+OOS rule discriminating on an argument- or sufficiency-shaped defeater either.
 
 ## The live defect
 
@@ -130,7 +140,7 @@ rooms. Three empty rooms and a missing corridor is a pattern, not three bugs.
    independent of any proposal.
 2. Re-run the corpus, or state in the Stage 4 write-up that `rules_fired` is a
    generation-time record and 63 of 65 comparable packages have since diverged.
-3. Give `AssuranceClaim` an interior, so the four conventions have a reason to
+3. Give `AssuranceClaim` an interior, so the five conventions have a reason to
    converge — the [argument layer proposal](../UofA_Argument_Layer_Spec_v0_1.md),
    prototyped in `dev/prototypes/argument-layer/`.
 

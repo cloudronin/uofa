@@ -190,14 +190,34 @@ Reordering the rule file does not fix it, and one of the two structurally
 identical rules happened to pass — so an encoding of this shape passing its tests
 is not evidence that it is correct.
 
-The discipline that works, and that W-PROV-01 already follows: **`noValue` may
+One discipline that works, and that W-PROV-01 already follows: **`noValue` may
 test only triples present in the input.** Hence piece 5 — the producer emits the
-ground-coverage summary, and rules negate over a single declared triple. Whether
-that summary faithfully reflects `hasGround` is a package-integrity question, and
-a join-with-negation belongs in SHACL (`sh:sparql`), which does it natively.
+ground-coverage summary, and rules negate over a single declared triple.
 
-That split is worth stating as architecture: **SHACL checks the package is
-internally consistent; the rule engine checks the argument is sound.**
+**But forward RETE is the wrong engine for most of this.** The repo already
+ships `net.uofa.oos.OOSEngine`: path-two LHS-decomposition over Jena **backward**
+syntax (`[head <- body]`), which walks body clauses in declared order with
+binding propagation and reports the first clause that fails. Negation is by
+clause failure, so the activation race cannot arise; `sufficiency_starts_at`
+already separates discriminator from sufficiency clauses; and the output names
+the missing subgoal rather than raising a boolean. Piece 5 is therefore a
+property of the prototype's engine choice, not a constraint on the layer.
+
+The genuine architectural point is a different one — **two questions, two
+engines**:
+
+| Question | Mechanism | Verdict |
+|---|---|---|
+| Can UofA evaluate this claim at all? | OOS, backward, clause failure | OUT-OF-SCOPE |
+| Is the declared argument sound? | forward weakener on a declared inference step | weakener fires |
+
+Rows 16 and 54 were ruled OUT-OF-SCOPE, which is the first question; the W-ARG
+rules answer the second. Both are wanted and OOS comes first. Critically, an OOS
+rule for the argument gap still needs the claim to carry structure — the vv40
+OOS rules already reach evidence via `(?claim uofa:hasSupportingEvidence ?e)`,
+which **0 of 71** adjudication packages and **0 of 3** vv40 canonical examples
+populate. So this layer is a precondition for both paths, not an alternative to
+either.
 
 ## Profile gating
 

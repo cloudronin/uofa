@@ -89,16 +89,34 @@ Worth recording: **W-ARG-02, structurally identical, passed throughout.** Had th
 prototype only tested W-ARG-02, the encoding would have looked correct. A rule of
 this shape passing its tests is not evidence that it is sound.
 
-**What works** — the W-PROV-01 discipline: `noValue` may test only triples
-present in the input. The producer emits the ground-coverage summary
+**What this prototype used** — the W-PROV-01 discipline: `noValue` may test only
+triples present in the input. The producer emits the ground-coverage summary
 (`groundQuantity`, `groundPopulation`) as original triples, computed from
 `hasGround`, and rules negate over a single declared triple. All results in
 experiments 1 and 2 use this encoding.
 
-This is not merely a workaround. It forces a split worth adopting deliberately:
-**SHACL checks the package is internally consistent** (does the summary match
-`hasGround`? — a join with negation, native to `sh:sparql`), **the rule engine
-checks the argument is sound.**
+**Correction — this was the wrong lesson to draw.** The measured race above is
+real and reproducible, but the conclusion originally recorded here ("set-level
+negation needs producer-materialized joins") was wrong, because it assumed the
+forward RETE engine was the only option. It is not.
+
+The repo already ships a second engine built for exactly this class of question:
+`net.uofa.oos.OOSEngine`, path-two LHS-decomposition over **Jena backward
+syntax** (`[head <- body]`). It does not ask the reasoner to prove the head; it
+walks the body clauses in declared order with binding propagation and reports
+the **first clause that fails**. Negation is by clause failure, so the
+activation race cannot arise by construction, and `sufficiency_starts_at`
+already separates discriminator clauses from sufficiency clauses — the same
+split this prototype hand-rolled with profile gating.
+
+It also emits more than a boolean: `missing_subgoal`, `missing_evidence_type`,
+`would_support_defeater_evaluation`, and a verdict of **OUT-OF-SCOPE**. See
+`packs/{vv40,iso42001,surrogate}/rules/oos/oos_v0.1.rules`,
+`docs/oos_production_v0_1.md`, and `uofa check --oos`.
+
+The producer-materialized-join workaround is therefore a property of *this
+prototype's* engine choice, not a constraint on the argument layer. The SHACL
+split it implied is not forced.
 
 ---
 
@@ -150,6 +168,54 @@ not been reached yet and would otherwise be judged against a stale negative.
 Reported, not acted on. Nothing in the worksheet was modified.
 
 ---
+
+## Experiment 5 — what the existing OOS engine says about row 16
+
+Prompted by the observation that the repo already has backward-chaining rules
+which detect negatives. Run:
+
+```bash
+uofa check <row16 package> --oos
+```
+
+Result: **0 judgment-required gaps.** Two independent reasons, worth separating
+because they point at different things.
+
+**1. No rule discriminates on this defeater.** The five vv40 OOS rules gate on
+`adversarialProvenance.sourceTaxonomy` matching `oos/subjective-model-form-adequacy`,
+`.../tacit-knowledge`, `.../behavioral-compliance`, `.../jurisdictional-alignment`,
+`.../clinical-arbitration`. Row 16's taxonomy is none of these. There is no OOS
+rule for an argument- or sufficiency-shaped gap.
+
+**2. The sufficiency clauses bind a structure vv40 packages do not have.** Every
+vv40 OOS rule reaches evidence through `(?claim uofa:hasSupportingEvidence ?e)`:
+
+| | carries `hasSupportingEvidence` |
+|---|---|
+| 71 adjudication packages | **0** |
+| vv40 canonical examples | **0** |
+| iso42001 canonical examples | 2 |
+
+So the vv40 OOS rules are written against a claim interior that vv40 packages do
+not populate. This is a **fifth** claim-node convention beyond the four INV-21
+records, and it means the OOS subsystem is blocked by the same empty-claim
+problem — not only the weakener catalog.
+
+### What this implies for the design
+
+Two different questions want two different engines, and conflating them was the
+error in this prototype's framing:
+
+| Question | Mechanism | Verdict |
+|---|---|---|
+| Can UofA evaluate this claim at all? | OOS, backward, clause failure | OUT-OF-SCOPE |
+| Is the declared argument sound? | forward weakener on a declared inference step | weakener fires |
+
+Rows 16 and 54 were adjudicated **OUT-OF-SCOPE**, which is the first question.
+This prototype answers the second. Both are wanted, and OOS comes first — but an
+OOS rule for the argument gap still needs the claim to carry structure, so the
+representation work in the spec is a precondition for both paths rather than an
+alternative to either.
 
 ## Caveats
 
