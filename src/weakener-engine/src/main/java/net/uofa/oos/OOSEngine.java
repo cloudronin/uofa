@@ -168,47 +168,112 @@ public class OOSEngine implements Callable<Integer> {
         return firings;
     }
 
+    /** Guard against pathological branching in the sufficiency search. */
+    static final int MAX_SEARCH_STEPS = 200_000;
+
     /**
-     * Walk sufficiency clauses sequentially. Returns the first clause that
-     * fails (no matching triples in the data graph given current bindings),
-     * or null if all clauses succeed (proof complete).
+     * Walk sufficiency clauses with backtracking. Returns evidence for the
+     * deepest clause that could not be satisfied under ANY candidate binding
+     * consistent with the clauses before it, or null if the whole body is
+     * satisfiable (proof complete).
+     *
+     * <p>v0.1 committed to the first triple returned for each clause and never
+     * reconsidered it. Sufficiency clauses traverse multi-valued properties --
+     * {@code hasSupportingEvidence} is multi-valued by nature -- so a rule whose
+     * required evidence was simply not the first-returned candidate reported a
+     * gap that was not there. The verdict depended on Jena's triple iteration
+     * order rather than on the document, which was reachable from every shipped
+     * rule. See OOSEngineTest#backtracksWhenRequiredEvidenceIsNotFirstCandidate.
+     *
+     * <p>"The failing clause" is now the DEEPEST clause reached across all
+     * explored branches. That generalises v0.1's "first clause that fails"
+     * correctly: with one candidate per clause the two definitions coincide,
+     * and with several it names the clause that no binding could satisfy rather
+     * than whichever one an arbitrary choice happened to strand.
      */
     static FailureEvidence walkSufficiency(
             ClauseEntry[] sufficiency,
             Map<String, Node> seedBindings,
             Model data) {
-        Map<String, Node> bindings = new HashMap<>(seedBindings);
         for (ClauseEntry ce : sufficiency) {
             if (!(ce instanceof TriplePattern)) {
                 // Functor / builtin clauses are not supported in v0.1.
                 throw new IllegalStateException(
                     "Non-TriplePattern clause in sufficiency body: " + ce);
             }
-            TriplePattern tp = (TriplePattern) ce;
-            Node s = resolve(tp.getSubject(), bindings);
-            Node p = resolve(tp.getPredicate(), bindings);
-            Node o = resolve(tp.getObject(), bindings);
-
-            // Find any matching triple in the data graph.
-            // Wildcards (Node.ANY) for unbound variables.
-            Node sQ = s.isVariable() ? Node.ANY : s;
-            Node pQ = p.isVariable() ? Node.ANY : p;
-            Node oQ = o.isVariable() ? Node.ANY : o;
-
-            org.apache.jena.util.iterator.ExtendedIterator<Triple> it =
-                data.getGraph().find(sQ, pQ, oQ);
-            try {
-                if (!it.hasNext()) {
-                    return new FailureEvidence(tp, bindings);
-                }
-                Triple match = it.next();
-                if (s.isVariable()) bindings.putIfAbsent(varName(tp.getSubject()), match.getSubject());
-                if (o.isVariable()) bindings.putIfAbsent(varName(tp.getObject()), match.getObject());
-            } finally {
-                it.close();
-            }
         }
-        return null;  // all sufficiency clauses satisfied
+        SearchState state = new SearchState();
+        if (solve(sufficiency, 0, new HashMap<>(seedBindings), data, state)) {
+            return null;  // all sufficiency clauses satisfied
+        }
+        if (state.deepestIndex < 0) {
+            // Unreachable: a false return always records at least one failure.
+            throw new IllegalStateException(
+                "Sufficiency search failed without recording a failing clause");
+        }
+        return new FailureEvidence(
+            (TriplePattern) sufficiency[state.deepestIndex], state.deepestBindings);
+    }
+
+    /**
+     * Depth-first search over candidate bindings for clause {@code i} onward.
+     * Returns true as soon as one complete assignment satisfies every clause.
+     */
+    private static boolean solve(
+            ClauseEntry[] clauses,
+            int i,
+            Map<String, Node> bindings,
+            Model data,
+            SearchState state) {
+        if (i == clauses.length) return true;
+        if (--state.budget < 0) {
+            // Refuse to guess. evaluateRule's caller logs and continues, which
+            // is a visible failure rather than a silent false OUT-OF-SCOPE.
+            throw new IllegalStateException(
+                "OOS sufficiency search exceeded " + MAX_SEARCH_STEPS + " steps");
+        }
+
+        TriplePattern tp = (TriplePattern) clauses[i];
+        Node s = resolve(tp.getSubject(), bindings);
+        Node p = resolve(tp.getPredicate(), bindings);
+        Node o = resolve(tp.getObject(), bindings);
+
+        // Wildcards (Node.ANY) for still-unbound variables.
+        Node sQ = s.isVariable() ? Node.ANY : s;
+        Node pQ = p.isVariable() ? Node.ANY : p;
+        Node oQ = o.isVariable() ? Node.ANY : o;
+
+        boolean anyCandidate = false;
+        org.apache.jena.util.iterator.ExtendedIterator<Triple> it =
+            data.getGraph().find(sQ, pQ, oQ);
+        try {
+            while (it.hasNext()) {
+                Triple match = it.next();
+                anyCandidate = true;
+                // Branch on a copy so a failed subtree leaves no residue.
+                Map<String, Node> next = new HashMap<>(bindings);
+                if (s.isVariable()) next.putIfAbsent(varName(tp.getSubject()), match.getSubject());
+                if (o.isVariable()) next.putIfAbsent(varName(tp.getObject()), match.getObject());
+                if (solve(clauses, i + 1, next, data, state)) return true;
+            }
+        } finally {
+            it.close();
+        }
+
+        // Only a clause with no candidates at all is itself the failure; when
+        // candidates existed, the deeper recursion has already recorded one.
+        if (!anyCandidate && i > state.deepestIndex) {
+            state.deepestIndex = i;
+            state.deepestBindings = bindings;
+        }
+        return false;
+    }
+
+    /** Search bookkeeping: step budget plus the deepest failure seen so far. */
+    private static final class SearchState {
+        int budget = MAX_SEARCH_STEPS;
+        int deepestIndex = -1;
+        Map<String, Node> deepestBindings = new LinkedHashMap<>();
     }
 
     private static Node resolve(Node n, Map<String, Node> bindings) {
