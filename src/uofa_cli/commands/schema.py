@@ -119,8 +119,10 @@ def _extract_property_schema(g: Graph, prop_node) -> tuple[str, dict, bool]:
 
     # sh:datatype → type
     datatype = g.value(prop_node, SH.datatype)
+    literal_typed = False
     if datatype:
         schema.update(_XSD_TYPE_MAP.get(str(datatype), {"type": "string"}))
+        literal_typed = True
 
     # sh:nodeKind sh:IRI → string (URI)
     node_kind = g.value(prop_node, SH.nodeKind)
@@ -164,6 +166,7 @@ def _extract_property_schema(g: Graph, prop_node) -> tuple[str, dict, bool]:
                     types.add(mapped["type"])
         if types:
             schema["type"] = "number" if "number" in types else list(types)[0]
+            literal_typed = True
 
     # sh:node → reference to another shape
     node_ref = g.value(prop_node, SH.node)
@@ -177,6 +180,53 @@ def _extract_property_schema(g: Graph, prop_node) -> tuple[str, dict, bool]:
 
     if description_parts:
         schema["description"] = " ".join(description_parts)
+
+    # The same expansion mismatch on the literal side. JSON-LD may write a typed
+    # literal plainly (1.0) or in expanded form ({"@value": "1.00", "@type":
+    # "xsd:decimal"}). SHACL sees one decimal either way; JSON Schema sees a
+    # number or an object. packs/vv40 examples use the expanded form throughout.
+    # The literal's own datatype stays SHACL's job -- JSON Schema only has to
+    # stop rejecting the legal spelling.
+    if literal_typed and "$ref" not in schema:
+        plain = {k: v for k, v in schema.items() if k != "description"}
+        schema = {
+            "anyOf": [
+                plain,
+                {
+                    "type": "object",
+                    "properties": {
+                        "@value": {"type": ["string", "number", "boolean"]},
+                        "@type": {"type": "string"},
+                    },
+                    "required": ["@value"],
+                },
+            ],
+        }
+        if description_parts:
+            schema["description"] = " ".join(description_parts)
+
+    # JSON-LD lets an IRI-valued property carry the IRI as a bare string OR as
+    # an inline node object with an id. SHACL validates the EXPANDED RDF graph,
+    # where both forms are the same IRI, so sh:nodeKind sh:IRI is satisfied by
+    # either. JSON Schema validates the RAW JSON, where the second form is an
+    # object. Mapping sh:nodeKind sh:IRI straight to {"type": "string"} therefore
+    # rejects legal JSON-LD: it rejected 9 of 11 packs/*/examples and every
+    # adversarial package, all of which embed their validation results inline.
+    # hasContextOfUse and hasDecisionRecord were each special-cased for this
+    # below; this generalises the same treatment to every IRI-valued property.
+    if schema.get("type") == "string" and schema.get("format") == "iri":
+        schema = {
+            "anyOf": [
+                {"type": "string", "format": "iri"},
+                {
+                    "type": "object",
+                    "properties": {"id": {"type": "string", "format": "iri"}},
+                    "required": ["id"],
+                },
+            ],
+        }
+        if description_parts:
+            schema["description"] = " ".join(description_parts)
 
     return name, schema, required
 
@@ -234,8 +284,15 @@ def _generate_schema(shacl_paths: Path | list[Path]) -> dict:
             "description": "Unique identifier for this UofA",
         },
         "type": {
-            "const": "UnitOfAssurance",
-            "description": "Must be UnitOfAssurance",
+            # JSON-LD permits @type to be a single value or an array, and the
+            # adversarial corpus uses the array form to add a marker type:
+            # ["UnitOfAssurance", "uofa:SyntheticAdversarialSample"]. A bare
+            # const rejects that, which is legal JSON-LD.
+            "anyOf": [
+                {"const": "UnitOfAssurance"},
+                {"type": "array", "contains": {"const": "UnitOfAssurance"}},
+            ],
+            "description": "Must be UnitOfAssurance (JSON-LD allows an array of types)",
         },
         "conformsToProfile": {
             "type": "string",
@@ -328,7 +385,11 @@ def _generate_schema(shacl_paths: Path | list[Path]) -> dict:
             "type": {"const": "DecisionRecord"},
             "actor": {"type": "string", "format": "iri"},
             "role": {"type": "string"},
-            "outcome": {"type": "string", "enum": ["Accepted", "Rejected"]},
+            # SHACL declares no sh:in for uofa:outcome, so the generator must not
+            # invent one. This enum was hand-written and omitted "Not accepted",
+            # which is what packs/vv40/examples/morrison/cou2 actually carries --
+            # a constraint tighter than the shapes it claims to be derived from.
+            "outcome": {"type": "string"},
             "rationale": {"type": "string"},
             "decidedAt": {"type": "string", "format": "date-time"},
         },
