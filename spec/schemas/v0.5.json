@@ -1,0 +1,1084 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://uofa.net/schemas/v0.5.json",
+  "title": "Unit of Assurance (UofA)",
+  "description": "Schema for UofA evidence packages. Generated from SHACL shapes — do not edit by hand. Regenerate with: uofa schema",
+  "type": "object",
+  "oneOf": [
+    {
+      "title": "Minimal Profile",
+      "description": "Lightweight evidence package for audit trails and pipeline capture",
+      "allOf": [
+        {
+          "properties": {
+            "conformsToProfile": {
+              "const": "https://uofa.net/vocab#ProfileMinimal"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "properties": {
+            "@context": {
+              "type": "string",
+              "description": "JSON-LD context URI"
+            },
+            "id": {
+              "type": "string",
+              "format": "iri",
+              "description": "Unique identifier for this UofA"
+            },
+            "type": {
+              "anyOf": [
+                {
+                  "const": "UnitOfAssurance"
+                },
+                {
+                  "type": "array",
+                  "contains": {
+                    "const": "UnitOfAssurance"
+                  }
+                }
+              ],
+              "description": "Must be UnitOfAssurance (JSON-LD allows an array of types)"
+            },
+            "conformsToProfile": {
+              "type": "string",
+              "enum": [
+                "https://uofa.net/vocab#ProfileMinimal",
+                "https://uofa.net/vocab#ProfileComplete"
+              ],
+              "description": "Which profile this UofA conforms to"
+            },
+            "name": {
+              "type": "string",
+              "description": "Human-readable name for this UofA"
+            },
+            "description": {
+              "type": "string",
+              "description": "Longer description of what this assessment covers"
+            },
+            "signatureAlg": {
+              "type": "string",
+              "description": "Signature algorithm (e.g., ed25519)"
+            },
+            "canonicalizationAlg": {
+              "type": "string",
+              "description": "Canonicalization algorithm (e.g., json-sortkeys/v1)"
+            },
+            "bindsRequirement": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "iri"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "iri"
+                    }
+                  },
+                  "required": [
+                    "id"
+                  ]
+                }
+              ],
+              "description": "Minimal: must bind at least one Requirement (IRI)."
+            },
+            "hasValidationResult": {
+              "oneOf": [
+                {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "iri"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "iri"
+                        }
+                      },
+                      "required": [
+                        "id"
+                      ]
+                    }
+                  ],
+                  "description": "Minimal: must include at least one ValidationResult (IRI)."
+                },
+                {
+                  "type": "array",
+                  "items": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "iri"
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "iri"
+                          }
+                        },
+                        "required": [
+                          "id"
+                        ]
+                      }
+                    ],
+                    "description": "Minimal: must include at least one ValidationResult (IRI)."
+                  }
+                }
+              ]
+            },
+            "generatedAtTime": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "@value": {
+                      "type": [
+                        "string",
+                        "number",
+                        "boolean"
+                      ]
+                    },
+                    "@type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "@value"
+                  ]
+                }
+              ],
+              "description": "Minimal: must have generation timestamp."
+            },
+            "hash": {
+              "pattern": "^(sha256|sha384|sha512):[a-f0-9]{64,128}$",
+              "type": "string",
+              "description": "Minimal: must include a content hash in algorithm:hexdigest format (e.g., sha256:<64 hex chars>)."
+            },
+            "signature": {
+              "pattern": "^(ed25519|ecdsa-p256):[a-f0-9]+$",
+              "type": "string",
+              "description": "Minimal: must include a digital signature in algorithm:hexdigest format."
+            },
+            "hasDecisionRecord": {
+              "oneOf": [
+                {
+                  "type": "string",
+                  "format": "iri"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "iri"
+                    },
+                    "type": {
+                      "const": "DecisionRecord"
+                    },
+                    "actor": {
+                      "type": "string",
+                      "format": "iri"
+                    },
+                    "role": {
+                      "type": "string"
+                    },
+                    "outcome": {
+                      "type": "string"
+                    },
+                    "rationale": {
+                      "type": "string"
+                    },
+                    "decidedAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "type",
+                    "outcome"
+                  ]
+                }
+              ],
+              "description": "Credibility decision record (IRI or inline object)"
+            }
+          },
+          "required": [
+            "bindsRequirement",
+            "generatedAtTime",
+            "hasDecisionRecord",
+            "hasValidationResult",
+            "hash",
+            "signature"
+          ]
+        }
+      ]
+    },
+    {
+      "title": "Complete Profile",
+      "description": "Full V&V 40 credibility assessment for regulatory submissions",
+      "allOf": [
+        {
+          "properties": {
+            "conformsToProfile": {
+              "const": "https://uofa.net/vocab#ProfileComplete"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "properties": {
+            "@context": {
+              "type": "string",
+              "description": "JSON-LD context URI"
+            },
+            "id": {
+              "type": "string",
+              "format": "iri",
+              "description": "Unique identifier for this UofA"
+            },
+            "type": {
+              "anyOf": [
+                {
+                  "const": "UnitOfAssurance"
+                },
+                {
+                  "type": "array",
+                  "contains": {
+                    "const": "UnitOfAssurance"
+                  }
+                }
+              ],
+              "description": "Must be UnitOfAssurance (JSON-LD allows an array of types)"
+            },
+            "conformsToProfile": {
+              "type": "string",
+              "enum": [
+                "https://uofa.net/vocab#ProfileMinimal",
+                "https://uofa.net/vocab#ProfileComplete"
+              ],
+              "description": "Which profile this UofA conforms to"
+            },
+            "name": {
+              "type": "string",
+              "description": "Human-readable name for this UofA"
+            },
+            "description": {
+              "type": "string",
+              "description": "Longer description of what this assessment covers"
+            },
+            "signatureAlg": {
+              "type": "string",
+              "description": "Signature algorithm (e.g., ed25519)"
+            },
+            "canonicalizationAlg": {
+              "type": "string",
+              "description": "Canonicalization algorithm (e.g., json-sortkeys/v1)"
+            },
+            "bindsRequirement": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "iri"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "iri"
+                    }
+                  },
+                  "required": [
+                    "id"
+                  ]
+                }
+              ]
+            },
+            "hasContextOfUse": {
+              "oneOf": [
+                {
+                  "type": "string",
+                  "format": "iri"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "iri"
+                    },
+                    "type": {
+                      "const": "ContextOfUse"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "description": {
+                      "type": "string"
+                    },
+                    "intendedUse": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "type"
+                  ]
+                }
+              ],
+              "description": "V&V 40 Context of Use (IRI or inline object)"
+            },
+            "bindsModel": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "iri"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "iri"
+                    }
+                  },
+                  "required": [
+                    "id"
+                  ]
+                }
+              ]
+            },
+            "bindsDataset": {
+              "oneOf": [
+                {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "iri"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "iri"
+                        }
+                      },
+                      "required": [
+                        "id"
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "array",
+                  "items": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "iri"
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "iri"
+                          }
+                        },
+                        "required": [
+                          "id"
+                        ]
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            "hasValidationResult": {
+              "oneOf": [
+                {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "iri"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "iri"
+                        }
+                      },
+                      "required": [
+                        "id"
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "array",
+                  "items": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "iri"
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "iri"
+                          }
+                        },
+                        "required": [
+                          "id"
+                        ]
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            "wasDerivedFrom": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "iri"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "iri"
+                    }
+                  },
+                  "required": [
+                    "id"
+                  ]
+                }
+              ],
+              "description": "Complete: link to prior artifact (e.g., parent UoA/run logs)."
+            },
+            "wasAttributedTo": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "iri"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "iri"
+                    }
+                  },
+                  "required": [
+                    "id"
+                  ]
+                }
+              ],
+              "description": "Complete: identify responsible actor or organization."
+            },
+            "generatedAtTime": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "@value": {
+                      "type": [
+                        "string",
+                        "number",
+                        "boolean"
+                      ]
+                    },
+                    "@type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "@value"
+                  ]
+                }
+              ]
+            },
+            "hash": {
+              "pattern": "^(sha256|sha384|sha512):[a-f0-9]{64,128}$",
+              "type": "string",
+              "description": "Complete: hash must be algorithm:hexdigest format (e.g., sha256:<64 hex chars>)."
+            },
+            "signature": {
+              "pattern": "^(ed25519|ecdsa-p256):[a-f0-9]+$",
+              "type": "string",
+              "description": "Complete: signature must be algorithm:hexdigest format."
+            },
+            "modelRiskLevel": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1.0,
+                  "maximum": 5.0
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "@value": {
+                      "type": [
+                        "string",
+                        "number",
+                        "boolean"
+                      ]
+                    },
+                    "@type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "@value"
+                  ]
+                }
+              ],
+              "description": "Complete: modelRiskLevel is required (integer 1–5, per V&V 40 risk matrix)."
+            },
+            "deviceClass": {
+              "enum": [
+                "Class I",
+                "Class II",
+                "Class III",
+                "N/A"
+              ],
+              "description": "deviceClass must be Class I, Class II, Class III (FDA classification), or N/A when the context of use is not a regulated device."
+            },
+            "couName": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "@value": {
+                      "type": [
+                        "string",
+                        "number",
+                        "boolean"
+                      ]
+                    },
+                    "@type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "@value"
+                  ]
+                }
+              ],
+              "description": "Complete: couName is a human-readable COU label for diff output."
+            },
+            "decision": {
+              "enum": [
+                "Accepted",
+                "Not accepted"
+              ],
+              "description": "Complete: decision must be 'Accepted' or 'Not accepted'."
+            },
+            "hasUncertaintyQuantification": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "@value": {
+                      "type": [
+                        "string",
+                        "number",
+                        "boolean"
+                      ]
+                    },
+                    "@type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "@value"
+                  ]
+                }
+              ],
+              "description": "Complete: hasUncertaintyQuantification must be a boolean."
+            },
+            "credibilityIndex": {
+              "anyOf": [
+                {
+                  "minimum": 0.0,
+                  "maximum": 1.0,
+                  "type": "number"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "@value": {
+                      "type": [
+                        "string",
+                        "number",
+                        "boolean"
+                      ]
+                    },
+                    "@type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "@value"
+                  ]
+                }
+              ]
+            },
+            "traceCompleteness": {
+              "anyOf": [
+                {
+                  "minimum": 0.0,
+                  "maximum": 1.0,
+                  "type": "number"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "@value": {
+                      "type": [
+                        "string",
+                        "number",
+                        "boolean"
+                      ]
+                    },
+                    "@type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "@value"
+                  ]
+                }
+              ]
+            },
+            "verificationCoverage": {
+              "anyOf": [
+                {
+                  "minimum": 0.0,
+                  "maximum": 1.0,
+                  "type": "number"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "@value": {
+                      "type": [
+                        "string",
+                        "number",
+                        "boolean"
+                      ]
+                    },
+                    "@type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "@value"
+                  ]
+                }
+              ]
+            },
+            "validationCoverage": {
+              "anyOf": [
+                {
+                  "minimum": 0.0,
+                  "maximum": 1.0,
+                  "type": "number"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "@value": {
+                      "type": [
+                        "string",
+                        "number",
+                        "boolean"
+                      ]
+                    },
+                    "@type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "@value"
+                  ]
+                }
+              ]
+            },
+            "uncertaintyCIWidth": {
+              "anyOf": [
+                {
+                  "minimum": 0.0,
+                  "type": "number"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "@value": {
+                      "type": [
+                        "string",
+                        "number",
+                        "boolean"
+                      ]
+                    },
+                    "@type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "@value"
+                  ]
+                }
+              ]
+            },
+            "hasCredibilityFactor": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/CredibilityFactorShape"
+              },
+              "minItems": 1,
+              "description": "Per-factor credibility assessments (V&V 40 Table 5-1)"
+            },
+            "hasWeakener": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/WeakenerAnnotationShape"
+              },
+              "description": "Detected quality gaps (optional — zero weakeners is valid)"
+            },
+            "assuranceLevel": {
+              "enum": [
+                "Low",
+                "Medium",
+                "High"
+              ]
+            },
+            "criteriaSet": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "iri"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "iri"
+                    }
+                  },
+                  "required": [
+                    "id"
+                  ]
+                }
+              ],
+              "description": "Complete: reference criteria set used (e.g., VVUQ-90, NASA-7009)."
+            },
+            "hasDecisionRecord": {
+              "oneOf": [
+                {
+                  "type": "string",
+                  "format": "iri"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "iri"
+                    },
+                    "type": {
+                      "const": "DecisionRecord"
+                    },
+                    "actor": {
+                      "type": "string",
+                      "format": "iri"
+                    },
+                    "role": {
+                      "type": "string"
+                    },
+                    "outcome": {
+                      "type": "string"
+                    },
+                    "rationale": {
+                      "type": "string"
+                    },
+                    "decidedAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "type",
+                    "outcome"
+                  ]
+                }
+              ],
+              "description": "Credibility decision record (IRI or inline object)"
+            }
+          },
+          "required": [
+            "bindsDataset",
+            "bindsModel",
+            "bindsRequirement",
+            "generatedAtTime",
+            "hasContextOfUse",
+            "hasCredibilityFactor",
+            "hasDecisionRecord",
+            "hasValidationResult",
+            "hash",
+            "modelRiskLevel",
+            "signature",
+            "wasAttributedTo",
+            "wasDerivedFrom"
+          ]
+        }
+      ]
+    }
+  ],
+  "$defs": {
+    "CredibilityFactorShape": {
+      "type": "object",
+      "properties": {
+        "factorType": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "@value": {
+                  "type": [
+                    "string",
+                    "number",
+                    "boolean"
+                  ]
+                },
+                "@type": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "@value"
+              ]
+            }
+          ],
+          "description": "CredibilityFactor must have a factorType string."
+        },
+        "factorStatus": {
+          "enum": [
+            "assessed",
+            "not-assessed",
+            "scoped-out",
+            "not-applicable"
+          ],
+          "description": "Every credibility factor must declare its assessment status."
+        },
+        "factorStandard": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "@value": {
+                  "type": [
+                    "string",
+                    "number",
+                    "boolean"
+                  ]
+                },
+                "@type": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "@value"
+              ]
+            }
+          ]
+        },
+        "assessmentPhase": {
+          "enum": [
+            "capability",
+            "results"
+          ]
+        },
+        "requiredLevel": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0.0,
+              "maximum": 5.0
+            },
+            {
+              "type": "object",
+              "properties": {
+                "@value": {
+                  "type": [
+                    "string",
+                    "number",
+                    "boolean"
+                  ]
+                },
+                "@type": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "@value"
+              ]
+            }
+          ],
+          "description": "requiredLevel must be an integer 0–5 (0 = not set)."
+        },
+        "achievedLevel": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0.0,
+              "maximum": 5.0
+            },
+            {
+              "type": "object",
+              "properties": {
+                "@value": {
+                  "type": [
+                    "string",
+                    "number",
+                    "boolean"
+                  ]
+                },
+                "@type": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "@value"
+              ]
+            }
+          ],
+          "description": "achievedLevel must be an integer 0–5 (0 = not set)."
+        },
+        "type": {
+          "const": "CredibilityFactor"
+        }
+      },
+      "required": [
+        "factorStatus",
+        "factorType"
+      ]
+    },
+    "WeakenerAnnotationShape": {
+      "type": "object",
+      "properties": {
+        "patternId": {
+          "pattern": "^(W-[A-Z]+-(\\d{2,}|[A-Z][A-Z0-9-]*)|COMPOUND-([A-Z][A-Z0-9]*-)?\\d{2})$",
+          "type": "string",
+          "description": "patternId must match catalog format W-<FAMILY>-<NN or WORD-ID>, COMPOUND-NN, or COMPOUND-<FAMILY>-NN (e.g., W-EP-01, W-CON-03, W-PROV-01, W-NASA-02, W-SURR-03, W-AIMS-AUDIT-STALE, COMPOUND-01, COMPOUND-EV-01). Open to any pack-declared family — the C2 shape must accept every patternId the active packs emit (C2↔C3 consistency)."
+        },
+        "severity": {
+          "enum": [
+            "Critical",
+            "High",
+            "Medium",
+            "Low"
+          ],
+          "description": "severity must be Critical, High, Medium, or Low."
+        },
+        "affectedNode": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "iri"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "iri"
+                }
+              },
+              "required": [
+                "id"
+              ]
+            }
+          ],
+          "description": "affectedNode must be an IRI pointing to the flagged graph node."
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "@value": {
+                  "type": [
+                    "string",
+                    "number",
+                    "boolean"
+                  ]
+                },
+                "@type": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "@value"
+              ]
+            }
+          ],
+          "description": "description should explain why this weakener fires."
+        },
+        "type": {
+          "const": "WeakenerAnnotation"
+        }
+      },
+      "required": [
+        "affectedNode",
+        "patternId",
+        "severity"
+      ]
+    }
+  }
+}

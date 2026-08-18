@@ -581,7 +581,7 @@ pip install 'uofa[extract]'  # adds litellm + pdfplumber + python-docx for `uofa
 | Java 17+ | Jena rule engine (C3) | Only on Intel macOS (where the bundled JRE doesn't ship) or in source-tree dev when running outside the wheel |
 | Maven 3.8+ | Build the Jena JAR | Only when developing on the rule engine itself |
 
-**Editor setup (optional).** Copy `.vscode/settings.json.example` to `.vscode/settings.json` for schema-aware editing of `.jsonld` evidence packages — completion, hover docs, and required-field errors against [the published JSON Schema](https://uofa.net/schemas/uofa.schema.json). The example notes the Sublime Text equivalent.
+**Editor setup (optional).** Copy `.vscode/settings.json.example` to `.vscode/settings.json` for schema-aware editing of `.jsonld` evidence packages — completion, hover docs, and required-field errors against [the published JSON Schema](https://uofa.net/schemas/uofa.schema.json), or pin a frozen version such as [`/schemas/v0.5.json`](https://uofa.net/schemas/v0.5.json) to stay put across shape changes. The example notes the Sublime Text equivalent.
 
 For a zero-install try-it-out path, see [docs/onboarding.md](https://github.com/cloudronin/uofa/blob/main/docs/onboarding.md#zero-install-option-github-codespaces).
 
