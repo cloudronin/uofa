@@ -17,8 +17,14 @@ successes, in the order they happened.
 | `row54-argument.jsonld` | **W-ARG-01 ×2, W-ARG-02 ×2, W-ARG-04** | `cou1-gate-to-detection`, `cou1-factors-to-mechanism` |
 
 Both rows fire their predicted **primary** rule — W-ARG-03 (modality
-substitution) for row 16, W-ARG-01 (quantity gap) for row 54 — so the two cases
-exercise different rules rather than one pattern twice.
+substitution) for row 16, W-ARG-01 (quantity gap) for row 54.
+
+Caveat on how much that shows: the two packages are instantiated from the **same
+generator spec** (`greenwell_suf_confusion_necessary_sufficient.yaml`) at
+different intensities, so they are siblings, not independent cases. What is still
+informative is that one defeater family produced two *different* structural
+signatures, and the rules distinguished them. Coverage of the other 14 gap-probe
+specs is untested.
 
 Row 54 firing W-ARG-04 on `cou1-factors-to-mechanism` is the rationale's second
 move caught in isolation: *"the seven assessed credibility factors all meet or

@@ -59,8 +59,12 @@ device tolerance study"*, and separately that the seven assessed factors meeting
 their required levels **confirms** *"that the RH threshold mechanism functions as
 intended."*
 
-Decomposed, both reduce to the same three defects — which is the reason to
-believe they generalise:
+Both are instantiated from the **same generator spec**
+(`specs/gap_probe/greenwell_suf_confusion_necessary_sufficient.yaml`), so shared
+structure is partly by construction and is *not* evidence of generality. What is
+not by construction is that the two intensities produced materially different
+rationale prose and two different structural signatures — row 16's defect is
+modality, row 54's is quantity. One defeater family, two shapes:
 
 | | Row 16 | Row 54 |
 |---|---|---|
@@ -72,6 +76,10 @@ believe they generalise:
 None of these is a defect in the *evidence*. Every structural fact in row 16 is
 correct and the package is V&V 40 compliant. What is defective is the step from
 the evidence to the conclusion — the thing with no representation.
+
+**The evidence base is one defeater family.** Whether these four rules cover the
+other fourteen gap-probe specs is untested, and is the first thing to measure
+before any of this ships.
 
 ## Design position: derive, never author
 
