@@ -141,6 +141,12 @@ separate, and only the former is open.
 | **Evidence bundles** | zips + unzipped test copies, ground-truth JSONs (`61c914c3`) | raw input to encoding | n/a |
 | **Hand-crafted per-COU fixtures** | `tests/fixtures/extract/aero-cou{1,2}-imported.jsonld` + `_build_aero_fixtures.py` | real `UnitOfAssurance` packages; **172 / 125 triples inferred**; built "for isolating C3 rule correctness from LLM/import non-determinism" | **yes** — but **test fixtures, not protocol-governed encodings** |
 
+> **Chapter-bound, keep verbatim.** The confirm-only shape is *a test whose
+> passing condition is satisfied by the artifact rather than by the behaviour the
+> artifact is supposed to exercise.* And on the blank NASA rows: *a vacuous green
+> entered to make the table look complete would be the confirm-only failure mode
+> applied to the ledger itself.*
+
 **No conflict with the Phase 2.5a REPORT.** Its caveat reads *"No encoded HPT
 package exists in the repo"*, and that stays true: the fixtures in
 `tests/fixtures/extract/` are hand-crafted test artifacts, not protocol
