@@ -9,9 +9,11 @@ artifact is **not entered with a value**. It is entered as **ESCALATION** with
 what was searched. A figure that disagrees with the Results guide or the repair
 spec is entered with **both** values and escalated.
 
-Status: **§4.3.6, §4.3 (Arm M half), §4.5 and the §4.2 headline/null pair are
-complete and artifact-backed. §4.1, the rest of §4.2, and §4.6 are escalated** —
-see §Escalations for what was searched in each case. §4.4's D6 rows are ready.
+Status: **§4.2, §4.3, §4.3.6, §4.5 and most of §4.6 are complete and
+artifact-backed.** §4.1 carries the Morrison count trio resolved with version
+labels plus a review list; its per-substrate rows remain E2. Two escalations
+stand: **E2** (H1 per-substrate verdicts) and **E3's held-out permutation null**.
+§4.4's D6 rows are ready.
 
 ---
 
@@ -54,6 +56,45 @@ Catalog **v0.5.15.1**, corpus **2026-04-26**.
 `rules_fired` describes the **generation-time** catalog. 63 of 65 comparable
 packages have since diverged (R1b disclosure).
 
+## §4.1 — H1, and the Morrison COU1 count trio
+
+**Three values for one figure are in circulation.** This is the C5 pattern at its
+sharpest: the same command on the same package returns a different number at each
+catalog version, and all three appear in the record.
+
+| Value | Catalog / tag | Composition | Where it appears |
+|---|---|---|---|
+| **14** | `v0.4.0-nafems` (frozen demo tag) | W-EP-01×1, W-EP-02×3, W-AL-01×3, W-AR-05×3, COMPOUND-01×3, COMPOUND-03×1 | `CONTRIBUTING.md:33`, `CHANGELOG.md:407`, `docs/v0.5-morrison-deltas.md:8` |
+| **11** across 5 patterns | v0.5.15.1 / tag `v0.7.1` | W-AL-01×3, W-AR-05×3, W-EP-02×3, W-CON-04, W-ON-02 — **9 of the 11 vacuous** (bare-IRI validation results make three `noValue` rules fire on every result) | `README.md:167`, `docs/design.md:9`, `site/.../nafems-2026.md:21`, `site/.../weakeners.md`, `site/.../demo/nafems.mdx`, `site/src/content/docs/readme.md` |
+| **17** across 8 patterns | **current catalog, post-R1a** | the 11 above + W-EP-01×1 + COMPOUND-01×4 + COMPOUND-03×1 | `tests/test_integration.py` (pinned), this branch |
+
+**Any §4.1 sentence citing a Morrison COU1 count carries its version label.** The
+14 is not superseded — it is the frozen NAFEMS demo tag and `CONTRIBUTING.md`
+says "do not change this commit". The 11 is not wrong — it is what v0.7.1
+reproduces. The 17 is what HEAD reproduces.
+
+**Review list (W9-style), no edits made.** Every location above that states a
+count *without* a version label needs one, or needs rewording:
+
+- `README.md:167` — "What the rule engine finds on Morrison COU1 (11 weakeners
+  across 5 patterns)". No version label; reads as current.
+- `docs/design.md:9` — same shape, no label.
+- `site/src/content/docs/research/nafems-2026.md:21` — **correctly labelled**
+  ("runs from the frozen `v0.7.1` tag"), and verified: v0.7.1 (2026-05-02) still
+  carries the guard, so its reproduction claim holds at its tag. No change needed
+  **now**, but the next tag cut after R1a merges must update it.
+- `site/scripts/check-pages.mjs:90,118` — asserts the **literal strings** "11
+  weakeners across 5 patterns" and "18 weakeners across 6 patterns". It checks the
+  page says what it says; it cannot detect the number going stale relative to the
+  catalog. It will keep passing while the page drifts. **Flagged as a guard that
+  does not guard what it appears to.**
+- `docs/UofA_Unified_Repair_Spec_v2_1.md:107` already flags these as
+  "committee-facing reproduction numbers" and rules "restate from re-measured
+  baselines" — that ruling now has a second trigger.
+
+Remaining H1 rows (per-substrate verdicts for Morrison COU1/COU2, Nagaraja, NASA
+take-off/cruise; completeness; SHACL pass; signature validity) are **E2**, below.
+
 ## §4.2 — H2, headline against its own null
 
 Artifact: `docs/extract_eval_v1.md`, commit `a487d203` (2026-08-16), which states
@@ -76,6 +117,40 @@ explicitly: the headline "sits 0.004 above that constant, not 0.114 above the
 0.85 target". It also records the null's one disqualifying property — the
 constant checklist "cannot produce a package at all", failing `uofa import` on
 the Minimal profile.
+
+### Real corpus, under Decision 7's split
+
+Decision 7 rules Morrison and Nagaraja **development documents**; headline
+real-corpus metrics report the **held-out** papers, with a with-development
+**sensitivity row**. The real corpus is six papers, so the split is 4 held-out +
+2 development — matching Decision 7's stated "base held-out count is 4".
+
+Artifact: `studies/real-document-rescore/FINDINGS.md`, per-document table.
+
+| paper | pack | hits | tier |
+|---|---|---|---|
+| opensim | nasa-7009b | 0/7 | held-out |
+| elemance | nasa-7009b | 0/6 | held-out |
+| **ared** | nasa-7009b | **3/7** | held-out |
+| bologna | vv40 | 0/13 | held-out |
+| nagaraja | vv40 | 0/12 | **development** |
+| morrison | vv40 | 0/11 | **development** |
+
+| Claim | Value | Tier | Artifact |
+|---|---|---|---|
+| **Headline, held-out (4 papers)** | **3/33 = 0.0909** | Decision 7 headline | computed from the table above |
+| Sensitivity, all six | 3/56 = 0.0536 | with development | " |
+| Every hit comes from one paper | ared, the shortest at 205 sentences | — | `FINDINGS.md:40` |
+| Papers scoring zero | 5 of 6 | — | " |
+| Wilson on 56 factors with 3 hits | 0.018–0.146 | — | `FINDINGS.md:41` |
+| Claim-density, real corpus | 0.000 before, 0.000 after | **split-invariant** — zero on every tier | `studies/claim-density/FINDINGS.md:27` |
+| Rationales carrying no number | **94 of 96**, across six papers | with development | `FINDINGS.md:120`, `claim-density:137` |
+
+**The published lift is the with-development figure.** The permutation-null table
+reports `real 0.0536`, which is exactly **3/56** — all six papers. So the **5.5×**
+lift is the sensitivity figure, not the Decision 7 headline. The held-out
+candidate rate is computable (0.0909); the held-out **null** is not, because
+0.0098 was computed over all six. See E3.
 
 **Wording note for §4.2 and elsewhere.** `UofA_Unified_Repair_Spec_v2_1.md:86`
 states the null loosely as "a constant checklist reaches 0.95". The measured
@@ -174,16 +249,21 @@ and signature validity are spread across several study directories and the tier
 table's canonical location was not established. Needs one authoritative source
 named before entry.
 
-**E3 — §4.2 remaining rows.** Attribution vs permutation null; real-corpus
-per-document figures; development-vs-held-out tier split per Decision 7;
-claim-density-zero count. *Searched:* `studies/attribution-nulls/`,
-`studies/attribution-agreement/`, `studies/claim-density/` (has "**2 of 96**
-rationales contain any number", "94 of 96 contain no number", real corpus 0.000
-before and after). *Escalation:* the claim-density figures are artifact-backed
-and could be entered, but the Decision-7 development-vs-held-out split governs
-which corpus each row reports, and that split's application was not verified.
-Entering them without it risks the wrong denominator — the failure mode
-`PHASE3_STATUS_REPORT` already demonstrated.
+**E3 — PARTIALLY CLOSED by Decision 7.** The split pointer is Decision 7:
+Morrison and Nagaraja are development documents, the headline reports the 4
+held-out papers, and all six is the sensitivity row. Applied in §4.2 above —
+per-document table with tiers, headline 3/33 = 0.0909, sensitivity 3/56 = 0.0536,
+and claim-density noted split-invariant at 0.000 on every tier.
+
+**What remains escalated: the held-out permutation null.** The published lift of
+**5.5×** divides `real 0.0536` by a permutation null of `0.0098`, and 0.0536 is
+3/56 — all six papers. Under Decision 7 the headline lift needs the null
+recomputed **on the held-out subset**, which cannot be derived from the committed
+artifact; the null is computed per run by shuffling that run's own labels, so it
+does not decompose by paper. Either re-run the permutation null on the 4 held-out
+papers, or report the 5.5× explicitly as the with-development sensitivity figure
+and give no held-out lift. **Author call; not entered.**
+
 
 **E4 — §4.4 external arm.** D6 is complete and verified
 (`studies/d6-rederivation/FINDINGS.md`, commit `aa76cc6e`: 427 validation
@@ -192,9 +272,25 @@ revision `d459f536`). **These rows are ready to enter**; what is escalated is th
 rest of §4.4's scope, which the spec does not enumerate beyond "external arm
 figures per W7".
 
-**E5 — §4.6 gate summary table.** Requires one row per hypothesis clause with its
-gate, measured value, verdict and evidence rung. GATE-H3's rows are available
-above; GATE-H2's depend on E1; H1's on E2. Blocked on those.
+**E5 — §4.6 gate summary table, now mostly unblocked.** GATE-H3's rows are
+above; GATE-H2's are above since E1 resolved. What remains is H1's, which depend
+on E2, and the H2 lift row, which depends on E3's held-out null.
+
+Enterable now:
+
+| Hypothesis clause | Gate | Measured | Verdict | Evidence rung |
+|---|---|---|---|---|
+| H2 detection F1, dev | ≥0.85 | 0.964 | pass | Demonstrated |
+| H2 detection F1, test | ≥0.80 | 0.954 | pass | Demonstrated |
+| H2 margin over the run's own null | "required margin" | **+0.004** | see §4.2 | Demonstrated |
+| H3 MECHANICAL | ≥95% | 100% over 13 | pass | Demonstrated |
+| H3 overall | ≥80% | **75.9%** | **FAIL** | Demonstrated |
+| H3 aggregate interval | — | 35/35, Wilson [0.9011, 1.0000] | — | Demonstrated |
+| Stage 4 spot-check override | ≤0.10 | **0.213** | **FAIL** | Demonstrated |
+
+The two FAILs are reported as measured, per §0.1. The override FAIL decomposes
+per R4: REAL-GAP relocates to the schema boundary, ERM is an ensemble-reliability
+finding, and neither is adverse to the catalog.
 
 ---
 
