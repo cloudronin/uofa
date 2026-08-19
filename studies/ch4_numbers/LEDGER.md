@@ -274,15 +274,39 @@ runs and metrics, and the spec's "0.960" matches none of them exactly. **Which
 run and which metric is the H2 headline, and which is its null, needs the
 author.** Not entered.
 
-**E2 — §4.1 / H1 tier table.** *Searched:* `docs/valid-package-spec.md:546` has a
-"**6 of 6** | **5 of 6**" table; `studies/cohort-2026-08/`,
-`studies/real-document-rescore/`. *Escalation:* the per-substrate verdicts
-(Morrison COU1/COU2, Nagaraja, NASA take-off/cruise), completeness, SHACL pass
-and signature validity are spread across several study directories and the tier
-table's canonical location was not established. Needs one authoritative source
-named before entry.
+**E2 — PARTIALLY CLOSED by derivation.** Three of the five substrates derive
+clean and are entered in §4.1 above. The two NASA aerospace files are **not
+source packages** — no `UnitOfAssurance` node, `@graph` holds only
+`WeakenerAnnotation`, 0 triples inferred — so their SHACL and integrity passes
+are vacuous. **Which artifacts are the intended NASA take-off / cruise
+substrates is an author call.** Re-derive with
+`python studies/ch4_numbers/derive_h1_tier_table.py` (exits 1 on exactly this).
 
-**E3 — PARTIALLY CLOSED by Decision 7.** The split pointer is Decision 7:
+
+**E3 — split applied; the held-out null is BLOCKED, and not for the reason the
+disposition assumed.** The re-run was ruled as "re-deriving an existing statistic
+from artifacts already on disk". It is not derivable that way:
+
+1. The per-case `perm_mean` values were **never committed** — zero files in the
+   tree contain the key, and `FINDINGS.md` carries no per-paper null column.
+   Only the six-paper mean (0.0098) was published.
+2. Recomputing means calling `score_case` in
+   `dev/tools/scripts/real_document_rescore.py`, whose `_extract_rationales`
+   makes a **live LLM call** to Together AI
+   (`meta-llama/Llama-3.3-70B-Instruct-Turbo`, `UOFA_OPENAI_COMPATIBLE_API_KEY`,
+   not set here). Nothing is cached.
+3. **The extraction is not stable run-to-run.** `FINDINGS.md:42` records it:
+   *"nagaraja scored 1/12 in the previous run and 0/12 in this one, same paper,
+   same pack, different extraction."*
+
+Point 3 is decisive. A re-run is a **new measurement**, not a re-derivation, and
+for internal consistency the published 3/56 and 5.5× would have to be re-derived
+from that same new run. **Author call.** Options: (a) fund one fresh run and
+re-derive every real-corpus figure from it, both tiers; (b) report 5.5×
+explicitly as the all-six sensitivity figure and give the held-out candidate rate
+3/33 = 0.0909 with no lift, stating why.
+
+**What Decision 7 did close.** The split pointer is Decision 7:
 Morrison and Nagaraja are development documents, the headline reports the 4
 held-out papers, and all six is the sensitivity row. Applied in §4.2 above —
 per-document table with tiers, headline 3/33 = 0.0909, sensitivity 3/56 = 0.0536,
