@@ -108,6 +108,29 @@ Precondition is a document that does not exist yet and is author work. **Not
 started.** When it runs, the hand-crafted fixtures stay untouched as the C3
 isolation artifacts they are.
 
+## Final ledger sweep
+
+| Status | Rows |
+|---|---:|
+| entered | **95** |
+| PENDING-ENCODING | **3** |
+| **ESCALATION** | **0** |
+| total | **98** |
+
+The three PENDING-ENCODING rows are the two NASA substrates in §4.1's H1 table
+and the single H1 row in §4.6's gate summary. They share **one** dependency: the
+R5 protocol encoding, sequenced behind A7.
+
+E1 resolved · E2 pending-encoding · E3 closed on option B · E4 closed (§4.4
+entered from the pinned D6 re-derivation) · E5 pending-encoding. **No escalation
+remains.**
+
+The two NASA H1 rows are left **blank rather than filled from the snapshots**.
+Those files' SHACL and integrity passes are vacuous — `targetClass
+uofa:UnitOfAssurance` matches nothing — so entering their green marks would be
+entering a green that means nothing. That is the same confirm-only shape tallied
+above, and declining to enter it is the tally's first practical use.
+
 ## What remains open
 
 - **E2** — PENDING-ENCODING (item 6).

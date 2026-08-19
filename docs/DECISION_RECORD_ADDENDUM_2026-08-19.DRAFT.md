@@ -19,6 +19,7 @@ same commit as the record above, so a successor may be cleaner than reopening it
 | R2 | Tier-1 restatement | **READING B.** Six candidates restated as "6 of 6 confirmed as real weaknesses, located at the schema boundary rather than inside catalog scope." Finding relocates RQ3 → RQ1 | Author writes the reclassification paragraph; support dug at `studies/phase3_stage4/TIER1_SUPPORT.md` |
 | R3 | INV-22 OOS calibration | **OUT OF SCOPE**, deferred post-defense. One line in Ch5 future work | No work item |
 | R4 | ERM override stratum | **ENSEMBLE-RELIABILITY FINDING**, reported as measured in §4.3.6. Not a catalog finding | The gate FAIL decomposes into two findings with different subjects; see Addendum F |
+| R5 | NASA H1 substrates | **ENCODE PROPERLY**, sequenced behind A7. The protocol is written first; the NASA encoding is then the first encoding governed by it — extract → review → import → sign, both COUs, author review pass | Closes E2 at five rows; §4.1 leads with "encoded under the published protocol" true at n=5. Hand-crafted fixtures stay untouched as C3 isolation artifacts |
 | — | Chapter placement | Stage 4 numbers get a new **§4.3.6**, "the generation arm, adjudicated"; the REAL-GAP / OUT-OF-SCOPE mass hands forward to §4.5 as the third side of the boundary | Results Chapter Structure otherwise holds |
 
 ---
@@ -162,3 +163,69 @@ population — went **23 of 23 with zero overrides**.
 
 Measured in `studies/phase3_stage4/REPORT.md`; per-stratum table in
 `stage4_readouts.json`.
+
+---
+
+## Addendum G — three findings from the E2/E3 close-out
+
+### Fixture provenance divergence, routed to A4
+
+The two hand-crafted NASA fixtures are **not what their committed generator
+produces**. `tests/fixtures/extract/_build_aero_fixtures.py:224-225` writes
+all-zero placeholder `hash` and `signature`; the committed files carry
+real-shaped values that **do not verify** — C1 Integrity fails on both. So either
+they were signed after generation with material that no longer matches, or edited
+after signing.
+
+**Ruled: not repaired, not re-signed, not regenerated.** Their value now is that
+they document the gap. One A4 appendix line item, resolution deferred to the R5
+encoding which supersedes them as the citable NASA artifacts.
+
+It also **independently confirms R5**. H1's gate requires signatures at 100%, so
+unsigned-or-unverifiable fixtures could never have entered it. The encoding was
+the right call on grounds established before this was found.
+
+### The wiring-origin correction
+
+The author's guess was that the `992955ac` pack-directory refactor broke the aero
+test wiring. **The trace says otherwise.** `992955ac` is 2026-04-04 and predates
+the aero work entirely. The tests were written in `1caced19` on 2026-04-18, the
+same day `61c914c3` shipped the hand-crafted fixtures "for isolating C3 rule
+correctness from LLM/import non-determinism", and were pointed at the annotation
+snapshots from the start. **The wire was never right, rather than broken later.**
+
+Recorded because the distinction matters for A4: it is not a regression, so there
+is no window during which a working check silently stopped working. It is a
+test that never checked what it claimed to.
+
+### The confirm-only instrument tally is three
+
+Three guards that can confirm but cannot falsify, found independently in one
+session:
+
+1. **`check-pages.mjs`** asserts the published page contains "11 weakeners across
+   5 patterns" — it checks the page says what it says, so it cannot detect the
+   number going stale against the catalog.
+2. **The OOS calibration set** (INV-22) — 16 packages, all `out_of_scope`, none
+   expected to clear. A rule that can only report a gap scores perfectly, and 10
+   of 16 were exactly that.
+3. **The snapshot-reading test** — asserted a pattern name against a file
+   containing it as data, 0 triples inferred. Green either way.
+
+They share one shape, and this formulation is chapter-bound:
+
+> **a test whose passing condition is satisfied by the artifact rather than by
+> the behaviour the artifact is supposed to exercise.**
+
+Each was found by asking what the instrument would do if the thing it measures
+were broken — the question the argument-layer prototype's repaired control was
+built to ask. One Ch5 sentence covers all three.
+
+### A note on how these were found
+
+Two of this session's corrections overrode plausible authored guesses: E1's
+escalation (the spec's `0.964 vs 0.960` pair was right; the escalation reflected
+not having found `extract_eval_v1.md`) and the `992955ac` attribution above. Both
+were resolved by tracing to the artifact rather than reasoning from the record.
+That is what the spec's §2 rule buys, and it is the argument for keeping it
+binding on the author's own statements as well as on the session's.

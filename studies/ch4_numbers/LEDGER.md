@@ -9,12 +9,13 @@ artifact is **not entered with a value**. It is entered as **ESCALATION** with
 what was searched. A figure that disagrees with the Results guide or the repair
 spec is entered with **both** values and escalated.
 
-Status: **§4.2, §4.3, §4.3.6, §4.4, §4.5 and most of §4.6 are complete and
-artifact-backed. E1, E3 and E4 are closed.** §4.1 carries the Morrison count
-trio with version labels, the derived three-substrate H1 table, the Arm M
-substrate row and the NASA artifact inventory; its two NASA rows are
-**PENDING-ENCODING** (ruled, sequenced behind A7), not escalated. The §4.1 lead
-sentence waits on that, since it turns on n = 3 today and 5 after.
+Status: **every row is entered or PENDING-ENCODING. No ESCALATION rows remain.**
+E1–E5 are all closed or pending-encoding.
+
+**One open dependency: the R5 protocol encoding** (ruled 2026-08-19, sequenced
+behind A7). It gates the two NASA rows in §4.1's H1 table and the single H1 row
+in §4.6's gate summary. **Nothing else is open.** §4.1's lead sentence waits on
+it, since it turns on n — 3 today, 5 after.
 
 ---
 
@@ -104,12 +105,18 @@ Exits 1 if any substrate fails a check it should pass — it does; see below.
 | Morrison COU1 | flat | Accepted | 2 | ✓ | pass | pass | pass |
 | Morrison COU2 | flat | Not accepted | 5 | ✓ | pass | pass | pass |
 | Nagaraja COU1 | flat | Accepted | 3 | ✓ | pass | pass | pass |
-| NASA take-off | `@graph` | — | — | **✗** | pass | pass | pass |
-| NASA cruise | `@graph` | — | — | **✗** | pass | pass | pass |
+| NASA take-off | — | — | — | **PENDING-ENCODING** | — | — | — |
+| NASA cruise | — | — | — | **PENDING-ENCODING** | — | — | — |
 
 **Three of five derive clean**, and those three are the protocol-encoded
-packages. The two NASA rows are **PENDING-ENCODING**, not an escalation — ruled
-2026-08-19, sequenced behind A7 (see below).
+packages. The two NASA rows are **PENDING-ENCODING** — ruled 2026-08-19 (R5),
+sequenced behind A7.
+
+The row values are left blank deliberately. The files previously occupying those
+rows (`packs/nasa-7009b/examples/aerospace/`) are annotation snapshots whose
+SHACL and integrity passes are **vacuous** — `targetClass uofa:UnitOfAssurance`
+matches nothing — so entering their "pass" marks would be entering a green that
+means nothing. See the inventory below.
 
 **The §4.1 lead sentence stays unwritten until the encoding runs.** It turns on
 n, and n is 3 today and 5 after.
@@ -147,11 +154,26 @@ are stated qualitatively above, not computed per row"* (W5,
 `wilson_intervals.json`) and *"W-EP-01's contrast variant is described but not
 built"* (W4, `studies/phase3_stage4/w-ep-01-contrast/`).
 
-Audit: `studies/ch4_numbers/NASA-FIXTURE-AUDIT-2026-08-19.md`. It records two
-defects in the fixtures — non-verifying hash/signature against a generator that
-writes all-zero placeholders, and COU2's `decision: "Not Accepted"` failing the
-profile enum by one character. Neither is inherited by the encoding that will
-replace them as H1 substrates.
+Audit: `studies/ch4_numbers/NASA-FIXTURE-AUDIT-2026-08-19.md`. Both defects it
+records are **ruled 2026-08-19** and neither is repaired.
+
+**A4 appendix line item — fixture provenance divergence.** The committed fixtures
+are not what their committed generator produces:
+`tests/fixtures/extract/_build_aero_fixtures.py:224-225` writes all-zero
+placeholder `hash` and `signature`, while the committed files carry real-shaped
+values that **do not verify** (C1 Integrity fails on both). Discovered
+2026-08-19. **Resolution deferred to the item 6 encoding**, which supersedes
+these files as the citable NASA artifacts. Do not repair, re-sign or regenerate —
+their value now is that they document the gap.
+
+The finding **independently confirms the item 6 ruling**: unsigned-or-unverifiable
+fixtures could never have entered H1, whose gate requires signatures at 100%. The
+encoding was the right call on grounds established before this was found.
+
+**COU2 enum — protocol input, not a defect to fix.** `decision: "Not Accepted"`
+against a profile enum requiring `"Not accepted"` is the **first candidate entry
+for the item 6 encoding's ambiguity log**: a real source ambiguity of exactly the
+kind A7's mandatory log exists to capture. Recorded, not edited.
 
 ### E2 status — PENDING-ENCODING
 
@@ -267,6 +289,27 @@ conformant n is 0, so it demonstrates **schema capture, not rule detection**.
 patterns at n=3, two at n=1". Measured: **14 at n=3, 2 at n=1, 1 at n=6.** Both
 values recorded; the measured one governs.
 
+## §4.4 — the external arm (D6)
+
+Artifact: `studies/d6-rederivation/FINDINGS.md` · `results.json`
+(`sha256:bdee3cdc…`). Re-derive with `python studies/d6-rederivation/rederive.py`,
+which **refuses to run against any revision other than the pinned one** — input
+`cloudronin/raidex-results` at `d459f536b506dc5f82355891db19f599f374a92c`.
+
+| Claim | Claimed | Measured | Artifact | Commit |
+|---|---|---|---|---|
+| Validation results | 427 | **427** ✓ | `FINDINGS.md` Result | `aa76cc6e` |
+| W-AL-01 fires | 384 | **384** ✓ | " | " |
+| W-AL-01 clears | 43 | **43** ✓ | " | " |
+| Models | 43 | **43** ✓ | " | " |
+| Direction 1 — cleared ⟹ carries stated uncertainty | asserted | **HOLDS**, 0 counterexamples | " | " |
+| Direction 2 — carries stated uncertainty ⟹ cleared | **untested** | **HOLDS**, 0 counterexamples | " | " |
+
+Decision 10 ruled "measure, do not reword", both directions. Both hold. The
+figure was prose arithmetic in `studies/cohort-2026-08/README.md` and is now
+machine-re-derivable from a pinned artifact, which is what D7's **Demonstrated**
+rung requires.
+
 ## §4.5 — the boundary
 
 Artifact: `studies/phase3_stage4/TIER1_SUPPORT.md`, regenerate with
@@ -314,13 +357,10 @@ runs and metrics, and the spec's "0.960" matches none of them exactly. **Which
 run and which metric is the H2 headline, and which is its null, needs the
 author.** Not entered.
 
-**E2 — PARTIALLY CLOSED by derivation.** Three of the five substrates derive
-clean and are entered in §4.1 above. The two NASA aerospace files are **not
-source packages** — no `UnitOfAssurance` node, `@graph` holds only
-`WeakenerAnnotation`, 0 triples inferred — so their SHACL and integrity passes
-are vacuous. **Which artifacts are the intended NASA take-off / cruise
-substrates is an author call.** Re-derive with
-`python studies/ch4_numbers/derive_h1_tier_table.py` (exits 1 on exactly this).
+**E2 — PENDING-ENCODING, not escalated.** Three of five substrates derive clean
+and are entered in §4.1. The two NASA rows await the R5 protocol encoding
+(sequenced behind A7). Re-derive the three with
+`python studies/ch4_numbers/derive_h1_tier_table.py`.
 
 
 **E3 — CLOSED on option B, ruled 2026-08-19.** No fresh run. Three elements,
@@ -343,18 +383,13 @@ previous run and 0/12 in this one, same paper, same pack, different
 extraction."*
 
 
-**E4 — §4.4 external arm.** D6 is complete and verified
-(`studies/d6-rederivation/FINDINGS.md`, commit `aa76cc6e`: 427 validation
-results, 384/427 re-derives, Direction 2 holds with 0 counterexamples, pinned
-revision `d459f536`). **These rows are ready to enter**; what is escalated is the
-rest of §4.4's scope, which the spec does not enumerate beyond "external arm
-figures per W7".
+**E4 — CLOSED.** §4.4 entered above from the pinned D6 re-derivation. The spec
+enumerates §4.4 as "external arm figures per W7" and those are all six checks.
 
-**E5 — §4.6 gate summary table, now mostly unblocked.** GATE-H3's rows are
-above; GATE-H2's are above since E1 resolved. What remains is H1's, which depend
-on E2, and the H2 lift row, which depends on E3's held-out null.
 
-Enterable now:
+**E5 — PENDING-ENCODING.** The gate summary is entered below for every clause
+whose evidence exists. The only rows still absent are H1's, which depend on the
+R5 encoding — the same single dependency as E2, not a separate one.
 
 | Hypothesis clause | Gate | Measured | Verdict | Evidence rung |
 |---|---|---|---|---|
@@ -365,12 +400,13 @@ Enterable now:
 | H3 overall | ≥80% | **75.9%** | **FAIL** | Demonstrated |
 | H3 aggregate interval | — | 35/35, Wilson [0.9011, 1.0000] | — | Demonstrated |
 | Stage 4 spot-check override | ≤0.10 | **0.213** | **FAIL** | Demonstrated |
+| D6 equality, both directions | asserted | HOLDS, 0 counterexamples | pass | Demonstrated |
+| H1 per-substrate | — | 3 of 5 encoded | **PENDING-ENCODING** | — |
 
-The two FAILs are reported as measured, per §0.1. The override FAIL decomposes
-per R4: REAL-GAP relocates to the schema boundary, ERM is an ensemble-reliability
+Both FAILs are reported as measured, per §0.1. The override FAIL decomposes per
+R4: REAL-GAP relocates to the schema boundary, ERM is an ensemble-reliability
 finding, and neither is adverse to the catalog.
 
----
 
 ## Provenance
 
