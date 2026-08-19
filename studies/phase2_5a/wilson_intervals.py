@@ -79,6 +79,19 @@ def main() -> int:
               f"{r['n_conformant']:3d} {r['hits_conformant']:3d} "
               f"{fmt(r['wilson_conformant']):>22s}  {mark}")
 
+    # Aggregate over the gate denominator -- the interval the chapter cites.
+    # Per-pattern n is too small for per-pattern claims; pooling the gate
+    # patterns is what the mutation budget actually supports.
+    gate_hits = sum(r["hits_conformant"] for r in rows if r["in_gate"])
+    gate_n = sum(r["n_conformant"] for r in rows if r["in_gate"])
+    agg = wilson(gate_hits, gate_n)
+    out["aggregate_over_gate"] = {"hits": gate_hits, "n": gate_n, "wilson": agg}
+    (HERE / "wilson_intervals.json").write_text(json.dumps(out, indent=2) + "\n")
+    print(f"\n  AGGREGATE over the gate denominator: {gate_hits}/{gate_n} = "
+          f"{gate_hits/gate_n:.4f}, Wilson [{agg[0]:.4f}, {agg[1]:.4f}]")
+    print("  -> this is the interval a chapter claim rests on. The per-pattern")
+    print("     table below is shown for honesty, not for per-pattern claims.")
+
     gated = [r for r in rows if r["in_gate"]]
     below = [r for r in gated if r["gate_floor_below_half"]]
     print(f"\n  gate patterns: {len(gated)} (denominator {gate['denominator']} "

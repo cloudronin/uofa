@@ -9,9 +9,9 @@ artifact is **not entered with a value**. It is entered as **ESCALATION** with
 what was searched. A figure that disagrees with the Results guide or the repair
 spec is entered with **both** values and escalated.
 
-Status: **§4.3.6, §4.3 (Arm M half) and §4.5 are complete and artifact-backed.
-§4.1, §4.2, §4.4 and §4.6 are escalated** — see §Escalations for what was
-searched in each case.
+Status: **§4.3.6, §4.3 (Arm M half), §4.5 and the §4.2 headline/null pair are
+complete and artifact-backed. §4.1, the rest of §4.2, and §4.6 are escalated** —
+see §Escalations for what was searched in each case. §4.4's D6 rows are ready.
 
 ---
 
@@ -54,6 +54,34 @@ Catalog **v0.5.15.1**, corpus **2026-04-26**.
 `rules_fired` describes the **generation-time** catalog. 63 of 65 comparable
 packages have since diverged (R1b disclosure).
 
+## §4.2 — H2, headline against its own null
+
+Artifact: `docs/extract_eval_v1.md`, commit `a487d203` (2026-08-16), which states
+of itself: *"This document is the origin of the headline."* Corpus: the
+**synthetic 50-bundle set** (30 dev + 20 held-out), per GATE-H2's
+report-per-corpus requirement and INV-10's labelling note.
+
+| Claim | Value | Measured at | Artifact | Commit |
+|---|---|---|---|---|
+| Mean overall F1, dev (**the headline**) | **0.964** | synthetic 50-bundle | `extract_eval_v1.md:58` | `a487d203` |
+| Mean overall F1, test | 0.954 | " | " | " |
+| **The run's own null** — pack's fixed checklist, zero parameters, reads none of the input | **F1 0.960** | " | `extract_eval_v1.md:24-26` | " |
+| **Margin over null** | **+0.004** | " | `extract_eval_v1.md:26, 49-50` | " |
+| Why the null scores so high | ground truth lists the full checklist and marks **92.5%** of rows `assessed` | " | `extract_eval_v1.md:25` | " |
+| Dev–test gap | 0.010, within the 10-point overfit guard | " | `extract_eval_v1.md:142` | " |
+| GATE-H2 threshold | ≥0.85 dev / ≥0.80 test | — | `UofA_Unified_Repair_Spec_v2_1.md:86` | — |
+
+**The number that matters is +0.004, not +0.114.** The document says so
+explicitly: the headline "sits 0.004 above that constant, not 0.114 above the
+0.85 target". It also records the null's one disqualifying property — the
+constant checklist "cannot produce a package at all", failing `uofa import` on
+the Minimal profile.
+
+**Wording note for §4.2 and elsewhere.** `UofA_Unified_Repair_Spec_v2_1.md:86`
+states the null loosely as "a constant checklist reaches 0.95". The measured
+figure is **0.960**. That line sits inside a gate definition in a spec document,
+so it is flagged for author review rather than edited here (W9 group A).
+
 ## §4.3 — H3, Arm M and the gate
 
 Artifact: `studies/phase2_5a/REPORT.md` · `results.json` (`sha256` in
@@ -71,13 +99,21 @@ Artifact: `studies/phase2_5a/REPORT.md` · `results.json` (`sha256` in
 | Conformant-but-flawed / schema-caught | 38 / 12 | " | " | " |
 | NC clean rate | 97.1% (166/171) | v0.5.15.1 | `holdout_v0515_summary.md` | — |
 | CE recall, version-consistent | 75.9% (287/378) | v0.5.15.1 | `studies/phase2_5a/REPORT.md` | `e40d7819` |
-| **Wilson floor, every gate pattern** | **< 0.5** (0.439 at n=3; 0.207 at n=1) | " | `wilson_intervals.json` | this branch |
+| **Aggregate over the gate denominator** | **35/35 = 1.0000, Wilson [0.9011, 1.0000]** | " | `wilson_intervals.json` | this branch |
+| Wilson floor, every gate pattern | < 0.5 (0.439 at n=3; 0.207 at n=1) | " | " | " |
 | Patterns clearing a 0.5 floor | **1** — W-SI-02, [0.610, 1.000] at raw n=6 | " | " | " |
 | — but W-SI-02's conformant n | **0** — excluded from the gate; **not a detection figure** | " | " | " |
 | Per-pattern n distribution | 14 at n=3, 2 at n=1, 1 at n=6 | " | " | " |
 
 Re-derive the intervals:
 `python studies/phase2_5a/wilson_intervals.py`.
+
+**How position 8 cites these.** The chapter claim rests on the **aggregate**
+interval over the gate denominator — 35/35, Wilson floor **0.9011**. The
+per-pattern table is shown with its intervals for honesty, not as a set of
+per-pattern claims, and carries the qualitative sentence that per-pattern n is
+too small to support one. W-SI-02's clean [0.610, 1.000] takes a footnote: its
+conformant n is 0, so it demonstrates **schema capture, not rule detection**.
 
 **Correction entered per the ledger rule (C4):** the spec's §W5 expects "five
 patterns at n=3, two at n=1". Measured: **14 at n=3, 2 at n=1, 1 at n=6.** Both
@@ -108,7 +144,14 @@ so both are carried with labels rather than one being silently preferred.
 
 Entered per the ledger rule rather than given a value.
 
-**E1 — §4.2 / H2 headline vs null: "0.964 vs 0.960 constant checklist".**
+**E1 — RESOLVED, entered above.** The trace found `docs/extract_eval_v1.md`
+(commit `a487d203`), which names itself the origin of the headline and carries
+both figures from the same run and the same metric: headline **0.964** dev,
+constant-checklist null **0.960**, margin **+0.004**. The spec's pair was correct;
+the earlier escalation reflected not having found this document. Retained below
+for the record of what was searched before it was found.
+
+*(superseded)* §4.2 / H2 headline vs null: "0.964 vs 0.960 constant checklist".
 *Searched:* `studies/claim-density/FINDINGS.md` (has `mean_overall_f1` 0.9637
 before and after, delta 0.0000 — but that is the Q2 arm's *kill criterion*, not a
 headline-vs-null comparison); `studies/attribution-nulls/FINDINGS.md` (reports
