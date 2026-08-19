@@ -68,7 +68,7 @@ catalog version, and all three appear in the record.
 |---|---|---|---|
 | **14** | `v0.4.0-nafems` (frozen demo tag) | W-EP-01×1, W-EP-02×3, W-AL-01×3, W-AR-05×3, COMPOUND-01×3, COMPOUND-03×1 | `CONTRIBUTING.md:33`, `CHANGELOG.md:407`, `docs/v0.5-morrison-deltas.md:8` |
 | **11** across 5 patterns | v0.5.15.1 / tag `v0.7.1` | W-AL-01×3, W-AR-05×3, W-EP-02×3, W-CON-04, W-ON-02 — **9 of the 11 vacuous** (bare-IRI validation results make three `noValue` rules fire on every result) | `README.md:167`, `docs/design.md:9`, `site/.../nafems-2026.md:21`, `site/.../weakeners.md`, `site/.../demo/nafems.mdx`, `site/src/content/docs/readme.md` |
-| **17** across 8 patterns | **current catalog, post-R1a** | the 11 above + W-EP-01×1 + COMPOUND-01×4 + COMPOUND-03×1 | `tests/test_integration.py` (pinned), this branch |
+| **17** across 8 patterns | **current catalog, post-R1a** | the 11 above + W-EP-01×1 + COMPOUND-01×4 + COMPOUND-03×1 | `tests/test_integration.py` (pinned), `snapshots/example-counts.json` (pinned), this branch |
 
 **Any §4.1 sentence citing a Morrison COU1 count carries its version label.** The
 14 is not superseded — it is the frozen NAFEMS demo tag and `CONTRIBUTING.md`
@@ -93,6 +93,16 @@ count *without* a version label needs one, or needs rewording:
 - `docs/UofA_Unified_Repair_Spec_v2_1.md:107` already flags these as
   "committee-facing reproduction numbers" and rules "restate from re-measured
   baselines" — that ruling now has a second trigger.
+- `snapshots/example-counts.json` — a **fourth** pinned location, found by CI
+  rather than by this review list. The list was built by grepping `*.md` and
+  `*.py`; it did not search JSON snapshots, so it under-reported its own scope.
+  Corrected, and worth stating plainly: **a review list assembled by one search
+  pattern inherits that pattern's blind spot.** The count now carries a `$note`
+  recording the R1a change and the prior value.
+
+  The same file independently corroborates the NASA finding: it records
+  `aero-cou1` and `aero-cou2` at **total=0, patterns=0**, which is what a file
+  with no `UnitOfAssurance` node produces.
 
 ### H1 per-substrate table, derived
 
