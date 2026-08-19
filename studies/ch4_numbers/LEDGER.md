@@ -92,8 +92,41 @@ count *without* a version label needs one, or needs rewording:
   "committee-facing reproduction numbers" and rules "restate from re-measured
   baselines" — that ruling now has a second trigger.
 
-Remaining H1 rows (per-substrate verdicts for Morrison COU1/COU2, Nagaraja, NASA
-take-off/cruise; completeness; SHACL pass; signature validity) are **E2**, below.
+### H1 per-substrate table, derived
+
+Re-derived by running the checks, not located in prose:
+`python studies/ch4_numbers/derive_h1_tier_table.py` → `h1_tier_table.json`.
+Exits 1 if any substrate fails a check it should pass — it does; see below.
+
+| Substrate | serialisation | decision | MRL | complete | SHACL | integrity | rules |
+|---|---|---|---|---|---|---|---|
+| Morrison COU1 | flat | Accepted | 2 | ✓ | pass | pass | pass |
+| Morrison COU2 | flat | Not accepted | 5 | ✓ | pass | pass | pass |
+| Nagaraja COU1 | flat | Accepted | 3 | ✓ | pass | pass | pass |
+| NASA take-off | `@graph` | — | — | **✗** | pass | pass | pass |
+| NASA cruise | `@graph` | — | — | **✗** | pass | pass | pass |
+
+**Three of five derive clean.** The two NASA rows are the escalation: those files
+contain **no `UnitOfAssurance` node at all** — their `@graph` holds only
+`WeakenerAnnotation` nodes in fully-expanded JSON-LD. They are **engine output
+snapshots, not source packages**.
+
+`uofa rules` on them reports 17 weakeners and **"Inferred 0 new triples"**: every
+pattern it prints is read back from the file, not detected. Their SHACL and
+integrity passes are therefore **vacuous** — SHACL's `targetClass
+uofa:UnitOfAssurance` matches nothing, so it passes for want of anything to
+check. This is INV-22's shape again: an instrument that can only confirm.
+
+**Consequence flagged, not acted on.**
+`tests/test_integration.py::test_aero_cou1_accept_fires_w_ar_02` asserts
+`"W-AR-02" in result.stdout` against this file. `W-AR-02` appears in it **as
+data** (4 occurrences), so the test passes whether or not the rule fires — and 0
+triples are inferred, so it does not. The test is green for the wrong reason.
+
+The only NASA file carrying a real `UnitOfAssurance` node is
+`packs/nasa-7009b/examples/starters/uofa-aero-fatigue-minimal.jsonld`. **Which
+artifacts are the intended NASA take-off / cruise H1 substrates is an author
+call**; the three vv40 rows above stand either way.
 
 ## §4.2 — H2, headline against its own null
 
