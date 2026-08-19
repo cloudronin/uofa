@@ -45,13 +45,13 @@ Hours are **estimates** for Claude-Code-paired execution. "Gap" = can it run/pro
 
 | Task | Est. hrs | Blocking dependency | Runs during June 13–Jul 4 gap? |
 |---|---:|---|---|
-| **P25-A. Full-battery holdout on v0.5.15.1** (the deferred 39-spec sample: CE recall + gap-probe + interaction, not just NC) — closes the validation-scope gap | 3–5 active + analyze | API key + ~$30–50 budget | **Partially** — automatable/unattended if staged before June 13. This is the highest-value remaining 2.5 item. |
+| ~~**P25-A. Full-battery holdout on v0.5.15.1** (the deferred 39-spec sample: CE recall + gap-probe + interaction, not just NC) — closes the validation-scope gap~~ **DONE 2026-08-16.** Arm M (`008626f2`) and Arm G (`e40d7819`); report at `studies/phase2_5a/REPORT.md`. GATE-H3 evaluated once and splits: MECHANICAL 100% over 13, overall 75.9% against ≥80%, reported as measured. M5 rebaseline `98959943` (2026-08-17). | ~~3–5 active + analyze~~ spent | ~~API key + ~$30–50 budget~~ — | ~~**Partially**~~ **n/a — complete** |
 | **P25-B. Lock COMPOUND-01** (corpus regen to decouple from W-EP-01 input, then re-run loop) | 4–8 | Author corpus-design decision | **No** — needs author judgment. |
 | **P25-C. Investigate 5 residual NC firings** (W-ON-01 envelope-coverage gap; W-AL-01/W-AR-05/W-EP-02 validation-result cluster) — confirm legitimate vs. over-eager | 3–5 | P25-A sample (or M5) | **Partially** — analysis-only; can progress if data staged. |
 | **P25-D. Substantive SA-content prompt engineering** (replace placeholder NC payloads) | 4–8 | Author prompt design | **No** — author. |
 | **P25-E. Consolidate Phase 2.5 → Ch3 specificity narrative** (the 0%→97.1% trajectory + 3-corpus validation) | 3–5 | P25-A (ideally) | **No** — author writing. |
 
-**Scheduling read:** Phase 2.5's substantive work is *done*; the gap-eligible item is the unattended full-battery v0.5.15.1 holdout (P25-A) if budget/keys are staged. The two open residuals (COMPOUND-01, substantive content) need the author.
+**Scheduling read:** ~~Phase 2.5's substantive work is *done*; the gap-eligible item is the unattended full-battery v0.5.15.1 holdout (P25-A) if budget/keys are staged.~~ **Updated 2026-08-19: P25-A is complete (see the struck row above), so no gap-eligible machine item remains in this phase.** The two open residuals (COMPOUND-01, substantive content) need the author. Note that P25-C is scoped as depending on the P25-A sample, which now exists.
 
 ---
 
