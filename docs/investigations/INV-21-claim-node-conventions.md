@@ -1,4 +1,4 @@
-# INV-21 — the claim node has four conventions, no interior, and the rules guard on a class that does not exist
+# INV-21 — the claim node has seven conventions, no interior, and the rules guard on a class that does not exist
 
 Status: **OPEN** — measured; the `uofa:Claim` mismatch is a live defect
 Date: 2026-08-18
@@ -10,7 +10,7 @@ Related: [INV-19](INV-19-requirement-layer-absent.md) — the same shape one lay
 
 `bindsClaim` is the one part of the assurance case that is fully wired — declared,
 ranged, universally populated, already traversed by rules — and it leads to a
-node with nothing in it, which is why four incompatible conventions have grown up
+node with nothing in it, which is why seven incompatible conventions have grown up
 around it and why the rules guard on a class that is declared nowhere.
 
 ## What is wired correctly
@@ -170,7 +170,7 @@ INV-20 argues that UofA captures the assessment and not the assurance case, and
 names the absent inference element as the deepest of three layers. INV-21 is the
 measurement of what sits at the top of that stack: the claim node itself. The
 class exists, the path to it is wired, and the interior is empty — so producers
-improvised four shapes and the rules drifted onto a class name that was never
+improvised seven shapes and the rules drifted onto a class name that was never
 declared.
 
 It is the same shape INV-19 found one layer down, where `uofa:Requirement`,
