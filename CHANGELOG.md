@@ -4,6 +4,55 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+### Fixed — W-EP-01 guarded on a class the vocabulary does not declare
+
+- **The `(?claim rdf:type uofa:Claim)` guard is removed. Disclosed post-freeze
+  correction, ruled 2026-08-19 (R1a, `docs/UofA_Ch4_Numbers_and_Repairs_Spec_v1_0.md` §0).**
+
+  **Window:** the guard landed **2026-04-27** (`205cc90e`, *"refine W-EP-01 to
+  recall=1.0, nc_fpr=0.0"*) and stood until now.
+
+  **Cause:** `uofa:Claim` is declared nowhere — not in `packs/core/shapes/uofa_shacl.ttl`,
+  not in any context version. It reaches the `uofa:` namespace only through
+  `@vocab`. The class the vocabulary *does* declare, and which the canonical
+  examples use, is `uofa:AssuranceClaim`. These are different IRIs, so a
+  correctly typed claim could never satisfy the guard.
+
+  **Effect:** W-EP-01 stopped matching the 2026-04-26 adversarial corpus one day
+  after that corpus was generated. **63 of 65 comparable packages diverged** from
+  their recorded `rules_fired`, cascading into COMPOUND-01 (39 packages) and
+  COMPOUND-03 (31), since both chain off another weakener having fired. Measured
+  in [INV-21](docs/investigations/INV-21-claim-node-conventions.md).
+
+  **Machine verification, pinned pre-fix:**
+  `studies/phase3_stage4/w-ep-01-contrast/` — two fixtures identical but for the
+  claim's type. The `Claim`-typed one fires W-EP-01; the `AssuranceClaim`-typed
+  one is **silent**. The silence is the defect.
+
+  **Why the guard was dropped rather than retargeted to `uofa:AssuranceClaim`:**
+  the generator emits `type: Claim` *because* the guard required it. Only 2 of
+  the 71 corpus packages define a claim node at all, both typed `Claim`, and both
+  are the queue's W-EP-01 targets. Retargeting without regenerating the corpus
+  would silence W-EP-01 on all 71 rather than fix it.
+
+  **Measurements that precede this fix and are NOT re-run** (R1c): P25-A at
+  v0.5.15.1 (`studies/phase2_5a/REPORT.md`), and the Phase 3 Stage 4 adjudication,
+  which per R1b was adjudicated against recorded generation-time `rules_fired`
+  and stands as ruled (`studies/phase3_stage4/REPORT.md`).
+
+  **Behaviour delta**, measured across the seven canonical examples: W-EP-01
+  newly fires on iso42001 cou1/cou2, morrison-cou1 and nagaraja-cou1, cascading
+  into COMPOUND-01 and COMPOUND-03. morrison-cou2 and both surrogate examples are
+  unchanged — their claims carry `prov:wasDerivedFrom`, so `noValue` correctly
+  fails. **No rule outside W-EP-01, COMPOUND-01 and COMPOUND-03 changed.**
+
+  **Baselines re-pinned:** the five `tests/fixtures/baseline_reports/cal-02*.json`
+  §5.5 fixtures were regenerated. Every delta is confined to those same three
+  patterns; the rest of each report, including the rules metadata, is
+  byte-identical, so the serialization behaviour that test exists to guard is
+  untouched. Pre-fix baselines are at ref `b23622af`.
+
+
 ### Fixed — the published weakener catalog under-reported two packs, and said nothing
 
 - **`uofa catalog` reported 35 patterns across 4 packs. The correct answer is 57

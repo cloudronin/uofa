@@ -922,7 +922,7 @@ class TestWeakenerPins:
 
     @pytest.mark.skipif(not JENA_AVAILABLE, reason="Jena rules require Java")
     def test_morrison_cou1_weakener_count(self):
-        """Morrison COU1 must produce exactly 11 weakeners under v0.5.14 rules.
+        """Morrison COU1 must produce exactly 17 weakeners at the current catalog.
 
         v0.4 baseline (v0.4.0-nafems tag): 14.
         v0.5 additions on COU1: W-ON-02 (1) + W-CON-01 (6) + W-CON-04 (1)
@@ -948,11 +948,23 @@ class TestWeakenerPins:
           legitimately level-less by design at MRL ≤ 2 (W-EP-04's
           domain only fires at MRL > 2). Net: 17 - 6 = 11.
 
+        Post-INV-21 guard removal (R1a, 2026-08-19): the v0.5.8 delta above is
+        reversed. `(?claim rdf:type uofa:Claim)` guarded on a class the
+        vocabulary declares nowhere, so it rejected correctly typed claims; see
+        INV-21 and studies/phase3_stage4/w-ep-01-contrast/. W-EP-01 now fires on
+        any bindsClaim target lacking derivation, including COU1's URI-handle
+        claim (+1), and its Critical firing restores the COMPOUND-01 cascade
+        (+4) and COMPOUND-03 (+1). Net: 11 + 6 = 17.
+
+        The v0.5.8 through v0.5.14 counts above stand as the history they
+        record; this line pins the current catalog. Where a case-study count
+        reaches the chapter, both are carried with their version labels.
+
         Other v0.5 rules do not fire on COU1 (see docs/v0.5-morrison-deltas.md).
         """
         result = run_uofa("rules", str(MORRISON))
         assert result.returncode == 0
-        assert "SUMMARY: 11 weakener(s) detected" in result.stdout
+        assert "SUMMARY: 17 weakener(s) detected" in result.stdout
         # Baseline (post-v0.5.8): W-EP-02(3) + W-AL-01(3) + W-AR-05(3) = 9
         assert "W-EP-02" in result.stdout
         assert "W-AL-01" in result.stdout
@@ -962,9 +974,11 @@ class TestWeakenerPins:
         assert "W-ON-02" in result.stdout
         assert "W-CON-04" in result.stdout
         # v0.5.8 fix: these no longer fire on COU1
-        assert "W-EP-01" not in result.stdout, "W-EP-01 fixed at v0.5.8"
-        assert "COMPOUND-01" not in result.stdout, "no Critical → no Critical+High cascade"
-        assert "COMPOUND-03" not in result.stdout, "no Critical → COMPOUND-03 doesn't fire"
+        # v0.5.8 removed these three; R1a (2026-08-19) reinstates all three,
+        # W-EP-01 directly and the two compounds via its Critical firing.
+        assert "W-EP-01" in result.stdout, "R1a: guard removed, fires on the URI-handle claim"
+        assert "COMPOUND-01" in result.stdout, "Critical W-EP-01 restores the cascade"
+        assert "COMPOUND-03" in result.stdout, "Critical present, assurance level not Low"
         # v0.5.9 fix: W-AL-02 doesn't fire on COU1 (UQ=false)
         assert "W-AL-02" not in result.stdout, "COU1 has UQ=false; new W-AL-02 needs UQ=true"
         # v0.5.14 fix: W-CON-01 doesn't fire on COU1's not-assessed factors
@@ -1036,6 +1050,10 @@ class TestWeakenerPins:
         also has no W-CON-01 firings (decision is Not-accepted, blocking
         the rule). Net: 10 → 9 → 8 unique patterns.
 
+        Post-INV-21 guard removal (R1a, 2026-08-19): W-EP-01 fires again on
+        both COUs, restoring the pattern it was subtracted for above.
+        Net: 8 → 9 unique patterns, 7 → 8 divergences.
+
         Pattern table now contains: W-AL-01, W-AL-02, W-AR-05, W-CON-04,
         W-EP-02, W-EP-04, W-ON-02, W-PROV-01, COMPOUND-01 = 9 rows but
         the diff tool's unique-pattern header reports (8) — header
@@ -1044,11 +1062,11 @@ class TestWeakenerPins:
         """
         result = run_uofa("diff", str(MORRISON), str(MORRISON_COU2))
         assert result.returncode == 0
-        assert "Weakener Patterns (8)" in result.stdout
+        assert "Weakener Patterns (9)" in result.stdout
         # Counted: W-AL-01, W-AL-02, W-AR-05, W-EP-02, W-EP-04,
         # W-PROV-01, COMPOUND-01 = 7 divergences (W-CON-04 + W-ON-02
         # shared = 0 divergence)
-        assert "7 divergence(s) detected" in result.stdout
+        assert "8 divergence(s) detected" in result.stdout
         # Divergent on COU1 only
         assert "W-AL-01" in result.stdout
         assert "W-AR-05" in result.stdout
@@ -1062,8 +1080,8 @@ class TestWeakenerPins:
         # Shared across both COUs
         assert "W-CON-04" in result.stdout
         assert "W-ON-02" in result.stdout
-        # v0.5.8 fix: W-EP-01 no longer fires on either COU
-        assert "W-EP-01" not in result.stdout
+        # v0.5.8 fix removed W-EP-01; R1a (2026-08-19) reinstates it on both
+        assert "W-EP-01" in result.stdout
 
     @pytest.mark.skipif(not JENA_AVAILABLE, reason="Jena rules require Java")
     def test_aero_cou1_accept_fires_w_ar_02(self):
