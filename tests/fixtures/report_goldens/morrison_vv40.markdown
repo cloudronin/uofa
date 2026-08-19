@@ -8,9 +8,9 @@
 
 | Completeness | Factors evidenced | Concerns | Gate checks |
 |---|---|---|---|
-| 38% | 5 of 13 | 4 High, 1 Moderate | 1 of 2 |
+| 38% | 5 of 13 | 2 Critical, 5 High, 1 Moderate | 1 of 2 |
 
-_38% of all factors evidenced; 8 factors required at Level 2 still need evidence; 4 high-severity concerns open before this is review-ready._
+_38% of all factors evidenced; 8 factors required at Level 2 still need evidence; 7 high-severity concerns open before this is review-ready._
 
 ## Credibility factors
 
@@ -32,6 +32,7 @@ _38% of all factors evidenced; 8 factors required at Level 2 still need evidence
 
 ## [1] Documentation completeness — concerns found
 
+- **Critical concern.** Claim has no prov:wasDerivedFrom link to evidence — provenance chain is broken.
 - **High concern (seen 3×).** Validation result has no uncertainty quantification — aleatory uncertainty is uncharacterized.
 - **High concern (seen 3×).** Validation result has no comparedAgainst link — comparator data source is absent. Relates to: Output comparison.
 - **High concern (seen 3×).** Validation result has no prov:wasGeneratedBy — generation activity is missing.
@@ -41,6 +42,8 @@ _38% of all factors evidenced; 8 factors required at Level 2 still need evidence
 
 _Whole-assessment findings; they belong to neither section alone._
 
+- **Critical concern (seen 4×).** Critical and High severity weakeners coexist — compounding risk escalation.
+- **High concern.** Assurance level is not Low, yet Critical weakeners exist — stated assurance level may be overstated.
 - **Moderate concern.** UofA conforms to ProfileComplete but declares no SensitivityAnalysis — a Complete profile is structurally expected to document sensitivity analysis alongside uncertainty quantification.
 
 ## What is still missing
