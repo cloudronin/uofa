@@ -9,11 +9,12 @@ artifact is **not entered with a value**. It is entered as **ESCALATION** with
 what was searched. A figure that disagrees with the Results guide or the repair
 spec is entered with **both** values and escalated.
 
-Status: **§4.2, §4.3, §4.3.6, §4.5 and most of §4.6 are complete and
-artifact-backed.** §4.1 carries the Morrison count trio resolved with version
-labels plus a review list; its per-substrate rows remain E2. Two escalations
-stand: **E2** (H1 per-substrate verdicts) and **E3's held-out permutation null**.
-§4.4's D6 rows are ready.
+Status: **§4.2, §4.3, §4.3.6, §4.4, §4.5 and most of §4.6 are complete and
+artifact-backed. E1, E3 and E4 are closed.** §4.1 carries the Morrison count
+trio with version labels, the derived three-substrate H1 table, the Arm M
+substrate row and the NASA artifact inventory; its two NASA rows are
+**PENDING-ENCODING** (ruled, sequenced behind A7), not escalated. The §4.1 lead
+sentence waits on that, since it turns on n = 3 today and 5 after.
 
 ---
 
@@ -106,27 +107,59 @@ Exits 1 if any substrate fails a check it should pass — it does; see below.
 | NASA take-off | `@graph` | — | — | **✗** | pass | pass | pass |
 | NASA cruise | `@graph` | — | — | **✗** | pass | pass | pass |
 
-**Three of five derive clean.** The two NASA rows are the escalation: those files
-contain **no `UnitOfAssurance` node at all** — their `@graph` holds only
-`WeakenerAnnotation` nodes in fully-expanded JSON-LD. They are **engine output
-snapshots, not source packages**.
+**Three of five derive clean**, and those three are the protocol-encoded
+packages. The two NASA rows are **PENDING-ENCODING**, not an escalation — ruled
+2026-08-19, sequenced behind A7 (see below).
 
-`uofa rules` on them reports 17 weakeners and **"Inferred 0 new triples"**: every
-pattern it prints is read back from the file, not detected. Their SHACL and
-integrity passes are therefore **vacuous** — SHACL's `targetClass
-uofa:UnitOfAssurance` matches nothing, so it passes for want of anything to
-check. This is INV-22's shape again: an instrument that can only confirm.
+**The §4.1 lead sentence stays unwritten until the encoding runs.** It turns on
+n, and n is 3 today and 5 after.
 
-**Consequence flagged, not acted on.**
-`tests/test_integration.py::test_aero_cou1_accept_fires_w_ar_02` asserts
-`"W-AR-02" in result.stdout` against this file. `W-AR-02` appears in it **as
-data** (4 occurrences), so the test passes whether or not the rule fires — and 0
-triples are inferred, so it does not. The test is green for the wrong reason.
+### Arm M substrate row — closes "which substrates were mutated"
 
-The only NASA file carrying a real `UnitOfAssurance` node is
-`packs/nasa-7009b/examples/starters/uofa-aero-fatigue-minimal.jsonld`. **Which
-artifacts are the intended NASA take-off / cruise H1 substrates is an author
-call**; the three vv40 rows above stand either way.
+| Claim | Value | Artifact | Commit |
+|---|---|---|---|
+| Substrates mutated in Arm M | **three**: `morrison/cou1`, `morrison/cou2`, `nagaraja/cou1` | `run_arm_m.py:39` `SUBSTRATES`, pinned identically in `results.json` `substrates` | `008626f2` |
+| NASA files mutated | **none** | " | " |
+| Disclosed at the time | yes — "Three substrates, not five", same diagnosis | `studies/phase2_5a/REPORT.md` caveats | `008626f2` |
+
+So the **35/35 aggregate and every per-pattern figure stand without
+re-examination**. The H1 substrate question and the Arm M substrate question are
+separate, and only the former is open.
+
+### NASA artifact inventory — three classes, so no future session repeats the hunt
+
+| Class | Path | What it is | Live substrate? |
+|---|---|---|---|
+| **Annotation snapshots** | `packs/nasa-7009b/examples/aerospace/uofa-aero-cou{1,2}-nasa7009b.jsonld` | engine output; `@graph` of `WeakenerAnnotation` only, no `UnitOfAssurance`; **0 triples inferred** | **no** |
+| **Evidence bundles** | zips + unzipped test copies, ground-truth JSONs (`61c914c3`) | raw input to encoding | n/a |
+| **Hand-crafted per-COU fixtures** | `tests/fixtures/extract/aero-cou{1,2}-imported.jsonld` + `_build_aero_fixtures.py` | real `UnitOfAssurance` packages; **172 / 125 triples inferred**; built "for isolating C3 rule correctness from LLM/import non-determinism" | **yes** — but **test fixtures, not protocol-governed encodings** |
+
+**No conflict with the Phase 2.5a REPORT.** Its caveat reads *"No encoded HPT
+package exists in the repo"*, and that stays true: the fixtures in
+`tests/fixtures/extract/` are hand-crafted test artifacts, not protocol
+encodings. That is exactly the distinction item 6 turns on. The REPORT's
+diagnosis of the snapshots — `@graph` of 17/20 `WeakenerAnnotation` nodes, no
+`UnitOfAssurance`, strip-and-rerun yields `0 triples, 0 inferred, 0 detected` —
+is the same one reached independently here.
+
+Two further REPORT caveats are **closed by this session**: *"Wilson intervals
+are stated qualitatively above, not computed per row"* (W5,
+`wilson_intervals.json`) and *"W-EP-01's contrast variant is described but not
+built"* (W4, `studies/phase3_stage4/w-ep-01-contrast/`).
+
+Audit: `studies/ch4_numbers/NASA-FIXTURE-AUDIT-2026-08-19.md`. It records two
+defects in the fixtures — non-verifying hash/signature against a generator that
+writes all-zero placeholders, and COU2's `decision: "Not Accepted"` failing the
+profile enum by one character. Neither is inherited by the encoding that will
+replace them as H1 substrates.
+
+### E2 status — PENDING-ENCODING
+
+H1 is **three protocol-encoded packages today**: Morrison COU1, Morrison COU2,
+Nagaraja COU1, all clean above. The NASA rows are pending the encoding ruled for
+after A7 — extract → review → import → sign, both COUs, author review pass — at
+which point §4.1 leads with "encoded under the published protocol" true at n=5.
+The hand-crafted fixtures stay untouched as C3 isolation artifacts.
 
 ## §4.2 — H2, headline against its own null
 
@@ -179,11 +212,18 @@ Artifact: `studies/real-document-rescore/FINDINGS.md`, per-document table.
 | Claim-density, real corpus | 0.000 before, 0.000 after | **split-invariant** — zero on every tier | `studies/claim-density/FINDINGS.md:27` |
 | Rationales carrying no number | **94 of 96**, across six papers | with development | `FINDINGS.md:120`, `claim-density:137` |
 
-**The published lift is the with-development figure.** The permutation-null table
-reports `real 0.0536`, which is exactly **3/56** — all six papers. So the **5.5×**
-lift is the sensitivity figure, not the Decision 7 headline. The held-out
-candidate rate is computable (0.0909); the held-out **null** is not, because
-0.0098 was computed over all six. See E3.
+**Ruled 2026-08-19 (E3, option B).** Three elements, and they travel together:
+
+| | value | label |
+|---|---|---|
+| **Headline rate** | **3/33 = 0.0909** | four held-out papers, per Decision 7 |
+| **Lift** | **5.5×** | **all-six sensitivity figure** — `real 0.0536` is exactly 3/56 |
+| Permutation null | 0.0098 | computed over all six |
+
+**Disclosure sentence, to travel with any citation of the lift:** *the held-out
+lift is not derivable from the frozen run, because per-case permutation nulls
+were never committed; a re-run would be a new measurement on an extraction the
+findings document itself records as run-unstable.* No fresh run was made.
 
 **Wording note for §4.2 and elsewhere.** `UofA_Unified_Repair_Spec_v2_1.md:86`
 states the null loosely as "a constant checklist reaches 0.95". The measured
@@ -283,43 +323,24 @@ substrates is an author call.** Re-derive with
 `python studies/ch4_numbers/derive_h1_tier_table.py` (exits 1 on exactly this).
 
 
-**E3 — split applied; the held-out null is BLOCKED, and not for the reason the
-disposition assumed.** The re-run was ruled as "re-deriving an existing statistic
-from artifacts already on disk". It is not derivable that way:
+**E3 — CLOSED on option B, ruled 2026-08-19.** No fresh run. Three elements,
+entered in §4.2 above:
 
-1. The per-case `perm_mean` values were **never committed** — zero files in the
-   tree contain the key, and `FINDINGS.md` carries no per-paper null column.
-   Only the six-paper mean (0.0098) was published.
-2. Recomputing means calling `score_case` in
-   `dev/tools/scripts/real_document_rescore.py`, whose `_extract_rationales`
-   makes a **live LLM call** to Together AI
-   (`meta-llama/Llama-3.3-70B-Instruct-Turbo`, `UOFA_OPENAI_COMPATIBLE_API_KEY`,
-   not set here). Nothing is cached.
-3. **The extraction is not stable run-to-run.** `FINDINGS.md:42` records it:
-   *"nagaraja scored 1/12 in the previous run and 0/12 in this one, same paper,
-   same pack, different extraction."*
+1. **Headline rate: 3/33 = 0.0909**, the four held-out papers, per Decision 7.
+2. **5.5× is the all-six sensitivity lift**, labelled as such wherever it
+   appears. It divides `real 0.0536` — which is exactly 3/56, all six papers —
+   by a permutation null of 0.0098.
+3. **Disclosure sentence:** *the held-out lift is not derivable from the frozen
+   run, because per-case permutation nulls were never committed; a re-run would
+   be a new measurement on an extraction the findings document itself records as
+   run-unstable.*
 
-Point 3 is decisive. A re-run is a **new measurement**, not a re-derivation, and
-for internal consistency the published 3/56 and 5.5× would have to be re-derived
-from that same new run. **Author call.** Options: (a) fund one fresh run and
-re-derive every real-corpus figure from it, both tiers; (b) report 5.5×
-explicitly as the all-six sensitivity figure and give the held-out candidate rate
-3/33 = 0.0909 with no lift, stating why.
-
-**What Decision 7 did close.** The split pointer is Decision 7:
-Morrison and Nagaraja are development documents, the headline reports the 4
-held-out papers, and all six is the sensitivity row. Applied in §4.2 above —
-per-document table with tiers, headline 3/33 = 0.0909, sensitivity 3/56 = 0.0536,
-and claim-density noted split-invariant at 0.000 on every tier.
-
-**What remains escalated: the held-out permutation null.** The published lift of
-**5.5×** divides `real 0.0536` by a permutation null of `0.0098`, and 0.0536 is
-3/56 — all six papers. Under Decision 7 the headline lift needs the null
-recomputed **on the held-out subset**, which cannot be derived from the committed
-artifact; the null is computed per run by shuffling that run's own labels, so it
-does not decompose by paper. Either re-run the permutation null on the 4 held-out
-papers, or report the 5.5× explicitly as the with-development sensitivity figure
-and give no held-out lift. **Author call; not entered.**
+Grounds for (3), verified: zero committed files carry `perm_mean`;
+`FINDINGS.md` publishes only the six-paper mean; recomputation calls
+`_extract_rationales` in `dev/tools/scripts/real_document_rescore.py`, a live
+uncached LLM call; and `FINDINGS.md:42` records *"nagaraja scored 1/12 in the
+previous run and 0/12 in this one, same paper, same pack, different
+extraction."*
 
 
 **E4 — §4.4 external arm.** D6 is complete and verified

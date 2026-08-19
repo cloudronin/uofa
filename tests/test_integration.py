@@ -1085,10 +1085,38 @@ class TestWeakenerPins:
 
     @pytest.mark.skipif(not JENA_AVAILABLE, reason="Jena rules require Java")
     def test_aero_cou1_accept_fires_w_ar_02(self):
-        """COU1 (take-off, Accepted): W-AR-02 fires multiple times on narrative-stated level gaps."""
-        aero = REPO_ROOT / "packs" / "nasa-7009b" / "examples" / "aerospace" / "uofa-aero-cou1-nasa7009b.jsonld"
+        """COU1 (take-off, Accepted): W-AR-02 fires on narrative-stated level gaps.
+
+        REPOINTED 2026-08-19. This test and its cou2 sibling read
+        `packs/nasa-7009b/examples/aerospace/uofa-aero-cou{1,2}-nasa7009b.jsonld`
+        from the day they were written (`1caced19`, 2026-04-18). Those files are
+        engine-output ANNOTATION SNAPSHOTS: their `@graph` holds only
+        `WeakenerAnnotation` nodes and no `UnitOfAssurance`, so `uofa rules`
+        infers **0 new triples** on them and every pattern name in the output is
+        read back from the file. The assertions below held whether or not any
+        rule fired.
+
+        Not a later refactor breaking a working wire — `61c914c3` shipped the
+        hand-crafted per-COU packages the same day, "for isolating C3 rule
+        correctness from LLM/import non-determinism", and the tests were pointed
+        at the snapshots instead. The wire was never right.
+
+        Now reads `tests/fixtures/extract/aero-cou1-imported.jsonld`: a real
+        UnitOfAssurance package, Accepted, MRL 3, 19 factors. The engine infers
+        **172 new triples** on it, so these findings are produced rather than
+        echoed.
+
+        Counts at the current catalog (post-R1a, 2026-08-19): 23 weakeners —
+        W-AR-02 x3, COMPOUND-01 x10, COMPOUND-03 x2, W-EP-04, W-AL-02, W-CON-04,
+        W-ON-02, W-PROV-01, W-NASA-02/03/06 x1 each. Assertions stay at pattern
+        presence rather than counts, since the counts move with the catalog.
+        """
+        aero = REPO_ROOT / "tests" / "fixtures" / "extract" / "aero-cou1-imported.jsonld"
         result = run_uofa("rules", str(aero), "--pack", "nasa-7009b")
         assert result.returncode == 0
+        # The engine must actually infer, not read annotations back from the file.
+        assert "Inferred 0 new triples" not in result.stdout, (
+            "0 triples inferred — this is an annotation snapshot, not a substrate")
         # COU1 fires W-AR-02 under Accepted decision + level gaps
         assert "W-AR-02" in result.stdout
         assert "W-EP-04" in result.stdout
@@ -1102,10 +1130,27 @@ class TestWeakenerPins:
         If W-AR-02 appears in the cruise/NotAccepted output, either the decision
         outcome is being parsed as 'Accepted' or the W-AR-02 rule is matching
         a different property.
+
+        REPOINTED 2026-08-19, same reason as the cou1 sibling above: the previous
+        target infers 0 triples, so a NEGATIVE assertion on it proved nothing at
+        all — "W-AR-02 not in output" holds trivially when no rule can fire.
+
+        Now reads `tests/fixtures/extract/aero-cou2-imported.jsonld`: Not
+        Accepted, MRL 4, 19 factors, **125 new triples inferred**. W-AR-02 is
+        genuinely absent there while W-EP-04 fires x5, so the parity mechanism is
+        actually exercised.
+
+        KNOWN FIXTURE DEFECT, escalated not fixed: this fixture's `decision` is
+        `"Not Accepted"` where the profile enum requires `"Not accepted"`, so it
+        fails SHACL on that one field. It does not affect this test — W-AR-02
+        requires `outcome = 'Accepted'`, and both spellings differ from it — but
+        the fixture is not SHACL-clean and should not be cited as one.
         """
-        aero = REPO_ROOT / "packs" / "nasa-7009b" / "examples" / "aerospace" / "uofa-aero-cou2-nasa7009b.jsonld"
+        aero = REPO_ROOT / "tests" / "fixtures" / "extract" / "aero-cou2-imported.jsonld"
         result = run_uofa("rules", str(aero), "--pack", "nasa-7009b")
         assert result.returncode == 0
+        assert "Inferred 0 new triples" not in result.stdout, (
+            "0 triples inferred — this is an annotation snapshot, not a substrate")
         # The headline assertion
         assert "W-AR-02" not in result.stdout, "W-AR-02 fired on a Not Accepted decision"
         # But W-EP-04 still fires on the not-assessed factors at MRL > 2
