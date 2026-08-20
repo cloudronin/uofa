@@ -47,7 +47,7 @@ AGENT_MODEL = "claude-opus-5"
 EXTRACTOR_MODEL = "claude-sonnet-5"          # named to the runner, not injected behind it
 EXTRACTOR_BACKEND = "anthropic"
 
-PROTOCOL = REPO / "docs" / "Encoding_Protocol_v0_1_DRAFT.md"
+PROTOCOL = REPO / "docs" / "Encoding_Protocol_v0_1.md"
 SOURCE_PDF = REPO / "dev" / "build" / "pilot-johnson" / "source" / "NTRS-20200002832-Johnson-2020.pdf"
 DONETEST_VENV = SCRATCH / "donetest-venv"
 
