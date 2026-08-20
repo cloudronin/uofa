@@ -7,12 +7,15 @@ supplementary material, and the one in the real folder is 405 MB, so neither
 
 from __future__ import annotations
 
+import subprocess
 import zipfile
 from pathlib import Path
 
 import pytest
 
 from uofa_cli.solver import archive, detect
+
+from tests.solver.conftest import MINI
 
 
 def test_scan_classifies_the_whole_tree(mini_wbpz):
@@ -125,6 +128,38 @@ def test_nested_archives_are_recorded_not_descended(tmp_path):
     assert names == ["inner.zip"]
     assert scan.members[0].kind == detect.ZIP_ARCHIVE
     assert not scan.members[0].readable
+
+
+def test_every_fixture_file_is_tracked_by_git():
+    """The fixture on disk and the fixture in the repository must be the same set.
+
+    Regression, and a nastier one than it looks. The tree was staged with
+    `git add <dir>`, which skips ignored paths **without a word**, and the
+    repository's global `*.log` rule matched
+    `mini_files/user_files/optiSLang_protocol.log` -- the deliberately UTF-16LE
+    file. The archive then built from 11 files on the author's machine and 10 in
+    CI, so every local run passed and the pinned-digest test below failed on a
+    fresh clone with a missing key.
+
+    `.gitignore` now re-includes this tree, but a negation only ever protects
+    the pattern someone remembered. This checks the property directly, so the
+    next rule that swallows a fixture fails here with the filename rather than
+    as a puzzling digest mismatch on somebody else's checkout.
+    """
+    repo = MINI.parents[3]
+    if not (repo / ".git").exists():
+        pytest.skip("not a git checkout")
+
+    tracked = subprocess.run(
+        ["git", "ls-files", "-z", "--", str(MINI.relative_to(repo))],
+        cwd=repo, capture_output=True, text=True, check=True)
+    on_disk = {p.relative_to(repo).as_posix() for p in MINI.rglob("*") if p.is_file()}
+    in_git = {name for name in tracked.stdout.split("\0") if name}
+
+    assert on_disk - in_git == set(), (
+        "fixture file(s) present on disk but not tracked — a .gitignore rule is "
+        "swallowing them and CI will build a different archive")
+    assert in_git - on_disk == set(), "tracked fixture file(s) missing from disk"
 
 
 def test_fixture_member_digests_are_pinned(mini_wbpz):
