@@ -51,10 +51,31 @@ def artifact_pin(source_url: str, content: str | bytes, *, fetched_at: str,
     byte-identical card stale on a weights re-upload -- a badge going amber for
     a reason the reader cannot see and the card cannot support.
     """
+    return artifact_pin_for_digest(
+        source_url, content_hash(content), fetched_at=fetched_at,
+        revision=revision, revision_kind=revision_kind,
+    )
+
+
+def artifact_pin_for_digest(source_url: str, digest: str, *, fetched_at: str,
+                            revision: str = "",
+                            revision_kind: str = "") -> dict[str, Any]:
+    """`artifact_pin` for a caller that has already streamed the content.
+
+    Same pin, same claim; the only difference is who computed the digest. A
+    405 MB solver archive cannot be handed to `artifact_pin` as bytes, and
+    reading it into memory to pin it would defeat the streaming the seal path
+    exists to do. `digest` must be in the `sha256:<hex>` form `content_hash`
+    returns -- anything else is a caller bug and is rejected here rather than
+    written into a package that claims to be re-derivable.
+    """
+    if not (digest.startswith("sha256:") and len(digest) == 71):
+        raise ValueError(
+            f"digest must be 'sha256:<64 hex>' as content_hash returns, got {digest!r}")
     pin: dict[str, Any] = {
         "pinType": ARTIFACT,
         "sourceUrl": source_url,
-        "contentHash": content_hash(content),
+        "contentHash": digest,
         "fetchedAt": fetched_at,
         "supports": "re-derivation",
     }

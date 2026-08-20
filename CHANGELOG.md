@@ -4,6 +4,107 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+### Added — evidence sealing for solver artifacts, without the solver
+
+- **`uofa evidence inventory|seal`**: classify, digest and account for every file
+  in an evidence folder and every member inside an Ansys Workbench `.wbpz`, with
+  no vendor software, no licence, no network and no model. Establishes integrity,
+  provenance and completeness *before* any extractor runs, which is the half of
+  the claim that never needed a language model. Built against the three archives
+  behind Nagaraja et al., *Methods* 225 (2024) 74-88 (<https://osf.io/n4pjz/>).
+- **Content decides the kind; the suffix only breaks ties.** Not a preference:
+  `document_reader._READERS` maps `.dat` to the plain-text reader, and a real
+  Workbench project carries `dp0/act.dat`, which is HDF5 — under suffix routing
+  that binary is decoded with `errors="replace"` and handed to an extractor as
+  mojibake. Same for `.scdoc` (a zip that is really CAD geometry), `.wbdp` (XML
+  sharing the project file's marker) and the saved result figures (PNG). Across
+  a real 405 MB archive all 93 files are identified and none falls through to
+  "unrecognised".
+- **Everything streams.** That archive inventories in **6.7 s at a peak of
+  50.5 MiB RSS, writing zero bytes to disk**. Members are hashed in chunks and
+  read from the zip in place; nothing is unpacked. Three guards treat an evidence
+  archive as untrusted input — path traversal, member count, and expansion
+  checked both against the declared total and a running budget, because a zip's
+  central directory is a claim rather than a fact.
+- **An artifact with no reader is sealed and reported unread *with a reason*,
+  never skipped.** The honest-blank contract from `keyless_extractor` applied to
+  bytes: a manifest listing only what we understood would misrepresent a folder
+  of proprietary archives as a small one.
+- **Operator identity is redacted before anything else sees it.** A Workbench
+  project file is a diary — the real ones carry usernames, machine names and the
+  analyst's directory tree, matching contributors credited in the paper. Two
+  one-way exits follow without this: the extraction corpus goes to a model, and
+  the package gets signed and published. **Basenames survive on purpose**, because
+  the strongest completeness evidence in the folder is the archive's own record
+  naming `ds.dat`, `file.rst` and `solve.out` as stripped; redacting filenames
+  would protect the operator by deleting the finding.
+- **The stored messages are the solver log.** These archives were written without
+  solution files, so `solve.out` does not exist — but the `.wbpj` carries 78
+  stored messages in each small archive and 241 in the large one (154 errors, 85
+  warnings), including weak springs added to reach a solution and a matrix
+  coefficient ratio above 1e8. They are **solver-reported cautions**, never
+  weakeners: that word names a catalog rule with an id, and this work mints none.
+  A test greps the rendered corpus for catalog vocabulary and fails if any leaks.
+- **Materials read with their declared units, never converted.** One library
+  genuinely mixes them, and where two systems disagree both readings are shown.
+  Material facts bind at `LIBRARY_ENTRY`, not certainty: the value is certainly in
+  the file; that the published run *used* it is a claim the file does not make,
+  and this library holds three mutually inconsistent titanium definitions.
+- **`uofa evidence --claims` corroborates prose against the artifacts.** Against
+  the paper's Table 5 it confirms Young's modulus 108,222 MPa, Poisson's ratio
+  0.33, yield 967.5 MPa and tangent modulus 4,647 MPa, and reports two
+  divergences. Comparisons happen only through the conversion table declared in
+  `packs/vv40/pack.json`; an undeclared unit makes a pair `not-comparable` rather
+  than coerced, because a silent conversion that is wrong produces an answer that
+  validates. Divergences are reported, never adjudicated.
+- **`uofa import --evidence` folds the seal in before the package is hashed**, so
+  the manifest and pins sit inside the signature rather than beside it. Asserted
+  the only way that means anything: edit one digest inside the sealed manifest and
+  verification must fail. No term is added to `spec/context/v0.5.jsonld` —
+  `@vocab` already expands these, and that file is inlined into the hash preimage.
+- **One read-only panel in the Space**, calling the same `uofa_cli` code and
+  attached after signing, so no rendering change can move a package hash.
+
+### Changed
+
+- `discover_files(max_depth=)` raised from 3 to 6. A Workbench tree puts its
+  materials library four levels down at `proj_files/dp0/SYS-15/ENGD/`, so the old
+  ceiling stopped one short of the evidence.
+- Unreadable simulation formats are **named in a warning instead of dropped in
+  silence**. Pointed at the real evidence folder, `uofa extract` previously exited
+  1 with "No supported files found" — `.wbpz` was in neither `_READERS` nor
+  `_DEFERRED_SUFFIXES`, so it fell through the unsupported-suffix `continue`
+  without a word, which is the failure an operator is least able to diagnose.
+
+### Fixed
+
+- **`uofa extract --keyless` no longer demands `uofa setup`.** Its own contract is
+  "no network call, no API key, no token spend", but the setup guard ran before
+  the keyless branch, so the offline route was unreachable on a machine that had
+  never downloaded a runtime — exactly the machine it exists for.
+- **`text_reader` sniffs a BOM before trying UTF-8.** A UTF-16LE file does not
+  raise under a UTF-8 read; it decodes to interleaved replacement characters, so
+  the failure is silent and the mojibake travels on. Real solver evidence contains
+  such a file.
+- **The Nagaraja fixture recorded the wrong DOI.** `ground_truth.json` and
+  `metadata.json` both carried `10.1016/j.jmbbm.2024.106640`, which resolves to an
+  unrelated hip-prosthesis alloy FEA paper by different authors; the package's
+  `10.1016/j.ymeth.2024.03.003` is correct. The `source_sha256` beside the wrong
+  DOI was computed against that wrong document and is removed rather than left
+  looking authoritative.
+
+### Not added, on evidence — a result-file reader
+
+`ansys-mapdl-reader` (MIT, no Ansys install, no licence) would have read `.rst`
+binaries, and an `[ansys]` extra was planned for it. Inventorying all three
+archives settled it: **none contains a solver result file, a solver log or an APDL
+deck**, and every `MECH/` directory in all three is empty (8, 9 and 19 of them).
+The 405 MB is almost entirely Mechanical databases — six `.mechdb` files of 121,
+121, 86, 86, 86 and 50 MB, binary with no open-source reader. The extra would have
+had nothing to open, so it is dropped rather than carried as an unused optional
+dependency with a devcontainer and release-check cost. What it would have read is
+sealed by digest and reported unread.
+
 ### Fixed — W-EP-01 guarded on a class the vocabulary does not declare
 
 - **The `(?claim rdf:type uofa:Claim)` guard is removed. Disclosed post-freeze

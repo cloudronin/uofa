@@ -10,6 +10,10 @@ from uofa_cli import paths
 HELP = "extract assessment data from evidence documents into an Excel template"
 
 
+# Formats whose sealing belongs inside the signature; see `uofa evidence seal`.
+_SOLVER_FORMATS = {"wbpz", "wbpj", "engd", "ansys"}
+
+
 def _model_bypasses_local_setup(model: str) -> bool:
     """True if *model* points at a remote provider that doesn't need uofa setup.
 
@@ -121,7 +125,12 @@ def run(args) -> int:
 
     # ── REQ-DIST-002 AC 3: extract requires `uofa setup` for live LLM use.
     # mock + non-Ollama litellm targets (e.g. cloud APIs) bypass the check.
-    if model != "mock" and not _model_bypasses_local_setup(model):
+    # So does --keyless, which runs no model at all: its own docstring promises
+    # "no network call, no API key, no token spend", and demanding a downloaded
+    # runtime before honouring that made the offline route unreachable on a
+    # machine that had never run `uofa setup`.
+    keyless = getattr(args, "keyless", False)
+    if not keyless and model != "mock" and not _model_bypasses_local_setup(model):
         try:
             setup_state.assert_ready()
         except setup_state.SetupNotReadyError as e:
@@ -297,7 +306,18 @@ def run(args) -> int:
 
     print()
     info("Done. Review the spreadsheet, then run:")
-    info(f"  uofa import {output} --sign --key <your-key> --check")
+    # Solver artifacts carry digests and stated absences that belong INSIDE the
+    # signature, so when the corpus held any, name the sidecar step here rather
+    # than leaving the operator to discover it.
+    saw_solver = any(entry.get("format") in _SOLVER_FORMATS
+                     for entry in corpus.file_manifest)
+    if saw_solver:
+        info(f"  uofa evidence seal {args.source[0] if args.source else '<evidence-dir>'}"
+             f" -o evidence.json")
+        info(f"  uofa import {output} --evidence evidence.json "
+             f"--sign --key <your-key> --check")
+    else:
+        info(f"  uofa import {output} --sign --key <your-key> --check")
 
     return 0
 
