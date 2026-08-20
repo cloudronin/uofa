@@ -147,7 +147,7 @@ def test_fixture_member_digests_are_pinned(mini_wbpz):
         "mini_files/.project_cache":
             "sha256:fd55da2014bb97644e8ca770b91c75eed2735480827c96d2a964587421bf43d4",
         "mini_files/.skipped_files_on_archive":
-            "sha256:7f0fb589d4ccc5f943f3717e3e35fa96e4dd4221c56c69439c30dfa48a0dc1f3",
+            "sha256:c251cba7efd5e859966eb638cfa9a60c0ee18475bb5ea4f23fa00431db2cf73b",
         "mini_files/dp0/SYS/ENGD/EngineeringData.xml":
             "sha256:3e7169e819128a8fe391a34d0f70bc666140a723ba7bbb3158f481c2184a2594",
         "mini_files/dp0/act.dat":
