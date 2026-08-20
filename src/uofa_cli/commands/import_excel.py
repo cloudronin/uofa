@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from uofa_cli.furnishers import pins
 from uofa_cli.output import step_header, result_line, info, error, warn
 from uofa_cli import paths
 
@@ -28,6 +29,11 @@ def add_arguments(parser):
                         help="namespace to mint identifiers under, e.g. https://acme.example/uofa. "
                              "Overrides [project] base_uri in uofa.toml. Defaults to a reserved "
                              "example.org placeholder; uofa.net is refused.")
+    parser.add_argument("--evidence", type=Path,
+                        help="evidence sidecar from `uofa evidence seal`; its "
+                             "manifest, source pins and corroboration are folded "
+                             "in BEFORE hashing, so the seal sits inside the "
+                             "signature scope")
     parser.add_argument("--sip-pubkey", type=Path,
                         help="SIP measurement public key for verifying a SIP-bundle input (default: keys/research.pub)")
     parser.add_argument("--decision-pubkey", type=Path,
@@ -136,6 +142,10 @@ def run(args) -> int:
     base_uri = args.base_uri or config.get("base_uri")
     doc = map_to_jsonld(data, packs, xlsx.resolve(), base_uri=base_uri)
 
+    if getattr(args, "evidence", None):
+        folded = _fold_evidence(doc, args.evidence)
+        info(f"  Evidence sidecar folded in: {', '.join(folded)}")
+
     if not base_uri:
         warn(
             f"Identifiers minted under {DEFAULT_BASE_URI}, a placeholder domain. "
@@ -169,6 +179,47 @@ def run(args) -> int:
     info(f"  Profile: {data['summary']['profile']}, Pack: {', '.join(packs)}")
 
     return _sign_and_check(args, output, packs, project_root)
+
+
+# What the sidecar contributes to the package. Undeclared terms on purpose:
+# `@vocab` in the v0.5 context expands each to `uofa:<term>`, and that context
+# is inlined into the hash preimage, so declaring them would invalidate every
+# signed package in the repo (furnishers/pins.py:19-25).
+_EVIDENCE_FIELDS = ("artifactManifest", "solverFact", "solverCaution",
+                    "absentArtifact", "corroboration")
+
+
+def _fold_evidence(doc: dict, sidecar: Path) -> list[str]:
+    """Merge an evidence sidecar into the package before it is hashed.
+
+    Order matters and is the whole point: this runs before `integrity.sign_file`,
+    so the artifact digests and source pins are covered by the signature rather
+    than shipped alongside it. A manifest beside a signed package proves
+    nothing about the package.
+    """
+    if not sidecar.exists():
+        raise FileNotFoundError(f"Evidence sidecar not found: {sidecar}")
+    payload = json.loads(sidecar.read_text(encoding="utf-8"))
+    schema = str(payload.get("schemaVersion", ""))
+    if not schema.startswith("uofa-evidence-seal/"):
+        raise ValueError(
+            f"{sidecar} is not an evidence sidecar (schemaVersion {schema!r}); "
+            f"generate one with `uofa evidence seal <folder>`")
+
+    added = []
+    for field in _EVIDENCE_FIELDS:
+        value = payload.get(field)
+        if value:
+            doc[field] = value
+            added.append(f"{len(value)} {field}")
+
+    # Source pins go through pins.attach so the de-duplication rule stays in
+    # one place rather than being re-implemented here.
+    for pin in payload.get("sourcePin") or []:
+        pins.attach(doc, pin)
+    if payload.get("sourcePin"):
+        added.append(f"{len(payload['sourcePin'])} sourcePin")
+    return added or ["nothing (the sidecar was empty)"]
 
 
 def _looks_like_sip_bundle(path: Path) -> bool:
