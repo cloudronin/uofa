@@ -79,13 +79,62 @@ from a spec sentence.
 
 ## Provenance self-audit (spec §2.4)
 
-Recorded after import. Three counts, reconciled:
+The counts do not reconcile, and the gap is the finding.
 
 | Count | Value |
 |---|---|
-| `field provenance:` line from `uofa import` | _pending_ |
-| Cells I anchored by hand during review | _pending_ |
-| Cells whose value came from Table 3 geometric recovery (author-side, never `extracted`) | _pending_ |
+| `field provenance:` from `uofa import` | **1 derived, 4 extracted, 6 run-context** (11 fields) |
+| Review decisions taken (`REVIEW_LEDGER.md`) | **97** — 47 confirmed, 14 corrected, 36 blanked source-absent |
+| Populated cells in the reviewed workbook | 155 across 29 data rows |
+| Data rows carrying a `Source Anchor` | **29 of 29** |
+| Required-level cells sourced from Table 3 geometric recovery (author-side, never `extracted`) | **5** — Data pedigree, Development process and product management, Results uncertainty, Results robustness, Use history |
+
+### The surprise, recorded rather than fixed
+
+**Four fields are counted as `extracted` after a review pass that took 97
+decisions across 155 cells.** The provenance map (`excel_mapper._provenance`)
+classifies eleven summary-level fields and nothing else: not one credibility
+factor, not one validation result, not the decision record. So the count answers
+"how much of the *summary* was read", and the on-ramp page presents it as
+answering "how much of this package was actually read."
+
+Worse for the praxis claim: the count cannot distinguish a package the author
+reviewed cell by cell from one imported straight out of the extractor. Both
+report 4 extracted. **The human contribution is invisible to the only field that
+exists to measure it** — and Ch3's Human Adjudication Role section is meant to
+rest on these counts. Filed as the §7 finding.
+
+Also unreconcilable by construction: the 5 required-level cells recovered from
+Table 3's shading are author-side work, and there is no provenance class that
+says so. They are simply not counted anywhere.
+
+### Profile: reported and written disagree
+
+`uofa import` printed `Profile: Complete`. The package carries
+`conformsToProfile: ProfileMinimal`.
+
+`import_excel.py:169` prints `data['summary']['profile']` — the value the
+*workbook declared* in cell D3. The derived value comes from
+`excel_mapper.derive_profile`, whose own docstring says declaring what the
+spreadsheet said "is how all five gpt-5 extractions came to claim ProfileComplete
+without containing Complete's fields", and the on-ramp page promises "The declared
+profile is *derived* from what the package contains rather than asserted." The
+derivation is correct and the package is right. The summary line still reports the
+assertion. Filed as F-6, a one-line fix.
+
+### Derived credibility metrics all read zero
+
+    credibilityIndex 0.00   traceCompleteness 0.00
+    validationCoverage 0.00   verificationCoverage 0.00
+
+This is the honest encoding's cost. Because no 7009A level was rewritten onto a
+1-5 V&V 40 factor (A-06), the 13 V&V 40 factors carry evidence and no level, and
+every derived metric that reads levels reports nothing. A paper that states
+Verification achieved 4 produces `verificationCoverage 0.00`.
+
+The raw extraction would have produced non-zero values for all four, from
+synthesized levels. **There is no way to encode this source that is both honest
+and non-misleading**, and that is the strongest single result of the pilot.
 
 ## Command trace
 
