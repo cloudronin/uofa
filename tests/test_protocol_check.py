@@ -6,6 +6,7 @@ template change surfaces here instead of silently making the checks vacuous.
 
 from __future__ import annotations
 
+import json
 import shutil
 import subprocess
 import sys
@@ -166,9 +167,10 @@ GOOD_RUN_LOG = (
 )
 
 
-def _package_dir(tmp_path: Path, *, ambiguity: str | None, run_log: str | None) -> Path:
+def _package_dir(tmp_path: Path, *, ambiguity: str | None, run_log: str | None,
+                 package_id: str | None = None) -> Path:
     pkg = tmp_path / "pkg.jsonld"
-    pkg.write_text("{}", encoding="utf8")
+    pkg.write_text(json.dumps({"id": package_id} if package_id else {}), encoding="utf8")
     if ambiguity is not None:
         (tmp_path / "AMBIGUITY_LOG.md").write_text(ambiguity, encoding="utf8")
     if run_log is not None:
@@ -217,6 +219,74 @@ def test_signing_check_skipped_when_run_log_is_not_pilot_labeled(tmp_path):
     pkg = _package_dir(tmp_path, ambiguity="A-01 ...",
                        run_log=GOOD_RUN_LOG + "\nuofa import x.xlsx --sign --key k\n")
     assert _verdict(check_package(pkg), "no signing").skipped
+
+
+# ── namespace ────────────────────────────────────────────────────────────────
+
+# The whole reserved family, one namespace per branch of the matcher. The first entry is
+# the exact namespace an encoder following A-2 chose while clearing the narrower check
+# this one replaces.
+RESERVED_NAMESPACES = [
+    "https://reference-encodings.example.net/pkg/1",
+    "https://example.org/pkg/1",
+    "https://example.com/pkg/1",
+    "https://example.net/pkg/1",
+    "https://sub.example.org/pkg/1",
+    "https://encodings.test/pkg/1",
+    "https://encodings.invalid/pkg/1",
+    "https://encodings.localhost/pkg/1",
+    "https://encodings.example/pkg/1",
+    "https://example.acme.com/pkg/1",
+]
+
+# Namespaces that read like the reserved ones without being them. A check that fires on
+# these would refuse namespaces an encoder does control, which is the opposite failure.
+CONTROLLED_NAMESPACES = [
+    "https://github.com/cloudronin/uofa/pkg/1",
+    "https://uofa.net/pkg/1",
+    "https://myexample.com/pkg/1",
+    "https://examples.org/pkg/1",
+    "https://acme.example-corp.com/pkg/1",
+]
+
+
+@pytest.mark.parametrize("namespace", RESERVED_NAMESPACES)
+def test_reserved_namespace_fails(tmp_path, namespace):
+    pkg = _package_dir(tmp_path, ambiguity="A-01 ...", run_log=GOOD_RUN_LOG,
+                       package_id=namespace)
+    result = _verdict(check_package(pkg), "namespace")
+    assert not result.passed, namespace
+    assert not result.skipped
+
+
+@pytest.mark.parametrize("namespace", CONTROLLED_NAMESPACES)
+def test_controlled_namespace_passes(tmp_path, namespace):
+    pkg = _package_dir(tmp_path, ambiguity="A-01 ...", run_log=GOOD_RUN_LOG,
+                       package_id=namespace)
+    assert _verdict(check_package(pkg), "namespace").passed, namespace
+
+
+def test_reserved_base_uri_in_the_run_log_fails_even_when_the_id_is_clean(tmp_path):
+    """The run log declares the namespace; a clean id does not excuse a reserved pin."""
+    run_log = GOOD_RUN_LOG.replace("https://uofa.net", "https://example.org")
+    pkg = _package_dir(tmp_path, ambiguity="A-01 ...", run_log=run_log,
+                       package_id="https://github.com/cloudronin/uofa/pkg/1")
+    result = _verdict(check_package(pkg), "namespace")
+    assert not result.passed
+    assert "base_uri" in result.detail
+
+
+def test_namespace_check_skips_with_nothing_to_read(tmp_path):
+    """No minted id and no declared base_uri skips rather than passing vacuously."""
+    pkg = _package_dir(tmp_path, ambiguity="A-01 ...",
+                       run_log=GOOD_RUN_LOG.replace("base_uri: https://uofa.net\n", ""))
+    assert _verdict(check_package(pkg), "namespace").skipped
+
+
+def test_namespace_check_survives_an_unparseable_package(tmp_path):
+    pkg = _package_dir(tmp_path, ambiguity="A-01 ...", run_log=GOOD_RUN_LOG)
+    pkg.write_text("{ not json", encoding="utf8")
+    assert _verdict(check_package(pkg), "namespace").passed  # falls back to the run log
 
 
 # ── CLI wiring ───────────────────────────────────────────────────────────────

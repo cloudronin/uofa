@@ -25,12 +25,24 @@ Every pack template carries a description row under each header row, and its str
 exactly the hint text that leaks into data rows when the extractor writes nothing
 (F-3d). The placeholder set is read from the active pack's own template rather than listed
 here, so a pack that changes its hints does not silently stop being checked.
+
+## Why the namespace check names a domain family, not a string
+
+The protocol's rule is *mint under a namespace you control*. The importer's own warning fires on
+one string, its `example.org` default, so an encoder can satisfy the warning and still miss the
+rule: a reserved example domain under a plausible subdomain reads like a real namespace and is
+one nobody controls. The check therefore rejects the whole RFC 2606 / RFC 6761 reserved family.
+It reads the package's minted `id` because that string sits inside the canonicalised content the
+hash and signature cover, which is what makes the mistake permanent rather than cosmetic.
 """
 
 from __future__ import annotations
 
+import json
+import re
 from dataclasses import dataclass
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from uofa_cli.excel_constants import SHEET_NAMES
 
@@ -47,6 +59,20 @@ RUN_LOG_FIELDS = ("model", "backend", "site commit", "repo head", "base_uri")
 # A run log that labels itself a pilot must not record a signing step, because a pilot
 # runs before the protocol governs it and nothing it produces may be signed.
 PILOT_MARKERS = ("pilot", "PILOT")
+
+# Domains reserved by RFC 2606 §2-3 and RFC 6761 §6 for documentation and testing. Nobody
+# controls any of them, so none can satisfy the protocol's "a namespace you control".
+RESERVED_SECOND_LEVEL = ("example.com", "example.net", "example.org")
+RESERVED_TLDS = ("test", "example", "invalid", "localhost")
+
+# Any host carrying a bare `example` label is refused too — the protocol says "example.*
+# generally". Matching whole labels rather than substrings keeps `myexample.com` clear, and
+# refusing `example.acme.com` as well is deliberate: this check exists to catch namespaces
+# that look real and are not, so it errs toward the false positive an encoder can override
+# by choosing a name that does not read as a placeholder.
+PLACEHOLDER_LABEL = "example"
+
+_BASE_URI_LINE = re.compile(r"^\s*base_uri\s*[:=]\s*(\S+)", re.IGNORECASE | re.MULTILINE)
 
 
 @dataclass(frozen=True)
@@ -212,6 +238,71 @@ def _check_levels(wb) -> CheckResult:
     )
 
 
+def _reserved_reason(uri: str | None) -> str | None:
+    """Why this namespace is reserved, or None if it is not one of the reserved family."""
+    if not isinstance(uri, str) or not uri.strip():
+        return None
+    host = (urlsplit(uri.strip()).hostname or "").lower().rstrip(".")
+    if not host:
+        return None
+    labels = host.split(".")
+    if host in RESERVED_SECOND_LEVEL or any(
+        host.endswith("." + d) for d in RESERVED_SECOND_LEVEL
+    ):
+        return f"{host} is reserved by RFC 2606 for documentation"
+    if labels[-1] in RESERVED_TLDS:
+        return f".{labels[-1]} is a reserved special-use TLD (RFC 6761)"
+    if PLACEHOLDER_LABEL in labels:
+        return f"{host} carries a bare '{PLACEHOLDER_LABEL}' label"
+    return None
+
+
+def _package_id(package_path: Path) -> str | None:
+    """The package's own minted identifier, or None if it carries no readable one."""
+    try:
+        doc = json.loads(package_path.read_text(encoding="utf8", errors="replace"))
+    except (OSError, ValueError):
+        return None
+    if not isinstance(doc, dict):
+        return None
+    for key in ("id", "@id"):
+        value = doc.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return None
+
+
+def _check_namespace(package_path: Path, run_log_text: str | None) -> CheckResult:
+    """The minted namespace must be one the encoder controls.
+
+    Checks the package's own `id` first, because that is the string the hash and signature
+    cover, then the run log's declared `base_uri`. Either being reserved fails the check;
+    neither being present skips it rather than passing vacuously.
+    """
+    name = "namespace is not a reserved example domain"
+    candidates: list[tuple[str, str]] = []
+    package_id = _package_id(package_path)
+    if package_id:
+        candidates.append(("package id", package_id))
+    if run_log_text:
+        match = _BASE_URI_LINE.search(run_log_text)
+        if match:
+            candidates.append(("run log base_uri", match.group(1)))
+
+    if not candidates:
+        return CheckResult(name, True, "no minted identifier or declared base_uri to read",
+                           skipped=True)
+
+    offending = [
+        f"{label} {value}: {reason}"
+        for label, value in candidates
+        if (reason := _reserved_reason(value))
+    ]
+    if offending:
+        return CheckResult(name, False, "; ".join(offending))
+    return CheckResult(name, True, ", ".join(f"{label} {value}" for label, value in candidates))
+
+
 def check_package(package_path: Path) -> list[CheckResult]:
     """Package-side checks, run against the artifacts committed beside the package."""
     results: list[CheckResult] = []
@@ -239,6 +330,7 @@ def check_package(package_path: Path) -> list[CheckResult]:
         results.append(CheckResult("run log carries its pins", False, "no run log"))
         results.append(CheckResult("no signing in a pilot run log", True,
                                    "no run log", skipped=True))
+        results.append(_check_namespace(package_path, None))
         return results
 
     text = run_log.read_text(encoding="utf8", errors="replace")
@@ -266,6 +358,7 @@ def check_package(package_path: Path) -> list[CheckResult]:
             "no signing in a pilot run log", not offending,
             "; ".join(offending[:2])[:120] if offending else "pilot run log records no signing",
         ))
+    results.append(_check_namespace(package_path, text))
     return results
 
 

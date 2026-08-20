@@ -245,3 +245,11 @@ It does not establish that the resulting encoding is correct. Run 2's package wa
 reviewed by a person, and A-13 is explicit that a machine-drafted review is preparation rather
 than review. What the test measures is whether the document can be followed, not whether
 following it produces a true package.
+
+---
+
+**2026-08-20 — validation basis for the two fixes made after this test.** A-10's fail-loud rule
+and A-2's widened namespace check both postdate the runs recorded above. The two-run budget is
+spent and neither fix was retested against a third run; both are validated by the next governed
+encoding rather than by a further run of this harness. Recorded here so the record shows the
+fixes postdate the test and were validated by use rather than by a third run.

@@ -51,7 +51,11 @@ and the anchor names the passage.
 Set `base_uri` to a namespace you control, and record it. The identifier it produces is covered
 by the signature and cannot be corrected after signing.
 
-**Check:** `uofa import` does not warn that identifiers are minting under a placeholder domain.
+**Check:** at A-11, `--protocol-check` reports the minted namespace is not a reserved example
+domain. The whole RFC 2606 and RFC 6761 reserved family is refused — `example.com`,
+`example.net`, `example.org`, `example.*` generally, and anything under `.test`, `.invalid` or
+`.localhost` — not only the placeholder the importer defaults to. A reserved domain is one
+nobody controls, so it fails this step's rule however plausible the subdomain in front of it.
 
 ### A-3. Open the run log
 
@@ -158,8 +162,16 @@ Declining has a visible cost: derived metrics computed from levels will read zer
 you declined, against a source that asserts otherwise. State that in the encoding. Understating
 a source is a smaller failure than overstating it and it is not a free one.
 
+Declining is the default, and it has a limit. Where declining would suppress a value the source
+explicitly foregrounds — a headline result, a stated exceedance, a figure the source exists to
+demonstrate — you may not decline silently. Either carry the value as a recorded judgment act,
+named as your judgment rather than as the source's arithmetic, or decline. In **both** cases
+write an ambiguity-log entry setting the two readings side by side, each with its own anchor, so
+a reader can see what the reading you did not take would have produced.
+
 **Check:** the declination and its consequence appear in a committed file, not in a covering
-note.
+note. Where the declination touches a value the source foregrounds, the ambiguity log carries
+both readings, each anchored.
 
 ### A-11. Import without signing
 
@@ -276,7 +288,10 @@ is a different act, because by then the encoder has read the tutorial and cannot
 
 **A-2, the namespace.** The on-ramp page never mentions `base_uri`, import warns about the
 placeholder domain, and the identifier cannot be corrected after signing (F-1b). The on-ramp
-page needs the same sentence, which is a tooling item rather than a protocol one.
+page needs the same sentence, which is a tooling item rather than a protocol one. The check was
+widened from the importer's one placeholder string to the whole reserved family after an encoder
+following this step chose a reserved example domain under a plausible subdomain: the narrow
+check passed, and the rule — a namespace you control — was missed in substance.
 
 **A-3, the pin and the lineage.** No example site commit appears in Part A because the outline's
 own example had drifted before the first encoding under it began, and a pin that goes stale
@@ -355,3 +370,10 @@ adding a process attestation and watching it draw the firing immediately.
 **B, structural integrity.** An unsigned package carries a zero-filled placeholder rather than
 no signature, so the missing-signature pattern never fires on one. Integrity checking catches
 it and the weakener report does not (F-6d).
+
+**The principle behind A-10, A-12 and A-13.** The system may decline to decide, but it may never
+decline invisibly. A-12's silence rule, A-13's refusal to let import success stand as
+completeness evidence, and A-10's declination disclosure are three faces of one design
+principle; the A-10 case is what forced it into words, when a conservative encoder following the
+rule as first written could drop the value a source exists to demonstrate and leave nothing in
+the record to say it had.
