@@ -17,7 +17,8 @@ from pathlib import Path
 
 import gradio as gr
 
-from space import curated, leadcapture, llm_env, pipeline, ratelimit, reviewer, wizard
+from space import (curated, leadcapture, llm_env, pipeline, ratelimit, reviewer,
+                   solver_panel, wizard)
 from space.gloss import gloss_for, load_gloss
 from uofa_cli import paths
 
@@ -384,6 +385,9 @@ def _render_results(p):
         tail.append("**Structural validity:** conforms.")
     else:
         tail.append(f"**Structural validity:** {_issue_phrase(struct['n'])}.")
+    solver_md = solver_panel.render(p.get("solverEvidence"))
+    if solver_md:
+        tail.append(solver_md)
     tail_md = "\n\n".join(tail)
 
     # build_reviewer_state derives an invariant-satisfying state by construction,
