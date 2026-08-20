@@ -22,6 +22,11 @@ def add_arguments(parser):
                         help="path to ed25519 private key (required with --sign, or auto-detected from project)")
     parser.add_argument("--check", action="store_true",
                         help="run all quality gates on the output")
+    parser.add_argument("--protocol-check", action="store_true", default=False,
+                        help="gate the import on the reference-encoding conformance "
+                             "checks. Runs the workbook-side checks against the input "
+                             "and the package-side checks against the artifacts beside "
+                             "the output. Any failure exits non-zero.")
     parser.add_argument("--profile", choices=["minimal", "complete"],
                         help="override profile auto-detection")
     parser.add_argument("--base-uri",
@@ -215,6 +220,28 @@ def _run_sip_import(args, bundle_path: Path, project_root, config) -> int:
     return _sign_and_check(args, output, packs, project_root)
 
 
+def _run_protocol_check(args, output: Path) -> bool:
+    """Reference-encoding conformance gate. True when nothing failed.
+
+    Workbook-side checks are skipped for a non-xlsx input, because the SIP-bundle
+    path never produces a workbook to check.
+    """
+    from uofa_cli import protocol_check
+    from uofa_cli import paths as _paths
+
+    results = []
+    source = getattr(args, "file", None)
+    if source is not None and Path(source).suffix.lower() == ".xlsx":
+        try:
+            template = _paths.template_path()
+        except Exception:
+            template = None
+        results += protocol_check.check_workbook(Path(source), template)
+    results += protocol_check.check_package(output)
+    print()
+    return protocol_check.render(results, output.name)
+
+
 def _sign_and_check(args, output: Path, packs, project_root) -> int:
     # Implicitly sign when --key is provided alongside --check: the only reason
     # to pass --key to import + verify is to verify against that key, which
@@ -282,5 +309,8 @@ def _sign_and_check(args, output: Path, packs, project_root) -> int:
         rc = check.run(check_args)
         if rc != 0:
             return rc
+
+    if getattr(args, "protocol_check", False) and not _run_protocol_check(args, output):
+        return 1
 
     return 0

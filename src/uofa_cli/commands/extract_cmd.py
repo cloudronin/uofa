@@ -45,6 +45,11 @@ def add_arguments(parser):
                         help="model name on the chosen backend (overrides [llm] model)")
     parser.add_argument("--extract-base-url", default=None,
                         help="base URL for openai-compatible backends (e.g. Together AI, vLLM)")
+    parser.add_argument("--protocol-check", action="store_true", default=False,
+                        help="report the reference-encoding conformance checks against "
+                             "the written workbook. Informational here: a fresh extract "
+                             "has no citation anchors, because anchors are what the "
+                             "review pass produces. The gate is on `uofa import`.")
     parser.add_argument("--keyless", action="store_true", default=False,
                         help="extract without a language model: no API key, no "
                              "network, no spend. Fills only the fields with a "
@@ -280,6 +285,15 @@ def run(args) -> int:
     info(f"  {n_filled} cells pre-filled")
     if all_confidences:
         info(f"  {high} high confidence (green), {medium} review suggested (yellow)")
+
+    if getattr(args, "protocol_check", False):
+        from uofa_cli import protocol_check
+        print()
+        protocol_check.render(
+            protocol_check.check_workbook(output, template),
+            f"{output.name} (as extracted)",
+        )
+        info("  Informational. These describe a reviewed workbook; the gate is on import.")
 
     print()
     info("Done. Review the spreadsheet, then run:")
