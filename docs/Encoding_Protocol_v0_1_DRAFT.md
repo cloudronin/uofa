@@ -37,8 +37,14 @@ both. Admissible material is the published document and the supplementary materi
 with it; secondary summaries and recollection are not. Synthetic evidence bundles are
 admissible, and the package states its source class.
 
-**Check:** the note lists admitted and excluded material separately. Nothing you encode later
-may cite an excluded page.
+Create `AMBIGUITY_LOG.md` now, empty. A-9 states what goes in it, and entries begin arriving
+during this step.
+
+**Check:** the note lists admitted and excluded material separately, and `AMBIGUITY_LOG.md`
+exists. Nothing you encode later may cite an **excluded passage**. A page may be partly
+admitted: bibliographic front matter such as a title, a byline or a reference list is
+admissible even on a page whose argument you excluded, so the boundary is drawn over passages
+and the anchor names the passage.
 
 ### A-2. Choose the minting namespace
 
@@ -69,6 +75,12 @@ uofa extract <source-dir> --pack <pack> -o <workbook>.xlsx
 Keep the extractor's untouched output. Copy the workbook to `raw-extract/` before you edit a
 cell, so the difference between what the extractor produced and what you reviewed stays
 measurable.
+
+Extraction is a starting point and it may return very little, including no credibility factors
+at all. That is not a failure state and it does not change what follows: build the workbook
+from the source under A-6, where every cell needs a source location anyway. Record what the
+extractor returned in the run log, because a thin extraction and a thorough one produce
+packages that look alike and are not.
 
 **Check:** a copy of the extractor's output exists and is not the file you are about to edit.
 
@@ -116,9 +128,9 @@ someone else can repeat it.
 
 ### A-9. Keep the ambiguity log as you go
 
-Open `AMBIGUITY_LOG.md` at A-1 and add an entry whenever the source **underdetermines** a field,
-whenever a **cross-standard mapping is not mechanical**, or whenever the source
-**over-determines** a field by answering the same question two ways.
+The log was created in A-1 and you have been adding to it since. Add an entry whenever the
+source **underdetermines** a field, whenever a **cross-standard mapping is not mechanical**, or
+whenever the source **over-determines** a field by answering the same question two ways.
 
 An entry states the ambiguity, the resolution you chose, and the rule you applied choosing it.
 

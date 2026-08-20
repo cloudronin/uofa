@@ -55,7 +55,7 @@ DONETEST_VENV = SCRATCH / "donetest-venv"
 # belt and braces against a session that goes looking.
 MASKED = ["/home/user/uofa"]
 
-MAX_TURNS = 60
+MAX_TURNS = 150
 TOOL_TIMEOUT = 900
 
 

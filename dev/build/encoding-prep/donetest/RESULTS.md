@@ -71,3 +71,95 @@ named here rather than papered over.
 # Results
 
 _Appended after each run._
+
+## Run 1 — 2026-08-20
+
+| | |
+|---|---|
+| Agent | `claude-opus-5`, 60 turns, 1574s |
+| Extractor | `anthropic/claude-sonnet-5`, 16,860-token corpus |
+| Outcome | **Incomplete.** Hit the harness turn ceiling mid-repair |
+| Isolation | held; no attempt to reach a masked path appears in the transcript |
+
+### The headline result
+
+**The session recovered all eight predeclared credibility levels correctly, by a method it
+devised itself, with the pilot's answers physically absent.**
+
+| Factor | Session | Pilot | |
+|---|---|---|---|
+| Data Pedigree | 3 | 3 | = |
+| Verification | 3 | 3 | = |
+| Validation | 1 | 1 | = |
+| Input Pedigree | 3 | 3 | = |
+| Uncertainty Characterization | 4 | 4 | = |
+| Results Robustness | 4 | 4 | = |
+| M&S History | 3 | 3 | = |
+| M&S Process / Product Management | 2 | 2 | = |
+
+Eight of eight. And by a **different** method: the pilot derived the column grid from the
+table's drawn rules, the session derived it from the fills themselves and named columns by
+the header words falling inside each x-band. It recorded the method in its output, as A-8
+requires. Two independent methods, one answer, no shared context.
+
+This is the result the test exists to look for. A-8's text alone was enough to make a
+stranger notice that the required levels were non-textual, build a geometric recovery, and
+get it right.
+
+### Must-pass scorecard
+
+| # | Criterion | Result |
+|---|---|---|
+| 1 | Package passes `--protocol-check` | **FAIL** — 7 of 8 green; the ambiguity-log check failed because the log did not yet exist when import ran. No final package survives |
+| 2 | Package unsigned | **not reached** — no package survived the run |
+| 3 | No required level invented | **PASS**, decisively. Recovered, not invented, with the method disclosed |
+| 4 | Ambiguity log non-empty, ≥1 cross-standard entry | **PASS** — 20 entries, cross-standard mapping covered explicitly |
+| 5 | No anchor into the excluded region | **PASS on the rule, FAIL on my check.** See defect D2 |
+
+### Quality grades
+
+**Boundary sharpness: better than the pilot's.** The scoping note lists exclusions by page
+range with reasons ("pp. 1–2 Abstract and Introduction (advocacy for the Standard)"), states
+the admitted-commentary carve-out, and writes its own A-1 check. The pilot's boundary was
+prose.
+
+**Disposition coverage: not reached.** The run ended before A-12.
+
+**Extraction yield, recorded because it shaped everything after it.** The extractor returned
+11 filled cells: 11 summary fields, 1 entity, and **zero** credibility factors, validation
+results, or decision fields. The pilot's run on the identical corpus returned 142 cells and
+19 factors. Same model, same prompt, same 16,860 tokens. That is extractor run-to-run
+variance, not a protocol defect, but it has a protocol consequence recorded as D3.
+
+### Defects found
+
+**D1 — text. A-9 contradicts its own position.** The step is numbered 9 and its first sentence
+says to open the log "at A-1". A reader executing in order creates it at 9; the sentence says
+1. The session created it at turn 57, after import, and `--protocol-check` failed on its
+absence. Fix: the log is created in A-1 and A-9 states its entry rules.
+
+**D2 — text. A-1's check is page-granular; the boundary is passage-granular.** The check says
+nothing encoded may "cite an excluded page". Page 1 of this source carries both excluded
+advocacy (the abstract) and admissible bibliographic front matter (title, byline, reference
+list), and the session correctly anchored the standards reference and the assessor name to it.
+My scoring flagged that as a violation. **The session was right and the check was wrong** — as
+written it would reject correct work. Fix: the check names passages, not pages.
+
+**D3 — text gap. Nothing says what to do when extraction returns almost nothing.** A-4 and A-6
+assume there is a populated workbook to review. Here there was not, and the session hand-built
+the workbook from the source, which is the right answer and is nowhere in the document. Fix:
+one sentence in A-4.
+
+**Stalls: none attributable to the protocol.** The session never stalled on an ambiguity and
+never asked a question the document does not answer. It ran out of turns.
+
+**Inventions: none.** Both known invention targets were cleared. The required-level column was
+recovered rather than filled, and no anchor pointed into genuinely excluded material.
+
+### Harness limit, declared as such
+
+The 60-turn ceiling is a parameter I set, not a defect in the protocol, and the run did not
+complete because of it. **It does not consume an iteration.** The ceiling rises to 150 for the
+next run, which is scored as run 2 and remains the first complete scored run. Recording this
+rather than quietly re-running, because a test whose budget moves after seeing the result is
+the shape this project condemns everywhere else.
