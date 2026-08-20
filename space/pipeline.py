@@ -43,6 +43,7 @@ from uofa_cli.excel_mapper import map_to_jsonld
 from uofa_cli.llm.config import BUNDLED_MODEL
 from uofa_cli.llm_extractor import extract as _real_extract
 
+from space import solver_panel
 from space import summary as summary_mod
 
 # The extractor writes its raw response here for debugging - a content leak we
@@ -919,6 +920,10 @@ def analyze(
         source_name = str(sources[0]) if sources else "upload"
         payload = finalize(result, pack, factor_edits, work_dir,
                             source_name=source_name, warnings=warnings)
+        # Attached AFTER finalize, deliberately. finalize builds and signs the
+        # package; this is display state only, so a change to the panel cannot
+        # move a package hash and cannot trip the emittability guard.
+        payload["solverEvidence"] = solver_panel.summarise(sources)
         return PipelineOutcome.success(payload)
     except _StageError as exc:
         return PipelineOutcome.failure(exc.kind, exc.message)

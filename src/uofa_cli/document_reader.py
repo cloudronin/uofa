@@ -45,6 +45,27 @@ _READERS: dict[str, tuple[str, str]] = {
     ".f06":  ("uofa_cli.readers.text_reader",  "read_text"),
     ".dat":  ("uofa_cli.readers.text_reader",  "read_text"),
     ".md":   ("uofa_cli.readers.text_reader",  "read_text"),
+    # Workbench artifacts. `.wbpz` is a whole project archive and is read
+    # in place, never unpacked.
+    ".wbpz": ("uofa_cli.readers.ansys_reader", "read_ansys"),
+    ".wbpj": ("uofa_cli.readers.ansys_reader", "read_ansys"),
+    ".engd": ("uofa_cli.readers.ansys_reader", "read_ansys"),
+}
+
+# Simulation formats with no reader. Named so a folder of them reports what it
+# skipped instead of exiting "No supported files found" -- which is what
+# `uofa extract` does today when pointed at a real solver evidence folder.
+_UNREADABLE_SIM_SUFFIXES = {
+    ".mechdb": "Mechanical database (binary)",
+    ".mechdat": "Mechanical database (binary)",
+    ".agdb": "DesignModeler geometry (binary)",
+    ".scdoc": "SpaceClaim geometry (binary)",
+    ".pmdb": "CAD geometry (binary)",
+    ".rst": "solver result file (binary)",
+    ".rth": "thermal result file (binary)",
+    ".wbdp": "Workbench design-point table",
+    ".wbjn": "Workbench session journal",
+    ".cdb": "MAPDL archive",
 }
 
 _DEFERRED_SUFFIXES = {".doc", ".xls", ".pptx", ".ppt"}
@@ -55,19 +76,27 @@ _SKIP_FILENAMES = {"EVIDENCE_MANIFEST.txt", "evidence_manifest.txt"}
 _FORMAT_PRIORITY = {
     ".pdf": 0, ".docx": 1, ".xlsx": 2, ".csv": 3, ".tsv": 3,
     ".txt": 4, ".log": 4, ".f06": 4, ".dat": 4, ".md": 4,
+    # Solver artifacts sort last: the prose sets the context an extractor reads
+    # the numbers against, so it should arrive first.
+    ".wbpz": 5, ".wbpj": 5, ".engd": 5,
 }
 
 
 def discover_files(
     sources: list[Path],
     glob_pattern: str | None = None,
-    max_depth: int = 3,
+    max_depth: int = 6,
 ) -> tuple[list[Path], list[str]]:
     """Walk sources and return (sorted file list, warnings).
 
-    Files are sorted: PDFs first, then DOCX, XLSX/CSV, TXT; alpha within groups.
-    Deferred formats (.doc, .xls, .pptx) are skipped with a warning.
+    Files are sorted: PDFs first, then DOCX, XLSX/CSV, TXT, solver artifacts
+    last; alpha within groups.
+    Deferred formats (.doc, .xls, .pptx) and unreadable simulation formats are
+    skipped with a warning.
     Hidden files and EVIDENCE_MANIFEST.txt are skipped silently.
+
+    `max_depth` allows for a Workbench tree, which puts the materials library
+    four levels down at `proj_files/dp0/SYS-15/ENGD/EngineeringData.xml`.
     """
     warnings: list[str] = []
     found: set[Path] = set()
@@ -119,8 +148,16 @@ def discover_files(
         if glob_suffixes and suffix not in glob_suffixes:
             continue
 
-        # Must be a supported format
+        # Must be a supported format. A simulation artifact we cannot read is
+        # named rather than dropped: silence here is indistinguishable from
+        # "the folder was empty", and it is the failure an operator is least
+        # able to diagnose.
         if suffix not in _READERS:
+            if suffix in _UNREADABLE_SIM_SUFFIXES:
+                warnings.append(
+                    f"No reader for {_UNREADABLE_SIM_SUFFIXES[suffix]} — "
+                    f"{name} is skipped here; `uofa evidence seal` will still "
+                    f"seal it by digest.")
             continue
 
         result.append(path)
