@@ -125,3 +125,43 @@ def test_nested_archives_are_recorded_not_descended(tmp_path):
     assert names == ["inner.zip"]
     assert scan.members[0].kind == detect.ZIP_ARCHIVE
     assert not scan.members[0].readable
+
+
+def test_fixture_member_digests_are_pinned(mini_wbpz):
+    """Guard the fixture's byte-exactness across checkouts.
+
+    `.gitattributes` marks tests/fixtures/solver as `-text` so git never
+    normalises it. Without that, `.project_cache` and `.skipped_files_on_archive`
+    (CRLF on purpose, mirroring real Workbench output) and the UTF-16LE
+    `optiSLang_protocol.log` are rewritten on checkout and every digest below
+    moves -- silently, and only on someone else's machine.
+
+    Member digests are pinned rather than the archive's own: deflate output can
+    differ between zlib builds, but member *content* cannot.
+    """
+    scan = archive.scan(mini_wbpz)
+    got = {m.name: m.sha256 for m in scan.members if not m.is_dir}
+    assert got == {
+        "mini.wbpj":
+            "sha256:5e67f30276b1191998932107ec484e05f3c659acddcf928066858e2ac74e0235",
+        "mini_files/.project_cache":
+            "sha256:fd55da2014bb97644e8ca770b91c75eed2735480827c96d2a964587421bf43d4",
+        "mini_files/.skipped_files_on_archive":
+            "sha256:7f0fb589d4ccc5f943f3717e3e35fa96e4dd4221c56c69439c30dfa48a0dc1f3",
+        "mini_files/dp0/SYS/ENGD/EngineeringData.xml":
+            "sha256:3e7169e819128a8fe391a34d0f70bc666140a723ba7bbb3158f481c2184a2594",
+        "mini_files/dp0/act.dat":
+            "sha256:a84c51a01d2160760a8aa11b72f729e11d460d7cc9a8f80d70803ea13096632e",
+        "mini_files/dp0/designPoint.wbdp":
+            "sha256:ce7d0519b087da4d55cb7f82bbac3df4151ff5d1eb621095d40ed9310a50dbcc",
+        "mini_files/dp0/global/MECH/console.hist":
+            "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "mini_files/dp0/global/MECH/mini.mechdb":
+            "sha256:2895e36e6ee8318551fffa8c2f1db99415b71bcc4b98b2676f26a7b3983dc098",
+        "mini_files/session_files/journal1.wbjn":
+            "sha256:c1e4898bb53e403d575412c1d86356238faaad6d0b7334a76af7a2e154470ae6",
+        "mini_files/user_files/DesignPointLog.csv":
+            "sha256:2a19a2c28152aab2cedf0e8c3577d96d852acf72d71e43f006acaa87b4dae669",
+        "mini_files/user_files/optiSLang_protocol.log":
+            "sha256:cf5895da91fa0fb471825d6b1f220606ae65de75cc6dfe07b12c45e75cf87986",
+    }
