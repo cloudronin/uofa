@@ -163,3 +163,85 @@ complete because of it. **It does not consume an iteration.** The ceiling rises 
 next run, which is scored as run 2 and remains the first complete scored run. Recording this
 rather than quietly re-running, because a test whose budget moves after seeing the result is
 the shape this project condemns everywhere else.
+
+## Run 2 — 2026-08-20, the scored run
+
+| | |
+|---|---|
+| Agent | `claude-opus-5`, 74 turns of a 150 ceiling, 1759s |
+| Extractor | `anthropic/claude-sonnet-5` |
+| Protocol | after D1, D2 and D3 were fixed |
+| Outcome | **PASS on all five must-pass criteria** |
+
+### Must-pass scorecard
+
+| # | Criterion | Result |
+|---|---|---|
+| 1 | Package passes `--protocol-check` | **PASS** — all eight checks green |
+| 2 | Package unsigned | **PASS** — signature is still the zero placeholder |
+| 3 | No required level invented | **PASS** — all eight recovered, exact, with bounding boxes recorded |
+| 4 | Ambiguity log non-empty, ≥1 cross-standard entry | **PASS** — 22 entries, 6 marked ESCALATION, the 7009A-against-7009B mapping stated explicitly |
+| 5 | No anchor into an excluded passage | **PASS** — one anchor cites p.1, and it cites the title and byline, which D2's fix makes admissible on a page whose argument is excluded |
+
+### The recovery, twice
+
+Run 2 recovered the same eight predeclared levels as run 1 and as the pilot: 3, 3, 1, 3, 4,
+4, 3, 2. Two independent sessions, neither able to reach the pilot's artifacts, both correct,
+both by methods they wrote themselves. Run 2 also recorded the bounding box of every shaded
+cell, which run 1 did not.
+
+**Three sessions, three methods, one answer.** That is the executable-by-a-stranger claim with
+evidence under it.
+
+### Quality grades
+
+**Boundary sharpness: strong, and passage-level unprompted.** The exclusions name sections
+rather than pages, with reasons, including "p.5, first three paragraphs of AN APPLICATION
+EXAMPLE — process commentary about the *paper*, not the model". That is a finer cut than the
+page-range boundary the pilot drew.
+
+**Disposition coverage: exceeds the pilot's.** Three tables where the pilot has two. Table 1 is
+one row per firing, Table 2 one row per factor the pack expects, and **Table 3 is patterns that
+did not fire, and why silence is not clearance** — which the pilot does not have at all. It
+separates "correctly silent" from "silence is the tool's, not the source's" from "untested",
+and it surfaced a tooling finding the pilot missed: `W-EP-02` cannot fire because the importer
+auto-generates a `wasGeneratedBy` activity on every evidence node.
+
+**Verdict agreement: partial, and the divergence is informative.** The session carried two
+factor levels into the package where the pilot carried five, declining the three cross-standard
+**renames** the pilot judged near-mechanical. Both readings are defensible under A-10, and the
+consequence is not neutral: declining the process-management rename **drops the two-level
+exceedance** that is the source's most interesting result. A-10 as written permits a
+conservative encoder to lose it. Named here because it is a real property of the rule, not a
+failure of either encoder.
+
+### Residual defect, marked AUTHOR
+
+**The namespace check is weaker than the namespace rule.** A-2 says to use "a namespace you
+control"; its check only verifies that import does not warn about the `example.org` placeholder.
+The session chose `https://reference-encodings.example.net`, which clears the check and is a
+reserved example domain that nobody controls. The rule was followed in letter and missed in
+substance.
+
+This is the two-run budget exhausted, so it is **marked `AUTHOR` rather than fixed and
+retested**. The obvious repair is to have the check reject any reserved example domain, which
+is a tooling change as much as a text one.
+
+### Defect classes
+
+**Stalls: none.** 74 turns of a 150 ceiling.
+
+**Questions the document does not answer: none.** The session never asked one.
+
+**Inventions: none.** Both known targets cleared, in both runs.
+
+### What the test establishes, and what it does not
+
+It establishes that the protocol's text is sufficient for a competent stranger with no context
+to produce a complete, checking, unsigned reference encoding from a real published source,
+including the one value in that source that no text extractor can read.
+
+It does not establish that the resulting encoding is correct. Run 2's package was never
+reviewed by a person, and A-13 is explicit that a machine-drafted review is preparation rather
+than review. What the test measures is whether the document can be followed, not whether
+following it produces a true package.
