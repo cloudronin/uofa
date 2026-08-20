@@ -35,6 +35,7 @@ WORKBENCH_JOURNAL = "workbench-journal"
 DESIGN_POINT_TABLE = "design-point-table"
 PROJECT_CACHE = "project-cache"
 HDF5_CONTAINER = "hdf5-container"
+RASTER_IMAGE = "raster-image"
 APDL_DECK = "apdl-deck"
 SOLVER_LOG = "solver-log"
 MECHANICAL_DB = "mechanical-db"
@@ -60,6 +61,7 @@ UNREADABLE_REASON = {
     GEOMETRY_DB: "CAD geometry database: binary, no open-source reader exists",
     RESULT_BINARY: "solver result file: needs the optional [ansys] extra",
     HDF5_CONTAINER: "HDF5 container: structure is readable, schema is not documented",
+    RASTER_IMAGE: "figure capture: an image, with no text this tool can read",
     ZIP_ARCHIVE: "archive is not a Workbench project",
     OPAQUE_BINARY: "unrecognised binary",
     EMPTY: "file is empty",
@@ -67,6 +69,17 @@ UNREADABLE_REASON = {
 
 _ZIP_MAGICS = (b"PK\x03\x04", b"PK\x05\x06", b"PK\x07\x08")
 _HDF5_MAGIC = b"\x89HDF\r\n\x1a\n"
+
+# Workbench writes result screenshots into `global/MECH/<SYS>/Figures and Images/`.
+# They are evidence -- a saved contour plot of a solved model -- but there is no
+# text in them this tool can read, and "unrecognised binary" would say we did not
+# know what they were when we did.
+_IMAGE_MAGICS = (
+    (b"\x89PNG\r\n\x1a\n", RASTER_IMAGE),
+    (b"\xff\xd8\xff", RASTER_IMAGE),          # JPEG
+    (b"GIF87a", RASTER_IMAGE), (b"GIF89a", RASTER_IMAGE),
+    (b"BM", RASTER_IMAGE),                      # BMP
+)
 
 _BOMS = (
     (b"\xef\xbb\xbf", "utf-8-sig"),
@@ -161,6 +174,9 @@ def sniff(name: str, head: bytes, *, zip_names: list[str] | None = None) -> str:
         named = _BINARY_BY_SUFFIX.get(suffix)
         if named:
             return named
+        for magic, kind in _IMAGE_MAGICS:
+            if head.startswith(magic):
+                return kind
         if head.startswith(_HDF5_MAGIC):
             return HDF5_CONTAINER
         return OPAQUE_BINARY

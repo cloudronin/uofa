@@ -73,6 +73,24 @@ def test_utf16_log_decodes_via_bom_not_replacement_characters():
     assert "\x00" not in text
 
 
+def test_figure_captures_are_named_as_images_not_unknown_binaries():
+    """Workbench saves result screenshots under `Figures and Images/`.
+
+    The 405 MB FDA archive holds twelve of them. Reporting a PNG as
+    "unrecognised binary" in a completeness manifest says we did not know what
+    it was when we did -- and these are evidence, being saved contour plots of a
+    solved model. They are still sealed and not read: there is no text in them
+    this tool can extract.
+    """
+    png = b"\x89PNG\r\n\x1a\n" + b"\x00" * 64
+    assert detect.sniff("StaticFigure136.png", png) == detect.RASTER_IMAGE
+    assert not detect.is_readable(detect.RASTER_IMAGE)
+    assert "image" in detect.unreadable_reason(detect.RASTER_IMAGE)
+    # Magic wins over a missing or wrong extension.
+    assert detect.sniff("figure", png) == detect.RASTER_IMAGE
+    assert detect.sniff("x.jpg", b"\xff\xd8\xff" + b"\x00" * 64) == detect.RASTER_IMAGE
+
+
 @pytest.mark.parametrize("kind", sorted(detect.READABLE))
 def test_readable_kinds_have_no_unreadable_reason(kind):
     assert detect.unreadable_reason(kind) == ""

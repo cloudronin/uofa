@@ -50,10 +50,11 @@ records the two known digests and the reasons.
 uofa evidence inventory osf-n4pjz/
 ```
 
-Three `.wbpz` archives — 85 members each in the two that have been inspected;
-the 405 MB one has not been opened yet. The inventory classifies every member by
-its *content*, hashes it, and states which ones have no reader and why. It never
-unpacks anything — the largest archive is 405 MB and is read in place.
+Three `.wbpz` archives — 85 members each in the two small ones, 112 in the
+405 MB one. The inventory classifies every member by its *content*, hashes it,
+and states which ones have no reader and why. It never unpacks anything: the
+405 MB archive inventories in under seven seconds at a peak of 50 MB of memory,
+writing nothing to disk.
 
 The beat to land: **everything is accounted for.** A Mechanical database and a
 CAD geometry file are sealed and reported unread, with the reason, rather than
@@ -70,14 +71,14 @@ shipped to a language model as mojibake.
 uofa evidence seal osf-n4pjz/ --source-map osf-urls.txt -o evidence.json
 ```
 
-Every `MECH/` directory in the two inspected archives is empty — eight of them
-in one, nine in the other. There is no
-`ds.dat`, no `solve.out`, no `file.rst` — the filenames say `NoResults` and they
-mean it.
+Every `MECH/` directory in all three archives is empty — eight, nine and
+nineteen of them. No `ds.dat`, no `solve.out`, no `file.rst`. Two of the three
+say `NoResults` in the filename and mean it; the third doesn't say so and is the
+same.
 
-**The archives say so themselves.** A stored Workbench message records that the
-project was opened from an archive written without solution files, and lists each
-omitted file by name. That is the completeness evidence, and it is stronger than
+**And two of them say so themselves.** A stored Workbench message records that
+the project was opened from an archive written without solution files, and lists
+each omitted file by name. That is the completeness evidence, and it is stronger than
 anything a tool could conclude from failing to find things: the package testifies
 to its own gaps.
 
@@ -183,8 +184,13 @@ unless and until Nagaraja carries encoded layer instances. Corroboration gives
 quantity identity a live instance and a good exhibit for the units question; it
 does not close that gap, and the talk should not imply it does.
 
-It also does not read `file.rst`. There is no `file.rst` in either inspected
-archive to read.
+It also does not read `file.rst`, because there isn't one. All three archives
+were inventoried and none contains a solver result file, a solver log or an
+APDL deck. The 405 MB is almost entirely Mechanical databases — six `.mechdb`
+files, the largest 121 MB — which hold the mesh, contacts and boundary
+conditions in a binary format with no open-source reader. Those are sealed by
+digest and reported unread. If someone asks whether a result reader would add
+anything here: it would have nothing to open.
 
 **On numbers.** Nagaraja is a development-tier document under Decision 7. Any
 extraction-quality figure quoted near this demo is labelled development, never
