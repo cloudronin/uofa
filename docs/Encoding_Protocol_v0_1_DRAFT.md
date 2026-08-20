@@ -225,49 +225,65 @@ log must never leave ambiguous which of the two occurred or who did it.
 
 # Part B — Disposition rules
 
-A **weakener firing** is the rule engine reporting that a package exhibits a catalogued
+A **weakener firing** is the rule engine reporting that a package exhibits a catalogd
 pattern of weakness. A **disposition** is your verdict on one firing, with the source anchor
 and the rule you applied. **Dispositions adjudicate the package, not the source**: a firing is
 a statement about the artifact a reviewer receives, so a firing that is true of the package and
-false of the source is still Accepted, and the difference between them goes in the ambiguity
-log. The three verdicts are **Accepted**, meaning the package exhibits the gap the pattern
-describes; **Not Accepted**, meaning the pattern fired but the package does not exhibit it;
+false of the source is still Confirmed, and the difference between them goes in the ambiguity
+log. The three verdicts are **Confirmed**, meaning the package exhibits the gap the pattern
+describes; **Overruled**, meaning the engine's finding does not hold against the package as it
+actually stands, typically because the package carries the element the firing reports missing;
 and **Not Applicable**, meaning the pattern's precondition is not meaningful for a package of
-this class.
+this class. There are three, and the table below adds no fourth.
+
+**"Confirmed" here is a verdict on a firing.** A-6's confirm, correct and mark-source-absent are
+per-cell review actions on a workbook. The two vocabularies are unrelated and never interact.
 
 Two classes of rule appear below. A **mechanical** rule is one whose verdict a script could
 check from the package's own content. A **judgment** rule is one whose verdict requires a human
 decision about whether the claim holds, and is recorded as author judgment under this protocol.
 Class is a property of the pattern and is not the encoder's to reassign.
 
-Adjudicating against the package makes every mechanical firing on a correctly encoded artifact
-Accepted, so the verdict carries most of its information on the other two values.
-[AUTHOR-CONFIRM: this follows from the package-basis rule rather than being separately stated,
-and it changes what the dispositions table is for.]
+Adjudicating against the package makes most mechanical firings on an honest package Confirmed,
+so the verdict column's information concentrates in Overruled and Not Applicable. That is
+intended design rather than a weakness in the vocabulary: the substantive content of a Confirmed
+row is its ambiguity-log context, and the table records what was examined as much as what was
+decided.
 
-| Family | Patterns | Class | Verdict rule | Not Applicable when |
-|---|---|---|---|---|
-| Provenance and epistemic | `W-PROV-01`, `W-EP-01`…`W-EP-03` | mechanical | Accepted when the package does not carry the derivation edge. Not Accepted only where the edge is present and the rule failed to traverse it. [AUTHOR-CONFIRM] | the package class has no derivation chain to carry |
-| Epistemic, risk-conditioned | `W-EP-04` | judgment | Author judgment on whether an unassessed factor at elevated model risk undermines the claim, which depends on what the context of use needs from that factor. [AUTHOR-CONFIRM] | — |
-| Alignment | `W-AL-01`, `W-AL-02` | mechanical | Accepted when the node is absent from the package. The source's possession of the underlying work is an ambiguity-log entry and never a reason to disposition otherwise. [AUTHOR-CONFIRM] | the package class carries no such analysis by definition |
-| Ontology | `W-ON-01`, `W-ON-02` | mechanical | Accepted when the context of use carries neither an applicability constraint nor an operating envelope. [AUTHOR-CONFIRM] | — |
-| Argumentation, structural | `W-AR-04`, `W-AR-05` | mechanical | Accepted when the link is absent, including where the comparator is real but is not the kind of thing an identifier names. [AUTHOR-CONFIRM] | the node class has no comparator by nature, such as a review activity or a process attestation |
-| Argumentation, reasoning | `W-AR-01`, `W-AR-02` | judgment | Author judgment. A required level without acceptance criteria, and an acceptance standing above a shortfall, are both claims about whether the reasoning holds, and no test of package content settles either. [AUTHOR-CONFIRM] | — |
-| Argumentation, unresolved | `W-AR-03` | unresolved | Record the firing and its class as unresolved. Do not assign it to either class. | — |
-| Consistency, structural | `W-CON-02`…`W-CON-05` | mechanical | Accepted when the package does not carry the referenced element. [AUTHOR-CONFIRM] | — |
-| Consistency, factor-decision | `W-CON-01` | judgment | Author judgment. A factor carrying evidence and no level under an accepted decision is what A-10 produces on purpose, so this pattern is the one most sensitive to a declination. [AUTHOR-CONFIRM] | — |
-| Structural integrity | `W-SI-01`, `W-SI-02` | mechanical | Accepted when the element is absent. Note that `W-SI-01` does **not** fire on an unsigned package, because import writes a placeholder signature and the pattern tests absence rather than validity, so its silence never means the package is signed. [AUTHOR-CONFIRM] | — |
-| Compound patterns | `COMPOUND-*` | excluded | Not dispositioned individually. They report coexistence of firings already dispositioned above. | — |
-| Pack-specific patterns | any `W-<PACK>-nn` | as the core family it resembles | A pack ships patterns of its own, and each takes the rule of the core family it resembles rather than a rule per pack. A pattern testing for a factor asserted without its linked evidence is a consistency pattern. [AUTHOR-CONFIRM] | as the family it resembles |
+The **Calibration** column states what each rule was derived from. *Firing rulings* are cases
+where the pattern fired and the disposition was recorded on that firing. *Silence rulings* are
+cases where the pattern stayed silent; they calibrate by contrapositive, establishing the package
+condition under which a firing would be right or wrong rather than dispositioning a firing
+directly. Both are legitimate calibration and the distinction is recorded because it is the same
+distinction A-12's silence rule draws. *Uncalibrated* means the rule comes from the pattern body
+alone, is not yet checked against an author disposition record, and is revisited in v0.2 after
+the governed review passes.
 
-[AUTHOR-CONFIRM: the Not Applicable conditions above are derived from the pattern bodies. The
-distinction between Not Applicable and Not Accepted needs a worked case from a package whose
-decision outcome was Not Accepted, and no such record is committed.]
+| Family | Patterns | Class | Verdict rule | Not Applicable when | Calibration |
+|---|---|---|---|---|---|
+| Provenance chain | `W-PROV-01` | mechanical | Confirmed when the package carries no upstream derivation, generation or use edge for the node and does not mark it foundational. **Overruled where that edge is present and the rule did not traverse it**: the pattern's scope starts at bound claims, so a node outside every claim's derivation subtree is out of its reach. | the package class has no derivation chain to carry | 2 silence rulings |
+| Epistemic | `W-EP-01`…`W-EP-03` | mechanical | Confirmed when the package does not carry the link the pattern names. Overruled where the link is present and the firing reports it missing. | the package class has no such link to carry | 3 firing + 1 silence ruling |
+| Epistemic, risk-conditioned | `W-EP-04` | judgment | Author judgment on whether an unassessed factor at elevated model risk undermines the claim, which depends on what the context of use needs from that factor. | — | uncalibrated |
+| Alignment | `W-AL-01`, `W-AL-02` | mechanical | Confirmed when the node is absent from the package. The source's possession of the underlying work is an ambiguity-log entry and never a reason to disposition otherwise. | the package class carries no such analysis by definition | 1 firing + 1 silence ruling |
+| Ontology, bounds | `W-ON-02` | mechanical | Confirmed when the context of use carries neither an applicability constraint nor an operating envelope. Either one present, even as an empty stub, and the pattern is correctly silent; the hollowness is an ambiguity-log entry, not a disposition. | — | 4 firing rulings |
+| Ontology, mandatory | `W-ON-01` | mechanical | Not Applicable on any package that validates: the context of use is a mandatory field, so the flaw cannot exist in a schema-valid package. A firing means the package failed structural validation and is not yet an artifact to disposition. | always, on a package that validates | 2 silence rulings |
+| Argumentation, structural | `W-AR-04`, `W-AR-05` | mechanical | Confirmed when the link is absent, including where the comparator is real but is not the kind of thing an identifier names. Overruled where both fields are present and the firing misreads them. | the node class has no comparator by nature, such as a review activity or a process attestation | `W-AR-04` 4 silence rulings; `W-AR-05` uncalibrated |
+| Argumentation, method | `W-AR-03` | mechanical | Confirmed when the requirement names a verification method and the supporting activity records a different activity type. | neither field is populated, which is a property of the generator rather than of the package | 1 firing ruling |
+| Argumentation, reasoning | `W-AR-01`, `W-AR-02` | judgment | Author judgment on whether the reasoning holds; no test of package content settles either. Confirmed when the firing stands on a package genuinely carrying a required level without acceptance criteria, or an acceptance standing above a recorded shortfall. | — | `W-AR-02` 2 firing rulings; `W-AR-01` 6 silence rulings |
+| Consistency, structural | `W-CON-02`, `W-CON-04`, `W-CON-05` | mechanical | Confirmed when the package does not carry the referenced element. | — | `W-CON-02`, `W-CON-05` 6 firing rulings; `W-CON-04` uncalibrated |
+| Consistency, ordering | `W-CON-03` | mechanical | Confirmed when the package carries both a signature timestamp and a later evidence timestamp. Overruled where that ordering holds in the package and the firing misreports it. | the package carries only one of the two timestamps | 2 silence rulings |
+| Consistency, factor-decision | `W-CON-01` | judgment | Author judgment. A factor carrying evidence and no level under an accepted decision is what A-10 produces on purpose, so this pattern is the one most sensitive to a declination. | — | 1 firing ruling |
+| Structural integrity, binding | `W-SI-02` | mechanical | Confirmed when the named binding is genuinely absent from the package. The pattern ships as two rule blocks under one identifier, one for the requirement binding and one for the validation-result binding, so a disposition names which of the two fired. | — | 4 silence rulings |
+| Structural integrity, signature | `W-SI-01` | mechanical | Not Applicable on any package that validates: the signature is a mandatory field, so a package genuinely missing it is non-conformant rather than weak. Note also that the pattern does **not** fire on an unsigned package, because import writes a placeholder signature and the pattern tests absence rather than validity, so its silence never means the package is signed. | always, on a package that validates | 4 silence rulings |
+| Compound patterns | `COMPOUND-*` | excluded | Not dispositioned individually. They report coexistence of firings already dispositioned above. | — | 3 firing rulings confirm they report coexistence correctly |
+| Pack-specific patterns | any `W-<PACK>-nn` | as the core family it resembles | A pack ships patterns of its own, and each takes the rule of the core family it resembles rather than a rule per pack. A pattern testing for a factor asserted without its linked evidence is a consistency pattern. | as the family it resembles | uncalibrated |
 
-[AUTHOR-CONFIRM: one full worked disposition, from source citation to verdict, belongs here.
-The strongest candidate is a validation activity waived by a documented authority decision,
-which reads correctly whether adjudicated against source or package. It cannot be cited until
-a governed review pass has dispositioned it.]
+Two worked examples are **v0.2 items**, supplied after the first governed review passes. The
+distinction between Not Applicable and Overruled needs a case from a package whose decision
+outcome was Not accepted, and no such record is yet committed. One full worked disposition, from
+source citation to verdict, belongs here too; the strongest candidate is a validation activity
+waived by a documented authority decision, which reads correctly whether adjudicated against
+source or package.
 
 The **verdict** and the **action class** are different vocabularies and neither derives from
 the other. The verdict states the credibility judgment. The action class states the remediation
@@ -366,6 +382,53 @@ source that is not committed, which is why every family row carries a marker.
 comparator by nature, yet both ride the same predicate as validation results, so the
 comparator-absence pattern reports an absence that could never be a presence. Established by
 adding a process attestation and watching it draw the firing immediately.
+
+**B, where the verdict rules come from.** Part B was first written from the pattern bodies alone.
+Its rules are now derived from 71 author adjudications of packages against the catalog. Setting
+aside 21 ruled out of scope leaves 50, of which 47 name a target pattern and feed the table; the
+remaining three record no target pattern and feed no rule. The mapping is ruled:
+a correct detection yields Confirmed, an existing-rule misbehavior yields Overruled, and a
+generator artifact yields either Not Applicable or Confirmed depending on the condition below.
+
+**B, calibrating a verdict on a firing from a ruling about a silence.** A verdict dispositions a
+firing, yet of the 47 rulings behind the table only 21 are firings; the other 26 are cases where
+the pattern stayed silent. Those calibrate by contrapositive rather than directly: a silence with the property present establishes the
+condition under which a firing would be wrong, which is Overruled; a silence with the
+precondition genuinely absent establishes that the pattern fires only when the flaw is real,
+which is Confirmed. This is the same distinction A-12's silence rule draws, and the Calibration
+column keeps firing rulings and silence rulings apart so that no rule appears better evidenced
+than it is.
+
+**B, the generator-artifact split.** Those rulings divide on one condition rather than on which
+pattern was targeted. Where the package failed structural validation, the pattern's precondition
+is not meaningful and the verdict is Not Applicable; `W-ON-01` and `W-SI-01` test mandatory
+fields, so their flaw cannot exist in a package that validates at all. Where the package is
+valid and the flaw simply is not present, the pattern's silence is correct and a firing on such
+a package would be Confirmed. The condition is stated rather than the pattern list, because a
+list would fix each pattern to whichever half its sample happened to fall in.
+
+**B, what the calibration corpus is and is not.** The adjudicated packages were generated before
+a catalog refinement that moved the negative-control clean rate from near nothing to almost
+all, and one ruling records that its evidence predates a rule rewrite. The 71 are also a
+deliberately enriched sample, combining every case where a judging ensemble failed to agree with
+a stratified draw from the cases it did agree on, so they are harder than a random package and
+the rules derived from them are tuned on hard cases. Three patterns whose rulings are all
+silences, `W-EP-03`, `W-AR-04` and `W-CON-03`, are among the four the decision record calls
+enrichment-required: proven unable to fire on evidence this protocol itself produces. That is the
+same finding as `docs/SCHEMA_FINDINGS.md` SF-3 records for `W-EP-02`, and it is why a silent
+pattern is never read as clearance.
+
+**B, `W-AR-03`.** Its class is ruled MECHANICAL by the 2026-08-16 decision record, Addendum A,
+on the re-derivability criterion: the comparison runs on declared package fields, so a script
+re-derives the label. The absence of a controlled vocabulary for verification methods makes the
+rule weaker, not human-dependent, and the hardening was deferred rather than the classification
+left open. The draft carried the pattern as unresolved; that is now closed.
+
+**B, the verdict names.** Earlier planning documents name the three verdicts Accepted, Not
+Accepted and Not Applicable. This document renames the first two to Confirmed and Overruled,
+because `Accepted` is already the decision-outcome vocabulary a package carries and a reviewer
+reading both in one artifact cannot tell which is meant. Records written before this version keep
+the old names.
 
 **B, structural integrity.** An unsigned package carries a zero-filled placeholder rather than
 no signature, so the missing-signature pattern never fires on one. Integrity checking catches
