@@ -76,7 +76,7 @@ def render(summary: dict | None) -> str:
         lines.append(
             f"Written by {summary['release']}{stamp}. Recorded here because the "
             f"release that wrote an archive is not always the one that produced "
-            f"the published results — a later re-save is the ordinary reason.")
+            f"the published results. A later re-save is the ordinary reason.")
     lines.append(f"{summary['nFacts']} value(s) read directly from the artifacts.")
 
     counts = summary.get("severityCounts") or {}
@@ -84,7 +84,7 @@ def render(summary: dict | None) -> str:
         detail = ", ".join(f"{n} {sev}" for sev, n in sorted(counts.items()))
         lines.append(
             f"\n**Cautions the solver reported** ({detail}). These are the "
-            f"solver's own messages, carried through as evidence — not findings "
+            f"solver's own messages, carried through as evidence, not findings "
             f"of this tool, and not weakeners:")
         lines += [f"- {c['severity'].upper()}: {c['summary']}"
                   for c in summary.get("cautions", [])]
