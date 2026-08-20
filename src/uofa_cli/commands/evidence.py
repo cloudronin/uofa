@@ -16,9 +16,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+from uofa_cli import corroborate, paths
+from uofa_cli.corroborate import Corroboration
 from uofa_cli.output import (error, info, result_line, step_header, table_header,
                              table_row, table_separator, warn)
 from uofa_cli.solver import detect, seal as sealmod
+from uofa_cli.solver.facts import SolverEvidence
+from uofa_cli.solver.reader import read_evidence
 
 HELP = "inventory and seal a simulation evidence folder (no model, no network)"
 
@@ -42,6 +46,10 @@ def _add_common(sub_parser):
     sub_parser.add_argument("--fetched-at",
                             help="RFC3339 time the content was fetched, for pins "
                                  "(default: now)")
+    sub_parser.add_argument("--claims", type=Path,
+                            help="JSON claim set to corroborate against the "
+                                 "solver artifacts (quantities asserted in "
+                                 "prose, e.g. a paper's model-parameter table)")
 
 
 def add_arguments(parser):
@@ -74,6 +82,8 @@ class EvidenceResult:
     """Typed result for callers that must not go through the I/O shell."""
     seal: sealmod.EvidenceSeal
     sidecar: Path | None = None
+    evidence: SolverEvidence | None = None
+    corroboration: Corroboration | None = None
 
     @property
     def exit_code(self) -> int:
@@ -92,11 +102,22 @@ def run_structured(args) -> EvidenceResult:
         source, source_map=source_map,
         fetched_at=getattr(args, "fetched_at", "") or "")
 
+    solver_evidence = read_evidence(source)
+    corroboration = None
+    if getattr(args, "claims", None):
+        identity = paths.detection_config(
+            paths.pack_manifest(paths.resolve_active_packs(args)[0])
+        ).get("quantityIdentity")
+        corroboration = corroborate.corroborate(
+            corroborate.load_claims(args.claims), solver_evidence, identity)
+
     sidecar = None
     if getattr(args, "evidence_command", None) == "seal":
         sidecar = args.output or source.parent / f"{source.name}-evidence.json"
-        sealmod.write_sidecar(seal, sidecar)
-    return EvidenceResult(seal=seal, sidecar=sidecar)
+        sealmod.write_sidecar(seal, sidecar, evidence=solver_evidence,
+                              corroboration=corroboration)
+    return EvidenceResult(seal=seal, sidecar=sidecar, evidence=solver_evidence,
+                          corroboration=corroboration)
 
 
 def run(args) -> int:
@@ -121,6 +142,20 @@ def run(args) -> int:
 
     for line in sealmod.summarise(seal):
         info(f"  {line}")
+
+    if result.evidence is not None:
+        step_header("What the solver artifacts say")
+        for line in result.evidence.summarise():
+            info(f"  {line}")
+
+    if result.corroboration is not None:
+        step_header("Prose claims against the artifacts")
+        for line in result.corroboration.summarise():
+            info(f"  {line}")
+        info("  (Divergences are reported for a human to adjudicate. A "
+             "materials library may hold unused, superseded or duplicate "
+             "entries; the artifact does not say which one a published run "
+             "used.)")
 
     if result.sidecar:
         result_line("Sidecar written", True, str(result.sidecar))

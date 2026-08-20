@@ -182,8 +182,14 @@ def to_manifest(seal: EvidenceSeal) -> list[dict]:
     return [_clean(asdict(a)) for a in seal.artifacts]
 
 
-def write_sidecar(seal: EvidenceSeal, path: Path) -> None:
-    """Write the seal as a sidecar JSON document."""
+def write_sidecar(seal: EvidenceSeal, path: Path, *, evidence=None,
+                  corroboration=None) -> None:
+    """Write the seal, and what was read out of it, as one sidecar document.
+
+    This is the document `uofa import --evidence` folds into the package
+    BEFORE it is hashed and signed, so the seal sits inside the signature
+    scope rather than beside it.
+    """
     doc = {
         "schemaVersion": SIDECAR_SCHEMA,
         "generatedAt": seal.generated_at,
@@ -192,6 +198,10 @@ def write_sidecar(seal: EvidenceSeal, path: Path) -> None:
         "sourcePin": list(seal.source_pins),
         "warnings": list(seal.warnings),
     }
+    if evidence is not None:
+        doc.update(evidence.as_dict())
+    if corroboration is not None:
+        doc["corroboration"] = corroboration.as_list()
     path.write_text(json.dumps(doc, indent=2, sort_keys=False) + "\n",
                     encoding="utf-8")
 

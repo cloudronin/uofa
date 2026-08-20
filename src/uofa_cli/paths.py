@@ -219,9 +219,10 @@ def detection_config(manifest: dict) -> dict:
                 "derivations": payload.get("derivations"),
                 "patternIds": payload.get("patternIds"),
                 "factorFocus": payload.get("factorFocus"),
+                "quantityIdentity": payload.get("quantityIdentity"),
             }
     return {"shapes": None, "rules": None, "oos": None, "derivations": None,
-            "patternIds": None, "factorFocus": None}
+            "patternIds": None, "factorFocus": None, "quantityIdentity": None}
 
 
 @functools.lru_cache(maxsize=4)

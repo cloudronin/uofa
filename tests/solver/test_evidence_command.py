@@ -14,8 +14,9 @@ from uofa_cli.commands import evidence
 
 def _args(**kw):
     ns = argparse.Namespace(source=None, source_map=None, fetched_at=None,
-                            members=False, output=None, evidence_command="inventory",
-                            no_color=True, verbose=False)
+                            members=False, output=None, claims=None,
+                            evidence_command="inventory", pack=None,
+                            active_packs=["vv40"], no_color=True, verbose=False)
     for k, v in kw.items():
         setattr(ns, k, v)
     return ns
@@ -83,3 +84,43 @@ def test_source_map_file_formats_agree(tmp_path):
     b = tmp_path / "m.txt"
     b.write_text("# comment\nx.wbpz  https://example.invalid/x\n")
     assert sealmod.load_source_map(a) == sealmod.load_source_map(b)
+
+
+def test_claims_produce_a_corroboration_table(evidence_folder, tmp_path):
+    claims = tmp_path / "claims.json"
+    claims.write_text(json.dumps({"claims": [
+        {"quantity": "material.youngs_modulus", "value": 108222, "units": "MPa",
+         "scope": "Ti6Al4V_Base_BISO", "source": "Table 5, FDA"},
+        {"quantity": "material.youngs_modulus", "value": 1100, "units": "MPa",
+         "scope": "UHMWPE", "source": "Table 5, FDA"},
+    ]}))
+    out = tmp_path / "evidence.json"
+    result = evidence.run_structured(_args(
+        source=evidence_folder, evidence_command="seal", output=out,
+        claims=claims))
+    counts = result.corroboration.counts
+    assert counts.get("agrees") == 1
+    assert counts.get("diverges") == 1
+
+    doc = json.loads(out.read_text())
+    assert doc["corroboration"]
+    assert doc["solverFact"] and doc["solverCaution"] and doc["absentArtifact"]
+
+
+def test_the_sidecar_carries_the_stated_absences(evidence_folder, tmp_path):
+    """`uofa import --evidence` folds this into the package before signing, so
+    the completeness record ends up inside the signature scope."""
+    out = tmp_path / "evidence.json"
+    evidence.run_structured(_args(source=evidence_folder,
+                                  evidence_command="seal", output=out))
+    doc = json.loads(out.read_text())
+    assert {a["name"] for a in doc["absentArtifact"]} == {
+        "ds.dat", "file.rst", "solve.out"}
+
+
+def test_no_claims_means_no_corroboration_block(evidence_folder, tmp_path):
+    out = tmp_path / "evidence.json"
+    result = evidence.run_structured(_args(source=evidence_folder,
+                                           evidence_command="seal", output=out))
+    assert result.corroboration is None
+    assert "corroboration" not in json.loads(out.read_text())
