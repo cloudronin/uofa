@@ -1,6 +1,6 @@
 """Protocol-check — mechanical conformance checks for a reference encoding.
 
-These are the scriptable subset of `docs/Encoding_Protocol_v0_1_DRAFT.md`, seeded by
+These are the scriptable subset of `docs/Encoding_Protocol_v0_1.md`, seeded by
 finding F-6c of the Johnson pilot. They exist so that no workbook reaches the author's
 review pass while it still fails a check a machine could have run.
 
