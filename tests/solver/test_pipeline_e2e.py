@@ -132,3 +132,42 @@ def _adjudicate(src, dest):
     book["Assessment Summary"]["B3"] = "F1717 compression-bending, non-cannulated"
     book["Decision"]["A3"] = "Accepted"
     book.save(dest)
+
+
+def test_evidence_fold_survives_the_protocol_check_gate(workspace):
+    """The two flags are independent and must compose.
+
+    `--evidence` and `--protocol-check` were added on separate branches and met
+    for the first time in a merge, so neither side's tests covered the pair. The
+    gate exits non-zero on an unreviewed workbook by design; what matters here is
+    that it fails for ITS OWN reasons (anchors, logs, namespace) and that the
+    evidence fold still lands in the signed package underneath it.
+    """
+    _uofa("evidence", "seal", "evidence", "-o", "evidence.json", cwd=workspace)
+    _uofa("extract", "evidence", "--keyless", "--pack", "vv40",
+          "-o", "extracted.xlsx", cwd=workspace)
+    _adjudicate(workspace / "extracted.xlsx", workspace / "reviewed.xlsx")
+
+    gated = _uofa("import", "reviewed.xlsx", "--evidence", "evidence.json",
+                  "--protocol-check", "-o", "gated.jsonld", "--sign",
+                  "--key", "demo.key", cwd=workspace)
+    assert gated.returncode != 0, "the gate must fail an unreviewed workbook"
+
+    # It failed on its own checks, not on anything the evidence fold added.
+    # Scope this to the protocol-check section: the fold prints its own progress
+    # line ("Evidence sidecar folded in: 2 artifactManifest, ...") earlier in the
+    # same stream, so a whole-stdout search finds that and proves nothing.
+    section = gated.stdout[gated.stdout.index("protocol-check:"):]
+    for term in ("artifactManifest", "solverFact", "absentArtifact",
+                 "corroboration", "sourcePin"):
+        assert term not in section, f"the gate is objecting to {term}"
+
+    # And the fold still reached the signed package.
+    doc = json.loads((workspace / "gated.jsonld").read_text())
+    assert doc["artifactManifest"]
+    assert doc["signature"].startswith("ed25519:")
+
+    ungated = _uofa("import", "reviewed.xlsx", "--evidence", "evidence.json",
+                    "-o", "plain.jsonld", "--sign", "--key", "demo.key",
+                    cwd=workspace)
+    assert ungated.returncode == 0, "without the gate the same import succeeds"
