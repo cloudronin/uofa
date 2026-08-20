@@ -22,6 +22,7 @@ under the written protocol, not here.
 | JRE | system OpenJDK 21.0.10 (no bundled runtime in this environment) |
 | Source document sha256 (first 32) | `1b767b2d4128dcc67bdb6803fe33034e` |
 | Source copy in tree | `source/NTRS-20200002832-Johnson-2020.pdf` |
+| base_uri | `https://github.com/cloudronin/uofa` (governed pass) [AUTHOR-CONFIRM]. `https://uofa.net` is refused by `resolve_base_uri` as reserved for the project's published examples, so the author-controlled repository namespace is used instead. The id is covered by the signature and cannot change after signing, so confirm this namespace before the sign-off commit. The pilot pass minted under the `example.org` placeholder and recorded it as deviation A-25; protocol-check flagged the run log's silence about the field, which is why the row exists |
 
 ### Site commit drift — finding F-1c
 

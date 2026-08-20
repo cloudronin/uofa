@@ -4,7 +4,7 @@ State: DRAFT. Spec §2.2 — every cell is CONFIRM (checked against the source
 and kept), CORRECT (checked and replaced), or BLANK (source-absent, emptied
 and listed). No cell passes on extractor confidence.
 
-**47 confirmed · 14 corrected · 36 blanked (source-absent) · 97 decisions total**
+**47 confirmed · 17 corrected · 36 blanked (source-absent) · 1 added (§3c) · 101 decisions total**
 
 | Sheet | Cell | Action | Extractor value | Reviewed value | Anchor | Note |
 |---|---|---|---|---|---|---|
@@ -105,3 +105,7 @@ and listed). No cell passes on extractor confidence.
 | Credibility Factors | C23 | **CONFIRM** | 3 | 3 | req: p.7 Table 3 shading (M&S History column, geometric recovery); ach: p.25 | 7009A calls this M&S History (A-02). Predeclaration was negotiated; see p.7-8. |
 | Credibility Factors | D23 | **CONFIRM** | 3 | 3 | req: p.7 Table 3 shading (M&S History column, geometric recovery); ach: p.25 | 7009A calls this M&S History (A-02). Predeclaration was negotiated; see p.7-8. |
 | Credibility Factors | G23 | **CONFIRM** | assessed | assessed | req: p.7 Table 3 shading (M&S History column, geometric recovery); ach: p.25 | 7009A calls this M&S History (A-02). Predeclaration was negotiated; see p.7-8. |
+| Validation Results | row 8 | **ADD** | _(blank)_ | Formal DOE development and analysis process | p.25 M&S Process / Product Management rationale; p.12 4.1.3 a,b | ADDED per §3c. Clears W-NASA-03 (D-10), which fired because the process factor is asses… |
+| Model & Data | C5 | **CORRECT** | _(blank)_ | https://github.com/cloudronin/uofa/fod-tire-puncture-regression-model-aircraft-tire-pen… | p.12 4.1.2 a; p.14 note | Absolute identifier minted so the comparator reference below resolves. A relative one i… |
+| Validation Results | E4 | **CORRECT** | DOE test data (18-run matrix, 15 completed) | https://github.com/cloudronin/uofa/fod-tire-puncture-regression-model-aircraft-tire-pen… | p.21 [M&S 28](3); p.22 M&S Results | Compares To repointed from prose to the dataset entity this package carries. Measured: … |
+| Credibility Factors | H20 | **CORRECT** | _(blank)_ | https://github.com/cloudronin/uofa/fod-tire-puncture-regression-model-aircraft-tire-pen… | p.25 M&S Process / Product Management rationale | Linked Evidence on Development process and product management, pointing at the row adde… |
