@@ -1,5 +1,7 @@
 # Review packet — aero cou2 (cruise)
 
+**Vocabulary note:** the committed protocol renames verdicts Accepted→Confirmed, Not Accepted→Overruled; this packet predates the rename.
+
 **AWAITING-AUTHOR.** Prepared, not reviewed. Section 0 of the prep spec reserves the cell
 walk, the verdicts, and the ambiguity re-adjudication for you, and none of them has
 happened here.

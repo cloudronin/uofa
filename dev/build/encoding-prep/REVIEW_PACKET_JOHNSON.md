@@ -1,5 +1,7 @@
 # Review packet — Johnson (NTRS 20200002832)
 
+**Vocabulary note:** the committed protocol renames verdicts Accepted→Confirmed, Not Accepted→Overruled; this packet predates the rename.
+
 **AWAITING-AUTHOR.** This is your evening. Everything below is prepared; nothing below is
 decided. Walk it start to finish without needing a terminal.
 
