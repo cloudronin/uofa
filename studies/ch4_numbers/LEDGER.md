@@ -263,6 +263,31 @@ lift is not derivable from the frozen run, because per-case permutation nulls
 were never committed; a re-run would be a new measurement on an extraction the
 findings document itself records as run-unstable.* No fresh run was made.
 
+### Extraction run-instability — both instances
+
+The phrase "run-unstable" in the disclosure sentence above rests on two measured
+instances, entered together so that any §4.2 sentence citing the instability has
+both in one place.
+
+| instance | figure, run to run | held constant across the pair | artifact |
+|---|---|---|---|
+| `nagaraja`, vv40 | 1/12 → 0/12 | same paper, same pack; the extraction differed | `studies/real-document-rescore/FINDINGS.md:42` |
+| Johnson NTRS-20200002832, nasa-7009b | 142 cells / 19 factors → 11 cells / 0 factors | same model, same prompt, same 16,860 tokens | `dev/build/encoding-prep/donetest/RESULTS.md`, run 1 extraction yield |
+
+**The second instance holds more constant than the first.** The `nagaraja` pair
+differed by extraction run with nothing else pinned; the Johnson pair pins model,
+prompt and token count and still diverges by more than an order of magnitude in
+cells, and completely in factors — 19 to none. The second is therefore the
+stronger of the two for any sentence about extraction variance, and the weaker
+for any sentence about scoring, since it is a cell count rather than a hit rate.
+
+**Re-derivation, same standing as the `nagaraja` figure.** Both numbers come from
+committed artifacts — `dev/build/encoding-prep/donetest/transcript-run1.json` and
+the pilot's `dev/build/pilot-johnson/raw-extract/` for the Johnson pair — and
+neither has a re-runnable command. A re-run would be a new measurement, which is
+precisely what E3 rules above for the held-out lift. No fresh run was made for
+this row either.
+
 **Wording note for §4.2 and elsewhere.** `UofA_Unified_Repair_Spec_v2_1.md:86`
 states the null loosely as "a constant checklist reaches 0.95". The measured
 figure is **0.960**. That line sits inside a gate definition in a spec document,
