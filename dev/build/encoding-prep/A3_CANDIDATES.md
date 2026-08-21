@@ -4,6 +4,14 @@ Work order of 2026-08-22, Part 2. Run under **R-A3-SCREEN**
 (`docs/UofA_Decision_Record_2026-08-16_Addenda.md`), which R-B invokes after disqualifying
 Bologna.
 
+> **CLOSED 2026-08-22 by R-A3-CLOSE** (`docs/UofA_Decision_Record_2026-08-16_Addenda.md`).
+> The search concluded without an eligible assessment-shaped candidate: the S1 check (§8) found
+> Kurtz's supplement to be an activities list rather than a credibility-factor table, and
+> Maquer stays screen-incomplete behind a paywall. **A3 is served by the Johnson governed pass,
+> dual role disclosed.** Kurtz is banked as a post-defense model-risk-arm candidate and a
+> Credenza sample bundle; Maquer is banked as the future clean upgrade via U-INV-1. **No A3
+> encoding runs.** This report stands as the search record, not as a live recommendation.
+
 **Recommended pick: Kurtz et al. 2025**, the 3Spine MOTUS lumbar total joint replacement FEM
 (`10.3390/bioengineering12030229`, CC BY). **Runner-up: Maquer et al. 2024**, the Zimmer
 Biomet humeral stem model (`10.1007/s10439-024-03452-w`), which is cleaner on independence but

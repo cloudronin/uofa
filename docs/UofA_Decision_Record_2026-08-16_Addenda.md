@@ -426,3 +426,75 @@ Co-author hits into a *fixture* are a fourth signal and are not automatically di
 but they are an independence penalty and must be surfaced for the author rather than absorbed:
 the same run found Kizilski's co-author in `morrison-cou1/2.json` and Scuoppo's and Catalano's
 in `bundle_tavi1_s3/ground_truth.json`.
+
+---
+
+## R-A3-CLOSE (2026-08-22) — the A3 search closes; Johnson takes the arm, dual role disclosed
+
+Status: RULED. Closes R-B's open half.
+Basis: `dev/build/encoding-prep/A3_CANDIDATES.md`, including the §8 S1 shape check.
+
+**The fresh-document search concluded without an eligible assessment-shaped candidate.** Kurtz
+fails screen 2 on the S1 check — the supplement is an activities list, not a credibility-factor
+table. Maquer remains screen-incomplete behind a paywall. **A3 is served by the Johnson
+governed pass**, whose catalog-side independence is clean, whose firing list is fully
+adjudicated with zero Overruled on merit, and whose **dual role — protocol validation and
+external false-positive demonstration on one substrate — is disclosed in the chapter.**
+
+The Johnson adjudication as it stands on the record: eleven firings, eight Confirmed (one with
+`offsetRationale`, designated the v0.2 worked example), three Not Applicable by scoping ruling,
+**none Overruled on merit** (`dev/build/pilot-johnson/Johnson_Author_Verdict_Record.md`).
+
+This is the fallback pre-declared for exactly this outcome, taken without further deliberation.
+
+### Why the three options in A3_CANDIDATES.md §8 lose, for the record
+
+| Option | Why it loses |
+|---|---|
+| **Encode Kurtz at activity level** | Produces a package that is mostly source-absent rows. Its firing profile would measure **the document's thinness, not the catalog's discrimination.** A3's whole value is adjudicating firings on real evidence, and there would be little real to adjudicate |
+| **Send Maquer to the proxy read** | Costs a library-proxy read with **two screens still unresolvable** and a paywall standing against the cited-and-fetchable rule. A post-defense upgrade path, not a pre-defense gate |
+| **Keep looking** | Spends writing-weekend time against pools the search already reported **near-exhausted**, with the manuscript on the critical path. This half of option 3 dies with the search |
+
+### The pairing worth keeping — A-06 cutting symmetrically
+
+Recorded verbatim because it is a Part C note for the protocol and a candidate chapter
+footnote:
+
+> **Bologna printed gradations without a numeric scale and the transcriber refused to invent
+> the conversion; Kurtz prints outcomes without any gradation, so the conversion would invent
+> the entire scale.**
+
+Same A-06 rule, fired from opposite directions. That is the decline-don't-manufacture
+discipline demonstrating it **cuts symmetrically** — it is not a convenience that only ever
+refuses upward.
+
+### Banked, so nothing is re-derived later
+
+**Kurtz et al. 2025** — `10.3390/bioengineering12030229`, CC BY, PMC11939812. Not discarded.
+Banked for two distinct future uses:
+
+1. **Model-risk-arm candidate, post-defense.** The S1 check found its model-risk derivation
+   **fully reasoned** — model influence "low", decision consequence "low", each with stated
+   reasoning — which is exactly the pair of rows `bundle_tavi1_s3` exercises. An activity-level
+   document with a reasoned risk derivation is precisely the right substrate for a model-risk
+   arm, where the factor table's absence costs nothing. This salvages option 3's first half
+   while its second half dies.
+2. **Product sample-bundle candidate (Credenza), at activity level.** A real manufacturer's
+   V&V 40 activities on a real device, CC BY and fetchable. Assessment thinness is fine for a
+   demo that shows **workflow, not tier logic**. The praxis says no; the product says maybe
+   later.
+
+**Fetch path, pinned:** `mdpi.com` returns **403** to automated fetch. Use
+`https://www.ebi.ac.uk/europepmc/webservices/rest/PMC11939812/supplementaryFiles` — HTTP 200,
+`application/zip`, 4,646,977 bytes, containing the 13-page supplement. Record this endpoint in
+any manifest that pins the document, so a future run does not fail against the publisher's
+front door and conclude the document is unavailable.
+
+**Maquer et al. 2024** — `10.1007/s10439-024-03452-w`. Stays the named runner-up and the
+**future clean A3 upgrade**, unlocked by the U-INV-1 library-proxy read. If it passes screen 2,
+the external arm gets its own dedicated document **in the JVVUQ paper rather than the praxis**.
+
+### What this closes
+
+R-B's open half. **A3 is filled, the search is closed, and no A3 encoding runs.** The remaining
+A3 work is a disclosure sentence in the chapter, not an encoding.
