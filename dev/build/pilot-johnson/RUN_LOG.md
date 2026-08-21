@@ -4,8 +4,9 @@ Spec: `UofA_Encoding_Pilot_Spec_v1_0_Johnson.md` v1.0 (ACTIVE, 2026-08-19)
 Session date: 2026-08-20
 Governed review session: 2026-08-21 (see **The governed review pass** below)
 State: **ADJUDICATED AND SIGNED, 2026-08-21.** The dispositions and the ambiguity log
-carry the author's verdicts, and the author signed the package under the committed
-protocol. See **The signing** below.
+carry the author's verdicts. The package was signed, re-imported the same day to correct
+its operator attribution, and re-signed. The signature in force is the second one. See
+**The attribution correction** below.
 
 Everything in the 2026-08-20 session was preparation under spec §0. Its dispositions
 were candidates. The author re-adjudicated every one of them in the review pass of
@@ -170,7 +171,7 @@ machine-drafted preparation or a named person's review, and about who performed 
 | What was ruled | the minting namespace; a cell walk over the workbook; all eleven weakener firings; the fifteen-factor silence sweep; all 28 ambiguity-log entries |
 | Application to the artifacts | mechanical, by Claude Code, from the verdict record. Six divergences escalated rather than reconciled, all six dispositioned by the author the same day — `APPLY_RECORD_ESCALATIONS.md` |
 | Still unadjudicated | **none.** Ambiguity entries A-13, A-19 and A-22 were displaced by the record's mis-addressed rulings, returned to the author, and confirmed as drafted on 2026-08-21. All 30 log entries are adjudicated |
-| Signing | **performed by the author, 2026-08-21**, with the research key. See the section below |
+| Signing | signed by the author 2026-08-21, superseded by the attribution re-import the same day, and **re-signed**. Two signatures, one in force. See the sections below |
 
 The 2026-08-20 pass was machine-drafted preparation and is labelled as such throughout.
 The 2026-08-21 pass is the review A-6 and A-13 mean. The two are recorded separately so
@@ -178,7 +179,11 @@ that no reader has to infer which produced a given value.
 
 ---
 
-## The signing — 2026-08-21
+## The signing — 2026-08-21 (first signature, SUPERSEDED)
+
+**This signature no longer holds.** It signed the package as it stood before the
+attribution correction below, and the re-import discarded it. The section is kept as the
+record of what was signed and verified, not as a statement about the current file.
 
 Performed by the author with the research key held outside the tree. The apply-record
 session did not sign and does not hold the key; it verified the result afterwards and
@@ -194,7 +199,7 @@ recorded it here.
 | `hash` | `sha256:58e849c2bcb4971bbd3dbb320643397e191f87bbb323d4de9efd4073ded53a73` |
 | Governing protocol | `docs/Encoding_Protocol_v0_1.md` v0.1 |
 
-### Verification after signing
+### Verification after signing (of the superseded package)
 
     uofa check dev/build/pilot-johnson/johnson-pilot.jsonld
 
@@ -207,35 +212,88 @@ patterns**, which are the eleven the author dispositioned; signing adds no firin
 clears none, and `W-SI-01` stays silent for the reason F-6d gives rather than because
 the package is now signed.
 
-### What the signature now freezes
+### What a signature freezes
 
 The identifiers minted under `https://github.com/cloudronin/uofa` are covered and cannot
 be corrected without re-importing and re-signing. That includes the `base_uri` confirmed
 under A-27, every node identifier derived from it, and the package's `wasAttributedTo` —
-**see the open item below.**
+which is exactly why the first signature was superseded rather than amended.
 
-### Open item, raised after signing: `wasAttributedTo` names `org/claude`
+---
 
-The signed package carries:
+## The attribution correction — 2026-08-21, after the first signing
 
-    wasAttributedTo: …/org/claude
+### What was wrong
 
+The first signed package carried `wasAttributedTo: …/org/claude`.
 `excel_mapper._operator_identity()` resolves **who ran the tool** from `UOFA_ASSESSOR`,
 then `git config user.name`, then `$USER`. The 2026-08-20 import ran in a container — its
-`provenanceChain.sourceFile` is `/home/user/uofa/dev/build/pilot-johnson/johnson-extracted.xlsx`,
-not the working tree's path — and the identity there resolved to `claude`. Re-running the
-same resolution in the author's environment today returns `Vishnu Vettrivel`.
+`provenanceChain.sourceFile` was `/home/user/uofa/dev/build/pilot-johnson/johnson-extracted.xlsx`,
+not the working tree's path — and the identity there resolved to `claude`.
 
-**This is not a false statement.** The mapper's R1 rule deliberately separates the
-operator from the assessor: `statedAssessor` is `K.L. Johnson`, read from the source, and
-`wasAttributedTo` is whoever ran the import, which genuinely was a machine agent. Read
-strictly, the package says the import was machine-run and the run log says the review was
-the author's — which is the distinction protocol A-13 exists to keep visible.
+The value was not false. The mapper's R1 rule deliberately separates operator from
+assessor: `statedAssessor` is `K.L. Johnson`, read from the source, and `wasAttributedTo`
+is whoever ran the import, which genuinely was a machine agent. It was, however, an
+incidental container identity that nobody chose, recorded in no pin, and frozen under a
+signature. **Author ruling 2026-08-21: fix it.**
 
-**It was still never a deliberate declaration.** It is an incidental container identity
-that no one chose, it is not recorded in the Pins table, the provenance self-audit never
-mentions it, and it is now frozen under signature. Correcting it means re-importing with
-`UOFA_ASSESSOR` set and re-signing, both of which are the author's acts.
+### What was done
 
-**Not changed by the apply-record session.** Raised for the author's ruling, on the same
-propose-don't-author basis as A-29 and A-30.
+    UOFA_ASSESSOR="Vishnu Vettrivel" uofa import \
+      dev/build/pilot-johnson/johnson-extracted.xlsx \
+      --pack nasa-7009b \
+      --base-uri https://github.com/cloudronin/uofa \
+      --protocol-check
+
+The operator is now set explicitly rather than inherited from the environment, which is
+the point: the same command in any environment produces the same attribution.
+
+### What changed in the package, measured rather than asserted
+
+The re-import was diffed field by field against the signed package it replaces. **Five
+fields differ and no others.** All 19 credibility factors and all 6 validation results are
+identical.
+
+| Field | Before | After |
+|---|---|---|
+| `wasAttributedTo` | `…/org/claude` | `…/org/vishnu-vettrivel` |
+| `provenanceChain[0].sourceFile` | `/home/user/uofa/…` (container) | the working tree's path |
+| `provenanceChain[0].timestamp` | `2026-08-20T04:19:56Z` | `2026-08-21T03:09:27Z` |
+| `generatedAtTime` | `2026-08-20T04:19:56Z` | `2026-08-21T03:09:27Z` |
+| `signature` / `hash` | the author's ed25519 signature | importer placeholders again |
+
+`toolVersion` is `uofa-cli 0.11.0` on both, matching the pinned version, so nothing moved
+underneath the re-import. `uofa rules` reports the same **11 firings across 5 patterns**,
+the eleven the author dispositioned.
+
+### The signature in force — 2026-08-21, second signature
+
+The author re-signed the corrected package with the same research key. This is the
+signature that holds.
+
+| Field | Value |
+|---|---|
+| Signed by | **Vishnu Vettrivel**, author, with `~/.config/uofa/research.key` |
+| Date | 2026-08-21 |
+| `signatureAlg` | `ed25519` |
+| `canonicalizationAlg` | `json-sortkeys/v1` |
+| `signature` | `ed25519:8d5b00502bfbf890…` |
+| `hash` | `sha256:be683191bc7abdbb…` |
+| Covers | the corrected `wasAttributedTo`, and every identifier minted under the A-27 namespace |
+
+Verification:
+
+    uofa check dev/build/pilot-johnson/johnson-pilot.jsonld
+
+    ✓ C2 SHACL   ✓ C1 Integrity   ✓ C3 Rules
+
+`uofa rules` reports the same **11 firings across 5 patterns**, matching the dispositioned
+set node for node.
+
+**The superseded first signature** is `ed25519:78e4d877f740d0c5…a7d0501` over hash
+`sha256:58e849c2bcb4971b…ded53a73`, preserved in commit `d633df0e` and recoverable from
+there. It signs a package that no longer exists in the tree, and it is recorded rather than
+quietly dropped so the history stays legible.
+
+Signing is the author's act. The apply-record session does not hold the key and did not
+sign either time.

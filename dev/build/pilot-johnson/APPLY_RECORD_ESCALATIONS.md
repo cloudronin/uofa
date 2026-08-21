@@ -284,15 +284,25 @@ reviewed.
 
 E-1 through E-6 are dispositioned, applied and closed. All 30 ambiguity entries, all eleven
 firings and all nineteen expected factors are adjudicated. The author reviewed the diffs and
-**signed the package on 2026-08-21**; `uofa check` returns C1 ✓ C2 ✓ C3 ✓, with C1 Integrity
-passing for the first time and the eleven firings unchanged. `RUN_LOG.md` records the signing.
+**signed the package on 2026-08-21**.
 
-**The packet is complete.** One item was raised *after* signing and is not part of this
-escalation set, because it was not a divergence between the record and the artifacts: the signed
-package's `wasAttributedTo` names `org/claude`, an incidental container identity picked up by the
-2026-08-20 import rather than a declaration anyone chose. It is now frozen under signature.
-`RUN_LOG.md`, "Open item, raised after signing", states it in full and leaves it for the author,
-since correcting it means a re-import and a re-sign.
+**One item was raised after that signing**, and it is not part of this escalation set, because it
+was not a divergence between the record and the artifacts: the signed package's `wasAttributedTo`
+named `org/claude`, an incidental container identity picked up by the 2026-08-20 import rather
+than a declaration anyone chose. **The author ruled to fix it.** The package was re-imported with
+`UOFA_ASSESSOR` set explicitly, which corrected the attribution and discarded the signature.
+
+Diffed field by field against the package it replaced: five fields differ — the attribution, the
+import `sourceFile` and `timestamp`, `generatedAtTime`, and the signature and hash reverting to
+placeholders — and no content. All 19 credibility factors, all 6 validation results and all
+eleven firings are identical, so **every verdict in this packet stands unchanged**.
+
+**The author re-signed the corrected package the same day**, and `uofa check` returns
+C1 ✓ C2 ✓ C3 ✓ with the eleven firings matching the dispositioned set node for node.
+`RUN_LOG.md` carries the full history: the superseded first signature, the correction, the
+measured diff, and the signature in force.
+
+**The packet is complete.**
 
 On sign-off, the Johnson worked-example citations for protocol v0.2 become quotable: D-06, and
 the Not-Applicable-versus-Overruled case still awaiting the aero COU2.
