@@ -36,3 +36,40 @@ Anchors are **candidates authored from EVIDENCE_MANIFEST.txt**, not derived from
 provenance. The extractor records no per-cell source document; the cell comments carry a
 confidence percentage only, although the published on-ramp says "Hover a cell for the
 document it came from". The author's walk confirms or corrects each one.
+
+---
+
+## Cell walk and re-import — 2026-08-21
+
+Mechanical resolution against the author-committed, pre-registered ground truth
+`tests/fixtures/extract/ground_truth/aero-cou2-nasa7009b.json`, plus the author's Johnson
+rulings as precedent. **Machine acts, recorded as machine acts.** The author's review act is
+assent to `AUTHOR_SUMMARY_COU2.md`; nothing below is an author adjudication.
+
+| Field | Value |
+|---|---|
+| Performed by | Claude Code, apply session |
+| Date | 2026-08-21 |
+| Script | `dev/build/encoding-prep/aero_cell_walk.py`, idempotent; re-running reproduces the ledger byte for byte |
+| Pre-walk snapshot | `pre-walk/aero-cou2-extracted-PREWALK.xlsx`, so the walk's changes stay measurable the way `raw-extract/` makes the prep's measurable |
+| Ledger | `REVIEW_LEDGER.md` |
+| Dispositions | `DISPOSITIONS_DRAFT.md`, drafted, AWAITING-AUTHOR |
+| Author summary | `AUTHOR_SUMMARY_COU2.md` |
+
+### Re-import
+
+    UOFA_ASSESSOR="Vishnu Vettrivel" uofa import aero-cou2-extracted.xlsx \
+      --pack nasa-7009b --base-uri https://github.com/cloudronin/uofa --protocol-check
+
+`UOFA_ASSESSOR` is set **explicitly**, so `wasAttributedTo` is a declared operator rather than
+one inherited from whatever shell the import ran in. That is not yet a protocol requirement —
+it is queued for v0.2 in `docs/protocol-v0_2-notes.md` — but the Johnson package was signed
+carrying an inherited container identity and had to be re-imported and re-signed to fix it.
+Doing it here costs nothing and avoids repeating a known defect knowingly.
+
+`--protocol-check`: **9 of 9 green.** `uofa check`: C2 SHACL pass, C3 Rules pass, **C1 Integrity
+fails correctly** on the importer's zero-filled placeholders, which is the unsigned state and
+Johnson finding F-6d's condition rather than a defect.
+
+**Not performed:** signing, ledger-row changes, and the public-wheel round-trip. The last is
+flagged in the summary rather than claimed, because no wheel is built in this tree.
