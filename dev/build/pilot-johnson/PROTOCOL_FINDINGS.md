@@ -76,6 +76,7 @@ cannot resolve this; it can require that the choice be disclosed.
 | F-4b | **The source contradicts itself, and §5's trigger does not cover it.** The ambiguity-log trigger fires when the source *underdetermines* a field. Johnson is over-determined and inconsistent three times: the TA waiver described and denied in one response (p.8) and answered "None" at p.23; verification waived at p.6 and rated 4 on independent verification at p.25; [M&S 37] declined at p.10 and answered in full at p.24. Morrison never produced this case. Only the third has a defensible ordering rule (*an answer outranks a declination; the declination is context*). | RULE-NEEDED |
 | F-4c | **Disposition vocabulary collision.** The spec asks for Accepted / Not Accepted / Not Applicable. `uofa:Disposition.actionClass` is a different controlled vocabulary — restrict-cou, acquire-validation, characterize-region, accept-residual-risk, change-cou. §4 must name which it means and whether the two ever meet. | RULE-NEEDED |
 | F-4d | **Worked-example candidates**, all present and all harder than Morrison's: the TA-waived validation (D-06, the one firing that is right on both readings), the negotiated M&S History predeclaration (p.7-8), the incomplete randomization judged inconsequential by SMEs (p.8, p.15, p.23 — whose judgment does the encoding record?), and the retained outlier (p.21, "pulling it less than 0.003 cm in nonconservative direction"). | NO-FINDING (material, not a gap) |
+| F-4d, ruled 2026-08-21 | All four candidates are now adjudicated. **The TA-waived validation** is D-06, ruled Confirmed with an offsetRationale anchored p.19 and **designated the protocol v0.2 worked example**. **The negotiated M&S History predeclaration** (p.7-8, carried on `Use history`, row 23) is **CONFIRMED**: the value is carried and the provenance note that the predeclaration was negotiated stands with it. It is recorded here rather than in the ambiguity log, because it was never a log entry — the E-1 round-trip established that. **The incomplete randomization** and **the retained outlier** became ambiguity entries A-29 and A-30, ruled the same day: the first recorded as the source's SME judgment and not encoder endorsement, the second recorded as disclosure without an encoder ruling. | NO-FINDING (material, now adjudicated) |
 | F-4e | **Silence is not a clean bill.** The eleven factors carrying no level and a non-`assessed` status drew no weakener, because W-CON-01 excludes those statuses by design. The encoding's largest gap is the one the engine says least about. §4 needs a rule for dispositioning factors no rule raised. | RULE-NEEDED |
 
 ## §5 The ambiguity log
@@ -121,6 +122,7 @@ rather than per-section.
 |---|---|---|
 | `SensitivityAnalysis` node / `hasSensitivityAnalysis` | p.22 [M&S 30]; p.25 Results Robustness 4 | W-AL-02, W-NASA-06 fire. The class, its shape and the property all exist in `uofa_shacl.ttl`; the name appears **nowhere** in `excel_constants.py`, `excel_reader.py` or `excel_mapper.py`, so the published on-ramp cannot produce one. Three shipped rules key on it. Morrison, hand-authored, also lacks it and fires W-CON-04 |
 | COU `hasApplicabilityConstraint` / `hasOperatingEnvelope` | p.19 [M&S 14]; p.19 [M&S 18]; p.18 [M&S 16]; p.23 [M&S 26] | W-ON-02 fires. **Known observation**: the Ch4 spec records it on 65/71 queue packages and asks for verification against canonical encodings — this pilot is one, and Morrison COU1 fires it too |
+| An offset-rationale route for a validation-result firing | p.19 — no RWS data exists, test data served as referent, tolerance bound and PRA context bound the use | D-06 is Confirmed **with** an offsetRationale, and the rationale has nowhere to go. `uofa:OffsetRationale` and `hasOffsetRationale` are in the v0.5 context and `packs/vv40/examples/nagaraja/cou1` carries one, but `excel_mapper.py` has no offset handling and the template has no column. Nagaraja's `refersToFactor` also points at a *factor*, and D-06's firing is on a validation result, so the referent shape is an open question too. **Ruled 2026-08-21: disposition record only, no package node** — same rule as the envelope gap below. Filed beside it |
 | A comparator identity for non-entity comparators | p.17, p.24, p.19 | W-AR-05 ×5. `Compares To` expects a URI; SME judgment and "no RWS data available" are not URI-shaped. Import drops them as non-well-formed subjects |
 | `Input pedigree` factor | p.25, predeclared 3 / achieved 3 | No disposition possible. ESCALATION |
 | Level 0 on V&V 40 factors | p.7 Table 3 convention | Not triggered by Johnson; would block a 7009A encoding that used it. ESCALATION |
@@ -130,5 +132,11 @@ rather than per-section.
 Stated so the memo is not read as broader than it is. One COU, one source, one
 extractor, one session, and no second encoder. The A-to-B mapping findings are
 specific to a 7009A source encoded under the 7009B pack and say nothing about a
-source written against 7009B directly. The disposition table has not been through
-the author's review pass, which is where §4's rules will actually be tested.
+source written against 7009B directly.
+
+**Update, 2026-08-21.** The disposition table has now been through the author's review
+pass, and §4's rules were tested by it. Every verdict is in `DISPOSITIONS_DRAFT.md`, the
+session record is `Johnson_Author_Verdict_Record.md`, and the divergences the pass
+surfaced between the record and the artifacts are in `APPLY_RECORD_ESCALATIONS.md`. Three
+findings from this memo were filed to the schema channel as SF-4, SF-5 and SF-6. Still one
+COU, one source, one extractor and no second encoder.
