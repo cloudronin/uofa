@@ -4,6 +4,40 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+## [0.12.0] — 2026-08-20
+
+### Added — the encoding protocol, and the mechanical half of it as a gate
+
+- **`docs/Encoding_Protocol_v0_1.md`**: the procedure that turns one published
+  source document into a signed-ready package that is evidence rather than
+  opinion. Part A is thirteen executable steps, each ending in a check; Part B
+  disposes the weakener firings Part A's last step produces, with a verdict rule
+  per pattern family and an explicit mechanical-versus-judgment class; Part C is
+  rationale, cited to the Johnson pilot by finding number. Part B's rules are
+  calibrated against 71 recorded author adjudications, and the Calibration column
+  says of each rule what it was derived from and which are not yet calibrated.
+  An encoding records the protocol version that governed it, so a package encoded
+  under v0.1 stays readable when v0.2 changes a rule.
+- **`uofa extract --protocol-check` and `uofa import --protocol-check`**: the
+  scriptable subset of that document, so no workbook reaches an author's review
+  pass while it still fails something a machine could have caught. A flag rather
+  than a command, because the checks have no state and nothing to orchestrate.
+  The two commands behave differently on purpose: every check describes a
+  *reviewed* workbook, and a freshly extracted one has no citation anchors
+  because anchors are what review produces — so `extract` prints the table and
+  leaves the exit code alone, while `import` treats the same checks as gates.
+  Checks cover the anchor column and its per-row population, template
+  placeholders left in data rows, required-equals-achieved on every factor
+  without a waiver, the ambiguity log, the run log's lineage fields, and the
+  minted namespace.
+- **The namespace check names a domain family, not a string.** The importer's own
+  warning fires on its `example.org` default, so an encoder can satisfy the
+  warning and still miss the rule — a reserved example domain under a plausible
+  subdomain reads like a real namespace and is one nobody controls. The whole
+  RFC 2606 / RFC 6761 reserved family is refused. It reads the package's minted
+  `id`, which sits inside the canonicalised content the signature covers, so the
+  mistake is permanent rather than cosmetic.
+
 ### Added — evidence sealing for solver artifacts, without the solver
 
 - **`uofa evidence inventory|seal`**: classify, digest and account for every file
