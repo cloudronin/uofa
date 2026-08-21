@@ -236,10 +236,13 @@ ADDITIONS = [
          "the best model from a list of candidates. All review comments addressed.",
       6: "No",
       9: "Pass"},
-     "p.25 M&S Process / Product Management rationale; p.12 4.1.3 a,b",
+     "p.25 (assessment rationale) + p.24 (M&S 36 review summary) + p.12 §4.1.3(a,b)",
      "ADDED per §3c. Clears W-NASA-03 (D-10), which fired because the process factor "
      "is assessed with no linked ProcessAttestation. The source states the attestation "
-     "plainly; the pilot declined to add it and escalated as A-24."),
+     "plainly; the pilot declined to add it and escalated as A-24. ANCHOR CORRECTED by "
+     "author ruling 2026-08-21 (Step 2 item 6), re-issued on the E-4 escalation: the "
+     "ruling adds p.24, it does not displace p.12. Three anchors, because all three "
+     "genuinely carry the attestation."),
 ]
 
 # Identifier corrections. The Compares To column expects a URI and the extractor wrote
