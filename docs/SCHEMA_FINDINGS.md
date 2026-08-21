@@ -17,6 +17,17 @@ Entries are numbered `SF-n` in the order they are filed. Each carries the same f
 existing to route them to. SF-1 and SF-2 are the two gaps §5c names; both are entered from the
 ambiguity-log rows that raised them, so the entries are transcriptions rather than new findings.
 
+**A labelling collision, recorded rather than resolved.** `docs/Ruling_WAR05_Schema_Findings.md`
+and `dev/build/pilot-johnson/Johnson_Author_Verdict_Record.md` both refer to the evidence-typing
+gap as "SF-1" and the comparator-identity gap as "SF-2". Those labels are the ruling document's
+own, and they collide with SF-1 and SF-2 as already filed here. This file's stated rule is that
+entries are numbered in the order they are filed, so the two gaps are entered below as **SF-4**
+and **SF-5**. **Ruled 2026-08-21: the order-of-filing rule wins and SF-4/SF-5/SF-6 stand.**
+Where a conversational or ruling document says "SF-1" or "SF-2" for the evidence-typing or
+comparator-identity gap, it means **SF-4** and **SF-5** as filed here; SF-1 and SF-2 in this
+channel are `Input pedigree` and Level 0, and are cited under those numbers from
+`docs/Encoding_Protocol_v0_1.md` Part C.
+
 **The list is partial by construction.** It holds what has been explicitly filed, not a census of
 every known gap. Two channel-eligible items from the same encoding are deliberately not entered
 here: the version-agnostic `NASA-STD-7009` alias resolving to the 7009B identifier, and the two
@@ -99,3 +110,103 @@ a disposition pass that treats non-firing as clearance will read the auto-stamp 
 
 **Status.** Open. **No rule edit; the catalog is frozen.** Recorded so the silence is documented
 rather than inferred, and so a future catalog revision has the case already stated.
+
+---
+
+## SF-4 — non-comparison evidence has no predicate of its own
+
+*Referred to as "SF-1" in `docs/Ruling_WAR05_Schema_Findings.md` and in the Johnson verdict
+record. Filed here under the next number in order; see the labelling note above.*
+
+**Finding.** Evidence that is not a comparison — a review activity, a process attestation, a
+deployment record — rides the same predicate as validation results, so a pattern scoped to
+comparisons tests node classes it was never about.
+
+**Cause.** The ontology already types the node classes. The graph loses the distinction because
+the Excel mapper funnels every evidence type through `hasValidationResult`. `W-AR-05` then tests
+every node under that predicate for a comparator.
+
+**Evidence.** Five `W-AR-05` firings on `dev/build/pilot-johnson/johnson-pilot.jsonld`, of which
+three survive as dispositions D-03, D-04 and D-05, ruled **Not Applicable** by the author on
+2026-08-21 (`dev/build/pilot-johnson/DISPOSITIONS_DRAFT.md`). Established by controlled
+experiment: a `ProcessAttestation` added under the fourth-verb rule drew the firing immediately,
+on a node whose whole purpose is to attest a process rather than compare against a referent.
+`dev/build/pilot-johnson/AMBIGUITY_LOG.md`, entry A-28.
+
+**Consequence.** The pattern reports an absence that could never be a presence for these node
+classes. A disposition pass must rule three of five firings Not Applicable, and a reader counting
+firings across packages counts the mis-scoping as weakness.
+
+**Proposed shape, recorded as a proposal and not a design.** A predicate for non-comparison
+evidence — `hasReviewEvidence`, or a general `hasSupportingEvidence`; the mapper routes by
+evidence type; `W-AR-05` then scopes itself by walking only the validation predicate, with no
+type guard required. Note the INV-21 lesson explicitly: if a type guard is ever considered
+instead, the class it guards on must be declared in the ontology first.
+
+**Status.** Open. **No rule edit; the catalog is frozen post-R1a.** The fix rides the schema
+increment. Carries the boundary-section tag with SF-5: judgment-borne and prose-borne evidence is
+where the schema stops.
+
+---
+
+## SF-5 — real comparators are not always URI-shaped
+
+*Referred to as "SF-2" in `docs/Ruling_WAR05_Schema_Findings.md` and in the Johnson verdict
+record. Filed here under the next number in order; see the labelling note above.*
+
+**Finding.** A source can state a comparator that is not the kind of thing an identifier names,
+and the package cannot carry it.
+
+**Cause.** `comparedAgainst` is an `@type: @id` term, so prose values — "SME engineering
+judgment", "RWS data (not available)" — are dropped at import as non-well-formed subjects.
+`W-AR-05` then fires on an absence import itself created.
+
+**Evidence.** `dev/build/pilot-johnson/AMBIGUITY_LOG.md`, entry A-21, and dispositions D-02 and
+D-06, both ruled **Confirmed** by the author on 2026-08-21. The same `@type: @id` expansion
+behaviour was established separately by the relative-IRI experiment recorded as A-26.
+
+**Consequence.** The source stated a comparator and the package reports none. The firing is
+correct about the artifact and wrong about the work, which is exactly the split the disposition
+rules make the encoder carry in the ambiguity log.
+
+**Proposed shape, again a proposal.** A comparator-description node, or a small controlled
+vocabulary of referent classes — expert judgment, test data as referent, published benchmark,
+predicate reference to a cited artifact.
+
+**Status.** Open. Morrison and Nagaraja never surfaced this, because their comparators were bench
+data with citable identities. Johnson surfaces it because judgment-borne referents are normal in
+this document class.
+
+---
+
+## SF-6 — a context of use has no cell for its operating envelope
+
+**Finding.** The workbook carries no cell for a COU applicability constraint or operating
+envelope, so a source that states one repeatedly produces a package that states none.
+
+**Cause.** `hasApplicabilityConstraint` and `hasOperatingEnvelope` exist on the context of use,
+and the Excel on-ramp has no column feeding either. `W-ON-02` is Confirmed on any package built
+through that on-ramp, whatever the source says.
+
+**Evidence.** Disposition D-11, ruled **Confirmed** by the author on 2026-08-21, with the ruling
+**no per-package repair**: the gap is a workbook/template finding and belongs to the schema
+increment rather than to this encoding. The source states the envelope at p.18, at p.19 twice,
+and at p.23. Cross-reference `packs/vv40/examples/morrison/cou1`, which fires the same pattern,
+and the Ch4 spec's observation of it on 65 of 71 queue packages.
+
+**Consequence.** The pattern cannot distinguish a source with no operating envelope from a source
+with four statements of one. As with SF-4, a firing count treats a template gap as a package
+weakness.
+
+**Status.** Open. **Template change, not a rule edit.** Filed beside SF-4 and SF-5 for the same
+schema increment, per the author's D-11 ruling.
+
+**Sibling gap, same class, recorded here rather than filed separately.** A validation-result
+firing dispositioned Confirmed *with an offset rationale* has no on-ramp route either:
+`uofa:OffsetRationale` and `hasOffsetRationale` exist in the v0.5 context and
+`packs/vv40/examples/nagaraja/cou1` carries one, but the mapper has no offset handling and the
+template has no column — and Nagaraja's `refersToFactor` points at a factor, where D-06's firing
+is on a validation result. Ruled 2026-08-21 the same way as the envelope gap: the disposition
+record carries the rationale, the package is not hand-edited, and the missing route is a template
+finding. Recorded in `dev/build/pilot-johnson/PROTOCOL_FINDINGS.md`, cross-cutting table. Promote
+to **SF-7** if the increment wants it as its own entry.
