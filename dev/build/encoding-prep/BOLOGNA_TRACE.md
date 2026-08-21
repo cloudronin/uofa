@@ -1,5 +1,10 @@
 # Bologna usage trace — the A3 negative-control ruling
 
+> **Closed 2026-08-22 by R-B** (`docs/UofA_Decision_Record_2026-08-16_Addenda.md`), which
+> adopts this determination, disqualifies Bologna from A3 and from any new assignment, closes
+> Decision 8's conditional, and strikes the "never saw Bologna" sentence. Candidate search for
+> the vacated A3 slot runs under R-A3-SCREEN; see `A3_CANDIDATES.md`.
+
 **Determination: BRANCH M.** Bologna appears in measured runs whose numbers survive into
 committed status reports, study findings, and the Ch4 numbers ledger. It is disqualified
 from A3.
@@ -165,6 +170,10 @@ never saw Bologna in tuning or validation."* The rule catalog did see Bologna.
 Bologna false positive, and K7's original route premise was generalised from Bologna before
 being discarded on train-set measurement. Since Branch S does not fire this is moot for the
 ruling, but the sentence should not be carried forward into any other disclosure.
+
+> **STRICKEN 2026-08-22 per R-B.** The quoted sentence is false and is struck wherever it
+> appears. It is retained here only as the quotation being refuted. See
+> `docs/UofA_Decision_Record_2026-08-16_Addenda.md` § R-B.
 
 **2. Branch M's stated replacement is not what Decision 8 provides.** The investigation says
 that on Branch M *"the Ahn & de Weck alternative takes the slot per Decision 8's screen."*

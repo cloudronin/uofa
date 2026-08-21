@@ -13,7 +13,7 @@ from item counts. Correct the first one and the rest follow.
 | 3 | Johnson review pass | `REVIEW_PACKET_JOHNSON.md` | verdicts on 11 firings, 20 factor rows, 28 ambiguity entries | one evening, ~3h |
 | 4 | Aero COU1 review pass | `aero-cou1/REVIEW_PACKET_AERO_COU1.md` | verdicts, and the 16-of-18 level question settled | ~2h |
 | 5 | Aero COU2 review pass | `aero-cou2/REVIEW_PACKET_AERO_COU2.md` | verdicts, and the 12-of-14 level question settled | ~2h |
-| 6 | Bologna: rule INV-5 | `BOLOGNA_STATUS.md` | a ruling, not an encoding | 30 min |
+| 6 | ~~Bologna: rule INV-5~~ **CLOSED 2026-08-22 by R-B** | `BOLOGNA_TRACE.md` | Bologna disqualified from A3; no encoding. Successor item: pick an A3 document from `A3_CANDIDATES.md` | — |
 | 7 | Sign-off commits | your verdicts | signed packages; ledger rows flip per the Ch4 spec | 1h |
 
 Total, if nothing surprises you: about ten hours, spread across four sittings.
@@ -30,10 +30,16 @@ Item 3 is the largest because Johnson is a real 7009A paper encoded under a 7009
 most of its twenty-eight ambiguity entries are cross-standard mapping decisions. Items 4 and
 5 are smaller for the same reason inverted: those bundles were authored against this pack.
 
-Item 6 is not an encoding and should not become one until you rule. Bologna is already
+~~Item 6 is not an encoding and should not become one until you rule. Bologna is already
 load-bearing in the H2 chain, and §1 of the protocol draft you are about to commit excludes
 H2 references from the extract path. Running it would settle an open escalation by executing
-it.
+it.~~
+
+**Superseded 2026-08-22 by R-B** (`docs/UofA_Decision_Record_2026-08-16_Addenda.md`). The
+usage trace confirmed measured Bologna use throughout the validation chain, so Bologna is
+disqualified from A3 and barred from any new assignment, and Decision 8's conditional is
+closed. Item 6 needs no ruling. What replaces it is a pick from the fresh A3 candidate slate
+in `A3_CANDIDATES.md`, screened under R-A3-SCREEN.
 
 ## Three things that block item 7 specifically
 
