@@ -210,3 +210,49 @@ is on a validation result. Ruled 2026-08-21 the same way as the envelope gap: th
 record carries the rationale, the package is not hand-edited, and the missing route is a template
 finding. Recorded in `dev/build/pilot-johnson/PROTOCOL_FINDINGS.md`, cross-cutting table. Promote
 to **SF-7** if the increment wants it as its own entry.
+
+---
+
+## SF-7 — the placeholder check is blind at the row where placeholders survive
+
+**Finding.** `--protocol-check` reports `no template placeholder text in data rows: clean` on a
+workbook whose first data row contains the template's own hint text, and the leaked value reaches
+the package as a node identifier.
+
+**Cause.** Two independent gaps, one at each layer.
+
+*Workbook side.* `protocol_check.check_workbook` scans from `head + data_offset`. For
+`Validation Results` that is row 2 + 2 = row 4. The pack template reserves row 3 for hint text
+and expects data from row 4, but the extractor writes its **first data row into row 3**. So the
+one row where hint text most plausibly survives — the row a writer fills partially, since
+`excel_writer` clears hints only in the columns the model wrote — is the one row the scan never
+examines. The hint string is present in the check's own hint set; the row is populated with real
+data; the check simply never looks at it. It does not report *skipped*. It reports **clean**.
+
+*Package side.* Nothing refuses a node whose identifier is hint text. `excel_mapper` minted
+`ValidationResult` nodes with `id` equal to the literal string `Stable URI or local ID` in two
+separate packages, and both passed import, SHACL and the rule engine.
+
+**Evidence.** `dev/build/encoding-prep/aero-cou1` and `aero-cou2`, both carrying that node id
+before the 2026-08-21 cell walk blanked `Validation Results` C3; both ledgers record the
+correction. The prep session's review packet reports protocol-check green on all applicable
+checks, which it was.
+
+**Consequence.** A check written specifically to catch Johnson finding F-3d passes on F-3d's own
+case, and passes with an affirmative green rather than a skip. Any encoder trusting the check
+would ship a package identified by template boilerplate. This is a **vacuous green with an
+affirmative face** — the failure shape the instrument-lessons thread documents — occurring in the
+tool that exists because of the previous instance.
+
+**Proposed fix, at both layers.** Scan from `head + 1`, since a populated hint row is by
+definition a leak. **And** have the importer, or protocol-check's package-side pass, refuse any
+node whose id matches the hint set — the workbook-side scan can be correct and a future writer
+bug could still mint one. Cheap second guard, same finding.
+
+**How it was found, which is the part worth recording.** Not by a check passing or failing, and
+not by the delta tables, which were green throughout. By a session reading a node name
+skeptically while enumerating evidence types for an unrelated disposition question. The
+human-in-the-loop slot earned itself again, and the thing it caught was the instrument.
+
+**Status.** Open. Tooling fix, no rule or schema change. Both affected packages are corrected;
+the check is not.
