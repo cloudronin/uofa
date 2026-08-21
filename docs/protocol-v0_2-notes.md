@@ -108,6 +108,48 @@ recorded. This is why the batch waits.
 
 ---
 
+## Queued item 3 — aero COU2 as the Not-Applicable-versus-Overruled example
+
+**Ripe, drafting deferred to the v0.2 batch.**
+
+**Where it goes.** Part B, the same paragraph as item 2, which states that the distinction
+"needs a case from a package whose decision outcome was Not accepted, and no such record is
+yet committed."
+
+**Why it is ready.** `dev/build/encoding-prep/aero-cou2` carries
+`decision: "Not accepted"`, confirmed against its pre-registered ground truth
+(`tests/fixtures/extract/ground_truth/aero-cou2-nasa7009b.json`, `expected_decision.outcome`
+= `Not Accepted`, qualifier "cruise validation evidence required"). It is the record Part B
+said did not exist.
+
+**What it will demonstrate.** The COU2 encoding's own numbers say why the outcome differs
+from COU1's: five factors are `not-assessed` at MRL 4, which is what drives its five `W-EP-04`
+firings against COU1's one. A Not-accepted decision changes which firings are *about* the
+decision and which are merely about the package, and that is the axis the
+Not-Applicable-versus-Overruled distinction turns on.
+
+**Blocked on nothing but the batch.** The aero review passes must close first, which is the
+same gate item 2 waits behind.
+
+---
+
+## A note for whoever builds the next comparison tool
+
+Not a protocol item; recorded here because it is the kind of thing that gets rediscovered.
+
+**Tolerance is extraction latitude on the *achieved* level. Applying it to the *required*
+level masks A-7 by construction.** A ground-truth row carrying `level_tolerance: 1` means the
+extractor may land within one of the expected achieved level. Comparing the required level
+under the same tolerance hides precisely the defect A-7 exists to catch — a required level
+that was defaulted to the achieved level rather than read from the source — because the two
+then differ by zero and the comparison reports agreement.
+
+Found by writing the aero comparison tool with the tolerance applied to both fields. It
+reported zero divergences on a package with a known masked shortfall, and only reproduced the
+author's pre-registered expectations once required was compared strictly.
+
+---
+
 ## Also landing in the same batch
 
 - **Version bump** and the Part B calibration column refreshed against any adjudications the
