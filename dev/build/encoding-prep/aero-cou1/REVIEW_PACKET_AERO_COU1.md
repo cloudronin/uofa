@@ -2,7 +2,11 @@
 
 **Vocabulary note:** the committed protocol renames verdicts Accepted→Confirmed, Not Accepted→Overruled; this packet predates the rename.
 
-**AWAITING-AUTHOR.** Prepared, not reviewed. Section 0 of the prep spec reserves the cell
+**SUPERSEDED 2026-08-21 by `AUTHOR_SUMMARY_COU1.md`.** This packet described the walk as it
+stood before it ran; the walk has since run and every question it raises has been ruled. Kept
+as the record of what was asked for. Read the summary instead.
+
+**Original header —** AWAITING-AUTHOR. Prepared, not reviewed. Section 0 of the prep spec reserves the cell
 walk, the verdicts, and the ambiguity re-adjudication for you, and none of them has
 happened here.
 

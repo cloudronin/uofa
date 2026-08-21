@@ -1,6 +1,8 @@
 # Run log — aero cou1 encoding prep
 
-State: **DRAFT, AWAITING-AUTHOR.** Prepared under `docs/Encoding_Protocol_v0_1_DRAFT.md`.
+State: **ADJUDICATED AND SIGNED, 2026-08-21.** The author assented to
+`AUTHOR_SUMMARY_COU1.md`, which is the review act, and signed the package. All dispositions
+and ambiguity entries carry the author's rulings. Originally prepared under `docs/Encoding_Protocol_v0_1_DRAFT.md`.
 Nothing signed. The §3b cell walk has not occurred; anchors below are candidates.
 
 ## Pins
@@ -36,3 +38,65 @@ Anchors are **candidates authored from EVIDENCE_MANIFEST.txt**, not derived from
 provenance. The extractor records no per-cell source document; the cell comments carry a
 confidence percentage only, although the published on-ramp says "Hover a cell for the
 document it came from". The author's walk confirms or corrects each one.
+
+---
+
+## Cell walk and re-import — 2026-08-21
+
+Mechanical resolution against the author-committed, pre-registered ground truth
+`tests/fixtures/extract/ground_truth/aero-cou1-nasa7009b.json`, plus the author's Johnson
+rulings as precedent. **Machine acts, recorded as machine acts.** The author's review act is
+assent to `AUTHOR_SUMMARY_COU1.md`; nothing below is an author adjudication.
+
+| Field | Value |
+|---|---|
+| Performed by | Claude Code, apply session |
+| Date | 2026-08-21 |
+| Script | `dev/build/encoding-prep/aero_cell_walk.py`, idempotent; re-running reproduces the ledger byte for byte |
+| Pre-walk snapshot | `pre-walk/aero-cou1-extracted-PREWALK.xlsx`, so the walk's changes stay measurable the way `raw-extract/` makes the prep's measurable |
+| Ledger | `REVIEW_LEDGER.md` |
+| Dispositions | `DISPOSITIONS_DRAFT.md` — drafted here, **all verdicts ruled by the author 2026-08-21**; no AUTHOR-RULE rows remain |
+| Author summary | `AUTHOR_SUMMARY_COU1.md` |
+
+### Re-import
+
+    UOFA_ASSESSOR="Vishnu Vettrivel" uofa import aero-cou1-extracted.xlsx \
+      --pack nasa-7009b --base-uri https://github.com/cloudronin/uofa --protocol-check
+
+`UOFA_ASSESSOR` is set **explicitly**, so `wasAttributedTo` is a declared operator rather than
+one inherited from whatever shell the import ran in. That is not yet a protocol requirement —
+it is queued for v0.2 in `docs/protocol-v0_2-notes.md` — but the Johnson package was signed
+carrying an inherited container identity and had to be re-imported and re-signed to fix it.
+Doing it here costs nothing and avoids repeating a known defect knowingly.
+
+`--protocol-check`: **9 of 9 green.** `uofa check`: C2 SHACL pass, C3 Rules pass, **C1 Integrity
+fails correctly** on the importer's zero-filled placeholders, which is the unsigned state and
+Johnson finding F-6d's condition rather than a defect.
+
+**Not performed:** signing, ledger-row changes, and the public-wheel round-trip. The last is
+flagged in the summary rather than claimed, because no wheel is built in this tree.
+
+### Sign-off — completed 2026-08-21
+
+| Field | Value |
+|---|---|
+| Review act | author's **assent to `AUTHOR_SUMMARY_COU1.md`**, whose §1 correction list is what the assent covers |
+| Signed by | **Vishnu Vettrivel**, author, with `~/.config/uofa/research.key` |
+| `signatureAlg` / `canonicalizationAlg` | `ed25519` / `json-sortkeys/v1` |
+| `signature` | `ed25519:d72a97381f83f2a3…a8a250b` |
+| `hash` | `sha256:4a8f5334730aba7a52a262e0b971c3e9aac6483edbcf5abeb562a783ac5fb5d5` |
+
+**Local verification:** `uofa check --pack nasa-7009b` → **C1 Integrity ✓ · C2 SHACL ✓ · C3 Rules ✓.**
+
+**Public-wheel round-trip: PERFORMED and green.** A clean virtualenv with the published
+`uofa==0.12.0` from PyPI, the package copied **outside the repository** so nothing resolves
+from the working tree, returns C1 ✓ C2 ✓ C3 ✓. The wheel bundles the packs and the Jena rule
+engine, so this exercises all three gates rather than the signature alone.
+
+This is a genuine **cross-version** check, which is the part worth keeping: the package was
+imported under the pinned `uofa-cli 0.11.0` and verifies under the published 0.12.0. A
+signature that holds across that gap is the claim a reference encoding actually has to support,
+and it is the claim an outside verifier will test.
+
+**Nothing about this package is outstanding.** The encoding is complete, adjudicated, signed
+and independently verified.

@@ -1,6 +1,6 @@
 # April ground-truth delta — aero cou2 (cruise)
 
-**AWAITING-AUTHOR. Prepared, not adjudicated.** Per W4 this is a comparison, not a
+**ACKNOWLEDGED 2026-08-21** (see the acknowledgement pass at the end). Prepared here, not adjudicated at the time of writing. Per W4 this is a comparison, not a
 verdict. Rows are version-labeled per the C5 convention: the expectations were written
 in April against an April catalog, and R1a plus the v0.5.x rule refinements landed
 after. A difference is a labeled delta, not a failure.
@@ -59,3 +59,21 @@ now returns acceptance criteria on every factor, so the pattern has nothing to f
 That is a labeled improvement rather than a failure, and it is the clearest thing in
 this table that changed between April and now. Whether the criteria it returns are
 *correct* is a question for the cell walk, not for this comparison.
+
+---
+
+## Acknowledgement pass — 2026-08-21
+
+**Acknowledged as prepared. No expectation comparison changed.**
+
+The cell walk's corrections were folded back through the delta table and none of them moves a
+deterministic core fire or a structural invariant:
+
+- **`Validation Results` C3 blanked** (template placeholder). This *raised* the `W-AR-05` count
+  by one, because clearing the placeholder gave the MMS node a well-formed identifier the rule
+  can now reach. The firing was always true of the package; the placeholder was hiding it. No
+  April expectation is keyed on the `W-AR-05` count.
+- **No level corrections at all** on this package, so every factor-keyed expectation is
+  untouched. `W-EP-04`'s `from_factors` set and its count band are unaffected.
+
+**No deterministic-fire miss and no structural-invariant miss.** Nothing here is AUTHOR-RULE.
