@@ -1,6 +1,8 @@
 # Run log — aero cou2 encoding prep
 
-State: **DRAFT, AWAITING-AUTHOR.** Prepared under `docs/Encoding_Protocol_v0_1_DRAFT.md`.
+State: **ADJUDICATED, UNSIGNED — awaiting assent to `AUTHOR_SUMMARY_COU2.md` and signature.**
+All dispositions and ambiguity entries carry the author's rulings of 2026-08-21.
+Originally prepared under `docs/Encoding_Protocol_v0_1_DRAFT.md`.
 Nothing signed. The §3b cell walk has not occurred; anchors below are candidates.
 
 ## Pins
@@ -53,7 +55,7 @@ assent to `AUTHOR_SUMMARY_COU2.md`; nothing below is an author adjudication.
 | Script | `dev/build/encoding-prep/aero_cell_walk.py`, idempotent; re-running reproduces the ledger byte for byte |
 | Pre-walk snapshot | `pre-walk/aero-cou2-extracted-PREWALK.xlsx`, so the walk's changes stay measurable the way `raw-extract/` makes the prep's measurable |
 | Ledger | `REVIEW_LEDGER.md` |
-| Dispositions | `DISPOSITIONS_DRAFT.md`, drafted, AWAITING-AUTHOR |
+| Dispositions | `DISPOSITIONS_DRAFT.md` — drafted here, **all verdicts ruled by the author 2026-08-21**; no AUTHOR-RULE rows remain |
 | Author summary | `AUTHOR_SUMMARY_COU2.md` |
 
 ### Re-import
@@ -73,3 +75,11 @@ Johnson finding F-6d's condition rather than a defect.
 
 **Not performed:** signing, ledger-row changes, and the public-wheel round-trip. The last is
 flagged in the summary rather than claimed, because no wheel is built in this tree.
+
+### Sign-off step, still outstanding
+
+1. Author assent to `AUTHOR_SUMMARY_COU2.md` §1 (the correction list). Assent to the summary
+   **is** the review act, which is why the summary is complete by construction.
+2. **Public-wheel round-trip**, folded into sign-off where it belongs with the signature.
+3. `uofa sign` with the research key, then `uofa check` to confirm C1 Integrity passes.
+4. Push, and flip the PENDING-ENCODING ledger rows.

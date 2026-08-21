@@ -1,8 +1,8 @@
 # Candidate dispositions — aero COU2
 
-**DRAFT, AWAITING-AUTHOR.** Drafted under `docs/Encoding_Protocol_v0_1.md` Part B plus the
-author's Johnson rulings as precedent. Rows marked **AUTHOR-RULE** are restated as decidable
-questions in `AUTHOR_SUMMARY_COU2.md`.
+**ADJUDICATED by the author, 2026-08-21.** Drafted under `docs/Encoding_Protocol_v0_1.md` Part B plus the
+author's Johnson rulings as precedent. Both questions the draft raised were ruled on
+2026-08-21; no AUTHOR-RULE rows remain. The rulings are in `AUTHOR_SUMMARY_COU2.md` §4.
 
 Package `aero-cou2.jsonld`, re-imported after the cell walk. `uofa rules` reports
 **16 weakeners across 8 patterns** (14 High, 2 Medium). The count rose from 15 for the same
@@ -29,7 +29,7 @@ Not-Applicable-versus-Overruled worked example. Queued for v0.2 in
 | A2-09 | W-ON-02 [High] | the COU | **Confirmed** | mechanical | Neither applicability constraint nor operating envelope carried. **No per-package repair.** Sharper here than anywhere: the COU's whole finding is a regime mismatch — narrative §4.2, "The cascade (Re 1.20e6) is outside the cruise operating envelope (Re 0.85e6)" — and the envelope is exactly what the workbook cannot hold. | Johnson **D-11**; SF-6 |
 | A2-10 | W-CON-04 [Medium] | the COU | **Confirmed** | mechanical | Package does not carry the referenced element. | Part B, consistency structural |
 | A2-11 | W-NASA-02 [High] | (unnamed) | **Confirmed** | mechanical | Pack-specific pattern taking its core family's rule; named element absent. | Part B, pack-specific row |
-| A2-12 | W-EP-04 [High] ×5 | (unnamed) | **AUTHOR-RULE** | **judgment** | Part B: author judgment, **uncalibrated**. Five factors are `not-assessed` at MRL 4 — Model form, Test conditions, Equivalency of input parameters, Output comparison, Relevance of validation activities — which the source names as a single systematic gap with one root cause. **The judgment is unusually well-posed here**, because the decision already says Not accepted for that reason. See summary Q1 | none |
+| A2-12 | W-EP-04 [High] ×5 | (unnamed) | **Confirmed**, emphatically | judgment, author act | **RULED 2026-08-21**, under the same W-EP-04 rule applied to COU1 A1-13 — which is what makes it a rule rather than two decisions. At cruise-creep stakes, five risk-conditioned unassessed factors are precisely why the source's own answer is Not Accepted: **the firings and the decision agree.** The five are Model form, Test conditions, Equivalency of input parameters, Output comparison, Relevance of validation activities, which the source names as a single systematic gap with one root cause: §4.2 "The cascade (Re 1.20e6) is outside the cruise operating envelope (Re 0.85e6)"; §6 "Systematic applicability gap (single root cause, 5 Not Assessed factors)". | Part B, epistemic risk-conditioned; pairs with COU1 A1-13 |
 
 **W-CON-01 does not fire**, as anticipated — no scale boundary exists in a bundle authored
 against its own pack. **No compound patterns fire on COU2**, against six on COU1: the compounds
@@ -68,10 +68,24 @@ assessment** rather than an encoding gap — the source presents them as one sys
 
 | Class | Firings |
 |---|---|
-| Confirmed | 11 |
-| AUTHOR-RULE (judgment) | 1 pattern, 5 firings |
+| Confirmed, mechanical | 11 |
+| Confirmed, judgment (author act) | 5 |
 | Not Applicable | 0 |
 | Cascading compounds | 0 |
+| **Total** | **16** |
+
+## The decision — RULED 2026-08-21
+
+**`Not accepted` stands as carried, and the symmetry with COU1 is the point.**
+
+Same evidence family. Higher-stakes context of use — cruise creep-life rather than concept-stage
+take-off screening. The source declines because the shortfalls that were tolerable for take-off
+screening are disqualifying here, and COU1's board accepted the same evidence family with
+conditions attached.
+
+**Identical weaknesses, different contexts of use, opposite defensible decisions.** That is the
+tier logic doing its one essential job, and it is why this pair is v0.2's second worked example
+rather than COU2 alone.
 
 **No Not Applicable verdicts.** As with COU1, all five evidence nodes are `ValidationResult`,
 so SF-4's node-class exception finds nothing to apply to.

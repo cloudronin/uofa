@@ -62,8 +62,8 @@ Full table in `DISPOSITIONS_DRAFT.md`. **16 firings across 8 patterns.**
 
 | Verdict | Count | Basis |
 |---|---|---|
-| **Confirmed** | 11 | Johnson D-01, D-02, D-10, D-11 and Part B family rules |
-| **AUTHOR-RULE** | 5 firings, 1 pattern | judgment class — question below |
+| **Confirmed**, mechanical | 11 | Johnson D-01, D-02, D-10, D-11 and Part B family rules |
+| **Confirmed**, judgment class | 5 | author ruling 2026-08-21 — §4 |
 | **Not Applicable** | 0 | all five evidence nodes are `ValidationResult` |
 | **Compounds** | 0 | see below |
 
@@ -81,41 +81,46 @@ Three worth a glance:
 
 ---
 
-## 4. AUTHOR-RULE — 2 questions
+## 4. Rulings — all issued 2026-08-21
 
-**Q1 · `W-EP-04` ×5 [High] — five not-assessed factors at MRL 4.**
-Part B: judgment class, calibration **uncalibrated**. The five are Model form, Test conditions,
-Equivalency of input parameters, Output comparison, and Relevance of validation activities. The
-source presents them not as five gaps but as one, with a single root:
+**No open questions remain.**
 
-> §4.2: *"The cascade (Re 1.20e6) is outside the cruise operating envelope (Re 0.85e6), not
-> within it. The validation is not relevant to the cruise COU."*
+| # | Question | Ruling |
+|---|---|---|
+| Q1 | `W-EP-04` ×5 [High] — five not-assessed factors at MRL 4 | **Confirmed, emphatically**, and **`Not accepted` stands as carried** |
+| Q2 | Namespace | **Keep as minted** |
 
-> §6: *"Systematic applicability gap (single root cause, 5 Not Assessed factors)"*
+**Q1 — Confirmed**, under the *same* `W-EP-04` rule applied to COU1's Q2, which is what makes it
+a rule rather than two decisions. At cruise-creep stakes, five risk-conditioned unassessed factors
+are precisely why the source's own answer is Not Accepted: **the firings and the decision agree.**
 
-**The judgment is unusually well-posed here, because the decision already agrees with the
-pattern.** The outcome is Not accepted, qualified *"cruise validation evidence required"* — so
-the assessment itself says these gaps undermine the claim. **Decidable question:** does that make
-the five firings Confirmed (the pattern correctly reports a real, decision-acknowledged flaw), or
-does a decision that already refuses acceptance mean the pattern is reporting something the
-package has already accounted for? This is the same shape as COU1's Q1 with the decision
-inverted, and ruling both together is what makes the pair a worked example.
+**The decision stands, and the symmetry is the point.** Same evidence family as COU1. Higher-stakes
+context of use. The source declines because the shortfalls that were tolerable for take-off
+screening are disqualifying for cruise creep-life, while COU1's board accepted the same evidence
+family with conditions attached.
 
-**Q2 · Namespace confirmation.** `https://github.com/cloudronin/uofa`, identical to Johnson's
-A-27. Covered by the signature and unchangeable after. **Confirm as minted?**
+**Q2 — Keep as minted.** `https://github.com/cloudronin/uofa`, same resolution as Johnson A-27.
+Fourth package minting identically.
+
+### The pair
+
+**Identical weaknesses, different contexts of use, opposite defensible decisions.** That is the
+tier logic doing its one essential job, and it is why the v0.2 worked example is this *pair*
+rather than COU2 alone.
 
 ---
 
-## 5. Sign-readiness — stated exactly
+## 5. Sign-readiness
 
 | Gate | State |
 |---|---|
 | `--protocol-check` | **9 of 9 green** |
 | C2 SHACL | **pass** |
-| C3 Rules | **pass** — 16 firings, all dispositioned above |
-| C1 Integrity | **fails, correctly** — zero-filled placeholders. Passes on signing; Johnson F-6d's condition, not a defect |
-| Public-wheel round-trip | **NOT PERFORMED.** No wheel is built in this tree and I did not fetch one. Flagged rather than claimed |
+| C3 Rules | **pass** — 16 firings, **all Confirmed and all adjudicated** |
+| Dispositions | **complete** — no AUTHOR-RULE rows remain |
+| C1 Integrity | **fails, correctly** — zero-filled placeholders. Passes on signing; Johnson F-6d's condition |
+| Public-wheel round-trip | **deferred to sign-off**, where it belongs with the signature |
 | Signing | not performed — yours alone |
 
-**Blocking before signature:** Q1, Q2, and your assent to §1.
-
+**Remaining before signature:** your assent to §1, then the sign-off step — wheel round-trip,
+sign, push.

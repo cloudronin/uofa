@@ -1,9 +1,10 @@
 # Candidate dispositions — aero COU1
 
-**DRAFT, AWAITING-AUTHOR.** Every verdict below is drafted mechanically under
+**ADJUDICATED by the author, 2026-08-21.** Every verdict below carries the author's ruling.
+The drafting was mechanical under
 `docs/Encoding_Protocol_v0_1.md` Part B plus the author's Johnson rulings, which transfer as
-precedent. Rows marked **AUTHOR-RULE** have no precedent covering them and are restated as
-decidable questions in `AUTHOR_SUMMARY_COU1.md`.
+precedent. All five questions the draft raised were ruled by the author on 2026-08-21; no AUTHOR-RULE
+rows remain. The rulings are recorded in `AUTHOR_SUMMARY_COU1.md` §4.
 
 Package `aero-cou1.jsonld`, re-imported after the cell walk. `uofa rules` reports
 **21 weakeners across 9 patterns** (8 Critical, 11 High, 2 Medium). The count rose from 20
@@ -28,10 +29,11 @@ Verdict vocabulary is Part B's: **Confirmed / Overruled / Not Applicable**.
 | A1-09 | W-ON-02 [High] | the COU | **Confirmed** | mechanical | Confirmed because the COU carries neither an applicability constraint nor an operating envelope. **No per-package repair**; filed as the template finding. The source states the envelope repeatedly (`cou_definition.docx`; narrative §4.2 "NOT acceptable extrapolation for cruise, off-design, or tip-focused predictions"). | Johnson **D-11**; SF-6 |
 | A1-10 | W-CON-04 [Medium] | the COU | **Confirmed** | mechanical | Confirmed because the package does not carry the referenced element. Same class as Morrison, which fires it hand-authored. | Part B, consistency structural |
 | A1-11 | W-NASA-02 [High] | (unnamed) | **Confirmed** | mechanical | Confirmed on the pack-specific rule taking its core family's verdict rule; the named element is absent from the package. | Part B, pack-specific row |
-| A1-12 | W-AR-02 [Critical] ×2 | (unnamed) | **AUTHOR-RULE** | **judgment** | Part B: "Author judgment on whether the reasoning holds; no test of package content settles either." Fires because the decision is Accepted while factors carry achieved below required. Both real gaps are the source's own disclosed conditions. No Johnson precedent: Johnson's decision carried no recorded shortfall of this shape. | none — see summary Q1 |
-| A1-13 | W-EP-04 [High] | (unnamed) | **AUTHOR-RULE** | **judgment** | Part B: author judgment on whether an unassessed factor at elevated model risk undermines the claim. Calibration column says **uncalibrated**. Results uncertainty is `not-assessed` at MRL 3, which the source states is where probabilistic UQ is required. | none — see summary Q2 |
-| A1-14 | COMPOUND-01 [Critical] ×6 | the COU | **cascades** | excluded | Part B: compounds "are not dispositioned individually. They report coexistence of firings already dispositioned above." Verdict follows its bases, which include A1-12 and A1-13 and therefore inherits their AUTHOR-RULE status. | Part B, compound row |
-| A1-15 | COMPOUND-03 [High] ×1 | the COU | **cascades** | excluded | As A1-14. | Part B, compound row |
+| A1-12 | W-AR-02 [Critical] ×2 | (unnamed) | **Confirmed** | judgment, author act | **RULED 2026-08-21.** Confirmed on Part B's own W-AR-02 clause: *"an acceptance standing above a recorded shortfall."* The decision is Accepted while Discretization error (3/1) and Relevance of validation activities (3/2) carry achieved below required, so the firing stands on the package as it is. **The decision also stands** — see A1-16 | Part B, argumentation-reasoning |
+| A1-16 | *(the decision itself)* | `Accepted (with conditions)` | **Stands as carried** | author ruling | **RULED 2026-08-21.** The source's own board accepted at MRL 3 for a concept-stage screening use, with the gaps named and conditions attached (probabilistic UQ, ground test before the next rung). The package carries those gaps loudly: the discretization shortfall, the film-cooling declination (G-06), and the un-executed engine-COU analysis. **An accepted decision *over* displayed weaknesses is what the framework is for.** The weakeners are Confirmed, the decision is the source's, and the two coexist on the record | author ruling; pairs with COU2 |
+| A1-13 | W-EP-04 [High] | (unnamed) | **Confirmed** | judgment, author act | **RULED 2026-08-21**, under the shared W-EP-04 rule applied to both aero packages. Results uncertainty is `not-assessed` at MRL 3, and §5.4 states probabilistic UQ is required there — so as a package fact the unassessed factor at elevated risk does undermine the claim. **The disposition notes that the decision already prices it:** the conditions attached to the acceptance exist because of these gaps | Part B, epistemic risk-conditioned; pairs with COU2 A2-12 |
+| A1-14 | COMPOUND-01 [Critical] ×6 | the COU | **Confirmed** (cascading) | excluded | Part B: compounds "are not dispositioned individually. They report coexistence of firings already dispositioned above." Bases A1-12 and A1-13 are now Confirmed, so the cascade resolves Confirmed. | Part B, compound row |
+| A1-15 | COMPOUND-03 [High] ×1 | the COU | **Confirmed** (cascading) | excluded | As A1-14. | Part B, compound row |
 
 **W-CON-01 does not fire on this package**, as the work order anticipated. These bundles were
 authored against the pack, so no scale boundary exists and the Johnson D-07..09 precedent has
@@ -69,10 +71,15 @@ silence class that dominated Johnson barely arises here.
 
 | Class | Firings |
 |---|---|
-| Confirmed | 11 |
-| AUTHOR-RULE (judgment) | 2 patterns, 3 firings |
-| Cascading compounds | 7 |
+| Confirmed, mechanical | 11 |
+| Confirmed, judgment (author act) | 3 |
+| Confirmed, cascading compounds | 7 |
 | Not Applicable | 0 |
+| **Total** | **21** |
+
+**All 21 firings are Confirmed.** That is not the vocabulary draining of information — it is
+Part B's intended result on an honest package, and the substantive content sits in the
+ambiguity log and in the decision that stands beside them.
 
 **No Not Applicable verdicts arise.** All five evidence nodes are `ValidationResult`, so SF-4's
 node-class rule — which made three of Johnson's five `W-AR-05` firings Not Applicable — finds

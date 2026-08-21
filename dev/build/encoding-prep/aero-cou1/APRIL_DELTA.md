@@ -1,6 +1,6 @@
 # April ground-truth delta — aero cou1 (take-off transient peak temperature)
 
-**AWAITING-AUTHOR. Prepared, not adjudicated.** Per W4 this is a comparison, not a
+**ACKNOWLEDGED 2026-08-21** (see the acknowledgement pass at the end). Prepared here, not adjudicated at the time of writing. Per W4 this is a comparison, not a
 verdict. Rows are version-labeled per the C5 convention: the expectations were written
 in April against an April catalog, and R1a plus the v0.5.x rule refinements landed
 after. A difference is a labeled delta, not a failure.

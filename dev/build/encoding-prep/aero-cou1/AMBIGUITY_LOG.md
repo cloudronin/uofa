@@ -1,6 +1,10 @@
 # Ambiguity log — aero cou1
 
-**DRAFT, AWAITING-AUTHOR.** Every entry is re-adjudicated by the author. Entry shape per
+**ADJUDICATED 2026-08-21 — awaiting assent and signature.** Every entry has been
+re-adjudicated by the author; what remains is the author's assent to
+`AUTHOR_SUMMARY_COU1.md` and the signature. The original DRAFT resolutions are left as
+written below, because they record what the draft decided; the author's verdicts are in the
+adjudication section at the end. Entry shape per
 §5 of the protocol draft: the ambiguity, the resolution chosen for the DRAFT, the rule
 applied choosing it.
 
@@ -21,15 +25,15 @@ against this pack, so that whole class does not arise.
 
 ## Drafted resolutions from the cell walk — 2026-08-21
 
-**Still AWAITING-AUTHOR.** These are candidate resolutions produced by the mechanical walk
+**ADJUDICATED 2026-08-21.** These began as candidate resolutions produced by the mechanical walk
 against the pre-registered ground truth and the author's Johnson precedent. Entries covered by
-a standing ruling cite it. Entries with no precedent are marked **AUTHOR-RULE** and restated as
-decidable questions in `AUTHOR_SUMMARY_COU1.md`.
+a standing ruling cite it. Entries with no precedent were restated as decidable questions and
+**all were ruled by the author on 2026-08-21**; the rulings are in `AUTHOR_SUMMARY_COU1.md`.
 
 | ID | Drafted resolution | Standing ruling applied |
 |---|---|---|
 | G-01 | **Resolved.** All **27** candidate anchors are resolved and zero CANDIDATE markers remain anywhere in the workbook — 19 factor rows against the ground truth's `source_file`, and 8 rows on `Model & Data` and `Validation Results` that the ground truth does not cover, resolved by opening the bundle. Where the candidate agreed with the ground truth's `source_file`, it was promoted and narrowed to the narrative section carrying the level. Where it disagreed, the anchor is **dual** — the data file for the measurement, the narrative section for the assessed level — because both genuinely carry part of it. | Johnson dual-anchor precedent (ProcessAttestation, Step 2 item 6) |
-| G-02 | **Drafted: confirm as minted**, `https://github.com/cloudronin/uofa`. Same namespace, same rule, same reasoning as Johnson A-27, which the author resolved confirmed-by-author. **The confirmation itself is still the author's act** — the id is covered by the signature and cannot change afterward. | Johnson A-27. AUTHOR-RULE: confirmation only |
+| G-02 | **Drafted: confirm as minted**, `https://github.com/cloudronin/uofa`. Same namespace, same rule, same reasoning as Johnson A-27, which the author resolved confirmed-by-author. **RULED 2026-08-21: keep as minted.** The id is covered by the signature and cannot change afterward, and the author confirmed it before signing. | Johnson A-27, resolved identically |
 | G-03 | **Resolved.** Synthetic bundle admitted; the package states its source class. | §2a, standing |
 | G-04 | **Resolved as prepared.** The April delta table stands; see `APRIL_DELTA.md` for the acknowledgement pass and what the cell walk changed in it. | C5 convention |
 | G-05 | **Resolved by the walk.** Which rows were read and which were defaulted is now settled against the source for every factor. Required levels were compared **strictly** against the ground truth — `level_tolerance` is extraction latitude on the *achieved* level, and applying it to required would mask the defaulted-required failure by construction. | §3b; A-7 |

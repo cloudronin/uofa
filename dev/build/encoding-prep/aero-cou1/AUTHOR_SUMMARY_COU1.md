@@ -52,9 +52,9 @@ Full table in `DISPOSITIONS_DRAFT.md`. **21 firings across 9 patterns.**
 
 | Verdict | Count | Basis |
 |---|---|---|
-| **Confirmed** | 11 | Johnson D-01, D-02, D-06, D-10, D-11 and Part B family rules |
-| **AUTHOR-RULE** | 3 firings, 2 patterns | judgment class, no precedent — questions below |
-| **Cascading compounds** | 7 | Part B: compounds inherit their bases, not dispositioned individually |
+| **Confirmed**, mechanical | 11 | Johnson D-01, D-02, D-06, D-10, D-11 and Part B family rules |
+| **Confirmed**, judgment class | 3 | author rulings 2026-08-21 — §4 |
+| **Confirmed**, cascading compounds | 7 | Part B: compounds inherit their bases. Bases now Confirmed, so the cascade resolves |
 | **Not Applicable** | 0 | all five evidence nodes are `ValidationResult`, so SF-4's node-class exception applies to nothing here |
 
 Two dispositions worth a glance rather than a signature:
@@ -69,51 +69,62 @@ Two dispositions worth a glance rather than a signature:
 
 ---
 
-## 4. AUTHOR-RULE — 2 questions
+## 4. Rulings — all issued 2026-08-21
 
-**Q1 · `W-AR-02` ×2 [Critical] — does the reasoning hold?**
-Part B makes this judgment class: *"no test of package content settles either."* It fires
-because the decision is **Accepted** while factors carry achieved below required. Both shortfalls
-are the source's own disclosed conditions, not encoding artifacts:
+**No open questions remain.** The draft raised three; the author ruled all three, together with
+COU2's, as one set.
 
-> §1.3 Discretization Error: *"the blade tip region has NOT been assessed for mesh convergence.
-> The tip region … is where peak metal temperature actually occurs during take-off transient."*
-> **Achieved Level 1 against Required Level 3.**
+| # | Question | Ruling |
+|---|---|---|
+| Q1 | `W-AR-02` ×2 [Critical] — does the reasoning hold? | **Confirmed**, and **the decision stands as carried.** |
+| Q2 | `W-EP-04` [High] — unassessed factor at MRL 3 | **Confirmed**, judgment class |
+| Q3 | Namespace | **Keep as minted** |
 
-> §4.2 Relevance of Validation: *"NOT acceptable extrapolation for cruise, off-design, or
-> tip-focused predictions."* **Achieved Level 2 against Required Level 3.**
+**Q1 — Confirmed, and `Accepted (with conditions)` stands.** Confirmed on Part B's own
+`W-AR-02` clause: *"an acceptance standing above a recorded shortfall"* — the decision is Accepted
+while Discretization error (3/1) and Relevance of validation activities (3/2) carry achieved below
+required. The decision stands because the source's board accepted at MRL 3 for a concept-stage
+screening use with the gaps named and conditions attached (probabilistic UQ, ground test before
+the next rung), and the package carries those gaps loudly. **An accepted decision *over* displayed
+weaknesses is what the framework is for.** The weakeners are Confirmed, the decision is the
+source's, and the two coexist on the record.
 
-The decision itself is qualified — *"Accepted (with conditions)"*, with both gaps carried as MRL 4
-conditions. **Decidable question:** does an Accepted-with-conditions decision over two disclosed,
-condition-carrying shortfalls constitute the flaw `W-AR-02` describes — Confirmed — or does the
-qualifier mean the pattern misreads a decision that already accounts for them — Overruled?
+> **One correction to the ruling's stated rationale.** The ruling described the basis as *"the
+> declared method and the activity type disagree as carried."* That is **`W-AR-03`'s** rule
+> (Part B, argumentation-method, mechanical), not `W-AR-02`'s — and `W-AR-03` does not fire on
+> this package. The verdict is unaffected: `W-AR-02`'s own clause covers this firing squarely on
+> the acceptance-above-shortfall limb, which is how it is recorded. Flagged rather than
+> transcribed, on the same basis as Johnson E-1.
 
-**Q2 · `W-EP-04` ×1 [High] — unassessed factor at elevated model risk.**
-Part B: judgment class, calibration **uncalibrated**. Results uncertainty is `not-assessed` at
-MRL 3, and the source says that is precisely where it is owed:
+**Q2 — Confirmed**, under the shared `W-EP-04` rule applied identically to COU2. Results
+uncertainty is `not-assessed` at MRL 3 and §5.4 states probabilistic UQ is required there, so as a
+package fact the unassessed factor at elevated risk does undermine the claim. The disposition
+notes that **the decision already prices it**: the conditions attached to the acceptance exist
+because of these gaps.
 
-> §5.4: *"Results uncertainty quantification has NOT been performed for the engine COU peak
-> temperature prediction … Per NASA-STD-7009B Factor 5.4, probabilistic UQ is required at MRL 3."*
+**Q3 — Keep as minted.** `https://github.com/cloudronin/uofa`, same resolution as Johnson A-27.
+Third package minting identically.
 
-**Decidable question:** does a not-assessed Results uncertainty at MRL 3 undermine this COU's
-claim — Confirmed — given the COU is scoped as *"preliminary blade design screening"*?
+### The pair
 
-**Q3 · Namespace confirmation.** `https://github.com/cloudronin/uofa`, identical to Johnson's
-A-27 which you resolved confirmed-by-author. Covered by the signature and unchangeable after.
-**Confirm as minted?**
+COU1 and COU2 were ruled together and demonstrate the tier logic's one essential job:
+**identical weaknesses, different contexts of use, opposite defensible decisions.** Take-off
+concept screening accepts with conditions; cruise creep-life declines. Queued as v0.2's second
+worked example.
 
 ---
 
-## 5. Sign-readiness — stated exactly
+## 5. Sign-readiness
 
 | Gate | State |
 |---|---|
-| `--protocol-check` | **9 of 9 green**, including the ambiguity log, run log and pins |
+| `--protocol-check` | **9 of 9 green** |
 | C2 SHACL | **pass** |
-| C3 Rules | **pass** — 21 firings, all dispositioned above |
-| C1 Integrity | **fails, correctly** — signature and hash are the importer's zero-filled placeholders. Passes on signing; this is Johnson F-6d's condition, not a defect |
-| Public-wheel round-trip | **NOT PERFORMED.** No wheel is built in this tree and I did not fetch one. Flagged rather than claimed |
+| C3 Rules | **pass** — 21 firings, **all Confirmed and all adjudicated** |
+| Dispositions | **complete** — no AUTHOR-RULE rows remain |
+| C1 Integrity | **fails, correctly** — zero-filled placeholders. Passes on signing; Johnson F-6d's condition |
+| Public-wheel round-trip | **deferred to sign-off**, where it belongs with the signature |
 | Signing | not performed — yours alone |
 
-**Blocking before signature:** Q1, Q2, Q3, and your assent to §1.
-
+**Remaining before signature:** your assent to §1, then the sign-off step — wheel round-trip,
+sign, push.
