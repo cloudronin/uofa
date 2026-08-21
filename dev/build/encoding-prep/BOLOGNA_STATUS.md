@@ -1,6 +1,14 @@
 # Bologna encoding — INVESTIGATION, not a packet
 
-**AWAITING-AUTHOR.** W5 of `UofA_Protocol_Draft_and_Encoding_Prep_Spec_v1_0.md` instructs
+> **CLOSED 2026-08-22 by R-B** (`docs/UofA_Decision_Record_2026-08-16_Addenda.md`).
+> The usage trace (`BOLOGNA_TRACE.md`, `cada14ac`) resolved this investigation: Bologna is
+> disqualified from A3 and barred from any new assignment, and Decision 8's conditional is
+> closed. The three open items in "What the author must supply or decide" below are moot —
+> **no source document is to be supplied and no encoding is to be run.** The section is
+> retained as the record of what was open when. The A3 slot is refilled from
+> `A3_CANDIDATES.md` under R-A3-SCREEN.
+
+~~**AWAITING-AUTHOR.**~~ W5 of `UofA_Protocol_Draft_and_Encoding_Prep_Spec_v1_0.md` instructs
 that if the Bologna source materials are not assembled in the repo, the item is an
 investigation reporting what exists and what is missing rather than a substitution. They
 are not, and there is a second reason not to run the pipeline that matters more than the
