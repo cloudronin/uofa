@@ -362,3 +362,67 @@ premise, then decide — is the defect this month has been curing, applied to it
 It does not reopen the M5 adjudication (Addendum-level ruling of 2026-08-17, recorded
 at `M5-REBASELINE-PREDECLARATION.md` §ADJUDICATION), and it does not revise the
 97.1% or its scope. It closes P2-A and empties the residual queue.
+
+---
+
+## R-B (2026-08-22) — Bologna closure
+
+Status: STAGED, awaiting author commit.
+Basis: `dev/build/encoding-prep/BOLOGNA_TRACE.md` (committed `cada14ac`).
+
+The usage trace (BOLOGNA_TRACE.md) establishes measured Bologna use throughout the
+validation chain, including 39% of the held-out extraction denominator, the
+model-selection floor disclosure, ten seeded corpus bundles, and catalog-adjacent tuning
+(routes.py `_CITATION`). Bologna is disqualified from A3 and barred from any new
+assignment. Its historical measured uses stand as committed and are disclosed where
+cited. The prior draft rationale sentence claiming the catalog "never saw Bologna" is
+stricken wherever it appears; it is false. Decision 8's conditional is closed: neither of
+its branches survives, and the A3 document will be selected fresh under the eligibility
+screen of the same date (R-A3-SCREEN below). Ahn & de Weck is not the replacement:
+although its usage trace is clean, it fails the developer-declared criterion (Delphi
+panel opinion, not a developer assessment) per A10 §3.
+
+### R-A3-SCREEN (2026-08-22) — A3 eligibility screen
+
+The screen R-B selects under. Run per candidate, in this order, cheapest first. Recorded
+here so R-B's cross-reference resolves; results are reported in
+`dev/build/encoding-prep/A3_CANDIDATES.md`.
+
+| # | Criterion | Test |
+|---|---|---|
+| 1 | **Developer-declared** | The credibility/V&V assessment is made by or on behalf of the model's developers or operators about their own model and its use — not a third-party opinion survey, meta-review, or teaching exercise. (This is what disqualified Ahn & de Weck.) |
+| 2 | **Assessment substance** | The document actually carries an assessment: factor-or-criterion-level statements, achieved-versus-required or equivalent, a use decision or recommendation. A methods paper describing V&V practice without performing one fails. |
+| 3 | **Zero usage hits** | Full-history trace on all refs, same method as BOLOGNA_TRACE (name, authors, DOI, filename fragments, slugs), across fixtures, studies, specs, seeds, samples, CI. Mention-only hits in candidate lists are recorded but not disqualifying; any fixture/study/script/measured hit disqualifies. |
+| 4 | **Citable and fetchable** | Public, stable identifier (DOI, NTRS ID, report number), retrievable at run time without credentials, so the PDF is cited-not-committed per standing rule. |
+| 5 | **License sanity** | Publisher and visible license terms noted; anything making even fetch-at-runtime awkward is flagged. Edge cases escalate, they do not resolve here. |
+| 6 | **Pack fit** | Encodable under an existing pack (`nasa-7009b` or `vv40`) without inventing vocabulary. A document from a third standard tradition is eligible only if the cross-standard mapping burden looks Johnson-sized or smaller. State which pack and why. |
+
+Ranking, where more than one candidate is screen-clean: screen-clean first, then assessment
+richness (a document with real disclosed limitations makes a better adjudicated case study
+than a suspiciously flawless one), then encoding burden.
+
+**Screen 3 addendum, derived 2026-08-22 from the first run of this screen — LLM-fabricated
+bibliography as a false contamination signal.** A surname search against this repository
+returns hits that are not uses and not mentions: the corpus generators invent plausible
+citations inside synthetic bundles and adversarial artifacts, and those fabricated strings are
+then echoed into study files by extraction runs. The first run hit exactly this — `Kurtz`
+returned files at HEAD, every one of them an invented `"(Kurtz 2009)"` / `"Kurtz et al.
+(2005)"` reference for UHMWPE material properties inside generated content, plus one echo in
+`studies/hosted-model-specificity/`. A name-only grep would have disqualified the
+screen-cleanest candidate found.
+
+**The rule, binding on every future run of screen 3:** trace the **DOI, the device or model
+name, the sponsor, and the full co-author set** — not the first author's surname alone. A hit
+disqualifies only when it resolves to *that document*. Classify every hit into one of three
+categories, explicitly:
+
+| Category | Meaning | Disqualifying? |
+|---|---|---|
+| **Use** | The document fed a fixture, study, script, seed, or measured run | **Yes** |
+| **Mention** | Named in a candidate list, spec, or investigation | No — record it |
+| **Synthetic collision** | A generator-invented citation string, or an extraction echo of one | No — but verify it is invented before dismissing it |
+
+Co-author hits into a *fixture* are a fourth signal and are not automatically disqualifying,
+but they are an independence penalty and must be surfaced for the author rather than absorbed:
+the same run found Kizilski's co-author in `morrison-cou1/2.json` and Scuoppo's and Catalano's
+in `bundle_tavi1_s3/ground_truth.json`.
