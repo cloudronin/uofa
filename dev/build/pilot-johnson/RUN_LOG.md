@@ -2,11 +2,13 @@
 
 Spec: `UofA_Encoding_Pilot_Spec_v1_0_Johnson.md` v1.0 (ACTIVE, 2026-08-19)
 Session date: 2026-08-20
-State: **DRAFT throughout. Nothing in this tree is signed and nothing is adjudicated.**
+Governed review session: 2026-08-21 (see **The governed review pass** below)
+State: **ADJUDICATED, UNSIGNED.** The dispositions and the ambiguity log carry the
+author's verdicts as of 2026-08-21. Nothing in this tree is signed.
 
-Everything here is session work under spec §0. Dispositions are candidates; the
-author re-adjudicates every one of them in the review pass, which runs later and
-under the written protocol, not here.
+Everything in the 2026-08-20 session was preparation under spec §0. Its dispositions
+were candidates. The author re-adjudicated every one of them in the review pass of
+2026-08-21, under the committed protocol `docs/Encoding_Protocol_v0_1.md` v0.1.
 
 ## Pins
 
@@ -22,7 +24,7 @@ under the written protocol, not here.
 | JRE | system OpenJDK 21.0.10 (no bundled runtime in this environment) |
 | Source document sha256 (first 32) | `1b767b2d4128dcc67bdb6803fe33034e` |
 | Source copy in tree | `source/NTRS-20200002832-Johnson-2020.pdf` |
-| base_uri | `https://github.com/cloudronin/uofa` (governed pass) [AUTHOR-CONFIRM]. `https://uofa.net` is refused by `resolve_base_uri` as reserved for the project's published examples, so the author-controlled repository namespace is used instead. The id is covered by the signature and cannot change after signing, so confirm this namespace before the sign-off commit. The pilot pass minted under the `example.org` placeholder and recorded it as deviation A-25; protocol-check flagged the run log's silence about the field, which is why the row exists |
+| base_uri | `https://github.com/cloudronin/uofa` (governed pass) **[AUTHOR-CONFIRMED 2026-08-21 — ruled keep as minted; A-27 resolves confirmed-by-author]**. `https://uofa.net` is refused by `resolve_base_uri` as reserved for the project's published examples, so the author-controlled repository namespace is used instead. The id is covered by the signature and cannot change after signing, so confirm this namespace before the sign-off commit. The pilot pass minted under the `example.org` placeholder and recorded it as deviation A-25; protocol-check flagged the run log's silence about the field, which is why the row exists |
 
 ### Site commit drift — finding F-1c
 
@@ -90,6 +92,11 @@ The counts do not reconcile, and the gap is the finding.
 | Data rows carrying a `Source Anchor` | **29 of 29** |
 | Required-level cells sourced from Table 3 geometric recovery (author-side, never `extracted`) | **5** — Data pedigree, Development process and product management, Results uncertainty, Results robustness, Use history |
 
+**Reconciliation, 2026-08-21.** Post-§3c regeneration: **101 decisions, 17 corrected**. The
+97/14 figure above describes the pre-addition pass and is left as written, because it is a
+historical statement about that pass and is cited as one. `REVIEW_LEDGER.md` is the
+authoritative count; anything citing a decision total cites the ledger.
+
 ### The surprise, recorded rather than fixed
 
 **Four fields are counted as `extracted` after a review pass that took 97
@@ -144,3 +151,26 @@ and non-misleading**, and that is the strongest single result of the pilot.
 | 0 | `pip install -e '.[extract,excel,test]'` | uofa 0.11.0 |
 | 0 | `mvn package` in `src/weakener-engine` | JAR built |
 | 0 | `uofa check packs/vv40/examples/morrison/cou1/uofa-morrison-cou1.jsonld` | C1 ✓ C2 ✓ C3 ✓ — toolchain sound before the pilot touches anything |
+
+---
+
+## The governed review pass — 2026-08-21
+
+Protocol A-13 requires the run log to leave no ambiguity about whether a review was
+machine-drafted preparation or a named person's review, and about who performed it.
+
+| Field | Value |
+|---|---|
+| Reviewer | **Vishnu Vettrivel**, author |
+| Date | 2026-08-21 |
+| Governing protocol | `docs/Encoding_Protocol_v0_1.md` v0.1 (committed) |
+| Form | Conducted in conversation, the author ruling each item |
+| Record of the verdicts | `Johnson_Author_Verdict_Record.md` |
+| What was ruled | the minting namespace; a cell walk over the workbook; all eleven weakener firings; the fifteen-factor silence sweep; all 28 ambiguity-log entries |
+| Application to the artifacts | mechanical, by Claude Code, from the verdict record. Six divergences escalated rather than reconciled, all six dispositioned by the author the same day — `APPLY_RECORD_ESCALATIONS.md` |
+| Still unadjudicated | **none.** Ambiguity entries A-13, A-19 and A-22 were displaced by the record's mis-addressed rulings, returned to the author, and confirmed as drafted on 2026-08-21. All 30 log entries are adjudicated |
+| Signing | **not performed.** The author's act alone, still outstanding |
+
+The 2026-08-20 pass was machine-drafted preparation and is labelled as such throughout.
+The 2026-08-21 pass is the review A-6 and A-13 mean. The two are recorded separately so
+that no reader has to infer which produced a given value.

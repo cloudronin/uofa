@@ -1,6 +1,15 @@
 # Ambiguity log — Johnson encoding pilot
 
-State: DRAFT. Every entry is re-adjudicated by the author in the review pass.
+State: **RE-ADJUDICATED by the author, 2026-08-21.** The entries below are the
+DRAFT resolutions this session chose; they are left as written, because they are
+the record of what the draft decided. The author's verdict on each is in the
+**Re-adjudication** section at the end of this file, and that section is the
+authority. The record's four mis-addressed rulings were escalated rather than
+reconciled, and the author re-issued them by subject on 2026-08-21; the
+re-adjudication table carries the re-issued form. `APPLY_RECORD_ESCALATIONS.md`
+holds the round-trip. **All 30 entries are adjudicated. Nothing in this log is
+awaiting the author.**
+
 Spec §4. Entry shape: the ambiguity, the resolution this session chose for the
 DRAFT, and the rule it applied choosing it.
 
@@ -76,3 +85,89 @@ Entries A-26 onward were raised during the governed-pass prep, under the protoco
 | A-26 | Cross-reference identifiers. `comparedAgainst` and `hasEvidence` are `@type: @id` terms in the v0.5 context, so a relative value is dropped at JSON-LD expansion and the reference never reaches the graph, without warning. An absolute IRI requires knowing the minting namespace, which is an author decision not frozen until signing. | `review_pass.py` carries `BASE_URI` as a single constant and mints every cross-reference from it, so changing the namespace is one edit plus a re-run. | Where a workbook value must encode a decision the workbook cannot see, keep the decision in one named place rather than spread through cells. Filed as a template finding: the workbook needs a namespace-relative identifier form. |
 | A-27 | `base_uri` choice. §1f requires a namespace the encoder controls. `https://uofa.net` is refused by `resolve_base_uri` as reserved for the project's published examples. | `https://github.com/cloudronin/uofa`, the author-controlled repository namespace. **AUTHOR-CONFIRM before signing**, because the id is covered by the signature and cannot change afterward. | Use a namespace demonstrably controlled by the author and visible in the repo's own remote rather than inventing one. Supersedes A-25, which recorded the placeholder as a deviation. |
 | A-28 | W-AR-05 fires on evidence types that have no comparator. `ReviewActivity`, `ProcessAttestation`, and `DeploymentRecord` all ride `hasValidationResult`, and the pattern tests every node under it. | Dispositioned **Not Applicable** on the three affected nodes rather than Accepted, and the mis-scoping filed as a rule finding. | A pattern reporting an absence that could never be a presence for a node class is not describing a gap in the encoding. Established by controlled experiment: the `ProcessAttestation` added under §3c drew the firing immediately. |
+
+Entries A-29 and A-30 were opened on 2026-08-21, in the author's governed review pass.
+Both record a disclosure the source makes about its own evidence, which the earlier
+passes carried in the encoding without logging as an ambiguity. They are the two
+source-disclosure entries the E-2 escalation identified as missing.
+
+| ID | Ambiguity | Resolution | Rule applied |
+|---|---|---|---|
+| A-29 | **Incomplete randomization.** The test program's randomization was not fully executed, and the source records SMEs judging the shortfall inconsequential. Whose judgment does the encoding record — the SMEs' or the encoder's? | Record the incompleteness and the SME judgment **as the source's**, quoted and anchored. The encoding does not endorse the judgment and does not restate it as a finding of its own. | An assessment's own disclosure of a limitation is evidence about the assessment, and carrying it is not agreeing with it. Where the source judges its own shortfall, the encoding records who judged. Author ruling 2026-08-21. |
+| A-30 | **Retained outlier.** The source discloses retaining an outlier, "pulling it less than 0.003 cm in nonconservative direction". A disclosed nonconservative adjustment invites an encoder verdict on whether retention was sound. | Record the disclosure, quoted and anchored. **No encoder ruling on the retention.** | Same rule as A-29, in its sharper form: the encoder has no standing to adjudicate a modelling decision the source discloses and defends. Recording it without ruling on it is the honest act. Author ruling 2026-08-21. |
+
+**Anchors for A-29 and A-30 — CONFIRMED 2026-08-21.** The dispositions round-trip gave
+p.24 for both; the committed anchors in `PROTOCOL_FINDINGS.md` F-4d are p.8, p.15 and
+p.23 for the randomization and p.21 for the outlier. F-4d's anchors govern and are the
+ones used above. Ruled on the same principle as everything else in this pass: the
+anchored record outranks a conversational summary of it.
+
+---
+
+# Re-adjudication by the author — 2026-08-21
+
+Source: `Johnson_Author_Verdict_Record.md`, sections "Step 1", "Step 2", "Dispositions",
+"Silence sweep" and "Ambiguity log". Applied mechanically; nothing here is this session's
+judgment.
+
+The record accounted for 28 entries as **22 auto-resolved** and **6 individually ruled**.
+Two of the six (A-10, A-26) matched the entry the record named and were applied on the
+first pass. The other four did not, were escalated as E-1, and were **re-issued by subject
+by the author on 2026-08-21**. The re-issued form is what this table carries:
+
+- The **waivers self-contradiction** is log entry **A-17**, and its ruling is the entry's
+  own rule — *do not pick*. The record's summary had imported answer-outranks-declination,
+  which is A-19's rule; that import is withdrawn. Protocol A-9 states the ordering rule
+  covers one of this source's three contradictions, and this is one of the other two.
+- The **negotiated Use history predeclaration** is not a log entry. It is F-4d's worked
+  candidate, and the author's confirmation lands in the disposition and finding record
+  rather than here.
+- **Incomplete randomization** and the **retained outlier** are now entries A-29 and A-30,
+  opened under E-2.
+- The entries the record's four rulings displaced — **A-13, A-19 and A-22** — had never
+  actually been reviewed. They were returned to the author, quoted one line each, and
+  **all three were confirmed as drafted on 2026-08-21**. A-19 was ruled first, because it
+  is where answer-outranks-declination properly lives and ruling it accounts for the
+  import withdrawn from A-17.
+
+| ID | Subject | Author verdict, 2026-08-21 | Route |
+|---|---|---|---|
+| A-01 | Uncertainty Characterization → `Results uncertainty` | Re-adjudicated, CONFIRMED | Step 2 item 1 — row 21 levels confirmed against Table 3 and p.25 |
+| A-02 | M&S History → `Use history` | Re-adjudicated, CONFIRMED | Step 2 item 1 — row 23 levels confirmed. *The record's "A-17 negotiated predeclaration (Use history)" is F-4d's worked candidate, not this entry; the author's confirmation of it lands in the disposition and finding record — E-1* |
+| A-03 | M&S Process / Product Management → `Development process and product management` | Re-adjudicated, CONFIRMED | Step 2 item 1 — row 20, including the required 2 / achieved 4 exceedance |
+| A-04 | Verification: do not fan out the level | Re-adjudicated, CONFIRMED | Silence sweep — declined mappings and scale-boundary declinations, confirmed as tabled |
+| A-05 | Validation: do not fan out the level | Re-adjudicated, CONFIRMED | As A-04 |
+| A-06 | The 0-4 / 1-5 scale boundary | Re-adjudicated, CONFIRMED | Silence sweep — the scale-boundary declinations |
+| A-07 **ESCALATION** | `Input pedigree` has no factor in the pack | **ACKNOWLEDGED as the record. Stands unresolved.** | Silence sweep — one of the two escalations, no disposition possible. INV-20 channel |
+| A-08 **ESCALATION** | Level 0 inexpressible on 13 of 19 factors | **ACKNOWLEDGED as the record. Stands unresolved.** | Not triggered by this source; filed against the next one |
+| A-09 | `Development technical review` has no 7009A counterpart | Re-adjudicated, CONFIRMED | Silence sweep — Source-absent level; content at p.10 / p.24 is not a level |
+| A-10 **ESCALATION** | `Standards Reference`: the 7009A / 7009B dual standard | **Individually ruled: ACKNOWLEDGED, stands.** | Also Step 2 item 3 — the `NASA-STD-7009A` literal confirmed in Assessment Summary |
+| A-11 | `Decision Outcome`, `Decided By`, `Decision Date` | Re-adjudicated, CONFIRMED | Step 2 item 2 — outcome Accepted anchored p.19; Decided By and Decision Date remain blank as faithful to source |
+| A-12 | `Model Risk Level` | Re-adjudicated, CONFIRMED | Step 2 cell walk — blank-and-listed |
+| A-13 | `Assurance Level` (Low / Medium / High). Not stated. | **CONFIRMED as drafted, 2026-08-21.** Blank and listed is the only honest resolution: assigning an assurance level the source never states would be the encoder grading the model, which is what A-12's rule exists to prevent. Same family as the Decision-cell blanks ruled at Step 2 item 2 | E-1, resolved |
+| A-14 | `Device Class` | Re-adjudicated, CONFIRMED | Step 2 cell walk — blank-and-listed |
+| A-15 | `Has UQ?` at COU level | Re-adjudicated, CONFIRMED | Step 2 cell walk — confirmed Yes, anchored p.22 |
+| A-16 | `Assessor Name` / `Assessment Date` | Re-adjudicated, CONFIRMED | Step 2 cell walk |
+| A-17 | **Waivers.** p.8 describes a TA-approved waiver and denies one; p.23 answers "None" | **CONFIRMED**, ruling re-issued by subject 2026-08-21. **No harmonization.** The entry's own do-not-pick rule governs, not answer-outranks-declination; that import is withdrawn as an error of the record's summary. Both anchors retained. The encoding carries the specific waiver record as data; the contradiction stays open in the log | E-1, re-issued |
+| A-18 | **Verification.** waived at p.6, rated 4 against a predeclared 3 at p.25 | Re-adjudicated, CONFIRMED | Silence sweep — the scale-boundary declination; the exceedance is carried with both quotes and not reconciled |
+| A-19 | **[M&S 37] people qualifications.** declined at p.10, answered at p.24 | **CONFIRMED as drafted, 2026-08-21.** Ruled first of the three, deliberately: this is the legitimate home of *answer outranks declination*. p.10 declines to cover qualifications, p.24 answers in full, the specific answer wins, and the declination is kept in the same cell's anchor as context. Confirming it here closes the loop on the withdrawn A-17 import — the rule now lives on the entry it belongs to and nowhere else | E-1, resolved |
+| A-20 | Anchor granularity: row-level in the workbook, cell-level in the ledger | Re-adjudicated, CONFIRMED | Step 2 cell walk; the §2b finding stands |
+| A-21 | `Compares To` expects a URI; three comparators are not URI-shaped | Re-adjudicated, CONFIRMED | D-02 and D-06; cited as the SF-2 instance |
+| A-22 | Factor status for evidence-without-level factors: `assessed` implies a level, `not-assessed` denies the evidence | **CONFIRMED as resolved, 2026-08-21.** The status split stands: `assessed` for the four factors the LCW answers directly, `scoped-out` for Numerical solver error, `not-assessed` for the rest — which is what the Step 2 cell walk verified. **Kept on the record:** D-07 to D-09 are Confirmed as the accepted *consequence* of this resolution and are not an adjudication of it. This ruling is the adjudication | E-1, resolved |
+| A-23 | `Discretization error` status | Re-adjudicated, CONFIRMED | Step 2 item 5 — `not-applicable` confirmed |
+| A-24 | May the review pass **add** rows? | **CLOSED.** Resolved by §3c; the `ProcessAttestation` row is confirmed as warranted | Step 2 item 6, with the dual-anchor correction applied to the row and the ledger |
+| A-25 | Package base URI placeholder | Re-adjudicated, CONFIRMED as superseded by A-27 | Step 1 |
+| A-26 | Cross-reference identifiers: relative IRIs silently dropped at expansion | **Individually ruled: ACKNOWLEDGED as an ESCALATION-class tooling finding.** Stands in the tooling channel | Step 1 / findings |
+| A-27 | `base_uri` choice, `https://github.com/cloudronin/uofa` | **RULED: keep as minted. Resolves as CONFIRMED-BY-AUTHOR.** The AUTHOR-CONFIRM gate on this entry is discharged | Step 1 |
+| A-28 | W-AR-05 fires on evidence types that have no comparator | Re-adjudicated, CONFIRMED | D-03 to D-05, now verdict-backed including the controlled experiment; SF-1 |
+
+| A-29 | Incomplete randomization, and whose judgment the encoding records | **RULED 2026-08-21.** Recorded as the source's SME judgment, not encoder endorsement | Opened under E-2 |
+| A-30 | Retained outlier, disclosed as nonconservative by less than 0.003 cm | **RULED 2026-08-21.** Disclosure recorded without encoder ruling | Opened under E-2 |
+
+**Reconciliation of counts.** **30 entries, all adjudicated.** The record's 28 was the
+pre-walk state; A-29 and A-30 were opened and ruled on 2026-08-21 under E-2. Of the 30:
+25 re-adjudicated from the record, 2 opened and ruled in the same pass, and 3 (A-13, A-19,
+A-22) returned to the author on the E-1 escalation and confirmed as drafted. A-07 and A-08
+are within the adjudicated group, carried as acknowledged escalations rather than resolved —
+an acknowledgement is the verdict, not a resolution. **Nothing in this log was adjudicated
+by the apply-record session**; every verdict above is the author's.
