@@ -3,8 +3,9 @@
 Spec: `UofA_Encoding_Pilot_Spec_v1_0_Johnson.md` v1.0 (ACTIVE, 2026-08-19)
 Session date: 2026-08-20
 Governed review session: 2026-08-21 (see **The governed review pass** below)
-State: **ADJUDICATED, UNSIGNED.** The dispositions and the ambiguity log carry the
-author's verdicts as of 2026-08-21. Nothing in this tree is signed.
+State: **ADJUDICATED AND SIGNED, 2026-08-21.** The dispositions and the ambiguity log
+carry the author's verdicts, and the author signed the package under the committed
+protocol. See **The signing** below.
 
 Everything in the 2026-08-20 session was preparation under spec §0. Its dispositions
 were candidates. The author re-adjudicated every one of them in the review pass of
@@ -169,8 +170,72 @@ machine-drafted preparation or a named person's review, and about who performed 
 | What was ruled | the minting namespace; a cell walk over the workbook; all eleven weakener firings; the fifteen-factor silence sweep; all 28 ambiguity-log entries |
 | Application to the artifacts | mechanical, by Claude Code, from the verdict record. Six divergences escalated rather than reconciled, all six dispositioned by the author the same day — `APPLY_RECORD_ESCALATIONS.md` |
 | Still unadjudicated | **none.** Ambiguity entries A-13, A-19 and A-22 were displaced by the record's mis-addressed rulings, returned to the author, and confirmed as drafted on 2026-08-21. All 30 log entries are adjudicated |
-| Signing | **not performed.** The author's act alone, still outstanding |
+| Signing | **performed by the author, 2026-08-21**, with the research key. See the section below |
 
 The 2026-08-20 pass was machine-drafted preparation and is labelled as such throughout.
 The 2026-08-21 pass is the review A-6 and A-13 mean. The two are recorded separately so
 that no reader has to infer which produced a given value.
+
+---
+
+## The signing — 2026-08-21
+
+Performed by the author with the research key held outside the tree. The apply-record
+session did not sign and does not hold the key; it verified the result afterwards and
+recorded it here.
+
+| Field | Value |
+|---|---|
+| Signed by | **Vishnu Vettrivel**, author, with `~/.config/uofa/research.key` |
+| Date | 2026-08-21 |
+| `signatureAlg` | `ed25519` |
+| `canonicalizationAlg` | `json-sortkeys/v1` |
+| `signature` | `ed25519:78e4d877f740d0c5…a7d0501` |
+| `hash` | `sha256:58e849c2bcb4971bbd3dbb320643397e191f87bbb323d4de9efd4073ded53a73` |
+| Governing protocol | `docs/Encoding_Protocol_v0_1.md` v0.1 |
+
+### Verification after signing
+
+    uofa check dev/build/pilot-johnson/johnson-pilot.jsonld
+
+    ✓ C2 SHACL   ✓ C1 Integrity   ✓ C3 Rules
+
+**C1 Integrity passes for the first time.** Before signing it correctly reported the
+importer's zero-filled `hash` and `signature` placeholders as invalid — the condition
+finding F-6d describes. The weakener report is unchanged at **11 firings across 5
+patterns**, which are the eleven the author dispositioned; signing adds no firing and
+clears none, and `W-SI-01` stays silent for the reason F-6d gives rather than because
+the package is now signed.
+
+### What the signature now freezes
+
+The identifiers minted under `https://github.com/cloudronin/uofa` are covered and cannot
+be corrected without re-importing and re-signing. That includes the `base_uri` confirmed
+under A-27, every node identifier derived from it, and the package's `wasAttributedTo` —
+**see the open item below.**
+
+### Open item, raised after signing: `wasAttributedTo` names `org/claude`
+
+The signed package carries:
+
+    wasAttributedTo: …/org/claude
+
+`excel_mapper._operator_identity()` resolves **who ran the tool** from `UOFA_ASSESSOR`,
+then `git config user.name`, then `$USER`. The 2026-08-20 import ran in a container — its
+`provenanceChain.sourceFile` is `/home/user/uofa/dev/build/pilot-johnson/johnson-extracted.xlsx`,
+not the working tree's path — and the identity there resolved to `claude`. Re-running the
+same resolution in the author's environment today returns `Vishnu Vettrivel`.
+
+**This is not a false statement.** The mapper's R1 rule deliberately separates the
+operator from the assessor: `statedAssessor` is `K.L. Johnson`, read from the source, and
+`wasAttributedTo` is whoever ran the import, which genuinely was a machine agent. Read
+strictly, the package says the import was machine-run and the run log says the review was
+the author's — which is the distinction protocol A-13 exists to keep visible.
+
+**It was still never a deliberate declaration.** It is an incidental container identity
+that no one chose, it is not recorded in the Pins table, the provenance self-audit never
+mentions it, and it is now frozen under signature. Correcting it means re-importing with
+`UOFA_ASSESSOR` set and re-signing, both of which are the author's acts.
+
+**Not changed by the apply-record session.** Raised for the author's ruling, on the same
+propose-don't-author basis as A-29 and A-30.

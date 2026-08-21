@@ -272,8 +272,9 @@ E-1 entries marked ESCALATED instead. A-07 and A-08 stand as acknowledged escala
 closed by the §3c ruling.
 
 **Run log.** A governed-review-pass section records the reviewer by name, the date, the governing
-protocol version, the form of the session, and that signing has not happened — which is what
-protocol A-13 requires of the run log.
+protocol version and the form of the session — which is what protocol A-13 requires of the run
+log. It now also records the signing, which happened on 2026-08-21 after these diffs were
+reviewed.
 
 **Findings.** SF-4, SF-5 and SF-6 filed, subject to E-6.
 
@@ -282,14 +283,16 @@ protocol A-13 requires of the run log.
 # Still outstanding for the author
 
 E-1 through E-6 are dispositioned, applied and closed. All 30 ambiguity entries, all eleven
-firings and all nineteen expected factors are adjudicated. Two acts remain, and both are the
-author's alone:
+firings and all nineteen expected factors are adjudicated. The author reviewed the diffs and
+**signed the package on 2026-08-21**; `uofa check` returns C1 ✓ C2 ✓ C3 ✓, with C1 Integrity
+passing for the first time and the eleven firings unchanged. `RUN_LOG.md` records the signing.
 
-1. Review the applied diffs.
-2. **Sign the package under the committed protocol, and commit.** The package's signature and
-   hash are still the importer's zero-filled placeholders; nothing in this session touched them.
-
-**The packet is sign-ready.**
+**The packet is complete.** One item was raised *after* signing and is not part of this
+escalation set, because it was not a divergence between the record and the artifacts: the signed
+package's `wasAttributedTo` names `org/claude`, an incidental container identity picked up by the
+2026-08-20 import rather than a declaration anyone chose. It is now frozen under signature.
+`RUN_LOG.md`, "Open item, raised after signing", states it in full and leaves it for the author,
+since correcting it means a re-import and a re-sign.
 
 On sign-off, the Johnson worked-example citations for protocol v0.2 become quotable: D-06, and
 the Not-Applicable-versus-Overruled case still awaiting the aero COU2.

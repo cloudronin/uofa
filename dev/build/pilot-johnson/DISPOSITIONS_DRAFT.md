@@ -8,8 +8,10 @@ application. The verdict vocabulary is Encoding Protocol v0.1 Part B —
 Accepted / Not Applicable wording. The change is vocabulary, not verdict: every row the
 draft read Accepted the author ruled Confirmed, on the same rule as applied.
 
-Governing protocol: `docs/Encoding_Protocol_v0_1.md` (v0.1, committed). Package still
-unsigned; signing is the author's act and has not happened.
+Governing protocol: `docs/Encoding_Protocol_v0_1.md` (v0.1, committed). **The package was
+signed by the author on 2026-08-21**, after these verdicts were applied and reviewed;
+`uofa check` returns C1 ✓ C2 ✓ C3 ✓ with the eleven firings below unchanged. `RUN_LOG.md`
+records the signing.
 
 Divergences between the verdict record and the artifacts are listed in
 `APPLY_RECORD_ESCALATIONS.md` and were **not** silently reconciled here.
