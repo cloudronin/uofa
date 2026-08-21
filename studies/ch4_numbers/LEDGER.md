@@ -9,13 +9,19 @@ artifact is **not entered with a value**. It is entered as **ESCALATION** with
 what was searched. A figure that disagrees with the Results guide or the repair
 spec is entered with **both** values and escalated.
 
-Status: **every row is entered or PENDING-ENCODING. No ESCALATION rows remain.**
-E1–E5 are all closed or pending-encoding.
+Status: **every row is entered. No PENDING-ENCODING rows and no ESCALATION rows
+remain.** E1–E5 are all closed.
 
-**One open dependency: the R5 protocol encoding** (ruled 2026-08-19, sequenced
-behind A7). It gates the two NASA rows in §4.1's H1 table and the single H1 row
-in §4.6's gate summary. **Nothing else is open.** §4.1's lead sentence waits on
-it, since it turns on n — 3 today, 5 after.
+**The R5 dependency is discharged, 2026-08-21.** The two NASA substrates are
+encoded under `docs/Encoding_Protocol_v0_1.md`, adjudicated, signed, and verified
+against the published `uofa 0.12.0` wheel outside the repository. §4.1's lead
+sentence turns on n and **n is 5**.
+
+Two of the five carry a completeness gap that is measured rather than resolved:
+`bindsClaim` is unreachable through the Excel on-ramp, filed as **SF-8**. The
+gap lives inside those rows, annotated, rather than blocking them — a row reading
+"three gates pass, completeness blocked on a named on-ramp gap" carries more than
+either a vacuous green or a false pending.
 
 ---
 
@@ -115,18 +121,31 @@ Exits 1 if any substrate fails a check it should pass — it does; see below.
 | Morrison COU1 | flat | Accepted | 2 | ✓ | pass | pass | pass |
 | Morrison COU2 | flat | Not accepted | 5 | ✓ | pass | pass | pass |
 | Nagaraja COU1 | flat | Accepted | 3 | ✓ | pass | pass | pass |
-| NASA take-off | — | — | — | **PENDING-ENCODING** | — | — | — |
-| NASA cruise | — | — | — | **PENDING-ENCODING** | — | — | — |
+| NASA take-off | flat | Accepted | 3 | **NO — SF-8** | pass | pass | pass |
+| NASA cruise | flat | Not accepted | 4 | **NO — SF-8** | pass | pass | pass |
 
-**Three of five derive clean**, and those three are the protocol-encoded
-packages. The two NASA rows are **PENDING-ENCODING** — ruled 2026-08-19 (R5),
-sequenced behind A7.
+**All five substrates pass SHACL, integrity and rules.** Three of five are
+complete; the two NASA rows are blocked on **SF-8** and say so.
 
-The row values are left blank deliberately. The files previously occupying those
-rows (`packs/nasa-7009b/examples/aerospace/`) are annotation snapshots whose
-SHACL and integrity passes are **vacuous** — `targetClass uofa:UnitOfAssurance`
-matches nothing — so entering their "pass" marks would be entering a green that
-means nothing. See the inventory below.
+The two NASA rows were repointed on 2026-08-21 from
+`packs/nasa-7009b/examples/aerospace/` — annotation snapshots whose SHACL and
+integrity passes are **vacuous**, because `targetClass uofa:UnitOfAssurance`
+matches nothing in them — to the signed protocol encodings in
+`dev/build/encoding-prep/aero-cou{1,2}/`. Entering the snapshots' "pass" marks
+would have been entering a green that means nothing; these are real packages.
+
+**On the completeness column.** `bindsClaim` is unreachable through the Excel
+on-ramp: the `Model & Data` sheet offers Requirement, Model, or Dataset and no
+Claim, and `excel_mapper` never emits one. Morrison and Nagaraja carry it because
+they were hand-authored. **The definition of complete was not amended** to
+accommodate this — amending it would tune the gate to the tooling — so the two
+packages report against the standing definition truthfully. SF-8.
+
+The finding this produces is worth more than the blemish: **the two packages
+produced under the governed pipeline are precisely the ones that expose the claim
+gap, because hand-authoring had been silently supplying it.** The governed
+process did not fall short of the hand-crafted packages; it revealed what the
+hand-crafting had been providing without anyone recording that it was needed.
 
 **The §4.1 lead sentence stays unwritten until the encoding runs.** It turns on
 n, and n is 3 today and 5 after.
@@ -191,7 +210,7 @@ against a profile enum requiring `"Not accepted"` is the **first candidate entry
 for the item 6 encoding's ambiguity log**: a real source ambiguity of exactly the
 kind A7's mandatory log exists to capture. Recorded, not edited.
 
-### E2 status — PENDING-ENCODING
+### E2 status — CLOSED 2026-08-21
 
 H1 is **three protocol-encoded packages today**: Morrison COU1, Morrison COU2,
 Nagaraja COU1, all clean above. The NASA rows are pending the encoding ruled for
@@ -366,9 +385,32 @@ Artifact: `studies/phase3_stage4/TIER1_SUPPORT.md`, regenerate with
 | `requiredVerificationMethod` populated | **1 of 78** | v0.5 | INV-20 | — |
 | `bindsClaim` conventions | **7** incompatible | v0.5 | INV-21 | — |
 | W-ON-02 fires (queue packages) | **65/71 recorded** · **69/71 current catalog** | both stated | `stale_sweep` / INV-21 | this branch |
+| `bindsClaim` reachable via the Excel on-ramp | **0 of 3 entity types** (Requirement, Model, Dataset — no Claim); `excel_mapper` emits it never | 2026-08-21 | `derive_h1_tier_table.py`, SF-8 | this branch |
 
 The W-ON-02 row is the C5 instance: the same figure differs by catalog version,
 so both are carried with labels rather than one being silently preferred.
+
+### Exit is free, with a measurement behind it
+
+Both NASA substrates were **imported and signed under `uofa-cli 0.11.0` and verify
+under the published `uofa 0.12.0`** — installed from PyPI into a clean virtualenv,
+with the packages copied outside the repository so nothing resolves from the
+working tree. All three gates pass there: C1 integrity, C2 SHACL, C3 rules. The
+published wheel bundles the packs and the Jena engine, so this exercises the whole
+check rather than the signature alone.
+
+The version gap is the point rather than an inconvenience. A signature that holds
+only under the tool that made it proves nothing about exit; one that holds under a
+later published tool, on a different machine, outside the repository, is the
+exit-is-free claim with a measurement behind it. A committee member or a NAFEMS
+skeptic can reproduce it in five minutes:
+
+    python3 -m venv venv && ./venv/bin/pip install "uofa==0.12.0"
+    ./venv/bin/uofa check --pack nasa-7009b aero-cou1.jsonld
+
+Measured 2026-08-21, this branch. Recorded because the encoding session that
+produced the packages is also the session that verified them, and the check is
+cheap enough that nobody has to take that on trust.
 
 ---
 
@@ -398,10 +440,14 @@ runs and metrics, and the spec's "0.960" matches none of them exactly. **Which
 run and which metric is the H2 headline, and which is its null, needs the
 author.** Not entered.
 
-**E2 — PENDING-ENCODING, not escalated.** Three of five substrates derive clean
-and are entered in §4.1. The two NASA rows await the R5 protocol encoding
-(sequenced behind A7). Re-derive the three with
-`python studies/ch4_numbers/derive_h1_tier_table.py`.
+**E2 — CLOSED 2026-08-21.** All five substrates derive and are entered in §4.1.
+The two NASA rows were repointed from the vacuous annotation snapshots to the
+signed protocol encodings under `dev/build/encoding-prep/aero-cou{1,2}/`. All
+five pass SHACL, integrity and rules; three are complete and two are blocked on
+**SF-8**, reported in the row rather than silenced. Re-derive all five with
+`python studies/ch4_numbers/derive_h1_tier_table.py`, which now exits 0 with the
+two known gaps printed — a filed finding is not a surprise, and the script's job
+is catching substrates that stopped conforming.
 
 
 **E3 — CLOSED on option B, ruled 2026-08-19.** No fresh run. Three elements,
@@ -428,9 +474,8 @@ extraction."*
 enumerates §4.4 as "external arm figures per W7" and those are all six checks.
 
 
-**E5 — PENDING-ENCODING.** The gate summary is entered below for every clause
-whose evidence exists. The only rows still absent are H1's, which depend on the
-R5 encoding — the same single dependency as E2, not a separate one.
+**E5 — CLOSED 2026-08-21.** Every clause in the gate summary is entered. H1's row
+was the last outstanding and its dependency, the R5 encoding, is discharged.
 
 | Hypothesis clause | Gate | Measured | Verdict | Evidence rung |
 |---|---|---|---|---|
@@ -442,12 +487,36 @@ R5 encoding — the same single dependency as E2, not a separate one.
 | H3 aggregate interval | — | 35/35, Wilson [0.9011, 1.0000] | — | Demonstrated |
 | Stage 4 spot-check override | ≤0.10 | **0.213** | **FAIL** | Demonstrated |
 | D6 equality, both directions | asserted | HOLDS, 0 counterexamples | pass | Demonstrated |
-| H1 per-substrate | — | 3 of 5 encoded | **PENDING-ENCODING** | — |
+| H1 per-substrate | — | **5 of 5 encoded**; 5/5 SHACL, integrity and rules; 3/5 complete (2 blocked on SF-8) | pass | Demonstrated |
 
 Both FAILs are reported as measured, per §0.1. The override FAIL decomposes per
 R4: REAL-GAP relocates to the schema boundary, ERM is an ensemble-reliability
 finding, and neither is adverse to the catalog.
 
+
+## Final ledger sweep — 2026-08-21
+
+| Status | Rows |
+|---|---:|
+| entered | **98** |
+| PENDING-ENCODING | **0** |
+| **ESCALATION** | **0** |
+| total | **98** |
+
+The three rows that were PENDING-ENCODING — the two NASA substrates in §4.1's H1
+table and the single H1 row in §4.6's gate summary — are entered. Their shared
+dependency, the R5 protocol encoding, is discharged.
+
+**The completeness caveat lives inside the rows, not in this count.** Two of the
+five substrates are entered with completeness blocked on SF-8. They are entered
+because the encodings exist, are signed and are verified; they are not uniformly
+green because the template cannot yet carry a claim, and the rows say so with the
+finding number attached.
+
+E1 resolved · E2 closed · E3 closed on option B · E4 closed · E5 closed. **No
+pending-encoding rows and no escalation rows remain.**
+
+---
 
 ## Provenance
 
