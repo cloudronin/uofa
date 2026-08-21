@@ -10,9 +10,14 @@ once packages are signed against it. Reopening v0.1 for an improvement discovere
 signing would muddy exactly the version discipline the record depends on — the encoder could
 no longer tell which v0.1 they read. So improvements accumulate here and land in one edit.
 
-**When v0.2 opens.** When the aero passes close. The natural batch is: the assessor rule, the
-D-06 worked example, the Not-Applicable-versus-Overruled example from aero COU2, and the
-version bump — one edit after the encoding era ends, rather than four edits during it.
+**When v0.2 opens.** The condition was "when the aero passes close", and **they closed on
+2026-08-21**: both aero packages are adjudicated, signed and verified, and the Ch4 ledger's last
+three PENDING-ENCODING rows are entered. **The gate is met and the batch is ready to write.**
+
+The batch: the assessor rule, the D-06 worked example, the
+Not-Applicable-versus-Overruled example — now a *pair* rather than a single case — the
+published-wheel verification rule, and the version bump. One edit, after the encoding era ends
+rather than four edits during it.
 
 ---
 
@@ -102,9 +107,12 @@ package." That is D-06 exactly, and it is now adjudicated rather than hypothetic
   rationale, and the rationale housed where the template can hold it.
 - **Citable as.** `dev/build/pilot-johnson/DISPOSITIONS_DRAFT.md`, D-06.
 
-**Still owed alongside it.** The Not-Applicable-versus-Overruled example, which needs a package
-whose decision outcome was Not accepted. Aero COU2 is the candidate and its outcome is not yet
-recorded. This is why the batch waits.
+**No longer owed separately — and it grew.** The Not-Applicable-versus-Overruled example needed
+a package whose decision outcome was Not accepted. Aero COU2 is now that record, signed. But the
+better example is the **pair**: COU1 and COU2 share an evidence family and reach opposite
+decisions, because take-off concept screening tolerates what cruise creep-life does not.
+Identical weaknesses, different contexts of use, opposite defensible decisions — the tier logic
+doing its one essential job. Ruled together on 2026-08-21 for exactly that reason.
 
 ---
 
@@ -130,6 +138,34 @@ Not-Applicable-versus-Overruled distinction turns on.
 
 **Blocked on nothing but the batch.** The aero review passes must close first, which is the
 same gate item 2 waits behind.
+
+---
+
+## Queued item 4 — sign-off verifies against the published wheel, at whatever version is current
+
+**Ripe. One sentence, lands with the batch.**
+
+**Where it goes.** The sign-off step, alongside the signing instruction.
+
+**The rule.** Sign-off's verification should be run against the **published wheel at whatever
+version is then current**, in a clean environment with the package outside the repository —
+*precisely because* the version gap is the test. A signature that verifies only under the tool
+that produced it, in the tree that produced it, demonstrates nothing about exit. One that
+verifies under a later published tool, elsewhere, is the exit-is-free claim with a measurement
+behind it.
+
+**Where it came from.** Both aero packages were imported and signed under `uofa-cli 0.11.0` and
+verify under the published `uofa 0.12.0` — clean virtualenv from PyPI, packages copied outside
+the repository, all three gates green. The wheel bundles the packs and the Jena engine, so this
+exercises C1, C2 and C3 rather than the signature alone. Recorded with its reproduction commands
+in `studies/ch4_numbers/LEDGER.md` §4.5, "Exit is free, with a measurement behind it", because
+the session that produced the packages is also the session that verified them and the check is
+cheap enough that nobody has to take that on trust.
+
+**Note the asymmetry this creates deliberately.** The rule cannot be "verify under the pinned
+version", because that is the version the encoder already has. The gap between the signing tool
+and the current published tool is the only part of the check an outside verifier cannot fake for
+you.
 
 ---
 
