@@ -256,3 +256,55 @@ human-in-the-loop slot earned itself again, and the thing it caught was the inst
 
 **Status.** Open. Tooling fix, no rule or schema change. Both affected packages are corrected;
 the check is not.
+
+---
+
+## SF-8 — no on-ramp package can bind the claim its evidence supports
+
+**Finding.** `uofa:bindsClaim` — *"links the package to the proposition its evidence is offered
+in support of"* — is unreachable through the Excel on-ramp. Every package built from a workbook
+lacks it, and always will until the template can carry a claim.
+
+**Cause.** The `Model & Data` sheet offers exactly three entity types: **Requirement, Model, or
+Dataset**. There is no Claim. `excel_mapper.py` contains no occurrence of `bindsClaim` at all, so
+no code path could emit one even if a row existed. The property is declared in the ontology
+(`packs/core/shapes/uofa_shacl.ttl`, domain `UnitOfAssurance`, range `AssuranceClaim`) and in the
+v0.5 context, but it carries no SHACL cardinality constraint — which is why packages missing it
+pass C1, C2 and C3 cleanly and the absence is invisible to every gate.
+
+**Evidence.** `studies/ch4_numbers/derive_h1_tier_table.py`, repointed at the two signed aero
+encodings, reports `missing mandatory ['bindsClaim']` for both while every other check passes:
+
+    NASA take-off  flat  Accepted      3  NO  pass  pass  pass
+    NASA cruise    flat  Not accepted  4  NO  pass  pass  pass
+
+`dev/build/pilot-johnson/johnson-pilot.jsonld` lacks it too. `packs/vv40/examples/morrison/*`
+and `packs/vv40/examples/nagaraja/cou1` carry it, and both were hand-authored.
+
+**The boundary arrived here by a fourth independent route, and that is the point of this
+entry.** The schema audit found the empty claim interior — `AssuranceClaim` is one of INV-20's
+four classes with zero populated properties, and INV-21 counted seven incompatible `bindsClaim`
+conventions. The Stage 4 adjudication relocated all twelve REAL-GAP spot-check rows to the schema
+boundary. The override analysis confirmed the relocation. Now the H1 **derivation script** — the
+tier table itself, an instrument built for something else entirely — has measured the same
+boundary from the tooling side: the assessment layer is carried, the assurance-case layer is not,
+and no governed encoding can supply the proposition its evidence is offered for. Four routes,
+four methods, one boundary.
+
+**Consequence.** The H1 per-substrate table cannot reach five-of-five on completeness with
+protocol-encoded packages. This is recorded in `studies/ch4_numbers/LEDGER.md` as measured rather
+than resolved: the two NASA rows read `NO — blocked on SF-8` beside three passing gates.
+
+**Explicitly not done: the ledger's definition of `complete` was not amended.** Changing
+`MANDATORY` so the column measures what a package can currently carry would tune the gate to the
+tooling — the retroactive-threshold move in a new costume — and it is rejected on the record. The
+definition stands; the packages report against it truthfully.
+
+**What this reframes.** The two packages produced under the governed pipeline are precisely the
+ones that expose the claim gap, because hand-authoring had been silently supplying it. The
+governed process did not fall short of the hand-crafted packages. It revealed what the
+hand-crafting had been providing without anyone recording that it was needed.
+
+**Status.** Open. Template change plus mapper support. No rule or schema change; the property
+already exists and is already declared.
+
