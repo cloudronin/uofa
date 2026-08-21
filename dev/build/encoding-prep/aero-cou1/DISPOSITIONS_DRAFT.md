@@ -1,6 +1,6 @@
 # Candidate dispositions — aero COU1
 
-**ADJUDICATED by the author, 2026-08-21.** Every verdict below carries the author's ruling.
+**ADJUDICATED by the author and SIGNED, 2026-08-21.** Every verdict below carries the author's ruling.
 The drafting was mechanical under
 `docs/Encoding_Protocol_v0_1.md` Part B plus the author's Johnson rulings, which transfer as
 precedent. All five questions the draft raised were ruled by the author on 2026-08-21; no AUTHOR-RULE

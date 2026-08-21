@@ -1,8 +1,7 @@
 # Ambiguity log — aero cou1
 
-**ADJUDICATED 2026-08-21 — awaiting assent and signature.** Every entry has been
-re-adjudicated by the author; what remains is the author's assent to
-`AUTHOR_SUMMARY_COU1.md` and the signature. The original DRAFT resolutions are left as
+**ADJUDICATED AND SIGNED, 2026-08-21.** Every entry was re-adjudicated by the author, who
+assented to `AUTHOR_SUMMARY_COU1.md` and signed the package. Nothing here is outstanding. The original DRAFT resolutions are left as
 written below, because they record what the draft decided; the author's verdicts are in the
 adjudication section at the end. Entry shape per
 §5 of the protocol draft: the ambiguity, the resolution chosen for the DRAFT, the rule

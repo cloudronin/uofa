@@ -3,7 +3,7 @@
 **Take-off transient peak metal temperature. Ten-minute read. Your assent to this page is the
 review act, so it is complete by construction: every correction and every verdict is here.**
 
-Date prepared: 2026-08-21 · Package `aero-cou1.jsonld`, unsigned · Protocol `Encoding_Protocol_v0_1.md` v0.1
+Date prepared: 2026-08-21 · Package `aero-cou1.jsonld`, **SIGNED 2026-08-21** · Protocol `Encoding_Protocol_v0_1.md` v0.1
 
 ---
 
@@ -114,7 +114,7 @@ worked example.
 
 ---
 
-## 5. Sign-readiness
+## 5. Sign-off — complete
 
 | Gate | State |
 |---|---|
@@ -122,9 +122,8 @@ worked example.
 | C2 SHACL | **pass** |
 | C3 Rules | **pass** — 21 firings, **all Confirmed and all adjudicated** |
 | Dispositions | **complete** — no AUTHOR-RULE rows remain |
-| C1 Integrity | **fails, correctly** — zero-filled placeholders. Passes on signing; Johnson F-6d's condition |
-| Public-wheel round-trip | **deferred to sign-off**, where it belongs with the signature |
-| Signing | not performed — yours alone |
+| C1 Integrity | **pass** — signed 2026-08-21 |
+| Public-wheel round-trip | **pass** — published `uofa==0.12.0`, clean venv, package outside the repo. C1 ✓ C2 ✓ C3 ✓, cross-version against the 0.11.0 import |
+| Signing | **done**, by the author with the research key |
 
-**Remaining before signature:** your assent to §1, then the sign-off step — wheel round-trip,
-sign, push.
+**Nothing remains.** Assent given, signed, verified locally and against the published wheel.

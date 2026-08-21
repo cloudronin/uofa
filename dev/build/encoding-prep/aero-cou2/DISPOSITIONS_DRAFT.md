@@ -1,6 +1,6 @@
 # Candidate dispositions — aero COU2
 
-**ADJUDICATED by the author, 2026-08-21.** Drafted under `docs/Encoding_Protocol_v0_1.md` Part B plus the
+**ADJUDICATED by the author and SIGNED, 2026-08-21.** Drafted under `docs/Encoding_Protocol_v0_1.md` Part B plus the
 author's Johnson rulings as precedent. Both questions the draft raised were ruled on
 2026-08-21; no AUTHOR-RULE rows remain. The rulings are in `AUTHOR_SUMMARY_COU2.md` §4.
 

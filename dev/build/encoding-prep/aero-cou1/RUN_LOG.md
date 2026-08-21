@@ -1,8 +1,8 @@
 # Run log — aero cou1 encoding prep
 
-State: **ADJUDICATED, UNSIGNED — awaiting assent to `AUTHOR_SUMMARY_COU1.md` and signature.**
-All dispositions and ambiguity entries carry the author's rulings of 2026-08-21.
-Originally prepared under `docs/Encoding_Protocol_v0_1_DRAFT.md`.
+State: **ADJUDICATED AND SIGNED, 2026-08-21.** The author assented to
+`AUTHOR_SUMMARY_COU1.md`, which is the review act, and signed the package. All dispositions
+and ambiguity entries carry the author's rulings. Originally prepared under `docs/Encoding_Protocol_v0_1_DRAFT.md`.
 Nothing signed. The §3b cell walk has not occurred; anchors below are candidates.
 
 ## Pins
@@ -76,10 +76,27 @@ Johnson finding F-6d's condition rather than a defect.
 **Not performed:** signing, ledger-row changes, and the public-wheel round-trip. The last is
 flagged in the summary rather than claimed, because no wheel is built in this tree.
 
-### Sign-off step, still outstanding
+### Sign-off — completed 2026-08-21
 
-1. Author assent to `AUTHOR_SUMMARY_COU1.md` §1 (the correction list). Assent to the summary
-   **is** the review act, which is why the summary is complete by construction.
-2. **Public-wheel round-trip**, folded into sign-off where it belongs with the signature.
-3. `uofa sign` with the research key, then `uofa check` to confirm C1 Integrity passes.
-4. Push, and flip the PENDING-ENCODING ledger rows.
+| Field | Value |
+|---|---|
+| Review act | author's **assent to `AUTHOR_SUMMARY_COU1.md`**, whose §1 correction list is what the assent covers |
+| Signed by | **Vishnu Vettrivel**, author, with `~/.config/uofa/research.key` |
+| `signatureAlg` / `canonicalizationAlg` | `ed25519` / `json-sortkeys/v1` |
+| `signature` | `ed25519:d72a97381f83f2a3…a8a250b` |
+| `hash` | `sha256:4a8f5334730aba7a52a262e0b971c3e9aac6483edbcf5abeb562a783ac5fb5d5` |
+
+**Local verification:** `uofa check --pack nasa-7009b` → **C1 Integrity ✓ · C2 SHACL ✓ · C3 Rules ✓.**
+
+**Public-wheel round-trip: PERFORMED and green.** A clean virtualenv with the published
+`uofa==0.12.0` from PyPI, the package copied **outside the repository** so nothing resolves
+from the working tree, returns C1 ✓ C2 ✓ C3 ✓. The wheel bundles the packs and the Jena rule
+engine, so this exercises all three gates rather than the signature alone.
+
+This is a genuine **cross-version** check, which is the part worth keeping: the package was
+imported under the pinned `uofa-cli 0.11.0` and verifies under the published 0.12.0. A
+signature that holds across that gap is the claim a reference encoding actually has to support,
+and it is the claim an outside verifier will test.
+
+**Nothing about this package is outstanding.** The encoding is complete, adjudicated, signed
+and independently verified.
