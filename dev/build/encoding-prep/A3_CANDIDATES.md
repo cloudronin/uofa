@@ -213,3 +213,77 @@ was encoded.
 1. Read §2 and pick, or send the runner-up to the library-proxy queue.
 2. Commit the R-B addendum (staged, not committed).
 3. Packet-prep for the chosen document then runs under the standing aero work-order pattern.
+
+---
+
+## 8. S1 shape check — run 2026-08-22, before any extraction
+
+Packet-prep step zero, per the author's approval condition. Fetched, read, reported. **No
+extraction was run.**
+
+**Fetch route confirmed.** `mdpi.com` 403s automated fetch, but the pinned PMC route works:
+`https://www.ebi.ac.uk/europepmc/webservices/rest/PMC11939812/supplementaryFiles` returns
+HTTP 200, `application/zip`, 4,646,977 bytes, containing
+`bioengineering-12-00229-s001.zip` → `bioengineering-3377078-supplementary.pdf`, 13 pages.
+**Pin the Europe PMC endpoint as the manifest path.** Retrieved to scratchpad only; nothing
+entered the tree.
+
+### Verdict: shape B — evidence-rich, assessment-thin
+
+S1 is an **activities list with outcomes**, not a credibility-factor goal-versus-achieved
+table. Table S1's own column headers are **`Activity | Outcome`**.
+
+**What is absent.** Zero occurrences across all 13 pages of *credibility factor*, *gradation*,
+*required level*, *achieved level*, *rigor*, *adequacy*, *applicability*, *acceptance
+criteria*, *risk-informed*. V&V 40's 23-factor decomposition, its gradation scale, and the
+applicability assessment do not appear. The standard is cited; its factor apparatus is not
+used.
+
+**What is present, and it is not nothing.**
+
+| Element | Status in S1 |
+|---|---|
+| Context of use | **Stated explicitly** — assess impact of worst-case misalignment on PE wear via contact pressure, von Mises stress, effective strain |
+| Quantity of interest | **Stated explicitly**, as a decision question |
+| Model risk derivation | **Complete and reasoned.** Model influence **"low"** (outputs are a minor factor in answering the QOI; physical wear tests carry the safety profile); decision consequence **"low"** (model assesses sensitivity relative to two physically tested benchmarked states) |
+| Credibility activities | 7 verification goals + 3 validation goals, each paired with a narrative outcome |
+| Acceptance thresholds | **Present on some activities only** — e.g. Validation Goal 1 *"found to agree within 6.2%"*; damage scores *"judged as reasonably acceptable if... within 20%"* |
+| Gradation levels | **Absent entirely** |
+
+### What this means for the tier logic
+
+The author's condition was that *"the goal/achieved structure has to exist somewhere for the
+tier logic to have anything to read."* It exists — but **at activity level, in prose, on no
+scale**. Each goal is paired with what was achieved, and a minority carry a numeric acceptance
+threshold. There is no ordinal level to read on either side of the comparison.
+
+This is the Bologna problem inverted, and it lands on the same rule. Bologna printed letter
+gradations (a-d) and Low/Medium/High achieved but no numeric CAS, and its transcriber refused
+the conversion because it *"would invent two conventions the document does not state"* — the
+same refusal the Johnson pilot made under A-06. **Kurtz prints no gradation at all**, so
+manufacturing required-versus-achieved levels here would invent not two conventions but the
+entire scale. Under the declination rule that conversion is refused, which means the tier logic
+reads activity outcomes or it reads nothing.
+
+The model-risk rows are the exception and they are strong: `modelRiskLevel` and
+`hasContextOfUse` are exactly the two rows `bundle_tavi1_s3` exercises, and Kurtz supplies both
+with reasoning attached.
+
+### Consequence, per the approval's own terms
+
+The condition fired on its second branch, so **the packet's shape changes and the runner-up
+conversation reopens.** Stopping here for the author's call rather than proceeding, as
+instructed. The three options, stated without a recommendation because this is the author's
+act:
+
+1. **Encode Kurtz as an activity-level assessment.** Still developer-declared, still external,
+   still CC BY. COU, QOI and model risk encode natively; the 23 factors become source-absent
+   rows, which the protocol handles. The FP adjudication then runs against activity outcomes
+   and disclosed limitations rather than against factor levels — a thinner but honest n=1.
+2. **Send Maquer to the library-proxy queue** under U-INV-1 and decide between the two once its
+   screen 2 is settled. Costs a reading slot; may return a factor table or may return the same
+   shape.
+3. **Take Kurtz for the model-risk arm and keep looking** for a factor-table document for the
+   full arm.
+
+**Nothing is encoded, and nothing further runs until the author rules.**
