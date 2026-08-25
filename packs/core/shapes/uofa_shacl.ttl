@@ -1062,6 +1062,89 @@ uofa:CredibilityFactorShape
   ] .
 
 ################################################################
+# v0.8 required-level judgment shapes
+#
+# **Targeted on the class, not reached through a profile.** Every other
+# CredibilityFactor constraint in this file hangs off
+# `uofa:CredibilityFactorShape`, which is referenced from exactly one place --
+# the ProfileComplete body. A package declaring ProfileMinimal never reaches it,
+# so none of those constraints run on it: a factorStatus of "bogus" validates
+# clean. The encoding tool emits ProfileMinimal, so a judgment constraint placed
+# there would be enforced on the packages that do not need checking and skipped
+# on the ones that do.
+#
+# Whether a judgment claim names its agent is a fact about the claim, not about
+# a profile tier. These target the class and fire wherever a factor appears.
+################################################################
+uofa:RequiredLevelProvenanceShape
+  a sh:NodeShape ;
+  sh:targetClass uofa:CredibilityFactor ;
+  # The vocabulary is closed. `confirmed` is deliberately not a member: it is
+  # the encoding tool's LOCATION act, and exporting it as a judgment claim is
+  # the ambiguity v0.8 exists to remove.
+  #
+  # No `sh:minCount`: these shapes are version-agnostic and every package
+  # written before v0.8 would fail one. "Is the token present?" is answerable
+  # only against the package's declared context, which is not a triple and so
+  # not something SHACL can see -- that half lives in the CLI, which reads the
+  # declaration. This half is safe on every package ever written.
+  sh:property [
+    sh:path uofa:requiredLevelProvenance ;
+    sh:maxCount 1 ;
+    sh:in ( "extracted" "defaulted" "affirmed" "corrected" "waived" "source-absent" ) ;
+    sh:message "requiredLevelProvenance must be one of extracted, defaulted, affirmed, corrected, waived, source-absent. `confirmed` is not a member: anchoring locates a level, it does not judge it." ;
+  ] .
+
+uofa:JudgedLevelCarriesItsAgentShape
+  a sh:NodeShape ;
+  sh:targetClass uofa:CredibilityFactor ;
+  # **A judgment claim carries its agent.** A token saying someone weighed this
+  # level, with nothing saying who or when, is an assertion nobody stands behind
+  # -- and it passes any check that merely asks whether an activity exists.
+  # Machine states (`extracted`, `defaulted`) claim no judgment and need no
+  # agent: their lineage is in the run log.
+  sh:or (
+    [ sh:not [ sh:property [
+        sh:path uofa:requiredLevelProvenance ;
+        sh:minCount 1 ;
+        sh:in ( "affirmed" "corrected" "waived" ) ;
+      ] ] ]
+    [ sh:property [
+        sh:path uofa:hasLevelAffirmation ;
+        sh:minCount 1 ;
+        sh:node uofa:LevelAffirmationShape ;
+    ] ]
+  ) ;
+  sh:message "A required level recorded as affirmed, corrected or waived must carry a hasLevelAffirmation naming who judged it and when." .
+
+################################################################
+# LevelAffirmation node shape (v0.8)
+#
+# The qualified half of the two-tier idiom the context already uses for
+# decisions: a flat token for cheap verification, an activity node for
+# testimony. `actor` is declared "@type": "@id", so it holds an IRI and the
+# human-readable name goes in `role` -- the same split `hasDecisionRecord` uses
+# for `decided_by`. A name placed in `actor` is not stored as a name: it
+# resolves as a relative IRI against wherever the document happens to sit.
+################################################################
+uofa:LevelAffirmationShape
+  a sh:NodeShape ;
+  sh:property [
+    sh:path uofa:actor ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:nodeKind sh:IRI ;
+    sh:message "A LevelAffirmation must name the agent that judged, as an IRI." ;
+  ] ;
+  sh:property [
+    sh:path uofa:affirmedAt ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:datatype xsd:dateTime ;
+    sh:message "A LevelAffirmation must carry affirmedAt as an xsd:dateTime." ;
+  ] .
+
+################################################################
 # WeakenerAnnotation node shape (C3 quality gate)
 ################################################################
 uofa:WeakenerAnnotationShape

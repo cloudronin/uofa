@@ -4,6 +4,73 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+## [0.13.0] — 2026-08-24
+
+### Changed — CONTRACT: `--protocol-check` can now fail a package that passed under 0.12
+
+Third parties script against these exit codes, so the change is stated plainly
+rather than left to be discovered.
+
+- **New check, `required levels were judged`**, in `check_package`. A package
+  whose declared `@context` is v0.8 or later is refused when any factor with a
+  required level carries no judgment token (`affirmed`, `corrected`, `waived`)
+  and no waiver is recorded. The message names the cells and the discharge path.
+- **A package declaring an older context is ADVISED, never refused** on this
+  check. Its vocabulary cannot state whether the judgment happened, and refusing
+  it would punish age rather than negligence. The fork keys on the declared
+  `@context`, not on `conformsToProfile` — that term carries the profile
+  (Minimal/Complete/Disposition) and encodes no context version at all.
+- **`check_workbook`'s levels check no longer infers from column shape.** It
+  forks on the workbook's `Encoding Profile Version` declaration. A workbook
+  declaring v0.8 with no provenance column is now refused as self-contradictory;
+  previously it was indistinguishable from a legacy workbook and inherited the
+  legacy excuse. A workbook carrying the column but declaring nothing is advised,
+  and the advisory says the column was seen and why it went unread.
+- **Equal required/achieved values are no longer evidence either way.** The old
+  rule refused a package whose required level equalled its achieved level on
+  every factor. Agreement writes nothing, so that reading refused a reviewer who
+  read every level and agreed with all of them, and caught nothing else.
+
+### Added
+
+- **`spec/context/v0.8.jsonld`** — additive over v0.7 (143 terms, +4, nothing
+  changed or removed): `requiredLevelProvenance` (flat token from a closed set),
+  `LevelAffirmation` (activity class), `hasLevelAffirmation`, `affirmedAt`.
+  `confirmed` is deliberately **not** in the vocabulary: it is an encoding
+  tool's location act, and exporting it as a judgment claim is the ambiguity
+  this version exists to remove.
+- **`CONTEXT_URL` now names v0.8.** It had been pinned at v0.5 while the
+  repository shipped v0.7, so every emitted package declared a context two
+  versions behind what it was written against. v0.5.jsonld is untouched and
+  still hashes to its pinned digest; packages signed against it keep verifying.
+- **SHACL shapes for the v0.8 vocabulary** (`packs/core/shapes/uofa_shacl.ttl`):
+  the closed token set, and a judgment token requiring a `hasLevelAffirmation`
+  with `actor` and `affirmedAt`. Targeted on `uofa:CredibilityFactor` directly
+  rather than through `CredibilityFactorShape`, which only ProfileComplete
+  packages reach. No `sh:minCount` on the token — these shapes are
+  version-agnostic and every pre-v0.8 package would fail one.
+- **Workbook columns `Affirmed By` and `Affirmed At`**, read by the importer and
+  emitted as the affirmation activity. A judgment claim carries its agent
+  regardless of which carrier it travels in.
+
+### Fixed
+
+- **`rules`, `diff` and `mutation` validated against the toolchain's default
+  context rather than the document's own.** That default was pinned at v0.5, so
+  a v0.8 package was expanded against a vocabulary that does not define the
+  terms being validated, and a v0.5 package validated against anything newer
+  silently lost the fourteen terms v0.7 removed. Each now resolves the context
+  the document declares; where none can be resolved, the fallback is the newest
+  context shipped in the checkout and is **named in the output**, never silent.
+  `--context` remains a deliberate override and still wins.
+- **`uofa:actor` received a person's name where an IRI was required.** The term
+  is declared `"@type": "@id"`, so JSON-LD resolved the string as a relative IRI
+  against the document's location. `actor` now carries a minted IRI and `role`
+  the readable name — the split `hasDecisionRecord` already used.
+- **An out-of-vocabulary provenance token was emitted verbatim** rather than
+  being rejected, so the closed set was not closed.
+
+
 ## [0.12.0] — 2026-08-20
 
 ### Added — the encoding protocol, and the mechanical half of it as a gate
