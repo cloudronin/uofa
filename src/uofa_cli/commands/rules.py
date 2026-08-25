@@ -494,8 +494,12 @@ def run_structured(args) -> RulesResult:
     else:
         ctx, ctx_note = integrity.context_for_file(args.file)
     if ctx_note:
-        from uofa_cli.output import info
-        info(f"  {ctx_note}")
+        # **stderr, not stdout.** The note must be impossible to miss and must
+        # not become data: `check-counts.mjs` parses this command's stdout as
+        # JSON, and a diagnostic line printed there turned a valid run into
+        # "stdout was not JSON". Never-silent is a property of the message
+        # reaching a reader, not of which stream carries it.
+        print(f"  {ctx_note}", file=sys.stderr)
 
     cmd = [java, "-jar", str(jar), str(args.file), "--rules", str(rules), "--context", str(ctx)]
     fmt = args.format or "summary"

@@ -17,6 +17,8 @@ rather than by assertion, so three things are load-bearing:
 
 from __future__ import annotations
 
+import sys
+
 import hashlib
 import json
 from copy import deepcopy
@@ -50,8 +52,12 @@ def expand(doc: dict) -> Graph:
     # the named fallback rather than a silent v0.5 default.
     ctx_path, ctx_note = integrity.context_for_document(doc)
     if ctx_note:
-        from uofa_cli.output import info
-        info(f"  {ctx_note}")
+        # **stderr, not stdout.** The note must be impossible to miss and must
+        # not become data: `check-counts.mjs` parses this command's stdout as
+        # JSON, and a diagnostic line printed there turned a valid run into
+        # "stdout was not JSON". Never-silent is a property of the message
+        # reaching a reader, not of which stream carries it.
+        print(f"  {ctx_note}", file=sys.stderr)
     ctx = json.loads(Path(ctx_path).read_text(encoding="utf-8"))["@context"]
     if "@graph" in doc:
         payload = {"@context": ctx, "@graph": doc["@graph"]}
