@@ -213,9 +213,19 @@ def _print_term(t: vocab.Term):
 def _previous_version(t: vocab.Term) -> str:
     """The last context version that carried the term.
 
-    ``dropped_in`` names the current version, which is the one that does *not*
-    have it; a reader wants to know where to look for it instead.
+    ``dropped_in`` names the CURRENT version -- the newest one, which is the one
+    that does not have it -- so it cannot answer this on its own. The vocabulary
+    already knows the real answer and now carries it as `last_seen_in`.
+
+    The old reconstruction stepped back exactly one version from `dropped_in`,
+    which is right only while the removal happened in the newest context. Add
+    any context after a removal and it names a version the term was never in:
+    `reviewDate` lived v0.4-v0.6 and began reporting "v0.4 to v0.7" as soon as
+    v0.8 shipped. The step-back survives only as a fallback for terms with no
+    context entry at all.
     """
+    if t.last_seen_in:
+        return t.last_seen_in
     _, versions = vocab._context_terms(paths.find_repo_root())
     if not versions:
         return "an earlier version"

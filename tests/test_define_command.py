@@ -141,3 +141,41 @@ def test_list_scope_follows_the_pack_set(capsys):
     assert len(narrow) < len(wide)
     assert not any(t["namespace"] == "aims" for t in narrow)
     assert any(t["namespace"] == "aims" for t in wide)
+
+
+def test_the_last_live_version_is_the_last_context_that_had_the_term(capsys):
+    """Computed from the contexts, so it cannot pass by coincidence.
+
+    `test_dropped_term_resolves_and_says_it_is_not_current` pins "v0.4" and
+    "v0.6" as literals, and for a while it passed for the wrong reason: the
+    range end was reconstructed as "one version before the newest context",
+    which happened to equal the right answer only while `reviewDate` had been
+    dropped in exactly the newest context. Adding v0.8 broke the coincidence and
+    the command began reporting v0.7 -- a version that never carried the term.
+
+    This asserts the relationship instead of the strings: whatever the newest
+    context is, the range must end at the last context that actually defines
+    the term.
+    """
+    import json as _json
+    import re as _re
+
+    ctx_dir = paths.find_repo_root() / "spec" / "context"
+    versions = sorted(
+        (p for p in ctx_dir.glob("v*.jsonld")),
+        key=lambda p: [int(d) for d in _re.findall(r"\d+", p.name)])
+    carrying = [p.stem for p in versions
+                if "reviewDate" in _json.loads(p.read_text(encoding="utf-8"))["@context"]]
+    assert carrying, "reviewDate is in no context; this test needs a new subject"
+    assert "reviewDate" not in _json.loads(
+        versions[-1].read_text(encoding="utf-8"))["@context"], (
+        "reviewDate is back in the newest context, so it is no longer a dropped term")
+
+    rc = define.run(_Args(term="reviewDate", all_packs=True))
+    out = capsys.readouterr().out
+    assert rc == 0
+    assert f"to {carrying[-1]}" in out, (
+        f"reported range does not end at {carrying[-1]}, the last context "
+        f"carrying the term:\n{out}")
+    assert f"to {versions[-1].stem}" not in out, (
+        "the range names the newest context, which does not carry the term")
