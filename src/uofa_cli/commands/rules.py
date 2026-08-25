@@ -18,7 +18,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from uofa_cli.output import step_header, error, info, color, severity_badge
-from uofa_cli import paths
+from uofa_cli import integrity, paths
 
 HELP = "detect quality gaps with Jena rule engine (C3)"
 
@@ -484,7 +484,18 @@ def run_structured(args) -> RulesResult:
         rules_list = paths.all_rules_files(args.file, active=paths.resolve_active_packs(args))
         rules = _combine_rules_files(rules_list)
 
-    ctx = args.context or paths.context_file()
+    # **The document's own context, not the toolchain's.** This read
+    # `paths.context_file()`, pinned at v0.5, so a v0.8 package was expanded
+    # against a vocabulary two versions behind and the engine simply did not see
+    # the terms it was asked to validate. An explicit `--context` is still a
+    # deliberate override and still wins.
+    if args.context:
+        ctx, ctx_note = args.context, ""
+    else:
+        ctx, ctx_note = integrity.context_for_file(args.file)
+    if ctx_note:
+        from uofa_cli.output import info
+        info(f"  {ctx_note}")
 
     cmd = [java, "-jar", str(jar), str(args.file), "--rules", str(rules), "--context", str(ctx)]
     fmt = args.format or "summary"

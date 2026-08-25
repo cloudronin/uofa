@@ -19,7 +19,7 @@ from uofa_cli.output import (
     muted, diamond, table_header, table_row, table_separator, table_footer,
 )
 from uofa_cli.explain import explain_divergence
-from uofa_cli import paths
+from uofa_cli import integrity, paths
 
 HELP = "compare weakener profiles between two UofA files (COU divergence)"
 
@@ -121,7 +121,10 @@ def _run_rules_engine(jsonld_path: Path, build: bool = False) -> list[dict]:
     jar = _ensure_jar(build)
 
     rules_path = paths.rules_file(jsonld_path)
-    ctx = paths.context_file()
+    ctx, ctx_note = integrity.context_for_file(jsonld_path)
+    if ctx_note:
+        from uofa_cli.output import info
+        info(f"  {ctx_note}")
 
     cmd = [
         "java", "-jar", str(jar), str(jsonld_path),

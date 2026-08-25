@@ -26,7 +26,7 @@ from pathlib import Path
 from rdflib import Graph
 from rdflib.compare import to_isomorphic, graph_diff
 
-from uofa_cli import paths
+from uofa_cli import integrity, paths
 from uofa_cli.mutation import operators as ops
 
 LIVE = "LIVE"
@@ -46,7 +46,13 @@ def expand(doc: dict) -> Graph:
         flat    properties at the top level, `@context` present
         @graph  properties inside `@graph`, `@context` absent
     """
-    ctx = json.loads(Path(paths.context_file()).read_text())["@context"]
+    # The document's own context. A @graph-form package declares none and takes
+    # the named fallback rather than a silent v0.5 default.
+    ctx_path, ctx_note = integrity.context_for_document(doc)
+    if ctx_note:
+        from uofa_cli.output import info
+        info(f"  {ctx_note}")
+    ctx = json.loads(Path(ctx_path).read_text(encoding="utf-8"))["@context"]
     if "@graph" in doc:
         payload = {"@context": ctx, "@graph": doc["@graph"]}
     else:
