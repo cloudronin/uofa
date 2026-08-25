@@ -44,7 +44,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import urlsplit
 
-from uofa_cli.excel_constants import SHEET_NAMES
+from uofa_cli.excel_constants import (
+    LEVEL_PROVENANCE_HEADER, SHEET_NAMES, WORKBOOK_PROFILE_HEADER,
+)
 
 ANCHOR_HEADER = "Source Anchor"
 
@@ -192,50 +194,176 @@ def check_workbook(path: Path, template_path: Path | None = None) -> list[CheckR
     return results
 
 
-def _check_levels(wb) -> CheckResult:
-    """Required equal to achieved on every factor means the column was never reviewed.
+#: Provenance values that record the required-level SUFFICIENCY judgment having
+#: happened: the level was weighed against the achieved one and agreed with, or
+#: changed.
+#:
+#: **`confirmed` is deliberately absent.** It records that a cell was checked
+#: against the source -- the LOCATION question -- and the encoding tool produces
+#: it as a side effect of anchoring. A first draft of this check counted it, and
+#: reconstructing run 25's package proved the consequence: seventeen levels
+#: anchored, none weighed, tokens all `confirmed`, and the check PASSED the
+#: exact package it was built to refuse. Strictly worse than the shape
+#: heuristic it replaced.
+#:
+#: Two questions, two acts: anchoring answers *was it located*, affirming
+#: answers *was it judged*.
+_JUDGED = {"affirmed", "corrected"}
 
-    The extract prompt sets required equal to achieved by default, so a workbook where
-    that holds everywhere has not had its predeclaration located (F-3b). A recorded
-    waiver in any acceptance-criteria or rationale cell releases the check.
+
+def _declared_profile(wb) -> str:
+    """What the workbook says its own encoding shape is, or "" if it says nothing.
+
+    Read from a DECLARATION rather than inferred from which columns happen to be
+    present. The difference is not cosmetic: an encoder that writes v0.8 and
+    omits the provenance column is broken, and shape-inference reads that
+    identical to a legacy workbook and excuses it. A declaration lets the check
+    tell those apart -- which is the whole reason the marker exists.
+    """
+    sheet = SHEET_NAMES.get("summary", "Assessment Summary")
+    if sheet not in wb.sheetnames:
+        return ""
+    ws = wb[sheet]
+    head = _sheet_header_row(ws, "Project Name")
+    if head is None:
+        return ""
+    for col in range(1, ws.max_column + 1):
+        if str(ws.cell(row=head, column=col).value or "").strip() == WORKBOOK_PROFILE_HEADER:
+            return str(ws.cell(row=head + 1, column=col).value or "").strip()
+    return ""
+
+
+def _version_tuple(declared: str) -> tuple[int, ...]:
+    """`"v0.8"` -> `(0, 8)`. Unparseable declarations sort below everything.
+
+    A workbook claiming `"latest"` or `"2026-08"` has not declared a version
+    this checker understands, and treating an unreadable claim as a high one
+    would let a typo buy the evidence path.
+    """
+    digits = re.findall(r"\d+", declared or "")
+    return tuple(int(d) for d in digits) if digits else ()
+
+
+#: The first shape that can state whether a required level was judged.
+_EVIDENCE_PROFILE = (0, 8)
+
+
+def _levels_column(ws, head: int) -> int | None:
+    for col in range(1, ws.max_column + 1):
+        if str(ws.cell(row=head, column=col).value or "").strip() == LEVEL_PROVENANCE_HEADER:
+            return col
+    return None
+
+
+def _check_levels(wb) -> CheckResult:
+    """Was the required-level column REVIEWED? Read the evidence, not the shape.
+
+    This asked whether required differs from achieved anywhere, on the reasoning
+    that the extract prompt sets them equal by default, so all-equal means
+    nobody looked. The reasoning is sound and the test is a proxy: **agreement
+    writes nothing**, so a reviewer who read all seventeen levels and agreed
+    with every one produces a workbook byte-identical to one nobody opened.
+
+    Shape-inference therefore punishes honest agreement and misses nothing else.
+    Run 25 is the case that made it worth fixing rather than tolerating: the
+    reviewer really had left the defaults untouched, so the refusal was correct
+    -- and the same reading would have refused a diligent reviewer with the same
+    values.
+
+    So a package that can SAY whether the judgment happened is asked; one that
+    cannot is warned, not refused. A third party scripting against exit codes
+    keeps its contract on the legacy path.
     """
     sheet = SHEET_NAMES["factors"]
     if sheet not in wb.sheetnames:
-        return CheckResult("required differs from achieved somewhere", True,
+        return CheckResult("required levels were reviewed", True,
                            "no factors sheet", skipped=True)
     ws = wb[sheet]
     head = _sheet_header_row(ws, "Factor Type")
     if head is None:
-        return CheckResult("required differs from achieved somewhere", True,
+        return CheckResult("required levels were reviewed", True,
                            "no factor header", skipped=True)
-    pairs = 0
-    differing = 0
-    waived = False
+
+    prov_col = _levels_column(ws, head)
+    pairs, differing, waived = 0, 0, False
+    unjudged: list[str] = []
+
     for row in range(head + 2, ws.max_row + 1):
-        if not ws.cell(row=row, column=1).value:
+        factor = ws.cell(row=row, column=1).value
+        if not factor:
             continue
         req, ach = ws.cell(row=row, column=3).value, ws.cell(row=row, column=4).value
         for col in (5, 6):
             text = ws.cell(row=row, column=col).value
             if isinstance(text, str) and "waiv" in text.lower():
                 waived = True
+        if prov_col is not None and req is not None:
+            token = str(ws.cell(row=row, column=prov_col).value or "").strip().lower()
+            if token not in _JUDGED:
+                unjudged.append(str(factor))
         if req is None or ach is None:
             continue
         pairs += 1
         if req != ach:
             differing += 1
+
+    # ── which path, decided by what the workbook DECLARES ──────────────────
+    #
+    # Not by whether the column is present. An encoder that declares v0.8 and
+    # ships no provenance column is broken, and shape-inference cannot tell that
+    # from a legacy workbook -- it excuses both. The declaration separates "this
+    # sheet cannot speak about judgment" from "it can and did not".
+    declared = _declared_profile(wb)
+    if _version_tuple(declared) >= _EVIDENCE_PROFILE and prov_col is None:
+        return CheckResult(
+            "required levels were reviewed", False,
+            f"this workbook declares encoding profile {declared}, which carries "
+            f"a '{LEVEL_PROVENANCE_HEADER}' column, and it has none. The "
+            f"declaration and the sheet disagree; re-export from the encoding "
+            f"tool rather than trusting either.")
+
+    # ── the evidence path: the package can state whether judgment occurred ──
+    if _version_tuple(declared) >= _EVIDENCE_PROFILE:
+        if unjudged and not waived:
+            shown = "; ".join(unjudged[:4])
+            more = f" (+{len(unjudged) - 4} more)" if len(unjudged) > 4 else ""
+            return CheckResult(
+                "required levels were reviewed", False,
+                f"{len(unjudged)} of {pairs} required level(s) have not been "
+                f"affirmed or corrected -- nobody has weighed them against the "
+                f"achieved level: {shown}{more}. Affirm each in the encoding "
+                f"tool, correct it, or record a waiver.")
+        return CheckResult(
+            "required levels were reviewed", True,
+            f"every required level carries a review act"
+            + (f" ({differing} of {pairs} differ)" if differing else
+               f" (all {pairs} agree, and the package says so)")
+            + (", waiver recorded" if waived else ""))
+
+    # ── the legacy path: advisory, never a hard refusal on its own ─────────
+    #
+    # A workbook carrying the column but declaring nothing lands here, and the
+    # column is deliberately NOT read: an undeclared sheet cannot vouch for what
+    # its own column means, and reading it anyway is the field-sniffing the
+    # declaration exists to replace. What it must never be is silent, so the
+    # advisory says the column was seen and why it went unused.
+    seen_but_undeclared = (
+        f" A '{LEVEL_PROVENANCE_HEADER}' column is present but this workbook "
+        f"declares no encoding profile, so nothing vouches for what it records; "
+        f"re-export from the encoding tool to have it read."
+        if prov_col is not None else "")
     if pairs == 0:
-        return CheckResult("required differs from achieved somewhere", True,
+        return CheckResult("required levels were reviewed", True,
                            "no factor carries both levels", skipped=True)
     if differing or waived:
-        return CheckResult("required differs from achieved somewhere", True,
+        return CheckResult("required levels were reviewed", True,
                            f"{differing} of {pairs} differ"
                            + (", waiver recorded" if waived else ""))
     return CheckResult(
-        "required differs from achieved somewhere", False,
-        f"required equals achieved on all {pairs} factor(s); the extract prompt's "
-        "default produces exactly this, so treat the column as unreviewed",
-    )
+        "required levels were reviewed", True,
+        f"required equals achieved on all {pairs} factor(s), and this package's "
+        f"profile cannot state whether the column was reviewed{seen_but_undeclared} -- treat as "
+        f"unreviewed pending confirmation", skipped=True)
 
 
 def _reserved_reason(uri: str | None) -> str | None:
@@ -303,6 +431,76 @@ def _check_namespace(package_path: Path, run_log_text: str | None) -> CheckResul
     return CheckResult(name, True, ", ".join(f"{label} {value}" for label, value in candidates))
 
 
+#: Judgment tokens, at the package layer. Same set as the workbook's, stated
+#: against the exported vocabulary rather than the tool's internal terms.
+_PACKAGE_JUDGED = {"affirmed", "corrected", "waived"}
+
+
+def _context_version(doc: dict) -> tuple[int, ...]:
+    """The version the PACKAGE declares, from its own `@context`.
+
+    Keyed on the context URL rather than `conformsToProfile`: that term carries
+    the profile (Minimal/Complete/Disposition) and encodes no context version at
+    all, so it cannot answer "can this package state whether a level was
+    judged?". The context is the term that actually moves when the vocabulary
+    does.
+
+    An inlined context (a resolved or signed document) declares no version here;
+    it returns () and takes the advisory path rather than being guessed at.
+    """
+    ref = doc.get("@context")
+    if not isinstance(ref, str):
+        return ()
+    return _version_tuple(ref.rsplit("/", 1)[-1])
+
+
+def _check_package_levels(package_path: Path) -> CheckResult:
+    """Did anyone weigh the required levels? Asked only of packages that can answer.
+
+    The fork is the point. A package whose context predates the vocabulary has
+    no way to record the judgment, so refusing it would punish age rather than
+    negligence -- and third parties script against these exit codes. A package
+    whose context DOES carry the term is asked, and silence there is a real
+    answer: nobody went back to the extractor's guesses.
+    """
+    name = "required levels were judged"
+    try:
+        doc = json.loads(package_path.read_text(encoding="utf8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        return CheckResult(name, False, f"could not read the package: {exc}")
+
+    version = _context_version(doc)
+    factors = [f for f in doc.get("hasCredibilityFactor", []) if isinstance(f, dict)]
+    rated = [f for f in factors if f.get("requiredLevel") is not None]
+
+    if version < _EVIDENCE_PROFILE:
+        declared = str(doc.get("@context") or "none").rsplit("/", 1)[-1]
+        return CheckResult(
+            name, True,
+            f"this package declares context {declared}, whose vocabulary cannot "
+            f"state whether a required level was judged -- treat as unreviewed "
+            f"pending confirmation", skipped=True)
+
+    if not rated:
+        return CheckResult(name, True, "no factor carries a required level",
+                           skipped=True)
+
+    unjudged = [str(f.get("factorType") or "?") for f in rated
+                if str(f.get("requiredLevelProvenance") or "").strip().lower()
+                not in _PACKAGE_JUDGED]
+    if unjudged:
+        shown = "; ".join(unjudged[:4])
+        more = f" (+{len(unjudged) - 4} more)" if len(unjudged) > 4 else ""
+        return CheckResult(
+            name, False,
+            f"{len(unjudged)} of {len(rated)} required level(s) carry no "
+            f"judgment: {shown}{more}. Anchoring locates a level; it does not "
+            f"weigh it. Affirm or correct each in the encoding tool, or record "
+            f"a waiver.")
+    return CheckResult(name, True,
+                       f"all {len(rated)} required level(s) carry a judgment")
+
+
 def check_package(package_path: Path) -> list[CheckResult]:
     """Package-side checks, run against the artifacts committed beside the package."""
     results: list[CheckResult] = []
@@ -359,6 +557,7 @@ def check_package(package_path: Path) -> list[CheckResult]:
             "; ".join(offending[:2])[:120] if offending else "pilot run log records no signing",
         ))
     results.append(_check_namespace(package_path, text))
+    results.append(_check_package_levels(package_path))
     return results
 
 

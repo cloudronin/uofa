@@ -48,6 +48,68 @@ def _local_context_for_url(url: str) -> Path | None:
     return candidate if candidate.exists() else None
 
 
+def context_for_document(doc: dict, jsonld_path: Path = None) -> tuple[Path, str]:
+    """The context a document should be VALIDATED against: its own.
+
+    The same rule `resolve_context` already applies when hashing -- the
+    document's own `@context` wins -- extended to the validation path, which had
+    been passing a toolchain default instead. That default sat at v0.5 while the
+    emitter wrote v0.8, so the rules engine expanded packages against a
+    vocabulary two versions behind and simply did not see the terms it was being
+    asked to check.
+
+    It also keeps legacy packages whole. v0.5 -> v0.7 REMOVED fourteen terms, so
+    validating a v0.5 document against the newest context silently drops
+    fourteen predicates and reports the gaps as violations. A document validated
+    against its own context keeps everything it was written with, which is the
+    whole reason the rule is right rather than merely tidier.
+
+    Returns `(path, note)`. `note` is empty when the document declared a context
+    this checkout resolved, and otherwise names the fallback in words a caller
+    is expected to print. **Never silent**: a validation run that quietly
+    substitutes a vocabulary is how this class of bug survives.
+    """
+    from uofa_cli import paths
+
+    ref = doc.get("@context") if isinstance(doc, dict) else None
+    if isinstance(ref, str):
+        if jsonld_path is not None:
+            relative = Path(jsonld_path).parent / ref
+            try:
+                if relative.exists():
+                    return relative, ""
+            except OSError:
+                pass
+        mapped = _local_context_for_url(ref)
+        if mapped is not None:
+            return mapped, ""
+        fallback = paths.latest_context_file()
+        return fallback, (
+            f"context {ref!r} is not resolvable in this checkout; validating "
+            f"against {fallback.name}")
+
+    fallback = paths.latest_context_file()
+    if isinstance(ref, dict):
+        return fallback, (
+            f"this document inlines its context, so it declares no version; "
+            f"validating against {fallback.name}")
+    return fallback, (
+        f"no context declared; validating against {fallback.name}")
+
+
+def context_for_file(jsonld_path: Path) -> tuple[Path, str]:
+    """`context_for_document` for callers holding a path rather than a document."""
+    from uofa_cli import paths
+
+    try:
+        doc = json.loads(Path(jsonld_path).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        fallback = paths.latest_context_file()
+        return fallback, (f"could not read {Path(jsonld_path).name} to find its "
+                          f"context; validating against {fallback.name}")
+    return context_for_document(doc, Path(jsonld_path))
+
+
 def resolve_context(doc: dict, jsonld_path: Path, context_path: Path = None) -> dict:
     """Resolve external @context reference to inline object.
 

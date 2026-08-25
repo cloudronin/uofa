@@ -91,11 +91,22 @@ class Term:
     id_typed: bool          # context declares "@type": "@id"
     since: str | None       # first context version carrying it
     dropped_in: str | None  # newest context version, when this term is absent from it
+
     packs: tuple[str, ...]  # packs whose shapes put this term on an sh:path
     messages: tuple[str, ...]
     defined_in: str | None  # repo-relative shapes file carrying the definition
     schema_description: str | None   # description from the generated JSON Schema
     constraints: tuple[dict, ...]    # sh:datatype / minCount / maxCount / pattern / message
+    #: The last context version that actually CARRIED the term.
+    #:
+    #: Not derivable from `dropped_in`, which names the newest context rather
+    #: than the version the term vanished in. Callers were reconstructing it as
+    #: "the version before `dropped_in`", which is only correct while the
+    #: removal happens in the newest context. Adding any context after a removal
+    #: makes that reconstruction claim the term was live in a version that never
+    #: had it -- `reviewDate` (v0.4-v0.6) began reporting "v0.4 to v0.7" the
+    #: moment v0.8 was added.
+    last_seen_in: str | None = None
 
     @property
     def external(self) -> bool:
@@ -421,6 +432,7 @@ def _build(root: Path, files: tuple[Path, ...]) -> dict[str, Term]:
             dropped_in=(
                 current if entry and current and entry.get("latest") != current else None
             ),
+            last_seen_in=entry.get("latest") if entry else None,
             packs=tuple(sorted(pack_of_path.get(iri, ()))),
             messages=tuple(messages.get(iri, ())),
             defined_in=declared_in.get(iri),

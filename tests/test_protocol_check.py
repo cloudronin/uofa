@@ -128,28 +128,119 @@ def _set_levels(path: Path, pairs: list[tuple[int, int]], criteria: str | None =
     book.save(path)
 
 
-def test_required_equal_to_achieved_everywhere_fails(tmp_path):
-    """The seventeen-of-seventeen synthesized column the pilot shipped (F-3b)."""
+def test_a_legacy_package_all_equal_warns_rather_than_refusing(tmp_path):
+    """The contract change, stated as a test.
+
+    This asserted a hard failure, on the reasoning that the extract prompt sets
+    required equal to achieved by default, so all-equal means nobody looked.
+    The reasoning is sound and the test was a proxy: **agreement writes
+    nothing**, so a reviewer who read every level and agreed with all of them
+    produces a byte-identical workbook. Shape-inference punishes honest
+    agreement and misses nothing else.
+
+    A package that cannot SAY whether the judgment happened is now warned rather
+    than refused, so third parties scripting against exit codes keep their
+    contract on the legacy path. A package that can say is asked -- see below.
+    """
     wb = _blank_template(tmp_path)
     _add_anchor_column(wb)
     _set_levels(wb, [(3, 3), (4, 4), (2, 2)])
-    result = _verdict(check_workbook(wb, TEMPLATE), "required differs")
+    result = _verdict(check_workbook(wb, TEMPLATE), "required levels")
+    assert result.passed, "a legacy package was hard-refused on shape alone"
+    assert result.skipped, "the warning is not carried as advisory"
+    assert "cannot state whether the column was reviewed" in result.detail
+
+
+def _declare_profile(wb, version="v0.8"):
+    """Write the encoding-profile declaration a modern encoder ships.
+
+    Separate from `_mark_levels` because the two are separable in reality, and
+    the interesting failures are exactly the cases where they disagree.
+    """
+    import openpyxl
+    from uofa_cli.excel_constants import WORKBOOK_PROFILE_HEADER
+    from uofa_cli.protocol_check import _sheet_header_row
+    book = openpyxl.load_workbook(wb)
+    ws = book["Assessment Summary"]
+    head = _sheet_header_row(ws, "Project Name")
+    col = ws.max_column + 1
+    ws.cell(row=head, column=col).value = WORKBOOK_PROFILE_HEADER
+    ws.cell(row=head + 1, column=col).value = version
+    book.save(wb)
+
+
+def _mark_levels(wb, tokens, declare="v0.8"):
+    """Write the review-provenance column a modern encoder ships."""
+    import openpyxl
+    from uofa_cli.protocol_check import LEVEL_PROVENANCE_HEADER
+    if declare:
+        _declare_profile(wb, declare)
+    book = openpyxl.load_workbook(wb)
+    ws = book["Credibility Factors"]
+    head = 3
+    col = ws.max_column + 1
+    ws.cell(row=head, column=col).value = LEVEL_PROVENANCE_HEADER
+    for i, token in enumerate(tokens):
+        ws.cell(row=head + 2 + i, column=col).value = token
+    book.save(wb)
+
+
+def test_all_equal_passes_when_every_level_carries_a_review_act(tmp_path):
+    """Honest agreement stops being punishable.
+
+    A reviewer who reads seventeen required levels and agrees with all of them
+    produces the same VALUES as one who never opened the sheet. The old check
+    refused both. This one asks the package whether the judgment happened.
+    """
+    wb = _blank_template(tmp_path)
+    _add_anchor_column(wb)
+    _set_levels(wb, [(3, 3), (4, 4), (2, 2)])
+    _mark_levels(wb, ["affirmed", "corrected", "affirmed"])
+    result = _verdict(check_workbook(wb, TEMPLATE), "required levels")
+    assert result.passed, result.detail
+    assert "the package says so" in result.detail
+
+
+def test_one_defaulted_level_refuses_and_names_the_cell(tmp_path):
+    """The direction that catches run 25: defaults nobody went back to.
+
+    The refusal must name WHICH cells and what discharges them -- a check that
+    says only "unreviewed" sends the reader to re-read seventeen rows.
+    """
+    wb = _blank_template(tmp_path)
+    _add_anchor_column(wb)
+    _set_levels(wb, [(3, 3), (4, 4), (2, 2)])
+    _mark_levels(wb, ["affirmed", "defaulted", "affirmed"])
+    result = _verdict(check_workbook(wb, TEMPLATE), "required levels")
     assert not result.passed
-    assert "unreviewed" in result.detail
+    assert "1 of 3" in result.detail
+    assert "weighed them against the achieved" in result.detail
+    assert "Affirm each in the encoding tool" in result.detail
+
+
+def test_a_waiver_still_releases_the_evidence_path(tmp_path):
+    """A-7's recorded waiver is a judgment too, and outranks the defaults."""
+    wb = _blank_template(tmp_path)
+    _add_anchor_column(wb)
+    _set_levels(wb, [(3, 3), (4, 4)],
+                criteria="Validation waived by Technical Authority")
+    _mark_levels(wb, ["defaulted", "defaulted"])
+    assert _verdict(check_workbook(wb, TEMPLATE), "required levels").passed
 
 
 def test_one_differing_factor_passes(tmp_path):
     wb = _blank_template(tmp_path)
     _add_anchor_column(wb)
     _set_levels(wb, [(3, 3), (2, 4), (4, 4)])
-    assert _verdict(check_workbook(wb, TEMPLATE), "required differs").passed
+    assert _verdict(check_workbook(wb, TEMPLATE), "required levels").passed
 
 
 def test_recorded_waiver_releases_the_level_check(tmp_path):
     wb = _blank_template(tmp_path)
     _add_anchor_column(wb)
-    _set_levels(wb, [(3, 3), (4, 4)], criteria="Validation waived by Technical Authority")
-    assert _verdict(check_workbook(wb, TEMPLATE), "required differs").passed
+    _set_levels(wb, [(3, 3), (4, 4)],
+                criteria="Validation waived by Technical Authority")
+    assert _verdict(check_workbook(wb, TEMPLATE), "required levels").passed
 
 
 @pytest.mark.skipif(not REVIEWED.exists(), reason="pilot workbook not present")
@@ -326,3 +417,140 @@ def test_extract_flag_is_accepted_and_documented():
     assert proc.returncode == 0
     assert "--protocol-check" in proc.stdout
     assert "Informational" in proc.stdout or "informational" in proc.stdout
+
+
+def test_the_run_25_reconstruction_is_refused(tmp_path):
+    """The permanent regression fixture: the specimen that caught a bad fix.
+
+    Run 25 anchored all seventeen required levels and weighed none. Anchoring
+    routes `set-anchor -> confirm`, so every cell exported as `confirmed` -- and
+    the first draft of the evidence check counted `confirmed` as judgment and
+    PASSED this package. That would have been strictly worse than the shape
+    heuristic it replaced: the heuristic refused it correctly.
+
+    Every future change to this check must survive this fixture.
+    """
+    wb = _blank_template(tmp_path)
+    _add_anchor_column(wb)
+    _set_levels(wb, [(3, 3), (4, 4), (2, 2)])
+    _mark_levels(wb, ["confirmed", "confirmed", "confirmed"])
+    result = _verdict(check_workbook(wb, TEMPLATE), "required levels")
+    assert not result.passed, (
+        "anchored-but-never-weighed levels passed -- `confirmed` is being read "
+        "as evidence of a judgment that anchoring produces as a side effect")
+    assert "3 of 3" in result.detail
+
+
+def test_a_workbook_declaring_v0_8_with_no_provenance_column_is_refused(tmp_path):
+    """The case shape-inference could not see, and the reason for the marker.
+
+    An encoder that declares the profile and omits its column is broken. Read as
+    a shape, that workbook is indistinguishable from a legacy one and gets the
+    legacy excuse -- a defect certified by the check meant to catch it. Read as
+    a declaration, the sheet contradicts itself and says so.
+    """
+    wb = _blank_template(tmp_path)
+    _add_anchor_column(wb)
+    _set_levels(wb, [(3, 3), (4, 4), (2, 2)])
+    _declare_profile(wb, "v0.8")
+    result = _verdict(check_workbook(wb, TEMPLATE), "required levels")
+    assert not result.passed
+    assert "declares encoding profile v0.8" in result.detail
+    assert "has none" in result.detail
+
+
+def test_an_undeclared_workbook_carrying_the_column_says_so_out_loud(tmp_path):
+    """Never silent. The column is not read -- an undeclared sheet cannot vouch
+    for what it records, and reading it anyway is the sniffing the declaration
+    replaces -- but the advisory names it, so the discharge is obvious."""
+    wb = _blank_template(tmp_path)
+    _add_anchor_column(wb)
+    _set_levels(wb, [(3, 3), (4, 4), (2, 2)])
+    _mark_levels(wb, ["affirmed", "affirmed", "affirmed"], declare=None)
+    result = _verdict(check_workbook(wb, TEMPLATE), "required levels")
+    assert result.passed and result.skipped
+    assert "declares no encoding profile" in result.detail
+    assert "re-export" in result.detail
+
+
+def test_an_unparseable_declaration_does_not_buy_the_evidence_path(tmp_path):
+    """A typo must not be read as a version claim this checker understands."""
+    wb = _blank_template(tmp_path)
+    _add_anchor_column(wb)
+    _set_levels(wb, [(3, 3), (4, 4), (2, 2)])
+    _mark_levels(wb, ["extracted", "extracted", "extracted"], declare="latest")
+    result = _verdict(check_workbook(wb, TEMPLATE), "required levels")
+    assert result.passed, "an unreadable declaration was treated as v0.8+"
+
+
+def _package(tmp_path, context, factors, name="uofa.jsonld"):
+    import json as _json
+    p = tmp_path / name
+    p.write_text(_json.dumps({
+        "@context": context, "id": "urn:uofa:t", "type": "UnitOfAssurance",
+        "hasCredibilityFactor": factors}), encoding="utf8")
+    return p
+
+
+_V08 = "https://raw.githubusercontent.com/cloudronin/uofa/main/spec/context/v0.8.jsonld"
+_V05 = "https://raw.githubusercontent.com/cloudronin/uofa/main/spec/context/v0.5.jsonld"
+
+
+def test_a_v0_8_package_of_unjudged_levels_is_refused_and_names_them(tmp_path):
+    """The run-25 shape at the package layer: every level located, none weighed."""
+    from uofa_cli.protocol_check import _check_package_levels
+    p = _package(tmp_path, _V08, [
+        {"factorType": "Software quality assurance", "requiredLevel": 3,
+         "requiredLevelProvenance": "extracted"},
+        {"factorType": "Discretization error", "requiredLevel": 2,
+         "requiredLevelProvenance": "defaulted"},
+    ])
+    r = _check_package_levels(p)
+    assert not r.passed
+    assert "Software quality assurance" in r.detail
+    assert "2 of 2" in r.detail
+
+
+def test_a_v0_8_package_that_was_judged_passes(tmp_path):
+    from uofa_cli.protocol_check import _check_package_levels
+    p = _package(tmp_path, _V08, [
+        {"factorType": "A", "requiredLevel": 3, "requiredLevelProvenance": "affirmed"},
+        {"factorType": "B", "requiredLevel": 3, "requiredLevelProvenance": "corrected"},
+        {"factorType": "C", "requiredLevel": 3, "requiredLevelProvenance": "waived"},
+    ])
+    r = _check_package_levels(p)
+    assert r.passed and not r.skipped, r.detail
+
+
+def test_a_legacy_package_is_advised_not_refused(tmp_path):
+    """Third parties script against these exit codes; age is not negligence."""
+    from uofa_cli.protocol_check import _check_package_levels
+    p = _package(tmp_path, _V05, [
+        {"factorType": "A", "requiredLevel": 3},
+        {"factorType": "B", "requiredLevel": 3},
+    ])
+    r = _check_package_levels(p)
+    assert r.passed and r.skipped
+    assert "v0.5.jsonld" in r.detail
+    assert "cannot state whether" in r.detail
+
+
+def test_an_inlined_context_is_advised_rather_than_guessed_at(tmp_path):
+    """A resolved or signed document carries its context as an object, so it
+    declares no version -- and inferring one from the terms inside would be the
+    sniffing this fork exists to replace."""
+    from uofa_cli.protocol_check import _check_package_levels
+    p = _package(tmp_path, {"uofa": "https://example.org/"},
+                 [{"factorType": "A", "requiredLevel": 3,
+                   "requiredLevelProvenance": "extracted"}])
+    r = _check_package_levels(p)
+    assert r.passed and r.skipped
+
+
+def test_confirmed_does_not_satisfy_the_package_check(tmp_path):
+    """The token that fooled the first fix, refused at this layer too."""
+    from uofa_cli.protocol_check import _check_package_levels
+    p = _package(tmp_path, _V08, [
+        {"factorType": "A", "requiredLevel": 3, "requiredLevelProvenance": "confirmed"},
+    ])
+    assert not _check_package_levels(p).passed

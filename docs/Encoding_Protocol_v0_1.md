@@ -122,12 +122,38 @@ text left in a data row.
 ### A-7. Confirm required and achieved levels separately
 
 These are two different claims and they live in two different places in a source document.
-Confirm each against its own location. **Required equal to achieved on every factor is treated
-as unreviewed** until you have found where the source states its requirement, because
-extraction tooling commonly defaults one to the other.
+Confirm each against its own location.
 
-**Check:** `--protocol-check` fails when required equals achieved on every factor and no waiver
-is recorded.
+**Two questions, two acts.** They were one token until run 25, and the conflation cost a
+release:
+
+- **Was the required level LOCATED?** Anchoring answers it. Its residue is the anchor.
+- **Was the required level JUDGED?** Only a sufficiency judgment answers it — weighing the
+  required level against the achieved one. Its residue is an *affirmation*: the provenance
+  token `affirmed` or `corrected`, and an activity naming who judged and when.
+
+Anchoring a required cell routes `set-anchor → confirm`, so a reviewer who located every level
+and weighed none produced a workbook reading `confirmed` throughout. Anchoring's residue was
+being offered as evidence of judgment, and a check built to read it passed a package nobody had
+judged.
+
+**Why this needed an act at all.** Agreement writes nothing. A reviewer who reads seventeen
+required levels and agrees with every one produces a file byte-identical to one nobody opened.
+The old rule inferred from shape — *required equals achieved everywhere, so nobody looked* —
+which refuses the diligent reviewer and misses nothing else. Run 25 is the case that made it
+worth fixing rather than tolerating: the defaults really were untouched, so the refusal was
+correct, and the identical reading would have refused a reviewer who had done the work.
+
+**A judgment claim carries its agent.** A token saying someone weighed this level, with nothing
+saying who or when, is an assertion nobody stands behind — and it satisfies any check that
+merely asks whether an activity exists. So `affirmed`, `corrected` and `waived` each require an
+attributed affirmation, in the workbook (`Affirmed By`, `Affirmed At`) and in the package
+(`hasLevelAffirmation`) alike. The requirement does not vary by carrier.
+
+**Check:** `--protocol-check` asks a package that can answer whether each required level was
+judged, and refuses it when any carries no judgment and no waiver is recorded. A package whose
+declared context predates the vocabulary cannot answer, and is advised rather than refused.
+Equal values are no longer evidence either way.
 
 ### A-8. Anchor non-textual values by their recovery method
 

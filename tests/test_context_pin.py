@@ -36,8 +36,22 @@ from uofa_cli.excel_mapper import CONTEXT_URL
 # against the old bytes will stop verifying, including the 32 shipped examples.
 # Add a NEW version file (v0.8.jsonld), point CONTEXT_URL at it, and pin that
 # instead -- old packages keep resolving to the old file and keep verifying.
-PINNED_CONTEXT_NAME = "v0.5.jsonld"
-PINNED_CONTEXT_SHA256 = "e62e1e236088502e6f7179b1e0e60bc35164ba5bffc6927658b1352bb61b1872"
+#: Every context version this repo has signed against, and the bytes it signed
+#: against. **Append-only.** Removing an entry unguards the packages signed
+#: under it -- that file can then be edited with nothing noticing, which is the
+#: single failure this module exists to prevent.
+#:
+#: v0.5 -> v0.8 was taken 2026-08-24 by the route the note above prescribes: a
+#: NEW file was added and CONTEXT_URL repointed, v0.5.jsonld untouched. Old
+#: packages keep naming v0.5, keep resolving to it, and keep verifying.
+PINNED_CONTEXT_SHA256S = {
+    "v0.5.jsonld": "e62e1e236088502e6f7179b1e0e60bc35164ba5bffc6927658b1352bb61b1872",
+    "v0.8.jsonld": "59029321aeb887e5ce527e6f3e97414e08c0f38bd68d02ada8a059ac5e7c5c12",
+}
+
+#: What NEW packages are signed against. Every entry above is still guarded.
+PINNED_CONTEXT_NAME = "v0.8.jsonld"
+PINNED_CONTEXT_SHA256 = PINNED_CONTEXT_SHA256S[PINNED_CONTEXT_NAME]
 
 _UNPIN_HINT = (
     "\n\nEditing this file invalidates EVERY signature issued against it -- "
@@ -54,16 +68,22 @@ def _context_path(name: str) -> Path:
 
 
 def test_signing_context_digest_is_pinned():
-    """The bytes that 98% of every signature commits to have not moved."""
-    path = _context_path(PINNED_CONTEXT_NAME)
-    assert path.exists(), f"pinned context is missing: {path}"
+    """The bytes that 98% of every signature commits to have not moved.
 
-    actual = hashlib.sha256(path.read_bytes()).hexdigest()
-    assert actual == PINNED_CONTEXT_SHA256, (
-        f"spec/context/{PINNED_CONTEXT_NAME} changed.\n"
-        f"  pinned:   {PINNED_CONTEXT_SHA256}\n"
-        f"  actual:   {actual}" + _UNPIN_HINT
-    )
+    Every pinned version, not only the current one. A new version is a loud,
+    deliberate act; an edit to a superseded one is silent and strands packages
+    already shipped, which is the direction that actually costs.
+    """
+    for name, pinned in sorted(PINNED_CONTEXT_SHA256S.items()):
+        path = _context_path(name)
+        assert path.exists(), f"pinned context is missing: {path}"
+
+        actual = hashlib.sha256(path.read_bytes()).hexdigest()
+        assert actual == pinned, (
+            f"spec/context/{name} changed.\n"
+            f"  pinned:   {pinned}\n"
+            f"  actual:   {actual}" + _UNPIN_HINT
+        )
 
 
 def test_context_url_points_at_the_pinned_version():
@@ -132,7 +152,11 @@ def test_every_signed_package_resolves_to_a_pinned_context():
             # Two shipped nasa-7009b packages name no context and are signed in
             # exactly that state; resolve_context leaves them alone.
             continue
-        if not ref.endswith(f"/{PINNED_CONTEXT_NAME}"):
+        # Any PINNED version, not just the current one: a package signed under
+        # v0.5 stays guarded by v0.5's digest. Requiring the newest here would
+        # demand re-signing the world on every context bump, which is the
+        # opposite of what pinning is for.
+        if not any(ref.endswith(f"/{n}") for n in PINNED_CONTEXT_SHA256S):
             unpinned.append(f"{p.relative_to(paths.find_repo_root())} -> {ref}")
 
     assert not unpinned, (

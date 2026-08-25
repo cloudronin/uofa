@@ -6,6 +6,7 @@ import functools
 import json
 import os
 import shutil
+import re
 from pathlib import Path
 
 _MARKER = Path("spec") / "schemas" / "uofa_shacl.ttl"
@@ -459,8 +460,41 @@ def all_shacl_schemas(root: Path = None, active: list[str] = None) -> list[Path]
 
 
 def context_file(root: Path = None) -> Path:
+    """The context used when a document names none that can be resolved.
+
+    **Deliberately still v0.5.** `integrity.resolve_context` uses this as its
+    last resort before hashing, so moving it re-hashes every document that
+    reaches that branch. Signing is not the place to chase the newest file.
+
+    Validation is a different question and must not share this answer: see
+    `latest_context_file`.
+    """
     root = root or find_repo_root()
     return root / "spec" / "context" / "v0.5.jsonld"
+
+
+def _context_version(name: str) -> tuple[int, ...]:
+    digits = re.findall(r"\d+", name)
+    return tuple(int(d) for d in digits) if digits else ()
+
+
+def latest_context_file(root: Path = None) -> Path:
+    """The newest context this checkout ships, found by looking.
+
+    **Computed, not written down.** Three constants in this codebase have now
+    been caught naming a version the repo had moved past -- `CONTEXT_URL` at
+    v0.5 while v0.7 shipped, the workbook with no declaration at all, and this
+    validation default. Patching a hardcoded v0.5 to a hardcoded v0.8 re-arms
+    the identical failure for v0.9, so the fallback reads the directory.
+
+    Falls back to `context_file()` when nothing matches, so a checkout without
+    the directory behaves as it did before rather than raising.
+    """
+    root = root or find_repo_root()
+    d = root / "spec" / "context"
+    versions = sorted((p for p in d.glob("v*.jsonld") if _context_version(p.name)),
+                      key=lambda p: _context_version(p.name))
+    return versions[-1] if versions else context_file(root)
 
 
 _BUNDLED_JAR_NAME = "uofa-weakener-engine-0.1.0.jar"

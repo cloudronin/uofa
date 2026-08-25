@@ -8,6 +8,8 @@ output (identity / profile / summary / explanations) is preserved.
 
 from __future__ import annotations
 
+import sys
+
 import json
 import re
 import subprocess
@@ -19,7 +21,7 @@ from uofa_cli.output import (
     muted, diamond, table_header, table_row, table_separator, table_footer,
 )
 from uofa_cli.explain import explain_divergence
-from uofa_cli import paths
+from uofa_cli import integrity, paths
 
 HELP = "compare weakener profiles between two UofA files (COU divergence)"
 
@@ -121,7 +123,14 @@ def _run_rules_engine(jsonld_path: Path, build: bool = False) -> list[dict]:
     jar = _ensure_jar(build)
 
     rules_path = paths.rules_file(jsonld_path)
-    ctx = paths.context_file()
+    ctx, ctx_note = integrity.context_for_file(jsonld_path)
+    if ctx_note:
+        # **stderr, not stdout.** The note must be impossible to miss and must
+        # not become data: `check-counts.mjs` parses this command's stdout as
+        # JSON, and a diagnostic line printed there turned a valid run into
+        # "stdout was not JSON". Never-silent is a property of the message
+        # reaching a reader, not of which stream carries it.
+        print(f"  {ctx_note}", file=sys.stderr)
 
     cmd = [
         "java", "-jar", str(jar), str(jsonld_path),

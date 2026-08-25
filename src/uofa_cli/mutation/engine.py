@@ -17,6 +17,8 @@ rather than by assertion, so three things are load-bearing:
 
 from __future__ import annotations
 
+import sys
+
 import hashlib
 import json
 from copy import deepcopy
@@ -26,7 +28,7 @@ from pathlib import Path
 from rdflib import Graph
 from rdflib.compare import to_isomorphic, graph_diff
 
-from uofa_cli import paths
+from uofa_cli import integrity, paths
 from uofa_cli.mutation import operators as ops
 
 LIVE = "LIVE"
@@ -46,7 +48,17 @@ def expand(doc: dict) -> Graph:
         flat    properties at the top level, `@context` present
         @graph  properties inside `@graph`, `@context` absent
     """
-    ctx = json.loads(Path(paths.context_file()).read_text())["@context"]
+    # The document's own context. A @graph-form package declares none and takes
+    # the named fallback rather than a silent v0.5 default.
+    ctx_path, ctx_note = integrity.context_for_document(doc)
+    if ctx_note:
+        # **stderr, not stdout.** The note must be impossible to miss and must
+        # not become data: `check-counts.mjs` parses this command's stdout as
+        # JSON, and a diagnostic line printed there turned a valid run into
+        # "stdout was not JSON". Never-silent is a property of the message
+        # reaching a reader, not of which stream carries it.
+        print(f"  {ctx_note}", file=sys.stderr)
+    ctx = json.loads(Path(ctx_path).read_text(encoding="utf-8"))["@context"]
     if "@graph" in doc:
         payload = {"@context": ctx, "@graph": doc["@graph"]}
     else:

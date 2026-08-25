@@ -17,6 +17,7 @@ from uofa_cli.excel_constants import (
     FACTOR_STANDARD_AI_800_3,
     PROFILE_URIS, CONTEXT_URL, DEFAULT_BASE_URI, RESERVED_BASE_URIS,
     CRITERIA_BASE, KNOWN_CRITERIA_SETS,
+    LEVEL_TOKENS, JUDGMENT_TOKENS,
 )
 from uofa_cli import __version__
 from uofa_cli.integrity import CANONICALIZATION_ALG
@@ -324,7 +325,7 @@ def map_to_jsonld(
     # can detect unassessed gaps at elevated risk (W-EP-04).
     if factors:
         doc["hasCredibilityFactor"] = [
-            _map_factor(f, packs) for f in factors
+            _map_factor(f, packs, base) for f in factors
         ]
 
     # ── Decision Record ──────────────────────────────────────
@@ -465,7 +466,7 @@ def _map_validation_result(base: str, vr: dict) -> dict:
     return result
 
 
-def _map_factor(factor: dict, packs: list[str]) -> dict:
+def _map_factor(factor: dict, packs: list[str], base: str = "") -> dict:
     """Map a credibility factor intermediate dict to JSON-LD."""
     vv40_set = set(VV40_FACTOR_NAMES)
     nasa_only_set = set(NASA_ONLY_FACTOR_NAMES)
@@ -514,6 +515,60 @@ def _map_factor(factor: dict, packs: list[str]) -> dict:
 
     if factor.get("required_level") is not None:
         f["requiredLevel"] = factor["required_level"]
+        # v0.8. Three claims per required level, three pieces of evidence: where
+        # the source states it (the anchor), what it is (the value), and whether
+        # anyone judged it sufficient (this token, and its activity).
+        #
+        # `confirmed` never appears here. That is the encoding tool's LOCATION
+        # act -- anchoring produces it -- and exporting it as a judgment claim
+        # is the exact ambiguity v0.8 exists to kill.
+        # **The closed set is closed.** This read `LEVEL_TOKENS.get(token,
+        # token)`, which passes an unrecognised term through verbatim -- so a
+        # workbook whose column said `confirmed` emitted `confirmed` as a
+        # provenance value, which is the precise ambiguity v0.8 exists to kill,
+        # reintroduced by a two-character default. A naive encoder mapping the
+        # tool's internal state writes exactly that token.
+        #
+        # An out-of-vocabulary term is not a v0.8 provenance value, so none is
+        # written. The cell then carries no judgment claim -- which is true --
+        # and the levels check refuses it by name rather than the package
+        # asserting something it cannot support.
+        token = factor.get("required_level_provenance")
+        if token in LEVEL_TOKENS:
+            f["requiredLevelProvenance"] = LEVEL_TOKENS[token]
+        if f.get("requiredLevelProvenance") in JUDGMENT_TOKENS:
+            # A judgment claim carries its agent. Machine states do not need
+            # one: their lineage is in the run log already.
+            #
+            # **Never a node that names nobody.** The first draft emitted the
+            # node unconditionally and filled it only if the source had an
+            # actor -- so a workbook with no attribution columns produced
+            # `{"type": "LevelAffirmation"}`, empty. That is this program's
+            # named defect exactly: a check asking "does the activity exist?"
+            # passes, while the testimony it stands for is absent. Worse than
+            # omitting it, because the hollow node manufactures the appearance
+            # of an attributed judgment out of nothing.
+            #
+            # Omitting it instead leaves a judgment token with no activity,
+            # which the v0.8 shape REFUSES -- the honest signal that this
+            # source cannot yet say who judged, rather than a silent pass.
+            #
+            # **`actor` is an IRI, `role` is the name** -- the shape
+            # `hasDecisionRecord` already uses for `decided_by`. `actor` is
+            # declared `"@type": "@id"` in the context, so putting a person's
+            # name in it does not store a name: JSON-LD resolves the string as a
+            # relative IRI against the document, and "V. Vettrivel" became
+            # `file:///.../V.%20Vettrivel` -- an identifier that means nothing,
+            # points nowhere, and differs by where the file happened to sit.
+            node = {"type": "LevelAffirmation"}
+            if factor.get("affirmed_by"):
+                who = factor["affirmed_by"]
+                node["actor"] = f"{base}/org/{slugify(who)}" if base else f"urn:uofa:agent:{slugify(who)}"
+                node["role"] = who
+            if factor.get("affirmed_at"):
+                node["affirmedAt"] = factor["affirmed_at"]
+            if len(node) > 1:
+                f["hasLevelAffirmation"] = node
     if factor.get("achieved_level") is not None:
         f["achievedLevel"] = factor["achieved_level"]
     if factor.get("acceptance_criteria"):

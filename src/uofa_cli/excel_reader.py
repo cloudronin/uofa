@@ -15,6 +15,8 @@ from uofa_cli.excel_constants import (
     VALID_PROFILES, VALID_DECISION_OUTCOMES, VALID_FACTOR_STATUSES,
     VALID_DEVICE_CLASSES, VALID_ASSURANCE_LEVELS,
     EVIDENCE_TYPES,
+    LEVEL_AFFIRMED_AT_HEADER, LEVEL_AFFIRMED_BY_HEADER,
+    LEVEL_PROVENANCE_HEADER,
     normalize_evidence_type,
 )
 
@@ -102,6 +104,17 @@ def _parse_date(val) -> str | None:
     except (ValueError, OverflowError):
         pass
     return s  # Return as-is if we can't parse
+
+
+def _text_at(ws, row: int, col: int | None) -> str | None:
+    """The cell's text, or None when the column does not exist at all.
+
+    None and "" are different answers here: no column means the sheet cannot
+    state who judged, an empty cell means it can and did not.
+    """
+    if col is None:
+        return None
+    return str(ws.cell(row=row, column=col).value or "").strip() or None
 
 
 def read_workbook(xlsx_path: Path, packs: list[str]) -> dict:
@@ -558,6 +571,21 @@ def _read_factors(ws, packs: list[str], errors: list) -> list[dict]:
     else:
         valid_names = set(VV40_FACTOR_NAMES)
 
+    # **By header, not by position.** The provenance column is appended after
+    # the anchor column, so its index depends on how many columns the pack's
+    # template carries. Every other column here is positional because the
+    # template fixes them; this one is not, and reading it at a guessed index
+    # would silently pick up whatever sits there.
+    def _column_named(header: str) -> int | None:
+        for col in range(1, ws.max_column + 1):
+            if str(ws.cell(row=FACTOR_START_ROW - 2, column=col).value or "").strip() == header:
+                return col
+        return None
+
+    prov_col = _column_named(LEVEL_PROVENANCE_HEADER)
+    by_col = _column_named(LEVEL_AFFIRMED_BY_HEADER)
+    at_col = _column_named(LEVEL_AFFIRMED_AT_HEADER)
+
     for row in range(FACTOR_START_ROW, ws.max_row + 1):
         factor_type = _cell_value(ws, row, 1)  # A
         if not factor_type:
@@ -619,6 +647,16 @@ def _read_factors(ws, packs: list[str], errors: list) -> list[dict]:
             "factor_type": factor_type,
             "category": category,
             "required_level": req_int,
+            # v0.8: whether the sufficiency judgment happened. `None` on a
+            # package whose encoder cannot state it -- absent, not "no".
+            "required_level_provenance": (
+                str(ws.cell(row=row, column=prov_col).value or "").strip().lower()
+                or None) if prov_col else None,
+            # Who weighed it and when. Absent is absent: a judgment token
+            # without these is refused by the v0.8 shape rather than quietly
+            # travelling as an affirmation naming nobody.
+            "affirmed_by": _text_at(ws, row, by_col),
+            "affirmed_at": _text_at(ws, row, at_col),
             "achieved_level": ach_int,
             "acceptance_criteria": acceptance,
             "rationale": rationale,

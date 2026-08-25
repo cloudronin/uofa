@@ -283,6 +283,42 @@ def check_workflow_paths() -> bool:
 # ── Check 5: test imports vs devcontainer install ─────────
 
 
+def _local_module_names(repo: Path) -> set[str]:
+    """Every top-level import name this repository can satisfy by itself.
+
+    Both files and PACKAGES. Built from stems alone, this set had nothing to
+    match a directory against, so four repo-local imports -- `harness`, `space`,
+    `tests`, `curated_cards` -- were reported as uninstalled pip dependencies on
+    every run, on main as much as on a branch.
+
+    Not a loophole: if the repository provides an importable module of that
+    name, the import resolves to it at run time whether or not a pip package
+    shares the name, so "local" is the correct answer. And a gate that fails
+    four times on every invocation is one people learn to read past, which is
+    how it stops catching the thing it is for.
+    """
+    tests_dir = repo / "tests"
+    names = {f.stem for f in tests_dir.rglob("*.py") if f.stem != "__init__"}
+
+    scripts_dir = repo / "dev" / "tools" / "scripts"
+    if scripts_dir.exists():
+        names |= {f.stem for f in scripts_dir.glob("*.py") if f.stem != "__init__"}
+
+    # Top-level packages (`harness/`, `space/`) and namespace packages under
+    # tests/ (`tests` itself, `tests/space/`).
+    for child in repo.iterdir():
+        if child.is_dir() and not child.name.startswith((".", "_")) \
+                and any(child.glob("*.py")):
+            names.add(child.name)
+    names |= {d.name for d in tests_dir.rglob("*")
+              if d.is_dir() and any(d.glob("*.py"))}
+
+    # Example modules tests put on sys.path (`curated_cards`).
+    for examples in (repo / "packs").glob("*/examples"):
+        names |= {f.stem for f in examples.glob("*.py") if f.stem != "__init__"}
+    return names
+
+
 def check_test_imports_vs_install() -> bool:
     step("Test imports vs devcontainer install (every test dep must be in extras)")
     dc_path = REPO / ".devcontainer/devcontainer.json"
@@ -332,18 +368,7 @@ def check_test_imports_vs_install() -> bool:
         if f.name.startswith("test_") or f.name == "conftest.py"
     )
 
-    # Build the set of local helper modules so cross-test imports
-    # (e.g. `import edge_case_builders` from a sibling) aren't flagged.
-    local_modules = {f.stem for f in tests_dir.rglob("*.py") if f.stem != "__init__"}
-    # Tests that exercise dev/tools/scripts/ directly sys.path-insert that
-    # directory and import the script as a top-level module (see e.g.
-    # tests/adversarial/judge/test_calibration_validator.py). Those scripts
-    # are project-local, not pip packages, so include their stems too.
-    scripts_dir = REPO / "dev" / "tools" / "scripts"
-    if scripts_dir.exists():
-        local_modules |= {
-            f.stem for f in scripts_dir.glob("*.py") if f.stem != "__init__"
-        }
+    local_modules = _local_module_names(REPO)
 
     # Top-level imports only — `ast.walk` would surface function-scoped
     # imports gated behind try/except (e.g. `from PIL import Image` inside

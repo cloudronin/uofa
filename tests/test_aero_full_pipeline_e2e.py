@@ -33,6 +33,7 @@ import sys
 from pathlib import Path
 
 import pytest
+from uofa_cli.excel_constants import CONTEXT_URL
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
@@ -150,8 +151,16 @@ class TestAeroFullPipelineE2EMock:
             # to chain from). Don't assert optional fields that depend on
             # what the mock populates — `rules` and `diff` tests below
             # exercise the rest of the structure.
-            assert "v0.5.jsonld" in str(doc.get("@context", "")), (
-                f"{label}.jsonld missing v0.5 context")
+            # **The constant, not a version string.** This pinned
+            # "v0.5.jsonld" literally, so it asserted what the emitter used to
+            # do rather than that the emitter declares what it emits -- and it
+            # went red on a deliberate, already-guarded context bump. The
+            # digests of every context ever signed against are pinned in
+            # tests/test_context_pin.py; that is where a version change is
+            # supposed to be caught, and it is caught there.
+            assert CONTEXT_URL in str(doc.get("@context", "")), (
+                f"{label}.jsonld does not declare the context the emitter uses "
+                f"({CONTEXT_URL})")
             assert "bindsRequirement" in doc, (
                 f"{label}.jsonld missing bindsRequirement")
 

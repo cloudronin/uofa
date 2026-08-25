@@ -277,7 +277,79 @@ FACTOR_STANDARD_NASA = "NASA-STD-7009B"
 FACTOR_STANDARD_MODEL_CREDIBILITY = "NIST-AI-RMF-1.0"
 FACTOR_STANDARD_AI_800_3 = "NIST-AI-800-3"
 
-CONTEXT_URL = "https://raw.githubusercontent.com/cloudronin/uofa/main/spec/context/v0.5.jsonld"
+#: The column an encoder writes to say whether a required level was JUDGED.
+#: **One definition, because it is a contract.** Credenza writes this header and
+#: the CLI reads it; the reader locates the column BY this string rather than by
+#: position, so a second copy drifting by one character would make the column
+#: silently unreadable while both sides still passed their own tests. Absent on
+#: older profiles, hand-built workbooks and third-party encoders -- which is why
+#: the shape test survives as an advisory rather than being deleted.
+LEVEL_PROVENANCE_HEADER = "Required Level Provenance"
+
+#: Who judged the required level, and when. Beside the provenance token because
+#: they are one claim: v0.8 requires a judgment token to carry its agent, and a
+#: token without these is an assertion nobody stands behind.
+#:
+#: **The workbook gets cells rather than the shape getting an exemption.** The
+#: alternative considered was letting workbook-path packages skip attribution,
+#: which would fork the contract by carrier -- a JSON-LD package answering "who
+#: judged this" while the same claim from a sheet shrugs. Judgment claims carry
+#: their agent wherever they travel.
+#:
+#: A hand-edited sheet can of course assert an affirmation nobody made. That is
+#: testimony, exactly like every other cell here, and the signing layer is what
+#: vouches for it -- no new trust problem, and not one these columns invent.
+LEVEL_AFFIRMED_BY_HEADER = "Affirmed By"
+LEVEL_AFFIRMED_AT_HEADER = "Affirmed At"
+
+#: **The workbook says what it is.** Until v0.8 the sheet carried no version
+#: declaration at all, so the only way to decide whether it could speak about
+#: required-level judgment was to look for the column -- inferring a contract
+#: from a shape, which is the same move as inferring judgment from equal values
+#: and wrong for the same reason.
+#:
+#: Written on `Assessment Summary` beside the other summary fields, found by
+#: header like every other appended column.
+WORKBOOK_PROFILE_HEADER = "Encoding Profile Version"
+
+#: The shape an encoder writing this version produces: the anchor column, the
+#: provenance token, and its two attribution cells. Bumped when the SHEET's
+#: contract changes, which is not the same event as the JSON-LD context
+#: changing -- they moved together at v0.8 and need not again.
+WORKBOOK_PROFILE_VERSION = "v0.8"
+
+#: v0.8's controlled vocabulary for `requiredLevelProvenance`. The encoding
+#: tool's internal terms map INTO this set; `confirmed` deliberately has no
+#: entry, because it is a location act and exporting it as a judgment claim is
+#: the ambiguity v0.8 exists to kill.
+LEVEL_TOKENS: dict[str, str] = {
+    "extracted": "extracted",
+    "defaulted": "defaulted",
+    "affirmed": "affirmed",
+    "corrected": "corrected",
+    "waived": "waived",
+    "source-absent": "source-absent",
+}
+
+#: Tokens that CLAIM a sufficiency judgment happened, and therefore must carry
+#: the agent who made it.
+JUDGMENT_TOKENS: frozenset = frozenset({"affirmed", "corrected", "waived"})
+
+#: **v0.5 -> v0.8, and the jump is explained rather than discovered.** This
+#: constant sat at v0.5 while the repository shipped v0.7, so every package the
+#: CLI emitted declared a context two versions behind what it was written
+#: against -- a declaration stating something the artifact did not do.
+#:
+#: The gap is NOT purely additive: v0.5 -> v0.7 removed fourteen terms
+#: (`addresses`, `attestedAt`, `reviewScope`, `deploymentContext` and others).
+#: The bump is safe for a specific, checked reason: **the emitter uses none of
+#: the fourteen**, and packages already in the world carry their own context URL
+#: which still resolves. A stale constant, not a deliberate pin.
+#:
+#: This moves WITH the v0.8 emission in one change. A package declaring v0.8
+#: while emitting v0.7 terms would be the same stale-constant defect reborn for
+#: the width of one commit.
+CONTEXT_URL = "https://raw.githubusercontent.com/cloudronin/uofa/main/spec/context/v0.8.jsonld"
 # Default namespace for identifiers minted by `uofa import`.
 #
 # example.org is reserved by RFC 2606 for exactly this purpose, so it is visibly
