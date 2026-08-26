@@ -104,18 +104,41 @@ def test_end_to_end_init_to_check(workspace):
     assert r.returncode == 0, r.stderr + r.stdout
     bundle = json.loads(pkg.read_text())
     assert bundle.get("signature", "").startswith("ed25519:")
-    assert "engineerDecision" not in bundle  # SIP authored no decision
+    assert "hasDecisionRecord" not in bundle  # SIP authored no decision
 
     # 3) decision review — read-only facts.
     r = _uofa("decision", "review", str(pkg))
     assert r.returncode == 0
 
-    # 4) decision sign — the engineer's own key.
-    r = _uofa("decision", "sign", str(pkg), "--key", str(ws / "eng.key"),
+    # 4a) decision record — authoring, no key. The judgment comes into existence
+    #     here, owned and dated, and NOT yet attested by anyone.
+    r = _uofa("decision", "record", str(pkg),
               "--criterion", "Cl within 3% over the envelope", "--value", "accepted",
+              "--actor", "https://uofa.net/org/demo-reviewer",
               "--rationale", "acceptable for this COU")
     assert r.returncode == 0, r.stderr + r.stdout
-    assert json.loads(pkg.read_text())["engineerDecision"]["decisionValue"] == "Accepted"
+    authored = json.loads(pkg.read_text())["hasDecisionRecord"]
+    assert authored["decisionValue"] == "Accepted"
+    assert authored["decisionProvenance"] == "asserted"
+    assert "decisionSignature" not in authored, "authoring must not attest"
+
+    # 4b) the intermediate state is VISIBLE, not broken. This asserted a REFUSAL
+    #     until the deadlock showed the refusal made the multi-party order
+    #     unreachable; the seal excludes the decision layer by construction, so
+    #     it may close, and what it owes is to SAY the package is incomplete.
+    #     Completeness itself is `uofa check`'s question.
+    r = _uofa("sign", str(pkg), "--key", str(ws / "sip.key"), "--as", "issuer")
+    assert r.returncode == 0, r.stderr + r.stdout
+    assert "unsigned asserted" in (r.stderr + r.stdout), \
+        "an incomplete package must be named as such, not sealed in silence"
+
+    # 4c) sign --as reviewer — the engineer's own key attests what already exists.
+    r = _uofa("sign", str(pkg), "--key", str(ws / "eng.key"), "--as", "reviewer")
+    assert r.returncode == 0, r.stderr + r.stdout
+    signed = json.loads(pkg.read_text())["hasDecisionRecord"]
+    assert signed["decisionValue"] == "Accepted"
+    assert signed["actor"] == "https://uofa.net/org/demo-reviewer", \
+        "the authored actor survives signing -- the signature attests, it does not re-author"
 
     # 5) verify — both signatures independently.
     r = _uofa("verify", str(pkg), "--pubkey", str(ws / "sip.pub"), "--decision-pubkey", str(ws / "eng.pub"))

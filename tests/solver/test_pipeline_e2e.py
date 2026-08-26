@@ -62,7 +62,7 @@ def test_evidence_folder_to_signed_package(workspace):
 
     verified = _uofa("verify", "pkg.jsonld", "--pubkey", "demo.pub",
                      cwd=workspace)
-    assert verified.returncode == 0, verified.stdout
+    assert verified.returncode == 0, verified.stdout + verified.stderr
 
 
 def test_tampering_with_a_sealed_digest_breaks_the_signature(workspace):

@@ -30,7 +30,7 @@ from tests.test_context_pin import PINNED_CONTEXT_NAME, PINNED_CONTEXT_SHA256
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 WHEEL_CONTEXT_PATH = f"uofa_cli/_data/repo/spec/context/{PINNED_CONTEXT_NAME}"
-WHEEL_DEMO_PUBKEY_PATH = "uofa_cli/_data/repo/keys/demo.pub"
+WHEEL_DEMO_PUBKEY_PATH = "uofa_cli/_data/repo/keys/uofa-issuer.pub"
 
 
 @pytest.fixture(scope="session")
@@ -72,7 +72,7 @@ def test_wheel_ships_the_demo_trust_anchor(built_wheel):
     with zipfile.ZipFile(built_wheel) as zf:
         assert WHEEL_DEMO_PUBKEY_PATH in zf.namelist()
         packed = zf.read(WHEEL_DEMO_PUBKEY_PATH)
-    assert packed == (REPO_ROOT / "keys" / "demo.pub").read_bytes()
+    assert packed == (REPO_ROOT / "keys" / "uofa-issuer.pub").read_bytes()
 
 
 def test_wheel_ships_no_private_key(built_wheel):

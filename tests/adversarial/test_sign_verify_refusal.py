@@ -117,5 +117,8 @@ def test_sign_still_works_on_non_synthetic(tmp_path, research_key):
     }
     path = tmp_path / "normal.jsonld"
     path.write_text(json.dumps(pkg, indent=2))
-    result = run_uofa("sign", str(path), "--key", str(research_key))
+    # The package references a decision layer by IRI, so the scope must be named:
+    # an unscoped signature would span a human judgment. `--as issuer` seals the
+    # measurement view, which is what this regression is actually about.
+    result = run_uofa("sign", str(path), "--key", str(research_key), "--as", "issuer")
     assert result.returncode == 0, result.stderr

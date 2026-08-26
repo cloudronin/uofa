@@ -19,7 +19,8 @@ export const ORIGIN = 'https://uofa.net/';
 // A new segment appearing here means a new namespace is going live, which
 // should be a deliberate decision, so the generator fails rather than guesses.
 export const ALLOWED_SEGMENTS = [
-  'morrison', 'nagaraja', 'iso42001', 'surrogate', 'instances', 'org', 'criteria',
+  'morrison', 'morrison-v09', 'nagaraja', 'iso42001', 'surrogate', 'instances',
+  'org', 'criteria',
 ];
 
 // Paths that must never be indexed. specs/ and dev/ reuse the same IRI space
@@ -28,7 +29,14 @@ const FORBIDDEN = ['/specs/', '/dev/', '/build/', '/.claude/', '/tests/', '/node
 
 // Shipped example files carrying uofa.net ids. The two starters/ files use
 // example.org and drop out on their own via the id-space check below.
-export const EXPECTED_PACKAGE_COUNT = 11;
+//
+// 11 -> 13: the `morrison-v09` siblings. They restate Morrison's content under
+// the v0.9 decision model, and they publish under their OWN segment because an
+// IRI names one thing: they were briefly copied with the originals' ids intact,
+// which would have put two different documents at `uofa.net/morrison/cou1` and
+// let a reader resolving the IRI the praxis record cites land on the sibling
+// instead. The originals are byte-frozen; the siblings carry the new model.
+export const EXPECTED_PACKAGE_COUNT = 13;
 
 function walkDir(dir, out = []) {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {

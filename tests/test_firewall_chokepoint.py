@@ -54,7 +54,7 @@ def test_measurement_scalar_denied():
 
 def test_measurement_nested_action_block_denied():
     # An action-region block smuggled inside a measurement output is denied.
-    block = {"measurementRef": "m-x", "engineerDecision": {"decisionValue": "Accepted"}}
+    block = {"measurementRef": "m-x", "hasDecisionRecord": {"decisionValue": "Accepted"}}
     d = check_crossing(block, placement=PLACEMENT_MEASUREMENT)
     assert not d.allowed and any("action-region" in r for r in d.reasons)
 

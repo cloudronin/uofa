@@ -73,7 +73,7 @@ Traced through `space/pipeline.py` (1,022 lines) and `space/app.py`.
 | C3 rules | `uofa_cli.commands.rules.run_structured` ([pipeline.py:293-319](space/pipeline.py)) | **invoked** |
 | Signing | `uofa_cli.package_policy.sign_package` ([pipeline.py:718-719](space/pipeline.py)) | **invoked** |
 | Re-verification | `uofa_cli.integrity.verify_file` — explicitly "the same call `uofa verify` makes" ([pipeline.py:663-680](space/pipeline.py)) | **invoked** |
-| Pack assembly | `build_downloadable_pack` → zip of `uofa.jsonld`, `report.md`, `MANIFEST.json`, `keys/demo.pub`, `VERIFY.txt` ([pipeline.py:584-642](space/pipeline.py)) | **invoked** |
+| Pack assembly | `build_downloadable_pack` → zip of `uofa.jsonld`, `report.md`, `MANIFEST.json`, `keys/demo-reviewer.pub`, `VERIFY.txt` ([pipeline.py:584-642](space/pipeline.py)) | **invoked** |
 | Reviewer / Author render | `space/reviewer.py` + `uofa_cli.report_state` | shared with CLI `uofa report` |
 | PDF | browser print | n/a |
 | **Download surfaced?** | `gr.DownloadButton`, shown only when the run actually produced a signed pack ([app.py:407-415, 681-686](space/app.py)) | **yes** |
@@ -120,7 +120,7 @@ directions, all passing:
 
 | Test | Asserts |
 |---|---|
-| `test_cli_verify_passes_on_a_web_produced_pack` | `uofa verify uofa.jsonld --pubkey keys/demo.pub` succeeds |
+| `test_cli_verify_passes_on_a_web_produced_pack` | `uofa verify uofa.jsonld --pubkey keys/demo-reviewer.pub` succeeds |
 | `test_cli_verify_fails_on_a_tampered_pack` | tamper is caught |
 | `test_cli_verify_fails_against_the_wrong_trust_anchor` | a demo pack does **not** verify as a research pack |
 | `test_cli_verify_without_pubkey_does_not_silently_trust_the_demo` | no implicit trust |

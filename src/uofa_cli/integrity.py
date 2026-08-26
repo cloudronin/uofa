@@ -356,3 +356,38 @@ def verify_file(input_path: Path, pubkey_path: Path,
     sig_ok = verify_signature(sha256_hex, sig_hex, pubkey_path) if sig_hex else False
 
     return hash_ok, sig_ok
+
+
+def verify_measurement_scope(path, doc, pubkey, ctx=None):
+    """Verify a package's measurement scope, whichever scope that is for it.
+
+    **One definition, because two would drift.** `verify` and `check` each had
+    their own C1 that recomputed over the whole document. That is right for a
+    decision-free package -- the whole document IS the measurement view -- and
+    wrong for a decision-carrying one, whose seal deliberately excludes the
+    decision layer so it can survive a later decision. The result was `check`
+    reporting "Hash match: NO" about packages that were perfectly intact and
+    correctly sealed.
+
+    Routing is on what the package CARRIES, never on what produced it: a
+    producer-shaped test (`is_sip_bundle`) answers a question about provenance
+    when the question asked is about scope.
+    """
+    from uofa_cli import sign_roles
+
+    if isinstance(doc, dict) and sign_roles.has_decision_layer(doc):
+        from uofa_cli.interrogate.signing import verify_measurement
+
+        hash_ok, sig_ok = verify_measurement(doc, pubkey)
+        if hash_ok and sig_ok:
+            return hash_ok, sig_ok
+        # **Legacy scope, and trying it is not a weakening.** Every package
+        # sealed before the two-scope model was signed over the WHOLE document,
+        # including its decision layer. Checking only the measurement view would
+        # report "hash does not match" about artifacts that are intact and
+        # correctly signed -- the same defect as the one this routing fixes, just
+        # pointed at older packages. The two schemes hash different bytes, so
+        # trying both opens no forgery path; it only answers honestly whether
+        # this package was sealed under EITHER scheme.
+        return verify_file(path, pubkey, ctx)
+    return verify_file(path, pubkey, ctx)

@@ -21,7 +21,7 @@ from uofa_cli.card_bundle import deterministic_import_dict
 _CARD = "# A model\n\nTrained on public data. Evaluated on a held-out split.\n"
 
 EXPECTED_MEMBERS = {
-    "uofa.jsonld", "report.md", "MANIFEST.json", "keys/demo.pub", "VERIFY.txt",
+    "uofa.jsonld", "report.md", "MANIFEST.json", "keys/uofa-issuer.pub", "VERIFY.txt",
 }
 
 
@@ -86,7 +86,7 @@ def test_manifest_names_the_verifiable_member(built_pack):
     with zipfile.ZipFile(zip_path) as zf:
         manifest = json.loads(zf.read("MANIFEST.json"))
     assert manifest["verifiableMember"] == "uofa.jsonld"
-    assert manifest["signedBy"] == "keys/demo.pub"
+    assert manifest["signedBy"] == "keys/uofa-issuer.pub"
 
 
 def test_packed_jsonld_verifies_against_the_packed_key(built_pack, tmp_path):
@@ -94,7 +94,7 @@ def test_packed_jsonld_verifies_against_the_packed_key(built_pack, tmp_path):
     ex = tmp_path / "ex"
     with zipfile.ZipFile(zip_path) as zf:
         zf.extractall(ex)
-    assert integrity.verify_file(ex / "uofa.jsonld", ex / "keys" / "demo.pub") == (True, True)
+    assert integrity.verify_file(ex / "uofa.jsonld", ex / "keys" / "uofa-issuer.pub") == (True, True)
 
 
 def test_verify_txt_states_what_a_signature_does_not_mean(built_pack):
@@ -103,7 +103,7 @@ def test_verify_txt_states_what_a_signature_does_not_mean(built_pack):
     _, zip_path = built_pack
     with zipfile.ZipFile(zip_path) as zf:
         text = zf.read("VERIFY.txt").decode("utf-8")
-    assert "uofa verify uofa.jsonld --pubkey keys/demo.pub" in text
+    assert "uofa verify uofa.jsonld --pubkey keys/uofa-issuer.pub" in text
     lowered = text.lower()
     assert "not mean" in lowered
     assert "demonstration" in lowered
@@ -121,7 +121,9 @@ def test_signed_readout_reports_the_real_hash_and_a_checked_signature(built_pack
         "the Space must re-verify what it hands out, not merely assert that it signed"
     )
     assert auth["package_hash"] == f"sha256:{payload['download']['hash']}"
-    assert "demo" in auth["signer"].lower()
+    # Against the constant, not a literal: the seal moved to the production
+    # issuer key and a hardcoded "demo" went stale with it.
+    assert auth["signer"] == pipeline.SIGNER_LABEL
 
 
 def test_signed_statement_never_reads_as_acceptance(built_pack):

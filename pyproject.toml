@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "uofa"
-version = "0.13.0"
+version = "0.14.0"
 description = "CLI for creating, validating, and signing Unit of Assurance evidence packages for computational modeling and simulation credibility"
 readme = "README.md"
 license = "Apache-2.0"
@@ -157,11 +157,18 @@ artifacts = [
 # no-ops for real users (AGENTS.md §12).
 "specs" = "uofa_cli/_data/repo/specs"
 "keys/research.pub" = "uofa_cli/_data/repo/keys/research.pub"
-# The demo issuer's public half. Ships so the hosted Space can re-check what it
-# just signed, and so the key travels inside every downloadable pack. The
-# private half never leaves the deployment secret (space/deploy_to_hf.py hard
-# refuses any *.key in its payload).
-"keys/demo.pub" = "uofa_cli/_data/repo/keys/demo.pub"
+# The two trust anchors, one per attestor kind. Both ship so a holder can
+# re-check what was signed without fetching anything, and so the anchors travel
+# inside every downloadable pack. Neither private half ever leaves its
+# deployment secret (space/deploy_to_hf.py hard refuses any *.key in its
+# payload).
+#
+# `demo.pub` was renamed to `demo-reviewer.pub` when its job changed from
+# sealing packages to signing decisions -- a file whose name says "issuer" while
+# its key signs judgments is the two-scopes-one-key confusion the format exists
+# to make unrepresentable.
+"keys/uofa-issuer.pub" = "uofa_cli/_data/repo/keys/uofa-issuer.pub"
+"keys/demo-reviewer.pub" = "uofa_cli/_data/repo/keys/demo-reviewer.pub"
 
 [tool.hatch.build.targets.sdist]
 # Keep platform-specific bundled artifacts out of the sdist; sdist consumers

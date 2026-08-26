@@ -4,6 +4,223 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+## [0.14.0] — 2026-08-25
+
+### Added
+
+- **`spec/context/v0.9.jsonld`** (160 terms) — the decision model. Built additively
+  from v0.8: nothing existing was changed or removed, so v0.8 pins stay valid and
+  every package signed against them still verifies.
+
+- **`uofa decision record`** — authoring a decision as its own act: criterion,
+  value, actor, timestamp, provenance `asserted`, no key and no signature. Records
+  are append-only at the CLI: a bundle already carrying one is refused unless
+  `--append` says the second entry is deliberate.
+
+- **`uofa verify` rebuilt as the read side of the two-scope model.** Per decision
+  record it reports the fork and whether the warrant that fork owes is present and
+  good; `--decision-pubkey` is repeatable, since stacked decisions carry signatures
+  from several parties. The distinctions are kept apart deliberately: *no key
+  provided* ≠ *none of the provided keys matched* ≠ *invalid*, and an asserted
+  record with no signature reports **incomplete, not invalid**. A closing line
+  states custody as fact — same key across scopes is a "single-party
+  configuration", different keys are "independent attestation" — derived from key
+  identity, never key count.
+
+- **The identity grammar** (`sign_roles.classify_identity`) — one definition read
+  by the actor-hygiene guard and the relation derivation alike, and transcribed
+  into the Attestation Model reference *from the guard's own fixture*, with a test
+  that fails if the two drift. Comparison is whole-string: two reviewers sharing a
+  handle under different authorities are different parties, and a normaliser that
+  fused them would produce no error at all — just a confident, wrong relation.
+
+### Changed — breaking
+
+- **No silent default trust anchor** (the second exit-code contract change of this
+  release). `--pubkey` had defaulted to `keys/research.pub`, so "verified" was a
+  claim whose subject the reader could not recover. There is no default now: with
+  `--pubkey` the caller named the key, and without one the shipped anchors are
+  tried and **the match is named in the output**. A fallback is always named,
+  never silent.
+
+
+- **`uofa decision sign` is removed. Authoring and attesting are two commands.**
+  The old command did both in one act: it took `--criterion`/`--value`, built the
+  decision record, and signed it. The replacement is the honest pair — the
+  migration is **two commands, not a renamed flag**:
+
+  ```
+  # before
+  uofa decision sign PKG --key K --criterion C --value accepted --rationale R
+
+  # after
+  uofa decision record PKG --criterion C --value accepted --rationale R \
+      --actor https://your.org/org/<handle>
+  uofa sign PKG --key K --as reviewer
+  ```
+
+  `decision record` takes no key and writes no signature; `sign --as reviewer`
+  signs records that already exist. Scripts that expected one invocation must add
+  the second, and must now supply `--actor`: who decided is a fact about the
+  judgment, and the old command could only infer it from whoever held the key.
+
+- **A decision record now carries `actor` and `decisionProvenance`; the SIP
+  bundle schema requires them and no longer requires a signature.** The signature
+  left the *shape* contract because authoring legitimately precedes attestation;
+  completeness moved to the package gate, which refuses to seal around an
+  asserted record nobody has signed (exit 2). `decisionProvenance` is the fork
+  naming which warrant is owed: `asserted` requires a decision signature,
+  `extracted` requires a sha-pinned anchor and the source never signs.
+
+- **`uofa sign` refuses a decision-carrying package without `--as`** (exit 2). An
+  unscoped signature would span a human judgment, which AGENTS.md §12 forbids:
+  attestation scope follows attestor kind. Roles are `issuer` and `reviewer`.
+
+- **The two-party signing order was unreachable.** `--as issuer` refused while an
+  asserted record was unsigned, and a decision role refused while no seal
+  existed — so the issuer could not seal until the reviewer signed, and the
+  reviewer could not sign until a seal existed. Both parties refused in both
+  orders, and since excel packages emit asserted records, this was the ordinary
+  flow. The refusal's rationale did not survive the architecture: the issuer
+  seal covers the measurement view and **excludes the decision layer by
+  construction**, so it never wraps the verdict and survives one arriving later.
+  `uofa sign --as issuer` now seals with a named warning (*"sealing with N
+  unsigned asserted decision record(s); decision signature owed"*), and
+  completeness moved to where it belongs — `uofa check` reports **C1b Decision
+  layer complete** and refuses the package until its decider signs. The
+  stale-bundle rule (a decision signature binds the measurement hash, so a seal
+  must exist first) is unchanged.
+
+- **Shapes now declare their jurisdiction.** A shape carries `uofa:introducedIn`
+  and never judges a document that declares an older context. Retroactive shapes
+  made every published conformance claim expire silently whenever the model grew,
+  and created pressure to edit shipped artifacts to satisfy rules that did not
+  exist when they were written. A document whose declared version cannot be
+  parsed gets **every** shape: ambiguity must not become an exemption. Applied on
+  all three validation paths, `--raw` included.
+
+- **A placeholder seal no longer reads as a seal.** `uofa import` writes
+  zero-filled `hash`/`signature`, and the seal checks tested presence — so an
+  all-zeros package passed as sealed. One shared definition now answers "has this
+  been sealed", read by both the signer and `decision record`.
+
+- **`uofa verify` now resolves decision anchors instead of asserting they resolve.**
+  It checked that a locator and a digest were both present and reported
+  `✓ anchor resolves` — which stayed green on a package whose pin had been
+  replaced with garbage, because nothing ever opened the file. Resolve now means
+  **open, hash, compare, report**, with three outcomes kept distinct: match →
+  resolved (naming the file opened); mismatch → **failed**, naming the record and
+  both hashes, and the package fails (a false transcription claim is exactly what
+  the anchor exists to catch); source unavailable → **unresolvable**, which is
+  neither green nor red — a stranger holding the package without its archive must
+  not be told either "verified" or "tampered".
+
+- **A synthetic adversarial sample is refused before any scope reasoning.** The
+  decision-layer guard ran first, so the synthetic refusal was unreachable for
+  any sample carrying a decision record — and the message told the operator to
+  add `--as`, which reads as "you are one flag away from signing this". They are
+  not: a synthetic sample is unsignable in every scope.
+
+- **The scope routing and the concept guard disagreed about what a decision layer
+  is.** `decision_records()` reads dicts; a package referencing its decision by
+  IRI has none, while the guard saw the property plainly. Such a package sealed
+  under the measurement-view scope and then verified under the whole-document
+  scope — sealed cleanly, failed its own verification. Both now read
+  `has_decision_layer()`.
+
+### The finding list
+
+Every defect this release closes belongs to one family: **a check correct on the
+ordinary case and silent, vacuous, or wrong on the important one.** They are
+listed together because the pattern is the point — each was found by reading a
+check against the case it was supposed to catch, not by a failing test.
+
+| where | what it did on the important case |
+|---|---|
+| `assert_issuable` | guarded the decision block by one spelling; the product emitted another, so the issuer key could sign over a human judgment |
+| `unsigned_asserted` | compared against `"asserted"`, so a record declaring **nothing** passed the gate a declared one failed — and the excel path emitted forkless records by default |
+| `assert_measurement_seal_present` | tested presence, so an all-zeros placeholder read as a seal |
+| `verify_decision` | read only the legacy signature field, so correctly-signed packages reported as unsigned |
+| `_resolve_anchor` | checked the pin was *present*, never opened the source — a check that could not fail, under the sentence Case 1 rests on |
+| `check` C1 / `verify` C1 | two implementations of one question, drifting apart |
+| `decision_records` vs the concept guard | disagreed on IRI-referenced decisions, so a package sealed under one scope and verified under the other |
+| the synthetic refusal | ordered after the decision guard, so it was unreachable for decision-carrying samples |
+| the context resolver | substituted a newer context for integrity, so intact packages read as tampered |
+| SHACL shapes | judged documents written before the shapes existed |
+| `test_decision_block_requires_signature` | deleted the signature and went red on a missing `actor` — a false pass proving something other than its name |
+| `test_the_factor_shape_is_unreachable…` | a failure message claiming more than its assertion measured, which put a false "uofa#109 closed" into a status report |
+| `check_workflow_paths` | audited `.github/workflows` paths and not `pyproject.toml`'s — the anchor rename broke every wheel build after the suite went green, because nothing local builds a wheel |
+| the `morrison-v09` siblings | copied wholesale, so they claimed the frozen originals' IRIs: two documents at one identifier, pointing the praxis record's own citation at the wrong bytes. Invisible to SHACL (validates each file alone) and to the byte-freeze (watches the originals) |
+| the `sh:or` profile dispatcher | its drill-in reports a branch's message, not necessarily the failing branch's — it named `CompleteBody` while the document was on `Minimal` |
+
+Three of those landed **in this release**, found by guards outside the test
+suite: hatchling's hard error on a missing include, and the site generator's
+refusal to publish a package count or a namespace it was not told to expect.
+Each demanded the change be *acknowledged* rather than absorbed. A 3365-test
+suite proves the code does what it says; it does not prove the corpus, the
+packaging manifest, or the IRI space still hold together, because no test owns
+those.
+
+**Also open, and now documented rather than accidental:** every profile —
+including `ProfileMinimal` — requires `hasDecisionRecord` with `minCount 1`.
+There is no profile under which a UofA package may lack a verdict. That is a
+coherent position, but it means the shipped templates can never validate as
+packages (they ship decision-free, since a template carrying a placeholder
+verdict is an ownerless judgment). Belongs with [#109](https://github.com/cloudronin/uofa/issues/109)
+in a profile-system session.
+
+**Still open:** [uofa#109](https://github.com/cloudronin/uofa/issues/109) — the
+CredibilityFactor shape remains unreachable for ProfileMinimal packages. It was
+briefly and wrongly reported closed; it is not, and it does not close with this
+release.
+
+### Changed — shipped artifacts
+
+- **Morrison's shipped examples are byte-frozen** and pinned by
+  `tests/test_frozen_artifacts.py`. The praxis record's counts and its
+  cross-version-verify claim are claims about *those bytes*. A new
+  **`packs/vv40/examples/morrison-v09/`** sibling carries the same content under
+  v0.9 — `decisionProvenance: "extracted"` plus an anchor whose sha256 is
+  computed from the shipped `decision_rationale_cou{1,2}.pdf` — and is sealed in
+  CI with throwaway fixture keys. No signature from Morrison's team exists or
+  ever will; the anchor is their attestation.
+- **Nagaraja ships no decision record.** No pinnable source states its decision,
+  and anchoring to a paper's title would claim a passage says something it does
+  not. A decision record is not owed by every package.
+- **Templates ship decision-free.** A template carrying a placeholder verdict is
+  an ownerless judgment by construction; the decision row is empty until a human
+  fills it. `uofa decision record` is how a project fills it.
+
+### Fixed
+- **The seal gate was defeated by omitting the decision fork.** `unsigned_asserted`
+  compared `decisionProvenance` against `"asserted"`, so a record that *declared*
+  its fork was refused and a record that declared **nothing** passed — and
+  `uofa import` emitted forkless records by default whenever the workbook had no
+  anchor column, so omission was the ordinary path, not an edge case. An issuer
+  seal would close over a human judgment nobody signed, which is precisely what
+  the guard exists to prevent. Two changes close it: an anchorless workbook
+  decision now emits `decisionProvenance: "asserted"` (a decision citing no source
+  is one a live person entered), and `uofa sign --as issuer` refuses any record
+  whose fork is absent or unrecognised, naming the form rather than exempting it.
+  **Consequence:** excel-authored packages carrying a decision now require a
+  decision signature before they can be sealed.
+
+
+- **`uofa verify` reported correctly-signed packages as unsigned.** It read the
+  legacy in-block `decisionSignature` string and did not understand the canonical
+  `hasDecisionSignature` node the signing surface emits, so a package signed by
+  `--as reviewer` verified as carrying no decision. It now reads both, checks the
+  signature's embedded measurement hash against the recomputed one (the binding
+  was otherwise decorative), and handles a repeatable `hasDecisionRecord` list
+  instead of reporting "no block present" over several signed judgments.
+
+- **The stale-bundle refusal (A-11) survived the command split.** `decision sign`
+  recomputed the measurement hash and refused a bundle whose content had drifted
+  from its seal; the unified surface at first checked only that a seal *existed*.
+  Both `decision record` and `sign --as reviewer` now recompute — authoring
+  refuses too, because a refusal that arrived only at signing time would leave
+  the drifted package already carrying the verdict.
+
 ## [0.13.0] — 2026-08-24
 
 ### Changed — CONTRACT: `--protocol-check` can now fail a package that passed under 0.12

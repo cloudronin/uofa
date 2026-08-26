@@ -53,17 +53,17 @@ class TestSchemaChecks:
         assert any("drift" in v.lower() for v in violations)
 
     def test_engineer_decision_under_denylist_is_caught(self):
-        # The engineerDecision block must stay EXEMPT (signature-governed).
+        # The hasDecisionRecord block must stay EXEMPT (signature-governed).
         schema = _real_schema()
-        schema["properties"]["engineerDecision"]["propertyNames"] = {"not": {"enum": ["accepted"]}}
+        schema["properties"]["hasDecisionRecord"]["propertyNames"] = {"not": {"enum": ["accepted"]}}
         violations = guard.schema_violations(schema)
-        assert any("engineerDecision must be EXEMPT" in v for v in violations)
+        assert any("hasDecisionRecord must be EXEMPT" in v for v in violations)
 
     def test_missing_engineer_decision_block_is_caught(self):
         schema = _real_schema()
-        del schema["properties"]["engineerDecision"]
+        del schema["properties"]["hasDecisionRecord"]
         violations = guard.schema_violations(schema)
-        assert any("engineerDecision" in v for v in violations)
+        assert any("hasDecisionRecord" in v for v in violations)
 
 
 class TestBundleChecks:

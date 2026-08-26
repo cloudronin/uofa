@@ -137,10 +137,19 @@ class TestSign:
 
 class TestVerify:
     def test_verify_morrison_passes(self):
+        """Morrison carries a decision layer, so verify reports it by SCOPE.
+
+        The labels moved from "Hash match" to "Measurement hash match" because
+        the package now has two scopes and saying which one was checked is the
+        point of the two-scope model. The anchor is named too: bare verify no
+        longer has a silent default, so the output states what it trusted.
+        """
         result = run_uofa("verify", str(MORRISON))
-        assert result.returncode == 0
-        assert "Hash match" in result.stdout
-        assert "Signature valid" in result.stdout
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert "Measurement hash match" in result.stdout
+        assert "Measurement signature valid" in result.stdout
+        assert "verified against:" in result.stdout, \
+            "a fallback anchor must always be named, never silent"
 
     def test_verify_unsigned_file_fails(self, tmp_path):
         # Create a file with placeholder hash/sig — verification should fail
@@ -199,14 +208,26 @@ class TestShacl:
         assert result.returncode == 0
         assert "Conforms" in result.stdout
 
-    def test_shacl_minimal_template_conforms(self):
-        """Templates with placeholder hashes should still pass SHACL (regex matches zeros)."""
-        result = run_uofa("shacl", str(MINIMAL_TEMPLATE))
-        assert result.returncode == 0
+    def test_templates_are_wellformed_but_not_complete_packages(self):
+        """A blank template is not a conformant package, and should not claim to be.
 
-    def test_shacl_complete_template_conforms(self):
-        result = run_uofa("shacl", str(COMPLETE_TEMPLATE))
-        assert result.returncode == 0
+        These asserted that the skeletons pass SHACL outright. They used to,
+        because they shipped a placeholder decision record -- a verdict with an
+        outcome and no owner, which is an ownerless judgment by construction.
+        The templates now ship decision-free (the decision row is empty until a
+        human fills it), so they no longer satisfy the Complete profile.
+
+        That is the honest state: the shape they fail is exactly the one the
+        user's own act will satisfy. What they must still do is parse, carry
+        their structure, and fail for THAT reason and no other.
+        """
+        for template in (MINIMAL_TEMPLATE, COMPLETE_TEMPLATE):
+            result = run_uofa("shacl", str(template))
+            out = result.stdout + result.stderr
+            assert "hasDecisionRecord" in out, (
+                f"{Path(template).name} should fail only on the decision a human "
+                f"has yet to make; got:\n{out}")
+            assert "Traceback" not in out, "a template must still parse"
 
     def test_shacl_invalid_file_fails(self, tmp_path):
         bad_file = tmp_path / "bad.jsonld"
@@ -460,13 +481,25 @@ class TestInit:
         with open(uofa_file, "w") as f:
             json.dump(doc, f, indent=2, ensure_ascii=False)
 
+        # A freshly initialised project has no decision yet -- that is what
+        # "freshly initialised" MEANS -- so the roundtrip records one first.
+        # This used to sign the scaffold straight through, because the template
+        # shipped a placeholder verdict; a scaffold that arrives pre-decided is
+        # a judgment nobody made.
+        result = run_uofa("decision", "record", str(uofa_file),
+                          "--criterion", "meets the project's acceptance criterion",
+                          "--value", "accepted",
+                          "--actor", "https://uofa.net/org/init-reviewer")
+        assert result.returncode == 0, result.stderr + result.stdout
+
         # Sign
-        result = run_uofa("sign", str(uofa_file), "--key", str(key_path))
-        assert result.returncode == 0
+        result = run_uofa("sign", str(uofa_file), "--key", str(key_path),
+                          "--as", "issuer,reviewer")
+        assert result.returncode == 0, result.stderr + result.stdout
 
         # SHACL validate
         result = run_uofa("shacl", str(uofa_file))
-        assert result.returncode == 0
+        assert result.returncode == 0, result.stdout + result.stderr
         assert "Conforms" in result.stdout
 
 
@@ -770,17 +803,33 @@ class TestEndToEnd:
         doc["@context"] = CONTEXT_FILE
         doc["name"] = "E2E Test — FEA bridge load rating"
         doc["hasContextOfUse"]["name"] = "COU1: Normal traffic loading"
-        doc["hasDecisionRecord"]["rationale"] = "Model validated against field measurements."
         with open(uofa_file, "w") as f:
             json.dump(doc, f, indent=2, ensure_ascii=False)
 
-        # 3. Sign
-        result = run_uofa("sign", str(uofa_file), "--key", str(key_path))
-        assert result.returncode == 0
+        # 2b. Record the decision. The template ships decision-free -- a blank
+        #     form carrying a verdict would be an ownerless judgment -- so the
+        #     workflow AUTHORS one, naming who decided. This step used to be an
+        #     in-place edit of a placeholder the template supplied; the reason it
+        #     is a command now is that a decision coming into existence is an act
+        #     with an owner, not a field with a default.
+        result = run_uofa("decision", "record", str(uofa_file),
+                          "--criterion", "Deflection within 5% of field measurements",
+                          "--value", "accepted",
+                          "--actor", "https://uofa.net/org/e2e-reviewer",
+                          "--rationale", "Model validated against field measurements.")
+        assert result.returncode == 0, result.stderr + result.stdout
 
-        # 4. Verify
-        result = run_uofa("verify", str(uofa_file), "--pubkey", str(pub_path))
-        assert result.returncode == 0
+        # 3. Sign. The package carries a decision now, so the scopes are named:
+        #    one party here, wearing both hats, in one atomic act.
+        result = run_uofa("sign", str(uofa_file), "--key", str(key_path),
+                          "--as", "issuer,reviewer")
+        assert result.returncode == 0, result.stderr + result.stdout
+
+        # 4. Verify both scopes, and the report should name the solo custody.
+        result = run_uofa("verify", str(uofa_file), "--pubkey", str(pub_path),
+                          "--decision-pubkey", str(pub_path))
+        assert result.returncode == 0, result.stderr + result.stdout
+        assert "single-party configuration" in result.stdout
 
         # 5. SHACL
         result = run_uofa("shacl", str(uofa_file))

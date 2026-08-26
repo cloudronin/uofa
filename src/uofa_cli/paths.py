@@ -653,21 +653,66 @@ def extract_prompt(pack_name: str = None, root: Path = None) -> Path:
         return pack_dir(pack_name, root=root) / "prompts"
 
 
-def default_pubkey(root: Path = None) -> Path:
+#: The anchors the wheel ships, in the order a keyless verify tries them, each
+#: with the label it is reported under. A fallback is always NAMED: "verified"
+#: with no statement of against-what is a claim whose subject the reader cannot
+#: recover, and `keys/research.pub` sat here as an unnamed default for 692
+#: commits precisely because nothing ever had to say its name out loud.
+#:
+#: The production issuer anchor is deliberately absent: trusting an issuer is an
+#: explicit act, so it requires `--pubkey`.
+SHIPPED_ANCHORS: tuple[tuple[str, str], ...] = (
+    ("keys/research.pub", "research anchor (rotated 2026-03-29; signs the shipped examples)"),
+    ("keys/demo-reviewer.pub", "demo reviewer anchor (labeled fixture)"),
+)
+
+
+def shipped_anchors(root: Path = None) -> list[tuple[Path, str]]:
+    """Existing wheel-shipped anchors as (path, label)."""
     root = root or find_repo_root()
-    return root / "keys" / "research.pub"
+    return [(root / rel, label) for rel, label in SHIPPED_ANCHORS
+            if (root / rel).exists()]
 
 
-def demo_pubkey(root: Path = None) -> Path:
-    """Trust anchor for packages issued by the hosted demo.
+def default_pubkey(root: Path = None) -> Path:
+    """RETIRED as a silent default. Kept only so a caller that still reaches for
+    one gets an error naming the replacement rather than a key nobody chose."""
+    raise RuntimeError(
+        "there is no default trust anchor. Name a key with `--pubkey`, or let "
+        "verify try the shipped anchors and report which one matched "
+        "(`uofa.paths.shipped_anchors`).")
 
-    Deliberately NOT the default: a demo package must never verify as a research
-    package with no flag. `uofa verify --pubkey keys/demo.pub` is the explicit
-    act of trusting the demo issuer, and every pack ships this file plus
-    instructions so the choice is visible.
+
+def issuer_pubkey(root: Path = None) -> Path:
+    """Trust anchor for the ISSUER seal: origin, integrity, well-formedness.
+
+    Held by the producing infrastructure. What it attests is everything a
+    machine can know about a package and nothing a person judged -- the
+    tamper-evident bag and the calibration sticker, never the finding.
+
+    Deliberately NOT the no-flag default, for the same reason the demo anchor
+    never was: trusting an issuer is an explicit act, and every pack ships this
+    file plus instructions so the choice is visible.
     """
     root = root or find_repo_root()
-    return root / "keys" / "demo.pub"
+    return root / "keys" / "uofa-issuer.pub"
+
+
+def reviewer_pubkey(root: Path = None) -> Path:
+    """Trust anchor for DECISION signatures made by the demo reviewer identity.
+
+    Renamed from `reviewer_pubkey`, and the rename is the point: this key used to
+    seal packages as the hosted demo's issuer, and it now signs judgments. A
+    file whose name says "issuer" while its key signs decisions is the
+    two-scopes-one-key confusion the format exists to make unrepresentable.
+
+    The identity it stands for is a labeled fixture. An instrument run's package
+    must tell any reader truthfully which KIND of signer signed; in production
+    the same route carries the customer engineer's own key, and only then is the
+    signature a commitment.
+    """
+    root = root or find_repo_root()
+    return root / "keys" / "demo-reviewer.pub"
 
 
 def templates_dir(root: Path = None) -> Path:

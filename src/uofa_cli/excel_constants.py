@@ -318,6 +318,24 @@ WORKBOOK_PROFILE_HEADER = "Encoding Profile Version"
 #: changing -- they moved together at v0.8 and need not again.
 WORKBOOK_PROFILE_VERSION = "v0.8"
 
+#: The Decision sheet's anchor columns. The anchor's FORM is what tells the two
+#: canonical cases apart, so it has to survive the workbook:
+#:
+#:   `ledger://<assessor>/<entry>`  an act of judgment -> decisionProvenance
+#:                                  `asserted`; the warrant is a signature.
+#:   a passage / `archive://...`    the source said it -> `extracted`; the
+#:                                  warrant is this anchor, sha-pinned.
+#:
+#: The sha is a separate column because none of the three URI forms carries it,
+#: and "the paper is their attestation" is an empty claim if a reader cannot
+#: tell transcription from invention.
+DECISION_ANCHOR_HEADER = "Source Anchor"
+DECISION_ANCHOR_SHA_HEADER = "Anchor SHA-256"
+
+#: A decision anchor addressing the ledger rather than a source passage.
+LEDGER_ANCHOR_SCHEME = "ledger://"
+
+
 #: v0.8's controlled vocabulary for `requiredLevelProvenance`. The encoding
 #: tool's internal terms map INTO this set; `confirmed` deliberately has no
 #: entry, because it is a location act and exporting it as a judgment claim is

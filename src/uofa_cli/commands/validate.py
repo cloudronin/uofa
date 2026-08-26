@@ -76,7 +76,10 @@ def run(args) -> int:
     # ── Optional integrity verification ───────────────────────
     if args.verify:
         step_header("Integrity verification: all examples")
-        pubkey = args.pubkey or paths.default_pubkey()
+        pubkey = args.pubkey
+        if pubkey is None:
+            _anchors = paths.shipped_anchors()
+            pubkey = _anchors[0][0] if _anchors else None
         if not pubkey.exists():
             result_line("Public key not found", False, str(pubkey))
             return 1

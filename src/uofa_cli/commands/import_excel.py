@@ -42,7 +42,7 @@ def add_arguments(parser):
     parser.add_argument("--sip-pubkey", type=Path,
                         help="SIP measurement public key for verifying a SIP-bundle input (default: keys/research.pub)")
     parser.add_argument("--decision-pubkey", type=Path,
-                        help="engineer public key for verifying a SIP-bundle engineerDecision on import")
+                        help="engineer public key for verifying a SIP-bundle hasDecisionRecord on import")
 
 
 def _print_provenance_counts(output: Path) -> None:
@@ -243,7 +243,10 @@ def _run_sip_import(args, bundle_path: Path, project_root, config) -> int:
     args.active_packs = packs
     step_header(f"Importing SIP bundle {bundle_path.name}")
 
-    measurement_pubkey = getattr(args, "sip_pubkey", None) or paths.default_pubkey()
+    measurement_pubkey = getattr(args, "sip_pubkey", None)
+    if measurement_pubkey is None:
+        _anchors = paths.shipped_anchors()
+        measurement_pubkey = _anchors[0][0] if _anchors else None
     decision_pubkey = getattr(args, "decision_pubkey", None)
     try:
         doc = read_sip_bundle(bundle_path, measurement_pubkey=measurement_pubkey,

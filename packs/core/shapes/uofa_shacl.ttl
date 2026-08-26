@@ -1078,6 +1078,7 @@ uofa:CredibilityFactorShape
 ################################################################
 uofa:RequiredLevelProvenanceShape
   a sh:NodeShape ;
+  uofa:introducedIn "v0.8" ;
   sh:targetClass uofa:CredibilityFactor ;
   # The vocabulary is closed. `confirmed` is deliberately not a member: it is
   # the encoding tool's LOCATION act, and exporting it as a judgment claim is
@@ -1097,6 +1098,7 @@ uofa:RequiredLevelProvenanceShape
 
 uofa:JudgedLevelCarriesItsAgentShape
   a sh:NodeShape ;
+  uofa:introducedIn "v0.8" ;
   sh:targetClass uofa:CredibilityFactor ;
   # **A judgment claim carries its agent.** A token saying someone weighed this
   # level, with nothing saying who or when, is an assertion nobody stands behind
@@ -1129,6 +1131,7 @@ uofa:JudgedLevelCarriesItsAgentShape
 ################################################################
 uofa:LevelAffirmationShape
   a sh:NodeShape ;
+  uofa:introducedIn "v0.8" ;
   sh:property [
     sh:path uofa:actor ;
     sh:minCount 1 ;
@@ -1353,6 +1356,162 @@ uofa:OffsetRationaleShape a sh:NodeShape ;
 # DecisionRecord-level: hasOffsetRationale references one or more
 # OffsetRationale nodes. Optional — only present when the Accepted
 # decision is made despite a documented factor-level shortfall.
+################################################################
+# Decision-model shapes (v0.9)
+#
+# Two canonical cases are the reference. Morrison: the source already decided,
+# so the record is `extracted` and its warrant is the ANCHOR -- the sha-pinned
+# passage stating the acceptance. No signature from Morrison exists or is
+# expected; the paper is their attestation. Johnson: no acceptance exists in the
+# source, so the reviewer renders one -- `asserted`, and its warrant is a
+# DECISION SIGNATURE.
+#
+# **Signatures attach to acts, not actors.** An absent author is cited via an
+# anchor, never impersonated.
+#
+# Targeted on the class, not reached through a profile: `CredibilityFactorShape`
+# is referenced only from the ProfileComplete body, so anything hung off it is
+# ornamental for the ProfileMinimal packages this product emits (uofa#109).
+################################################################
+# ── Shape jurisdiction ───────────────────────────────────────────────────────
+#
+# `uofa:introducedIn` names the context version a shape came into force with. A
+# shape never judges a document that predates it: a package declaring v0.5 was
+# authored under v0.5's rules and conformed to them, and a later shape firing on
+# it reports a violation of a rule that did not exist when it was written.
+#
+# This is not leniency. The alternative -- retroactive shapes -- makes every
+# published conformance claim expire silently whenever the model grows, and it
+# creates pressure to EDIT shipped artifacts to satisfy rules they never agreed
+# to, which destroys the byte-level claims the praxis record depends on. The
+# correction path for an old artifact is a sibling under the new context, never
+# an edit (see packs/vv40/examples/morrison-v09/).
+#
+# A shape with no `introducedIn` applies to everything, and a document whose
+# declared context version cannot be parsed gets ALL shapes: ambiguity must not
+# become an exemption, which is how omission turns into an escape hatch.
+
+uofa:DecisionRecordShape
+  a sh:NodeShape ;
+  uofa:introducedIn "v0.9" ;
+  sh:targetClass uofa:DecisionRecord ;
+
+  # Ownerless verdicts stay unrepresentable. A decision with no actor and no
+  # timestamp is a judgment nobody made at no time.
+  sh:property [
+    sh:path uofa:actor ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:message "A decision record must name the actor whose judgment it is." ;
+  ] ;
+  sh:property [
+    sh:path uofa:decidedAt ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:datatype xsd:dateTime ;
+    sh:message "A decision record must carry decidedAt as an xsd:dateTime." ;
+  ] ;
+  sh:property [
+    sh:path uofa:decisionProvenance ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:in ( "asserted" "extracted" ) ;
+    sh:message "decisionProvenance must be 'asserted' (its actor participates in this package's production) or 'extracted' (its actor is the source's)." ;
+  ] ;
+  sh:property [
+    sh:path uofa:decisionScope ;
+    sh:maxCount 1 ;
+    sh:in ( "acceptance-of-model" "concurrence-with-prior-decision" "approval-to-proceed" ) ;
+    sh:message "decisionScope must come from the closed set: acceptance-of-model, concurrence-with-prior-decision, approval-to-proceed." ;
+  ] .
+
+# `extracted` -> the anchor is the warrant.
+uofa:ExtractedDecisionNeedsAnchorShape
+  a sh:NodeShape ;
+  uofa:introducedIn "v0.9" ;
+  sh:targetClass uofa:DecisionRecord ;
+  sh:or (
+    [ sh:not [ sh:property [
+        sh:path uofa:decisionProvenance ;
+        sh:minCount 1 ;
+        sh:in ( "extracted" ) ;
+    ] ] ]
+    [ sh:property [
+        sh:path uofa:decisionAnchor ;
+        sh:minCount 1 ;
+        sh:node uofa:SourceAnchorShape ;
+    ] ]
+  ) ;
+  sh:message "An extracted decision record must cite the source passage that states it: decisionAnchor with a locator and a sha256. The source never signs; the anchor is their attestation." .
+
+# `asserted` -> a live participant decided, so a live participant signs.
+uofa:AssertedDecisionNeedsSignatureShape
+  a sh:NodeShape ;
+  uofa:introducedIn "v0.9" ;
+  sh:targetClass uofa:DecisionRecord ;
+  sh:or (
+    [ sh:not [ sh:property [
+        sh:path uofa:decisionProvenance ;
+        sh:minCount 1 ;
+        sh:in ( "asserted" ) ;
+    ] ] ]
+    [ sh:property [
+        sh:path uofa:hasDecisionSignature ;
+        sh:minCount 1 ;
+        sh:node uofa:DecisionSignatureShape ;
+    ] ]
+  ) ;
+  sh:message "An asserted decision record must carry a decision signature: its actor is a participant in this package's production, and participants sign their acts." .
+
+uofa:SourceAnchorShape
+  a sh:NodeShape ;
+  uofa:introducedIn "v0.9" ;
+  sh:property [
+    sh:path uofa:anchorLocator ;
+    sh:minCount 1 ;
+    sh:message "A source anchor must name where in the source the passage is." ;
+  ] ;
+  sh:property [
+    sh:path uofa:anchorSha256 ;
+    sh:minCount 1 ;
+    sh:message "A source anchor must pin the passage by sha256, so a later reader can tell transcription from invention." ;
+  ] .
+
+uofa:DecisionSignatureShape
+  a sh:NodeShape ;
+  uofa:introducedIn "v0.9" ;
+  # **Targeted on the class as well as reached through `sh:node`.** Inside an
+  # `sh:or`, a malformed signature makes the whole branch fail, and SHACL
+  # reports the or-constraint's message while suppressing the inner detail --
+  # so a signature missing its role read as "no signature at all". Targeting the
+  # class means the real fault is named wherever the node appears.
+  sh:targetClass uofa:DecisionSignature ;
+  # The role is written by the signer from `--as`; there is no path that omits
+  # it, so its absence is a malformed artifact rather than a missing option.
+  sh:property [
+    sh:path uofa:signatureRole ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    # **Two, because two kinds of mind.** The four-value set declared relations
+    # the records already carry -- decider, concurrence, transcription
+    # attestation are all derivable by matching the signer against each record's
+    # actor and fork -- and a declaration that can only agree with the record or
+    # lie is a misdeclaration channel. The relation is computed at verify and
+    # stored nowhere.
+    sh:in ( "issuer" "reviewer" ) ;
+    sh:message "A signature must declare its role from the closed set: issuer (infrastructure: custody, integrity, well-formedness) or reviewer (person-class: a named person stands behind a judgment)." ;
+  ] ;
+  sh:property [
+    sh:path uofa:signerIdentity ;
+    sh:minCount 1 ;
+    sh:message "A decision signature must name who signed." ;
+  ] ;
+  sh:property [
+    sh:path uofa:measurementHash ;
+    sh:minCount 1 ;
+    sh:message "A decision signature binds the RECOMPUTED measurement hash, which is what chains the judgment to the evidence it judged." ;
+  ] .
+
 uofa:DecisionRecordOffsetShape a sh:NodeShape ;
     sh:targetSubjectsOf uofa:hasOffsetRationale ;
     sh:property [

@@ -299,7 +299,8 @@ _vv40_minimal = {
         {"name": "Basic validation", "has_uq": "No",
          "compares_to": "https://example.org/data/1"},
     ],
-    "decision": {"outcome": "Accepted", "rationale": "Minimal acceptance"},
+    "decision": {"outcome": "Accepted", "rationale": "Minimal acceptance",
+                     "decided_by": "Test Board", "decision_date": "2026-01-15"},
 }
 
 _nasa_minimal = copy.deepcopy(_vv40_minimal)

@@ -66,6 +66,14 @@ class CheckResult:
     # to preserve byte-identical compatibility with pre-OOS baselines per
     # spec §1.4 / §5.5. Set to an OOSResult when enabled (whether or not
     # the engine produced any firings).
+    # Count of asserted decision records still awaiting their decider's
+    # signature, or None when there are none. None rather than 0 because the
+    # snapshot contract's load-bearing rule is "omit None fields entirely" --
+    # that is how the OOS phase was added without breaking pre-OOS baselines,
+    # and a new field that serialises at its default silently rewrites every
+    # stored report. The GATE still computes the count either way; this is
+    # about what the report says when there is nothing to say.
+    unsigned_decisions: int | None = None
     oos: oos_runner.OOSResult | None = None
     # Captured OOSConfigError message when --oos was requested but the
     # active pack doesn't declare rule files (or other resolver errors).
@@ -141,9 +149,20 @@ def run_structured(args) -> CheckResult:
     )
 
     # ── C1: Integrity ─────────────────────────────────────────
-    pubkey = args.pubkey or paths.default_pubkey()
+    pubkey = args.pubkey
+    if pubkey is None:
+        anchors = paths.shipped_anchors()
+        pubkey = anchors[0][0] if anchors else paths.find_repo_root() / "keys" / "<none>"
     if pubkey.exists():
-        hash_ok, sig_ok = verify_file(args.file, pubkey, ctx)
+        import json as _j
+
+        from uofa_cli.integrity import verify_measurement_scope
+
+        try:
+            _doc = _j.loads(args.file.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            _doc = None
+        hash_ok, sig_ok = verify_measurement_scope(args.file, _doc, pubkey, ctx)
         integrity_result = IntegrityResult(
             pubkey_path=pubkey,
             pubkey_found=True,
@@ -243,8 +262,25 @@ def run_structured(args) -> CheckResult:
         and derivation_result.enriched_package_path is not None):
         derivation_result.enriched_package_path.unlink(missing_ok=True)
 
+    # ── C1b: decision-layer completeness ──────────────────────
+    # The signer states the fact and seals anyway (the seal excludes the
+    # decision layer, so it survives a decision arriving later). Whether every
+    # asserted verdict has been stood behind is a question about the PACKAGE,
+    # not about any one signature, so it is answered here -- the same place the
+    # encoder-attestation completeness question is answered.
+    _incomplete = []
+    try:
+        import json as _cj
+
+        from uofa_cli import sign_roles
+
+        _cdoc = _cj.loads(args.file.read_text(encoding="utf-8"))
+        _incomplete = sign_roles.unsigned_asserted(_cdoc)
+    except (OSError, ValueError):
+        _incomplete = []
+
     # ── Aggregate ─────────────────────────────────────────────
-    all_ok = shacl_result.conforms and integrity_result.ok
+    all_ok = shacl_result.conforms and integrity_result.ok and not _incomplete
     if rules_result is not None:
         all_ok = all_ok and rules_result.returncode == 0
     elif rules_error is not None:
@@ -268,6 +304,7 @@ def run_structured(args) -> CheckResult:
         file=args.file,
         shacl=shacl_result,
         integrity=integrity_result,
+        unsigned_decisions=len(_incomplete) or None,
         rules=rules_result,
         rules_error=rules_error,
         all_ok=all_ok,
@@ -345,6 +382,10 @@ def run(args) -> int:
     header(f"Summary: {args.file.name}")
     result_line("C2 SHACL", result.shacl.conforms)
     result_line("C1 Integrity", result.integrity.ok)
+    if getattr(result, "unsigned_decisions", 0):
+        result_line("C1b Decision layer complete", False,
+                    f"{result.unsigned_decisions} asserted record(s) awaiting "
+                    f"their decider's signature")
     if result.rules is None and result.rules_error is None:
         result_line("C3 Rules", True, "skipped")
     else:

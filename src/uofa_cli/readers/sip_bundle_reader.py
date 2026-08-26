@@ -8,7 +8,7 @@ the surrogate-pack vocabulary per the §7.4 field-to-pattern map.
 
 Verification before mapping (A6):
   1. measurement signature MUST verify (else refuse — tampered/stale/wrong key);
-  2. an engineerDecision is mapped to the UofA package's attributed decision
+  2. an hasDecisionRecord is mapped to the UofA package's attributed decision
      ONLY when its signature verifies against the supplied human key over the
      correct scope; a missing/unverifiable decision yields a valid measurement
      package with NO inferred acceptance.
@@ -23,6 +23,7 @@ from pathlib import Path
 
 from uofa_cli.interrogate import signing
 from uofa_cli.interrogate.schema import validate_bundle
+from uofa_cli.interrogate.forbidden import DECISION_BLOCK_KEY
 
 CONTEXT_URL = "https://raw.githubusercontent.com/cloudronin/uofa/main/spec/context/v0.5.jsonld"
 SURR = "https://uofa.net/vocab/surrogate#"
@@ -54,7 +55,7 @@ def read_sip_bundle(bundle_path: Path, *, measurement_pubkey: Path,
 
 def _verified_decision(bundle: dict, decision_pubkey: Path | None) -> dict | None:
     """Return the engineer decision iff its signature verifies; else None (A6)."""
-    block = bundle.get("engineerDecision")
+    block = bundle.get(DECISION_BLOCK_KEY)
     if not isinstance(block, dict) or decision_pubkey is None:
         return None
     ok, _reason = signing.verify_decision(bundle, Path(decision_pubkey))
@@ -191,8 +192,8 @@ def _map_to_jsonld(bundle: dict, decision: dict | None) -> dict:
         "sipMeasurementSignatureVerified": True,
     }
     if decision:
-        sip_provenance["engineerDecisionVerified"] = True
-        sip_provenance["engineerDecisionSignature"] = bundle.get("engineerDecision", {}).get("decisionSignature")
+        sip_provenance["decisionSignatureVerified"] = True
+        sip_provenance["decisionSignature"] = bundle.get(DECISION_BLOCK_KEY, {}).get("decisionSignature")
     doc["sipProvenance"] = sip_provenance
 
     return doc

@@ -159,7 +159,7 @@ def _import_sign_check(xlsx_path, output_path, packs, key, pub):
     output_path.write_text(json.dumps(doc, indent=2, sort_keys=True, ensure_ascii=False) + "\n")
 
     # Sign
-    sign_r = run_uofa("sign", str(output_path), "--key", str(key), "--context", CONTEXT_FILE)
+    sign_r = run_uofa("sign", str(output_path), "--key", str(key), "--as", "issuer,reviewer", "--context", CONTEXT_FILE)
     if sign_r.returncode != 0:
         return result, sign_r, None
 
@@ -385,7 +385,7 @@ class TestImportWeakeners:
         doc["@context"] = CONTEXT_FILE
         output.write_text(json.dumps(doc, indent=2, sort_keys=True, ensure_ascii=False) + "\n")
         key, _ = signing_keypair
-        sign_r = run_uofa("sign", str(output), "--key", str(key), "--context", CONTEXT_FILE)
+        sign_r = run_uofa("sign", str(output), "--key", str(key), "--as", "issuer,reviewer", "--context", CONTEXT_FILE)
         assert sign_r.returncode == 0, f"{name}: sign failed: {sign_r.stderr}"
 
         # Run rules
@@ -480,7 +480,7 @@ class TestTC70Starter:
         doc["@context"] = CONTEXT_FILE
         output.write_text(json.dumps(doc, indent=2, sort_keys=True, ensure_ascii=False) + "\n")
         key, _ = signing_keypair
-        run_uofa("sign", str(output), "--key", str(key), "--context", CONTEXT_FILE)
+        run_uofa("sign", str(output), "--key", str(key), "--as", "issuer,reviewer", "--context", CONTEXT_FILE)
 
         _, parsed = _run_rules(output, ["nasa-7009b"])
         # v0.5.9 W-AL-02 schema-aligned fix: TC70 starter no longer fires

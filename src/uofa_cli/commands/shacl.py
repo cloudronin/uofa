@@ -61,9 +61,14 @@ def run_structured(args) -> ShaclResult:
     if args.raw:
         from pyshacl import validate as shacl_validate
         from uofa_cli.shacl_friendly import (
-            _load_data_graph, _collect_violations, format_drilled_violations_text,
+            _apply_jurisdiction, _load_data_graph, _collect_violations,
+            format_drilled_violations_text,
         )
         shapes_graph = _load_combined_shapes(shacl_paths)
+        # Jurisdiction applies on EVERY validation path or it is not a rule, it
+        # is a property of whichever path you happened to take -- and `--raw`
+        # exists precisely for consumers who script against the result.
+        _apply_jurisdiction(shapes_graph, args.file)
         # Load data via rdflib first to dodge the pyshacl JSON-LD path bug
         # and to give us the parsed Graph for the drill-in.
         data_graph = _load_data_graph(args.file)

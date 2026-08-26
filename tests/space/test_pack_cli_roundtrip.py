@@ -56,7 +56,7 @@ def extracted_pack(tmp_path, demo_key_env):
 
 def test_cli_verify_passes_on_a_web_produced_pack(extracted_pack):
     """THE done-gate."""
-    r = run_uofa("verify", "uofa.jsonld", "--pubkey", "keys/demo.pub", cwd=extracted_pack)
+    r = run_uofa("verify", "uofa.jsonld", "--pubkey", "keys/uofa-issuer.pub", cwd=extracted_pack)
     assert r.returncode == 0, f"stdout:\n{r.stdout}\nstderr:\n{r.stderr}"
     assert "Hash match" in r.stdout
     assert "Signature valid" in r.stdout
@@ -69,7 +69,7 @@ def test_cli_verify_fails_on_a_tampered_pack(extracted_pack):
     doc["id"] = str(doc.get("id", "")) + "-tampered"
     pkg.write_text(json.dumps(doc, indent=2), encoding="utf-8")
 
-    r = run_uofa("verify", "uofa.jsonld", "--pubkey", "keys/demo.pub", cwd=extracted_pack)
+    r = run_uofa("verify", "uofa.jsonld", "--pubkey", "keys/uofa-issuer.pub", cwd=extracted_pack)
     assert r.returncode == 1, f"tampered package verified! stdout:\n{r.stdout}"
 
 
@@ -92,7 +92,7 @@ def test_cli_check_needs_no_pack_flag(extracted_pack):
     """`validatedWithPacks` is stamped into the package, so a recipient does not
     have to be told which standards profile to validate against. C1 integrity is
     the assertion here; SHACL findings are a statement about the evidence."""
-    r = run_uofa("check", "uofa.jsonld", "--pubkey", "keys/demo.pub", cwd=extracted_pack)
+    r = run_uofa("check", "uofa.jsonld", "--pubkey", "keys/uofa-issuer.pub", cwd=extracted_pack)
     combined = r.stdout + r.stderr
     assert "unknown pack" not in combined.lower()
     assert "C1" in combined or "Integrity" in combined
@@ -103,7 +103,7 @@ def test_verify_txt_command_is_the_one_that_works(extracted_pack):
     """Whatever VERIFY.txt tells the user to run must be what we just proved
     works. A drifted instruction is a broken artifact even if the code is fine."""
     text = (extracted_pack / "VERIFY.txt").read_text(encoding="utf-8")
-    assert "uofa verify uofa.jsonld --pubkey keys/demo.pub" in text
-    line = "uofa verify uofa.jsonld --pubkey keys/demo.pub"
+    assert "uofa verify uofa.jsonld --pubkey keys/uofa-issuer.pub" in text
+    line = "uofa verify uofa.jsonld --pubkey keys/uofa-issuer.pub"
     r = run_uofa(*line.split()[1:], cwd=extracted_pack)
     assert r.returncode == 0
