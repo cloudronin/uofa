@@ -6,6 +6,28 @@ All notable changes to this project are documented here.
 
 ## [0.14.2] — 2026-08-26
 
+### Added
+
+- **`package_policy.sign_package_scoped`** — the two-scope act for a service.
+  `sign_package` produces one signature over the whole document and
+  `assert_issuable` refuses it for anything carrying a judgment, so a hosted
+  product emitting decision records had **no path through the policy layer at
+  all**: the only signer a UI is supposed to call could not sign what the UI
+  makes. This seals the measurement view, signs each asserted record with the
+  reviewer key, and is atomic — a package sealed with its verdict unsigned states
+  something nobody meant. A reviewer key is optional; without one the package is
+  sealed and honestly owed, which is the lawful multi-party interim.
+
+  It routes on what the package carries, exactly as verify does. An earlier draft
+  used the measurement-view hash unconditionally, so decision-**free** packages
+  were sealed under a scope no verifier checks them against: correctly signed,
+  reported broken.
+
+- **In-memory keys throughout.** `fingerprint_from_private_key` and
+  `sign_decision_records` accept PEM bytes: a hosted deployment receives its key
+  as a secret and must never write it to the filesystem it serves downloads from,
+  so a path-only accessor forced exactly the write it was avoiding.
+
 ### Fixed
 
 - **A release could only be published by a tag push, and nothing else.**
