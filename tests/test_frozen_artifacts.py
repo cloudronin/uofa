@@ -68,3 +68,40 @@ def test_the_siblings_anchor_pin_matches_the_shipped_source(cou):
     assert src.is_file(), "the anchored source must ship with the anchor"
     expected = "sha256:" + hashlib.sha256(src.read_bytes()).hexdigest()
     assert rec["decisionAnchor"]["anchorSha256"] == expected
+
+
+def test_the_sibling_does_not_squat_on_the_frozen_artifacts_iris():
+    """A sibling restates the content; it must not claim the same identity.
+
+    The siblings were first created by copying the originals wholesale, which
+    carried their `id` values along -- so two different documents claimed
+    `uofa.net/morrison/cou1`, one with the decision fork and one without. No
+    test failed: SHACL validates each file alone, and the byte-freeze watches
+    the originals, which were untouched. The site's IRI generator caught it,
+    and only because it refuses to publish a package count it was not told to
+    expect.
+
+    An IRI names one thing. Two documents under one IRI means the identifier has
+    stopped identifying -- and here it would have pointed the praxis record's own
+    citation at the wrong bytes.
+    """
+    import json
+
+    for cou in ("cou1", "cou2"):
+        original = json.loads(
+            (REPO_ROOT / "packs/vv40/examples/morrison" / cou
+             / f"uofa-morrison-{cou}.jsonld").read_text(encoding="utf-8"))
+        sibling = json.loads(
+            (REPO_ROOT / "packs/vv40/examples/morrison-v09" / cou
+             / f"uofa-morrison-v09-{cou}.jsonld").read_text(encoding="utf-8"))
+
+        assert original["id"] != sibling["id"], \
+            f"{cou}: the sibling squats on the frozen artifact's IRI"
+        assert sibling["id"].startswith("https://uofa.net/morrison-v09/")
+        assert (original["hasDecisionRecord"]["id"]
+                != sibling["hasDecisionRecord"]["id"])
+
+        # The anchor is the one thing that must NOT move: it points at the real
+        # shipped archive, and the sha256 pin is computed from that file.
+        assert (sibling["hasDecisionRecord"]["decisionAnchor"]["anchorLocator"]
+                .startswith("archive://morrison/source/"))
