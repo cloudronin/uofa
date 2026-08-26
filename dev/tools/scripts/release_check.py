@@ -76,6 +76,12 @@ IMPORT_TO_PIP_NAME = {
 # ── Output helpers ─────────────────────────────────────────
 
 
+def _git(*args: str) -> str:
+    """git stdout, or "" on failure. Callers check content, never exit status."""
+    return subprocess.run(["git", *args], cwd=REPO,
+                          capture_output=True, text=True).stdout
+
+
 def step(name: str) -> None:
     print(f"\n── {name} ─────")
 
@@ -216,6 +222,49 @@ def check_python_syntax_compat() -> bool:
 
 
 # ── Check 4: workflow path audit ───────────────────────────
+
+
+def check_tag_signing(tag: str | None) -> bool:
+    """Release tags must be signed, and the config must be able to sign them.
+
+    - v0.14.0: tagged with `git tag -a`, which annotates without signing. Every
+      commit underneath was SSH-signed, but the release marker itself carried no
+      attestation -- in the release that formalized *attestation scope follows
+      attestor kind*. The tag was already public and a mutated public marker is
+      the exact tamper-shape this program refuses, so it stood and v0.14.1
+      carries the signature instead.
+
+    Signed tags are the standing rule from here. This check runs BEFORE the tag
+    exists (verifying the repo could sign one) and again on an existing tag
+    (verifying it did). The precedent was already there -- v0.12.0 is signed --
+    and the discipline drifted because nothing enforced it.
+    """
+    step("Tag signing (release markers carry an attestation)")
+
+    fmt = _git("config", "--get", "gpg.format").strip()
+    key = _git("config", "--get", "user.signingkey").strip()
+    if not key:
+        fail("no user.signingkey configured — `git tag -s` would fail")
+        return False
+    ok(f"signing configured ({fmt or 'openpgp'}, key present)")
+
+    if not tag:
+        warn("no --tag passed; cannot check an existing tag. Use `git tag -s`.")
+        return True
+
+    existing = _git("tag", "-l", tag).strip()
+    if not existing:
+        ok(f"{tag} does not exist yet — create it with `git tag -s {tag}`")
+        return True
+
+    body = _git("cat-file", "-p", tag)
+    if "BEGIN SSH SIGNATURE" in body or "BEGIN PGP SIGNATURE" in body:
+        ok(f"{tag} is signed")
+        return True
+    fail(f"{tag} exists but is NOT signed. Annotated-only tags leave the release "
+         f"marker unattested; re-create it with `git tag -s {tag}` (only if it "
+         f"has not been pushed — a published tag is never mutated).")
+    return False
 
 
 def check_packaging_paths() -> bool:
@@ -534,6 +583,7 @@ def main() -> int:
         ("python syntax compat", check_python_syntax_compat()),
         ("workflow paths", check_workflow_paths()),
         ("packaging paths", check_packaging_paths()),
+        ("tag signing", check_tag_signing(args.tag)),
         ("test imports vs install", check_test_imports_vs_install()),
         ("uofa demo smoke", check_uofa_demo()),
     ]
