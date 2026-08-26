@@ -4,6 +4,26 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+## [0.14.1] — 2026-08-26
+
+### Changed
+
+- **Release tags are signed, and the checklist enforces it.** v0.14.0 was tagged
+  with `git tag -a`, which annotates without signing. Every commit underneath was
+  SSH-signed, but the release marker itself carried no attestation — in the
+  release that formalized *attestation scope follows attestor kind*. A program
+  whose thesis is scoped attestation should not ship unattested release markers.
+
+  v0.14.0 stands as published: a mutated public marker is precisely the
+  tamper-shape this format exists to refuse, so the signature arrives as **this**
+  tag rather than by replacing one PyPI has already seen. `v0.12.0` was signed
+  and set the better precedent; the discipline drifted because nothing enforced
+  it, so `release_check.py` gains a **tag signing** check — it verifies the repo
+  *can* sign before you tag, and that an existing tag *did*.
+
+  No functional change to the CLI. 0.14.0 remains valid and installable.
+
+
 ## [0.14.0] — 2026-08-25
 
 ### Added
