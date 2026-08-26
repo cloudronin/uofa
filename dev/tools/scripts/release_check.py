@@ -218,6 +218,49 @@ def check_python_syntax_compat() -> bool:
 # ── Check 4: workflow path audit ───────────────────────────
 
 
+def check_packaging_paths() -> bool:
+    """Every `force-include` source in pyproject.toml must exist on disk.
+
+    - v0.13.0 -> v0.14.0: `keys/demo.pub` was renamed `keys/demo-reviewer.pub`
+      when its job changed from sealing to signing decisions. The rename reached
+      the code, the tests, the docs and the shipped anchors -- and not the
+      packaging config. Every wheel build on every platform died with
+      `Forced include not found`, after the full 3365-test suite passed green:
+      the suite never builds a wheel, so nothing local could have caught it.
+      The workflow-path audit already existed and checked the *other* manifest;
+      a path audit that reads one manifest and not its sibling is the same
+      partial-coverage failure this file exists to record.
+
+    Hatchling resolves these at build time, so a missing source is a hard error,
+    not a warning -- which is correct, and is exactly why it must be caught here.
+    """
+    step("Packaging paths (pyproject force-include sources must exist)")
+    try:
+        import tomllib
+    except ModuleNotFoundError:  # py3.10
+        import tomli as tomllib  # type: ignore
+
+    pyproject = REPO / "pyproject.toml"
+    data = tomllib.loads(pyproject.read_text(encoding="utf-8"))
+    targets = (data.get("tool", {}).get("hatch", {})
+               .get("build", {}).get("targets", {}))
+
+    missing = []
+    checked = 0
+    for target_name, target in targets.items():
+        for src in (target.get("force-include") or {}):
+            checked += 1
+            if not (REPO / src).exists():
+                missing.append(f"{target_name}.force-include: {src}")
+
+    if missing:
+        for m in missing:
+            fail(f"source does not exist — the wheel build will die: {m}")
+        return False
+    ok(f"all {checked} force-include source(s) exist")
+    return True
+
+
 def check_workflow_paths() -> bool:
     step("CI workflow path audit (paths referenced must exist)")
     workflows = sorted((REPO / ".github/workflows").glob("*.yml"))
@@ -490,6 +533,7 @@ def main() -> int:
         ("version match", check_version_match(args.tag)),
         ("python syntax compat", check_python_syntax_compat()),
         ("workflow paths", check_workflow_paths()),
+        ("packaging paths", check_packaging_paths()),
         ("test imports vs install", check_test_imports_vs_install()),
         ("uofa demo smoke", check_uofa_demo()),
     ]
