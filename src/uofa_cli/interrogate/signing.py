@@ -104,8 +104,18 @@ def _fingerprint(public_key) -> str:
     return "sha256:" + hashlib.sha256(der).hexdigest()
 
 
-def fingerprint_from_private_key(key_path: Path) -> str:
-    private_key = serialization.load_pem_private_key(Path(key_path).read_bytes(), password=None)
+def fingerprint_from_private_key(key_path: Path = None, *, key_bytes: bytes = None) -> str:
+    """Public fingerprint of a private key, from a path OR an in-memory PEM.
+
+    A hosted deployment receives its key as a secret env var and must never
+    write it to the filesystem it serves downloads from -- so a path-only
+    accessor would force exactly the write it is trying to avoid.
+    """
+    if (key_path is None) == (key_bytes is None):
+        raise ValueError(
+            "fingerprint_from_private_key requires exactly one of key_path or key_bytes")
+    pem = key_bytes if key_bytes is not None else Path(key_path).read_bytes()
+    private_key = serialization.load_pem_private_key(pem, password=None)
     return _fingerprint(private_key.public_key())
 
 

@@ -88,3 +88,35 @@ def test_the_audit_still_reports_a_genuinely_missing_dependency(tmp_path, monkey
                      and i not in set(getattr(sys, "stdlib_module_names", set()))
                      and i != "uofa_cli")
     assert "nonexistent_pip_package_xyz" in missing
+
+
+def test_docs_do_not_name_the_removed_decision_sign_command():
+    """`uofa decision sign` is gone; the docs must not still teach it.
+
+    The command was removed and its callers migrated in-commit, but prose is not
+    a caller and no test covered it -- README kept telling readers to run it long
+    after it stopped existing. Documentation that names a removed command is a
+    broken instruction with no failing test behind it.
+
+    CHANGELOG entries are historical and never edited; spec documents record what
+    was ruled at the time. Both are excluded deliberately.
+    """
+    import re
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    skip = ("CHANGELOG.md", "UofA_Spec_", "investigations/", "PostRefactor",
+            "phase2_runbook", "Attestation_Model_Complete_Reference")
+    offenders = []
+    for md in list(root.glob("*.md")) + list(root.glob("docs/**/*.md")) + \
+              list(root.glob("space/*.md")) + list(root.glob("packs/**/*.md")):
+        rel = str(md.relative_to(root))
+        if any(k in rel for k in skip):
+            continue
+        for i, line in enumerate(md.read_text(encoding="utf-8").splitlines(), 1):
+            if re.search(r"`?uofa decision sign", line):
+                offenders.append(f"{rel}:{i}")
+    assert not offenders, (
+        "these docs still name the removed `uofa decision sign`; the replacement "
+        "is `uofa decision record` then `uofa sign --as reviewer`:\n  "
+        + "\n  ".join(offenders))

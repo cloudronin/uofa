@@ -215,7 +215,7 @@ def records_for_role(doc: dict, role: str) -> list[dict]:
 
 
 def sign_decision_records(doc: dict, key_path: Path, role: str,
-                          *, now: str) -> int:
+                          *, now: str, key_bytes: bytes = None) -> int:
     """Attach a `hasDecisionSignature` to every record this role signs.
 
     The signature binds `{measurementHash (RECOMPUTED), decision}` -- the A6
@@ -236,7 +236,8 @@ def sign_decision_records(doc: dict, key_path: Path, role: str,
             f"signature with no act under it is a claim about nothing.")
 
     mh = measurement_hash(doc)
-    signer = fingerprint_from_private_key(Path(key_path))
+    signer = (fingerprint_from_private_key(key_bytes=key_bytes) if key_bytes
+              else fingerprint_from_private_key(Path(key_path)))
     for rec in targets:
         block = {k: v for k, v in rec.items() if k != "hasDecisionSignature"}
         scope_hash = _scoped_block_hash(doc, "decision", block)
@@ -248,7 +249,9 @@ def sign_decision_records(doc: dict, key_path: Path, role: str,
             "signerIdentity": signer,
             "measurementHash": mh,
             "signatureAlgorithm": "ed25519",
-            "signatureValue": f"ed25519:{sign_hash(scope_hash, Path(key_path))}",
+            "signatureValue": "ed25519:" + (
+                sign_hash(scope_hash, key_bytes=key_bytes) if key_bytes
+                else sign_hash(scope_hash, Path(key_path))),
             "signedAt": now,
         }
     return len(targets)
