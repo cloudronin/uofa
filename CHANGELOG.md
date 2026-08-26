@@ -149,6 +149,25 @@ check against the case it was supposed to catch, not by a failing test.
 | SHACL shapes | judged documents written before the shapes existed |
 | `test_decision_block_requires_signature` | deleted the signature and went red on a missing `actor` — a false pass proving something other than its name |
 | `test_the_factor_shape_is_unreachable…` | a failure message claiming more than its assertion measured, which put a false "uofa#109 closed" into a status report |
+| `check_workflow_paths` | audited `.github/workflows` paths and not `pyproject.toml`'s — the anchor rename broke every wheel build after the suite went green, because nothing local builds a wheel |
+| the `morrison-v09` siblings | copied wholesale, so they claimed the frozen originals' IRIs: two documents at one identifier, pointing the praxis record's own citation at the wrong bytes. Invisible to SHACL (validates each file alone) and to the byte-freeze (watches the originals) |
+| the `sh:or` profile dispatcher | its drill-in reports a branch's message, not necessarily the failing branch's — it named `CompleteBody` while the document was on `Minimal` |
+
+Three of those landed **in this release**, found by guards outside the test
+suite: hatchling's hard error on a missing include, and the site generator's
+refusal to publish a package count or a namespace it was not told to expect.
+Each demanded the change be *acknowledged* rather than absorbed. A 3365-test
+suite proves the code does what it says; it does not prove the corpus, the
+packaging manifest, or the IRI space still hold together, because no test owns
+those.
+
+**Also open, and now documented rather than accidental:** every profile —
+including `ProfileMinimal` — requires `hasDecisionRecord` with `minCount 1`.
+There is no profile under which a UofA package may lack a verdict. That is a
+coherent position, but it means the shipped templates can never validate as
+packages (they ship decision-free, since a template carrying a placeholder
+verdict is an ownerless judgment). Belongs with [#109](https://github.com/cloudronin/uofa/issues/109)
+in a profile-system session.
 
 **Still open:** [uofa#109](https://github.com/cloudronin/uofa/issues/109) — the
 CredibilityFactor shape remains unreachable for ProfileMinimal packages. It was
