@@ -52,7 +52,11 @@ def demo_key_env(tmp_path_factory, monkeypatch):
 
     key_dir = tmp_path_factory.mktemp("demo-key")
     key, pub = integrity.generate_keypair(key_dir / "demo.key")
-    monkeypatch.setattr(paths, "demo_pubkey", lambda root=None: pub)
+    # The ISSUER anchor: this fixture exercises the seal, which is the issuer's
+    # scope. Decision signatures are the reviewer's scope and need their own
+    # key -- one fixture handing the same material to both would make the
+    # wrong-key refusals unprovable.
+    monkeypatch.setattr(paths, "issuer_pubkey", lambda root=None: pub)
     monkeypatch.setenv(pipeline.SIGNING_KEY_FILE_ENV, str(key))
     monkeypatch.delenv(pipeline.SIGNING_KEY_ENV, raising=False)
     return pub

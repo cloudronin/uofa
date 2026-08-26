@@ -249,29 +249,62 @@ def _engineer_decision() -> dict:
         "decisionValue": "Accepted",
         "decisionRationale": "residuals within tolerance across the envelope",
         "decidedAt": "2026-05-30T13:00:00Z",
+        "actor": "https://uofa.net/org/demo-reviewer",
+        "decisionProvenance": "asserted",
         "decisionSignature": "ed25519:deadbeef",
     }
 
 
-class TestEngineerDecision:
-    """Addendum A5: decision content is valid ONLY inside the engineerDecision block."""
+class TestHasDecisionRecord:
+    """Addendum A5: decision content is valid ONLY inside the hasDecisionRecord block."""
 
     def test_signed_decision_block_with_accepted_validates(self) -> None:
         bundle = _base_bundle()
-        bundle["engineerDecision"] = _engineer_decision()
+        bundle["hasDecisionRecord"] = _engineer_decision()
         validate_bundle(bundle)  # 'Accepted' is permitted here
 
-    def test_decision_block_requires_signature(self) -> None:
+    def test_unsigned_record_is_a_legal_shape(self) -> None:
+        """Authoring precedes attestation, so an unsigned record is well-formed.
+
+        The schema used to require the signature, which fused the two acts at the
+        shape level. Completeness moved to where it belongs: `uofa sign` refuses
+        to seal a package around an asserted record nobody has signed (proven in
+        the e2e flow). Shape and completeness are different questions, and a
+        shape check answering a completeness question is how the unsigned
+        intermediate became unrepresentable.
+        """
         bundle = _base_bundle()
         block = _engineer_decision()
         del block["decisionSignature"]
-        bundle["engineerDecision"] = block
+        bundle["hasDecisionRecord"] = block
+        validate_bundle(bundle)
+
+    def test_decision_block_requires_its_provenance_fork(self) -> None:
+        """What the signature requirement was replaced BY, and it is load-bearing.
+
+        `decisionProvenance` names which warrant is owed -- a signature for
+        `asserted`, a sha-pinned anchor for `extracted`. A record that omits it
+        is the one shape from which no downstream gate can tell what is missing,
+        so it is the field that cannot be optional.
+        """
+        for missing in ("decisionProvenance", "actor"):
+            bundle = _base_bundle()
+            block = _engineer_decision()
+            del block[missing]
+            bundle["hasDecisionRecord"] = block
+            with pytest.raises(jsonschema.ValidationError):
+                validate_bundle(bundle)
+
+    def test_provenance_fork_is_a_closed_set(self) -> None:
+        bundle = _base_bundle()
+        bundle["hasDecisionRecord"] = {**_engineer_decision(),
+                                       "decisionProvenance": "probably-asserted"}
         with pytest.raises(jsonschema.ValidationError):
             validate_bundle(bundle)
 
     def test_decision_value_enum_enforced(self) -> None:
         bundle = _base_bundle()
-        bundle["engineerDecision"] = {**_engineer_decision(), "decisionValue": "totally accepted"}
+        bundle["hasDecisionRecord"] = {**_engineer_decision(), "decisionValue": "totally accepted"}
         with pytest.raises(jsonschema.ValidationError):
             validate_bundle(bundle)
 
@@ -290,8 +323,8 @@ class TestEngineerDecision:
     def test_scoped_walker_exempts_block_but_catches_measurement_region(self) -> None:
         from uofa_cli.interrogate.forbidden import find_forbidden_in_measurement_region
         bundle = _base_bundle()
-        # A forbidden token inside engineerDecision is exempt (signature governs it).
-        bundle["engineerDecision"] = {**_engineer_decision(), "accepted": True}
+        # A forbidden token inside hasDecisionRecord is exempt (signature governs it).
+        bundle["hasDecisionRecord"] = {**_engineer_decision(), "accepted": True}
         assert list(find_forbidden_in_measurement_region(bundle)) == []
         # The same token in the measurement region is caught.
         bundle["measurements"]["accepted"] = True

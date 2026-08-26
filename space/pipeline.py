@@ -340,7 +340,7 @@ def _run_weakeners(jsonld_path: Path, pack: str) -> list[dict]:
 _PACK_DISPLAY = {"vv40": "ASME V&V 40", "nasa-7009b": "NASA-STD-7009B", "model-credibility": "NIST AI RMF"}
 
 
-SIGNER_LABEL = "UofA demo issuer (keys/demo.pub)"
+SIGNER_LABEL = "UofA issuer (keys/uofa-issuer.pub)"
 
 # Who produced the artifact, for prov:wasAttributedTo.
 #
@@ -471,14 +471,16 @@ def _build_payload(pack, data, shacl_conforms, shacl_violations, firings, warnin
 PACK_MEMBER_JSONLD = "uofa.jsonld"
 PACK_MEMBER_REPORT = "report.md"
 PACK_MEMBER_MANIFEST = "MANIFEST.json"
-PACK_MEMBER_PUBKEY = "keys/demo.pub"
+PACK_MEMBER_PUBKEY = "keys/uofa-issuer.pub"
 PACK_MEMBER_VERIFY = "VERIFY.txt"
 
 # PEM of the demo issuer's private key, supplied as a deployment secret. A path
 # is accepted too, for local development. Neither may ever be a repo file:
 # space/deploy_to_hf.py hard-refuses any *.key in its upload payload.
-SIGNING_KEY_ENV = "UOFA_DEMO_SIGNING_KEY"
-SIGNING_KEY_FILE_ENV = "UOFA_DEMO_SIGNING_KEY_FILE"
+# The ISSUER secret: this path seals the measurement view. The demo secret
+# keeps its name and changed its job -- it signs decisions now.
+SIGNING_KEY_ENV = "UOFA_ISSUER_SIGNING_KEY"
+SIGNING_KEY_FILE_ENV = "UOFA_ISSUER_SIGNING_KEY_FILE"
 
 _VERIFY_TXT = """\
 How to check this package
@@ -593,7 +595,7 @@ def build_downloadable_pack(jsonld_path: Path, pack: str, payload: dict,
     from space.reviewer_state import build_reviewer_state
 
     doc = json.loads(jsonld_path.read_text(encoding="utf-8"))
-    pubkey = paths.demo_pubkey()
+    pubkey = paths.issuer_pubkey()
     if not pubkey.exists():
         return None
 
@@ -671,7 +673,7 @@ def _verify_as_shipped(jsonld_path: Path) -> bool:
     """
     from uofa_cli.integrity import verify_file
 
-    pubkey = paths.demo_pubkey()
+    pubkey = paths.issuer_pubkey()
     if not pubkey.exists():
         return False
     try:

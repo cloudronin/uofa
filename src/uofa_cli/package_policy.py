@@ -36,7 +36,12 @@ from uofa_cli import integrity
 # issuer-held key must never produce a whole-document signature that spans one:
 # `uofa decision` deliberately signs it under its own narrow scope and leaves
 # the document's own signature alone (see interrogate/signing.py).
-DECISION_BLOCK_KEY = "engineerDecision"
+#: Imported, never redefined. This constant was declared here AND in
+#: `interrogate/forbidden.py`, two copies of one wire term -- the same drift
+#: hazard that let the guard know `hasDecisionRecord` while the product emitted
+#: `hasDecisionRecord`. `forbidden` owns the action-region family and imports
+#: nothing from this package, so it is the safe single home.
+from uofa_cli.interrogate.forbidden import DECISION_BLOCK_KEY
 
 SYNTHETIC_TYPE = "uofa:SyntheticAdversarialSample"
 

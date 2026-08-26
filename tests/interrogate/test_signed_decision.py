@@ -56,18 +56,51 @@ def _signed(tmp_path, sip_key, name="pkg.json") -> Path:
     return path
 
 
+DECIDER = "https://uofa.net/org/demo-reviewer"
+
+
 def _sign_decision(pkg, eng_key, value="accepted", decided_at="2026-05-30T00:00:00Z") -> int:
+    """The two acts, in order: author the judgment, then attest it.
+
+    These used to be one call, because `decision sign` both authored and signed.
+    They are two now, and the helper keeps its old signature so every test below
+    reads as before while exercising the split underneath.
+    """
+    rc = _record_decision(pkg, value=value, decided_at=decided_at)
+    if rc != 0:
+        return rc
+    return _attest(pkg, eng_key)
+
+
+def _record_decision(pkg, value="accepted", decided_at="2026-05-30T00:00:00Z",
+                     actor=DECIDER, append=False) -> int:
     return decision.run(argparse.Namespace(
-        decision_cmd="sign", file=pkg, key=eng_key, criterion="Cl within 3% over envelope",
+        decision_cmd="record", file=pkg, criterion="Cl within 3% over envelope",
         value=value, rationale="residuals within tolerance", decided_at=decided_at,
-        measurement_pubkey=None, output=None,
+        actor=actor, append=append, output=None,
     ))
+
+
+def _attest(pkg, eng_key) -> int:
+    """Attest an already-authored record.
+
+    The namespace is built by the REAL parser rather than hand-listed, so this
+    helper cannot drift from the CLI's own contract -- a hand-built namespace
+    silently omits whatever flag the command grows next, and the test then
+    exercises a shape no user can actually type.
+    """
+    from uofa_cli.commands import sign as sign_cmd
+
+    parser = argparse.ArgumentParser()
+    sign_cmd.add_arguments(parser)
+    args = parser.parse_args([str(pkg), "--key", str(eng_key), "--as", "reviewer"])
+    return sign_cmd.run(args)
 
 
 def test_measurement_pass_has_no_decision(tmp_path, keys):
     sip, _ = keys
     bundle = json.loads(_signed(tmp_path, sip).read_text())
-    assert "engineerDecision" not in bundle
+    assert "hasDecisionRecord" not in bundle
     assert list(find_forbidden_in_measurement_region(bundle)) == []
 
 
@@ -76,7 +109,7 @@ def test_sign_then_verify(tmp_path, keys):
     pkg = _signed(tmp_path, sip)
     assert _sign_decision(pkg, eng) == 0
     bundle = json.loads(pkg.read_text())
-    assert bundle["engineerDecision"]["decisionValue"] == "Accepted"  # permitted inside the block
+    assert bundle["hasDecisionRecord"]["decisionValue"] == "Accepted"  # permitted inside the block
     ok, reason = signing.verify_decision(bundle, eng.with_suffix(".pub"))
     assert ok, reason
 
@@ -84,7 +117,7 @@ def test_sign_then_verify(tmp_path, keys):
 def test_unsigned_block_is_no_decision(tmp_path, keys):
     sip, eng = keys
     bundle = json.loads(_signed(tmp_path, sip).read_text())
-    bundle["engineerDecision"] = {"decidedBy": "sha256:x", "acceptanceCriterion": "c",
+    bundle["hasDecisionRecord"] = {"decidedBy": "sha256:x", "acceptanceCriterion": "c",
                                   "decisionValue": "Accepted", "decidedAt": "t"}  # no signature
     ok, _ = signing.verify_decision(bundle, eng.with_suffix(".pub"))
     assert not ok
@@ -97,7 +130,7 @@ def test_decision_only_scope_rejected(tmp_path, keys):
     block = {"decidedBy": signing.fingerprint_from_private_key(eng), "acceptanceCriterion": "c",
              "decisionValue": "Accepted", "decidedAt": "t"}
     _, scope_hash = canonicalize_and_hash({"decision": block})  # scope omits measurementHash
-    bundle["engineerDecision"] = {**block, "decisionSignature": "ed25519:" + sign_hash(scope_hash, eng)}
+    bundle["hasDecisionRecord"] = {**block, "decisionSignature": "ed25519:" + sign_hash(scope_hash, eng)}
     ok, _ = signing.verify_decision(bundle, eng.with_suffix(".pub"))
     assert not ok  # measurements can't be swapped under a signed decision
 
@@ -129,21 +162,37 @@ def test_stale_bundle_refusal(tmp_path, keys):
     bundle = json.loads(pkg.read_text())
     bundle["measurements"]["referenceResiduals"][0]["statistics"]["max"] = 9.9  # measurements ≠ signed hash
     pkg.write_text(json.dumps(bundle), encoding="utf-8")
-    assert _sign_decision(pkg, eng) == 1
-    assert "engineerDecision" not in json.loads(pkg.read_text())  # wrote nothing
+    # Under the split, AUTHORING is where this must refuse: attestation refusing
+    # afterwards would leave the drifted package already carrying the verdict.
+    assert _record_decision(pkg) == 1
+    assert "hasDecisionRecord" not in json.loads(pkg.read_text())  # wrote nothing
+    assert _sign_decision(pkg, eng) != 0  # and the fused sequence still refuses
 
 
-def test_sign_requires_external_key(tmp_path, keys):
+def test_attesting_requires_an_external_key(tmp_path, keys):
+    """No key, no attestation -- and a refused attestation writes nothing.
+
+    This once asserted that a keyless invocation left NO decision block at all,
+    because authoring and signing were one act. They are two now, so authoring
+    without a key is the documented path and an unsigned block is the correct
+    intermediate. What survives is the part that was always the point: the
+    ATTESTATION cannot happen without the decider's own key, and a refusal must
+    not leave a half-attested record behind.
+    """
     sip, _ = keys
     pkg = _signed(tmp_path, sip)
+    assert _record_decision(pkg) == 0
+    before = json.loads(pkg.read_text())["hasDecisionRecord"]
+    assert "hasDecisionSignature" not in before
+
     result = subprocess.run(
-        [sys.executable, "-m", "uofa_cli", "decision", "sign", str(pkg),
-         "--criterion", "c", "--value", "accepted"],
+        [sys.executable, "-m", "uofa_cli", "sign", str(pkg), "--as", "reviewer"],
         capture_output=True, text=True, cwd=str(REPO_ROOT),
     )
     assert result.returncode != 0
     assert "key" in (result.stderr + result.stdout).lower()
-    assert "engineerDecision" not in json.loads(pkg.read_text())  # no unsigned block written
+    assert json.loads(pkg.read_text())["hasDecisionRecord"] == before, \
+        "a refused attestation must leave the record exactly as it found it"
 
 
 def test_no_fused_approve_path():
@@ -171,12 +220,13 @@ def test_review_is_read_only_and_silent(tmp_path, keys, capsys):
 
 def test_round_trip_mode_independence(tmp_path, keys):
     # ed25519 is deterministic, so the same engineer + bundle + fields yields a
-    # byte-identical engineerDecision whether driven from the terminal or a vendor
+    # byte-identical hasDecisionRecord whether driven from the terminal or a vendor
     # product — conformance is a property of the artifact (A12).
     sip, eng = keys
     p1 = _signed(tmp_path, sip, "p1.json"); _sign_decision(p1, eng)
     p2 = _signed(tmp_path, sip, "p2.json"); _sign_decision(p2, eng)
     b1, b2 = json.loads(p1.read_text()), json.loads(p2.read_text())
-    assert b1["engineerDecision"]["decisionSignature"] == b2["engineerDecision"]["decisionSignature"]
+    assert (b1["hasDecisionRecord"]["hasDecisionSignature"]["signatureValue"]
+            == b2["hasDecisionRecord"]["hasDecisionSignature"]["signatureValue"])
     assert signing.verify_decision(b1, eng.with_suffix(".pub"))[0]
     assert signing.verify_decision(b2, eng.with_suffix(".pub"))[0]

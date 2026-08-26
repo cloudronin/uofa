@@ -209,7 +209,7 @@ def test_signed_space_package_carries_no_decision_block(import_data, tmp_path, d
     pipeline.finalize_from_data(import_data, "model-credibility", tmp_path,
                                 source_name="org/m", assess_sufficiency=False)
     doc = json.loads((tmp_path / pipeline.PACK_MEMBER_JSONLD).read_text(encoding="utf-8"))
-    assert "engineerDecision" not in doc
+    assert "hasDecisionRecord" not in doc
 
 
 def test_no_absolute_host_path_leaks_into_a_signed_package(import_data, tmp_path, demo_key_env):

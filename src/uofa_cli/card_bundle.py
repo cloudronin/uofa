@@ -123,14 +123,19 @@ def result_to_import_dict(result, pack: str, factor_edits: dict[str, str] | None
         factors.append(row)
 
     d = unwrap_fields(result.decision)
-    decision = {"outcome": "Not accepted", "rationale": d.get("rationale")}  # synthetic, never shown
+    # **A machine assessment, named as one.** This was
+    # `{"outcome": "Not accepted"}` -- a verdict word, emitted into
+    # `hasDecisionRecord`, from a tool. Nobody judged anything: the card path
+    # measures documentation completeness. Verdict vocabulary is reserved for
+    # decisions a person makes and signs; this states a status fact.
+    assessment = {"status": "documentation-incomplete", "rationale": d.get("rationale")}
 
     return {
         "summary": summary,
         "entities": entities,
         "validation_results": validation_results,
         "factors": factors,
-        "decision": decision,
+        "assessment": assessment,
     }
 
 
@@ -238,8 +243,8 @@ def _statuses_to_import_dict(statuses: dict[str, str], pack: str, model_id: str,
         "has_uq": "No",
     }
     return {"summary": summary, "entities": [], "validation_results": [], "factors": factors,
-            "decision": {"outcome": "Not accepted",
-                         "rationale": "Documentation-completeness assessment only."}}
+            "assessment": {"status": "documentation-incomplete",
+                           "rationale": "Documentation-completeness assessment only."}}
 
 
 def deterministic_import_dict(text: str, pack: str, model_id: str,

@@ -1,11 +1,11 @@
 """Phase 1a — generalized action-region two-scope signing.
 
-The engineerDecision two-scope mechanism is generalized so any action-region
+The hasDecisionRecord two-scope mechanism is generalized so any action-region
 block (guardrailAction, future verified-outcome labels) signs in its own scope,
 excluded from the measurement signature and exempt from the measurement-region
 denylist. These tests pin: (1) a generic action block round-trips and is
 tamper-evident, (2) the measurement signature survives an appended action block,
-(3) the engineerDecision path is unchanged (byte-identical wrapper), (4) the
+(3) the hasDecisionRecord path is unchanged (byte-identical wrapper), (4) the
 firewall exempts top-level action-region blocks ONLY at the top level.
 """
 
@@ -38,7 +38,7 @@ def _keys(tmp_path):
 
 
 def test_action_region_keys_include_decision_and_guardrail():
-    assert "engineerDecision" in ACTION_REGION_KEYS
+    assert "hasDecisionRecord" in ACTION_REGION_KEYS
     assert "guardrailAction" in ACTION_REGION_KEYS
 
 
@@ -89,18 +89,18 @@ def test_decision_path_unchanged_after_generalization(tmp_path):
         key_path=key, acceptance_criterion="Cl within 3% over envelope",
         decision_value="Accepted", decided_at="2026-05-31T00:00:00Z",
     )
-    pkg["engineerDecision"] = signing.sign_decision(pkg, key, block)
+    pkg["hasDecisionRecord"] = signing.sign_decision(pkg, key, block)
     ok, reason = signing.verify_decision(pkg, pub)
     assert ok, reason
     # decisionSignature is still the field name; scope is still "decision".
-    assert "decisionSignature" in pkg["engineerDecision"]
+    assert "decisionSignature" in pkg["hasDecisionRecord"]
 
 
 def test_firewall_exempts_action_region_only_at_top_level():
     # Forbidden tokens INSIDE top-level action-region blocks are exempt.
     bundle = {
         "measurements": {"referenceResiduals": []},
-        "engineerDecision": {"accepted": True},        # 'accepted' is a forbidden token
+        "hasDecisionRecord": {"accepted": True},        # 'accepted' is a forbidden token
         "guardrailAction": {"outcome": "restrict"},     # 'outcome' is a forbidden token
     }
     assert list(find_forbidden_in_measurement_region(bundle)) == []

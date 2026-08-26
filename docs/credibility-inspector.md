@@ -162,7 +162,7 @@ artifact; everything else is a convenience copy. A recipient checks it with:
 
 ```bash
 unzip uofa-pack-*.zip
-uofa verify uofa.jsonld --pubkey keys/demo.pub
+uofa verify uofa.jsonld --pubkey keys/demo-reviewer.pub
 ```
 
 It is built by the same code path as the command line's `uofa import`, and a

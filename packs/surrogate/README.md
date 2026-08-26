@@ -76,7 +76,7 @@ SIP measures; it never judges. The engineer's acceptance decision is captured
 as a signed, attributed human act: `uofa decision review` prints the
 surrogate-vs-reference comparison (read-only, no verdict), then `uofa decision
 sign --key <engineer-key> --criterion … --value <accepted|not-accepted>` writes
-an `engineerDecision` block signed over the decision plus the measurements it
+an `hasDecisionRecord` block signed over the decision plus the measurements it
 references. `uofa verify` checks both the SIP measurement signature and the
 engineer decision signature independently; a missing or unverifiable decision
 is "no engineer decision," never inferred acceptance.

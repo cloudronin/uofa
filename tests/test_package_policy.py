@@ -67,12 +67,12 @@ def test_assert_signable_allows_a_decision_block():
     """`uofa sign` behaviour is unchanged by the extraction: the decision-block
     refusal is an *issuer* rule, not a universal one. A user signing with their
     own key is not the section 12 hazard."""
-    package_policy.assert_signable({**BENIGN, "engineerDecision": {"decidedBy": "x"}})
+    package_policy.assert_signable({**BENIGN, "hasDecisionRecord": {"decidedBy": "x"}})
 
 
 def test_assert_issuable_refuses_a_decision_block():
     with pytest.raises(PackagePolicyError, match="AGENTS.md section 12"):
-        package_policy.assert_issuable({**BENIGN, "engineerDecision": {"decidedBy": "x"}})
+        package_policy.assert_issuable({**BENIGN, "hasDecisionRecord": {"decidedBy": "x"}})
 
 
 def test_assert_issuable_still_refuses_synthetic():
@@ -112,7 +112,7 @@ def test_sign_package_refuses_before_touching_the_file(tmp_path):
 
 def test_sign_package_refuses_issuer_signing_over_a_decision(tmp_path):
     key, _ = integrity.generate_keypair(tmp_path / "demo.key")
-    pkg = _write(tmp_path, {**BENIGN, "engineerDecision": {"decidedBy": "eng"}})
+    pkg = _write(tmp_path, {**BENIGN, "hasDecisionRecord": {"decidedBy": "eng"}})
 
     with pytest.raises(PackagePolicyError, match="section 12"):
         package_policy.sign_package(pkg, key)

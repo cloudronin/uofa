@@ -69,10 +69,23 @@ def attributed(tmp_path_factory) -> dict:
 
 
 def _validate(doc: dict, shapes: Graph, tmp_path: Path):
+    """Validate the way the CLI does, jurisdiction included.
+
+    This called pyshacl directly, so it judged a v0.8 document by every shape in
+    the file -- including ones introduced in v0.9, which no real `uofa shacl`
+    invocation would apply to it. A test that exercises a shapes graph the
+    product never assembles is testing a configuration nobody ships.
+    """
+    import copy as _copy
+
     from pyshacl import validate
+
+    from uofa_cli.shacl_friendly import _apply_jurisdiction
+
     p = tmp_path / "p.jsonld"
     p.write_text(json.dumps(doc), encoding="utf-8")
-    conforms, _g, text = validate(data_graph=_load_data_graph(p), shacl_graph=shapes)
+    in_force = _apply_jurisdiction(_copy.deepcopy(shapes), p)
+    conforms, _g, text = validate(data_graph=_load_data_graph(p), shacl_graph=in_force)
     return conforms, text
 
 
@@ -104,9 +117,18 @@ def test_the_factor_shape_is_unreachable_for_this_profile(attributed, shapes, tm
     """
     doc = _mutated(attributed, lambda f: f.update(factorStatus="bogus"))
     conforms, text = _validate(doc, shapes, tmp_path)
-    assert conforms and "assessment status" not in text, (
-        "the factor shape now runs on ProfileMinimal -- good news, and this "
-        "module's targeting rationale should be revisited")
+
+    # **Assert the specific thing, not conformance.** This used to read
+    # `assert conforms and ...`, so ANY unrelated violation made it fail with a
+    # message announcing that the factor shape had started running -- a
+    # conclusion the assertion could not support. It fired exactly that way when
+    # v0.9 shapes were briefly reaching v0.8 fixtures, and the false report went
+    # into a status summary as "uofa#109 closed as a side effect". It was not.
+    # A failure message must only claim what its assertion actually tested.
+    assert "bogus" not in text, (
+        "the CredibilityFactor shape now reaches this profile — uofa#109 may be "
+        "closed. Verify against a v0.9 ProfileMinimal package before believing "
+        "it, then update this test and the issue.")
 
 
 def test_a_fully_attributed_affirmation_conforms(attributed, shapes, tmp_path):

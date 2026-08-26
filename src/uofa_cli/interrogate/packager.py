@@ -65,7 +65,7 @@ def emit_and_sign(
 
     Validation precedes signing so a forbidden field is rejected before any
     signature is computed. Signs over the measurement bundle (excluding any
-    ``engineerDecision``) via ``signing.sign_measurement``, so the measurement
+    ``hasDecisionRecord``) via ``signing.sign_measurement``, so the measurement
     signature keeps verifying after an engineer decision is appended (Addendum
     A6). At emit there is no decision, so this equals a whole-doc signature.
     ``context_path`` is unused — the SIP bundle carries no top-level ``@context``.

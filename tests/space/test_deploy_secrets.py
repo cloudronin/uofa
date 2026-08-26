@@ -41,7 +41,7 @@ def test_secret_shaped_paths_are_refused(path):
 @pytest.mark.parametrize("path", [
     "space/app.py",
     "space/README.md",
-    "keys/demo.pub",
+    "keys/uofa-issuer.pub",
     "space/environment.md",
     "space/keyboard.py",
 ])

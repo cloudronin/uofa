@@ -18,6 +18,7 @@ from uofa_cli.excel_constants import (
     PROFILE_URIS, CONTEXT_URL, DEFAULT_BASE_URI, RESERVED_BASE_URIS,
     CRITERIA_BASE, KNOWN_CRITERIA_SETS,
     LEVEL_TOKENS, JUDGMENT_TOKENS,
+    LEDGER_ANCHOR_SCHEME,
 )
 from uofa_cli import __version__
 from uofa_cli.integrity import CANONICALIZATION_ALG
@@ -225,7 +226,13 @@ def map_to_jsonld(
     entities = data["entities"]
     validation_results = data["validation_results"]
     factors = data["factors"]
-    decision = data["decision"]
+    # **Two kinds, never one key.** A DECISION is a human judgment and carries a
+    # verdict; an ASSESSMENT is machine work and carries a status fact. They were
+    # the same key, so the card path's "Not accepted" -- produced by a tool that
+    # judged nothing -- reached `hasDecisionRecord` and was issuer-signed, which
+    # is precisely what AGENTS.md section 12 forbids.
+    decision = data.get("decision") or {}
+    assessment = data.get("assessment") or {}
 
     profile = summary["profile"]
     project_slug = slugify(summary["project_name"] or "unnamed")
@@ -328,20 +335,50 @@ def map_to_jsonld(
             _map_factor(f, packs, base) for f in factors
         ]
 
-    # ── Decision Record ──────────────────────────────────────
-    dec = {
-        "id": f"{base}/decision",
-        "type": "DecisionRecord",
-        "outcome": decision["outcome"],
-    }
-    if decision.get("rationale"):
-        dec["rationale"] = decision["rationale"]
-    if decision.get("decided_by"):
-        dec["actor"] = f"{base}/org/{slugify(decision['decided_by'])}"
-        dec["role"] = decision["decided_by"]
-    if decision.get("decision_date"):
-        dec["decidedAt"] = f"{decision['decision_date']}T00:00:00Z"
-    doc["hasDecisionRecord"] = dec
+    # ── Automated assessment (machine-class, issuer-signable) ─
+    #
+    # Attributed to the tool through the run log's existing lineage, not to a
+    # person. An issuer key attesting this is exactly what an issuer key is for.
+    if assessment.get("status"):
+        res = {
+            "id": f"{base}/assessment",
+            "type": "AutomatedAssessment",
+            "assessmentStatus": assessment["status"],
+        }
+        if assessment.get("rationale"):
+            res["rationale"] = assessment["rationale"]
+        doc["hasAssessmentResult"] = res
+
+    # ── Decision Record (human judgment) ─────────────────────
+    if decision.get("outcome"):
+        dec = {
+            "id": f"{base}/decision",
+            "type": "DecisionRecord",
+            "outcome": decision["outcome"],
+        }
+        if decision.get("rationale"):
+            dec["rationale"] = decision["rationale"]
+        if decision.get("decided_by"):
+            dec["actor"] = f"{base}/org/{slugify(decision['decided_by'])}"
+            dec["role"] = decision["decided_by"]
+        if decision.get("decision_date"):
+            dec["decidedAt"] = _as_datetime(decision["decision_date"])
+
+        # **The fork is derived from the anchor's form, never declared twice.**
+        # `decisionProvenance` and the anchor cannot disagree, because one is a
+        # reading of the other -- two sources of truth made unrepresentable for
+        # this fact.
+        provenance = _decision_provenance(decision.get("anchor_uri"))
+        if provenance is not None:
+            dec["decisionProvenance"] = provenance
+        if provenance == "extracted":
+            uri = decision["anchor_uri"].strip()
+            anchor = {"type": "SourceAnchor", "anchorLocator": uri}
+            if decision.get("anchor_sha256"):
+                anchor["anchorSha256"] = decision["anchor_sha256"]
+            dec["decisionAnchor"] = anchor
+
+        doc["hasDecisionRecord"] = dec
 
     # ── Complete profile metadata ────────────────────────────
     if profile == "Complete":
@@ -364,7 +401,10 @@ def map_to_jsonld(
         if summary.get("device_class"):
             doc["deviceClass"] = summary["device_class"]
         doc["couName"] = summary["cou_name"]
-        doc["decision"] = decision["outcome"]
+        if decision.get("outcome"):
+            doc["decision"] = decision["outcome"]
+        elif assessment.get("status"):
+            doc["assessmentStatus"] = assessment["status"]
         doc["hasUncertaintyQuantification"] = summary.get("has_uq", "No") == "Yes"
 
     # ── Timestamp and integrity placeholders ─────────────────
@@ -464,6 +504,66 @@ def _map_validation_result(base: str, vr: dict) -> dict:
         result["sourceReference"] = vr.get("compares_to") or vr.get("uri") or f"{base}/data/source"
 
     return result
+
+
+def _as_datetime(value: str) -> str:
+    """A date-or-datetime cell, normalised to one `xsd:dateTime`.
+
+    The suffix used to be appended unconditionally, so a cell already carrying a
+    time produced `2026-09-09T10:00:00T00:00:00Z` -- malformed against the
+    context's `xsd:dateTime`, from a workbook that was not wrong.
+    """
+    s = str(value).strip()
+    if "T" in s:
+        return s if s.endswith("Z") or "+" in s[10:] else s + "Z"
+    return f"{s}T00:00:00Z"
+
+
+class AnchorFormError(ValueError):
+    """An anchor whose form the emitter cannot classify."""
+
+
+ASSERTED = "asserted"
+EXTRACTED = "extracted"
+
+
+def _decision_provenance(anchor_uri: str | None) -> str:
+    """Which fork the anchor's FORM puts this decision on. Total by construction.
+
+    `ledger://<assessor>/<entry>` is an act of judgment -- the reviewer decided,
+    so the warrant is their signature. A passage (or an `archive://` member) is
+    something the source actually stated, so the warrant is the anchor itself,
+    sha-pinned: "the paper is their attestation" is empty if a reader cannot tell
+    transcription from invention. The source never signs.
+
+    **Totality is the point.** A fork derived from form is trustworthy only if an
+    unclassifiable form is an ERROR rather than a guess -- otherwise the
+    empty-value genus arrives here wearing a URI, and a decision silently lands
+    on a branch nobody chose. So an unknown scheme raises and names itself.
+
+    **No anchor means `asserted`, and this is not a default.** A workbook whose
+    decision cites no source is one a live person filled in: they judged, so they
+    are a participant in this package's production, and participants sign their
+    acts. Returning None here looked like honest silence but was the opposite --
+    a record with no fork slipped past the seal gate that a record honestly
+    declaring `asserted` would have failed, so omission became the way around the
+    boundary. The fork is always stated; what varies is which one.
+    """
+    uri = (anchor_uri or "").strip()
+    if not uri:
+        return ASSERTED
+    if uri.startswith(LEDGER_ANCHOR_SCHEME):
+        return ASSERTED
+    if uri.startswith("archive://"):
+        return EXTRACTED
+    scheme = re.match(r"^([a-zA-Z][a-zA-Z0-9+.\-]*)://", uri)
+    if scheme:
+        raise AnchorFormError(
+            f"cannot classify decision anchor form {scheme.group(1)!r}://: expected "
+            f"a '{LEDGER_ANCHOR_SCHEME}' address (an act of judgment), an "
+            f"'archive://' member, or a source passage locator. Refusing to guess "
+            f"which fork this decision belongs on.")
+    return EXTRACTED
 
 
 def _map_factor(factor: dict, packs: list[str], base: str = "") -> dict:

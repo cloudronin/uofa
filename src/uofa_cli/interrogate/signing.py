@@ -5,10 +5,10 @@ distinct claims:
 
 - **Measurement signature** (the bundle's top-level ``hash``/``signature``):
   over the measurement bundle = the package MINUS the integrity fields MINUS
-  ``engineerDecision``. Attests "SIP measured this." Excluding ``engineerDecision``
+  ``hasDecisionRecord``. Attests "SIP measured this." Excluding ``hasDecisionRecord``
   is what lets the measurement signature keep verifying after a decision is
   appended.
-- **Decision signature** (``engineerDecision.decisionSignature``): over the
+- **Decision signature** (``hasDecisionRecord.decisionSignature``): over the
   decision block PLUS the measurements it references — implemented as a
   signature over ``{"measurementHash": <recomputed>, "decision": <block−sig>}``.
   Binding to the *recomputed* measurement hash (never the stored ``hash`` field)
@@ -41,7 +41,7 @@ from uofa_cli.integrity import (
 from uofa_cli.interrogate.forbidden import ACTION_REGION_KEYS, DECISION_BLOCK_KEY
 
 # The measurement signature's scope excludes the integrity fields AND every
-# action-region block (engineerDecision, guardrailAction, …) — each signed
+# action-region block (hasDecisionRecord, guardrailAction, …) — each signed
 # separately in its own scope. Excluding them is what lets the measurement
 # signature keep verifying after a decision/action block is appended.
 MEASUREMENT_EXCLUDED = set(INTEGRITY_FIELDS) | set(ACTION_REGION_KEYS)
@@ -62,7 +62,7 @@ def _measurement_view(package: dict) -> dict:
 
 
 def measurement_hash(package: dict) -> str:
-    """SHA-256 hex of the canonical measurement view (excludes engineerDecision)."""
+    """SHA-256 hex of the canonical measurement view (excludes hasDecisionRecord)."""
     _, sha256_hex = canonicalize_and_hash(_measurement_view(package))
     return sha256_hex
 
@@ -115,11 +115,11 @@ def fingerprint_from_public_key(pubkey_path: Path) -> str:
 
 
 # ── Action-region scopes (generalized two-scope signing) ─────────────────────
-# An action-region block (engineerDecision, guardrailAction, downstream labels)
+# An action-region block (hasDecisionRecord, guardrailAction, downstream labels)
 # is signed over its OWN scope = {"measurementHash": <recomputed>, <scope_key>:
 # <block − signature>}. Binding to the *recomputed* measurement hash makes it
 # tamper-evident (altering any measurement breaks it) and lets the measurement
-# signature and the block signature verify independently. engineerDecision uses
+# signature and the block signature verify independently. hasDecisionRecord uses
 # scope_key="decision"; the guardrail leg uses scope_key="action".
 
 
@@ -130,7 +130,7 @@ def _scoped_block_hash(package: dict, scope_key: str, block_without_signature: d
 
 
 def _decision_scope_hash(package: dict, decision_block_without_signature: dict) -> str:
-    """Back-compat alias: the engineerDecision scope (scope_key='decision')."""
+    """Back-compat alias: the hasDecisionRecord scope (scope_key='decision')."""
     return _scoped_block_hash(package, "decision", decision_block_without_signature)
 
 
@@ -175,19 +175,40 @@ def verify_scoped_block(
 
 def build_decision_block(
     *,
-    key_path: Path,
     acceptance_criterion: str,
     decision_value: str,
     decided_at: str,
     rationale: str | None = None,
+    actor: str | None = None,
+    key_path: Path | None = None,
 ) -> dict:
-    """Assemble the engineerDecision block (without its signature)."""
-    block = {
-        "decidedBy": fingerprint_from_private_key(Path(key_path)),
+    """Assemble the hasDecisionRecord block (without its signature).
+
+    Two identity inputs, and the difference is the whole point of splitting
+    authoring from signing:
+
+    - ``actor`` -- WHO DECIDED. A person-class identity per the grammar in
+      ``sign_roles``. Known at authoring time, because it is a fact about the
+      judgment.
+    - ``key_path`` -- WHICH KEY ATTESTED. Stamped as ``decidedBy``, a fingerprint.
+      This is a fact about the *attestation*, not about the judgment, so it is
+      knowable only when a key is present and belongs to the signing step.
+
+    The original signature required ``key_path``, which quietly made "who
+    decided" underivable without a private key -- so a decision could not exist
+    before its signature, and the two acts had to be fused. They are not fused
+    any more, so this takes either, and the caller supplies what its step knows.
+    """
+    block = {}
+    if key_path is not None:
+        block["decidedBy"] = fingerprint_from_private_key(Path(key_path))
+    if actor is not None:
+        block["actor"] = actor
+    block.update({
         "acceptanceCriterion": acceptance_criterion,
         "decisionValue": decision_value,
         "decidedAt": decided_at,
-    }
+    })
     if rationale:
         block["decisionRationale"] = rationale
     return block
@@ -213,8 +234,62 @@ def verify_decision(package: dict, decision_pubkey_path: Path) -> tuple[bool, st
     caller treats any of these as "no engineer decision," never failure. Thin
     wrapper over ``verify_scoped_block``.
     """
+    block = package.get(DECISION_BLOCK_KEY)
+
+    # `hasDecisionRecord` is repeatable. A list reaching a verifier that only
+    # understands dicts would report "no block present" over a package carrying
+    # several signed judgments -- absent and unreadable are not the same answer,
+    # and only one of them is true.
+    if isinstance(block, list):
+        reasons = []
+        for rec in block:
+            ok, reason = verify_decision({**package, DECISION_BLOCK_KEY: rec},
+                                         decision_pubkey_path)
+            if ok:
+                return True, "ok"
+            reasons.append(reason)
+        return False, ("no decision record verifies against this key: "
+                       + "; ".join(reasons) if reasons else "no decision record present")
+
+    # The canonical form: a `DecisionSignature` node carrying its own role,
+    # identity, algorithm and bound measurement hash. The legacy `decisionSignature`
+    # string below predates it and is still read, because packages carrying it
+    # exist and were honestly signed.
+    if isinstance(block, dict) and isinstance(block.get("hasDecisionSignature"), dict):
+        return _verify_decision_signature_node(package, block, decision_pubkey_path)
+
     return verify_scoped_block(
         package, decision_pubkey_path,
         block_key=DECISION_BLOCK_KEY, scope_key="decision",
         signature_field="decisionSignature", attributed_by_field="decidedBy",
     )
+
+
+def _verify_decision_signature_node(
+    package: dict, block: dict, decision_pubkey_path: Path,
+) -> tuple[bool, str]:
+    """Verify a canonical `DecisionSignature` node over the A6 scope."""
+    node = block["hasDecisionSignature"]
+    sig_field = node.get("signatureValue")
+    if not sig_field:
+        return False, f"{DECISION_BLOCK_KEY} carries a signature node with no signatureValue"
+
+    block_without_sig = {k: v for k, v in block.items() if k != "hasDecisionSignature"}
+    sha256_hex = _scoped_block_hash(package, "decision", block_without_sig)
+    sig_hex = sig_field.split(":", 1)[1] if ":" in sig_field else sig_field
+    if not verify_signature(sha256_hex, sig_hex, Path(decision_pubkey_path)):
+        return False, (f"{DECISION_BLOCK_KEY} signature does not verify over scope "
+                       f"(decision + measurements)")
+
+    # The embedded hash is the chain link between judgment and evidence. Not
+    # checking it would leave the binding decorative: the signature would still
+    # verify while naming a measurement state the package no longer has.
+    recomputed = measurement_hash(package)
+    if node.get("measurementHash") not in (None, recomputed):
+        return False, ("the decision signature binds a measurement hash that does "
+                       "not match this package's measurements (stale or tampered)")
+
+    expected = fingerprint_from_public_key(Path(decision_pubkey_path))
+    if node.get("signerIdentity") not in (None, expected):
+        return False, "signerIdentity does not match the supplied key fingerprint"
+    return True, "ok"

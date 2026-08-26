@@ -7,9 +7,9 @@ is no fused measure-and-sign step (that would be the tool deciding, the breach).
 - `uofa decision review <pkg>` — read-only. Prints the surrogate-vs-reference
   comparison and stops. No key, no prompts, no commentary, no suggested verdict
   (Addendum A14.2 terminal silence).
-- `uofa decision sign <pkg> --criterion … --value <accepted|not-accepted>
+- `uofa decision record <pkg> --criterion … --value <accepted|not-accepted>
   --rationale … --key <engineer-key>` — re-verifies SIP's measurement signature
-  (stale-bundle refusal, A11), then writes the engineer's signed `engineerDecision`
+  (stale-bundle refusal, A11), then writes the engineer's signed `hasDecisionRecord`
   block. `--key` is REQUIRED with no default/fallback; there is no headless/batch
   mode and no default decider identity (A8). The tool never suggests or defaults
   the criterion or value; `accepted` and `not-accepted` are symmetric.
@@ -24,6 +24,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from uofa_cli.output import error, info, result_line, step_header
+from uofa_cli.interrogate.forbidden import DECISION_BLOCK_KEY
 
 HELP = "review a SIP comparison (read-only) or sign an engineer decision"
 
@@ -36,28 +37,148 @@ def add_arguments(parser):
     review = sub.add_parser("review", help="print the surrogate-vs-reference comparison (read-only)")
     review.add_argument("file", type=Path, help="SIP evidence bundle (.json)")
 
-    sign = sub.add_parser("sign", help="sign an engineer decision into the bundle")
-    sign.add_argument("file", type=Path, help="SIP evidence bundle (.json)")
-    sign.add_argument("--key", "-k", type=Path, required=True,
-                      help="the engineer's ed25519 private key (REQUIRED; no default, no service key)")
-    sign.add_argument("--criterion", required=True,
-                      help="the engineer's acceptance criterion, e.g. 'Cl within 3%% of reference over the envelope'")
-    sign.add_argument("--value", required=True, choices=["accepted", "not-accepted", "conditional"],
-                      help="the engineer's judgment (no default; accepted and not-accepted are symmetric)")
-    sign.add_argument("--rationale", default=None, help="short free-text rationale")
-    sign.add_argument("--decided-at", default=None, help="ISO-8601 timestamp (default: now, UTC)")
-    sign.add_argument("--measurement-pubkey", type=Path, default=None,
-                      help="SIP measurement public key — when supplied, the measurement signature is cryptographically verified before signing")
-    sign.add_argument("--output", "-o", type=Path, default=None, help="output path (default: overwrite input)")
+    record = sub.add_parser(
+        "record", help="author a decision record into the bundle (no signature)")
+    record.add_argument("file", type=Path, help="evidence bundle (.json/.jsonld)")
+    record.add_argument("--criterion", required=True,
+                        help="the acceptance criterion this judgment is against")
+    record.add_argument("--value", required=True,
+                        choices=["accepted", "not-accepted", "conditional"],
+                        help="the judgment (no default; accepted and not-accepted are symmetric)")
+    record.add_argument("--actor", required=True,
+                        help="who decided: an org-scoped handle IRI (https://…/org/<handle>)")
+    record.add_argument("--rationale", default=None, help="short free-text rationale")
+    record.add_argument("--decided-at", default=None,
+                        help="ISO-8601 timestamp (default: now, UTC)")
+    record.add_argument("--append", action="store_true",
+                        help="deliberately add a SECOND decision record (records are "
+                             "append-only; without this a bundle that already carries "
+                             "one is refused)")
+    record.add_argument("--output", "-o", type=Path, default=None,
+                        help="output path (default: overwrite input)")
+
+
+def _mint_decision_id(doc: dict, ordinal: int) -> str:
+    """A stable IRI for this decision record.
+
+    The record must be nameable: a blank node cannot be referenced, cited, or
+    pointed at by a later concurrence, and the shapes require an IRI for exactly
+    that reason. The name is DERIVED from the package it judges, so it is stable
+    across re-runs and says what it belongs to -- never a random identifier that
+    would differ every time the same decision was recorded.
+    """
+    base = doc.get("@id") or doc.get("id")
+    if not base:
+        cou = doc.get("hasContextOfUse")
+        if isinstance(cou, dict):
+            base = cou.get("@id") or cou.get("id")
+    suffix = "decision" if ordinal == 0 else f"decision-{ordinal + 1}"
+    if base:
+        return f"{str(base).rstrip('/')}/{suffix}"
+    # No base to hang it on. A urn is honest here: it names the record without
+    # claiming an authority the package never established.
+    import hashlib
+
+    seed = f"{doc.get('name', '')}|{suffix}".encode("utf-8")
+    return f"urn:uofa:decision:{hashlib.sha256(seed).hexdigest()[:16]}"
+
+
+def _record(args) -> int:
+    """Author a decision record. **No key, no signature — authoring only.**
+
+    Splitting this from signing is the constitution's own grain: a decision
+    coming into existence (outcome, rationale, owner, timestamp) and a signature
+    attesting one that exists are two different acts, and they were fused here.
+    The excel path already lived the split -- the product authors, the CLI signs
+    -- so this makes the SIP path structurally identical rather than specially
+    fused: one decision model, two front doors, the same two steps.
+
+    The two-step cost is the honest price: a decision deserves a moment of
+    existence before its signature, where it is reviewable, refusable at the
+    shape, and visible as owed-unsigned.
+    """
+    from uofa_cli import sign_roles
+    from uofa_cli.interrogate import signing
+
+    doc = json.loads(args.file.read_text(encoding="utf-8"))
+    existing = sign_roles.decision_records(doc)
+
+    # Append-only, and deliberately so: a second entry is a real event (an
+    # independent concurrence, a program approval) and must be asked for, never
+    # arrived at by re-running a command that silently overwrote the first.
+    if existing and not args.append:
+        error(
+            f"this bundle already carries {len(existing)} decision record(s). "
+            f"Records accumulate and are never overwritten -- pass `--append` if "
+            f"this is a deliberate second entry (a concurrence or an approval).")
+        return 2
+
+    # A-11 applies to AUTHORING, not only to attesting. The judgment attaches to
+    # this package here; if the measurements have already drifted from the seal
+    # that covers them, a verdict written over them is a verdict about evidence
+    # that no longer exists. Total by construction: no seal means there is
+    # nothing to contradict (a decision may legitimately precede sealing), a
+    # seal that matches is fine, and only a seal that DISAGREES refuses.
+    # `_is_real_seal`, not a truthiness test: `uofa import` writes zero-filled
+    # placeholders, which are truthy, so a presence check here would compare the
+    # content against a hash of zeros and call every fresh template tampered.
+    # One definition for "has this been sealed", shared with the signer, because
+    # the same blindness fixed in one place and not the other is how it survives.
+    if sign_roles._is_real_seal(doc):
+        from uofa_cli.interrogate.signing import measurement_hash
+
+        stored = doc["hash"]
+        stored = stored.split(":", 1)[1] if ":" in stored else stored
+        if measurement_hash(doc) != stored:
+            error("the measurement content does not match its signed hash (stale "
+                  "or tampered) -- refusing to record a judgment over measurements "
+                  "that have drifted from their seal. Nothing written.")
+            return 1
+
+    try:
+        sign_roles.classify_identity(args.actor)
+    except sign_roles.IdentityFormError as exc:
+        error(str(exc))
+        return 2
+
+    decided_at = args.decided_at or _now_iso()
+
+    # The same builder the fused command used -- one block shape, two front doors.
+    # No key: `decidedBy` is a fingerprint, a fact about the attestation, and
+    # there is no attestation yet.
+    block = signing.build_decision_block(
+        acceptance_criterion=args.criterion,
+        decision_value=_VALUE_MAP[args.value],
+        decided_at=decided_at,
+        rationale=args.rationale,
+        actor=args.actor,
+    )
+    block["type"] = "DecisionRecord"
+    block["id"] = _mint_decision_id(doc, len(existing))
+    # Authored here by a live participant, so the fork is `asserted` and the
+    # warrant is a signature that does not exist yet. The package is now
+    # honestly incomplete, and the seal refuses to close around it -- which is
+    # the intermediate state being VISIBLE, not the package being broken.
+    block["decisionProvenance"] = "asserted"
+
+    doc[DECISION_BLOCK_KEY] = (existing + [block]) if existing else block
+    out = Path(args.output or args.file)
+    out.write_text(json.dumps(doc, indent=2, ensure_ascii=False), encoding="utf-8")
+
+    step_header(f"Recorded a decision in {args.file.name}")
+    result_line("Decision recorded (unsigned)", True)
+    info(f"{block['decisionValue']} \u2014 decided by {args.actor}")
+    info("next: `uofa sign --key <your key> --as reviewer` to attest it")
+    return 0
 
 
 def run(args) -> int:
     cmd = getattr(args, "decision_cmd", None)
     if cmd == "review":
         return _review(args)
-    if cmd == "sign":
-        return _sign(args)
-    error("usage: uofa decision <review|sign> <bundle.json>")
+    if cmd == "record":
+        return _record(args)
+    error("usage: uofa decision <review|record> <bundle.json>")
     return 2
 
 
@@ -84,53 +205,3 @@ def _review(args) -> int:
 
 def _now_iso() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-
-
-def _sign(args) -> int:
-    from uofa_cli.interrogate import signing
-
-    bundle = _load_bundle(args.file)
-
-    # Stale-bundle refusal (A11): the measurements must match their signed hash,
-    # and the bundle must actually carry a SIP measurement signature.
-    if not bundle.get("hash") or not bundle.get("signature"):
-        error("bundle has no SIP measurement signature — refusing to sign a decision "
-              "over unsigned measurements. Nothing written.")
-        return 1
-    stored = bundle["hash"].split(":", 1)[1] if ":" in bundle["hash"] else bundle["hash"]
-    if signing.measurement_hash(bundle) != stored:
-        error("SIP measurement content does not match its signed hash (stale or tampered) "
-              "— refusing to sign. Nothing written.")
-        return 1
-    if args.measurement_pubkey is not None:
-        hash_ok, sig_ok = signing.verify_measurement(bundle, args.measurement_pubkey)
-        if not (hash_ok and sig_ok):
-            error("SIP measurement signature does not verify against the supplied key "
-                  "— refusing to sign. Nothing written.")
-            return 1
-
-    if not Path(args.key).exists():
-        raise FileNotFoundError(
-            f"Engineer key not found: {args.key}. The decision must be signed with "
-            f"the engineer's own key (no default identity)."
-        )
-
-    step_header("Signing engineer decision")
-    block = signing.build_decision_block(
-        key_path=args.key,
-        acceptance_criterion=args.criterion,
-        decision_value=_VALUE_MAP[args.value],
-        decided_at=args.decided_at or _now_iso(),
-        rationale=args.rationale,
-    )
-    signed = signing.sign_decision(bundle, args.key, block)
-    bundle["engineerDecision"] = signed
-
-    out = Path(args.output or args.file)
-    out.write_text(json.dumps(bundle, indent=2, ensure_ascii=False), encoding="utf-8")
-
-    result_line("Signed engineer decision", True, str(out))
-    info(f"decidedBy: {signed['decidedBy']}")
-    info(f"decisionValue: {signed['decisionValue']}  (the engineer's input, attributed to their key)")
-    info("verify with: uofa verify <pkg> --decision-pubkey <engineer.pub>")
-    return 0

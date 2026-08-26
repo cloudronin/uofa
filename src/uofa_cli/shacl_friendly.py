@@ -483,12 +483,67 @@ def run_shacl(data_path: Path, shacl_path: Path) -> tuple[bool, list[dict]]:
         return _run_shacl_locked(data_path, shacl_path)
 
 
+
+_UOFA_NS = "https://uofa.net/vocab#"
+
+
+def _declared_context_version(data_path) -> tuple[int, int] | None:
+    """(major, minor) of the context this document declares, or None if unknown.
+
+    None means "could not tell", and every caller treats that as "apply
+    everything" -- an unparseable declaration must never buy an exemption.
+    """
+    import json
+    import re
+
+    try:
+        doc = json.loads(Path(data_path).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    ctx = doc.get("@context") if isinstance(doc, dict) else None
+    if isinstance(ctx, list):
+        ctx = next((c for c in ctx if isinstance(c, str)), None)
+    if not isinstance(ctx, str):
+        return None
+    m = re.search(r"v(\d+)\.(\d+)", ctx)
+    return (int(m.group(1)), int(m.group(2))) if m else None
+
+
+def _apply_jurisdiction(shacl_g, data_path):
+    """Drop shapes that postdate the document's declared context.
+
+    A package declaring v0.5 conformed to v0.5's rules. Judging it by a shape
+    introduced in v0.9 reports a violation of a rule that did not exist when the
+    package was written -- and the only ways to "fix" that are to edit shipped
+    bytes the praxis record cites, or to weaken the shape for everyone. Neither
+    is acceptable, so the shape simply does not reach that document.
+    """
+    import re
+
+    from rdflib import URIRef
+
+    declared = _declared_context_version(data_path)
+    if declared is None:
+        return shacl_g  # unknown jurisdiction gets every shape, deliberately
+
+    introduced = URIRef(_UOFA_NS + "introducedIn")
+    doomed = []
+    for shape, _, version in shacl_g.triples((None, introduced, None)):
+        m = re.search(r"v?(\d+)\.(\d+)", str(version))
+        if m and (int(m.group(1)), int(m.group(2))) > declared:
+            doomed.append(shape)
+    for shape in doomed:
+        shacl_g.remove((shape, None, None))
+    return shacl_g
+
+
 def _run_shacl_locked(data_path: Path, shacl_path: Path) -> tuple[bool, list[dict]]:
     data_g = _load_data_graph(data_path)
     # Pre-parse the shacl file once — we may need to re-validate against a
     # subset of shapes for the OR-constraint drill-in.
     shacl_g = Graph()
     shacl_g.parse(str(shacl_path), format="turtle")
+    _apply_jurisdiction(shacl_g, data_path)
     conforms, results_graph, results_text = shacl_validate(
         data_graph=data_g,
         shacl_graph=shacl_g,
@@ -507,6 +562,7 @@ def _run_shacl_graph(data_path: Path, shacl_graph) -> tuple[bool, list[dict]]:
     Uses :func:`_load_data_graph` to side-step the pyshacl path-loading bug.
     """
     data_g = _load_data_graph(data_path)
+    _apply_jurisdiction(shacl_graph, data_path)
     conforms, results_graph, results_text = shacl_validate(
         data_graph=data_g,
         shacl_graph=shacl_graph,

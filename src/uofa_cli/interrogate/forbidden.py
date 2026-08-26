@@ -63,12 +63,12 @@ def forbidden_property_names_constraint() -> dict:
 
 # The regions where decision/action content is legitimate (Addendum A4/A5,
 # generalized for the pack-shaped legs): top-level blocks each governed by their
-# OWN signature scope, not the denylist. ``engineerDecision`` is the original (a
+# OWN signature scope, not the denylist. ``hasDecisionRecord`` is the original (a
 # signed human decision); ``guardrailAction`` is the guardrail leg's output (§6);
 # downstream verified-outcome labels can add more. Each is excluded from the
 # measurement signature and exempt from the measurement-region denylist —
 # additive content in its own scope, never mixed into the measurement region.
-DECISION_BLOCK_KEY = "engineerDecision"
+DECISION_BLOCK_KEY = "hasDecisionRecord"
 GUARDRAIL_BLOCK_KEY = "guardrailAction"
 ACTION_REGION_KEYS: tuple[str, ...] = (DECISION_BLOCK_KEY, GUARDRAIL_BLOCK_KEY)
 
@@ -97,7 +97,7 @@ def find_forbidden_in_measurement_region(bundle):
 
     The signature-scoped firewall (Addendum A5, superseding the flat denylist):
     decision/action content is valid only inside a verifying-signed action-region
-    block (``ACTION_REGION_KEYS`` — ``engineerDecision``, ``guardrailAction``, …)
+    block (``ACTION_REGION_KEYS`` — ``hasDecisionRecord``, ``guardrailAction``, …)
     and is forbidden everywhere else — the "measurement region". This walker
     enforces the "everywhere else" half. Only the *top-level* action-region blocks
     are exempt; such a block smuggled deeper (e.g. inside ``measurements``) is

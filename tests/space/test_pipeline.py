@@ -66,7 +66,12 @@ def test_result_to_import_dict_shape_and_edits():
 
     # Forced Complete profile + synthetic (never-shown) outcome.
     assert data["summary"]["profile"] == "Complete"
-    assert data["decision"]["outcome"] in ("Accepted", "Not accepted")
+    # **Not a decision.** The card path measures documentation completeness; a
+    # tool that judged nothing must not emit verdict words into a decision
+    # record. This assertion used to REQUIRE the mislabel.
+    assert "decision" not in data, (
+        "the card path must not emit a decision: nobody judged anything")
+    assert data["assessment"]["status"] == "documentation-incomplete"
 
     # Factor dict uses the key names map_to_jsonld/read_workbook expect.
     f0 = data["factors"][0]

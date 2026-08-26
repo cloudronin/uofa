@@ -50,7 +50,7 @@ def schema_violations(schema: dict) -> list[str]:
 
     Checks: (1) no forbidden token is whitelisted as a measurement-region
     property; (2) the measurement-region denylist (the provenance freeform
-    object) stays in lockstep with FORBIDDEN_TOKENS; (3) the engineerDecision
+    object) stays in lockstep with FORBIDDEN_TOKENS; (3) the hasDecisionRecord
     block exists and is EXEMPT from the denylist (decision content lives there,
     governed by its signature, not the token check).
     """
@@ -58,7 +58,7 @@ def schema_violations(schema: dict) -> list[str]:
     forbidden = set(FORBIDDEN_TOKENS)
     properties = schema.get("properties", {})
 
-    # (1) No forbidden token whitelisted anywhere in the schema. (engineerDecision's
+    # (1) No forbidden token whitelisted anywhere in the schema. (hasDecisionRecord's
     # own sub-properties are decidedBy/decisionValue/... — none are forbidden
     # tokens — so scanning the whole schema stays clean and needs no special-case.)
     declared: set[str] = set()
@@ -77,13 +77,13 @@ def schema_violations(schema: dict) -> list[str]:
             f"(missing={sorted(forbidden - set(enum))}, extra={sorted(set(enum) - forbidden)})"
         )
 
-    # (3) engineerDecision present and exempt (no denylist) — signature-governed.
-    engineer_decision = properties.get("engineerDecision")
-    if not isinstance(engineer_decision, dict):
-        violations.append("schema is missing the engineerDecision block (Addendum A4)")
-    elif "propertyNames" in engineer_decision:
+    # (3) hasDecisionRecord present and exempt (no denylist) — signature-governed.
+    decision_block = properties.get("hasDecisionRecord")
+    if not isinstance(decision_block, dict):
+        violations.append("schema is missing the hasDecisionRecord block (Addendum A4)")
+    elif "propertyNames" in decision_block:
         violations.append(
-            "engineerDecision must be EXEMPT from the denylist (no propertyNames) — "
+            "hasDecisionRecord must be EXEMPT from the denylist (no propertyNames) — "
             "it is governed by the signature check, not a token match (A5)"
         )
 
@@ -93,7 +93,7 @@ def schema_violations(schema: dict) -> list[str]:
 def bundle_violations(bundle: dict, label: str = "<bundle>") -> list[str]:
     """Forbidden decision content in the measurement region of a SIP bundle.
 
-    Signature-scoped (Addendum A5): the top-level engineerDecision block is
+    Signature-scoped (Addendum A5): the top-level hasDecisionRecord block is
     exempt (governed by its signature); decision content anywhere else is a
     breach.
     """

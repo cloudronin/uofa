@@ -9,7 +9,7 @@ SIP: SIP measures and never decides; the guardrail acts.
 **Firewall placement (§4), inherited at the interface.** A guardrail's output is
 action/decision content, valid ONLY inside a signed **action-region** block
 (``guardrailAction``), excluded from the measurement signature and signed in its
-own ``"action"`` scope — exactly as ``engineerDecision`` is. The block is bound to
+own ``"action"`` scope — exactly as ``hasDecisionRecord`` is. The block is bound to
 the *recomputed* measurement hash (tamper-evident) and verifies independently of
 the measurement signature, which is unaffected. Any conforming guardrail pack
 inherits this placement and cannot emit action content into the measurement
@@ -177,7 +177,7 @@ def sign_guardrail_action(package: dict, key_path: str | Path, block_without_sig
     """Sign a guardrail action over the §4 action scope; return block + ``actionSignature``.
 
     Stamps ``attributedTo`` with the signing key's fingerprint (the action's
-    author identity, like ``engineerDecision.decidedBy``) and signs over
+    author identity, like ``hasDecisionRecord.decidedBy``) and signs over
     ``{measurementHash, action: block}`` via the generalized two-scope signer, so
     the action is tamper-evident and the measurement signature is unaffected.
     """

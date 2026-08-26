@@ -15,6 +15,7 @@ from uofa_cli.excel_constants import (
     VALID_PROFILES, VALID_DECISION_OUTCOMES, VALID_FACTOR_STATUSES,
     VALID_DEVICE_CLASSES, VALID_ASSURANCE_LEVELS,
     EVIDENCE_TYPES,
+    DECISION_ANCHOR_HEADER, DECISION_ANCHOR_SHA_HEADER,
     LEVEL_AFFIRMED_AT_HEADER, LEVEL_AFFIRMED_BY_HEADER,
     LEVEL_PROVENANCE_HEADER,
     normalize_evidence_type,
@@ -691,6 +692,21 @@ def _read_decision(ws, errors: list, warnings: list | None = None) -> dict:
     decided_by = _cell_value(ws, row, 4)    # D
     decision_date = ws.cell(row=row, column=5).value  # E — raw for date
 
+    # **The anchor, by header.** Appended after the fixed columns, so its index
+    # depends on the template; and its FORM is what separates the two cases -- a
+    # `ledger://` address is an act of judgment, anything else is a passage the
+    # source actually stated.
+    def _decision_col(header: str) -> int | None:
+        for col in range(1, ws.max_column + 1):
+            if str(ws.cell(row=header_row, column=col).value or "").strip() == header:
+                return col
+        return None
+
+    anchor_col = _decision_col(DECISION_ANCHOR_HEADER)
+    sha_col = _decision_col(DECISION_ANCHOR_SHA_HEADER)
+    decision_anchor = _cell_value(ws, row, anchor_col) if anchor_col else None
+    decision_anchor_sha = _cell_value(ws, row, sha_col) if sha_col else None
+
     valid_outcomes = VALID_DECISION_OUTCOMES + ["Conditional"]
     if not outcome:
         errors.append(f"Sheet '{sheet}', cell {_cell_ref(1, row)}: Decision Outcome is required")
@@ -716,4 +732,6 @@ def _read_decision(ws, errors: list, warnings: list | None = None) -> dict:
         "criteria_set": criteria_set,
         "decided_by": decided_by,
         "decision_date": _parse_date(decision_date),
+        "anchor_uri": decision_anchor,
+        "anchor_sha256": decision_anchor_sha,
     }
