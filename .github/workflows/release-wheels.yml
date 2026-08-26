@@ -354,7 +354,18 @@ jobs:
   # — validate.yml is a separate workflow and its job IDs aren't visible
   # to release-wheels.yml's dep graph. Tag-push only.
   validate-on-tag:
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    # Runs from a tag, however the run was STARTED. `workflow_dispatch` was
+    # already accepted by this workflow but could never reach publish, because
+    # this required the event to be a push -- so a manual re-run built every
+    # wheel, ran every smoke test, and then skipped the upload. That left
+    # tag-push as the only path to PyPI, and when v0.14.1's tag push produced no
+    # workflow run at all, there was no way to publish it short of mutating a
+    # public tag.
+    #
+    # The safety property is the REF, not the trigger: only a tag ships.
+    if: >-
+      startsWith(github.ref, 'refs/tags/v') &&
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -377,7 +388,18 @@ jobs:
       - smoke-linux-aarch64
       - smoke-macos      # macos-14 (arm64) only after the macos-13 drop
       - smoke-windows
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    # Runs from a tag, however the run was STARTED. `workflow_dispatch` was
+    # already accepted by this workflow but could never reach publish, because
+    # this required the event to be a push -- so a manual re-run built every
+    # wheel, ran every smoke test, and then skipped the upload. That left
+    # tag-push as the only path to PyPI, and when v0.14.1's tag push produced no
+    # workflow run at all, there was no way to publish it short of mutating a
+    # public tag.
+    #
+    # The safety property is the REF, not the trigger: only a tag ships.
+    if: >-
+      startsWith(github.ref, 'refs/tags/v') &&
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     environment:
       name: pypi

@@ -4,6 +4,26 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+## [0.14.2] — 2026-08-26
+
+### Fixed
+
+- **A release could only be published by a tag push, and nothing else.**
+  `release-wheels.yml` already accepted `workflow_dispatch`, but its publish and
+  validate jobs required `github.event_name == 'push'` — so a manual re-run
+  built every wheel, ran every smoke test, and then skipped the upload. The
+  manual path existed and could not finish the job.
+
+  That went unnoticed until `v0.14.1`'s tag push produced **no workflow run at
+  all** (cause still unexplained; `v0.14.0`'s identical push had fired
+  normally). With no dispatch path to publish and a public tag that must not be
+  mutated, the release had nowhere to go.
+
+  Both jobs now gate on the **ref** rather than the trigger: only a tag ships,
+  but a tag ships however the run was started. `v0.14.1` is therefore skipped on
+  PyPI — the version exists as a signed git tag and nothing else.
+
+
 ## [0.14.1] — 2026-08-26
 
 ### Changed
