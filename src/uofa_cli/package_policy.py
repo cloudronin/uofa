@@ -141,3 +141,109 @@ def sign_package(
         Path(jsonld_path), key_path,
         context_path=context_path, output_path=output_path, key_bytes=key_bytes,
     )
+
+
+def sign_package_scoped(
+    jsonld_path: Path,
+    *,
+    issuer_key_path: Path | None = None,
+    issuer_key_bytes: bytes | None = None,
+    reviewer_key_path: Path | None = None,
+    reviewer_key_bytes: bytes | None = None,
+    now: str | None = None,
+) -> dict:
+    """The two-scope act for a service. Returns a summary dict.
+
+    `sign_package` produces ONE signature over the whole document, which is
+    correct only when there is no decision layer -- and `assert_issuable` refuses
+    it otherwise, so a hosted product emitting decision records has no path
+    through it at all. This is that path, and it is here rather than in the CLI
+    because `package_policy` is the door a UI or service is supposed to enter by.
+
+    Two scopes, in the only order that works:
+
+    1. the **issuer seal** over the measurement view (document minus integrity
+       fields minus the decision layer), so it survives a decision arriving later;
+    2. a **decision signature** per asserted record, binding the recomputed
+       measurement hash.
+
+    Atomic: both land or the file is untouched. A package sealed but with its
+    verdict unsigned states something nobody meant, and is indistinguishable
+    from one whose reviewer simply has not signed yet.
+
+    A reviewer key is optional. Without one the package is sealed and honestly
+    incomplete -- `uofa check` reports the decision layer as owed -- which is the
+    lawful multi-party state, not a failure.
+    """
+    import json as _json
+    import os as _os
+    import tempfile as _tempfile
+    from datetime import datetime, timezone
+
+    from uofa_cli import sign_roles
+    from uofa_cli.integrity import sign_hash
+    from uofa_cli.interrogate.signing import measurement_hash
+
+    if (issuer_key_path is None) == (issuer_key_bytes is None):
+        raise ValueError("exactly one of issuer_key_path / issuer_key_bytes")
+
+    path = Path(jsonld_path)
+    doc = load_doc(path)
+    stamp = now or (datetime.now(timezone.utc).replace(microsecond=0)
+                    .isoformat().replace("+00:00", "Z"))
+
+    unclassified = sign_roles.unclassified_records(doc)
+    if unclassified:
+        raise PackagePolicyError(
+            f"this package carries {len(unclassified)} decision record(s) whose "
+            f"provenance is unstated. The fork says which warrant is owed, so "
+            f"there is nothing to check the record against.")
+
+    # **Route on what the package carries, exactly as verify does.** With no
+    # decision layer the whole document IS the measurement view, and the bare
+    # signature is the issuer seal under another name -- byte-identical to
+    # pre-consolidation output and regression-pinned. Using the measurement-view
+    # hash unconditionally would seal decision-free packages under a scope no
+    # verifier checks them against: correctly signed, and reported broken.
+    if not sign_roles.has_decision_layer(doc):
+        from uofa_cli.integrity import sign_file
+
+        sha, _sig = sign_file(path, issuer_key_path, key_bytes=issuer_key_bytes)
+        return {
+            "package_hash": sha,
+            "decision_records_signed": 0,
+            "decision_signatures_owed": 0,
+            "complete": True,
+        }
+
+    sha = measurement_hash(doc)
+    doc["hash"] = f"sha256:{sha}"
+    doc["signature"] = "ed25519:" + (
+        sign_hash(sha, key_bytes=issuer_key_bytes) if issuer_key_bytes
+        else sign_hash(sha, Path(issuer_key_path)))
+
+    signed_records = 0
+    owed = len(sign_roles.unsigned_asserted(doc))
+    if reviewer_key_path is not None or reviewer_key_bytes is not None:
+        if owed:
+            signed_records = sign_roles.sign_decision_records(
+                doc, reviewer_key_path, sign_roles.REVIEWER,
+                now=stamp, key_bytes=reviewer_key_bytes)
+            owed = len(sign_roles.unsigned_asserted(doc))
+
+    # Temp-file-and-rename: no half-attested artifact ever exists on disk.
+    fd, tmp = _tempfile.mkstemp(dir=str(path.parent), suffix=".tmp")
+    try:
+        with _os.fdopen(fd, "w", encoding="utf-8") as fh:
+            _json.dump(doc, fh, indent=2, ensure_ascii=False)
+        _os.replace(tmp, path)
+    except BaseException:
+        _os.unlink(tmp)
+        raise
+
+    return {
+        "package_hash": sha,
+        "decision_records_signed": signed_records,
+        "decision_signatures_owed": owed,
+        "complete": owed == 0,
+    }

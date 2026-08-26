@@ -84,11 +84,34 @@ uofa check my-cou.jsonld
 
 | | |
 |---|---|
-| **C1 Integrity** | hash + signature over the canonicalized graph |
+| **C1 Integrity** | hash + signature over the canonicalized graph, per scope |
 | **C2 SHACL** | required fields for the declared profile |
 | **C3 Rules** | 23 weakener patterns via the Jena rule engine |
 
 `uofa check` runs all three. Add `--explain` for plain-language findings.
+
+### Who signed what
+
+UofA formalizes the boundary between machine work and human judgment, and the
+signing model is where that boundary is enforced rather than described.
+**Infrastructure keys seal what a machine can attest** — origin, integrity,
+well-formedness — over the *measurement view*, which deliberately excludes the
+decision layer so the seal survives a decision arriving later. **Only a person's
+key signs a judgment.** One signature may never span both, and the CLI refuses
+the confusion rather than discouraging it:
+
+```bash
+uofa decision record pkg.jsonld --criterion "..." --value accepted \
+    --actor https://your.org/org/<handle>     # authoring: no key, no signature
+uofa sign pkg.jsonld --key K --as reviewer    # attesting: the decider's own key
+uofa verify pkg.jsonld --pubkey issuer.pub --decision-pubkey reviewer.pub
+```
+
+`verify` reports each scope independently and states custody as a fact: two
+different keys read as *independent attestation*, one key across both as
+*single-party configuration*. It is derived from key identity, never key count,
+so the stronger claim cannot be faked. There is no default trust anchor — every
+verification names what it checked against.
 
 ---
 
@@ -459,7 +482,7 @@ uofa interrogate \
 uofa rules packs/surrogate/examples/airfrans/cou1/uofa-surrogate-airfrans-cou1.jsonld --pack surrogate
 ```
 
-**Reading the output.** Residuals, coverage, and UQ are *measurements*; the pack's weakeners flag *evidence gaps* (e.g. an evaluation point outside the declared envelope, an unlinked residual). **Zero weakeners is not a guarantee of accuracy** — it means the evidence package is complete and auditable, and the trust decision is yours (`uofa decision sign`). In the appliance, a stock-Qwen explanation rides on top as **reference annotation** (decode, clearly labeled) — it explains the flags, it never adjudicates them.
+**Reading the output.** Residuals, coverage, and UQ are *measurements*; the pack's weakeners flag *evidence gaps* (e.g. an evaluation point outside the declared envelope, an unlinked residual). **Zero weakeners is not a guarantee of accuracy** — it means the evidence package is complete and auditable, and the trust decision is yours (`uofa decision record` to author it, `uofa sign --as reviewer` to stand behind it). In the appliance, a stock-Qwen explanation rides on top as **reference annotation** (decode, clearly labeled) — it explains the flags, it never adjudicates them.
 
 **The appliance (one command).** The concept appliance bundles the core + the surrogate pack + a stock explainer in one container; the two-container demo feeds it live signals from a PhysicsNeMo-CFD container through the SIP interface:
 

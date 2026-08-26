@@ -30,7 +30,9 @@ manifest, public key, and instructions beside it are convenience copies.
 
 ```
 unzip uofa-pack-*.zip
-uofa verify uofa.jsonld --pubkey keys/demo.pub
+uofa verify uofa.jsonld \
+  --pubkey keys/uofa-issuer.pub \
+  --decision-pubkey keys/demo-reviewer.pub
 ```
 
 **What a valid signature means here.** Only that the file is unmodified since
@@ -45,7 +47,8 @@ anchor shipped inside the artifact it validates only proves self-consistency, so
 compare it against this independent copy:
 
 ```
-keys/demo.pub  sha256:3605a146f4880d9f7a29db6ef5629655091d2ecd0c2b9919cbe49d90d65d83c8
+keys/uofa-issuer.pub    sha256:ead2e1e1068f8c6da14b2c9c384e4d00d8900308ad2e406fe294330ce0edd81d
+keys/demo-reviewer.pub  sha256:3605a146f4880d9f7a29db6ef5629655091d2ecd0c2b9919cbe49d90d65d83c8
 ```
 
 ## Privacy

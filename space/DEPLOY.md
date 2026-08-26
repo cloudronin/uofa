@@ -89,14 +89,17 @@ never evidence content.
 The "Download UofA package" control signs each package with a **dedicated demo
 issuer key**. Deliberately *not* `keys/research.key`: a demo artifact must never
 be cryptographically indistinguishable from a research package, so the demo key
-is its own identity and `uofa verify` requires `--pubkey keys/demo.pub`.
+is its own identity. Signing now takes TWO keys, one per attestor kind:
+`UOFA_ISSUER_SIGNING_KEY` seals the measurement view (anchor
+`keys/uofa-issuer.pub`) and `UOFA_DEMO_SIGNING_KEY` signs the decision
+(anchor `keys/demo-reviewer.pub`). One signature may never span both.
 
 **Setup (one-time).** Generate the pair *outside the repo* and install the
 private half as a Space secret:
 
 ```bash
 uofa keygen ~/secure/uofa-demo.key     # writes uofa-demo.key + uofa-demo.pub
-cp ~/secure/uofa-demo.pub keys/demo.pub   # public half is committed
+cp ~/secure/uofa-demo.pub keys/demo-reviewer.pub   # public half is committed
 ```
 
 Space → **Settings → Variables and secrets → New secret**:
@@ -120,7 +123,7 @@ readout it had before downloads existed, and the download button stays hidden.
 That is the correct behaviour for a duplicated Space, which does not inherit
 secrets.
 
-**Rotating.** Generate a new pair, replace `keys/demo.pub`, update the secret,
+**Rotating.** Generate a new pair, replace the matching `keys/*.pub` anchor, update the secret,
 and redeploy. Packages issued under the old key stop verifying against the new
 `demo.pub` — which is the intended meaning of a rotation, not a regression.
 Update the fingerprint published in `space/README.md`.

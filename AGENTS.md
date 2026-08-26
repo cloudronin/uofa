@@ -384,9 +384,12 @@ forbidden was always *SIP deciding*, not the vocabulary.)
 
 - **Rule:** No fused step. `review` and `sign` are separate; `uofa interrogate`
   MUST NOT threshold, print a verdict, chain into `check`/`rules`/`validate`, or
-  offer any measure-and-sign-in-one path. `uofa decision sign` REQUIRES the
+  offer any measure-and-sign-in-one path. `uofa sign --as reviewer` REQUIRES the
   engineer's own `--key` — no default, no service key, no headless/batch
-  stamping — and re-verifies the measurement signature before signing
+  stamping — and re-verifies the measurement signature before signing.
+  Authoring is a separate act again: `uofa decision record` writes the judgment
+  with no key and no signature, so a decision exists, is reviewable, and is
+  visibly owed a signature before anyone attests it
   (stale-bundle refusal). The tool never suggests or defaults the criterion or
   verdict; `accepted` and `not-accepted` are symmetric.
   **Why:** "interrogate-and-decide in one step," or a default/synthesized
