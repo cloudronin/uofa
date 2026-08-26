@@ -598,7 +598,11 @@ def main() -> int:
     if all(p for _, p in checks):
         print(f"\n✓ All {len(checks)} checks passed.")
         if args.tag:
-            print(f"\nNext: git tag -a {args.tag} -m '...' && git push origin {args.tag}")
+            print(f"\nNext: git tag -s {args.tag} -m '...'"
+                  f"  &&  git tag -v {args.tag}"
+                  f"  &&  git push origin {args.tag}")
+            print("      (-s signs it; verify the tag object BEFORE pushing —"
+                  " a published tag is never re-made)")
         return 0
     failed = sum(1 for _, p in checks if not p)
     print(f"\n✗ {failed} of {len(checks)} checks FAILED — fix before tagging.")
