@@ -40,12 +40,14 @@ from __future__ import annotations
 
 import json
 import re
+from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import urlsplit
 
 from uofa_cli.excel_constants import (
     LEVEL_PROVENANCE_HEADER, SHEET_NAMES, WORKBOOK_PROFILE_HEADER,
+    level_terms_after_vocab, level_vocab_for, version_tuple,
 )
 
 ANCHOR_HEADER = "Source Anchor"
@@ -210,6 +212,94 @@ def check_workbook(path: Path, template_path: Path | None = None) -> list[CheckR
 #: answers *was it judged*.
 _JUDGED = {"affirmed", "corrected"}
 
+#: **A recorded absence is not a missing judgment.**
+#:
+#: Two acts say "there is no required level here to weigh, and a human
+#: established that": `source-absent` -- the document does not state this
+#: requirement -- and `not-recoverable` -- it does, and the admitted text
+#: cannot carry it. Neither is a judgment. Neither is a silence either, which
+#: is the half this checker used to get wrong: both landed in the same bucket
+#: as a level nobody opened, so the honest act read identically to negligence
+#: and the reviewer was left no lawful exit at all.
+#:
+#: A disposed requirement is EXCLUDED FROM THE DENOMINATOR. Exclusion is not
+#: judgment credit: nothing is counted as weighed that was not weighed. The
+#: package says a smaller number of levels were judged, and says why the
+#: number is smaller.
+#:
+#: Which is the other half of the rule. Every message below NAMES the
+#: disposals. A denominator that quietly shrinks is precisely the vacuity this
+#: checker exists to refuse -- a check correct on the ordinary case and silent
+#: on the important one -- so a check that excludes must state what it
+#: excluded, how many, and under which term.
+_DISPOSED = {"source-absent", "not-recoverable"}
+
+#: Which provenance tokens each encoding profile can state, and from when --
+#: **imported, never restated.** The emitter and this checker disagreeing about
+#: a closed set is the exact defect shape this repository keeps finding: two
+#: copies that agree until one grows. `level_vocab_for` is that one definition;
+#: see `excel_constants.LEVEL_VOCAB` for why the versions are keyed.
+#:
+#: It mirrors `uofa:introducedIn` on the shapes: the same rule, for the same
+#: reason, one layer down.
+_vocab_for = level_vocab_for
+
+
+def _split_levels(rows: list[tuple[str, str]], vocab: frozenset[str],
+                  judged: set[str] | frozenset[str]):
+    """Sort `(factor, token)` pairs into judged / disposed / unjudged / alien.
+
+    `alien` is tested FIRST and on its own: a term whose meaning arrived AFTER
+    the version the artifact declares must not be silently sorted into one of
+    the other three, because every one of those three is a claim about what the
+    reviewer did, and a term the declaration cannot express supports none of
+    them.
+
+    It is deliberately the narrow set -- `level_terms_after`, not "everything
+    unrecognised". A token this vocabulary has never contained at any version
+    is not a version disagreement; it is simply not a judgment, and belongs in
+    `unjudged` with the message that says so.
+    """
+    future = level_terms_after_vocab(vocab)
+    weighed: list[str] = []
+    disposed: list[tuple[str, str]] = []
+    unjudged: list[str] = []
+    alien: list[tuple[str, str]] = []
+    for factor, raw in rows:
+        token = (raw or "").strip().lower()
+        if token in future:
+            alien.append((factor, token))
+        elif token in judged:
+            weighed.append(factor)
+        elif token in _DISPOSED:
+            disposed.append((factor, token))
+        else:
+            unjudged.append(factor)
+    return weighed, disposed, unjudged, alien
+
+
+def _disposal_note(disposed: list[tuple[str, str]]) -> str:
+    """What the denominator dropped, stated whenever it dropped anything."""
+    if not disposed:
+        return ""
+    counts = Counter(token for _, token in disposed)
+    kinds = ", ".join(f"{n} {token}" for token, n in sorted(counts.items()))
+    return (f"; {len(disposed)} excluded from the denominator as disposed "
+            f"({kinds}) -- a recorded absence is not a judgment")
+
+
+def _alien_refusal(name: str, declared: str, alien: list[tuple[str, str]]) -> CheckResult:
+    """A term the artifact's own declaration cannot express."""
+    shown = "; ".join(f"{factor} carries '{token}'" for factor, token in alien[:3])
+    more = f" (+{len(alien) - 3} more)" if len(alien) > 3 else ""
+    return CheckResult(
+        name, False,
+        f"this package declares {declared}, whose provenance vocabulary does "
+        f"not contain the term(s) it uses: {shown}{more}. The declaration and "
+        f"the artifact disagree, so the term can be read neither as a judgment "
+        f"nor as a disposition -- {declared} cannot say what it means. "
+        f"Re-export from an encoding tool that declares the profile it writes.")
+
 
 def _declared_profile(wb) -> str:
     """What the workbook says its own encoding shape is, or "" if it says nothing.
@@ -233,15 +323,8 @@ def _declared_profile(wb) -> str:
     return ""
 
 
-def _version_tuple(declared: str) -> tuple[int, ...]:
-    """`"v0.8"` -> `(0, 8)`. Unparseable declarations sort below everything.
-
-    A workbook claiming `"latest"` or `"2026-08"` has not declared a version
-    this checker understands, and treating an unreadable claim as a high one
-    would let a typo buy the evidence path.
-    """
-    digits = re.findall(r"\d+", declared or "")
-    return tuple(int(d) for d in digits) if digits else ()
+#: `"v0.8"` -> `(0, 8)`, from the one definition that also keys the vocabulary.
+_version_tuple = version_tuple
 
 
 #: The first shape that can state whether a required level was judged.
@@ -286,7 +369,7 @@ def _check_levels(wb) -> CheckResult:
 
     prov_col = _levels_column(ws, head)
     pairs, differing, waived = 0, 0, False
-    unjudged: list[str] = []
+    rows: list[tuple[str, str]] = []
 
     for row in range(head + 2, ws.max_row + 1):
         factor = ws.cell(row=row, column=1).value
@@ -298,9 +381,8 @@ def _check_levels(wb) -> CheckResult:
             if isinstance(text, str) and "waiv" in text.lower():
                 waived = True
         if prov_col is not None and req is not None:
-            token = str(ws.cell(row=row, column=prov_col).value or "").strip().lower()
-            if token not in _JUDGED:
-                unjudged.append(str(factor))
+            rows.append((str(factor),
+                         str(ws.cell(row=row, column=prov_col).value or "")))
         if req is None or ach is None:
             continue
         pairs += 1
@@ -324,21 +406,49 @@ def _check_levels(wb) -> CheckResult:
 
     # ── the evidence path: the package can state whether judgment occurred ──
     if _version_tuple(declared) >= _EVIDENCE_PROFILE:
+        name = "required levels were reviewed"
+        weighed, disposed, unjudged, alien = _split_levels(
+            rows, _vocab_for(_version_tuple(declared)), _JUDGED)
+        if alien:
+            return _alien_refusal(name, f"encoding profile {declared}", alien)
+
+        # The denominator is what was ASKED of a reviewer, which is every rated
+        # level minus the ones a reviewer disposed of. `pairs` counted rows
+        # carrying both levels and was never the right roster for this
+        # question: it answered "how many can be compared", not "how many
+        # needed weighing".
+        owed = len(weighed) + len(unjudged)
+        note = _disposal_note(disposed)
         if unjudged and not waived:
             shown = "; ".join(unjudged[:4])
             more = f" (+{len(unjudged) - 4} more)" if len(unjudged) > 4 else ""
             return CheckResult(
-                "required levels were reviewed", False,
-                f"{len(unjudged)} of {pairs} required level(s) have not been "
+                name, False,
+                f"{len(unjudged)} of {owed} required level(s) have not been "
                 f"affirmed or corrected -- nobody has weighed them against the "
                 f"achieved level: {shown}{more}. Affirm each in the encoding "
-                f"tool, correct it, or record a waiver.")
+                f"tool, correct it, or record a waiver.{note}")
+
+        # Every level disposed and none judged. This is not a judgment pass and
+        # must never render as one: the roster was answered, and the answer was
+        # that nothing in it could be weighed. Stated as an advisory so a reader
+        # sees the sentence rather than a green tick standing in for it.
+        if disposed and not weighed:
+            counts = Counter(token for _, token in disposed)
+            kinds = ", ".join(f"{n} {token}" for token, n in sorted(counts.items()))
+            return CheckResult(
+                name, True,
+                f"no required level was judged: all {len(disposed)} were "
+                f"disposed ({kinds}). Nothing here was weighed against the "
+                f"achieved level, and this package does not claim otherwise",
+                skipped=True)
+
         return CheckResult(
-            "required levels were reviewed", True,
+            name, True,
             f"every required level carries a review act"
             + (f" ({differing} of {pairs} differ)" if differing else
                f" (all {pairs} agree, and the package says so)")
-            + (", waiver recorded" if waived else ""))
+            + (", waiver recorded" if waived else "") + note)
 
     # ── the legacy path: advisory, never a hard refusal on its own ─────────
     #
@@ -485,20 +595,42 @@ def _check_package_levels(package_path: Path) -> CheckResult:
         return CheckResult(name, True, "no factor carries a required level",
                            skipped=True)
 
-    unjudged = [str(f.get("factorType") or "?") for f in rated
-                if str(f.get("requiredLevelProvenance") or "").strip().lower()
-                not in _PACKAGE_JUDGED]
+    declared = str(doc.get("@context") or "none").rsplit("/", 1)[-1]
+    weighed, disposed, unjudged, alien = _split_levels(
+        [(str(f.get("factorType") or "?"),
+          str(f.get("requiredLevelProvenance") or "")) for f in rated],
+        _vocab_for(version), _PACKAGE_JUDGED)
+    if alien:
+        return _alien_refusal(name, f"context {declared}", alien)
+
+    owed = len(weighed) + len(unjudged)
+    note = _disposal_note(disposed)
     if unjudged:
         shown = "; ".join(unjudged[:4])
         more = f" (+{len(unjudged) - 4} more)" if len(unjudged) > 4 else ""
         return CheckResult(
             name, False,
-            f"{len(unjudged)} of {len(rated)} required level(s) carry no "
+            f"{len(unjudged)} of {owed} required level(s) carry no "
             f"judgment: {shown}{more}. Anchoring locates a level; it does not "
             f"weigh it. Affirm or correct each in the encoding tool, or record "
-            f"a waiver.")
+            f"a waiver.{note}")
+
+    # All disposed, none judged -- see the twin branch in `_check_levels`. A
+    # green tick here would let a package that weighed nothing read exactly like
+    # one that weighed everything, which is the whole failure this check exists
+    # to prevent, arrived at from the other side.
+    if disposed and not weighed:
+        counts = Counter(token for _, token in disposed)
+        kinds = ", ".join(f"{n} {token}" for token, n in sorted(counts.items()))
+        return CheckResult(
+            name, True,
+            f"no required level carries a judgment: all {len(disposed)} were "
+            f"disposed ({kinds}). This package records that nothing could be "
+            f"weighed, and claims no judgment",
+            skipped=True)
+
     return CheckResult(name, True,
-                       f"all {len(rated)} required level(s) carry a judgment")
+                       f"all {owed} required level(s) carry a judgment{note}")
 
 
 def check_package(package_path: Path) -> list[CheckResult]:

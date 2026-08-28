@@ -16,8 +16,9 @@ from uofa_cli.excel_constants import (
     FACTOR_STANDARD_VV40, FACTOR_STANDARD_NASA, FACTOR_STANDARD_MODEL_CREDIBILITY,
     FACTOR_STANDARD_AI_800_3,
     PROFILE_URIS, CONTEXT_URL, DEFAULT_BASE_URI, RESERVED_BASE_URIS,
+    context_url_for,
     CRITERIA_BASE, KNOWN_CRITERIA_SETS,
-    LEVEL_TOKENS, JUDGMENT_TOKENS,
+    LEVEL_TOKENS, JUDGMENT_TOKENS, level_vocab_for, version_tuple,
     LEDGER_ANCHOR_SCHEME,
 )
 from uofa_cli import __version__
@@ -243,7 +244,11 @@ def map_to_jsonld(
 
     # ── Build the document ───────────────────────────────────
     doc = {
-        "@context": CONTEXT_URL,
+        # Not the constant: the version this workbook DECLARES. See
+        # `context_url_for` -- a package is judged by the vocabulary it was
+        # authored against, so it declares that one.
+        "@context": context_url_for(
+            version_tuple(summary.get("encoding_profile", ""))),
         "id": base,
         "type": "UnitOfAssurance",
         "conformsToProfile": PROFILE_URIS.get(profile, PROFILE_URIS["Minimal"]),
@@ -332,7 +337,9 @@ def map_to_jsonld(
     # can detect unassessed gaps at elevated risk (W-EP-04).
     if factors:
         doc["hasCredibilityFactor"] = [
-            _map_factor(f, packs, base) for f in factors
+            _map_factor(f, packs, base, vocab=level_vocab_for(
+                version_tuple(summary.get("encoding_profile", ""))))
+            for f in factors
         ]
 
     # ── Automated assessment (machine-class, issuer-signable) ─
@@ -566,7 +573,8 @@ def _decision_provenance(anchor_uri: str | None) -> str:
     return EXTRACTED
 
 
-def _map_factor(factor: dict, packs: list[str], base: str = "") -> dict:
+def _map_factor(factor: dict, packs: list[str], base: str = "", *,
+                vocab: frozenset[str]) -> dict:
     """Map a credibility factor intermediate dict to JSON-LD."""
     vv40_set = set(VV40_FACTOR_NAMES)
     nasa_only_set = set(NASA_ONLY_FACTOR_NAMES)
@@ -633,8 +641,15 @@ def _map_factor(factor: dict, packs: list[str], base: str = "") -> dict:
         # written. The cell then carries no judgment claim -- which is true --
         # and the levels check refuses it by name rather than the package
         # asserting something it cannot support.
+        # **And the closed set is closed AT THE VERSION THE SOURCE DECLARES.**
+        # Testing membership of the whole vocabulary was the same hole one level
+        # up: a workbook declaring v0.8 and carrying `not-recoverable` -- a term
+        # v0.8 has no way to mean -- imported into a package whose context makes
+        # the term legal, and the disagreement vanished at the boundary. The
+        # token is dropped instead, so the levels check refuses the package by
+        # name rather than the package asserting something its source could not.
         token = factor.get("required_level_provenance")
-        if token in LEVEL_TOKENS:
+        if token in vocab:
             f["requiredLevelProvenance"] = LEVEL_TOKENS[token]
         if f.get("requiredLevelProvenance") in JUDGMENT_TOKENS:
             # A judgment claim carries its agent. Machine states do not need
