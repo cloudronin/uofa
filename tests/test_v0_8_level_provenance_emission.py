@@ -23,7 +23,8 @@ import pytest
 from uofa_cli import excel_mapper, excel_reader
 from uofa_cli.excel_constants import (
     JUDGMENT_TOKENS, LEVEL_AFFIRMED_AT_HEADER, LEVEL_AFFIRMED_BY_HEADER,
-    LEVEL_PROVENANCE_HEADER, LEVEL_TOKENS,
+    LEVEL_PROVENANCE_HEADER, LEVEL_TOKENS, WORKBOOK_PROFILE_HEADER,
+    level_vocab_for,
 )
 
 REPO = Path(__file__).resolve().parents[1]
@@ -33,7 +34,8 @@ HEAD = 3
 
 
 def _workbook_with(tmp_path: Path, tokens: list[str],
-                   attribution: tuple[str, str] | None = None) -> Path:
+                   attribution: tuple[str, str] | None = None,
+                   declare: str = "v0.9") -> Path:
     """A reviewed workbook carrying the provenance column and required levels.
 
     The levels matter: the emission is nested under `required_level is not
@@ -58,6 +60,20 @@ def _workbook_with(tmp_path: Path, tokens: list[str],
         if attribution:
             ws.cell(row=HEAD + 2 + i, column=col + 1).value = attribution[0]
             ws.cell(row=HEAD + 2 + i, column=col + 2).value = attribution[1]
+    # **The sheet declares what it is**, because the emitter now gates the
+    # vocabulary on that declaration. An undeclared fixture buys the narrowest
+    # vocabulary, which is correct behaviour and silently wrong as a fixture:
+    # every token introduced after v0.8 would vanish and the test would read
+    # that as the emitter dropping them.
+    if declare:
+        summary = book["Assessment Summary"]
+        head = next(r for r in range(1, 12)
+                    for c in range(1, 40)
+                    if str(summary.cell(row=r, column=c).value or "").strip()
+                    == "Project Name")
+        pcol = summary.max_column + 1
+        summary.cell(row=head, column=pcol).value = WORKBOOK_PROFILE_HEADER
+        summary.cell(row=head + 1, column=pcol).value = declare
     book.save(out)
     return out
 
@@ -206,3 +222,82 @@ def test_the_emitted_terms_are_all_defined_by_the_declared_context(tmp_path):
     for term in ("requiredLevelProvenance", "LevelAffirmation",
                  "hasLevelAffirmation", "affirmedAt"):
         assert term in ctx, f"{name} does not define {term}"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# The vocabulary is closed AT THE VERSION THE SOURCE DECLARES.
+# ─────────────────────────────────────────────────────────────────────────────
+
+def test_a_v0_8_workbook_cannot_launder_a_v0_9_term_into_a_package(tmp_path):
+    """The disagreement must not vanish at the boundary.
+
+    The emitter writes the current context onto everything it produces. So a
+    workbook declaring v0.8 and carrying `not-recoverable` -- a term v0.8 has no
+    way to mean -- would import into a package whose context makes the term
+    legal, and every check downstream would see a well-formed v0.9 package. The
+    only place that disagreement is still visible is here, at the read.
+
+    Dropping the token leaves the level unjudged, which is true of it, and the
+    levels check refuses the package by name.
+    """
+    wb = _workbook_with(tmp_path, ["not-recoverable", "affirmed"], declare="v0.8")
+    values = [f.get("requiredLevelProvenance") for f in _factors(wb)[:2]]
+    assert values[0] is None, "a v0.8 sheet's out-of-vocabulary term reached the package"
+    assert values[1] == "affirmed", "the gate dropped a term v0.8 does define"
+
+
+def test_the_same_term_survives_when_the_source_declares_v0_9(tmp_path):
+    """And the gate is not a blanket refusal: it is the declaration, honoured."""
+    wb = _workbook_with(tmp_path, ["not-recoverable"], declare="v0.9")
+    assert _factors(wb)[0].get("requiredLevelProvenance") == "not-recoverable"
+
+
+def test_an_undeclared_workbook_gets_the_narrowest_vocabulary(tmp_path):
+    """Silence is not a claim to the widest set.
+
+    A sheet that declares nothing has not earned any vocabulary, and reading its
+    tokens anyway is the field-sniffing the declaration exists to replace.
+    """
+    wb = _workbook_with(tmp_path, ["affirmed"], declare="")
+    assert _factors(wb)[0].get("requiredLevelProvenance") is None
+
+
+def test_every_token_survives_the_round_trip_under_its_own_version(tmp_path):
+    """`LEVEL_TOKENS` is the contract, and each term round-trips from the
+    version that introduced it -- which is a stronger statement than the flat
+    set was making."""
+    tokens = sorted(level_vocab_for((0, 9)))
+    wb = _workbook_with(tmp_path, tokens, declare="v0.9")
+    assert [f.get("requiredLevelProvenance")
+            for f in _factors(wb)[:len(tokens)]] == tokens
+    assert set(tokens) == set(LEVEL_TOKENS), "the flat set and the versioned set disagree"
+
+
+def test_the_package_declares_the_version_its_source_declared(tmp_path):
+    """Jurisdiction from the emitter's side.
+
+    A v0.8 workbook transcribed today is a v0.8 document: nothing in it is
+    newer than what the sheet held. Stamping the current vocabulary on it would
+    subject it to five decision-model shapes introduced at v0.9 that its content
+    never claimed to satisfy -- refusing it for missing something nobody asked
+    it for, which is the exact reasoning `_apply_jurisdiction` exists to reject.
+    """
+    def _context(declare):
+        wb = _workbook_with(tmp_path / declare.replace(".", "") or "x",
+                            ["affirmed"], declare=declare)
+        doc = excel_mapper.map_to_jsonld(
+            excel_reader.read_workbook(wb, PACKS), PACKS, wb)
+        return doc["@context"].rsplit("/", 1)[-1]
+
+    (tmp_path / "v08").mkdir()
+    (tmp_path / "v09").mkdir()
+    assert _context("v0.8") == "v0.8.jsonld"
+    assert _context("v0.9") == "v0.9.jsonld"
+
+
+def test_an_undeclared_workbook_gets_the_oldest_supported_context(tmp_path):
+    """Silence is not a claim to the newest vocabulary, here either."""
+    wb = _workbook_with(tmp_path, ["affirmed"], declare="")
+    doc = excel_mapper.map_to_jsonld(
+        excel_reader.read_workbook(wb, PACKS), PACKS, wb)
+    assert doc["@context"].endswith("/v0.8.jsonld")

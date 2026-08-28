@@ -28,6 +28,7 @@ from rdflib import Graph
 from uofa_cli import excel_mapper, excel_reader, paths
 from uofa_cli.excel_constants import (
     LEVEL_AFFIRMED_AT_HEADER, LEVEL_AFFIRMED_BY_HEADER, LEVEL_PROVENANCE_HEADER,
+    WORKBOOK_PROFILE_HEADER,
 )
 from uofa_cli.shacl_friendly import _load_data_graph
 
@@ -63,6 +64,17 @@ def attributed(tmp_path_factory) -> dict:
     ws.cell(row=5, column=c + 2).value = "2026-08-24T10:00:00Z"
     ws.cell(row=5, column=3).value = 3
     ws.cell(row=5, column=4).value = 3
+    # **The sheet declares what it is.** The emitter gates the provenance
+    # vocabulary on this, so an undeclared fixture gets the narrowest set, the
+    # token is dropped, and every mutation below fails hunting for a factor that
+    # carries one -- a fixture defect that reads exactly like a broken emitter.
+    summary = book["Assessment Summary"]
+    head = next(r for r in range(1, 12) for col in range(1, 40)
+                if str(summary.cell(row=r, column=col).value or "").strip()
+                == "Project Name")
+    pcol = summary.max_column + 1
+    summary.cell(row=head, column=pcol).value = WORKBOOK_PROFILE_HEADER
+    summary.cell(row=head + 1, column=pcol).value = "v0.8"
     book.save(wb)
     return excel_mapper.map_to_jsonld(
         excel_reader.read_workbook(wb, PACKS), PACKS, wb)

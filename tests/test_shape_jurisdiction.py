@@ -70,3 +70,78 @@ def test_the_shipped_legacy_examples_conform_under_their_own_contexts():
                 "packs/vv40/examples/morrison/cou2/uofa-morrison-cou2.jsonld"):
         r = _shacl(REPO_ROOT / rel)
         assert r.returncode == 0, f"{rel}\n{r.stdout}{r.stderr}"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# The other bound.
+#
+# `introducedIn` can only widen a rule's reach forward, which is enough until a
+# CLOSED set grows. The day `not-recoverable` entered at v0.9, the shape
+# enumerating that set had exactly the two options this module's docstring
+# rejects: widen the published list, so v0.8 documents start accepting a term
+# v0.8 cannot mean; or leave it, so v0.9 documents are refused for using v0.9's
+# own vocabulary. `retiredIn` is the third option, and it is the same one --
+# the rule applies until the rule that replaced it came into force.
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _with_token(tmp_path, context, token, name):
+    doc = json.loads(SIBLING.read_text(encoding="utf-8"))
+    doc["@context"] = context
+    for factor in doc.get("hasCredibilityFactor", []):
+        if isinstance(factor, dict) and factor.get("requiredLevel") is not None:
+            factor["requiredLevelProvenance"] = token
+    out = tmp_path / name
+    out.write_text(json.dumps(doc, indent=2), encoding="utf-8")
+    return out
+
+
+V08 = "https://uofa.net/spec/context/v0.8.jsonld"
+
+
+def test_v0_8_keeps_the_vocabulary_it_was_published_with(tmp_path):
+    """A retired shape does not stop judging the documents it had jurisdiction
+    over. If it did, retirement would be deletion and every v0.8 conformance
+    claim would quietly widen."""
+    r = _shacl(_with_token(tmp_path, V08, "not-recoverable", "v08.jsonld"))
+    assert r.returncode != 0
+    assert "requiredLevelProvenance must be one of" in r.stdout
+    assert "not-recoverable" not in r.stdout.split("must be one of")[1][:200], (
+        "v0.8's message offered a term v0.8 cannot mean")
+
+
+def test_the_same_token_is_lawful_under_the_version_that_introduced_it(tmp_path):
+    """And the retired shape must not reach it -- that is the whole point."""
+    r = _shacl(_with_token(tmp_path, V09, "not-recoverable", "v09.jsonld"))
+    assert "requiredLevelProvenance must be one of" not in r.stdout, r.stdout[:600]
+
+
+def test_retirement_is_exclusive_of_its_own_version():
+    """A shape retired IN v0.9 was in force through v0.8 and is silent from v0.9.
+
+    Off by one here is not cosmetic: inclusive retirement would silence the rule
+    for the last version it actually governed.
+    """
+    from rdflib import Graph, Literal, URIRef
+
+    from uofa_cli.shacl_friendly import _UOFA_NS, _apply_jurisdiction
+
+    def _survives(declared):
+        g = Graph()
+        shape = URIRef("urn:shape:retired")
+        g.add((shape, URIRef(_UOFA_NS + "retiredIn"), Literal("v0.9")))
+        g.add((shape, URIRef("urn:p"), Literal("x")))
+
+        class _Doc:
+            pass
+
+        import json as _json
+        import tempfile
+        with tempfile.NamedTemporaryFile("w", suffix=".jsonld", delete=False) as fh:
+            fh.write(_json.dumps({"@context": f"https://uofa.net/spec/context/{declared}.jsonld"}))
+            path = fh.name
+        _apply_jurisdiction(g, path)
+        return (shape, URIRef("urn:p"), Literal("x")) in g
+
+    assert _survives("v0.8"), "the rule was silenced for a version it governed"
+    assert not _survives("v0.9"), "the rule outlived the rule that replaced it"
+    assert not _survives("v1.0")
