@@ -4,6 +4,80 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+## [0.15.0] — 2026-08-28
+
+### Changed
+
+- **A recorded absence is not a missing judgment.** Both level checks —
+  `required levels were reviewed` (workbook) and `required levels were judged`
+  (package) — counted a DISPOSED requirement as an unjudged one. A reviewer who
+  recorded that a document does not state a requirement was told they had not
+  weighed it, so the only lawful exit from "there is no level here to weigh" was
+  refused at the next gate.
+
+  Two rules, and the second is what stops the first becoming the defect it
+  replaced. A disposition leaves the **denominator** — exclusion is not judgment
+  credit, and nothing is counted as weighed that was not weighed. And every
+  message **names** what it excluded, how many, and under which term: a
+  denominator that quietly shrinks is exactly the vacuity this checker exists to
+  refuse. A package that disposed of everything renders as an advisory saying so,
+  never as a green tick over nothing judged.
+
+  `source-absent` has been in v0.8's vocabulary since it shipped and was always
+  read as a silence; that half is a straight bug fix on published v0.8.
+
+  **Breaking**: `protocol-check` outcomes change for packages carrying
+  disposition tokens, and third parties script against these exit codes.
+
+- **`CONTEXT_URL` is now a function of the workbook's declaration.** `uofa
+  import` transcribes a sheet; nothing it writes is newer than what the sheet
+  held, so stamping the current vocabulary on an older workbook claims
+  conformance to rules that content was never authored against — and would
+  subject it to five decision-model shapes introduced at v0.9 that it never
+  claimed to satisfy. This is the jurisdiction doctrine `_apply_jurisdiction`
+  already enforces, read from the emitter's side. A workbook declaring nothing
+  gets the oldest supported context, not the newest.
+
+- **`WORKBOOK_PROFILE_VERSION` v0.8 → v0.9.** The sheet's contract changed: the
+  provenance column can now carry `not-recoverable`.
+
+### Added
+
+- **`not-recoverable`, at v0.9.** The source DOES state this requirement, and
+  the admitted text cannot carry it — a different fact about the document than
+  `source-absent`, which asserts the source never stated it. Recording one as the
+  other is a false claim about the evidence, not a rounding. Three reviewers met
+  exactly this and each invented a different unsatisfactory route, because the
+  honest act had no form to take.
+
+- **`uofa:retiredIn` — the jurisdiction bound that did not exist.**
+  `introducedIn` can only widen a rule forward, so the day a CLOSED set grows,
+  the shape enumerating it has exactly the two options `_apply_jurisdiction`'s
+  own docstring rejects: widen the published list, and v0.8 documents start
+  accepting a term v0.8 cannot mean; or leave it, and v0.9 documents are refused
+  for using v0.9's own vocabulary. A retired shape is superseded rather than
+  deleted — it keeps judging the documents it had jurisdiction over and stops at
+  the rule that replaced it. `RequiredLevelProvenanceShape` is retired in v0.9
+  and `RequiredLevelProvenanceV09Shape` takes over; not one byte of v0.8's
+  conformance story changes.
+
+- **The vocabulary is closed at the DECLARED version, at both ends.** A v0.8
+  sheet writing `not-recoverable` has its token dropped rather than laundered
+  into a package whose context makes the term legal, and the levels check names
+  the disagreement instead of reporting the honest reviewer as negligent.
+
+  The out-of-vocabulary refusal is deliberately narrow — terms this vocabulary
+  knows that the declaration predates, not everything unrecognised. `confirmed`
+  is the specimen: the encoding tool's location act, excluded from every version
+  on purpose. A workbook full of it is run 25 with seventeen levels anchored and
+  none weighed, and that package must be refused as UNJUDGED by the message that
+  sends the reviewer to weigh them.
+
+- **Every context the emitter can write is pinned**, not only the default. Which
+  context a package is signed against is now a function of its source, so
+  guarding one name would leave the others editable with nothing noticing —
+  the single failure `test_context_pin` exists to prevent.
+
 ## [0.14.2] — 2026-08-26
 
 ### Added
