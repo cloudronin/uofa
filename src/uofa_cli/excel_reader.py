@@ -18,6 +18,7 @@ from uofa_cli.excel_constants import (
     DECISION_ANCHOR_HEADER, DECISION_ANCHOR_SHA_HEADER,
     LEVEL_AFFIRMED_AT_HEADER, LEVEL_AFFIRMED_BY_HEADER,
     LEVEL_PROVENANCE_HEADER,
+    WORKBOOK_PROFILE_HEADER,
     normalize_evidence_type,
 )
 
@@ -266,6 +267,18 @@ def _read_summary(ws, errors: list, warnings: list | None = None,
         if val:
             row = r  # keep advancing to last non-empty row
 
+    # **What the workbook says its own shape is**, read by header because the
+    # marker sits after whatever columns the pack's template carries. The mapper
+    # needs it to refuse writing a term the source's declaration cannot express:
+    # without it, importing a v0.8 workbook that carries a v0.9 token laundered
+    # the disagreement into a package where the token is legal, and no check
+    # downstream could see that it had ever happened.
+    encoding_profile = ""
+    for col in range(1, ws.max_column + 1):
+        if str(ws.cell(row=header_row, column=col).value or "").strip() == WORKBOOK_PROFILE_HEADER:
+            encoding_profile = str(ws.cell(row=row, column=col).value or "").strip()
+            break
+
     project_name = _cell_value(ws, row, 1)  # A
     cou_name = _cell_value(ws, row, 2)       # B
     cou_description = _cell_value(ws, row, 3) # C
@@ -360,6 +373,7 @@ def _read_summary(ws, errors: list, warnings: list | None = None,
         "assessment_date": _parse_date(assessment_date),
         "source_document": source_doc,
         "has_uq": has_uq,
+        "encoding_profile": encoding_profile,
     }
 
 

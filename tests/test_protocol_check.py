@@ -554,3 +554,131 @@ def test_confirmed_does_not_satisfy_the_package_check(tmp_path):
         {"factorType": "A", "requiredLevel": 3, "requiredLevelProvenance": "confirmed"},
     ])
     assert not _check_package_levels(p).passed
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Dispositions leave the denominator, and say so.
+#
+# The wall these come from: `mark-not-recoverable` gave a reviewer a lawful exit
+# from A-7, and the levels checks still counted every disposed requirement as
+# unjudged -- so the app read ALL RESOLVED and the authority refused the same
+# package on nineteen counts. A lawful exit that strands the reviewer at the
+# next gate is half a fix.
+#
+# Two rules, and the second is what keeps the first from becoming the defect it
+# replaced: a disposal is excluded from the denominator, and the exclusion is
+# always named. A denominator that quietly shrinks passes for the same reason a
+# vacuous check does.
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _workbook_levels(tmp_path, tokens, declare="v0.9"):
+    wb = _blank_template(tmp_path)
+    _add_anchor_column(wb)
+    _set_levels(wb, [(3, 3)] * len(tokens))
+    _mark_levels(wb, tokens, declare=declare)
+    return _verdict(check_workbook(wb, TEMPLATE), "required levels were reviewed")
+
+
+def test_a_disposed_requirement_leaves_the_denominator(tmp_path):
+    """Two judged, one disposed: the package is not owed a third judgment."""
+    r = _workbook_levels(tmp_path, ["affirmed", "corrected", "not-recoverable"])
+    assert r.passed and not r.skipped, r.detail
+    assert "1 excluded from the denominator" in r.detail, r.detail
+    assert "not-recoverable" in r.detail, "the exclusion went unnamed"
+
+
+def test_the_denominator_reports_the_smaller_number(tmp_path):
+    """The count under test, read off the sentence a reader gets.
+
+    `1 of 2`, never `1 of 3`: the disposed requirement is not something anyone
+    still owes a judgment on, and reporting it as owed is the accusation this
+    deploy exists to stop making.
+    """
+    r = _workbook_levels(tmp_path, ["affirmed", "extracted", "not-recoverable"])
+    assert not r.passed
+    assert "1 of 2 required level(s)" in r.detail, r.detail
+    assert "1 excluded from the denominator" in r.detail, r.detail
+
+
+def test_disposal_is_not_judgment_credit(tmp_path):
+    """A package that disposed of everything claims no judgment at all.
+
+    The vacuous pass this whole programme is about, arrived at from the new
+    direction: exclusion shrinks the denominator, and a denominator of zero
+    would render a green tick over a package where nobody weighed anything.
+    It renders as an advisory instead, carrying the sentence.
+    """
+    r = _workbook_levels(tmp_path, ["not-recoverable", "source-absent"])
+    assert r.skipped, "an all-disposed workbook rendered as a judgment pass"
+    assert "no required level was judged" in r.detail, r.detail
+
+
+def test_a_v0_8_workbook_carrying_a_v0_9_term_is_refused_by_name(tmp_path):
+    """The declaration and the sheet disagree, and the refusal says which term.
+
+    `not-recoverable` entered at v0.9. A v0.8 sheet writing it is not a v0.8
+    sheet, and the two available alternatives are both worse: accept it (the
+    declaration stops constraining anything) or report it as unjudged (a false
+    accusation against the one reviewer who did the honest thing).
+    """
+    r = _workbook_levels(tmp_path, ["not-recoverable"], declare="v0.8")
+    assert not r.passed and not r.skipped
+    assert "not-recoverable" in r.detail and "v0.8" in r.detail, r.detail
+
+
+_V09 = "https://raw.githubusercontent.com/cloudronin/uofa/main/spec/context/v0.9.jsonld"
+
+
+def test_the_package_layer_excludes_disposals_too(tmp_path):
+    from uofa_cli.protocol_check import _check_package_levels
+    p = _package(tmp_path, _V09, [
+        {"factorType": "A", "requiredLevel": 3, "requiredLevelProvenance": "affirmed"},
+        {"factorType": "B", "requiredLevel": 3,
+         "requiredLevelProvenance": "not-recoverable"},
+    ])
+    r = _check_package_levels(p)
+    assert r.passed and not r.skipped, r.detail
+    assert "all 1 required level(s) carry a judgment" in r.detail, r.detail
+    assert "1 not-recoverable" in r.detail, "the exclusion went unnamed"
+
+
+def test_the_package_layer_refuses_a_v0_9_term_under_a_v0_8_context(tmp_path):
+    from uofa_cli.protocol_check import _check_package_levels
+    p = _package(tmp_path, _V08, [
+        {"factorType": "A", "requiredLevel": 3,
+         "requiredLevelProvenance": "not-recoverable"},
+    ])
+    r = _check_package_levels(p)
+    assert not r.passed and not r.skipped
+    assert "not-recoverable" in r.detail and "v0.8" in r.detail, r.detail
+
+
+def test_an_all_disposed_package_claims_no_judgment(tmp_path):
+    from uofa_cli.protocol_check import _check_package_levels
+    p = _package(tmp_path, _V09, [
+        {"factorType": "A", "requiredLevel": 3,
+         "requiredLevelProvenance": "source-absent"},
+        {"factorType": "B", "requiredLevel": 3,
+         "requiredLevelProvenance": "not-recoverable"},
+    ])
+    r = _check_package_levels(p)
+    assert r.skipped, "an all-disposed package rendered as a judgment pass"
+    assert "no required level carries a judgment" in r.detail, r.detail
+
+
+def test_source_absent_was_always_a_disposition_and_is_now_read_as_one(tmp_path):
+    """The bug predates `not-recoverable` and is fixed by the same rule.
+
+    `source-absent` has been in v0.8's vocabulary since it shipped, and both
+    checks counted it as a missing judgment -- so a reviewer who recorded that
+    the document does not state a requirement was told they had not weighed it.
+    Nothing about that needed a new term to be wrong.
+    """
+    from uofa_cli.protocol_check import _check_package_levels
+    p = _package(tmp_path, _V08, [
+        {"factorType": "A", "requiredLevel": 3, "requiredLevelProvenance": "affirmed"},
+        {"factorType": "B", "requiredLevel": 3,
+         "requiredLevelProvenance": "source-absent"},
+    ])
+    r = _check_package_levels(p)
+    assert r.passed and not r.skipped, r.detail

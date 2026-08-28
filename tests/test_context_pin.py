@@ -44,12 +44,22 @@ from uofa_cli.excel_mapper import CONTEXT_URL
 #: v0.5 -> v0.8 was taken 2026-08-24 by the route the note above prescribes: a
 #: NEW file was added and CONTEXT_URL repointed, v0.5.jsonld untouched. Old
 #: packages keep naming v0.5, keep resolving to it, and keep verifying.
+#:
+#: v0.8 -> v0.9 was taken 2026-08-28 by the same route, and for a reason the
+#: file above could not fix: `not-recoverable` is a v0.9 term, and the closed
+#: set enumerating provenance tokens is a SHAPE. Widening v0.8's list would
+#: have made v0.8 packages start accepting a term v0.8 has no way to mean --
+#: the identical silent-redefinition this module exists to prevent, one layer
+#: up from the bytes. v0.8.jsonld is untouched and still pinned.
 PINNED_CONTEXT_SHA256S = {
     "v0.5.jsonld": "e62e1e236088502e6f7179b1e0e60bc35164ba5bffc6927658b1352bb61b1872",
     "v0.8.jsonld": "59029321aeb887e5ce527e6f3e97414e08c0f38bd68d02ada8a059ac5e7c5c12",
+    "v0.9.jsonld": "fb13c9a913f2e77d965e172b55c91fc38989d1255cd2e99beb449e284cdf2615",
 }
 
-#: What NEW packages are signed against. Every entry above is still guarded.
+#: What a package declaring nothing is signed against. Every entry above is
+#: still guarded, and the emitter may write any of them -- see the test below,
+#: which checks the whole table rather than this one name.
 PINNED_CONTEXT_NAME = "v0.8.jsonld"
 PINNED_CONTEXT_SHA256 = PINNED_CONTEXT_SHA256S[PINNED_CONTEXT_NAME]
 
@@ -92,6 +102,24 @@ def test_context_url_points_at_the_pinned_version():
         f"excel_mapper.CONTEXT_URL is {CONTEXT_URL!r}, which does not name the "
         f"pinned context {PINNED_CONTEXT_NAME!r}. New packages would be signed "
         f"against a context this test does not guard." + _UNPIN_HINT
+    )
+
+
+def test_every_context_the_emitter_can_write_is_pinned():
+    """The one name above stopped being the whole answer.
+
+    The emitter declares the version the WORKBOOK declares, so which context a
+    package is signed against is now a function of its source. Guarding only the
+    default would leave every other reachable version unpinned -- editable with
+    nothing noticing, which is the single failure this module exists to prevent.
+    """
+    from uofa_cli.excel_constants import CONTEXT_URLS
+
+    unpinned = sorted(url.rsplit("/", 1)[-1] for url in CONTEXT_URLS.values()
+                      if url.rsplit("/", 1)[-1] not in PINNED_CONTEXT_SHA256S)
+    assert not unpinned, (
+        f"the emitter can write {unpinned}, which this module does not guard."
+        + _UNPIN_HINT
     )
 
 

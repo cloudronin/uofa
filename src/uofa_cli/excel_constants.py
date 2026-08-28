@@ -316,7 +316,14 @@ WORKBOOK_PROFILE_HEADER = "Encoding Profile Version"
 #: provenance token, and its two attribution cells. Bumped when the SHEET's
 #: contract changes, which is not the same event as the JSON-LD context
 #: changing -- they moved together at v0.8 and need not again.
-WORKBOOK_PROFILE_VERSION = "v0.8"
+#:
+#: **v0.8 -> v0.9: the sheet's contract did change.** The provenance column can
+#: now carry `not-recoverable`, and a sheet declaring v0.8 that writes it is
+#: refused by name -- so an encoder writing today's shape must declare v0.9 to
+#: describe itself truthfully. This constant is what such an encoder declares;
+#: Credenza pins against it across the repo boundary, which is how the two stay
+#: one contract rather than two that agree until they don't.
+WORKBOOK_PROFILE_VERSION = "v0.9"
 
 #: The Decision sheet's anchor columns. The anchor's FORM is what tells the two
 #: canonical cases apart, so it has to survive the workbook:
@@ -340,13 +347,69 @@ LEDGER_ANCHOR_SCHEME = "ledger://"
 #: tool's internal terms map INTO this set; `confirmed` deliberately has no
 #: entry, because it is a location act and exporting it as a judgment claim is
 #: the ambiguity v0.8 exists to kill.
+#: **When each term came into force.** A closed vocabulary that grows must say
+#: this, or an artifact can carry a term its own declaration cannot express and
+#: nothing downstream can tell. `not-recoverable` entered at v0.9 -- the act
+#: that records "the source DOES state this requirement, and the admitted text
+#: cannot carry it", which v0.8 had no way to say, so three reviewers who met
+#: it each invented a different unsatisfactory route.
+#:
+#: One definition, read by the emitter and by `protocol-check` alike. Two copies
+#: of a closed set is this programme's named defect waiting to happen: they
+#: agree until the day one of them grows.
+def version_tuple(declared: str) -> tuple[int, ...]:
+    """`"v0.8"` -> `(0, 8)`. An unparseable declaration sorts below everything.
+
+    A workbook claiming `"latest"` or `"2026-08"` has not declared a version any
+    reader here understands, and letting a typo buy the widest vocabulary is how
+    a declaration stops being a constraint.
+    """
+    import re
+    digits = re.findall(r"\d+", declared or "")
+    return tuple(int(d) for d in digits) if digits else ()
+
+
+LEVEL_VOCAB: tuple[tuple[tuple[int, ...], frozenset[str]], ...] = (
+    ((0, 8), frozenset({"extracted", "defaulted", "affirmed", "corrected",
+                        "waived", "source-absent"})),
+    ((0, 9), frozenset({"not-recoverable"})),
+)
+
+
+def level_vocab_for(version: tuple[int, ...]) -> frozenset[str]:
+    """Every `requiredLevelProvenance` token in force at `version`."""
+    live: set[str] = set()
+    for introduced, terms in LEVEL_VOCAB:
+        if version >= introduced:
+            live |= terms
+    return frozenset(live)
+
+
+def level_terms_after_vocab(vocab: frozenset[str]) -> frozenset[str]:
+    """Tokens this vocabulary knows that `vocab` does not yet contain.
+
+    The narrow set, and narrowness is the point. An artifact carrying one of
+    these has a declaration behind its own content, and saying so is the only
+    honest reading -- it is neither a judgment nor a disposition, because the
+    version it declares cannot say which.
+
+    Everything ELSE unrecognised is a different thing entirely and must not be
+    swept in here. `confirmed` is the specimen: the encoding tool's location
+    act, deliberately excluded from every version of this vocabulary, and a
+    workbook full of it is run 25 -- seventeen levels anchored, none weighed.
+    That package must be refused as UNJUDGED, by the message that tells the
+    reviewer to go and weigh them. Refusing it as a version disagreement would
+    be accurate, useless, and would send them to re-export a tool that is
+    working correctly.
+    """
+    known: set[str] = set()
+    for terms in (t for _, t in LEVEL_VOCAB):
+        known |= terms
+    return frozenset(known - vocab)
+
+
 LEVEL_TOKENS: dict[str, str] = {
-    "extracted": "extracted",
-    "defaulted": "defaulted",
-    "affirmed": "affirmed",
-    "corrected": "corrected",
-    "waived": "waived",
-    "source-absent": "source-absent",
+    token: token for _, terms in LEVEL_VOCAB for token in sorted(terms)
 }
 
 #: Tokens that CLAIM a sufficiency judgment happened, and therefore must carry
@@ -367,7 +430,45 @@ JUDGMENT_TOKENS: frozenset = frozenset({"affirmed", "corrected", "waived"})
 #: This moves WITH the v0.8 emission in one change. A package declaring v0.8
 #: while emitting v0.7 terms would be the same stale-constant defect reborn for
 #: the width of one commit.
-CONTEXT_URL = "https://raw.githubusercontent.com/cloudronin/uofa/main/spec/context/v0.8.jsonld"
+#: **The context a package declares is the vintage of what it transcribes.**
+#:
+#: `uofa import` copies a workbook into JSON-LD. Nothing it writes is newer than
+#: what the sheet held, so stamping today's vocabulary on a sheet authored
+#: against an older one claims conformance to rules that content was never
+#: written for. That is the jurisdiction doctrine `_apply_jurisdiction` already
+#: enforces one layer down -- "the rule applies from when it came into force" --
+#: and it reads the SAME way from the emitter's side: a document is judged by
+#: the version it was authored against, so it must declare that version.
+#:
+#: The practical half is the reason it came up. v0.9 introduced five
+#: decision-model shapes; a workbook that declares v0.8 has no decision
+#: signature and never claimed one, and emitting it as v0.9 would refuse it for
+#: missing something nobody asked it for. A workbook declaring v0.9 -- which is
+#: what an encoding tool that writes `not-recoverable` must declare -- gets
+#: v0.9's context, v0.9's vocabulary, and v0.9's shapes together.
+#:
+#: **Append-only, and every entry stays pinned.** `test_context_pin` guards the
+#: bytes of each, because inlining puts them inside the signature preimage.
+CONTEXT_URLS: dict[tuple[int, ...], str] = {
+    (0, 8): "https://raw.githubusercontent.com/cloudronin/uofa/main/spec/context/v0.8.jsonld",
+    (0, 9): "https://raw.githubusercontent.com/cloudronin/uofa/main/spec/context/v0.9.jsonld",
+}
+
+#: What a document declaring nothing gets, and what synthetic packages built
+#: without a workbook use. Deliberately the OLDEST supported: silence is not a
+#: claim to the newest vocabulary, exactly as it is not for `LEVEL_VOCAB`.
+CONTEXT_URL = CONTEXT_URLS[(0, 8)]
+
+
+def context_url_for(version: tuple[int, ...]) -> str:
+    """The context for a declared profile version; the default if it declares none.
+
+    A declaration past everything known is capped rather than trusted: this tool
+    cannot write a vocabulary it does not have, and emitting a context URL that
+    resolves to nothing would be worse than emitting an honest older one.
+    """
+    known = [v for v in sorted(CONTEXT_URLS) if v <= version]
+    return CONTEXT_URLS[known[-1]] if known else CONTEXT_URL
 # Default namespace for identifiers minted by `uofa import`.
 #
 # example.org is reserved by RFC 2606 for exactly this purpose, so it is visibly

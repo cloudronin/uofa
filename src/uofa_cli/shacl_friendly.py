@@ -510,13 +510,24 @@ def _declared_context_version(data_path) -> tuple[int, int] | None:
 
 
 def _apply_jurisdiction(shacl_g, data_path):
-    """Drop shapes that postdate the document's declared context.
+    """Drop shapes outside the document's declared context: both bounds.
 
     A package declaring v0.5 conformed to v0.5's rules. Judging it by a shape
     introduced in v0.9 reports a violation of a rule that did not exist when the
     package was written -- and the only ways to "fix" that are to edit shipped
     bytes the praxis record cites, or to weaken the shape for everyone. Neither
     is acceptable, so the shape simply does not reach that document.
+
+    **`retiredIn` is the other bound, and a closed vocabulary that grows cannot
+    do without it.** `introducedIn` alone can only ever widen a rule's reach
+    forward, so the day a controlled set gains a term, the shape enumerating
+    that set has exactly the two bad options the paragraph above rejects: widen
+    the published list (v0.8 documents start accepting a term v0.8 cannot mean)
+    or leave it (v0.9 documents are refused for using v0.9's own vocabulary).
+    A retired shape is superseded rather than deleted -- it keeps judging the
+    documents it had jurisdiction over, and stops at the version that replaced
+    it. That is what let `not-recoverable` enter at v0.9 without a single byte
+    of v0.8's conformance story changing.
     """
     import re
 
@@ -526,11 +537,23 @@ def _apply_jurisdiction(shacl_g, data_path):
     if declared is None:
         return shacl_g  # unknown jurisdiction gets every shape, deliberately
 
-    introduced = URIRef(_UOFA_NS + "introducedIn")
+    def _version(node) -> tuple[int, int] | None:
+        m = re.search(r"v?(\d+)\.(\d+)", str(node))
+        return (int(m.group(1)), int(m.group(2))) if m else None
+
     doomed = []
-    for shape, _, version in shacl_g.triples((None, introduced, None)):
-        m = re.search(r"v?(\d+)\.(\d+)", str(version))
-        if m and (int(m.group(1)), int(m.group(2))) > declared:
+    for shape, _, version in shacl_g.triples(
+            (None, URIRef(_UOFA_NS + "introducedIn"), None)):
+        parsed = _version(version)
+        if parsed is not None and parsed > declared:
+            doomed.append(shape)
+    # Retirement is exclusive of its own version: a shape retired IN v0.9 was in
+    # force through v0.8 and is silent from v0.9 on, which is what "the rule
+    # that replaced it" means.
+    for shape, _, version in shacl_g.triples(
+            (None, URIRef(_UOFA_NS + "retiredIn"), None)):
+        parsed = _version(version)
+        if parsed is not None and parsed <= declared:
             doomed.append(shape)
     for shape in doomed:
         shacl_g.remove((shape, None, None))
