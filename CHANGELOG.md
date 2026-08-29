@@ -4,6 +4,46 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+## [0.17.0] — 2026-08-29
+
+### Fixed
+
+- **`run log carries its pins` tested the labels, not the facts (SF-10).** The
+  check was a substring test over the whole run-log document —
+  `absent = [f for f in RUN_LOG_FIELDS if f.lower() not in lowered]` — and
+  `"model" in text.lower()` is satisfied by the *label* in
+  `| Extractor model | _not recorded_ |`. Measured on a log with every pin's
+  name present and every pin's value absent: **five of five fields absent,
+  result PASS**. Every package emitted before 0.16.0 cleared A-11 on it.
+
+  The vacuous-green family's purest instance in the wheel: not a check that
+  fails to fire, but one whose **success condition was mis-stated** — presence
+  of a name read as presence of a fact — inside the tool that exists to catch
+  exactly that. Found while building the writers for the two fields two
+  unsteered reviewer sessions had independently reported as permanently
+  unfilled.
+
+  The check now parses the run log's rows and tests the VALUE, treating
+  `_not recorded_`, `awaiting …`, `bundled sample` and empty as absent. **Both
+  serializations parse** — Markdown tables and `key: value` lines — because a
+  check that refuses an honest log for its formatting is the same failure as
+  passing a hollow one, pointed the other way.
+
+### Added
+
+- **Pin jurisdiction.** Pins introduced after the era system are gated by the
+  era the package itself declares: a log written before a writer existed is
+  **advised rather than refused**, in A-7's own vocabulary — *"a package whose
+  declared context predates the vocabulary cannot answer, and is advised rather
+  than refused."* Refusing them instead would retroactively indict every honest
+  pre-0.16 package, which is the global-`CONTEXT_URL` mistake that 183 fixture
+  failures voted down once already.
+
+  `prompt hash` is gated at v0.16; `pack version` and `standard` at v0.17.
+  Verified in both directions before shipping: the hollow log fails with all
+  five pins named, and the ten C-series packages behind the published
+  completion rate pass the stricter check **untouched**.
+
 ## [0.16.0] — 2026-08-28
 
 ### Added

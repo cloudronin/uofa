@@ -60,6 +60,67 @@ RUN_LOG_NAMES = ("run_log.md", "run-log.md", "runlog.md")
 # Section 3 of the protocol names these as the run log's mandatory pins.
 RUN_LOG_FIELDS = ("model", "backend", "site commit", "repo head", "base_uri")
 
+#: Pins introduced after the era system, with the run-log era that made each
+#: RECORDABLE. A package declaring an earlier era is advised, never refused --
+#: A-7's own vocabulary: "a package whose declared context predates the
+#: vocabulary cannot answer, and is advised rather than refused".
+RUN_LOG_FIELDS_BY_ERA: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("v0.16", ("prompt hash",)),
+    ("v0.17", ("pack version", "standard")),
+)
+
+#: What a run log writes where a fact is absent. A pin reading any of these is
+#: PRESENT AS A LABEL AND ABSENT AS A FACT, which is the whole defect: the check
+#: named "run log carries its pins" tested `field.lower() in text.lower()` and
+#: therefore passed on a log whose every pin read `_not recorded_`. Measured:
+#: five of five fields absent, check PASS. SF-10.
+RUN_LOG_ABSENT_MARKERS = (
+    "_not recorded_", "not recorded", "awaiting the pack",
+    "awaiting the extraction", "bundled sample", "—", "--", "",
+)
+
+
+def _era_tuple(declared: str) -> tuple[int, ...]:
+    """`""` sorts below everything, which is the grandfathering rule."""
+    return tuple(int(x) for x in declared.lstrip("vV").split(".") if x.isdigit())
+
+
+def _run_log_values(text: str) -> dict[str, str]:
+    """Field -> value, by lowercased field name, from the artifact.
+
+    **Both serializations, because run logs come in both.** Credenza writes a
+    Markdown table; this checker's own fixtures and hand-written logs use
+    `key: value` lines. A parser that read only one would refuse an honest
+    package for its formatting -- which is the same failure as passing a hollow
+    one, pointed the other way, and the suite caught it on the first run.
+    """
+    import re as _re
+
+    out: dict[str, str] = {}
+    for line in (text or "").splitlines():
+        m = _re.match(r"^\s*\|\s*([^|]+?)\s*\|\s*(.*?)\s*\|\s*$", line)
+        if m:
+            field, value = m.group(1).strip().lower(), m.group(2).strip()
+            if field in ("field", "---", ":---") or set(field) <= set("-: "):
+                continue
+            out.setdefault(field, value)
+            continue
+        m = _re.match(r"^\s*[-*]?\s*\**([A-Za-z][^:*|]{0,60}?)\**\s*:\s*(.+?)\s*$", line)
+        if m:
+            out.setdefault(m.group(1).strip().lower(), m.group(2).strip())
+    return out
+
+
+def _pin_is_recorded(values: dict[str, str], pin: str) -> bool:
+    """A pin is carried when some row whose NAME contains it has a real value."""
+    for field, value in values.items():
+        if pin in field:
+            if value.strip().lower() not in [m.lower() for m in RUN_LOG_ABSENT_MARKERS]:
+                if not value.strip().lower().startswith(
+                        ("bundled sample", "not recorded", "awaiting")):
+                    return True
+    return False
+
 # A run log that labels itself a pilot must not record a signing step, because a pilot
 # runs before the protocol governs it and nothing it produces may be signed.
 PILOT_MARKERS = ("pilot", "PILOT")
@@ -667,11 +728,37 @@ def check_package(package_path: Path) -> list[CheckResult]:
     lowered = text.lower()
     results.append(CheckResult("run log present", True, run_log.name))
 
-    absent = [f for f in RUN_LOG_FIELDS if f.lower() not in lowered]
+    # **The pins are read as VALUES, not as labels.** This was
+    # `f.lower() not in lowered` -- a substring test over the whole document --
+    # so a run log whose every pin read `_not recorded_` passed a check named
+    # "run log carries its pins". It carried the labels. SF-10.
+    values = _run_log_values(text)
+    absent = [f for f in RUN_LOG_FIELDS if not _pin_is_recorded(values, f)]
     results.append(CheckResult(
         "run log carries its pins", not absent,
         "missing " + ", ".join(absent) if absent else ", ".join(RUN_LOG_FIELDS),
     ))
+
+    # **Later pins, under the era the package itself declares.** A package
+    # written before a writer existed is ADVISED, never refused: retroactively
+    # indicting every honest pre-v0.16 package is the global-CONTEXT_URL
+    # mistake, which 183 fixture failures already voted down once.
+    declared = values.get("pins era", "") or values.get("pins_era", "")
+    era = _era_tuple(declared)
+    for introduced, pins in RUN_LOG_FIELDS_BY_ERA:
+        owed = [p for p in pins if not _pin_is_recorded(values, p)]
+        if not owed:
+            results.append(CheckResult(
+                f"run log carries its {introduced} pins", True, ", ".join(pins)))
+        elif _era_tuple(introduced) <= era:
+            results.append(CheckResult(
+                f"run log carries its {introduced} pins", False,
+                f"missing {', '.join(owed)} on a log declaring era {declared}"))
+        else:
+            results.append(CheckResult(
+                f"run log carries its {introduced} pins", True,
+                f"declared era {declared or 'none'} predates {introduced}; "
+                f"advised, not refused: {', '.join(owed)}", skipped=True))
 
     is_pilot = any(m.lower() in lowered for m in PILOT_MARKERS)
     if not is_pilot:
