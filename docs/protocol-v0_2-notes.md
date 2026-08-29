@@ -1,7 +1,18 @@
 # Encoding protocol v0.2 — accumulation notes
 
-**Status: open pile, not a draft of v0.2.** Items land here as encodings under v0.1 surface
-them. Nothing here amends v0.1.
+> **CLOSED 2026-08-29. This pile stopped accumulating when v0.2 adopted.**
+>
+> Its items were drafted into `docs/Protocol_v0_2_Amendments_Draft.md` and adopted in a single
+> event on the C-series report. The governing document is now
+> **`docs/Encoding_Protocol_v0_2.md`**; Part D there records each amendment with the evidence
+> that validated it, and the Validation Record appendix carries the measured completion rate.
+>
+> **New items opened after adoption belong in a v0.3 pile, not here.** This file is kept as the
+> record of where the v0.2 items came from — the raw observations, in the words they were first
+> written in, before they became rules.
+
+**Status (historical): open pile, not a draft of v0.2.** Items land here as encodings under v0.1
+surface them. Nothing here amends v0.1.
 
 **Why a pile rather than edits.** `docs/Encoding_Protocol_v0_1.md` is committed, and the
 Johnson package is signed under it as written. An encoding records the protocol version that
