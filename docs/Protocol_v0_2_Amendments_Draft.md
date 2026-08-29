@@ -1,5 +1,15 @@
 # Encoding Protocol v0.2 — amendments draft
 
+> **ADOPTED 2026-08-29**, in a single event on the C-series report, per the adoption condition at
+> the foot of this document. The governing document is `docs/Encoding_Protocol_v0_2.md`.
+>
+> All four Batch B items landed **validated against C-series evidence** (P2-1, P2-2, P2-3 rule 2,
+> P2-4). **P2-3 rule 1 was reclassified into Batch A** on adoption: validated by v0.1-era evidence
+> (`docs/donetest/FIVE_SEATS_ONE_TRAP.md`), which the C-series could not exercise because the trap
+> it governs was remediated before the batch ran. Nothing was dropped.
+>
+> This draft is retained as the evidence of record: Part D of v0.2 cites it by section.
+
 **This is a draft of the v0.2 batch. It amends nothing.** `docs/Encoding_Protocol_v0_1.md`
 governs every encoding until the adoption event described at the end of this file.
 
