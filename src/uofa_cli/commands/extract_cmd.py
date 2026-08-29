@@ -218,6 +218,19 @@ def run(args) -> int:
                 raise
             return 1
 
+        # **Printed, because a consumer cannot compute it.** Credenza reads the
+        # run log's facts from this output and never from the configuration it
+        # passed in -- writing what we asked for when we cannot tell what
+        # answered is the defect A-3 exists to prevent, and it applies to the
+        # prompt exactly as it applies to the model. Read off `result`, so the
+        # line reports the prompt the extractor USED.
+        #
+        # The keyless branch prints nothing here on purpose: it sends no prompt,
+        # and a hash would be a claim about an instruction set that does not
+        # exist.
+        if result.prompt_sha256:
+            info(f"  Prompt sha256: {result.prompt_sha256}")
+
     # Extraction summary
     n_summary = sum(1 for fe in result.assessment_summary.values() if fe.value is not None)
     n_entities = len(result.model_and_data)
