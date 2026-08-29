@@ -308,3 +308,56 @@ hand-crafting had been providing without anyone recording that it was needed.
 **Status.** Open. Template change plus mapper support. No rule or schema change; the property
 already exists and is already declared.
 
+
+---
+
+## SF-9 — a source written against 7009A can only be encoded against 7009B
+
+**Filed by an encoding, through the channel, exactly as designed.** T-8 — an unsteered stranger
+session with no access to this file or to any of the reasoning in it — met the gap, recorded a
+`SCHEMA FINDING` entry in its own ambiguity log, and named it in its closing report. This is the
+first entry the escalation route produced from outside the authoring context.
+
+**Finding.** The only NASA pack `uofa` ships is `nasa-7009b`. A source document written entirely
+against **NASA-STD-7009A** must therefore be encoded against a standard it never mentions, and
+five of the pack's nineteen factors have no counterpart term in such a source at all — they can
+be filled only by inferring that a differently-named concept is the same concept.
+
+**Cause.** Pack identity is versionless at the point where it matters. `packs/` carries
+`nasa-7009b` and no `nasa-7009a`, and nothing in the import path asks whether the pack's standard
+is the standard the source was written to. The mismatch is invisible to every gate: A-5 wants an
+anchor, A-6 wants a review, A-7 wants required and achieved separately — none of them asks
+*which standard the anchored passage is written against*, so a factor matched across a version
+boundary anchors and confirms exactly like one matched by name.
+
+**Evidence.** `NTRS-20200002832-Johnson-2020.pdf`, the source T-8 encoded, measured directly:
+
+    7009A          50 occurrences
+    7009B           0 occurrences
+    bare "7009"     2 occurrences
+
+The abstract's first sentence is "NASA-STD-7009A, Standard for Models and Simulations, contains a
+worthy and insightfully-crafted credibility assessment…", and the paper defines its own shorthand:
+"NASA-STD-7009A Standard for Models and Simulations (to be called here the Standard or 7009A)".
+
+T-8's signed, verifying package — `~/stranger-runs/T-8/downloads/credenza-your-evidence-signed.zip`,
+whose measurement and decision signatures both check against the anchors it ships — carries
+`pack: NASA-STD-7009B` over that source, with every gate reading pass.
+
+**Consequence.** An encoding of a 7009A source is silently a cross-version mapping, and the
+package says nothing about it. The five unmatched factors are the visible part; the invisible part
+is that *every* matched factor is matched by inferred meaning rather than by name, and a reader of
+the package cannot tell which ones. Nothing is blocked — T-8 completed and signed — which is the
+problem: the artifact makes a versioned claim its source does not support, and it makes it
+cleanly.
+
+**Not the same as SF-5 or SF-6.** Those are gaps in what a cell can express. This is a gap in what
+the *pack selection* records: the encoding is well-formed and the standard it names is the wrong
+one. The nearest neighbour is the version-agnostic `NASA-STD-7009` alias noted as
+deliberately-unfiled in this file's preamble; that alias resolving to the 7009B identifier is the
+same boundary approached from the identifier side, and it should now be read alongside this entry.
+
+**Status.** Open. Filing is not a proposal to add a `nasa-7009a` pack; the minimum an author might
+act on is that a package record the standard its **source** declares beside the standard its
+**pack** asserts, so a cross-version encoding is legible as one. No rule or schema change is
+proposed here.

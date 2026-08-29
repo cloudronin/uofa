@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import difflib
+import hashlib
 import json
 import re
 from dataclasses import dataclass, field
@@ -36,6 +37,8 @@ class ExtractionResult:
     raw_json: dict = field(default_factory=dict)
     model_used: str = ""
     corpus_tokens: int = 0
+    prompt_sha256: str = ""
+    """Digest of the INSTRUCTION half of the prompt — see `prompt_sha256`."""
 
 
 # ── Corpus assembly ──────────────────────────────────────────
@@ -170,6 +173,39 @@ def build_prompt(corpus_text: str, pack_prompt_path: Path, pack_name: str) -> st
     return "\n".join(parts)
 
 
+def prompt_instructions(pack_prompt_path: Path, pack_name: str) -> str:
+    """The prompt as it assembles with NO corpus: the half that is the same
+    for every paper.
+
+    Defined as `build_prompt("")` rather than as a second copy of the assembly,
+    so the two cannot drift. Whatever `build_prompt` does to the instructions,
+    this sees; whatever it does to the corpus, this excludes by supplying none.
+    """
+    return build_prompt("", pack_prompt_path, pack_name)
+
+
+def prompt_sha256(pack_prompt_path: Path, pack_name: str) -> str:
+    """A stable identity for "the same prompt", excluding the corpus.
+
+    **The exclusion is the whole point.** A digest over the assembled prompt
+    moves with the source document, so two runs of identical instructions on two
+    papers report different prompts, and the only runs that could ever match are
+    two runs on the same paper — the one comparison a prompt identity is not
+    needed for. Scoped to the instruction half, the field answers the question
+    it is named for: were these two extractions told to do the same thing?
+
+    Recorded because it was NOT. Every package this product has emitted carries
+    `Prompt hash: _not recorded_`; the comparability guard therefore reports
+    UNANSWERABLE rather than a match, and two runs that cannot answer are not two
+    runs that agree. T-8 found the same gap from the other side, unprompted, and
+    filed it: the run log says "awaiting the extraction" after the extraction.
+    """
+    return hashlib.sha256(
+        prompt_instructions(pack_prompt_path, pack_name).encode("utf-8")
+    ).hexdigest()
+
+
+
 # ── LLM calling ──────────────────────────────────────────────
 
 
@@ -228,6 +264,9 @@ def extract(
     result = _json_to_result(raw_json, pack_name)
     result.model_used = model
     result.corpus_tokens = corpus.total_tokens
+    # After `pack_prompt_path` is resolved, and identical on both paths: the
+    # chunked branch varies the corpus per file and never the instructions.
+    result.prompt_sha256 = prompt_sha256(pack_prompt_path, pack_name)
     result.raw_json = raw_json
     _stamp_source_documents(result, corpus)
     return result

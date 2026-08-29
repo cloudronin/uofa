@@ -4,6 +4,35 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+## [0.16.0] — 2026-08-28
+
+### Added
+
+- **`Prompt hash`, scoped to the instructions.** `ExtractionResult` now carries
+  `prompt_sha256`, and `uofa extract` prints it. The digest is over the prompt's
+  **instruction half only, excluding the corpus** — `prompt_instructions()` is
+  defined as `build_prompt("")` so it cannot drift from the assembly it digests.
+
+  The scoping is the design. A digest over the assembled prompt moves with the
+  source document: two runs given identical instructions on two papers report
+  different prompts, and the only pair that could ever match is two runs on the
+  same paper — the one comparison a prompt identity is not needed for. Scoped to
+  the instructions, the field answers what it is named for: were these two
+  extractions told to do the same thing?
+
+  It is printed rather than exposed only on the result object because a consumer
+  reads run-log facts from this output and must not recompute them. Writing what
+  we asked for when we cannot tell what answered is the defect A-3 exists to
+  prevent, and it applies to the prompt exactly as it applies to the model. The
+  keyless path prints nothing: it sends no prompt, and a hash there would
+  describe instructions that do not exist.
+
+  Recorded because it was not. Every package emitted to date carries
+  `Prompt hash: _not recorded_`, so no two runs could be compared on "same
+  prompt" and a comparability check could only answer UNANSWERABLE. Found
+  independently from the other side by an unsteered stranger session, which read
+  its own run log after extraction and filed the gap as an escalation.
+
 ## [0.15.0] — 2026-08-28
 
 ### Changed
