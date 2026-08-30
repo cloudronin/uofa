@@ -603,10 +603,16 @@ timestamped. Ten ledgers were read; ten orderings held.
     condition pins      10/10 read `same` — a trial of the frozen condition
     voids               1 (tool-surface breach), replaced; ledgered in the report
 
-Pre-registered before the first counted run in
-`credenza/docs/donetest/C_SERIES_PREREGISTRATION.md`; reported in
-`credenza/docs/donetest/C_SERIES_REPORT.md` with the composition table, the void ledger and the
-verification transcripts.
+Pre-registered before the first counted run; reported with the composition table, the void
+ledger and the verification transcripts. **The packages, the pre-registration, the report and
+the per-run notes are published at `studies/c-series/` and archived at https://doi.org/10.5281/zenodo.22167996**, so every
+citation here resolves for a reader outside this project.
+
+Each package verifies from the anchors it ships:
+
+    pip install uofa
+    uofa verify uofa.jsonld --pubkey keys/uofa-issuer.pub \
+        --decision-pubkey keys/demo-reviewer.pub
 
 **What the rate does and does not say.** The signatures attest completion of the governed review
 **with dispositions recorded where evidence was unrecoverable** — nine of ten packages explicitly

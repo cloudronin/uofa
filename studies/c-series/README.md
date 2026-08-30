@@ -3,6 +3,16 @@
 The artifacts behind Chapter 4 §4.6 and the Validation Record appendix of
 `docs/Encoding_Protocol_v0_2.md`.
 
+**Archived: https://doi.org/10.5281/zenodo.22167996** (deposit version
+`c-series-v1`). Cite the DOI for the manuscript; cite this directory for a reader
+who wants to run the checks.
+
+**Two DOIs, and which to cite.** `10.5281/zenodo.22167996` is the **version
+DOI** — this release, these exact bytes, and what a manuscript should cite so
+the reference cannot move under it. `10.5281/zenodo.22167995` is the **concept
+DOI**, which always resolves to the latest version of this supplement; cite it
+only where "the supplement, whatever its current version" is what is meant.
+
 **These are published so a stranger can check the claim without asking anyone.**
 Each package verifies from the anchors it ships, against the wheel on PyPI, on a
 machine that has never seen this repository.

@@ -520,8 +520,11 @@ Frozen set: pv1, prompt hash `35033e4b…`, application `716d92d9`,
 | Messages per run, range | 783 – 1345 | " | " | " |
 
 **Both escalations CLOSED, 2026-08-29, venue: this repository,
-`studies/c-series/`** (commit `793470e4`; a Zenodo deposit for the manuscript
-DOI is minted from these same bytes).
+`studies/c-series/`** (commit `793470e4`, release `c-series-v1`), archived at
+**https://doi.org/10.5281/zenodo.22167996** — the **version DOI**, minted from
+these same bytes and the citable form for the manuscript, because a version DOI
+cannot move under a reference. The concept DOI `10.5281/zenodo.22167995`
+resolves to the latest version and is *not* what a results chapter should cite.
 
 - *The primary artifacts were uncommitted.* The ten signed zips lived only in a
   local run directory. They are now committed, with `SHA256SUMS` matching the
