@@ -361,3 +361,66 @@ same boundary approached from the identifier side, and it should now be read alo
 act on is that a package record the standard its **source** declares beside the standard its
 **pack** asserts, so a cross-version encoding is legible as one. No rule or schema change is
 proposed here.
+
+---
+
+## SF-10 — `run log carries its pins` tested the labels, not the facts
+
+**Found while building the writers whose absence SF-9's neighbours reported.** Two
+unsteered seats (T-8, T-9) independently reported that A-3 passed while their run logs read
+`Pack version: awaiting the pack` and `Standard: awaiting the pack`. Fixing the *writers* meant
+reading the check that was passing, and the check was passing for a different reason than
+anybody had assumed.
+
+**Finding.** `protocol_check.py`'s `run log carries its pins` was a **substring test over the
+whole run-log document**:
+
+    absent = [f for f in RUN_LOG_FIELDS if f.lower() not in lowered]
+
+`"model" in text.lower()` is satisfied by the *label* `| Extractor model | _not recorded_ |`.
+The check therefore passed on a run log carrying **every pin's name and no pin's value**.
+
+**Cause.** The check asked whether the field was MENTIONED rather than whether it was RECORDED —
+the same shape as A-3's own earlier defect, one layer up, in the tool that exists to catch it.
+`RUN_LOG_FIELDS` is a list of strings and the run log is a Markdown table; nothing in between
+ever parsed a row.
+
+**Evidence.** Measured directly, on a log with every label present and every value absent:
+
+    | Extractor model | _not recorded_ |
+    | Backend         | _not recorded_ |
+    | site commit     | _not recorded_ |
+    | repo head       | _not recorded_ |
+    | base_uri        | _not recorded_ |
+
+    absent fields: []          check result: PASS
+
+Every package this product emitted before `uofa 0.16.0` carried `Prompt hash: _not recorded_`
+and cleared A-11 on this check.
+
+**Consequence.** The gate that exists so a reader can trust a package's lineage certified
+lineage that was not there. It is the vacuous-green family's purest instance in the wheel: not a
+check that fails to fire, but one whose **success condition was mis-stated** — presence of a
+name read as presence of a fact. Nothing was blocked, which is the problem: eleven governed
+encodings passed it.
+
+**Cure, shipped in `uofa 0.17.0`.** The check parses the run log's `| field | value |` rows and
+tests the VALUE, treating `_not recorded_`, `awaiting …`, `bundled sample` and empty as absent.
+Later pins are gated by the era the package itself declares: a log written before a writer
+existed is **advised rather than refused**, in A-7's own vocabulary — *"a package whose declared
+context predates the vocabulary cannot answer, and is advised rather than refused."* Refusing
+them instead would retroactively indict every honest pre-v0.16 package, which is the
+global-`CONTEXT_URL` mistake that 183 fixture failures already voted down once.
+
+**Verified in both directions before shipping:** the hollow log above now fails with all five
+pins named, and the ten C-series packages — the counted runs behind the published completion
+rate — pass the stricter check untouched.
+
+**Status.** Fixed in `uofa 0.17.0`, with the credenza-side writers (`pack_version`, `standard`)
+and their `PINS` promotion at `v0.17` in the same release. The writers make the facts
+recordable; the check makes them enforced; either alone leaves the gap open at one end.
+
+**The diagnosis inside the diagnosis.** The pack manifest key is `standards`, **plural**, holding
+a list. A writer keyed on `standard` reads `None` on every pack — so a wrong lookup presented
+as a missing capability, and the field sat classified "unwritable" through two seats' reports.
+**Wrong-key-reads-as-absent** joins the family beside vacuous-green and displaced-attestation.
