@@ -3,6 +3,9 @@
 The artifacts behind Chapter 4 §4.6 and the Validation Record appendix of
 `docs/Encoding_Protocol_v0_2.md`.
 
+**Archived: https://doi.org/10.5281/zenodo.22167996** (deposit version `c-series-v1`). Cite the DOI for the
+manuscript; cite this directory for a reader who wants to run the checks.
+
 **These are published so a stranger can check the claim without asking anyone.**
 Each package verifies from the anchors it ships, against the wheel on PyPI, on a
 machine that has never seen this repository.
