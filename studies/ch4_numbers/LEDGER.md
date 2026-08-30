@@ -494,14 +494,99 @@ R4: REAL-GAP relocates to the schema boundary, ERM is an ensemble-reliability
 finding, and neither is adverse to the catalog.
 
 
+## §4.6 — the C-series, governed encoding at rate
+
+Artifacts, **all public in this repository** as of 2026-08-29:
+`studies/c-series/packages/C-*.zip` (ten counted packages) ·
+`C_SERIES_PREREGISTRATION.md` · `C_SERIES_REPORT.md` · `notes/C_*_NOTE.md` ·
+`notes/C_5_VOID.md` · `SHA256SUMS`.
+
+Frozen set: pv1, prompt hash `35033e4b…`, application `716d92d9`,
+`uofa==0.16.0`, source sha256 `1b767b2d…`, backend `hosted`.
+
+| Claim | Value | Measured at | Artifact | Commit |
+|---|---|---|---|---|
+| Denominator, declared blind before C-1 | **10** | 2026-08-29 | `C_SERIES_PREREGISTRATION.md` §1 | `648265e` |
+| Counted runs reaching `signed-export` | **10 / 10** | " | `C_SERIES_REPORT.md` | `3be1c48` |
+| Verification checks, fresh environment | **30 passed, 0 failed** (3 per package) | " | `packages/C-*.zip` + published wheel | `793470e4` |
+| Condition pins reading `same` | **10 / 10** | " | `c_pins.py --run N`, exit 0, per note | `3be1c48` |
+| Voids | **1** — C-5, tool-surface breach (`Write`) | " | `notes/C_5_VOID.md` | " |
+| Void ground codified before the batch | yes — §1's exhaustive table | " | `C_SERIES_PREREGISTRATION.md` §1 | `648265e` |
+| Packages declining to claim judgment | **9 / 10** | " | `notes/C_*_NOTE.md` | `3be1c48` |
+| Packages judging any required level | **1** — C-4, 6 of 6 recoverable | " | " | " |
+| Dispositions, not-recoverable / source-absent | 17/2 · 10/9 · 18/1 · 10/3 · 17/2 · 18/0 · 19/0 · 15/4 · 18/1 · 17/2 | " | " | " |
+| Covers asserting a false signedness or judgment | **0 / 10** | " | " | " |
+| Extraction cells returned, range | 34 – 58 against 19 expected factors | " | " | " |
+| Messages per run, range | 783 – 1345 | " | " | " |
+
+**Both escalations CLOSED, 2026-08-29, venue: this repository,
+`studies/c-series/`** (commit `793470e4`; a Zenodo deposit for the manuscript
+DOI is minted from these same bytes).
+
+- *The primary artifacts were uncommitted.* The ten signed zips lived only in a
+  local run directory. They are now committed, with `SHA256SUMS` matching the
+  digests pinned when the rows were drafted — **verified from the committed
+  bytes** (`git archive HEAD`), not from the staging copies.
+- *The reading was private.* `C_SERIES_REPORT.md` and the eleven notes were in a
+  private repository while `docs/Encoding_Protocol_v0_2.md:607-608` cited them
+  by path. Both now resolve for an outside reader.
+
+**The rung splits, and the split is the honest statement.**
+
+- **The rate is a recorded measurement, not re-derivable.** A C-run is a fresh
+  unsteered session against a live deployment, so a re-run is a **new
+  measurement** — precisely what E3 forbids substituting for a recorded one.
+  Same standing as the `nagaraja` figure and the Johnson raw-extract pair in
+  §4.2. It rests on the pre-registration, the transcripts and the void ledger.
+- **The verification is stranger-re-derivable — D7 Demonstrated.**
+  `pip install uofa && uofa verify uofa.jsonld --pubkey keys/uofa-issuer.pub
+  --decision-pubkey keys/demo-reviewer.pub`, run against each committed zip from
+  its own shipped anchors, on a machine that has never seen this repository.
+  Re-run 2026-08-29 against the committed bytes under published `uofa 0.17.0`:
+  **30 passed, 0 failed.**
+
+Stating it as one blanket rung in either direction would be wrong in one
+direction or the other.
+
+**What the signatures establish, in the packages' own words.** Each zip's
+`SIGNING.txt` governs rather than any summary here: the shipped anchors let a
+reader check *"that these keys signed these bytes, and that nothing has changed
+since"*, and *"do NOT bind either key to a real-world party … Here both
+identities are labeled demonstration fixtures."* So the signatures demonstrate
+independent-attestation **mechanics** — two scopes, two keys, verified
+separately — and bind to real parties only when custody does. Publication is an
+offer of verification, not a claim of endorsement.
+
+**The `credenza.review` namespace is a minted identifier under A-2's rule, not a
+live endpoint.** It does not resolve in a browser and is not meant to. A §4.6
+sentence says so, to pre-empt the reader who tries it.
+
+**Scope, carried from the pre-registration so no row is read wider than it was
+measured.** The signatures attest completion of the governed review **with
+dispositions recorded where evidence was unrecoverable**. Out of scope as
+pre-registered: extraction soundness, the source paper's assessment quality, and
+**human-reviewer executability**. This is a model-reviewer claim.
+
+**No gate.** The C-series was pre-registered with a denominator and **no pass
+threshold**; the rate publishes wherever it lands. It enters §4.7's summary as a
+reported value with no verdict-column entry — supplying one would be the
+retroactive-threshold move the pre-registration exists to prevent.
+
+---
+
 ## Final ledger sweep — 2026-08-21
 
 | Status | Rows |
 |---|---:|
-| entered | **98** |
+| entered | **110** |
 | PENDING-ENCODING | **0** |
-| **ESCALATION** | **0** |
-| total | **98** |
+| **ESCALATION** | **0** (two raised and closed the same day — see §4.6) |
+| total | **110** |
+
+**Updated 2026-08-29:** §4.6 adds twelve rows for the C-series. Its two
+escalations — the packages uncommitted, the reading private — were entered with
+their values per this ledger's rule and **closed by publication** to
+`studies/c-series/`, not by waiver.
 
 The three rows that were PENDING-ENCODING — the two NASA substrates in §4.1's H1
 table and the single H1 row in §4.6's gate summary — are entered. Their shared
