@@ -126,6 +126,44 @@ ASSERTED = "asserted"
 EXTRACTED = "extracted"
 FORKS = (ASSERTED, EXTRACTED)
 
+#: The context version that introduced `decisionProvenance`. A package whose
+#: own `@context` predates this CANNOT state a fork -- the term is not in its
+#: vocabulary -- so reporting it as unclassifiable describes the checker's
+#: expectation rather than the package's condition.
+#:
+#: Reported live on `packs/vv40/examples/morrison/cou1/`, which declares v0.5
+#: and drew "provenance '<absent>' -- this record cannot be checked at all"
+#: beside two passing signatures. The same shape `protocol_check` already
+#: fixed for the run-log pins: refusing a package for lacking a field that did
+#: not exist when it was written punishes age rather than negligence.
+PROVENANCE_INTRODUCED = (0, 9)
+
+
+def context_version(doc: dict) -> tuple[int, ...]:
+    """The version the PACKAGE declares, from its own `@context`.
+
+    An inlined context -- a resolved or signed document -- declares no version
+    and returns (), which sorts below everything and takes the advisory path
+    rather than being guessed at.
+    """
+    ref = doc.get("@context")
+    if not isinstance(ref, str):
+        return ()
+    tail = ref.rsplit("/", 1)[-1]
+    return tuple(int(x) for x in tail.lstrip("vV").removesuffix(".jsonld").split(".")
+                 if x.isdigit())
+
+
+def predates_provenance(doc: dict) -> bool:
+    """Can this package state a fork at all?
+
+    False for a document that declares no context version: silence is not a
+    claim of age, and an inlined context is usually a SIGNED package, which had
+    the term available when it was made.
+    """
+    v = context_version(doc)
+    return bool(v) and v < PROVENANCE_INTRODUCED
+
 
 def unclassified_records(doc: dict) -> list[dict]:
     """Records whose fork is absent or unrecognised.
