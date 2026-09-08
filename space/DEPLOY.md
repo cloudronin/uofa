@@ -84,34 +84,58 @@ never evidence content.
 
 ---
 
-## 3b. Package signing key (`UOFA_DEMO_SIGNING_KEY`)
+## 3b. Package signing key (`UOFA_ISSUER_SIGNING_KEY`)
 
-The "Download UofA package" control signs each package with a **dedicated demo
-issuer key**. Deliberately *not* `keys/research.key`: a demo artifact must never
-be cryptographically indistinguishable from a research package, so the demo key
-is its own identity. Signing now takes TWO keys, one per attestor kind:
-`UOFA_ISSUER_SIGNING_KEY` seals the measurement view (anchor
-`keys/uofa-issuer.pub`) and `UOFA_DEMO_SIGNING_KEY` signs the decision
-(anchor `keys/demo-reviewer.pub`). One signature may never span both.
+The "Download UofA package" control seals each package with a **dedicated issuer
+key**. Deliberately *not* `keys/research.key`: a demo artifact must never be
+cryptographically indistinguishable from a research package, so the issuer key
+is its own identity.
+
+**One key, one scope: an issuer seal.** `UOFA_ISSUER_SIGNING_KEY` attests
+integrity and origin — this package came from this service and has not been
+altered since. Anchor: `keys/uofa-issuer.pub`. The signer renders as
+`UofA issuer (keys/uofa-issuer.pub)`.
+
+**The Space does not sign a decision, and must not.** A service key cannot stand
+in for a human reviewer, so there is no second signature and no decision
+attestor. Per `docs/UofA_Spec_Unified_Signing_Surface_v1_0.md`, which supersedes
+the earlier two-attestor design, the web path applies an issuer seal only. A
+valid signature here means *this artifact is intact and came from us*. It does
+not mean anyone accepted the model.
+
+> **Corrected 2026-09-08.** This section previously described a second secret,
+> `UOFA_DEMO_SIGNING_KEY`, said to sign a decision against
+> `keys/demo-reviewer.pub`. **No code has ever read that variable.**
+> `space/pipeline.py` defines `UOFA_ISSUER_SIGNING_KEY` and
+> `UOFA_ISSUER_SIGNING_KEY_FILE` and nothing else, and the Space's own tests
+> already assert the emitted package carries no decision block. The document
+> described a capability the implementation deliberately does not have, on the
+> most sensitive question the tool answers. Pinned by
+> `tests/space/test_deploy_doc_env_names.py` so the names cannot drift again.
 
 **Setup (one-time).** Generate the pair *outside the repo* and install the
 private half as a Space secret:
 
 ```bash
-uofa keygen ~/secure/uofa-demo.key     # writes uofa-demo.key + uofa-demo.pub
-cp ~/secure/uofa-demo.pub keys/demo-reviewer.pub   # public half is committed
+uofa keygen ~/secure/uofa-issuer.key   # writes uofa-issuer.key + uofa-issuer.pub
+cp ~/secure/uofa-issuer.pub keys/uofa-issuer.pub   # public half is committed
 ```
 
 Space → **Settings → Variables and secrets → New secret**:
 
 | Name | Value |
 |---|---|
-| `UOFA_DEMO_SIGNING_KEY` | the full PEM contents of `uofa-demo.key` |
+| `UOFA_ISSUER_SIGNING_KEY` | the full PEM contents of `uofa-issuer.key` |
+
+Without that secret the Space still runs, but the result reports
+`Authenticity: Unverified (demo)` and **no download control appears** — an
+unsigned package is not offered rather than offered unsigned.
 
 The PEM is read into memory at request time and never written to the container
 filesystem — the process serves user downloads out of a temp directory, and a
 private key on that filesystem is one path bug away from being one of them. For
-local development, `UOFA_DEMO_SIGNING_KEY_FILE=/path/to/demo.key` works instead.
+local development, `UOFA_ISSUER_SIGNING_KEY_FILE=/path/to/issuer.key` works
+instead.
 
 **The key can never travel as a file.** `space/deploy_to_hf.py` filters `.key`,
 `.pem`, and `.env` out of the upload set *and* hard-refuses the deploy if one
