@@ -20,7 +20,7 @@ import gradio as gr
 from space import (curated, leadcapture, llm_env, pipeline, ratelimit, reviewer,
                    solver_panel, wizard)
 from space.gloss import gloss_for, load_gloss
-from uofa_cli import paths
+from uofa_cli import paths, report_state
 
 PACK_LABELS = {"vv40": "ASME V&V 40", "nasa-7009b": "NASA-STD-7009B"}
 PACK_CHOICES = [(label, pid) for pid, label in PACK_LABELS.items()]
@@ -370,14 +370,25 @@ def _render_results(p):
         gaps.append("**Weakeners fired:**")
         for w in p["weakeners"]:
             fac = f", {', '.join(w['factors'])}" if w.get("factors") else ""
-            gaps.append(f"- `{w['patternId']}` [{w.get('severity')}] ×{w.get('hits')}{fac}")
+            # sev_label, not the raw key: a reader must never see "Medium" here
+            # and "Moderate" in the Reviewer view for the same weakener.
+            sev = report_state.sev_label(w.get("severity"))
+            gaps.append(f"- `{w['patternId']}` [{sev}] ×{w.get('hits')}{fac}")
     else:
         gaps.append("**Weakeners:** none fired. 🎉")
     if c["missing"]:
         gaps.append("\n**Not assessed:** " + ", ".join(c["missing"]))
     gaps_md = "\n".join(gaps)
 
-    tail = [f"**Completeness:** {c['n_assessed']} of {c['n_expected']} factors assessed."]
+    # Say WHICH count this is. The Reviewer view reports a different, also
+    # correct number (it demotes any factor an open High/Moderate concern
+    # disputes), and side by side the two read as a contradiction unless each
+    # names its own basis. Observed live 2026-09-08: Author "13 of 13" against
+    # Reviewer "11 of 13" on the same run, with nothing explaining the gap.
+    tail = [f"**Completeness (raw extracted statuses):** {c['n_assessed']} of "
+            f"{c['n_expected']} factors assessed. The Reviewer view reports a "
+            "lower count because it does not treat a factor as evidenced while "
+            "an open High or Moderate concern disputes it."]
     if c["excluded"]:
         tail.append("**Excluded (scoped-out / N/A):** " + ", ".join(c["excluded"]))
     struct = p["structural"]
@@ -651,8 +662,14 @@ def build() -> gr.Blocks:
             def render_factors(result):
                 rows = pipeline.factor_rows(result) if result else []
                 for row in rows:
+                    # interactive=True is explicit, not decorative. Gradio infers
+                    # interactivity from whether a component is an input to some
+                    # event, and that inference does not reach components built
+                    # inside @gr.render: every factor radio shipped DISABLED, so
+                    # the confirm step -- the only surface a human may correct --
+                    # could not be corrected. Pinned by test_confirm_step_editable.
                     rad = gr.Radio(choices=STATUS_CHOICES, value=row["status"],
-                                   label=_factor_label(row))
+                                   label=_factor_label(row), interactive=True)
                     # The factor name is already in the radio label above, so the
                     # accordion just says "what we read" (no redundant name echo).
                     # Lead with the shared gloss so a non-expert understands the factor.

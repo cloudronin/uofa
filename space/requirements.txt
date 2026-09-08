@@ -1,5 +1,17 @@
 # App-only deps installed on top of the uofa[extract] wheel (see space/Dockerfile).
 # The uofa package itself and its extract extras (litellm, pdfplumber, etc.) come
 # from the wheel, not from here.
-gradio>=6.0
+# Upper bound is deliberate. This was `>=6.0` with no cap, so the Space
+# installed whatever 6.x existed at build time and the UI could change with no
+# commit in this repo. It did: Gradio infers a component's interactivity from
+# whether it feeds an event, that inference does not reach components built
+# inside `@gr.render`, and every credibility-factor radio on the deployed tool
+# shipped DISABLED. The confirm step, the one surface a human may correct, was
+# read-only in production. See the fix in space/app.py (interactive=True) and
+# the browser test that pins it, tests/space/test_ui_e2e.py.
+#
+# 6.24.0 is the version the browser tests were run against on 2026-09-08. Raise
+# this cap only alongside a run of those tests, since they are the only thing
+# that exercises rendered interactivity.
+gradio>=6.0,<6.25
 huggingface_hub>=0.23   # lead capture -> private HF Dataset (S4)

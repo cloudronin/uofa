@@ -30,17 +30,23 @@ manifest, public key, and instructions beside it are convenience copies.
 
 ```
 unzip uofa-pack-*.zip
-uofa verify uofa.jsonld \
-  --pubkey keys/uofa-issuer.pub \
-  --decision-pubkey keys/demo-reviewer.pub
+uofa verify uofa.jsonld --pubkey keys/uofa-issuer.pub
 ```
 
 **What a valid signature means here.** Only that the file is unmodified since
 this demo produced it. It is not a review and not an acceptance decision. The
 signing key is a *demonstration issuer key* held by the demo, not a research or
-production key, and not anyone's decision key — so a demo package can never be
-mistaken for a formally issued one (it does not verify against the default trust
-anchor; `--pubkey` is required, deliberately).
+production key — so a demo package can never be mistaken for a formally issued
+one (it does not verify against the default trust anchor; `--pubkey` is
+required, deliberately).
+
+**The Space applies an issuer seal only, and signs no decision.** A service key
+cannot stand in for a human reviewer, so the pack carries no decision block and
+`--decision-pubkey` has nothing here to check. Until 2026-09-08 this file
+documented that flag against `keys/demo-reviewer.pub`, which is not one of the
+pack's five members, so the command failed on a missing file and implied an
+attestation the Space deliberately does not make. See
+`docs/UofA_Spec_Unified_Signing_Surface_v1_0.md`.
 
 The public key travels inside the zip so verification works offline. A trust
 anchor shipped inside the artifact it validates only proves self-consistency, so
@@ -48,7 +54,6 @@ compare it against this independent copy:
 
 ```
 keys/uofa-issuer.pub    sha256:ead2e1e1068f8c6da14b2c9c384e4d00d8900308ad2e406fe294330ce0edd81d
-keys/demo-reviewer.pub  sha256:3605a146f4880d9f7a29db6ef5629655091d2ecd0c2b9919cbe49d90d65d83c8
 ```
 
 ## Privacy
