@@ -194,6 +194,22 @@ def sign_package_scoped(
 
     unclassified = sign_roles.unclassified_records(doc)
     if unclassified:
+        # **Still refused, and deliberately.** `verify` reads an existing
+        # artifact and so advises a package older than the term; SIGNING makes
+        # a new claim today and is held to today's bar. But the refusal must
+        # name the real cause: a v0.5 package is not negligent, it is old, and
+        # the fix is re-importing under a current context rather than hunting
+        # for a field to fill.
+        if sign_roles.predates_provenance(doc):
+            v = ".".join(str(x) for x in sign_roles.context_version(doc))
+            raise PackagePolicyError(
+                f"this package declares context v{v}, which predates "
+                f"`decisionProvenance`, so its {len(unclassified)} decision "
+                f"record(s) cannot state which warrant they owe. Signing makes "
+                f"a claim today and needs the current vocabulary: re-import "
+                f"under a context of v"
+                f"{'.'.join(str(x) for x in sign_roles.PROVENANCE_INTRODUCED)} "
+                f"or later, then sign. `uofa verify` reads it as-is.")
         raise PackagePolicyError(
             f"this package carries {len(unclassified)} decision record(s) whose "
             f"provenance is unstated. The fork says which warrant is owed, so "

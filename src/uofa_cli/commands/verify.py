@@ -265,6 +265,18 @@ def _report_record(doc, rec, i, keys, signer_ids, doc_path, failures) -> None:
     prefix = f"  decision {i}"
 
     if fork not in sign_roles.FORKS:
+        # **Advised, not refused, when the package predates the term.** A
+        # package whose own @context is older than `decisionProvenance` cannot
+        # state a fork: the word is not in its vocabulary. Reporting that as
+        # "cannot be checked at all" describes this checker's expectation
+        # rather than the package's condition, and reads to anyone running it
+        # as though the package were broken. It is not -- the signatures above
+        # it verify.
+        if sign_roles.predates_provenance(doc):
+            v = ".".join(str(x) for x in sign_roles.context_version(doc))
+            info(f"{prefix}: no provenance fork — this package declares context "
+                 f"v{v}, which predates the term; advised, not refused.")
+            return
         warn(f"{prefix}: provenance {fork or '<absent>'!r} — the fork says which "
              f"warrant is owed, so this record cannot be checked at all.")
         return
