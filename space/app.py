@@ -662,8 +662,14 @@ def build() -> gr.Blocks:
             def render_factors(result):
                 rows = pipeline.factor_rows(result) if result else []
                 for row in rows:
+                    # interactive=True is explicit, not decorative. Gradio infers
+                    # interactivity from whether a component is an input to some
+                    # event, and that inference does not reach components built
+                    # inside @gr.render: every factor radio shipped DISABLED, so
+                    # the confirm step -- the only surface a human may correct --
+                    # could not be corrected. Pinned by test_confirm_step_editable.
                     rad = gr.Radio(choices=STATUS_CHOICES, value=row["status"],
-                                   label=_factor_label(row))
+                                   label=_factor_label(row), interactive=True)
                     # The factor name is already in the radio label above, so the
                     # accordion just says "what we read" (no redundant name echo).
                     # Lead with the shared gloss so a non-expert understands the factor.
