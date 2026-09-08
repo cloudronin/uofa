@@ -226,7 +226,11 @@ def _section_authenticity(s: ReviewerState) -> str:
         detail = (f"<ul><li><b>Signed by:</b> {_e(auth.get('signer'))}</li>"
                   f"<li><b>Content hash:</b> <code>{_e(auth.get('package_hash'))}</code></li></ul>\n"
                   f"      <p>{_e(auth.get('statement'))}</p>")
-        cmd = "uofa verify uofa.jsonld --pubkey keys/demo.pub"
+        # From the payload, not typed here. The packed pubkey member is named by
+        # pipeline.PACK_MEMBER_PUBKEY, and a second hardcoded copy of that name
+        # in this file drifted: it read `keys/demo.pub`, which the zip does not
+        # contain, so a reader who copied this command hit a missing file.
+        cmd = auth.get("verify_command") or "uofa verify --help"
         howto = ("Download the package below and re-check it yourself. The public "
                  "key and these instructions travel inside the zip:")
     else:

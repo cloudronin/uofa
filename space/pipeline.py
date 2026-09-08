@@ -398,6 +398,14 @@ def _authenticity_block(*, signed: bool = False, package_hash: str | None = None
         "package_hash": package_hash,
         "signer": signer or SIGNER_LABEL,
         "statement": _SIGNED_STATEMENT,
+        # Built from the same constants that name the zip's members, so the
+        # command a reader is shown cannot drift from the files they receive.
+        # The reviewer view previously hardcoded `keys/demo.pub`, which is not
+        # a member of the pack, so copying the on-screen command failed on a
+        # missing file. Carried in the payload rather than assembled in the
+        # renderer because that module renders state and interprets nothing.
+        "verify_command": (f"uofa verify {PACK_MEMBER_JSONLD} "
+                           f"--pubkey {PACK_MEMBER_PUBKEY}"),
     }
 
 
