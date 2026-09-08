@@ -26,6 +26,15 @@ It runs three jobs in order: (1) `pytest tests/space`; (2) **base** — build
 not rebuilt); (3) **deploy** — sync the thin Space layout to `cloudronin/uofa-demo`
 in one commit, which triggers HF's fast rebuild on the fresh base.
 
+The `base` job pushes two tags: `:latest` and `:<commit sha>`. **The Dockerfile
+committed to the Space names the sha, not `:latest`.** `space/Dockerfile` in this
+repo still says `:latest` so a hand-run `docker build` works from a checkout;
+`space/deploy_to_hf.py` rewrites that one line on the way out. `:latest` is
+mutable and HF's builder is not ours — a builder already holding that reference
+may build on the copy it has, and the Space then runs a wheel older than the
+source just pushed, starting cleanly and saying nothing. The deploy log prints
+the exact image the Space will build on (`[deploy] Space will build on: …`).
+
 **Auth is keyless** — no `HF_TOKEN` secret in GitHub. The deploy job mints a
 GitHub OIDC token (`permissions: id-token: write`) and exchanges it at
 `https://huggingface.co/oauth/token` for a short-lived, repo-scoped HF token

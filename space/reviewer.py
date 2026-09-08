@@ -231,8 +231,21 @@ def _section_authenticity(s: ReviewerState) -> str:
         # in this file drifted: it read `keys/demo.pub`, which the zip does not
         # contain, so a reader who copied this command hit a missing file.
         cmd = auth.get("verify_command") or "uofa verify --help"
-        howto = ("Download the package below and re-check it yourself. The public "
-                 "key and these instructions travel inside the zip:")
+        # Only promise a download when one exists. `pack_available` is False
+        # only where a pack was attempted and could not be assembled -- signing
+        # uses the private key, the pack needs the public half, and the two can
+        # disagree. Absent (the CLI report path, which never asks for a pack)
+        # keeps the original wording. Until 2026-09-08 this always said
+        # "download the package below", and the deployed Space said it with no
+        # button below it.
+        if auth.get("pack_available") is False:
+            howto = ("The signature above is valid, but this run could not "
+                     "assemble the downloadable package, so there is nothing to "
+                     "download here. A package built elsewhere is re-checked "
+                     "with:")
+        else:
+            howto = ("Download the package below and re-check it yourself. The "
+                     "public key and these instructions travel inside the zip:")
     else:
         verdict = "Unverified (demo)"
         detail = f"<p>{_e(auth.get('statement'))}</p>"

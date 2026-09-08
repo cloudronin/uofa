@@ -38,6 +38,36 @@ def test_base_dockerfile_keeps_the_runtime_the_engine_needs():
     assert "useradd -m -u 1000 user" in df          # HF runs as UID 1000
 
 
+def test_base_dockerfile_fails_the_build_without_the_trust_anchor():
+    """The public half of the issuer key must resolve inside the image.
+
+    Without it `build_downloadable_pack` assembles nothing, and the Space serves
+    a signed analysis with no package to download -- silently, because nothing
+    about that is a startup error. The check runs as the app's own user and
+    working directory so it resolves the anchor the same way the app will."""
+    df = (_SPACE / "Dockerfile.base").read_text()
+    check = df.split("EXPOSE 7860", 1)[1]
+    assert "paths.issuer_pubkey()" in check
+    assert "open(p, 'rb').read()" in check      # raises, so the build stops
+    assert check.index("paths.issuer_pubkey()") > 0
+    # It has to sit after the app's runtime identity is set, or it proves
+    # nothing about the resolution the app performs.
+    assert df.index("WORKDIR /home/user/app") < df.index("paths.issuer_pubkey()")
+    assert df.index("USER user") < df.index("paths.issuer_pubkey()")
+
+
+def test_the_anchor_the_image_checks_is_the_one_the_pack_ships():
+    """One key, named in one place. If `build_downloadable_pack` ever reads a
+    different anchor than the build gate verifies, the gate passes and the Space
+    still cannot assemble a pack."""
+    import inspect
+
+    from space import pipeline
+
+    src = inspect.getsource(pipeline.build_downloadable_pack)
+    assert "paths.issuer_pubkey()" in src
+
+
 def test_no_api_key_is_baked_into_any_image_or_app_file():
     """Configuration lives in git; the key is a Space secret and nothing else.
     The Space repo is public, so anything committed here is published."""
