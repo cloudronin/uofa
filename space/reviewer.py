@@ -109,7 +109,13 @@ def _reconcile_clause(s: ReviewerState) -> str:
             bits.append(f"{m} high-severity {_plural(m, 'concern', 'concerns')} "
                         f"{_plural(m, 'remains', 'remain')} open")
         tail = "; ".join(bits) + " before this is review-ready."
-    return f"{s.completeness_pct}% of all factors evidenced; {tail}"
+    # "after open concerns" is load-bearing. This percentage counts a factor as
+    # evidenced only while no open High or Moderate concern disputes it, so it
+    # can sit below the Author view's raw count of assessed statuses. Both are
+    # correct; unlabelled they read as a contradiction. Observed live
+    # 2026-09-08: this view said 11 of 13 while the Author view said 13 of 13.
+    return (f"{s.completeness_pct}% of all factors evidenced after open "
+            f"concerns; {tail}")
 
 
 def _section_glance(s: ReviewerState) -> str:
@@ -127,7 +133,7 @@ def _section_glance(s: ReviewerState) -> str:
       <h2>At a glance</h2>
       <dl class="ri-glance">
         <div><dt>Completeness</dt><dd>{s.completeness_pct}%</dd></div>
-        <div><dt>Factors evidenced</dt><dd>{s.n_evidenced} of {s.n_expected}</dd></div>
+        <div><dt>Evidenced, after concerns</dt><dd>{s.n_evidenced} of {s.n_expected}</dd></div>
         <div><dt>Concerns (weakeners)</dt><dd>{_e(sev_txt)}</dd></div>
         <div><dt>Authenticity verified</dt><dd>{auth_txt}</dd></div>
         <div><dt>Gate checks passed</dt><dd>{s.gates['passed']} of {s.gates['total']}</dd></div>

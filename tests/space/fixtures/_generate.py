@@ -119,16 +119,46 @@ def _build(cou: str) -> dict:
     return payload
 
 
-def main() -> None:
+def main(render_only: bool = False) -> None:
+    """Rebuild the fixtures. Two modes, and the difference matters.
+
+    Default: re-run the rule engine on the real bundle, rewrite the state JSON,
+    then render the HTML from it. Use this when the engine, the catalog, or the
+    bundle is what changed.
+
+    ``--render-only``: keep the committed state JSON exactly as it is and only
+    re-render the HTML from it. Use this when the RENDERER changed - a label, a
+    wording fix - and the analysis behind it did not.
+
+    The distinction exists because the two are not separable by default, and
+    conflating them hides things. On 2026-09-08 a two-line wording fix in
+    `space/reviewer.py` could only be reflected by running this script, which
+    would also have folded in three rule firings the committed fixture predates
+    (COMPOUND-01 and COMPOUND-03 at Critical, W-EP-01 at High). A reader of that
+    diff would have seen a label change and two new Critical concerns in one
+    commit, with nothing saying they were unrelated.
+
+    ``--render-only`` keeps the no-hand-edit rule intact for renderer changes:
+    the golden is still generated, never typed.
+    """
     gloss = load_gloss()
     for cou in ("cou1", "cou2"):
-        payload = _build(cou)
-        (_HERE / f"morrison_{cou}_state.json").write_text(
-            json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+        state_path = _HERE / f"morrison_{cou}_state.json"
+        if render_only:
+            payload = json.loads(state_path.read_text(encoding="utf-8"))
+        else:
+            payload = _build(cou)
+            state_path.write_text(json.dumps(payload, indent=2) + "\n",
+                                  encoding="utf-8")
         html = render_reviewer_html(payload, gloss)
         (_HERE / f"morrison_{cou}_reviewer.html").write_text(html, encoding="utf-8")
-        print(f"{cou}: wrote payload + golden ({len(html)} bytes)")
+        what = "golden only" if render_only else "payload + golden"
+        print(f"{cou}: wrote {what} ({len(html)} bytes)")
 
 
 if __name__ == "__main__":
-    main()
+    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap.add_argument("--render-only", action="store_true",
+                    help="re-render the HTML from the committed state JSON; do "
+                         "not re-run the engine or rewrite the state fixtures")
+    main(render_only=ap.parse_args().render_only)

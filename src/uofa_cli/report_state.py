@@ -46,7 +46,11 @@ def _headline(n_assessed: int, n_expected: int, n_missing: int,
     parts = []
     if firings:
         order = ["Critical", "High", "Medium", "Low"]
-        bits = [f"{sev_counts[s]} {s}" for s in order if sev_counts.get(s)]
+        # Reader-facing words, not raw keys. The raw key is "Medium"; the word a
+        # reader sees is "Moderate". Printing the key here made this headline say
+        # "1 Medium" while the Reviewer view said "1 Moderate" for the same
+        # finding -- observed live on the deployed Inspector, 2026-09-08.
+        bits = [f"{sev_counts[s]} {sev_label(s)}" for s in order if sev_counts.get(s)]
         breakdown = f" ({', '.join(bits)})" if bits else ""
         parts.append(f"{len(firings)} weakener{'s' if len(firings) != 1 else ''} fired{breakdown}")
     else:
