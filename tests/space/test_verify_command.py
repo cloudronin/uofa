@@ -166,3 +166,66 @@ def test_no_doc_tells_a_user_to_name_a_file_the_pack_lacks():
         + "\n".join(f"  {rel}:{n}  {tok!r}\n    {line}" for rel, n, tok, line in bad)
         + f"\n\nPack members are: {sorted(members)}"
     )
+
+
+# ── signed is not the same fact as downloadable ──────────────
+
+
+def test_a_signed_run_with_no_pack_does_not_promise_a_download():
+    """The page must not point at a button that is not there.
+
+    Signing reads the PRIVATE key from the environment. Assembling the pack
+    needs the PUBLIC half on disk. Those can disagree, and on 2026-09-08 the
+    deployed Space had the first without the second: the readout rendered its
+    signed branch, said "Download the package below and re-check it yourself",
+    and offered no download.
+
+    `test_without_a_signing_key_the_run_stays_unsigned` covers the no-key case.
+    Nothing covered signed-yet-no-pack, so the suite could not see it.
+    """
+    payload = json.loads((_FIX / "morrison_cou1_state.json").read_text(encoding="utf-8"))
+    auth = _authenticity_block(signed=True, package_hash="sha256:" + "0" * 64,
+                               integrity_checked=True)
+    auth["pack_available"] = False
+    payload["context"]["authenticity"] = auth
+    html = render_reviewer_html(payload, GLOSS)
+
+    assert "Download the package below" not in html, (
+        "the page promises a download on a run that produced no package"
+    )
+    assert "could not" in html and "assemble" in html, (
+        "the page does not say the package could not be assembled, so a reader "
+        "cannot tell a missing button from a missing signature"
+    )
+    # The signature itself is still real and must still be reported.
+    assert "Signed by the demo issuer key" in html
+
+
+def test_a_signed_run_with_a_pack_still_promises_the_download():
+    """The normal case must be unchanged by the guard above."""
+    payload = json.loads((_FIX / "morrison_cou1_state.json").read_text(encoding="utf-8"))
+    auth = _authenticity_block(signed=True, package_hash="sha256:" + "0" * 64,
+                               integrity_checked=True)
+    auth["pack_available"] = True
+    payload["context"]["authenticity"] = auth
+
+    assert "Download the package below" in render_reviewer_html(payload, GLOSS)
+
+
+def test_a_caller_that_never_asks_for_a_pack_is_not_told_one_is_missing():
+    """Absent means not applicable, not failed.
+
+    The CLI report path builds an authenticity block and never requests a pack.
+    It must keep the original wording rather than reporting a failure that did
+    not happen.
+    """
+    payload = json.loads((_FIX / "morrison_cou1_state.json").read_text(encoding="utf-8"))
+    auth = _authenticity_block(signed=True, package_hash="sha256:" + "0" * 64,
+                               integrity_checked=True)
+    assert "pack_available" not in auth, (
+        "the authenticity block now claims pack availability at construction, "
+        "before the pack is built; that is the conflation this guards"
+    )
+    payload["context"]["authenticity"] = auth
+
+    assert "Download the package below" in render_reviewer_html(payload, GLOSS)

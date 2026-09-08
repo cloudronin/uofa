@@ -605,6 +605,18 @@ def build_downloadable_pack(jsonld_path: Path, pack: str, payload: dict,
     doc = json.loads(jsonld_path.read_text(encoding="utf-8"))
     pubkey = paths.issuer_pubkey()
     if not pubkey.exists():
+        # Say why, once, on the way out. This returned bare None until
+        # 2026-09-08, and the deployed Space then rendered a signed readout that
+        # told the reader to "download the package below" with no button below
+        # it. Signing uses the PRIVATE key from the environment; the pack needs
+        # the PUBLIC half on disk, so the two can disagree and only this branch
+        # knows it. A silent None left no way to tell that apart from a run that
+        # was never signed, which cost an evening of guessing at a container we
+        # could not read.
+        print(f"[pack] cannot assemble the downloadable pack: issuer trust "
+              f"anchor not found at {pubkey}. Signing succeeded, so the private "
+              f"key is configured; the public half is missing from this image.",
+              flush=True)
         return None
 
     out_dir = Path(out_dir)
@@ -744,6 +756,14 @@ def _sign_and_pack(jsonld_path: Path, pack: str, data: dict, shacl_conforms,
     if out_dir is not None:
         download = build_downloadable_pack(jsonld_path, pack, payload, out_dir,
                                            package_hash=package_hash)
+        # Signed and downloadable are two different facts, and they can
+        # disagree: signing reads the PRIVATE key from the environment, the pack
+        # needs the PUBLIC half on disk. On 2026-09-08 the deployed Space had
+        # the first and not the second, and the readout said "download the
+        # package below" with nothing below it. Recorded explicitly, and only
+        # when a pack was actually attempted, so a caller that never asks for
+        # one (the CLI report path) is not told a package is missing.
+        payload["context"]["authenticity"]["pack_available"] = bool(download)
     return payload, download
 
 
