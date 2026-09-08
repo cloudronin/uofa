@@ -6,6 +6,10 @@ Space's Dockerfile is thin (`FROM <base> + COPY space/`). "Deploy" therefore
 means: assemble the thin Space layout (root Dockerfile + HF README + the space/
 app tree) and commit it. HF then rebuilds the thin image on the fresh base.
 
+The base is pinned on the way out: the Dockerfile committed to the Space names
+`<base>:<commit sha>`, not `<base>:latest`, so HF cannot build the Space on a
+copy of a mutable tag it happened to be holding. See `_pin_base_image`.
+
 Auth: reads HF_TOKEN from the environment. In CI this is the short-lived
 OIDC-exchanged token (see .github/workflows/deploy-space.yml); locally you can
 export a normal write token to redeploy by hand.
@@ -18,12 +22,18 @@ local-only build scaffold are excluded too.
 from __future__ import annotations
 
 import os
+import re
 from pathlib import Path
 
 from huggingface_hub import CommitOperationAdd, HfApi
 
 REPO = os.environ.get("HF_SPACE_REPO", "cloudronin/uofa-demo")
 ROOT = Path(__file__).resolve().parents[1]
+
+# The prebuilt base, without a tag. `space/Dockerfile` names it as `:latest` so
+# a hand-run `docker build` still works from a checkout; CI rewrites that line
+# to the commit tag on the way to HF (see `_pin_base_image`).
+BASE_IMAGE = "ghcr.io/cloudronin/uofa-demo-base"
 
 # Files placed at the Space root (HF builds from the root Dockerfile + README).
 ROOT_FILES = {
@@ -61,11 +71,50 @@ def _denied(rel: str) -> bool:
     return any(token in rel for token in DENY)
 
 
+def _pin_base_image(dockerfile: str, sha: str) -> str:
+    """Rewrite `FROM <base>:latest` to `FROM <base>:<sha>`.
+
+    `:latest` is a mutable tag, and the whole Space runs on whatever it resolves
+    to. CI refreshes that tag immediately before this sync, but HF's builder is
+    a machine we do not control: if it already holds a `:latest` for this
+    reference it is free to build on the copy it has, and the Space then runs an
+    image older than the source that was just pushed. Nothing in the Space's
+    logs would say so -- the app starts cleanly on a stale wheel.
+
+    That is not a theoretical worry. A signed run that could not assemble its
+    downloadable pack (#128) survived five hypotheses, every one of them
+    disproved against the source in the checkout, which leaves the possibility
+    that the container was never running that source. Pinning removes the
+    question rather than answering it: the same `base` job pushes `:<sha>`
+    alongside `:latest`, that tag is written once and never moved, and the
+    Space's own Dockerfile now records exactly which image it was built on.
+    """
+    return re.sub(rf"^FROM {re.escape(BASE_IMAGE)}:\S+",
+                  f"FROM {BASE_IMAGE}:{sha}", dockerfile, flags=re.M)
+
+
+def _dockerfile_bytes() -> bytes:
+    """The thin Dockerfile as it should reach HF, base pinned when CI knows it.
+
+    Outside CI there is no commit to pin to, so the file goes up verbatim and
+    the Space builds on `:latest` exactly as it did before.
+    """
+    text = (ROOT / "space" / "Dockerfile").read_text(encoding="utf-8")
+    sha = os.environ.get("GITHUB_SHA", "")
+    if re.fullmatch(r"[0-9a-f]{40}", sha):
+        text = _pin_base_image(text, sha)
+    return text.encode("utf-8")
+
+
 def build_operations() -> list[CommitOperationAdd]:
     ops: list[CommitOperationAdd] = []
     for local, in_repo in ROOT_FILES.items():
         p = ROOT / local
-        if p.exists():
+        if not p.exists():
+            continue
+        if local == "space/Dockerfile":
+            ops.append(CommitOperationAdd(in_repo, _dockerfile_bytes()))
+        else:
             ops.append(CommitOperationAdd(in_repo, str(p)))
 
     for tree in TREES:
@@ -100,6 +149,12 @@ def main() -> None:
     leaked = _secrets_in(ops)
     if leaked:
         raise SystemExit(f"refusing to deploy: secret(s) in payload: {leaked}")
+
+    # Say which base the Space is about to build on. When a run comes back wrong
+    # this is the line that says whether it was the source we think it was.
+    from_line = next((l for l in _dockerfile_bytes().decode().splitlines()
+                      if l.startswith("FROM ")), "FROM ?")
+    print(f"[deploy] Space will build on: {from_line.removeprefix('FROM ').strip()}")
 
     sha = os.environ.get("GITHUB_SHA", "local")[:7]
     api = HfApi(token=os.environ["HF_TOKEN"])

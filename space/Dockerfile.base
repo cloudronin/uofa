@@ -82,3 +82,20 @@ RUN pip install --no-cache-dir --retries 5 --timeout 60 "$(echo /wheels/uofa-*.w
 USER user
 WORKDIR /home/user/app
 EXPOSE 7860
+
+# Resolve the issuer trust anchor exactly as the running app does, from this
+# user and this working directory, and FAIL THE BUILD if it is not there.
+#
+# Without the public half of the key, `build_downloadable_pack` cannot assemble
+# anything and the Space serves a signed analysis with no package to download --
+# a degradation that costs nothing at startup and shows up only when a visitor
+# reaches the last step. The wheel force-includes the anchor
+# (pyproject.toml, [tool.hatch.build.targets.wheel.force-include]) and
+# `find_repo_root()` falls back to that bundled copy, but "should resolve" is
+# what we believed while the deployed Space was failing (#128). An image that
+# cannot find its own anchor must not reach HF.
+RUN python -c "\
+from uofa_cli import paths; \
+p = paths.issuer_pubkey(); \
+open(p, 'rb').read(); \
+print('[base] issuer trust anchor resolves to', p)"
