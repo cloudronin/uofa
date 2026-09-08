@@ -38,6 +38,7 @@ from space.pipeline import (
 )
 from space.reviewer import render_reviewer_html
 
+REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 _FIX = Path(__file__).with_name("fixtures")
 GLOSS = load_gloss()
 
@@ -98,3 +99,70 @@ def test_the_unsigned_page_offers_no_package_command():
 def test_pack_member_names_are_not_empty(member):
     """Guard the guard: empty constants would make every check above vacuous."""
     assert member and member.strip()
+
+
+# ── the same instruction, wherever it is printed ─────────────
+
+# Docs a user follows to check a pack the Space produced. Each is in the
+# verification spec's scope.
+_DOCS = ("space/README.md", "space/DEPLOY.md", "docs/credibility-inspector.md")
+
+
+def _verify_commands_in_docs() -> list[tuple[str, str, int]]:
+    """Every `uofa verify` line in those docs, as (doc, line, line_no).
+
+    Blockquote and comment lines are skipped so a dated correction can quote the
+    command it is correcting.
+    """
+    out = []
+    for rel in _DOCS:
+        path = REPO_ROOT / rel
+        if not path.is_file():
+            continue
+        for n, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+            s = line.strip()
+            if s.startswith((">", "#", "//")):
+                continue
+            if "uofa verify" in s:
+                out.append((rel, s, n))
+    return out
+
+
+def test_the_docs_scan_finds_commands_at_all():
+    """Guard the guard: matching nothing would pass vacuously."""
+    assert _verify_commands_in_docs(), (
+        "no `uofa verify` command found in any user-facing doc; the scan has "
+        "drifted from how they are written"
+    )
+
+
+def test_no_doc_tells_a_user_to_name_a_file_the_pack_lacks():
+    """Every path a documented verify command names must be a pack member.
+
+    `space/README.md` documented `--decision-pubkey keys/demo-reviewer.pub` and
+    `docs/credibility-inspector.md` documented `--pubkey keys/demo-reviewer.pub`.
+    Neither file is in the pack, whose five members are fixed constants, so both
+    commands failed on a missing file. The README's also implied a decision
+    signature the Space deliberately does not create.
+
+    Fifth instance of one shape in this workstream: an instruction that cannot be
+    followed, because a name was copied instead of read from its source.
+    """
+    from space import pipeline
+
+    members = {
+        pipeline.PACK_MEMBER_JSONLD, pipeline.PACK_MEMBER_REPORT,
+        pipeline.PACK_MEMBER_MANIFEST, pipeline.PACK_MEMBER_PUBKEY,
+        pipeline.PACK_MEMBER_VERIFY,
+    }
+    bad = []
+    for rel, line, n in _verify_commands_in_docs():
+        for tok in line.replace("\\", " ").split():
+            looks_like_a_packed_path = tok.startswith("keys/") or tok.endswith(".jsonld")
+            if looks_like_a_packed_path and tok not in members:
+                bad.append((rel, n, tok, line))
+    assert not bad, (
+        "documented verify commands name files the pack does not contain:\n"
+        + "\n".join(f"  {rel}:{n}  {tok!r}\n    {line}" for rel, n, tok, line in bad)
+        + f"\n\nPack members are: {sorted(members)}"
+    )
