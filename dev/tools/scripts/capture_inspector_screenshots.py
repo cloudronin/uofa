@@ -35,13 +35,14 @@ STEPS = [
     ("03-confirm-status.png", "Step 3: where human judgment enters"),
     ("04-reviewer.png", "Step 4: the Reviewer reading"),
     ("05-author.png", "Step 4: the same analysis, Author reading"),
+    ("06-package.png", "Step 4: the signed package, offered as a download"),
 ]
 
 
-def _shot(page, name: str, note: str) -> None:
+def _shot(page, name: str, note: str, *, full_page: bool = True) -> None:
     OUT.mkdir(parents=True, exist_ok=True)
     path = OUT / name
-    page.screenshot(path=str(path), full_page=True)
+    page.screenshot(path=str(path), full_page=full_page)
     kb = path.stat().st_size // 1024
     print(f"  {name:28s} {kb:4d} KB   {note}")
 
@@ -83,6 +84,32 @@ def main() -> int:
         page.get_by_role("radio", name="Author (Gap-Finder)").click()
         time.sleep(1)
         _shot(page, *STEPS[4])
+
+        # The package control gets its own figure, and this step doubles as a
+        # regression check.
+        #
+        # Its own figure because a full-page shot of a ~3,000px readout does not
+        # show it, and the download is the whole point: the user leaves with an
+        # artifact a third party can verify without trusting this site. A
+        # chapter that claims that and shows no control is asserting it.
+        #
+        # A regression check because the control's absence is silent. In
+        # September 2026 the deployed Space rendered a SIGNED readout, told the
+        # reader to download the package below, and offered nothing -- no error
+        # in the UI, no line in the container log (see
+        # studies/inspector-live-verification-2026-09/). `wait_for` raises here
+        # rather than writing a figure of a missing button, so a rerun of this
+        # script after any UI or deploy change fails loudly on the one defect
+        # that previously could only be found by a person clicking through.
+        page.get_by_role("radio", name="Reviewer").click()
+        time.sleep(1)
+        pack = page.get_by_role("button", name="Download UofA package")
+        pack.wait_for(state="visible", timeout=30_000)
+        pack.scroll_into_view_if_needed()
+        time.sleep(0.5)
+        # Viewport, not full page: the reader should see the control in place
+        # among the reviewer's closing lines, at the size a user meets it.
+        _shot(page, *STEPS[5], full_page=False)
 
         browser.close()
 
