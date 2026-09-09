@@ -101,10 +101,37 @@ def main() -> int:
         # rather than writing a figure of a missing button, so a rerun of this
         # script after any UI or deploy change fails loudly on the one defect
         # that previously could only be found by a person clicking through.
-        page.get_by_role("radio", name="Reviewer").click()
+        page.get_by_role("radio", name="Reviewer", exact=True).click()
         time.sleep(1)
+
         pack = page.get_by_role("button", name="Download UofA package")
-        pack.wait_for(state="visible", timeout=30_000)
+        try:
+            pack.wait_for(state="visible", timeout=30_000)
+        except Exception:
+            # Say which of the two things went wrong, with an artifact to look
+            # at. A bare timeout here is indistinguishable between "the Space
+            # served no package" (the defect this check exists for) and "this
+            # script's selector is stale" (a defect in the check itself), and
+            # guessing between them from a checkout is what cost an evening the
+            # first time. Verified against gradio 6.24: DownloadButton renders
+            # as <button>, and this selector matches it.
+            hits = page.get_by_text("Download UofA package").count()
+            signed = "Signed" in (page.locator("body").inner_text() or "")
+            debug = OUT / "06-package-FAILED.png"
+            page.screenshot(path=str(debug), full_page=True)
+            raise SystemExit(
+                "\nThe package control did not appear.\n"
+                f"  control text found in the page: {hits}\n"
+                f"  readout claims a signature:     {signed}\n\n"
+                "  0 found + signed=True is THE regression: a signed readout\n"
+                "    with no package. See studies/inspector-live-verification-2026-09/.\n"
+                "  0 found + signed=False means the run was not signed at all;\n"
+                "    check the Space's UOFA_ISSUER_SIGNING_KEY secret.\n"
+                "  1 or more found means the control is present and this\n"
+                "    selector missed it. Fix the script, not the Space.\n\n"
+                f"  Full-page screenshot written to {debug}\n"
+                "  Figures 01-05 were written and are usable; 06 was not.\n")
+
         pack.scroll_into_view_if_needed()
         time.sleep(0.5)
         # Viewport, not full page: the reader should see the control in place

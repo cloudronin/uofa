@@ -13,19 +13,29 @@ metered analysis (about $0.006) because it drives the real pipeline, and it uses
 the bundled sample rather than uploaded evidence so every figure shows data a
 reader can reproduce.
 
-**Status: five of the six figures exist; the sixth is pending one run of the
-script.** `01` through `05` are committed in `docs/img/inspector/`.
-`06-package.png` is not, because the download control it shows did not exist in
-a working state when the others were captured. Produce it, and refresh the other
-five against the current deployment at the same time, with:
+**Status: five of the six figures exist; the sixth is outstanding.** `01`
+through `05` were captured against the deployed Space on 2026-09-09 and are
+committed in `docs/img/inspector/`. `06-package.png` is not: the capture run
+reached the result page, wrote the first five, and then did not find the package
+control within its timeout.
+
+That is either the regression this check exists to catch or a stale selector in
+the script, and the two are not distinguishable from a checkout. The script now
+reports which, with a full-page screenshot, rather than timing out silently. Run
+it again and read what it says:
 
 ```bash
 python dev/tools/scripts/capture_inspector_screenshots.py
 ```
 
-Do not insert Figure 4.x+5 into the manuscript before that run. The script now
-fails rather than writing a figure of a missing control, so a successful run is
-itself the evidence that the figure shows what the caption claims.
+Do not insert Figure 4.x+5 into the manuscript before that run succeeds. The
+script fails rather than writing a figure of a missing control, so a successful
+run is itself the evidence that the figure shows what the caption claims.
+
+The selector was checked against gradio 6.24, the version `space/requirements.txt`
+pins: `DownloadButton` renders as a `<button>` and the script's locator matches
+it. So a repeat failure with the control text absent from the page points at the
+deployment, not at the script.
 
 ---
 
