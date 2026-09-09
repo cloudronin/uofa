@@ -15,27 +15,22 @@ reader can reproduce.
 
 **Status: five of the six figures exist; the sixth is outstanding.** `01`
 through `05` were captured against the deployed Space on 2026-09-09 and are
-committed in `docs/img/inspector/`. `06-package.png` is not: the capture run
-reached the result page, wrote the first five, and then did not find the package
-control within its timeout.
+committed in `docs/img/inspector/`. `06-package.png` is not, because the first
+capture run failed at the package control.
 
-That is either the regression this check exists to catch or a stale selector in
-the script, and the two are not distinguishable from a checkout. The script now
-reports which, with a full-page screenshot, rather than timing out silently. Run
-it again and read what it says:
+That failure has since been traced and the script fixed. The control lived
+inside the Reviewer panel, and the script was switching to the Author view for
+figure `05` and toggling back for `06`. The round trip was the fragile step. It
+now captures `06` without leaving the Reviewer panel at all. Both outcomes were
+then exercised against a locally run instance of the app: a signed run writes
+all six figures, and an unsigned one writes the other five, names the cause, and
+leaves a full-page screenshot to look at.
 
-```bash
-python dev/tools/scripts/capture_inspector_screenshots.py
-```
+Neither the script nor the deployment was at fault in the way first suspected.
+The deployed Space was producing packages throughout, confirmed by driving it
+directly.
 
-Do not insert Figure 4.x+5 into the manuscript before that run succeeds. The
-script fails rather than writing a figure of a missing control, so a successful
-run is itself the evidence that the figure shows what the caption claims.
-
-The selector was checked against gradio 6.24, the version `space/requirements.txt`
-pins: `DownloadButton` renders as a `<button>` and the script's locator matches
-it. So a repeat failure with the control text absent from the page points at the
-deployment, not at the script.
+Run it again and the sixth figure should land:
 
 ---
 
