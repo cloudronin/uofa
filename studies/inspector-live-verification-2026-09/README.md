@@ -1,6 +1,6 @@
 # Credibility Inspector — live verification record
 
-**Record version:** v1.1 — complete
+**Record version:** v1.2 — complete, package placed
 **Recorded:** 2026-09-09
 **Supersedes:** the C1 deploy verification closed 2026-08-16
 (`docs/UofA_Unified_Repair_Spec_v2_1.md` §0.5). See [Correction](#correction) below.
@@ -8,7 +8,9 @@
 **Revision history.** v1.0 was issued with three fields marked provisional (the
 ZIP digest, the verifying CLI version, and the run time), because those exist
 only on the verifying machine. v1.1 fills all three, adds the package manifest
-(§3a), and adds two cross-checks the manifest made possible (§6).
+(§3a), and adds two cross-checks the manifest made possible (§6). v1.2 places
+the package itself in `packages/` and adds check 7, an independent
+reverification of the committed bytes on a second machine.
 
 A stranger should be able to repeat every line of this without asking anyone.
 That is the point of recording it.
@@ -218,6 +220,30 @@ image. Check 6 says the key that finally travelled in the package is the same
 bytes as the anchor in the repository, so the deployed image is carrying the
 right key and not merely *a* key.
 
+**Check 7, added in v1.2 once the package was committed.** The bytes now in
+`packages/` were re-verified on a **second machine** — Linux, a different CLI
+installation, no access to the author's download — by extracting the ZIP
+straight out of git:
+
+```
+$ sha256sum <the blob from git>
+bbd6edc052516eb5271892d3b61bdae117e93104337d88d37447f88ae26bba96   # matches §3
+$ uofa verify uofa.jsonld --pubkey keys/uofa-issuer.pub
+══ C1: Integrity verification (hash + signature) ══
+  verified against: keys/uofa-issuer.pub (named with --pubkey)
+  ✓ Hash match
+  ✓ Signature valid
+```
+
+| # | Check | Result |
+|---|---|---|
+| 7 | The committed package verifies on a machine that never touched the download | **PASS** |
+
+This is what closes the loop between §5 and this directory. §5 records that a
+package the author downloaded verified on the author's machine. Check 7 records
+that the package *stored here* is the same file and verifies independently, so a
+reader is checking the artifact rather than taking the §5 transcript on trust.
+
 **Supporting checks, same commit:**
 
 | Check | Result |
@@ -276,24 +302,30 @@ of the exact file recorded. §5 and §6 above are that evidence.
 
 ## 8. Completeness
 
-Every field this record calls for is filled. One physical step remains, and it
-does not affect any claim above.
+**This record is complete.** Every field is filled and the package it describes
+is stored beside it at
+`packages/uofa-pack-vv40-20260909T001330Z-3084b1c9.zip` (6,491 bytes).
 
-**The ZIP is not yet in `packages/`.** It is held by the author at
-`~/Downloads/uofa-pack-vv40-20260909T001330Z-3084b1c9.zip`. Its digest is
-recorded in `SHA256SUMS` and in §3, so the file can be checked against this
-record whenever it is placed. To place it:
+The digest was written into `SHA256SUMS` from the author's `shasum` output
+**before** the file was placed, so the check that followed was a real check and
+not a restatement — a file that did not match this record would have failed it.
+It passed twice, on two machines:
 
-```bash
-cp ~/Downloads/uofa-pack-vv40-20260909T001330Z-3084b1c9.zip \
-   studies/inspector-live-verification-2026-09/packages/
-cd studies/inspector-live-verification-2026-09
-shasum -a 256 -c SHA256SUMS      # must print: OK
+```
+$ shasum -a 256 -c SHA256SUMS                       # author, macOS
+packages/uofa-pack-vv40-20260909T001330Z-3084b1c9.zip: OK
 ```
 
-The digest was written into `SHA256SUMS` from the author's own `shasum` output
-before the file was copied, so `shasum -c` is a real check and not a
-restatement: a file that does not match this record will fail it.
+and again on Linux from the committed blob (§6, check 7).
+
+Anyone can repeat it:
+
+```bash
+cd studies/inspector-live-verification-2026-09
+shasum -a 256 -c SHA256SUMS
+unzip -o packages/*.zip -d /tmp/pack
+cd /tmp/pack && uofa verify uofa.jsonld --pubkey keys/uofa-issuer.pub
+```
 
 ## 9. Exhibits
 
