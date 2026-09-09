@@ -13,24 +13,23 @@ metered analysis (about $0.006) because it drives the real pipeline, and it uses
 the bundled sample rather than uploaded evidence so every figure shows data a
 reader can reproduce.
 
-**Status: five of the six figures exist; the sixth is outstanding.** `01`
-through `05` were captured against the deployed Space on 2026-09-09 and are
-committed in `docs/img/inspector/`. `06-package.png` is not, because the first
-capture run failed at the package control.
+**Status: all six figures are captured and committed** in
+`docs/img/inspector/`, taken against the deployed Space at commit `d81af38` on
+2026-09-09.
 
-That failure has since been traced and the script fixed. The control lived
-inside the Reviewer panel, and the script was switching to the Author view for
-figure `05` and toggling back for `06`. The round trip was the fragile step. It
-now captures `06` without leaving the Reviewer panel at all. Both outcomes were
-then exercised against a locally run instance of the app: a signed run writes
-all six figures, and an unsigned one writes the other five, names the cause, and
-leaves a full-page screenshot to look at.
+Getting the sixth took two runs, and the reason is worth one line because it is
+the same lesson as the rest of this record. The control lives inside the Reviewer
+panel, and the script was switching to the Author view for figure `05` and
+toggling back for `06`. The round trip was the fragile step, and when it failed
+it looked exactly like the defect the check exists to catch. The script now
+captures `06` without leaving the Reviewer panel, and both outcomes were
+exercised against a locally run instance before being used again: a signed run
+writes all six, an unsigned one writes the other five and names the cause.
 
-Neither the script nor the deployment was at fault in the way first suspected.
-The deployed Space was producing packages throughout, confirmed by driving it
-directly.
+Neither the deployment nor the selector was at fault. The Space was producing
+packages throughout.
 
-Run it again and the sixth figure should land:
+To regenerate them all after any interface change:
 
 ---
 
