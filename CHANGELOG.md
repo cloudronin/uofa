@@ -4,6 +4,78 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+## [0.18.0] — 2026-09-11
+
+### Added
+
+- **A decision signature can be made where uofa cannot reach.** Every signing
+  path here assumed the process HOLDS the private key. That is true of the CLI
+  and false of any deployment that means it when it says private keys stay with
+  their owners -- a browser, a hardware token, an HSM, a reviewer on a machine
+  the service will never see. Such a caller has the bytes and a signature over
+  them, and there was no way to hand uofa either.
+
+  `sign_roles.describe_decision_signing_scope(doc, record_id=...)` returns the
+  canonical bytes, their digest, the embedded measurement hash and -- in words
+  -- **which bytes to sign**. That last part is the one outside signers get
+  wrong: a decision signature is ed25519 over the UTF-8 of the 64-character
+  lowercase hex STRING, not over the 32 raw bytes it encodes.
+  `integrity.sign_hash` has documented that as intentional and non-standard
+  since it was written, and a signer that signs the digest produces a signature
+  verifying against nothing while looking entirely correct. Stating it in the
+  returned payload means an implementer meets it rather than reading for it.
+
+  `sign_roles.incorporate_decision_signature(...)` verifies against the scope
+  **recomputed here** and only then attaches. A caller's claim about which bytes
+  were signed is not evidence: a signature that only verifies against bytes
+  supplied alongside it proves the caller is self-consistent. The document is
+  mutated after the check, so a refusal leaves no half-attested record.
+
+- **Exact-record selection.** `sign_roles.decision_record_by_id(doc, id)`.
+  `records_for_role` deliberately returns EVERY unsigned record and
+  `sign_decision_records` signs the lot -- right for a CLI signing a package it
+  produced, wrong for a person attesting to one decision among several, whose
+  key would otherwise land on records they never read. `hasDecisionRecord` is
+  repeatable on purpose.
+
+- **`sign_roles.public_fingerprint(public_key)`.** The `signerIdentity` form
+  from a public key alone. `fingerprint_from_private_key` needs the half an
+  external signer by definition does not hand over, and one keypair must not end
+  up with two identities.
+
+### Why a minor bump and not a patch
+
+**So a wheel that can do this cannot be confused with one that cannot.** The
+API is purely additive and nothing existing changed behaviour, which argues for
+a patch release. It gets a minor one anyway, because the consuming product has
+to answer "can the installed uofa incorporate an externally produced signature"
+and a shared version number makes that unanswerable from metadata.
+
+That is not hypothetical: during development the working tree and the published
+wheel both reported `0.17.0`, and a version check would have said yes to a wheel
+that could not do it. Consumers should still FEATURE-DETECT -- `hasattr` on the
+two functions -- because a version is a claim and an attribute is a fact. The
+distinct number is so the claim is at least not actively wrong.
+
+### Notes
+
+No account model, no registry of who may sign what, no authority inferred from
+an identifier. **Who was permitted to sign is not a question uofa answers**, and
+nothing added here changes that: `verify` continues to report cryptographic
+validity, the claimed actor and the signer separately, and to say plainly that
+authorization was not assessed.
+
+Twelve negative controls, each failing for its own reason: a signature over the
+raw digest bytes, a substituted key, a signature over another record, a decision
+or a measurement altered after preparation, an already-signed record, a
+non-ed25519 key, a wrong-length signature, an unknown record id.
+
+Proven end to end against the published verifier with a key generated in a
+browser's Web Crypto and never exported: *"decision 1: reviewer signature
+cryptographically valid"*, exit 0, *"issuer and decision scopes signed by
+different keys - independent attestation"*.
+
+
 ## [0.17.0] — 2026-08-29
 
 ### Fixed
