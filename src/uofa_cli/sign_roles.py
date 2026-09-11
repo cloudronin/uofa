@@ -614,3 +614,198 @@ def independence(signatures: list[dict]) -> str:
     if len(ids) <= 1:
         return "single-party configuration: one key across the scopes signed"
     return f"independent attestation: {len(ids)} distinct signing identities"
+
+
+# ── externally produced decision signatures ─────────────────────────────────
+#
+# Everything above assumes the signing process HOLDS the private key. That is
+# true of the CLI and false of every deployment that means it when it says
+# private keys stay with their owners: a browser, a hardware token, an HSM, a
+# reviewer signing on a machine the service will never see.
+#
+# What such a caller has instead is (a) the exact bytes uofa wants signed and
+# (b) a signature over them. The two functions below are the general form of
+# that: one DESCRIBES the scope for a named record, the other VALIDATES a
+# returned signature and incorporates it.
+#
+# Deliberately general, and deliberately narrow. No caller's account model, no
+# registry of who may sign what, no authority inferred from an identifier. Who
+# was permitted to sign is not a question uofa answers, here or anywhere.
+
+
+class SignatureRefused(ValueError):
+    """An externally produced signature that must not be incorporated."""
+
+
+def decision_record_by_id(doc: dict, record_id: str) -> dict | None:
+    """The one record with this `id`, or None.
+
+    Exact-record selection, which `records_for_role` deliberately does not do:
+    it returns every unsigned record, so `sign_decision_records` signs the lot.
+    That is right for a CLI holding one key and signing its own package, and
+    wrong for a reviewer attesting to ONE decision among several -- which would
+    otherwise silently acquire signatures over records they never read.
+    """
+    for rec in decision_records(doc):
+        if str(rec.get("id", "")) == str(record_id):
+            return rec
+    return None
+
+
+def describe_decision_signing_scope(doc: dict, *, record_id: str) -> dict:
+    """The exact bytes a signature over one decision record must cover.
+
+    Returns the canonical string, its SHA-256 hex, the measurement hash it
+    embeds, and the signing instruction -- explicitly, because the instruction
+    is the part outside signers get wrong:
+
+        **Sign the UTF-8 bytes of the 64-character lowercase hex STRING**, not
+        the 32 raw digest bytes.
+
+    `integrity.sign_hash` has documented that as intentional and non-standard
+    since it was written, and a signer that hashes-then-signs-the-digest
+    produces a signature that verifies against nothing while looking correct.
+    Stating it in the returned payload means an implementer meets it rather
+    than reading for it.
+    """
+    from uofa_cli.interrogate.signing import _scoped_block_hash, measurement_hash
+
+    rec = decision_record_by_id(doc, record_id)
+    if rec is None:
+        raise SignatureRefused(
+            f"no decision record with id {record_id!r} in this package. A "
+            f"signature must name the record it covers; signing whatever is "
+            f"unsigned is how a reviewer attests to something they never read.")
+    if rec.get("hasDecisionSignature"):
+        raise SignatureRefused(
+            f"decision {record_id!r} already carries a signature. Replacing one "
+            f"is not this operation: a corrected judgment is a successor "
+            f"record, and overwriting would erase who attested to what.")
+
+    block = {k: v for k, v in rec.items() if k != "hasDecisionSignature"}
+    mh = measurement_hash(doc)
+    scope = {"measurementHash": mh, "decision": block}
+    canonical, _ = _canonical(scope)
+    return {
+        "record_id": record_id,
+        "measurement_hash": mh,
+        "canonicalization": "json-sortkeys/v1",
+        "canonical_bytes": canonical,
+        "digest_hex": _scoped_block_hash(doc, "decision", block),
+        "signature_algorithm": "ed25519",
+        "sign_these_bytes": (
+            "the UTF-8 bytes of `digest_hex` -- the 64 lowercase hex characters "
+            "themselves, NOT the 32 raw bytes they encode. See "
+            "uofa_cli.integrity.sign_hash."),
+    }
+
+
+def _canonical(obj: dict) -> tuple[str, str]:
+    from uofa_cli.integrity import canonicalize_and_hash
+
+    return canonicalize_and_hash(obj)
+
+
+def _public_key_from(public_key) -> object:
+    """Accept a PEM, a DER SubjectPublicKeyInfo, or a loaded key object.
+
+    A browser's `crypto.subtle.exportKey("spki", ...)` yields DER, and requiring
+    PEM would push every web caller into hand-assembling base64 and header
+    lines -- a step with nothing to check it.
+    """
+    from cryptography.hazmat.primitives import serialization
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+
+    if isinstance(public_key, Ed25519PublicKey):
+        return public_key
+    raw = public_key.encode() if isinstance(public_key, str) else bytes(public_key)
+    try:
+        if b"BEGIN" in raw:
+            loaded = serialization.load_pem_public_key(raw)
+        else:
+            loaded = serialization.load_der_public_key(raw)
+    except Exception as exc:                             # noqa: BLE001
+        raise SignatureRefused(f"the public key could not be read: {exc}") from exc
+    if not isinstance(loaded, Ed25519PublicKey):
+        raise SignatureRefused(
+            f"a decision signature is ed25519; this key is "
+            f"{type(loaded).__name__}. uofa will not verify one algorithm's "
+            f"signature by pretending it is another's.")
+    return loaded
+
+
+def public_fingerprint(public_key) -> str:
+    """The `signerIdentity` form, from a public key alone.
+
+    `fingerprint_from_private_key` needs the private half, which an external
+    signer by definition does not hand over. Same derivation -- SHA-256 over the
+    DER SubjectPublicKeyInfo -- so the two agree for the same keypair.
+    """
+    import hashlib
+
+    from cryptography.hazmat.primitives import serialization
+
+    der = _public_key_from(public_key).public_bytes(
+        encoding=serialization.Encoding.DER,
+        format=serialization.PublicFormat.SubjectPublicKeyInfo)
+    return "sha256:" + hashlib.sha256(der).hexdigest()
+
+
+def incorporate_decision_signature(doc: dict, *, record_id: str, public_key,
+                                   signature, role: str = REVIEWER,
+                                   now: str) -> dict:
+    """Validate a signature made elsewhere, then attach it. Returns the block.
+
+    **Verified before it is attached, against the scope recomputed here.** The
+    caller's claim about which bytes were signed is not evidence: a signature
+    that only verifies against bytes the caller supplied alongside it proves
+    that the caller is self-consistent.
+
+    The document is mutated only after the signature checks out, so a refusal
+    leaves no half-attested record behind.
+    """
+    from cryptography.exceptions import InvalidSignature
+
+    if role not in DECISION_ROLES:
+        raise SignatureRefused(
+            f"{role!r} is not a decision role; a decision signature is made as "
+            f"{sorted(DECISION_ROLES)}")
+
+    scope = describe_decision_signing_scope(doc, record_id=record_id)
+    pub = _public_key_from(public_key)
+
+    raw = signature
+    if isinstance(raw, str):
+        raw = raw.split(":", 1)[1] if raw.startswith("ed25519:") else raw
+        try:
+            raw = bytes.fromhex(raw.strip())
+        except ValueError as exc:
+            raise SignatureRefused(
+                "the signature is not hex; a decision signature travels as "
+                "`ed25519:<hex>` or bare hex") from exc
+    raw = bytes(raw)
+    if len(raw) != 64:
+        raise SignatureRefused(
+            f"an ed25519 signature is 64 bytes; this one is {len(raw)}")
+
+    try:
+        pub.verify(raw, scope["digest_hex"].encode("utf-8"))
+    except InvalidSignature:
+        raise SignatureRefused(
+            "the signature does not verify against this package's scope for "
+            f"decision {record_id!r}. Nothing was attached. If it was made "
+            "over the raw digest bytes rather than over the hex string, it is "
+            "the wrong bytes -- see `sign_these_bytes` in "
+            "`describe_decision_signing_scope`.") from None
+
+    block = {
+        "type": "DecisionSignature",
+        "signatureRole": role,
+        "signerIdentity": public_fingerprint(pub),
+        "measurementHash": scope["measurement_hash"],
+        "signatureAlgorithm": "ed25519",
+        "signatureValue": "ed25519:" + raw.hex(),
+        "signedAt": now,
+    }
+    decision_record_by_id(doc, record_id)["hasDecisionSignature"] = block
+    return block
