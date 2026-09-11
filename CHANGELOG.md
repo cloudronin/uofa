@@ -4,6 +4,8 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+## [0.18.0] — 2026-09-11
+
 ### Added
 
 - **A decision signature can be made where uofa cannot reach.** Every signing
@@ -40,6 +42,20 @@ All notable changes to this project are documented here.
   from a public key alone. `fingerprint_from_private_key` needs the half an
   external signer by definition does not hand over, and one keypair must not end
   up with two identities.
+
+### Why a minor bump and not a patch
+
+**So a wheel that can do this cannot be confused with one that cannot.** The
+API is purely additive and nothing existing changed behaviour, which argues for
+a patch release. It gets a minor one anyway, because the consuming product has
+to answer "can the installed uofa incorporate an externally produced signature"
+and a shared version number makes that unanswerable from metadata.
+
+That is not hypothetical: during development the working tree and the published
+wheel both reported `0.17.0`, and a version check would have said yes to a wheel
+that could not do it. Consumers should still FEATURE-DETECT -- `hasattr` on the
+two functions -- because a version is a claim and an attribute is a fact. The
+distinct number is so the claim is at least not actively wrong.
 
 ### Notes
 
