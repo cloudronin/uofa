@@ -349,6 +349,15 @@ TRANSCRIPTION_ATTESTATION = "transcription-attestation"
 CONCURRENCE = "concurrence"
 UNRELATED = "unrelated"
 
+#: Neither established nor refuted: at least one of the two identities cannot
+#: take part in a comparison at all, so no relation can be computed.
+#:
+#: Distinct from `UNRELATED` on purpose. `unrelated` is a FINDING -- both parties
+#: were legible and they are different. `indeterminate` is the ABSENCE of a
+#: finding, and collapsing the two would report a conclusion the artifact does
+#: not support. Silence sorts below both.
+INDETERMINATE = "indeterminate"
+
 
 # ── the identity grammar: one definition, read by the guard AND the derivation ──
 #
@@ -363,7 +372,39 @@ UNRELATED = "unrelated"
 # the reference documentation is transcribed from these cases so the two cannot
 # drift.
 
-_FINGERPRINT = re.compile(r"[0-9a-fA-F:]{16,}")
+#: The EXACT form `interrogate.signing._fingerprint` emits:
+#: `"sha256:" + hashlib.sha256(der).hexdigest()`. Stated as a precise pattern
+#: rather than a permissive character class, because the permissive one is what
+#: broke.
+#:
+#: **The defect this replaces.** The pattern was `[0-9a-fA-F:]{16,}`, whose `:`
+#: anticipates colon-separated hex (`aa:bb:…`) and whose class contains no `s`
+#: or `h` -- so it could never fullmatch `sha256:…`, the one form the product
+#: actually writes into `signerIdentity`. Every real signature's signer was
+#: therefore unclassifiable, `identity_is_comparable` was False on it, and
+#: `derive_relation` fell through to `unrelated` for EVERY package in
+#: existence -- including one whose actor and signer were byte-for-byte equal.
+#: `decider` and `concurrence` were unreachable outside the unit tests, which
+#: passed hand-written identity strings as the signer and so exercised a shape
+#: the product never produces.
+_FINGERPRINT_SHA256 = re.compile(r"sha256:[0-9a-f]{64}")
+
+#: The legacy colon-grouped hex form (`aa:bb:cc:…`), kept because it is a pinned
+#: legal identity. At least eight groups, so a short hex-looking accident cannot
+#: pass as a key.
+_FINGERPRINT_GROUPED = re.compile(r"(?:[0-9a-fA-F]{2}:){7,}[0-9a-fA-F]{2}")
+
+
+def _is_fingerprint(v: str) -> bool:
+    """Whether this is a key fingerprint in a form the project actually emits.
+
+    Case-sensitive on the sha256 form deliberately: `hexdigest()` is lowercase,
+    and accepting an uppercase variant would admit a value no code here writes,
+    which is how a second spelling of one identity enters and two spellings of
+    one party start reading as two parties.
+    """
+    return bool(_FINGERPRINT_SHA256.fullmatch(v)
+                or _FINGERPRINT_GROUPED.fullmatch(v))
 
 PERSON = "person"
 INFRASTRUCTURE = "infrastructure"
@@ -410,12 +451,41 @@ def classify_identity(value) -> str:
         return PERSON
     if low.startswith("urn:"):
         return INFRASTRUCTURE
-    if _FINGERPRINT.fullmatch(v):
+    if _is_fingerprint(v):
+        # INFRASTRUCTURE, never PERSON. A fingerprint identifies a KEY. That the
+        # key's holder is a person is a fact about custody, which no parser can
+        # read off the bytes -- so parsing must never promote a fingerprint into
+        # a human or an authorized reviewer.
         return INFRASTRUCTURE
     raise IdentityFormError(
         f"cannot classify identity {v!r}: expected an org-scoped handle IRI "
         f"(https://…/org/<handle>), a `urn:` or key-fingerprint infrastructure "
         f"identifier, or a `ledger://` act reference. Refusing to guess.")
+
+
+#: The KIND of identifier, finer than the class. `classify_identity` answers
+#: "what sort of party is this", which lumps a `urn:` name and a key fingerprint
+#: together as INFRASTRUCTURE. For comparison the finer question matters: two
+#: identifiers of DIFFERENT kinds are not the same identifier written two ways,
+#: and nothing in a package binds one to another.
+_KIND_HANDLE = "handle"
+_KIND_URN = "urn"
+_KIND_KEY = "key"
+_KIND_ACT = "act"
+
+
+def _identity_kind(value) -> str | None:
+    """Which kind of identifier this is, or None if it is not one."""
+    try:
+        klass = classify_identity(value)
+    except IdentityFormError:
+        return None
+    v = str(value).strip()
+    if klass == ACT_REFERENCE:
+        return _KIND_ACT
+    if klass == PERSON:
+        return _KIND_HANDLE
+    return _KIND_KEY if _is_fingerprint(v) else _KIND_URN
 
 
 def identity_is_comparable(value) -> bool:
@@ -424,6 +494,31 @@ def identity_is_comparable(value) -> bool:
         return classify_identity(value) in (PERSON, INFRASTRUCTURE)
     except IdentityFormError:
         return False
+
+
+def identities_are_bindable(a, b) -> bool:
+    """Whether a relation between these two identities is even computable.
+
+    **Author ruling 2026-09-11: UofA does not infer authority from an identifier
+    form.** It follows that it cannot infer a relation ACROSS forms either. A
+    handle names a person; a fingerprint names a key; nothing inside a package
+    binds one to the other. Comparing them as strings and reporting the
+    inevitable inequality as `unrelated` states a finding -- "these are two
+    different parties" -- that no check performed.
+
+    That conflation is not hypothetical. Every published C-series package names a
+    person-class actor and carries a key fingerprint as signer, and so reported
+    `unrelated`: a category error rendered as a conclusion.
+
+    Same kind, both legible, is the only case where equality means anything.
+    """
+    ka, kb = _identity_kind(a), _identity_kind(b)
+    if ka is None or kb is None:
+        return False
+    if _KIND_ACT in (ka, kb):
+        # An act is not a party. Nothing about it can establish who decided.
+        return False
+    return ka == kb
 
 
 def _same_actor(a, b) -> bool:
@@ -465,24 +560,45 @@ def derive_relation(record: dict, signer_identity: str,
     fork = str(record.get("decisionProvenance", "")).strip()
     if fork == "extracted":
         return TRANSCRIPTION_ATTESTATION
-    if fork == "asserted" and _same_actor(record.get("actor"), signer_identity):
-        scope = str(record.get("decisionScope", "")).strip()
-        if scope == "concurrence-with-prior-decision":
-            return CONCURRENCE
-        return DECIDER
+    if fork == "asserted":
+        actor = record.get("actor")
+        # **Cannot-establish is its own answer.** Two ways to land here: one side
+        # is illegible to the grammar, or the two are legible but of DIFFERENT
+        # KINDS, with nothing in the package binding a handle to a key. Either
+        # way no comparison happened, and reporting `unrelated` would state a
+        # finding nothing checked.
+        if not identities_are_bindable(actor, signer_identity):
+            return INDETERMINATE
+        if _same_actor(actor, signer_identity):
+            scope = str(record.get("decisionScope", "")).strip()
+            if scope == "concurrence-with-prior-decision":
+                return CONCURRENCE
+            return DECIDER
     return UNRELATED
 
 
 def describe_relation(record: dict, relation: str) -> str:
     """One line of verify output for a derived relation."""
     if relation == DECIDER:
-        return "decided by the signer"
+        # **Self-declared, and labelled as such.** The package says its actor is
+        # this key and that key signed. That is internal consistency, not an
+        # external warrant: no one outside the artifact vouched for who holds the
+        # key or whether they were entitled to decide.
+        return "decided by the signer (self-declared by the package; authorization not assessed)"
     if relation == CONCURRENCE:
-        return "concurrence with a prior decision"
+        return ("concurrence with a prior decision (self-declared by the "
+                "package; authorization not assessed)")
     if relation == TRANSCRIPTION_ATTESTATION:
         who = record.get("role") or record.get("actor") or "the source"
         return (f"transcription attested; the decision belongs to {who} "
                 f"per the cited passage")
+    if relation == INDETERMINATE:
+        # Says what was NOT done, and never implies a party. A reader must be
+        # able to tell this apart from `unrelated` at a glance, because one is a
+        # finding and the other is its absence.
+        return ("signer-actor relationship NOT ESTABLISHED -- one of the two "
+                "identities is not in a comparable form, so no relation was "
+                "computed. This is neither a match nor a mismatch.")
     return "signature present, but it matches no record this signer authored"
 
 

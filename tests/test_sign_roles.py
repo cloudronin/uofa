@@ -377,15 +377,27 @@ class TestActorHygiene:
         assert sign_roles.derive_relation(rec, " HTTPS://example.org/org/rev ") == \
             sign_roles.DECIDER, "surrounding space and case must not split a party"
 
-    def test_a_file_path_actor_never_matches(self):
-        rec = dict(ASSERTED, actor="file:///Users/someone/V.%20Vettrivel")
-        assert sign_roles.derive_relation(
-            rec, "file:///Users/someone/V.%20Vettrivel") == sign_roles.UNRELATED
+    # CORRECTED 2026-09-11 (see test_verify_separates_validity_from_authorization.py).
+    # These three cases asserted UNRELATED. They now assert INDETERMINATE, and
+    # the intent is unchanged: an illegible identity still NEVER MATCHES. What
+    # changed is the claim made about it. `unrelated` is a finding -- both
+    # parties were legible and they differ -- and asserting it here stated a
+    # comparison that never happened. Silence about a comparison is not evidence
+    # of difference.
 
-    def test_empty_and_non_string_actors_never_match(self):
+    def test_a_file_path_actor_cannot_be_compared_at_all(self):
+        rec = dict(ASSERTED, actor="file:///Users/someone/V.%20Vettrivel")
+        rel = sign_roles.derive_relation(
+            rec, "file:///Users/someone/V.%20Vettrivel")
+        assert rel == sign_roles.INDETERMINATE
+        assert rel != sign_roles.DECIDER, "an illegible identity must never match"
+
+    def test_empty_and_non_string_actors_cannot_be_compared_at_all(self):
         for bad in ("", "   ", None, 42, {"@id": "x"}):
             rec = dict(ASSERTED, actor=bad)
-            assert sign_roles.derive_relation(rec, bad) == sign_roles.UNRELATED
+            rel = sign_roles.derive_relation(rec, bad)
+            assert rel == sign_roles.INDETERMINATE, bad
+            assert rel != sign_roles.DECIDER, bad
 
 
 # ── the identity grammar ────────────────────────────────────────────────────
@@ -432,12 +444,21 @@ def test_the_grammar_refuses_rather_than_guesses(value):
 def test_an_act_reference_is_not_a_party_and_cannot_match():
     """`ledger://` names an ACT. Two records citing one ledger entry are not the
     same actor, and letting an act reference match would make every record
-    anchored to the same entry read as self-decided."""
+    anchored to the same entry read as self-decided.
+
+    CORRECTED 2026-09-11: the relation is INDETERMINATE, not UNRELATED. An act
+    reference is not a party, so no party comparison is possible -- which is a
+    different statement from "these are two different parties". The property the
+    test exists to hold, that it never matches, is asserted directly below.
+    """
     entry = "ledger://review-2026/entry-14"
     assert sign_roles.classify_identity(entry) == sign_roles.ACT_REFERENCE
     assert not sign_roles.identity_is_comparable(entry)
     rec = {"decisionProvenance": "asserted", "actor": entry}
-    assert sign_roles.derive_relation(rec, entry) == sign_roles.UNRELATED
+    rel = sign_roles.derive_relation(rec, entry)
+    assert rel == sign_roles.INDETERMINATE
+    assert rel not in (sign_roles.DECIDER, sign_roles.CONCURRENCE), \
+        "an act reference must never read as self-decided"
 
 
 def test_distinct_identities_that_naive_normalisation_would_collide_stay_distinct():
