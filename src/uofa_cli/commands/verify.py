@@ -322,7 +322,34 @@ def _report_record(doc, rec, i, keys, signer_ids, doc_path, failures) -> None:
                 signer_ids.add(fingerprint_from_public_key(key))
             except Exception:
                 pass
-            result_line(f"{prefix}: {role} signature valid", True, str(actor))
+            # **Four claims, stated separately, because they are four claims.**
+            #
+            # This line used to read `{role} signature valid` with the ACTOR as
+            # its trailing detail. That is a cryptographic fact printed beside a
+            # person's name, and a reader takes the pair for one statement: that
+            # the named party signed and was entitled to. Neither half of that is
+            # what the check performed. Observed before this fix, on a package a
+            # stranger's key had signed over a machine-authored verdict:
+            #
+            #     ✓  decision 2: reviewer signature valid  urn:uofa:agent:…
+            #
+            # The signature is genuinely valid. Everything else the line implied
+            # was unchecked -- and `derive_relation`, which holds the answer, was
+            # never called from this file at all.
+            result_line(f"{prefix}: {role} signature cryptographically valid",
+                        True, f"signed by key {node.get('signerIdentity') or '<unstated>'}")
+            info(f"{' ' * len(prefix)}  claimed actor: {actor}")
+
+            relation = sign_roles.derive_relation(
+                rec, node.get("signerIdentity"), all_records=sign_roles.decision_records(doc))
+            info(f"{' ' * len(prefix)}  {sign_roles.describe_relation(rec, relation)}")
+
+            # The boundary, said out loud rather than left to inference. UofA
+            # records who was claimed and which key signed; whether that party
+            # was PERMITTED to decide is established by the project that produced
+            # the package, and is not in evidence here.
+            info(f"{' ' * len(prefix)}  reviewer authorization is not assessed by "
+                 f"uofa -- it is the producing project's to establish.")
             return
     # Every key was tried and none matched. Distinct from "no key provided":
     # this reader HAS keys and none of them speaks for this signature.
