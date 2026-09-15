@@ -577,22 +577,59 @@ def derive_relation(record: dict, signer_identity: str,
     return UNRELATED
 
 
-def describe_relation(record: dict, relation: str) -> str:
-    """One line of verify output for a derived relation."""
+def describe_relation(record: dict, relation: str, *,
+                      binding_trusted: bool = False,
+                      authorization_trusted: bool = False) -> str:
+    """One line of verify output for a derived relation.
+
+    **The two flags are what a v0.10 attestation changed about this sentence.**
+
+    `derive_relation` compares the package's OWN strings: the record's actor
+    against the signer's key fingerprint. Those are different kinds of name, so
+    an asserted record normally lands on INDETERMINATE -- and the line says so,
+    ending "nothing in the package binds a handle to a key". A trusted identity
+    binding is precisely that missing thing. Printing the old sentence beside a
+    verified binding puts two lines on the screen that contradict each other,
+    and the reader is left to guess which one the tool means.
+
+    The same applies to "authorization not assessed" on the self-declared
+    branches. It was true while uofa could not read an authorization claim. Once
+    a trusted authorization verifies and links, repeating it understates the
+    artifact. What stays unassessed is the POLICY, and that is said where the
+    authorization is reported, not here.
+
+    Both default False, so every caller that has not been given attestations --
+    and every package that carries none -- reads exactly as it did before.
+    """
+    qualifier = ("" if authorization_trusted
+                 else "; authorization not assessed")
     if relation == DECIDER:
         # **Self-declared, and labelled as such.** The package says its actor is
         # this key and that key signed. That is internal consistency, not an
         # external warrant: no one outside the artifact vouched for who holds the
         # key or whether they were entitled to decide.
-        return "decided by the signer (self-declared by the package; authorization not assessed)"
+        #
+        # Unless somebody did -- a trusted binding IS that outside voucher, and
+        # then "self-declared" is the wrong word for it.
+        if binding_trusted:
+            tail = ("" if authorization_trusted
+                    else " (authorization not assessed)")
+            return ("decided by the signer, and a trusted attestation binds that "
+                    f"actor to the signing key{tail}")
+        return f"decided by the signer (self-declared by the package{qualifier})"
     if relation == CONCURRENCE:
         return ("concurrence with a prior decision (self-declared by the "
-                "package; authorization not assessed)")
+                f"package{qualifier})")
     if relation == TRANSCRIPTION_ATTESTATION:
         who = record.get("role") or record.get("actor") or "the source"
         return (f"transcription attested; the decision belongs to {who} "
                 f"per the cited passage")
     if relation == INDETERMINATE:
+        if binding_trusted:
+            # Not a match computed from strings -- an ATTESTED link, and the
+            # word has to say which, because they are different evidence.
+            return ("signer-actor relationship established by a trusted identity "
+                    "binding, not by comparing the package's own identifiers.")
         # Says what was NOT done, and never implies a party. A reader must be
         # able to tell this apart from `unrelated` at a glance, because one is a
         # finding and the other is its absence.

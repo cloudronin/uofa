@@ -30,6 +30,12 @@ def add_arguments(parser):
                              "anchors and names which one matched.")
     parser.add_argument("--context", "-c", type=Path,
                         help="JSON-LD context override (default: the package's own @context)")
+    parser.add_argument("--authority-pubkey", type=Path, action="append",
+                        help="TRUST ANCHOR for an attestation authority. REPEATABLE. "
+                             "Supply it OUT OF BAND -- a key that travels inside the "
+                             "package proves the file is internally consistent and "
+                             "nothing about who controls it, and is reported as "
+                             "untrusted however well it verifies.")
     parser.add_argument("--decision-pubkey", type=Path, action="append",
                         help="public key for a decision signature. REPEATABLE: stacked "
                              "decisions (source acceptance + concurrence + encoder "
@@ -172,6 +178,22 @@ def _decision_keys(args) -> list[Path]:
     return [Path(raw)]
 
 
+def _authority_keys(args) -> list[Path]:
+    """Every `--authority-pubkey`, in the three shapes callers use.
+
+    Same totality `_decision_keys` needs, for the same reason: a reader that
+    understood only argparse's list would see NO anchors from an in-process
+    caller and report every attestation as untrusted, which reads as a finding
+    about the package rather than about this function.
+    """
+    raw = getattr(args, "authority_pubkey", None)
+    if raw is None:
+        return []
+    if isinstance(raw, (list, tuple)):
+        return [Path(k) for k in raw if k is not None]
+    return [Path(raw)]
+
+
 def _verify_scoped(args, doc: dict) -> int:
     """Two scopes, reported independently, role- and fork-aware.
 
@@ -200,13 +222,15 @@ def _verify_scoped(args, doc: dict) -> int:
     result_line("Measurement signature valid", sig_ok)
 
     keys = _decision_keys(args)
+    anchors = _authority_keys(args)
     records = sign_roles.decision_records(doc)
     info(f"decision layer: {len(records)} record(s)")
 
     signer_ids = set()
     anchor_failures: list[str] = []
     for i, rec in enumerate(records, 1):
-        _report_record(doc, rec, i, keys, signer_ids, args.file, anchor_failures)
+        _report_record(doc, rec, i, keys, signer_ids, args.file, anchor_failures,
+                       anchors)
 
     # The concentration line: a FACT about custody, never a verdict on it. The
     # solo configuration is legitimate and must read as legitimate; what would be
@@ -255,7 +279,8 @@ def _seal_identity(doc, explicit, label):
     return None
 
 
-def _report_record(doc, rec, i, keys, signer_ids, doc_path, failures) -> None:
+def _report_record(doc, rec, i, keys, signer_ids, doc_path, failures,
+                   anchors=()) -> None:
     """One decision record: its fork, and whether the warrant that fork owes is
     present and good."""
     from uofa_cli.interrogate import signing
@@ -340,21 +365,93 @@ def _report_record(doc, rec, i, keys, signer_ids, doc_path, failures) -> None:
                         True, f"signed by key {node.get('signerIdentity') or '<unstated>'}")
             info(f"{' ' * len(prefix)}  claimed actor: {actor}")
 
+            # **Evaluated before the relation line is written, not after.** The
+            # relation is computed from the package's own strings and lands on
+            # "not established" for an asserted record, because an actor URI and
+            # a key fingerprint are different kinds of name. A trusted binding is
+            # the thing that sentence says is missing -- so the line has to know
+            # the answer before it describes the question.
+            from uofa_cli import attestations as _att
+            result = _att.evaluate_record(
+                doc, rec, signer_identity=str(node.get("signerIdentity") or ""),
+                signature_valid=True, trusted_keys=list(anchors))
+            bound = result["identityBinding"] == _att.TRUST_TRUSTED
+            authorized = result["authorizationAtSigning"] == _att.TRUST_TRUSTED
+
             relation = sign_roles.derive_relation(
                 rec, node.get("signerIdentity"), all_records=sign_roles.decision_records(doc))
-            info(f"{' ' * len(prefix)}  {sign_roles.describe_relation(rec, relation)}")
+            info(f"{' ' * len(prefix)}  "
+                 f"{sign_roles.describe_relation(rec, relation, binding_trusted=bound, authorization_trusted=authorized)}")
 
-            # The boundary, said out loud rather than left to inference. UofA
-            # records who was claimed and which key signed; whether that party
-            # was PERMITTED to decide is established by the project that produced
-            # the package, and is not in evidence here.
-            info(f"{' ' * len(prefix)}  reviewer authorization is not assessed by "
-                 f"uofa -- it is the producing project's to establish.")
+            # **The boundary, restated from what was actually checked.**
+            #
+            # This used to print one sentence unconditionally: "reviewer
+            # authorization is not assessed by uofa". That was true while uofa
+            # had no way to read an authorization claim. It is not true once a
+            # TRUSTED authorization attestation verifies and links -- at that
+            # point uofa HAS assessed something, and repeating the old line
+            # understates the artifact in the same breath the artifact improved.
+            #
+            # What stays unassessed after a good attestation is narrower and is
+            # said narrowly: whether the producer's POLICY was adequate. uofa
+            # verifies that a third party made a signed statement and reports
+            # whose statement it is. It does not become the judge of it -- the
+            # standing ruling in `sign_roles` is untouched.
+            _report_attestations(result, prefix)
             return
     # Every key was tried and none matched. Distinct from "no key provided":
     # this reader HAS keys and none of them speaks for this signature.
     info(f"{prefix}: signature present ({role}), none of the "
          f"{len(keys)} provided key(s) matched it.")
+
+
+def _report_attestations(result: dict, prefix: str) -> None:
+    """Print the binding and authorization states for one verified signature.
+
+    Printing only. The STRUCTURED result callers need (§7 of the attestation
+    spec: "so Assurify and other callers do not parse terminal prose") is
+    `attestations.evaluate_record`, which is the public API and is what produced
+    the dict handed in here -- returning it again from a printer would offer a
+    second, worse way to reach the same thing.
+
+    Takes an already-evaluated result: signature,
+    key, claimed actor, binding state and authority, authorization state and
+    authority, and current status -- each reported independently, because a
+    reader who cannot tell "the signature verifies" from "I know who holds that
+    key" from "the grant was in force" has been handed a conclusion none of the
+    three supports.
+    """
+    from uofa_cli import attestations
+
+    pad = " " * len(prefix)
+    info(f"{pad}  {attestations.BINDING_LINES[result['identityBinding']]}")
+    if result["bindingAuthority"]:
+        info(f"{pad}    binding authority: {result['bindingAuthority']}")
+    if result["bindingReason"] and result["identityBinding"] not in (
+            attestations.TRUST_TRUSTED, attestations.TRUST_ABSENT):
+        info(f"{pad}    {result['bindingReason']}")
+    info(f"{pad}  {attestations.AUTHORIZATION_LINES[result['authorizationAtSigning']]}")
+    if result["authorizationAuthority"]:
+        info(f"{pad}    authorization authority: {result['authorizationAuthority']}")
+    if result["authorizationReason"] and result["authorizationAtSigning"] not in (
+            attestations.TRUST_TRUSTED, attestations.TRUST_ABSENT):
+        info(f"{pad}    {result['authorizationReason']}")
+    # Never inferred from the above, and never left implied. A binding that was
+    # valid when made stays valid; whether the key is live TODAY is separate
+    # evidence this verifier was not given.
+    info(f"{pad}  current key/account/grant status: not evaluated "
+         f"(historical validity only).")
+    info(f"{pad}  state: {result['state']}")
+    # **Printed exactly when something WAS established, not when nothing was.**
+    # A reader who reaches `identity-bound-authorization-attested` has the
+    # strongest result this tool can give, and that is the moment the boundary
+    # matters -- "cryptographically verified" is true, and it is about bytes.
+    # Below that state the report already says what is not established, line by
+    # line, and repeating the list would bury those findings in boilerplate.
+    if result["identityBinding"] == attestations.TRUST_TRUSTED:
+        info(f"{pad}  what this does NOT establish:")
+        for claim in attestations.PROHIBITED_CLAIMS:
+            info(f"{pad}    - {claim}")
 
 
 RESOLVED, MISMATCH, UNREACHABLE, MALFORMED = "resolved", "mismatch", "unreachable", "malformed"

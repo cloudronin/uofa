@@ -273,8 +273,23 @@ def _generate_schema(shacl_paths: Path | list[Path]) -> dict:
     # Extract the main shapes
     minimal = _extract_shape(g, UOFA.UnitOfAssurance_MinimalBody)
     complete = _extract_shape(g, UOFA.UnitOfAssurance_CompleteBody)
+    # `UnitOfAssurance_ProfileShape` is targeted on the CLASS, so its properties
+    # apply to every profile, not to one body. Without this merge a constraint
+    # written there is enforced by `uofa validate` and absent from the published
+    # schema -- two artifacts disagreeing about the same package. Properties
+    # only: its `sh:or` dispatch is what the oneOf below already expresses, and
+    # its `required` is re-derived per body.
+    across_profiles = _extract_shape(g, UOFA.UnitOfAssurance_ProfileShape)
+    for _body in (minimal, complete):
+        for _name, _spec in across_profiles.get("properties", {}).items():
+            _body.setdefault("properties", {}).setdefault(_name, _spec)
     factor = _extract_shape(g, UOFA.CredibilityFactorShape)
     weakener = _extract_shape(g, UOFA.WeakenerAnnotationShape)
+    # Reached by `$ref` from the attestation blocks below. A shape referenced by
+    # `sh:node` becomes a `$ref`, and a `$ref` with no `$defs` entry is a schema
+    # no validator can load -- so every referenced shape must be emitted.
+    identity_binding = _extract_shape(g, UOFA.IdentityBindingAttestationShape)
+    authorization = _extract_shape(g, UOFA.AuthorizationAttestationShape)
 
     # Build the combined schema using oneOf for Minimal vs Complete
     # Add common metadata fields to both profiles
@@ -437,6 +452,8 @@ def _generate_schema(shacl_paths: Path | list[Path]) -> dict:
         "$defs": {
             "CredibilityFactorShape": factor,
             "WeakenerAnnotationShape": weakener,
+            "IdentityBindingAttestationShape": identity_binding,
+            "AuthorizationAttestationShape": authorization,
         },
     }
 
