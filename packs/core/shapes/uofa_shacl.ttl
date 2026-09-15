@@ -495,6 +495,144 @@ uofa:reviewType a rdf:Property ;
 
 # §A.14 — process, deployment and input pedigree.
 
+# §A.15 Attribution attestations (v0.10). Third-party statements about WHO
+# signed and under what authority, each signed by an attestation authority in
+# its own scope. They are action-region blocks: outside the issuer seal, so one
+# arriving after sealing does not break it.
+#
+# uofa VERIFIES these and reports whose claim each is. It does not adjudicate
+# whether the authority was right or the policy adequate -- "who was permitted
+# to sign is not a question uofa answers" still holds. These make a producer's
+# claim checkable and attributable, not authoritative.
+
+uofa:IdentityBindingAttestation a rdfs:Class ;
+    rdfs:label "Identity Binding Attestation" ;
+    rdfs:comment "A signed statement that a named actor proved possession of a named signing key, through a named identity provider, at a stated time." .
+
+uofa:AuthorizationAttestation a rdfs:Class ;
+    rdfs:label "Authorization Attestation" ;
+    rdfs:comment "A signed statement that a producer enforced a recorded policy and found an actor held a named permission when it accepted a signature. Not a judgment that the policy was adequate." .
+
+uofa:hasIdentityBinding a rdf:Property ;
+    rdfs:label "has identity binding" ;
+    rdfs:domain uofa:UnitOfAssurance ;
+    rdfs:range uofa:IdentityBindingAttestation ;
+    rdfs:comment "An action-region block: outside the issuer seal, so one arriving after sealing does not break it." .
+
+uofa:hasAuthorizationAttestation a rdf:Property ;
+    rdfs:label "has authorization attestation" ;
+    rdfs:domain uofa:UnitOfAssurance ;
+    rdfs:range uofa:AuthorizationAttestation ;
+    rdfs:comment "An action-region block, as hasIdentityBinding is." .
+
+uofa:boundActor a rdf:Property ;
+    rdfs:label "bound actor" ;
+    rdfs:domain uofa:IdentityBindingAttestation ;
+    rdfs:comment "The actor identifier this binding speaks about, matched to the decision record's actor by exact string." .
+
+uofa:boundKey a rdf:Property ;
+    rdfs:label "bound key" ;
+    rdfs:domain uofa:IdentityBindingAttestation ;
+    rdfs:comment "The signing-key fingerprint this binding speaks about, in the same form signerIdentity carries." .
+
+uofa:identityProviderIssuer a rdf:Property ;
+    rdfs:label "identity provider issuer" ;
+    rdfs:comment "Canonical issuer URI of the identity provider observed during the authentication this attestation relies on." .
+
+uofa:identityProviderSubject a rdf:Property ;
+    rdfs:label "identity provider subject" ;
+    rdfs:comment "The provider subject observed, or a documented representation of it that stays comparable within a declared scope." .
+
+uofa:possessionProvenAt a rdf:Property ;
+    rdfs:label "possession proven at" ;
+    rdfs:comment "When the domain-separated enrollment challenge was verified." .
+
+uofa:proofPurpose a rdf:Property ;
+    rdfs:label "proof purpose" ;
+    rdfs:comment "Which purpose the possession proof served, so a proof for one purpose is never read as a proof for another." .
+
+uofa:attestationAuthority a rdf:Property ;
+    rdfs:label "attestation authority" ;
+    rdfs:comment "Fingerprint of the key that made this statement. Trust in that key is the verifier's to establish out of band; a key travelling inside the package proves only internal consistency." .
+
+uofa:bindingSignature a rdf:Property ;
+    rdfs:label "binding signature" ;
+    rdfs:comment "The authority's signature over the identity scope. A separate scope from the decision signature, so neither can stand in for the other." .
+
+uofa:authorizationSignature a rdf:Property ;
+    rdfs:label "authorization signature" ;
+    rdfs:comment "The authority's signature over the authorization scope." .
+
+uofa:accountIdentity a rdf:Property ;
+    rdfs:label "account identity" ;
+    rdfs:comment "The provider issuer and subject observed at a single authentication or enrollment. Recorded per event: linked providers need no authoritative one chosen." .
+
+uofa:authenticatedAt a rdf:Property ;
+    rdfs:label "authenticated at" ;
+    rdfs:comment "When the authentication this attestation relies on happened." .
+
+uofa:contextVersion a rdf:Property ;
+    rdfs:label "context version" ;
+    rdfs:comment "Which frozen context edition the signed payload was written against. Carried INSIDE the signed bytes so verification never fetches anything." .
+
+uofa:schemaVersion a rdf:Property ;
+    rdfs:label "schema version" ;
+    rdfs:comment "Which attestation schema the signed payload follows, likewise inside the signed bytes." .
+
+uofa:deploymentId a rdf:Property ;
+    rdfs:label "deployment id" ;
+    rdfs:comment "Which deployment made the statement. One instance may answer to several hostnames, so this is configured, never read from the request." .
+
+uofa:authorizedActor a rdf:Property ;
+    rdfs:label "authorized actor" ;
+    rdfs:domain uofa:AuthorizationAttestation ;
+    rdfs:comment "The actor the producer found authorized. Must be the same party the identity binding speaks about." .
+
+uofa:authorizedAction a rdf:Property ;
+    rdfs:label "authorized action" ;
+    rdfs:domain uofa:AuthorizationAttestation ;
+    rdfs:comment "The action the permission covered." .
+
+uofa:project a rdf:Property ;
+    rdfs:label "project" ;
+    rdfs:comment "The scope a permission was held in. A permission with no scope is not a permission." .
+
+uofa:decisionRecord a rdf:Property ;
+    rdfs:label "decision record" ;
+    rdfs:comment "The decision this attestation covers, named exactly." .
+
+uofa:grantId a rdf:Property ;
+    rdfs:label "grant id" ;
+    rdfs:comment "Immutable identifier of the grant the producer checked." .
+
+uofa:grantVersion a rdf:Property ;
+    rdfs:label "grant version" ;
+    rdfs:comment "Version of the grant at the moment the signature was accepted, not at the moment it was prepared." .
+
+uofa:grantedBy a rdf:Property ;
+    rdfs:label "granted by" ;
+    rdfs:comment "Who granted the permission." .
+
+uofa:effectiveFrom a rdf:Property ;
+    rdfs:label "effective from" ;
+    rdfs:comment "When the grant became effective." .
+
+uofa:effectiveUntil a rdf:Property ;
+    rdfs:label "effective until" ;
+    rdfs:comment "When the grant ended, where known. ABSENCE MEANS NO END WAS RECORDED, never that the grant is still in force -- current status is separate evidence." .
+
+uofa:authorizationCheckedAt a rdf:Property ;
+    rdfs:label "authorization checked at" ;
+    rdfs:comment "When the producer rechecked the grant while accepting the signature." .
+
+uofa:decisionSignedAt a rdf:Property ;
+    rdfs:label "decision signed at" ;
+    rdfs:comment "When the accepted decision signature was made." .
+
+uofa:issuedAt a rdf:Property ;
+    rdfs:label "issued at" ;
+    rdfs:comment "When this attestation was made." .
+
 uofa:ProcessAttestation a rdfs:Class ;
     rdfs:label "Process Attestation" ;
     rdfs:comment "A statement that a defined process was followed, naming who stands behind it." .
@@ -725,6 +863,25 @@ uofa:UnitOfAssurance_ProfileShape
     sh:in ( uofa:ProfileMinimal uofa:ProfileComplete uofa:ProfileDisposition ) ;
     sh:minCount 1 ;
     sh:message "conformsToProfile must be ProfileMinimal, ProfileComplete, or ProfileDisposition." ;
+  ] ;
+  # v0.10 attribution attestations. OPTIONAL -- no sh:minCount, so every
+  # package cut before v0.10 still validates. They sit on the class-targeted
+  # shape rather than in a body, so all three profiles get the check from one
+  # place, and they carry `sh:node` so a MALFORMED attestation is reported
+  # against the block: a class-targeted shape alone fires only when the block
+  # declares its @type, and a block that forgot its type is exactly the case
+  # worth catching.
+  sh:property [
+    sh:path uofa:hasIdentityBinding ;
+    sh:maxCount 1 ;
+    sh:node uofa:IdentityBindingAttestationShape ;
+    sh:message "An identity binding block must be a well-formed identity binding attestation." ;
+  ] ;
+  sh:property [
+    sh:path uofa:hasAuthorizationAttestation ;
+    sh:maxCount 1 ;
+    sh:node uofa:AuthorizationAttestationShape ;
+    sh:message "An authorization block must be a well-formed authorization attestation." ;
   ] ;
   # EITHER MinimalBody when profile = Minimal OR CompleteBody when profile = Complete
   sh:or (
@@ -1541,6 +1698,182 @@ uofa:DecisionSignatureShape
     sh:path uofa:measurementHash ;
     sh:minCount 1 ;
     sh:message "A decision signature binds the RECOMPUTED measurement hash, which is what chains the judgment to the evidence it judged." ;
+  ] .
+
+uofa:IdentityBindingAttestationShape
+  a sh:NodeShape ;
+  uofa:introducedIn "v0.10" ;
+  # **Targeted on the class as well as reached through `sh:node`**, for the
+  # reason DecisionSignatureShape is: reachability alone reports a malformed
+  # block against the pointing property and suppresses the inner detail, so a
+  # binding missing one field reads as "no binding at all". Targeting the class
+  # names the real fault wherever the node appears.
+  #
+  # **Every field required here is also in `attestations.IDENTITY_REQUIRED`**,
+  # and `tests/test_attestations.py` pins the two sets equal. They must not
+  # drift: a field the library signs but the shapes call optional is a field a
+  # validator passes and a verifier rejects.
+  sh:targetClass uofa:IdentityBindingAttestation ;
+  sh:property [
+    sh:path uofa:boundActor ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:message "A binding must name the actor it speaks about, spelled exactly as the decision record spells it. One that names nobody is a statement about nobody." ;
+  ] ;
+  sh:property [
+    sh:path uofa:boundKey ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:message "A binding must name the key it speaks about, in the same sha256-over-DER form signerIdentity carries." ;
+  ] ;
+  sh:property [
+    sh:path uofa:identityProviderIssuer ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:message "A binding must name the identity provider issuer it relied on. 'An account authenticated' with no issuer is not checkable by anyone." ;
+  ] ;
+  sh:property [
+    sh:path uofa:identityProviderSubject ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:message "A binding must name the subject the provider returned, or a documented representation of it that stays comparable within a declared scope." ;
+  ] ;
+  sh:property [
+    sh:path uofa:possessionProvenAt ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:message "A binding must state when possession was proven; a binding with no time cannot be placed against a revocation." ;
+  ] ;
+  sh:property [
+    sh:path uofa:proofPurpose ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:message "A binding must state which purpose the possession proof served, so a proof made for enrollment is never read as a proof of signing." ;
+  ] ;
+  sh:property [
+    sh:path uofa:deploymentId ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:message "A binding must name the deployment that made it. One instance may answer to several hostnames, so this is configured, never read from the request." ;
+  ] ;
+  sh:property [
+    sh:path uofa:issuedAt ;
+    sh:minCount 1 ;
+    sh:message "A binding must state when it was made." ;
+  ] ;
+  sh:property [
+    sh:path uofa:contextVersion ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:message "A binding must carry the context edition its terms are read against, inside the signed bytes, so verification never fetches anything." ;
+  ] ;
+  sh:property [
+    sh:path uofa:schemaVersion ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:message "A binding must carry the attestation schema it follows, likewise inside the signed bytes." ;
+  ] ;
+  sh:property [
+    sh:path uofa:attestationAuthority ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:message "A binding must name the key that made the statement, so a verifier knows whose claim it is weighing." ;
+  ] ;
+  sh:property [
+    sh:path uofa:bindingSignature ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:message "An unsigned binding is not an attestation -- it is an unsourced assertion anyone could have written into the file." ;
+  ] .
+
+uofa:AuthorizationAttestationShape
+  a sh:NodeShape ;
+  uofa:introducedIn "v0.10" ;
+  # Class-targeted and reachable, and pinned equal to
+  # `attestations.AUTHORIZATION_REQUIRED`, for the reasons above.
+  sh:targetClass uofa:AuthorizationAttestation ;
+  sh:property [
+    sh:path uofa:authorizedActor ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:message "An authorization must name the actor it authorizes." ;
+  ] ;
+  sh:property [
+    sh:path uofa:project ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:message "An authorization must name the project the permission was held in. A permission with no scope is not a permission." ;
+  ] ;
+  sh:property [
+    sh:path uofa:decisionRecord ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:message "An authorization must name the decision it covers. One that covers 'a decision' covers none." ;
+  ] ;
+  sh:property [
+    sh:path uofa:authorizedAction ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:message "An authorization must name the action the permission covered." ;
+  ] ;
+  sh:property [
+    sh:path uofa:grantId ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:message "An authorization must cite the grant it relied on, not merely assert that one existed." ;
+  ] ;
+  sh:property [
+    sh:path uofa:effectiveFrom ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:message "An authorization must state when the grant became effective; a grant that existed is not a grant that was in force when the signature was accepted." ;
+  ] ;
+  sh:property [
+    sh:path uofa:authorizationCheckedAt ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:message "An authorization must state when the producer rechecked the grant, which is the moment its claim is about." ;
+  ] ;
+  sh:property [
+    sh:path uofa:decisionSignedAt ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:message "An authorization must state when the signature it covers was accepted, or it cannot be placed inside the grant interval." ;
+  ] ;
+  sh:property [
+    sh:path uofa:deploymentId ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:message "An authorization must name the deployment that made it." ;
+  ] ;
+  sh:property [
+    sh:path uofa:issuedAt ;
+    sh:minCount 1 ;
+    sh:message "An authorization must state when it was made." ;
+  ] ;
+  sh:property [
+    sh:path uofa:contextVersion ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:message "An authorization must carry the context edition its terms are read against, inside the signed bytes." ;
+  ] ;
+  sh:property [
+    sh:path uofa:schemaVersion ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:message "An authorization must carry the attestation schema it follows, likewise inside the signed bytes." ;
+  ] ;
+  sh:property [
+    sh:path uofa:attestationAuthority ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:message "An authorization must name the key that made the statement." ;
+  ] ;
+  sh:property [
+    sh:path uofa:authorizationSignature ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:message "An unsigned authorization is not an attestation -- it is an unsourced assertion anyone could have written into the file." ;
   ] .
 
 uofa:DecisionRecordOffsetShape a sh:NodeShape ;

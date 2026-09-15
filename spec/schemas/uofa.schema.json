@@ -43,12 +43,12 @@
               "description": "Must be UnitOfAssurance (JSON-LD allows an array of types)"
             },
             "conformsToProfile": {
-              "type": "string",
               "enum": [
                 "https://uofa.net/vocab#ProfileMinimal",
-                "https://uofa.net/vocab#ProfileComplete"
+                "https://uofa.net/vocab#ProfileComplete",
+                "https://uofa.net/vocab#ProfileDisposition"
               ],
-              "description": "Which profile this UofA conforms to"
+              "description": "conformsToProfile must be ProfileMinimal, ProfileComplete, or ProfileDisposition."
             },
             "name": {
               "type": "string",
@@ -215,6 +215,14 @@
                 }
               ],
               "description": "Credibility decision record (IRI or inline object)"
+            },
+            "hasIdentityBinding": {
+              "$ref": "#/$defs/IdentityBindingAttestationShape",
+              "description": "An identity binding block must be a well-formed identity binding attestation."
+            },
+            "hasAuthorizationAttestation": {
+              "$ref": "#/$defs/AuthorizationAttestationShape",
+              "description": "An authorization block must be a well-formed authorization attestation."
             }
           },
           "required": [
@@ -266,12 +274,12 @@
               "description": "Must be UnitOfAssurance (JSON-LD allows an array of types)"
             },
             "conformsToProfile": {
-              "type": "string",
               "enum": [
                 "https://uofa.net/vocab#ProfileMinimal",
-                "https://uofa.net/vocab#ProfileComplete"
+                "https://uofa.net/vocab#ProfileComplete",
+                "https://uofa.net/vocab#ProfileDisposition"
               ],
-              "description": "Which profile this UofA conforms to"
+              "description": "conformsToProfile must be ProfileMinimal, ProfileComplete, or ProfileDisposition."
             },
             "name": {
               "type": "string",
@@ -850,6 +858,14 @@
                 }
               ],
               "description": "Credibility decision record (IRI or inline object)"
+            },
+            "hasIdentityBinding": {
+              "$ref": "#/$defs/IdentityBindingAttestationShape",
+              "description": "An identity binding block must be a well-formed identity binding attestation."
+            },
+            "hasAuthorizationAttestation": {
+              "$ref": "#/$defs/AuthorizationAttestationShape",
+              "description": "An authorization block must be a well-formed authorization attestation."
             }
           },
           "required": [
@@ -1078,6 +1094,150 @@
         "affectedNode",
         "patternId",
         "severity"
+      ]
+    },
+    "IdentityBindingAttestationShape": {
+      "type": "object",
+      "properties": {
+        "boundActor": {
+          "type": "string",
+          "description": "A binding must name the actor it speaks about, spelled exactly as the decision record spells it. One that names nobody is a statement about nobody."
+        },
+        "boundKey": {
+          "type": "string",
+          "description": "A binding must name the key it speaks about, in the same sha256-over-DER form signerIdentity carries."
+        },
+        "identityProviderIssuer": {
+          "type": "string",
+          "description": "A binding must name the identity provider issuer it relied on. 'An account authenticated' with no issuer is not checkable by anyone."
+        },
+        "identityProviderSubject": {
+          "type": "string",
+          "description": "A binding must name the subject the provider returned, or a documented representation of it that stays comparable within a declared scope."
+        },
+        "possessionProvenAt": {
+          "type": "string",
+          "description": "A binding must state when possession was proven; a binding with no time cannot be placed against a revocation."
+        },
+        "proofPurpose": {
+          "type": "string",
+          "description": "A binding must state which purpose the possession proof served, so a proof made for enrollment is never read as a proof of signing."
+        },
+        "deploymentId": {
+          "type": "string",
+          "description": "A binding must name the deployment that made it. One instance may answer to several hostnames, so this is configured, never read from the request."
+        },
+        "issuedAt": {
+          "type": "string",
+          "description": "A binding must state when it was made."
+        },
+        "contextVersion": {
+          "type": "string",
+          "description": "A binding must carry the context edition its terms are read against, inside the signed bytes, so verification never fetches anything."
+        },
+        "schemaVersion": {
+          "type": "string",
+          "description": "A binding must carry the attestation schema it follows, likewise inside the signed bytes."
+        },
+        "attestationAuthority": {
+          "type": "string",
+          "description": "A binding must name the key that made the statement, so a verifier knows whose claim it is weighing."
+        },
+        "bindingSignature": {
+          "type": "string",
+          "description": "An unsigned binding is not an attestation -- it is an unsourced assertion anyone could have written into the file."
+        }
+      },
+      "required": [
+        "attestationAuthority",
+        "bindingSignature",
+        "boundActor",
+        "boundKey",
+        "contextVersion",
+        "deploymentId",
+        "identityProviderIssuer",
+        "identityProviderSubject",
+        "issuedAt",
+        "possessionProvenAt",
+        "proofPurpose",
+        "schemaVersion"
+      ]
+    },
+    "AuthorizationAttestationShape": {
+      "type": "object",
+      "properties": {
+        "authorizedActor": {
+          "type": "string",
+          "description": "An authorization must name the actor it authorizes."
+        },
+        "project": {
+          "type": "string",
+          "description": "An authorization must name the project the permission was held in. A permission with no scope is not a permission."
+        },
+        "decisionRecord": {
+          "type": "string",
+          "description": "An authorization must name the decision it covers. One that covers 'a decision' covers none."
+        },
+        "authorizedAction": {
+          "type": "string",
+          "description": "An authorization must name the action the permission covered."
+        },
+        "grantId": {
+          "type": "string",
+          "description": "An authorization must cite the grant it relied on, not merely assert that one existed."
+        },
+        "effectiveFrom": {
+          "type": "string",
+          "description": "An authorization must state when the grant became effective; a grant that existed is not a grant that was in force when the signature was accepted."
+        },
+        "authorizationCheckedAt": {
+          "type": "string",
+          "description": "An authorization must state when the producer rechecked the grant, which is the moment its claim is about."
+        },
+        "decisionSignedAt": {
+          "type": "string",
+          "description": "An authorization must state when the signature it covers was accepted, or it cannot be placed inside the grant interval."
+        },
+        "deploymentId": {
+          "type": "string",
+          "description": "An authorization must name the deployment that made it."
+        },
+        "issuedAt": {
+          "type": "string",
+          "description": "An authorization must state when it was made."
+        },
+        "contextVersion": {
+          "type": "string",
+          "description": "An authorization must carry the context edition its terms are read against, inside the signed bytes."
+        },
+        "schemaVersion": {
+          "type": "string",
+          "description": "An authorization must carry the attestation schema it follows, likewise inside the signed bytes."
+        },
+        "attestationAuthority": {
+          "type": "string",
+          "description": "An authorization must name the key that made the statement."
+        },
+        "authorizationSignature": {
+          "type": "string",
+          "description": "An unsigned authorization is not an attestation -- it is an unsourced assertion anyone could have written into the file."
+        }
+      },
+      "required": [
+        "attestationAuthority",
+        "authorizationCheckedAt",
+        "authorizationSignature",
+        "authorizedAction",
+        "authorizedActor",
+        "contextVersion",
+        "decisionRecord",
+        "decisionSignedAt",
+        "deploymentId",
+        "effectiveFrom",
+        "grantId",
+        "issuedAt",
+        "project",
+        "schemaVersion"
       ]
     }
   }

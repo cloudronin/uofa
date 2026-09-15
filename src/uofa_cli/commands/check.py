@@ -85,6 +85,20 @@ class CheckResult:
     # packs). Set to a DerivationResult when enabled.
     derivations: derivation_runner.DerivationResult | None = None
     derivations_error: str | None = None
+    # Which attribution attestations the package carries (v0.10), sorted, or
+    # None when it carries none -- None rather than [] for the same reason
+    # `unsigned_decisions` is None rather than 0: snapshot.py omits None fields
+    # entirely, and that omission is what lets a new field ship without
+    # rewriting every stored baseline report.
+    #
+    # **Presence only, never a trust verdict.** Trust in an attestation
+    # authority is established by a key the VERIFIER supplies out of band, and
+    # `check` takes no such key. Reporting a state here would either invent a
+    # verdict from nothing or report "untrusted" for a package whose anchor
+    # simply was not offered -- a finding about this command rather than about
+    # the artifact. The four trust states come from `uofa verify
+    # --authority-pubkey`, which is the command that has the key.
+    attestations: list[str] | None = None
 
     @property
     def exit_code(self) -> int:
@@ -269,17 +283,32 @@ def run_structured(args) -> CheckResult:
     # not about any one signature, so it is answered here -- the same place the
     # encoder-attestation completeness question is answered.
     _incomplete = []
+    # Bound before the try, not inside it: an unreadable file left `_cdoc`
+    # undefined and every later reader had to guard with NameError, which is a
+    # guard against this function's shape rather than against the file.
+    _cdoc: dict = {}
     try:
         import json as _cj
 
         from uofa_cli import sign_roles
 
         _cdoc = _cj.loads(args.file.read_text(encoding="utf-8"))
+        if not isinstance(_cdoc, dict):
+            _cdoc = {}
         _incomplete = sign_roles.unsigned_asserted(_cdoc)
     except (OSError, ValueError):
         _incomplete = []
 
+    from uofa_cli import attestations as _att
+
+    _attestations = sorted(
+        k for k in (_att.IDENTITY_BLOCK_KEY, _att.AUTHORIZATION_BLOCK_KEY)
+        if isinstance(_cdoc.get(k), dict) and _cdoc.get(k))
+
     # ── Aggregate ─────────────────────────────────────────────
+    # Attestations are deliberately NOT part of `all_ok`. A package carrying
+    # none is complete; a package carrying one this command cannot check is not
+    # thereby broken. Making presence a gate would fail every legacy package.
     all_ok = shacl_result.conforms and integrity_result.ok and not _incomplete
     if rules_result is not None:
         all_ok = all_ok and rules_result.returncode == 0
@@ -305,6 +334,7 @@ def run_structured(args) -> CheckResult:
         shacl=shacl_result,
         integrity=integrity_result,
         unsigned_decisions=len(_incomplete) or None,
+        attestations=_attestations or None,
         rules=rules_result,
         rules_error=rules_error,
         all_ok=all_ok,

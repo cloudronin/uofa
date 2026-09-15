@@ -4,6 +4,98 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+## [0.19.0] — 2026-09-14
+
+### Added
+
+- **Who signed, and under whose authority -- as a third party's signed statement
+  rather than a field.** A package carried an ACTOR the producer asserted and a
+  KEY fingerprint the holder asserted by signing, and nothing joined them. A
+  verifier learned "some key signed this" and "a field claims an actor" and
+  could not establish they were the same party: anyone holding that private key,
+  person or agent, produced a byte-identical artifact. The producing system
+  witnessed the binding -- a possession challenge, at enrollment -- and threw it
+  away at export.
+
+  Two sibling blocks close that, each signed in its own scope by an
+  **attestation authority** distinct from both the measurement issuer and the
+  reviewer:
+
+  * `hasIdentityBinding` -- this authority observed this actor prove possession
+    of this key, through this identity provider, at this time.
+  * `hasAuthorizationAttestation` -- this authority enforced a recorded policy
+    and found this actor held this permission when it accepted this signature.
+
+  `uofa_cli.attestations` builds, signs, verifies and evaluates them.
+
+- **`uofa verify --authority-pubkey`, repeatable.** A TRUST ANCHOR, supplied out
+  of band. A key that travels inside the package proves the file is internally
+  consistent and nothing about who controls it, so it is reported as
+  `valid-untrusted-authority` however cleanly it verifies. That distinction is
+  the point of the flag and is not softenable by configuration.
+
+- **Five reported states, and they stay apart.** `signature-invalid`,
+  `signed-unbound`, `bound-authority-untrusted`,
+  `identity-bound-authorization-unassessed`,
+  `identity-bound-authorization-attested`. Each names what the previous one
+  could not establish. Current key, account and grant status is reported
+  separately as `not-evaluated` and is never inferred from historical validity.
+
+- **`CheckResult.attestations`** names which blocks a package carries. Presence
+  only: `check` takes no trust anchor, so any verdict it printed would be
+  invented. `None` when there are none, so `snapshot.py` omits it and stored
+  baseline reports stay byte-identical.
+
+- `spec/context/v0.10.jsonld` -- a new edition, never an edit. 29 terms added,
+  **0 terms changed meaning**. SHACL shapes for both objects carry
+  `uofa:introducedIn "v0.10"`, and both keys are added to
+  `specs/sip_evidence_bundle_schema.json`, whose root refuses unlisted keys.
+
+### Changed
+
+- **`verify` no longer prints "reviewer authorization is not assessed by uofa"
+  unconditionally.** That was honest while uofa had no way to READ an
+  authorization claim. Once a trusted authorization attestation verifies and
+  links, it is false -- and it understated the artifact in the same breath the
+  artifact improved. It is replaced by what was actually checked: *"authorization
+  assertion cryptographically verified; policy adequacy not assessed"* when one
+  verifies, and *"authorization not established"* when none does.
+
+  The standing ruling is untouched. uofa verifies that a third party made a
+  signed statement and reports whose statement it is. It does not adjudicate
+  whether the authority was right, whether the policy was adequate, or who the
+  actor is in the world -- *"who was permitted to sign is not a question uofa
+  answers"* still holds.
+
+- **`sign_roles.describe_relation` learned what an attestation established.**
+  The relation is computed from the package's OWN strings, so an asserted record
+  landed on "signer-actor relationship NOT ESTABLISHED -- one of the two
+  identities is not in a comparable form". A trusted binding is precisely that
+  missing thing, and the old sentence printed one line above "a trusted
+  authority states this actor proved possession of this signing key" -- two
+  lines flatly contradicting each other. Two keyword-only flags, both defaulting
+  False, so a package carrying no attestation reads exactly as before.
+
+- The JSON Schema generator now merges `UnitOfAssurance_ProfileShape` -- which
+  is targeted on the CLASS and so applies to every profile -- into both emitted
+  profiles. A constraint written there was previously enforced by `uofa
+  validate` and absent from the published schema, two artifacts disagreeing
+  about one rule. This also corrects `conformsToProfile`, which has accepted
+  `ProfileDisposition` in the shapes since v0.6 and did not list it in the
+  schema.
+
+### Compatibility
+
+- Both blocks are **action regions** (`interrogate.forbidden.ACTION_REGION_KEYS`),
+  so the issuer seal survives an attestation arriving after sealing, exactly as
+  it survives a decision arriving after sealing. Measured: attaching both blocks
+  and a late decision signature leaves the measurement hash unmoved.
+- Both are OPTIONAL in the shapes. A package cut before v0.10 validates
+  unchanged and verifies unchanged, and absence reports as
+  `signed-unbound` at exit 0 -- never as a failure.
+- Minor bump, per the 0.18.0 precedent: consumers feature-detect with `hasattr`,
+  because a version is a claim and an attribute is a fact.
+
 ## [0.18.0] — 2026-09-11
 
 ### Added

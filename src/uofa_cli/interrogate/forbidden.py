@@ -70,7 +70,21 @@ def forbidden_property_names_constraint() -> dict:
 # additive content in its own scope, never mixed into the measurement region.
 DECISION_BLOCK_KEY = "hasDecisionRecord"
 GUARDRAIL_BLOCK_KEY = "guardrailAction"
-ACTION_REGION_KEYS: tuple[str, ...] = (DECISION_BLOCK_KEY, GUARDRAIL_BLOCK_KEY)
+#: Third-party statements about WHO signed and under what authority, each signed
+#: by an attestation authority in its own scope (`uofa_cli.attestations`).
+#:
+#: **They belong here for the same reason the decision layer does, and the
+#: consequence of forgetting is specific:** a block outside this tuple is inside
+#: the measurement view, so the issuer seal would cover it -- and an attestation
+#: that arrives AFTER sealing would then break the seal it was added beside. The
+#: seal has to survive a binding arriving later exactly as it survives a decision
+#: arriving later.
+IDENTITY_BINDING_BLOCK_KEY = "hasIdentityBinding"
+AUTHORIZATION_BLOCK_KEY = "hasAuthorizationAttestation"
+ACTION_REGION_KEYS: tuple[str, ...] = (
+    DECISION_BLOCK_KEY, GUARDRAIL_BLOCK_KEY,
+    IDENTITY_BINDING_BLOCK_KEY, AUTHORIZATION_BLOCK_KEY,
+)
 
 
 def find_forbidden_property_names(obj, _path: str = "$"):

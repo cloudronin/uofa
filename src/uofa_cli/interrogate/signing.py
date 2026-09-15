@@ -145,12 +145,25 @@ def _decision_scope_hash(package: dict, decision_block_without_signature: dict) 
 
 
 def sign_scoped_block(
-    package: dict, key_path: Path, block_without_signature: dict,
-    *, scope_key: str, signature_field: str,
+    package: dict, key_path: Path = None, block_without_signature: dict = None,
+    *, scope_key: str, signature_field: str, key_bytes: bytes = None,
 ) -> dict:
-    """Sign an action-region block over its scope; return block + ``signature_field``."""
+    """Sign an action-region block over its scope; return block + ``signature_field``.
+
+    Accepts a key PATH or in-memory PEM ``key_bytes``, exactly as
+    ``fingerprint_from_private_key`` does and for the same reason: a hosted
+    deployment receives its key as a secret environment variable and must never
+    write it to the filesystem it serves downloads from. A path-only signer
+    forces the write it is trying to avoid.
+    """
+    if (key_path is None) == (key_bytes is None):
+        raise ValueError(
+            "sign_scoped_block requires exactly one of key_path or key_bytes")
+    if block_without_signature is None:
+        raise ValueError("sign_scoped_block needs a block to sign")
     sha256_hex = _scoped_block_hash(package, scope_key, block_without_signature)
-    sig_hex = sign_hash(sha256_hex, Path(key_path))
+    sig_hex = (sign_hash(sha256_hex, key_bytes=key_bytes) if key_bytes is not None
+               else sign_hash(sha256_hex, Path(key_path)))
     return {**block_without_signature, signature_field: f"ed25519:{sig_hex}"}
 
 
@@ -158,6 +171,7 @@ def verify_scoped_block(
     package: dict, pubkey_path: Path,
     *, block_key: str, scope_key: str, signature_field: str,
     attributed_by_field: str | None = None,
+    block: dict | None = None,
 ) -> tuple[bool, str]:
     """Verify an action-region block's signature over its scope. Returns (ok, reason).
 
@@ -165,7 +179,10 @@ def verify_scoped_block(
     mismatch, all resolve to (False, reason) — the caller treats any of these as
     "no such block", never package failure.
     """
-    block = package.get(block_key)
+    # `block` is injectable so a caller holding one of several sibling
+    # attestations can verify THAT one, rather than whatever a single top-level
+    # key happens to hold. A package may carry more than one binding.
+    block = block if block is not None else package.get(block_key)
     if not isinstance(block, dict):
         return False, f"no {block_key} block present"
     sig_field = block.get(signature_field)
