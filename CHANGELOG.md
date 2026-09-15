@@ -4,6 +4,60 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+## [0.20.0] — 2026-09-15
+
+### Fixed
+
+- **`valid-untrusted-authority` was unreachable from the command line.** The
+  library distinguished four trust states from the start and `verify` only ever
+  passed the verifier's own anchors, so a package whose authority key travels
+  INSIDE it had two possible readings and neither was the true one. With no
+  `--authority-pubkey` it printed `present-unchecked`, understating a signature
+  that does verify. With `--authority-pubkey` aimed at the file in the zip it
+  printed **`trusted-valid`** -- which is exactly the mistake that state exists
+  to name, and the single claim the attestation model exists to prevent: a key
+  that vouches for the thing it travels beside is not evidence about who
+  controls it.
+
+  This is acceptance test **IA-04** (*"a packaged authority key **without a
+  configured trust anchor** reports valid-but-untrusted, never trusted"*), which
+  0.19.0 did not satisfy through its own CLI.
+
+  **What this deliberately does NOT change:** pointing `--authority-pubkey` at
+  the copy inside the zip still reports trusted. That flag is the verifier
+  asserting "this is the authority", and uofa honours it -- it cannot know where
+  the bytes came from, and for an honest producer the published anchor and the
+  packaged copy ARE the same bytes. Downgrading on byte-equality would break the
+  correct case and only the correct case. A note saying "your anchor equals the
+  packaged one" was written and removed for the same reason: it fired on every
+  honest verification, and a line no artifact can falsify is not a finding. What
+  remains is the prohibited claim already printed at the trusted state -- an
+  authority key shipped inside the package is not trusted, and trust comes from
+  an anchor obtained out of band.
+
+  `verify` now discovers `keys/attestation-authority.pub` beside the document or
+  one level above it -- the usual export layout -- and passes it as a PACKAGED
+  key, strictly apart from `--authority-pubkey`. An anchor supplied out of band
+  still wins when it matches; the packaged copy is then irrelevant rather than
+  disqualifying.
+
+  Found from the consumer side: a Credenza test asserted the released CLI would
+  refuse to call a packaged key trusted. It did not refuse -- and chasing that
+  down is what separated the real gap (the no-anchor case, fixed here) from the
+  case that is working as intended (an explicit anchor, honoured as asserted).
+
+### Compatibility
+
+- Additive and behaviour-preserving for every package that ships no authority
+  key: discovery finds nothing and the report is unchanged. A package that does
+  ship one moves from `present-unchecked` to `bound-authority-untrusted`, which
+  is strictly more informative and is the state the spec asks for.
+- Patch-level in substance; a minor bump because a consumer has to be able to
+  ask "can the installed uofa reach the untrusted state" and a shared version
+  number makes that unanswerable from metadata. Feature-detect anyway --
+  `hasattr(verify, "_packaged_authority_keys")` -- because a version is a claim
+  and an attribute is a fact.
+
 ## [0.19.0] — 2026-09-14
 
 ### Added
