@@ -194,6 +194,42 @@ def _authority_keys(args) -> list[Path]:
     return [Path(raw)]
 
 
+#: Where a producer puts the authority's public half inside an exported package.
+#: Discovered rather than configured: the point is to notice a key that travelled
+#: WITH the artifact, and a path the caller supplied would defeat that.
+_PACKAGED_AUTHORITY_NAMES = ("keys/attestation-authority.pub",
+                             "attestation-authority.pub")
+
+
+def _packaged_authority_keys(doc_path) -> list[Path]:
+    """Authority keys that travelled inside this package.
+
+    **Kept strictly apart from `--authority-pubkey`.** A key beside the thing it
+    vouches for proves the file is internally consistent and nothing about who
+    controls it, so an attestation it verifies is reported
+    `valid-untrusted-authority` -- never trusted.
+
+    Without this the untrusted state was UNREACHABLE from the command line.
+    `evaluate_record` distinguished four trust states and `verify` only ever
+    passed the anchors, so a package whose authority key rode along either
+    reported `present-unchecked` (no anchor given) or `trusted-valid` (the reader
+    pointed `--authority-pubkey` at the file in the zip, which is exactly the
+    mistake the state exists to name). Both readings overstate or understate; the
+    middle one is the true one and had no way to be printed.
+    """
+    try:
+        here = Path(doc_path).resolve().parent
+    except (OSError, TypeError):
+        return []
+    found = []
+    for base in (here, here.parent):
+        for name in _PACKAGED_AUTHORITY_NAMES:
+            candidate = base / name
+            if candidate.is_file() and candidate not in found:
+                found.append(candidate)
+    return found
+
+
 def _verify_scoped(args, doc: dict) -> int:
     """Two scopes, reported independently, role- and fork-aware.
 
@@ -230,7 +266,7 @@ def _verify_scoped(args, doc: dict) -> int:
     anchor_failures: list[str] = []
     for i, rec in enumerate(records, 1):
         _report_record(doc, rec, i, keys, signer_ids, args.file, anchor_failures,
-                       anchors)
+                       anchors, _packaged_authority_keys(args.file))
 
     # The concentration line: a FACT about custody, never a verdict on it. The
     # solo configuration is legitimate and must read as legitimate; what would be
@@ -280,7 +316,7 @@ def _seal_identity(doc, explicit, label):
 
 
 def _report_record(doc, rec, i, keys, signer_ids, doc_path, failures,
-                   anchors=()) -> None:
+                   anchors=(), packaged=()) -> None:
     """One decision record: its fork, and whether the warrant that fork owes is
     present and good."""
     from uofa_cli.interrogate import signing
@@ -374,7 +410,8 @@ def _report_record(doc, rec, i, keys, signer_ids, doc_path, failures,
             from uofa_cli import attestations as _att
             result = _att.evaluate_record(
                 doc, rec, signer_identity=str(node.get("signerIdentity") or ""),
-                signature_valid=True, trusted_keys=list(anchors))
+                signature_valid=True, trusted_keys=list(anchors),
+                packaged_keys=list(packaged))
             bound = result["identityBinding"] == _att.TRUST_TRUSTED
             authorized = result["authorizationAtSigning"] == _att.TRUST_TRUSTED
 
@@ -424,6 +461,18 @@ def _report_attestations(result: dict, prefix: str) -> None:
     from uofa_cli import attestations
 
     pad = " " * len(prefix)
+    # **No note when a supplied anchor equals the packaged copy.** It was
+    # written and removed: for an HONEST producer the published anchor and the
+    # packaged key are the same bytes, so the note fired on every correct
+    # verification as well as on the mistaken one. A line that no artifact can
+    # falsify is not a finding -- it is the blanket disclaimer this release
+    # already removed once, arriving by a different door.
+    #
+    # uofa genuinely cannot tell "I fetched this from the publisher" from "I
+    # copied it out of the zip": the bytes are identical by design. What it CAN
+    # say, and already does at the trusted state, is the prohibited claim --
+    # "an authority key shipped inside the package is not trusted; trust comes
+    # from an anchor the verifier obtains out of band."
     info(f"{pad}  {attestations.BINDING_LINES[result['identityBinding']]}")
     if result["bindingAuthority"]:
         info(f"{pad}    binding authority: {result['bindingAuthority']}")

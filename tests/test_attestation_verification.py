@@ -542,3 +542,88 @@ def test_the_prohibited_claims_are_data_not_prose():
     assert isinstance(A.PROHIBITED_CLAIMS, tuple)
     assert len(A.PROHIBITED_CLAIMS) >= 7
     assert all(isinstance(c, str) and c.strip() for c in A.PROHIBITED_CLAIMS)
+
+
+# ── the state that had no way to be printed (IA-04) ──────────────────────────
+
+def test_a_packaged_authority_key_is_discovered_and_reported_untrusted(
+        tmp_path, authority):
+    """**IA-04, which 0.19.0 could not satisfy through the CLI.**
+
+    `evaluate_record` distinguished four trust states from the start, and
+    `verify` only ever passed the anchors -- so a package whose authority key
+    rode along inside it had two possible readings and neither was the true one.
+    With no `--authority-pubkey` it printed `present-unchecked`, understating a
+    signature that does verify. With `--authority-pubkey` aimed at the file in
+    the zip it printed `trusted-valid`, which is exactly the mistake the
+    untrusted state exists to name. The middle reading -- verifies internally,
+    nobody vouches for the holder -- was unreachable.
+
+    Found from the Credenza side, by a test asserting the released CLI would
+    refuse to call a packaged key trusted. It did not refuse.
+    """
+    import json
+    import subprocess
+    import sys
+
+    key, pub = authority
+    pkg = _sealed(authority, binding=_binding(), auth=_authorization())
+    # Laid out the way a producer exports it: the document, and the authority's
+    # public half under `keys/`.
+    doc_path = tmp_path / "uofa.jsonld"
+    doc_path.write_text(json.dumps(pkg), encoding="utf-8")
+    keys_dir = tmp_path / "keys"
+    keys_dir.mkdir()
+    (keys_dir / "attestation-authority.pub").write_bytes(pub.read_bytes())
+
+    from uofa_cli.commands import verify as V
+
+    discovered = V._packaged_authority_keys(doc_path)
+    assert discovered, "the packaged authority key was not discovered"
+
+    r = A.evaluate_record(pkg, pkg["hasDecisionRecord"], signer_identity=FP,
+                          signature_valid=True, trusted_keys=[],
+                          packaged_keys=discovered)
+    assert r["identityBinding"] == A.TRUST_UNTRUSTED, (
+        f"a key that travelled inside the package reported "
+        f"{r['identityBinding']!r}")
+    assert r["state"] == A.STATE_AUTHORITY_UNTRUSTED
+
+
+def test_an_out_of_band_anchor_still_wins_over_the_packaged_one(tmp_path,
+                                                               authority):
+    """Discovery must not weaken a real anchor. When the verifier supplies one
+    that matches, the binding is trusted -- the packaged copy is then irrelevant,
+    not disqualifying."""
+    _key, pub = authority
+    pkg = _sealed(authority, binding=_binding(), auth=_authorization())
+    r = A.evaluate_record(pkg, pkg["hasDecisionRecord"], signer_identity=FP,
+                          signature_valid=True, trusted_keys=[pub],
+                          packaged_keys=[pub])
+    assert r["identityBinding"] == A.TRUST_TRUSTED
+
+
+def test_discovery_looks_beside_and_one_level_above_the_document(tmp_path):
+    """An exported zip puts the document in a subdirectory as often as not, so a
+    search that only looked in the document's own folder would miss the key in
+    exactly the common layout."""
+    from uofa_cli.commands import verify as V
+
+    (tmp_path / "keys").mkdir()
+    (tmp_path / "keys" / "attestation-authority.pub").write_text("x")
+    nested = tmp_path / "package"
+    nested.mkdir()
+    doc = nested / "uofa.jsonld"
+    doc.write_text("{}")
+    assert V._packaged_authority_keys(doc), (
+        "the key one level up was not found; that is the usual export layout")
+
+
+def test_discovery_finds_nothing_when_nothing_travelled(tmp_path):
+    """Guards the guard: if this returned something for a bare document, every
+    package would read as carrying an untrusted authority."""
+    from uofa_cli.commands import verify as V
+
+    doc = tmp_path / "uofa.jsonld"
+    doc.write_text("{}")
+    assert V._packaged_authority_keys(doc) == []
