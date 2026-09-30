@@ -4,6 +4,18 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+### Fixed
+
+- **A `uofa check` report for a pack with derivations was different on every
+  run, and named a deleted temp file as the package it checked.** The rules
+  run on the derivation pre-pass's enriched copy, and `run_structured` put that
+  copy's path in `rules.file`, then deleted the copy. The stable serializer
+  (`oos/snapshot.py`) predates the pre-pass and also kept its wall-clock
+  timing and temp paths. Found pinning the iso42001 bundles: all eleven
+  baselines failed straight after being written. `rules.file` now names the
+  package that was checked, and the serializer drops `elapsed_seconds`,
+  `enriched_package_path` and `derived_only_path`.
+
 ## [0.20.0] — 2026-09-15
 
 ### Fixed

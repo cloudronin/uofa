@@ -70,9 +70,15 @@ def _strip_volatile(obj: Any) -> Any:
       - format (RulesResult — orthogonal to firings; mode of invocation)
       - output_path (RulesResult — None at run_structured layer)
       - exit_code (ShaclResult — derivable from `conforms`)
+      - elapsed_seconds, enriched_package_path, derived_only_path
+        (DerivationResult — a wall-clock timing and two temp files, deleted
+        by the time anyone reads the report. The derivation pre-pass arrived
+        after this list, and until these were named here, a report for any
+        pack with derivations differed on every run.)
     """
     VOLATILE = {"raw_stdout", "raw_stderr", "raw_text", "format",
-                "output_path", "exit_code"}
+                "output_path", "exit_code", "elapsed_seconds",
+                "enriched_package_path", "derived_only_path"}
     if isinstance(obj, dict):
         return {k: v for k, v in obj.items() if k not in VOLATILE}
     return obj
