@@ -36,8 +36,9 @@ from uofa_cli.commands import extract_cmd
 
 # Every pack that resolves an extract prompt to a real file. Checked rather
 # than assumed: `iso42001`, `surrogate` and `disposition` have no `prompt` key
-# in their manifests at all, so `uofa extract` never sends them anything and
-# the routing defect could not reach them.
+# in their manifests at all, and `uofa extract` refuses them
+# (test_extract_refuses_a_pack_it_cannot_fill.py), so the routing defect
+# cannot reach them.
 PACKS = ["vv40", "nasa-7009b", "model-credibility"]
 
 # factor-name constant per pack, for the leakage check below.
@@ -119,11 +120,11 @@ def test_packs_without_a_prompt_resolve_to_no_file():
     """The three packs the routing defect could not reach, pinned as such.
 
     `iso42001`, `surrogate` and `disposition` carry no `prompt` key, so
-    `extract_prompt` falls through to the pack's `prompts/` directory and
-    `build_prompt` finds nothing to send. That is why they were never affected,
-    and it is worth pinning: if one of them gains a prompt later it joins PACKS
-    above and inherits every check in this file, rather than quietly shipping
-    untested.
+    `extract_prompt` resolves to no file, and `uofa extract` refuses them before
+    it would send anything. (It used to send them the generic V&V 40 schema; see
+    test_extract_refuses_a_pack_it_cannot_fill.py.) Worth pinning: if one of
+    them gains a prompt later it joins PACKS above and inherits every check in
+    this file, rather than quietly shipping untested.
     """
     for pack in ("iso42001", "surrogate", "disposition"):
         assert not paths.extract_prompt(pack).is_file(), (
