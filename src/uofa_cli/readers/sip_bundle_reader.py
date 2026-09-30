@@ -21,6 +21,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from uofa_cli.excel_constants import VALID_DECISION_OUTCOMES
 from uofa_cli.interrogate import signing
 from uofa_cli.interrogate.schema import validate_bundle
 from uofa_cli.interrogate.forbidden import DECISION_BLOCK_KEY
@@ -177,7 +178,14 @@ def _map_to_jsonld(bundle: dict, decision: dict | None) -> dict:
     # 'decision'/'outcome' are legitimate in the UofA package (the firewall
     # applies to the SIP bundle's measurement region, not here).
     if decision and decision.get("value"):
-        doc["decision"] = decision["value"]
+        # The top-level decision takes only what the core shape accepts. A
+        # signed "Conditional" is a valid engineer decision -- the SIP schema
+        # allows it and `uofa decision record --value conditional` writes it --
+        # and written here it made a valid, signed input into a package failing
+        # the shape. It is kept, verbatim, in the record below; the top level
+        # is left out, which the shape permits (maxCount 1, no minimum).
+        if decision["value"] in VALID_DECISION_OUTCOMES:
+            doc["decision"] = decision["value"]
         doc["hasDecisionRecord"] = {
             "id": f"{base}/decision", "type": "DecisionRecord",
             "outcome": decision["value"], "actor": decision.get("decidedBy"),

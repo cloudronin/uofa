@@ -4,6 +4,20 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+### Fixed
+
+- **What is offered as a decision, and what is written as one, is now what the
+  core shape accepts.** The shape takes a top-level `uofa:decision` of
+  "Accepted" or "Not accepted". The vv40 and nasa-7009b extract prompts said so
+  in their task list -- "Emitting 'Conditional' fails schema validation" -- and
+  then offered "Conditional" in their output format, and the NASA prompt's rules
+  required one of three values including it. And `read_sip_bundle` wrote a
+  signed "Conditional" engineer decision (which the SIP schema allows and
+  `uofa decision record --value conditional` records) to the top level, so a
+  valid, signed input became a package failing the shape. The prompts now offer
+  two outcomes; the reader keeps a "Conditional" verbatim in the decision record
+  and leaves the top-level decision out, which the shape permits.
+
 ## [0.20.0] — 2026-09-15
 
 ### Fixed
