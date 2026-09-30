@@ -45,13 +45,12 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parents[1]
 GOLDENS = REPO_ROOT / "tests/fixtures/import_goldens"
 
-#: (workbook, pack) -- the reference workbook each pack ships, and the clean
-#: one each pack's import corpus tests with.
+#: (workbook, pack) -- the reference workbook each pack ships. Committed files
+#: only: the import corpus under tests/corpus/ is generated and gitignored, so a
+#: golden resting on it passed here and failed in CI, where it does not exist.
 WORKBOOKS = [
     ("packs/vv40/templates/uofa-starter-filled.xlsx", "vv40"),
-    ("tests/corpus/import-tests/perfect-vv40.xlsx", "vv40"),
     ("packs/nasa-7009b/examples/starters/uofa-aero-hpt-blade-thermal-gaps.xlsx", "nasa-7009b"),
-    ("tests/corpus/import-tests/perfect-nasa.xlsx", "nasa-7009b"),
 ]
 
 MASK = "<masked>"
@@ -133,6 +132,17 @@ def test_the_mask_covers_only_what_moves(tmp_path):
     for x, y in zip(a["provenanceChain"], b["provenanceChain"]):
         assert {k for k in x if x[k] != y.get(k)} <= {"timestamp"}
     assert a["provenanceChain"][0]["toolVersion"].startswith("uofa-cli ")
+
+
+def test_every_pinned_workbook_is_committed():
+    """A golden over a file this checkout generated is a golden CI cannot run."""
+    import shutil
+    if not (shutil.which("git") and (REPO_ROOT / ".git").exists()):
+        pytest.skip("not a git checkout")
+    for workbook, _ in WORKBOOKS:
+        tracked = subprocess.run(["git", "ls-files", "--error-unmatch", workbook],
+                                 cwd=REPO_ROOT, capture_output=True, text=True)
+        assert tracked.returncode == 0, f"{workbook} is not committed"
 
 
 def test_every_golden_has_a_workbook():
