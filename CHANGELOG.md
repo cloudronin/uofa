@@ -16,6 +16,18 @@ All notable changes to this project are documented here.
   package that was checked, and the serializer drops `elapsed_seconds`,
   `enriched_package_path` and `derived_only_path`.
 
+### Tests
+
+- **Baselines before the ISO 42001 work.** Every iso42001 bundle's full check
+  report (SHACL, weakener hit counts, OOS firings) is pinned in
+  `tests/fixtures/baseline_reports/iso42001/`, and `uofa import` output for
+  the V&V 40 and NASA reference workbooks in `tests/fixtures/import_goldens/`.
+  COU2's audit falls due on 2027-03-25; its report is taken from a copy dated
+  relative to today, and what falling due adds (W-AIMS-AUDIT-STALE once,
+  COMPOUND-01 once more) is pinned as its own delta. Regenerate with
+  `python tests/test_iso42001_baselines.py --regen` or
+  `python tests/test_import_goldens.py --regen`.
+
 ## [0.20.0] — 2026-09-15
 
 ### Fixed
