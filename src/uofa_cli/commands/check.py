@@ -8,6 +8,7 @@ I/O shell — preserved bit-for-bit (same step headers, same result lines).
 from __future__ import annotations
 
 import argparse
+import dataclasses
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -240,6 +241,11 @@ def run_structured(args) -> CheckResult:
         )
         try:
             rules_result = rules_mod.run_structured(rules_args)
+            # The rules ran on the enriched copy, but the report is about the
+            # package that was checked. Naming the copy put a temp file -- one
+            # this function deletes below -- in the report as its subject.
+            if effective_package != args.file:
+                rules_result = dataclasses.replace(rules_result, file=args.file)
         except FileNotFoundError as exc:
             # Java/JAR not available — match the existing single-line error
             rules_error = str(exc).split("\n")[0]

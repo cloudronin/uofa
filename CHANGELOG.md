@@ -23,6 +23,28 @@ All notable changes to this project are documented here.
   and `nasa-7009b`: `core` names a prompt file that does not exist. The keyless
   extractor also refuses a foreign pack itself, for callers that skip the CLI.
 
+- **A `uofa check` report for a pack with derivations was different on every
+  run, and named a deleted temp file as the package it checked.** The rules
+  run on the derivation pre-pass's enriched copy, and `run_structured` put that
+  copy's path in `rules.file`, then deleted the copy. The stable serializer
+  (`oos/snapshot.py`) predates the pre-pass and also kept its wall-clock
+  timing and temp paths. Found pinning the iso42001 bundles: all eleven
+  baselines failed straight after being written. `rules.file` now names the
+  package that was checked, and the serializer drops `elapsed_seconds`,
+  `enriched_package_path` and `derived_only_path`.
+
+### Tests
+
+- **Baselines before the ISO 42001 work.** Every iso42001 bundle's full check
+  report (SHACL, weakener hit counts, OOS firings) is pinned in
+  `tests/fixtures/baseline_reports/iso42001/`, and `uofa import` output for
+  the V&V 40 and NASA reference workbooks in `tests/fixtures/import_goldens/`.
+  COU2's audit falls due on 2027-03-25; its report is taken from a copy dated
+  relative to today, and what falling due adds (W-AIMS-AUDIT-STALE once,
+  COMPOUND-01 once more) is pinned as its own delta. Regenerate with
+  `python tests/test_iso42001_baselines.py --regen` or
+  `python tests/test_import_goldens.py --regen`.
+
 ## [0.20.0] — 2026-09-15
 
 ### Fixed
