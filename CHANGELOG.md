@@ -4,6 +4,59 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+### Fixed
+
+- **`uofa extract` ran packs it could not fill, and exited 0.** A pack with no
+  extract prompt was sent the generic schema -- V&V 40's factors on a 1-5
+  scale -- and a pack with no workbook template was written into core's. So
+  `uofa extract --pack iso42001` called a model and wrote a V&V 40 workbook for
+  an AI management system. Measured with the free mock backend: `iso42001`,
+  `surrogate`, `disposition`, `model-credibility` and a misspelled `--pack
+  nope` each exited 0 with "13 factors mapped". `--keyless` did the same for
+  every pack that is not NASA.
+
+  Now `uofa extract` exits 2 unless the pack names an extract prompt and a
+  workbook template and both files exist; `--keyless` needs the template and
+  `vv40` or `nasa-7009b`. The refusal comes first -- before `uofa setup` is
+  demanded, before a file is read, before any model call -- names what is
+  missing, and lists the packs that can be extracted. Today those are `vv40`
+  and `nasa-7009b`: `core` names a prompt file that does not exist. The keyless
+  extractor also refuses a foreign pack itself, for callers that skip the CLI.
+
+- **A `uofa check` report for a pack with derivations was different on every
+  run, and named a deleted temp file as the package it checked.** The rules
+  run on the derivation pre-pass's enriched copy, and `run_structured` put that
+  copy's path in `rules.file`, then deleted the copy. The stable serializer
+  (`oos/snapshot.py`) predates the pre-pass and also kept its wall-clock
+  timing and temp paths. Found pinning the iso42001 bundles: all eleven
+  baselines failed straight after being written. `rules.file` now names the
+  package that was checked, and the serializer drops `elapsed_seconds`,
+  `enriched_package_path` and `derived_only_path`.
+
+- **What is offered as a decision, and what is written as one, is now what the
+  core shape accepts.** The shape takes a top-level `uofa:decision` of
+  "Accepted" or "Not accepted". The vv40 and nasa-7009b extract prompts said so
+  in their task list -- "Emitting 'Conditional' fails schema validation" -- and
+  then offered "Conditional" in their output format, and the NASA prompt's rules
+  required one of three values including it. And `read_sip_bundle` wrote a
+  signed "Conditional" engineer decision (which the SIP schema allows and
+  `uofa decision record --value conditional` records) to the top level, so a
+  valid, signed input became a package failing the shape. The prompts now offer
+  two outcomes; the reader keeps a "Conditional" verbatim in the decision record
+  and leaves the top-level decision out, which the shape permits.
+
+### Tests
+
+- **Baselines before the ISO 42001 work.** Every iso42001 bundle's full check
+  report (SHACL, weakener hit counts, OOS firings) is pinned in
+  `tests/fixtures/baseline_reports/iso42001/`, and `uofa import` output for
+  the V&V 40 and NASA reference workbooks in `tests/fixtures/import_goldens/`.
+  COU2's audit falls due on 2027-03-25; its report is taken from a copy dated
+  relative to today, and what falling due adds (W-AIMS-AUDIT-STALE once,
+  COMPOUND-01 once more) is pinned as its own delta. Regenerate with
+  `python tests/test_iso42001_baselines.py --regen` or
+  `python tests/test_import_goldens.py --regen`.
+
 ## [0.20.0] — 2026-09-15
 
 ### Fixed
