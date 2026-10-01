@@ -79,6 +79,23 @@ def run(args) -> int:
         args.active_packs = packs
     pack_name = packs[0]
 
+    # **A pack this cannot fill is refused first**: before the model is
+    # resolved, before `uofa setup` is demanded, before a file is read. It used
+    # to run. With no prompt, `extract_prompt` fell through to the pack
+    # directory and `build_prompt` sent the generic V&V 40 schema; with no
+    # template, the workbook fell back to core's. `--pack iso42001` called a
+    # model and wrote a V&V 40 workbook for an AI management system, exit 0,
+    # and so did a misspelled pack name.
+    keyless = getattr(args, "keyless", False)
+    refusal = _extract_refusal(pack_name, keyless=keyless)
+    if refusal:
+        error(refusal)
+        able = [p for p in paths.list_packs()
+                if _extract_refusal(p, keyless=keyless) is None]
+        info(f"Packs that can be extracted{' with --keyless' if keyless else ''}: "
+             f"{', '.join(able) or 'none'}")
+        return 2
+
     # Resolve LLM target. Two paths:
     # - New: any --extract-* flag triggers the unified [llm] config resolver.
     # - Legacy: --model / [extract] model / setup_state.model_tag (unchanged).
@@ -129,7 +146,6 @@ def run(args) -> int:
     # "no network call, no API key, no token spend", and demanding a downloaded
     # runtime before honouring that made the offline route unreachable on a
     # machine that had never run `uofa setup`.
-    keyless = getattr(args, "keyless", False)
     if not keyless and model != "mock" and not _model_bypasses_local_setup(model):
         try:
             setup_state.assert_ready()
@@ -333,6 +349,42 @@ def run(args) -> int:
         info(f"  uofa import {output} --sign --key <your-key> --check")
 
     return 0
+
+
+def _extract_refusal(pack_name: str, *, keyless: bool = False) -> str | None:
+    """Why `pack_name` cannot be extracted, or None when it can.
+
+    A model extraction needs the pack's OWN extract prompt and its OWN workbook
+    template: named in pack.json, and present. Nothing falls back to another
+    pack's, because a fallback is how an ISO 42001 run was sent V&V 40's
+    factors and written into V&V 40's workbook. `--keyless` sends no prompt, so
+    it needs the template and one of the factor sets it was built for.
+    """
+    from uofa_cli.keyless_extractor import KEYLESS_PACKS
+
+    try:
+        manifest = paths.pack_manifest(pack_name)
+    except FileNotFoundError:
+        return f"Pack '{pack_name}' was not found, so there is nothing to extract into."
+    if keyless and pack_name not in KEYLESS_PACKS:
+        return (f"Pack '{pack_name}' cannot be extracted with --keyless: keyless "
+                f"extraction knows only the {' and '.join(KEYLESS_PACKS)} factor "
+                f"sets. Nothing was read.")
+    home = paths.pack_dir(pack_name)
+    unnamed, missing = [], []
+    for key, what in (("prompt", "extract prompt"), ("template", "workbook template")):
+        if keyless and key == "prompt":
+            continue
+        rel = manifest.get(key)
+        if not rel:
+            unnamed.append(f"no {what}")
+        elif not (home / rel).is_file():
+            missing.append(f"its {what} {rel} does not exist")
+    reasons = (["it names " + " and ".join(unnamed)] if unnamed else []) + missing
+    if not reasons:
+        return None
+    return (f"Pack '{pack_name}' cannot be extracted: {', and '.join(reasons)}. "
+            f"Nothing was read or sent.")
 
 
 def _find_pack_template(pack_name: str) -> Path | None:

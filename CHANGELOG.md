@@ -4,6 +4,25 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+### Fixed
+
+- **`uofa extract` ran packs it could not fill, and exited 0.** A pack with no
+  extract prompt was sent the generic schema -- V&V 40's factors on a 1-5
+  scale -- and a pack with no workbook template was written into core's. So
+  `uofa extract --pack iso42001` called a model and wrote a V&V 40 workbook for
+  an AI management system. Measured with the free mock backend: `iso42001`,
+  `surrogate`, `disposition`, `model-credibility` and a misspelled `--pack
+  nope` each exited 0 with "13 factors mapped". `--keyless` did the same for
+  every pack that is not NASA.
+
+  Now `uofa extract` exits 2 unless the pack names an extract prompt and a
+  workbook template and both files exist; `--keyless` needs the template and
+  `vv40` or `nasa-7009b`. The refusal comes first -- before `uofa setup` is
+  demanded, before a file is read, before any model call -- names what is
+  missing, and lists the packs that can be extracted. Today those are `vv40`
+  and `nasa-7009b`: `core` names a prompt file that does not exist. The keyless
+  extractor also refuses a foreign pack itself, for callers that skip the CLI.
+
 ## [0.20.0] — 2026-09-15
 
 ### Fixed

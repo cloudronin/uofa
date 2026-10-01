@@ -95,8 +95,18 @@ def _blank(_why: str) -> FieldExtraction:
     return FieldExtraction(value=None, confidence=0.0, source_file=None)
 
 
+#: The factor sets this extractor was built and measured on. Any other pack
+#: used to be handed the V&V 40 set, which is how `--keyless --pack iso42001`
+#: wrote a V&V 40 workbook for an AI management system.
+KEYLESS_PACKS = ("vv40", "nasa-7009b")
+
+
 def extract(corpus, pack_name: str) -> ExtractionResult:
     """Keyless extraction over an already-read corpus."""
+    if pack_name not in KEYLESS_PACKS:
+        raise ValueError(
+            f"keyless extraction knows only the {' and '.join(KEYLESS_PACKS)} "
+            f"factor sets, not pack '{pack_name}'")
     from uofa_cli.keyless import routes as R
 
     text = "\n".join(c.text for c in corpus.chunks)
