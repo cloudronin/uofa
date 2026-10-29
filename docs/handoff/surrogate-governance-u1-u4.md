@@ -143,7 +143,7 @@ Second full run, on the final branch:
 
 ```
 $ pytest tests/ -q
-(running when this file was committed; the result lands in the next commit to this file)
+3622 passed, 63 skipped in 26m29s
 ```
 
 ## Assumptions and design calls (every one)
