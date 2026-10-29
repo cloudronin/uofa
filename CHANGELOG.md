@@ -4,7 +4,51 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+### Added
+
+- **Surrogate pack v0.2: W-SURR-05, W-SURR-06 and the external-annotation
+  rule.** The uofa side of the surrogate governance loop with PhysMAP. Two
+  patterns for physics the surrogate cannot see: **W-SURR-05** (prediction
+  relies on a closure outside its validated range; the bound variable need not
+  be a surrogate input, so W-SURR-03's envelope check stays silent) and
+  **W-SURR-06** (an omitted mechanism is active and material; materiality
+  below the declared threshold does not fire, and the threshold's status,
+  illustrative or declared, rides along as data). Both read structured
+  observation fields on a `WeakenerAnnotation`, check the numbers in Jena
+  (`lessThan`/`greaterThan`/`ge`), assert the catalog id and severity on the
+  same node, and leave a derived marker (`_closureOutsideValidatedRange`,
+  `_omittedMechanismMaterial`) as the countable trace of the firing.
+
+  A `WeakenerAnnotation` may now arrive with **no Disposition**: `source:
+  "external"`, `prov:wasAttributedTo` a `prov:SoftwareAgent` with a name and a
+  version, and a `justification` (pack shape
+  `ExternalWeakenerAnnotationShape`; each clause failed on purpose once in
+  `tests/surrogate/test_external_annotations.py`). `uofa rules --format json`
+  now reads the package for authored annotations, since the engine's
+  deductions carry none of them, and reports every firing with `source`
+  (`engine`, `external`, `package`, `mixed`), `hits_by_source`, and for
+  authored ones `recommended_actions`, `disposition` counts and a
+  per-annotation list; the summary gains `by_source` and `undispositioned`.
+  A `recommendedAction` is one of the five Disposition action classes and is
+  never read as a Disposition: an annotation is undispositioned until a node
+  typed `Disposition` names it through `dispositionOf`.
+
+  Three PhysMAP-derived examples under `packs/surrogate/examples/physmap/`
+  (NACA TN-1451 entrance region: 45 of 85 points fire W-SURR-05; Lewis 1992
+  Test 35A gravity on: W-SURR-06 at three downstream stations; gravity off:
+  quiet), sealed with `uofa sign --as issuer` against a committed example
+  key, written by `dev/tools/scripts/build_physmap_examples.py` from
+  PhysMAP's real inputs because PhysMAP's export does not yet carry the ids
+  or the fields. Per-rule fixtures under `tests/fixtures/weakeners/W-SURR-05/`
+  and `W-SURR-06/`. 40 new tests.
+
 ### Fixed
+
+- **The surrogate pack's envelope shapes rejected every number.** `minBound`,
+  `maxBound` and `coordinateValue` demanded `xsd:decimal`; the JSON-LD parser
+  types a JSON float as `xsd:double` and an integer as `xsd:integer`, so both
+  shipped airfrans packages failed C2 on their own bounds (8 violations each).
+  The three shapes now accept decimal, double or integer.
 
 - **`uofa extract` ran packs it could not fill, and exited 0.** A pack with no
   extract prompt was sent the generic schema -- V&V 40's factors on a 1-5

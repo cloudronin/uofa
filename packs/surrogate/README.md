@@ -14,8 +14,10 @@ the COU acceptance criteria, never to the pack.
 
 ## Status
 
-v0.1, draft. Build template: the ISO 42001 pack. Pack version stamps
-independently of the CLI release.
+v0.2, draft. Build template: the ISO 42001 pack. Pack version stamps
+independently of the CLI release. v0.2 adds W-SURR-05/06 and the
+external-annotation rule (the uofa side of the surrogate governance loop
+with PhysMAP).
 
 ## Where evidence comes from
 
@@ -39,7 +41,7 @@ switch and shared patterns are untouched.
 
 ## Weakener catalog
 
-Four reuse, three new (the real delta):
+Four reuse, five new (the real delta):
 
 | Pattern | Defeater | Status | Severity |
 |---|---|---|---|
@@ -50,6 +52,8 @@ Four reuse, three new (the real delta):
 | **W-SURR-01** | Physics-constraint check evidence missing | new | High |
 | **W-SURR-02** | Credibility inherited from un/under-validated parent | new | Critical / High |
 | **W-SURR-03** | Evaluation point outside declared training envelope | new | High |
+| **W-SURR-05** | Prediction relies on a closure outside its validated range | new (v0.2) | High |
+| **W-SURR-06** | An omitted mechanism is active and material | new (v0.2) | High |
 
 W-SURR-02 is severity-split: explicit parent `Not Accepted` → **Critical**;
 parent decision absent/unrecorded → **High** (an in-progress parent is a
@@ -57,6 +61,53 @@ different epistemic state from a rejected one). W-SURR-03 is a *containment*
 check (distinct from W-ON-02's *presence* check); it is a new pattern rather
 than an enrichment of W-ON-02 so the shared core pattern's semantics are
 unchanged across all packs.
+
+W-SURR-05 and W-SURR-06 are physics the surrogate cannot see. W-SURR-03 asks
+whether the inputs the surrogate takes lie inside its training envelope.
+W-SURR-05 asks whether the closure the prediction relies on is being used
+inside its validated range of a variable the surrogate may not take as an
+input at all (x/D for a pipe surrogate fed only Re and Pr). W-SURR-06 asks
+whether a mechanism the surrogate was built without (buoyancy, for a
+forced-convection surrogate) is active where it is reused, and whether a
+matched ablation says it matters. Both read structured fields an external
+applicability tool writes onto a `WeakenerAnnotation` (`closureId`,
+`boundVariable`, `validatedMin`/`validatedMax`, `observedValue`; `mechanism`,
+`dimensionlessGroup`, `calibrationMin`/`calibrationMax`, `materiality`,
+`materialityThreshold`, `materialityThresholdStatus`). The rules check the
+numbers and assert the catalog id, the severity and a derived marker
+(`_closureOutsideValidatedRange`, `_omittedMechanismMaterial`) on the same
+node; the marker is the countable trace of the firing. A materiality below
+the declared threshold does not fire; the threshold's status (illustrative or
+declared) rides along as data and is never read by the rule.
+
+## External annotations (the governance loop)
+
+A `WeakenerAnnotation` may arrive in a package with no `Disposition`: an
+applicability tool (PhysMAP) measured something, and a human has not yet
+answered it. Such an annotation carries `source: "external"`,
+`prov:wasAttributedTo` a `prov:SoftwareAgent` with a `name` and a `version`,
+and a `justification`. The pack's `ExternalWeakenerAnnotationShape` enforces
+that; `uofa rules --format json` lists it as a firing with `source:
+"external"`, the agent, its `recommendedAction` and its disposition state;
+the issuer seal (`uofa sign --as issuer`) covers it, so a tampered
+observation fails `uofa verify`.
+
+**Recommendation, not decision.** An external annotation may carry
+`recommendedAction` from the five Disposition action classes. Nothing reads
+it as a `Disposition`. An annotation is reported `undispositioned` until a
+node typed `Disposition` names it through `dispositionOf`. (A Disposition
+that names no annotation dispositions nothing.)
+
+`source`, `recommendedAction` and `dispositionOf` sit in the core `uofa:`
+namespace but are declared in this pack's shapes file, as the disposition
+pack declares `uofa:Disposition`: nothing shipped re-hashes and no core
+shape changes. They are candidates for core promotion.
+
+The PhysMAP-derived examples live in `examples/physmap/` (see its README):
+the NACA TN-1451 entrance-region case (45 of 85 points flagged by W-SURR-05,
+W-SURR-03 silent) and the Lewis (1992) Test 35A model-reuse stress test
+(W-SURR-06 at three downstream stations with gravity on, quiet with gravity
+off).
 
 Method-first: **W-SURR-04** (benchmark coverage gap, SIP-enabled) and
 **interrogation-residuals-unlinked** stay documented gap-probe *candidates*,
