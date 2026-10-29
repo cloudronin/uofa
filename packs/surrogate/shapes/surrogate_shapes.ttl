@@ -210,6 +210,82 @@ uofa-surr:_evalOutsideEnvelope a rdf:Property ;
     rdfs:label "(derived) evaluation outside envelope" ;
     rdfs:comment "Materialized by derivations/surrogate_derivations_v0.1.sparql when the evaluation point/region is not contained in the training envelope. Leading underscore signals 'computed, not authored'. Consumed by W-SURR-03." .
 
+# --- §A.9 Applicability observations carried by external annotations --------
+# W-SURR-05 and W-SURR-06 fire on measurements an external tool (PhysMAP) made
+# and reported inside a WeakenerAnnotation. The fields are structured, not
+# prose, so the rule can read them: a justification string names the closure
+# and the bound; these properties let the engine check the numbers.
+
+uofa-surr:closureId a rdf:Property ;
+    rdfs:range xsd:string ;
+    rdfs:label "closure id" ;
+    rdfs:comment "The literature closure (e.g. gnielinski-1976) the prediction relies on. Read by W-SURR-05." .
+
+uofa-surr:boundVariable a rdf:Property ;
+    rdfs:range xsd:string ;
+    rdfs:label "bound variable" ;
+    rdfs:comment "The physical coordinate whose validated range the closure carries (e.g. x_over_D). The surrogate need not take it as an input: that is the point of W-SURR-05." .
+
+uofa-surr:validatedMin a rdf:Property ;
+    rdfs:label "validated range, lower end" ;
+    rdfs:comment "Lower end of the closure's validated range for boundVariable. Omit when the range is unbounded below." .
+
+uofa-surr:validatedMax a rdf:Property ;
+    rdfs:label "validated range, upper end" ;
+    rdfs:comment "Upper end of the closure's validated range for boundVariable. Omit when the range is unbounded above." .
+
+uofa-surr:observedValue a rdf:Property ;
+    rdfs:label "observed value" ;
+    rdfs:comment "The value of boundVariable (W-SURR-05) or of the dimensionless group (W-SURR-06) at the point under review." .
+
+uofa-surr:mechanism a rdf:Property ;
+    rdfs:range xsd:string ;
+    rdfs:label "mechanism" ;
+    rdfs:comment "A physical mechanism the surrogate does not represent (e.g. buoyancy). Read by W-SURR-06." .
+
+uofa-surr:dimensionlessGroup a rdf:Property ;
+    rdfs:range xsd:string ;
+    rdfs:label "dimensionless group" ;
+    rdfs:comment "The group that says whether the mechanism is active (e.g. richardson_number)." .
+
+uofa-surr:calibrationMin a rdf:Property ;
+    rdfs:label "calibration window, lower end" ;
+    rdfs:comment "Lower end of the window of the dimensionless group over which the surrogate was calibrated." .
+
+uofa-surr:calibrationMax a rdf:Property ;
+    rdfs:label "calibration window, upper end" ;
+    rdfs:comment "Upper end of the window of the dimensionless group over which the surrogate was calibrated." .
+
+uofa-surr:materiality a rdf:Property ;
+    rdfs:label "materiality" ;
+    rdfs:comment "How much the omitted mechanism moves the quantity of interest, as a fraction, from a matched ablation (mechanism on versus off, nothing else changed)." .
+
+uofa-surr:materialityThreshold a rdf:Property ;
+    rdfs:label "materiality threshold" ;
+    rdfs:comment "The threshold the annotation declares. W-SURR-06 fires only at or above it." .
+
+uofa-surr:materialityThresholdStatus a rdf:Property ;
+    rdfs:range xsd:string ;
+    rdfs:label "materiality threshold status" ;
+    rdfs:comment "illustrative when the threshold is not locked (reported as a value, not a verdict); declared when it comes from the COU acceptance criteria." .
+
+uofa-surr:applicabilityFactor a rdf:Property ;
+    rdfs:range uofa:CredibilityFactor ;
+    rdfs:label "applicability factor" ;
+    rdfs:comment "Links the package to the per-point CredibilityFactor nodes an external applicability tool reports, one per point per detector, fired or quiet. A quiet factor carries the same observation fields as a fired annotation, so a rule's silence is a judgement about the numbers rather than an absence of anything to judge. Kept apart from hasCredibilityFactor, whose shape is the standard's factor table." .
+
+# --- §A.10 Derived markers (asserted by the Jena rules; declared so they are known)
+
+uofa-surr:_closureOutsideValidatedRange a rdf:Property ;
+    rdfs:range xsd:boolean ;
+    rdfs:label "(derived) closure outside validated range" ;
+    rdfs:comment "Asserted by w_surr_05 on the annotation whose observedValue lies outside [validatedMin, validatedMax]. Leading underscore signals 'computed, not authored'. The marker is what makes the rule firing countable in the engine's deductions, since re-asserting a triple the data already carries leaves no trace." .
+
+uofa-surr:_omittedMechanismMaterial a rdf:Property ;
+    rdfs:range xsd:boolean ;
+    rdfs:label "(derived) omitted mechanism active and material" ;
+    rdfs:comment "Asserted by w_surr_06 on the annotation whose observedValue lies outside the calibration window and whose materiality is at or above materialityThreshold." .
+
 # --- §A.8 OOS claim + evidence types (judgment-required dimensions) ----------
 # Productive-OOS (Phase C): claim types whose bundle-sufficiency the OOS engine
 # checks. Absence of the required evidence surfaces a judgment-required gap

@@ -29,7 +29,7 @@ def test_manifest_loads_and_is_versioned() -> None:
     manifest = paths.pack_manifest(PACK, root=_repo_root())
     assert manifest["name"] == "surrogate"
     # Pack version stamps independently of the CLI release.
-    assert manifest["version"] == "0.1.0"
+    assert manifest["version"] == "0.2.0"
     # Detection config is read source-agnostically: surrogate is migrated to the
     # capabilities[] shape (shapes live in the detection capability's payload), so
     # assert via the accessor rather than the legacy flat field.
@@ -90,6 +90,22 @@ def test_vocabulary_class_declared(cls: str) -> None:
         "parentModelSnapshot",
         "parentDecision",
         "_evalOutsideEnvelope",
+        # v0.2: observation fields the external annotations carry
+        "closureId",
+        "boundVariable",
+        "validatedMin",
+        "validatedMax",
+        "observedValue",
+        "mechanism",
+        "dimensionlessGroup",
+        "calibrationMin",
+        "calibrationMax",
+        "materiality",
+        "materialityThreshold",
+        "materialityThresholdStatus",
+        "applicabilityFactor",
+        "_closureOutsideValidatedRange",
+        "_omittedMechanismMaterial",
     ],
 )
 def test_vocabulary_property_declared(prop: str) -> None:
