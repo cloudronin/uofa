@@ -259,6 +259,12 @@ uofa-surr:SurrogateModelShape a sh:NodeShape ;
         sh:message "A SurrogateModel must declare exactly one surrogateType from the enum." ;
     ] .
 
+# NOTE on numeric datatypes (v0.2): the JSON-LD parser types a JSON float as
+# xsd:double and a JSON integer as xsd:integer; neither is xsd:decimal, so the
+# v0.1 `sh:datatype xsd:decimal` rejected every shipped example's bounds
+# (the airfrans packages failed C2 on minBound/maxBound). The bound and
+# coordinate shapes now accept any of the three numeric types; the SPARQL
+# containment pre-pass compares them as numbers regardless.
 uofa-surr:EnvelopeDimensionShape a sh:NodeShape ;
     sh:targetClass uofa-surr:EnvelopeDimension ;
     sh:property [
@@ -269,15 +275,17 @@ uofa-surr:EnvelopeDimensionShape a sh:NodeShape ;
     ] ;
     sh:property [
         sh:path uofa-surr:minBound ;
-        sh:datatype xsd:decimal ;
+        sh:or ( [ sh:datatype xsd:decimal ] [ sh:datatype xsd:double ] [ sh:datatype xsd:integer ] ) ;
         sh:minCount 1 ;
         sh:maxCount 1 ;
+        sh:message "minBound must be a number (decimal, double or integer)." ;
     ] ;
     sh:property [
         sh:path uofa-surr:maxBound ;
-        sh:datatype xsd:decimal ;
+        sh:or ( [ sh:datatype xsd:decimal ] [ sh:datatype xsd:double ] [ sh:datatype xsd:integer ] ) ;
         sh:minCount 1 ;
         sh:maxCount 1 ;
+        sh:message "maxBound must be a number (decimal, double or integer)." ;
     ] .
 
 uofa-surr:PointCoordinateShape a sh:NodeShape ;
@@ -290,9 +298,10 @@ uofa-surr:PointCoordinateShape a sh:NodeShape ;
     ] ;
     sh:property [
         sh:path uofa-surr:coordinateValue ;
-        sh:datatype xsd:decimal ;
+        sh:or ( [ sh:datatype xsd:decimal ] [ sh:datatype xsd:double ] [ sh:datatype xsd:integer ] ) ;
         sh:minCount 1 ;
         sh:maxCount 1 ;
+        sh:message "coordinateValue must be a number (decimal, double or integer)." ;
     ] .
 
 uofa-surr:PhysicsConstraintShape a sh:NodeShape ;
