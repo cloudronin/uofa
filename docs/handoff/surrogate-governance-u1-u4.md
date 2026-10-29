@@ -262,3 +262,14 @@ W-SURR-06 are two catalog entries with fixtures, a null control each, and a
 cross-pack story (W-SURR-03 silent while W-SURR-05 fires) that a reviewer can
 run. The ledger says four of four acceptance tests pass; when the feeling
 disagrees, the ledger wins.
+
+## Amendment, 2026-10-29, after the first CI run on PR #142
+
+Two CI failures, both outside the four requirements, both fixed on the branch:
+
+| Check | Cause | Fix |
+|---|---|---|
+| Deploy site, `build` | `site/scripts/lib/iri-walk.mjs` pins the number of shipped example packages at 13; the branch ships 16 | Pin raised to 16 and `snapshots/iri-pages.json` regenerated (314 identifier pages added under `/surrogate/physmap/`) |
+| Validate, `uofa validate --verify` | The command checks shipped seals against the shipped anchors only and recomputes the hash over the whole document, so the issuer-scope seal under the throwaway key read as "hash mismatch" | The three examples now ship unsigned (placeholder hash and signature) like the airfrans examples; the throwaway public key is removed; the seal round trip runs in the tests with a fresh key. Sealing under the research anchor is one `uofa sign --as issuer` per file, when wanted |
+
+Pre-existing and not touched: the site's own unit tests (`npm test` in `site/`) fail 3 of 23 on `main` as well (stale pinned totals), and `main`'s committed `iri-pages.json` already differs from what its generator writes. Neither is run by CI.

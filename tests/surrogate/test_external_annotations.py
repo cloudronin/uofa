@@ -43,7 +43,6 @@ EXAMPLES = REPO_ROOT / "packs" / "surrogate" / "examples" / "physmap"
 NACA = EXAMPLES / "naca-entrance" / "uofa-surrogate-naca-entrance.jsonld"
 LEWIS_ON = EXAMPLES / "lewis-35a-gravity-on" / "uofa-surrogate-lewis-35a-gravity-on.jsonld"
 LEWIS_OFF = EXAMPLES / "lewis-35a-gravity-off" / "uofa-surrogate-lewis-35a-gravity-off.jsonld"
-PUBKEY = EXAMPLES / "keys" / "physmap-examples.pub"
 FIXTURES = REPO_ROOT / "tests" / "fixtures" / "weakeners"
 
 SURR = "https://uofa.net/vocab/surrogate#"
@@ -305,23 +304,46 @@ class TestU3RulesJsonListsExternalFirings:
 
 
 class TestU3SealedPackageVerifiesElsewhere:
-    def test_shipped_seal_verifies_from_a_clean_directory(self, tmp_path, capsys):
+    # The shipped examples are unsigned (placeholder hash and signature), like
+    # the other surrogate examples: `uofa validate --verify` checks shipped seals
+    # against the shipped anchors only, and it recomputes over the whole
+    # document, so an issuer-scope seal under any other key reads as a hash
+    # mismatch there. The seal is therefore made here, with a fresh key, and
+    # the examples stay re-sealable under a real anchor without a rebuild.
+
+    @staticmethod
+    def _sealed_copy(tmp_path: Path, src: Path, key: Path) -> Path:
+        here = tmp_path / "author"
+        here.mkdir(exist_ok=True)
+        sealed = _write(here, src.name, _load(src))
+        rc = sign_mod.run(argparse.Namespace(file=sealed, key=key, context=None, output=None,
+                                             roles="issuer"))
+        assert rc == 0
+        return sealed
+
+    def test_issuer_seal_verifies_from_a_clean_directory(self, tmp_path, signing_keypair, capsys):
+        key, pub = signing_keypair
+        sealed = self._sealed_copy(tmp_path, NACA, key)
         # A fresh directory with nothing beside the file: no sibling context, no keys.
         elsewhere = tmp_path / "second-machine"
         elsewhere.mkdir()
         copied = elsewhere / NACA.name
-        shutil.copy(NACA, copied)
-        pub = elsewhere / "physmap-examples.pub"
-        shutil.copy(PUBKEY, pub)
-        rc, out = _verify(copied, pub, capsys)
+        shutil.copy(sealed, copied)
+        pub_copy = elsewhere / "physmap-examples.pub"
+        shutil.copy(pub, pub_copy)
+        capsys.readouterr()
+        rc, out = _verify(copied, pub_copy, capsys)
         assert rc == 0, out
         assert "Measurement hash match" in out and "Measurement signature valid" in out
 
-    def test_tampering_with_an_external_annotation_breaks_the_seal(self, tmp_path, capsys):
-        doc = _load(NACA)
+    def test_tampering_with_an_external_annotation_breaks_the_seal(self, tmp_path, signing_keypair, capsys):
+        key, pub = signing_keypair
+        sealed = self._sealed_copy(tmp_path, NACA, key)
+        doc = _load(sealed)
         doc["hasWeakener"][0][f"{SURR}observedValue"] = 12.0   # now inside the range
         tampered = _write(tmp_path, NACA.name, doc)
-        rc, out = _verify(tampered, PUBKEY, capsys)
+        capsys.readouterr()
+        rc, out = _verify(tampered, pub, capsys)
         assert rc == 1, out
 
     def test_sign_then_verify_round_trip_with_a_fresh_key(self, tmp_path, signing_keypair, capsys):

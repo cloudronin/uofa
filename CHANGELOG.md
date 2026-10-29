@@ -36,8 +36,9 @@ All notable changes to this project are documented here.
   Three PhysMAP-derived examples under `packs/surrogate/examples/physmap/`
   (NACA TN-1451 entrance region: 45 of 85 points fire W-SURR-05; Lewis 1992
   Test 35A gravity on: W-SURR-06 at three downstream stations; gravity off:
-  quiet), sealed with `uofa sign --as issuer` against a committed example
-  key, written by `dev/tools/scripts/build_physmap_examples.py` from
+  quiet), shipped unsigned like the other surrogate examples (the issuer
+  seal round trip runs in the tests with a fresh key), written by
+  `dev/tools/scripts/build_physmap_examples.py` from
   PhysMAP's real inputs because PhysMAP's export does not yet carry the ids
   or the fields. Per-rule fixtures under `tests/fixtures/weakeners/W-SURR-05/`
   and `W-SURR-06/`. 40 new tests.

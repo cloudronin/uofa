@@ -56,18 +56,21 @@ anything to judge.
 
 ## Seals
 
-Each package is sealed with `uofa sign --as issuer` (the measurement view;
-the decision record is excluded by construction and its signature stays
-owed). The key was generated for these examples and discarded after signing;
-its public half is `keys/physmap-examples.pub`:
+The packages ship unsigned (placeholder hash and signature), like the other
+surrogate examples. `uofa validate --verify` checks shipped seals against the
+shipped anchors only, so a seal under any other key would fail there. To seal
+one under a key of your own, with the measurement view signed and the decision
+record left owed:
 
 ```bash
+uofa sign packs/surrogate/examples/physmap/naca-entrance/uofa-surrogate-naca-entrance.jsonld \
+    --key <your-key> --as issuer
 uofa verify packs/surrogate/examples/physmap/naca-entrance/uofa-surrogate-naca-entrance.jsonld \
-    --pubkey packs/surrogate/examples/physmap/keys/physmap-examples.pub
+    --pubkey <your-key>.pub
 ```
 
-Regenerating the files with the build script invalidates the seals; re-seal
-with a key of your own and replace the public key.
+The round trip (seal, copy to a clean directory, verify, tamper, fail) runs in
+`tests/surrogate/test_external_annotations.py` with a fresh key.
 
 ## Commands
 
