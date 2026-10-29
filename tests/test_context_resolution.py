@@ -20,6 +20,8 @@ import pytest
 
 from uofa_cli import paths
 from uofa_cli.integrity import load_and_hash, resolve_context
+from uofa_cli.interrogate.signing import measurement_hash
+from uofa_cli.sign_roles import has_decision_layer
 
 
 @pytest.fixture(scope="module")
@@ -52,8 +54,17 @@ def test_hash_is_independent_of_the_toolchain_context(contexts):
     assert files, "expected some genuinely signed shipped packages"
 
     for f in files:
-        stored = json.loads(f.read_text(encoding="utf-8"))["hash"].replace("sha256:", "")
+        doc = json.loads(f.read_text(encoding="utf-8"))
+        stored = doc["hash"].replace("sha256:", "")
         _, _, own = load_and_hash(f, None)
+        if own != stored and has_decision_layer(doc):
+            # Sealed over the measurement view (`uofa sign --as issuer`): the
+            # decision layer is excluded and the context is hashed as declared,
+            # never inlined, so the toolchain default cannot reach the hash at
+            # all. The surrogate pack's PhysMAP examples ship in this state.
+            assert measurement_hash(doc) == stored, \
+                f"{f.name} does not verify on its own terms under either scope"
+            continue
         assert own == stored, f"{f.name} does not verify on its own terms"
 
         # Same answer no matter what the tool would otherwise have reached for.
