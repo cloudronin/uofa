@@ -36,7 +36,7 @@ const FORBIDDEN = ['/specs/', '/dev/', '/build/', '/.claude/', '/tests/', '/node
 // which would have put two different documents at `uofa.net/morrison/cou1` and
 // let a reader resolving the IRI the praxis record cites land on the sibling
 // instead. The originals are byte-frozen; the siblings carry the new model.
-export const EXPECTED_PACKAGE_COUNT = 13;
+export const EXPECTED_PACKAGE_COUNT = 16;
 
 function walkDir(dir, out = []) {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {

@@ -1,11 +1,12 @@
 # ============================================================================
-# UofA surrogate pack — C3 forward-chaining weakener catalog v0.1
+# UofA surrogate pack — C3 forward-chaining weakener catalog v0.2
 # ============================================================================
 # Spec: UofA_Surrogate_Pack_Spec_v0_1.md §6
 # Engine: Apache Jena GenericRuleReasoner (FORWARD_RETE mode)
 # Pack:   surrogate v0.1.0
 #
-# THE REAL CATALOG DELTA: three NEW patterns. The four REUSE patterns
+# THE REAL CATALOG DELTA: five NEW patterns (W-SURR-05/06 added in v0.2; see
+# their headers below). The four REUSE patterns
 # (W-EP-03, W-AR-04, W-AL-02, W-ON-02) are NOT redefined here — they live in
 # packs/core/rules/uofa_weakener.rules and fire as-is on surrogate packages
 # that carry the core properties they key on (the CLI combines core + pack
@@ -130,4 +131,104 @@
     (?uofa uofa:hasWeakener ?ann)
 ]
 
-# End of surrogate weakener catalog v0.1 (3 new patterns: W-SURR-01/02/03)
+# ----------------------------------------------------------------------------
+# W-SURR-05: Prediction relies on a closure outside its validated range (High).
+# Physics the surrogate cannot see. An external applicability tool (PhysMAP)
+# reports, on a WeakenerAnnotation, the closure the prediction relies on, the
+# bound variable, the closure's validated range and the observed value. The
+# rule fires when the observed value lies outside the range. Distinct from
+# W-SURR-03 (inputs outside the TRAINING envelope): the bound variable need not
+# be a surrogate input at all, so an input-based envelope check stays silent.
+# Two arms, one per side of the range, so a one-sided range (only a lower or
+# only an upper end declared) still fires. The rule asserts the catalog id and
+# severity onto the SAME node and marks it with the derived flag
+# _closureOutsideValidatedRange, which is the countable trace of the firing
+# (an external node already carrying the id leaves no new triple otherwise).
+# ----------------------------------------------------------------------------
+[w_surr_05_below:
+    (?ann uofa-surr:closureId ?closure)
+    (?ann uofa-surr:boundVariable ?var)
+    (?ann uofa-surr:validatedMin ?lo)
+    (?ann uofa-surr:observedValue ?obs)
+    lessThan(?obs, ?lo)
+    (?ann uofa:affectedNode ?target)
+    (?uofa rdf:type uofa:UnitOfAssurance)
+    ->
+    (?ann rdf:type uofa:WeakenerAnnotation)
+    (?ann uofa:patternId 'W-SURR-05')
+    (?ann uofa:severity 'High')
+    (?ann uofa-surr:_closureOutsideValidatedRange 'true'^^xsd:boolean)
+    (?ann schema:description 'Prediction relies on a closure outside its validated range: the observed value of the bound variable is below the validated lower end of the closure. Physics the surrogate cannot see.')
+    (?uofa uofa:hasWeakener ?ann)
+]
+
+[w_surr_05_above:
+    (?ann uofa-surr:closureId ?closure)
+    (?ann uofa-surr:boundVariable ?var)
+    (?ann uofa-surr:validatedMax ?hi)
+    (?ann uofa-surr:observedValue ?obs)
+    greaterThan(?obs, ?hi)
+    (?ann uofa:affectedNode ?target)
+    (?uofa rdf:type uofa:UnitOfAssurance)
+    ->
+    (?ann rdf:type uofa:WeakenerAnnotation)
+    (?ann uofa:patternId 'W-SURR-05')
+    (?ann uofa:severity 'High')
+    (?ann uofa-surr:_closureOutsideValidatedRange 'true'^^xsd:boolean)
+    (?ann schema:description 'Prediction relies on a closure outside its validated range: the observed value of the bound variable is above the validated upper end of the closure. Physics the surrogate cannot see.')
+    (?uofa uofa:hasWeakener ?ann)
+]
+
+# ----------------------------------------------------------------------------
+# W-SURR-06: An omitted mechanism is active and material (High).
+# The surrogate was built without a mechanism (e.g. buoyancy) and is reused
+# where it acts. The annotation names the mechanism, its dimensionless group,
+# the calibration window of that group, the observed value and the materiality
+# from a matched ablation, plus the threshold the materiality is judged
+# against. Active: observed value outside the calibration window. Material:
+# materiality at or above the declared threshold. Both are needed; materiality
+# below the threshold does not fire. The threshold's status (illustrative or
+# declared) rides on the annotation as data and is never read by the rule.
+# Two arms for the window, as for W-SURR-05.
+# ----------------------------------------------------------------------------
+[w_surr_06_above:
+    (?ann uofa-surr:mechanism ?mech)
+    (?ann uofa-surr:dimensionlessGroup ?grp)
+    (?ann uofa-surr:calibrationMax ?hi)
+    (?ann uofa-surr:observedValue ?obs)
+    greaterThan(?obs, ?hi)
+    (?ann uofa-surr:materiality ?mat)
+    (?ann uofa-surr:materialityThreshold ?theta)
+    ge(?mat, ?theta)
+    (?ann uofa:affectedNode ?target)
+    (?uofa rdf:type uofa:UnitOfAssurance)
+    ->
+    (?ann rdf:type uofa:WeakenerAnnotation)
+    (?ann uofa:patternId 'W-SURR-06')
+    (?ann uofa:severity 'High')
+    (?ann uofa-surr:_omittedMechanismMaterial 'true'^^xsd:boolean)
+    (?ann schema:description 'An omitted mechanism is active and material: the dimensionless group lies above the calibration window and the matched-ablation materiality is at or above the declared threshold.')
+    (?uofa uofa:hasWeakener ?ann)
+]
+
+[w_surr_06_below:
+    (?ann uofa-surr:mechanism ?mech)
+    (?ann uofa-surr:dimensionlessGroup ?grp)
+    (?ann uofa-surr:calibrationMin ?lo)
+    (?ann uofa-surr:observedValue ?obs)
+    lessThan(?obs, ?lo)
+    (?ann uofa-surr:materiality ?mat)
+    (?ann uofa-surr:materialityThreshold ?theta)
+    ge(?mat, ?theta)
+    (?ann uofa:affectedNode ?target)
+    (?uofa rdf:type uofa:UnitOfAssurance)
+    ->
+    (?ann rdf:type uofa:WeakenerAnnotation)
+    (?ann uofa:patternId 'W-SURR-06')
+    (?ann uofa:severity 'High')
+    (?ann uofa-surr:_omittedMechanismMaterial 'true'^^xsd:boolean)
+    (?ann schema:description 'An omitted mechanism is active and material: the dimensionless group lies below the calibration window and the matched-ablation materiality is at or above the declared threshold.')
+    (?uofa uofa:hasWeakener ?ann)
+]
+
+# End of surrogate weakener catalog v0.2 (5 new patterns: W-SURR-01/02/03/05/06)

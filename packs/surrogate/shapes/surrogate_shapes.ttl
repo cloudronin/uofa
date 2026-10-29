@@ -25,6 +25,8 @@
 @prefix rdf:       <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 @prefix rdfs:      <http://www.w3.org/2000/01/rdf-schema#> .
 @prefix xsd:       <http://www.w3.org/2001/XMLSchema#> .
+@prefix prov:      <http://www.w3.org/ns/prov#> .
+@prefix schema:    <https://schema.org/> .
 
 # ============================================================================
 # §A. Vocabulary (uofa-surr:)
@@ -210,6 +212,107 @@ uofa-surr:_evalOutsideEnvelope a rdf:Property ;
     rdfs:label "(derived) evaluation outside envelope" ;
     rdfs:comment "Materialized by derivations/surrogate_derivations_v0.1.sparql when the evaluation point/region is not contained in the training envelope. Leading underscore signals 'computed, not authored'. Consumed by W-SURR-03." .
 
+# --- §A.9 Applicability observations carried by external annotations --------
+# W-SURR-05 and W-SURR-06 fire on measurements an external tool (PhysMAP) made
+# and reported inside a WeakenerAnnotation. The fields are structured, not
+# prose, so the rule can read them: a justification string names the closure
+# and the bound; these properties let the engine check the numbers.
+
+uofa-surr:closureId a rdf:Property ;
+    rdfs:range xsd:string ;
+    rdfs:label "closure id" ;
+    rdfs:comment "The literature closure (e.g. gnielinski-1976) the prediction relies on. Read by W-SURR-05." .
+
+uofa-surr:boundVariable a rdf:Property ;
+    rdfs:range xsd:string ;
+    rdfs:label "bound variable" ;
+    rdfs:comment "The physical coordinate whose validated range the closure carries (e.g. x_over_D). The surrogate need not take it as an input: that is the point of W-SURR-05." .
+
+uofa-surr:validatedMin a rdf:Property ;
+    rdfs:label "validated range, lower end" ;
+    rdfs:comment "Lower end of the closure's validated range for boundVariable. Omit when the range is unbounded below." .
+
+uofa-surr:validatedMax a rdf:Property ;
+    rdfs:label "validated range, upper end" ;
+    rdfs:comment "Upper end of the closure's validated range for boundVariable. Omit when the range is unbounded above." .
+
+uofa-surr:observedValue a rdf:Property ;
+    rdfs:label "observed value" ;
+    rdfs:comment "The value of boundVariable (W-SURR-05) or of the dimensionless group (W-SURR-06) at the point under review." .
+
+uofa-surr:mechanism a rdf:Property ;
+    rdfs:range xsd:string ;
+    rdfs:label "mechanism" ;
+    rdfs:comment "A physical mechanism the surrogate does not represent (e.g. buoyancy). Read by W-SURR-06." .
+
+uofa-surr:dimensionlessGroup a rdf:Property ;
+    rdfs:range xsd:string ;
+    rdfs:label "dimensionless group" ;
+    rdfs:comment "The group that says whether the mechanism is active (e.g. richardson_number)." .
+
+uofa-surr:calibrationMin a rdf:Property ;
+    rdfs:label "calibration window, lower end" ;
+    rdfs:comment "Lower end of the window of the dimensionless group over which the surrogate was calibrated." .
+
+uofa-surr:calibrationMax a rdf:Property ;
+    rdfs:label "calibration window, upper end" ;
+    rdfs:comment "Upper end of the window of the dimensionless group over which the surrogate was calibrated." .
+
+uofa-surr:materiality a rdf:Property ;
+    rdfs:label "materiality" ;
+    rdfs:comment "How much the omitted mechanism moves the quantity of interest, as a fraction, from a matched ablation (mechanism on versus off, nothing else changed)." .
+
+uofa-surr:materialityThreshold a rdf:Property ;
+    rdfs:label "materiality threshold" ;
+    rdfs:comment "The threshold the annotation declares. W-SURR-06 fires only at or above it." .
+
+uofa-surr:materialityThresholdStatus a rdf:Property ;
+    rdfs:range xsd:string ;
+    rdfs:label "materiality threshold status" ;
+    rdfs:comment "illustrative when the threshold is not locked (reported as a value, not a verdict); declared when it comes from the COU acceptance criteria." .
+
+uofa-surr:applicabilityFactor a rdf:Property ;
+    rdfs:range uofa:CredibilityFactor ;
+    rdfs:label "applicability factor" ;
+    rdfs:comment "Links the package to the per-point CredibilityFactor nodes an external applicability tool reports, one per point per detector, fired or quiet. A quiet factor carries the same observation fields as a fired annotation, so a rule's silence is a judgement about the numbers rather than an absence of anything to judge. Kept apart from hasCredibilityFactor, whose shape is the standard's factor table." .
+
+# --- §A.10 Derived markers (asserted by the Jena rules; declared so they are known)
+
+uofa-surr:_closureOutsideValidatedRange a rdf:Property ;
+    rdfs:range xsd:boolean ;
+    rdfs:label "(derived) closure outside validated range" ;
+    rdfs:comment "Asserted by w_surr_05 on the annotation whose observedValue lies outside [validatedMin, validatedMax]. Leading underscore signals 'computed, not authored'. The marker is what makes the rule firing countable in the engine's deductions, since re-asserting a triple the data already carries leaves no trace." .
+
+uofa-surr:_omittedMechanismMaterial a rdf:Property ;
+    rdfs:range xsd:boolean ;
+    rdfs:label "(derived) omitted mechanism active and material" ;
+    rdfs:comment "Asserted by w_surr_06 on the annotation whose observedValue lies outside the calibration window and whose materiality is at or above materialityThreshold." .
+
+# --- §A.11 External annotations (terms in the core namespace, declared here) --
+# A WeakenerAnnotation may be authored outside UofA by a software agent and
+# carried in the package before anyone has dispositioned it. These three terms
+# say where it came from, what the agent suggests, and which Disposition (if
+# any) answers it. They sit in the uofa: namespace because nothing about them is
+# surrogate-specific, and are declared in this pack (as the disposition pack
+# declares uofa:Disposition) rather than in core, so no shipped package re-hashes
+# and no core shape changes. Candidates for core promotion.
+
+uofa:source a rdf:Property ;
+    rdfs:range xsd:string ;
+    rdfs:label "source" ;
+    rdfs:comment "Where a WeakenerAnnotation came from. 'external': authored by a software agent outside UofA and carried in the package; it must then be attributed (prov:wasAttributedTo) to that agent. Absent for annotations the rule engine infers." .
+
+uofa:recommendedAction a rdf:Property ;
+    rdfs:range xsd:string ;
+    rdfs:label "recommended action" ;
+    rdfs:comment "An action class the external agent suggests, from the five Disposition action classes. A recommendation, never a Disposition: nothing reads it as one, and an annotation carrying it and no Disposition is undispositioned." .
+
+uofa:dispositionOf a rdf:Property ;
+    rdfs:domain uofa:Disposition ;
+    rdfs:range uofa:WeakenerAnnotation ;
+    rdfs:label "disposition of" ;
+    rdfs:comment "Links a Disposition to the WeakenerAnnotation it answers. An annotation no Disposition points at is undispositioned, whatever it recommends." .
+
 # --- §A.8 OOS claim + evidence types (judgment-required dimensions) ----------
 # Productive-OOS (Phase C): claim types whose bundle-sufficiency the OOS engine
 # checks. Absence of the required evidence surfaces a judgment-required gap
@@ -259,6 +362,12 @@ uofa-surr:SurrogateModelShape a sh:NodeShape ;
         sh:message "A SurrogateModel must declare exactly one surrogateType from the enum." ;
     ] .
 
+# NOTE on numeric datatypes (v0.2): the JSON-LD parser types a JSON float as
+# xsd:double and a JSON integer as xsd:integer; neither is xsd:decimal, so the
+# v0.1 `sh:datatype xsd:decimal` rejected every shipped example's bounds
+# (the airfrans packages failed C2 on minBound/maxBound). The bound and
+# coordinate shapes now accept any of the three numeric types; the SPARQL
+# containment pre-pass compares them as numbers regardless.
 uofa-surr:EnvelopeDimensionShape a sh:NodeShape ;
     sh:targetClass uofa-surr:EnvelopeDimension ;
     sh:property [
@@ -269,15 +378,17 @@ uofa-surr:EnvelopeDimensionShape a sh:NodeShape ;
     ] ;
     sh:property [
         sh:path uofa-surr:minBound ;
-        sh:datatype xsd:decimal ;
+        sh:or ( [ sh:datatype xsd:decimal ] [ sh:datatype xsd:double ] [ sh:datatype xsd:integer ] ) ;
         sh:minCount 1 ;
         sh:maxCount 1 ;
+        sh:message "minBound must be a number (decimal, double or integer)." ;
     ] ;
     sh:property [
         sh:path uofa-surr:maxBound ;
-        sh:datatype xsd:decimal ;
+        sh:or ( [ sh:datatype xsd:decimal ] [ sh:datatype xsd:double ] [ sh:datatype xsd:integer ] ) ;
         sh:minCount 1 ;
         sh:maxCount 1 ;
+        sh:message "maxBound must be a number (decimal, double or integer)." ;
     ] .
 
 uofa-surr:PointCoordinateShape a sh:NodeShape ;
@@ -290,9 +401,10 @@ uofa-surr:PointCoordinateShape a sh:NodeShape ;
     ] ;
     sh:property [
         sh:path uofa-surr:coordinateValue ;
-        sh:datatype xsd:decimal ;
+        sh:or ( [ sh:datatype xsd:decimal ] [ sh:datatype xsd:double ] [ sh:datatype xsd:integer ] ) ;
         sh:minCount 1 ;
         sh:maxCount 1 ;
+        sh:message "coordinateValue must be a number (decimal, double or integer)." ;
     ] .
 
 uofa-surr:PhysicsConstraintShape a sh:NodeShape ;
@@ -325,4 +437,74 @@ uofa-surr:ParentModelSnapshotShape a sh:NodeShape ;
         sh:in ( "Accepted" "Not Accepted" "Conditional" ) ;
         sh:maxCount 1 ;
         sh:message "parentDecision, when present, must be Accepted, Not Accepted, or Conditional (absence = no decision recorded)." ;
+    ] .
+
+# ----------------------------------------------------------------------------
+# External annotation shape (U3). Targets every WeakenerAnnotation: one that
+# says source "external" must be attributed to a software agent with a name
+# and a version, and must carry its justification. An annotation with no
+# source (engine-inferred, or authored without saying) is untouched by the
+# attribution branch. recommendedAction, when present, is one of the five
+# Disposition action classes.
+# ----------------------------------------------------------------------------
+
+uofa-surr:ExternalWeakenerAnnotationShape a sh:NodeShape ;
+    sh:targetClass uofa:WeakenerAnnotation ;
+    sh:property [
+        sh:path uofa:source ;
+        sh:datatype xsd:string ;
+        sh:in ( "external" ) ;
+        sh:maxCount 1 ;
+        sh:message "source, when present on a WeakenerAnnotation, must be 'external'." ;
+    ] ;
+    sh:property [
+        sh:path uofa:recommendedAction ;
+        sh:datatype xsd:string ;
+        sh:in ( "restrict-cou" "acquire-validation" "characterize-region" "accept-residual-risk" "change-cou" ) ;
+        sh:maxCount 1 ;
+        sh:message "recommendedAction, when present, must be one of the five Disposition action classes (restrict-cou, acquire-validation, characterize-region, accept-residual-risk, change-cou)." ;
+    ] ;
+    sh:or (
+        [ sh:not [ sh:property [ sh:path uofa:source ; sh:hasValue "external" ] ] ]
+        [
+            sh:property [
+                sh:path prov:wasAttributedTo ;
+                sh:minCount 1 ;
+                sh:node uofa-surr:SoftwareAgentShape ;
+            ] ;
+            sh:property [
+                sh:path uofa:justification ;
+                sh:datatype xsd:string ;
+                sh:minCount 1 ;
+                sh:maxCount 1 ;
+            ]
+        ]
+    ) ;
+    sh:message "An external WeakenerAnnotation (source 'external') must carry prov:wasAttributedTo a prov:SoftwareAgent with a name and a version, and a justification." .
+
+uofa-surr:SoftwareAgentShape a sh:NodeShape ;
+    sh:class prov:SoftwareAgent ;
+    sh:property [
+        sh:path schema:name ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:message "The attributed software agent must carry a name." ;
+    ] ;
+    sh:property [
+        sh:path uofa:version ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:message "The attributed software agent must carry a version." ;
+    ] .
+
+# ----------------------------------------------------------------------------
+# Disposition link shape: a dispositionOf edge must point at a node.
+# ----------------------------------------------------------------------------
+
+uofa-surr:DispositionLinkShape a sh:NodeShape ;
+    sh:targetSubjectsOf uofa:dispositionOf ;
+    sh:property [
+        sh:path uofa:dispositionOf ;
+        sh:nodeKind sh:IRI ;
+        sh:message "dispositionOf must be an IRI naming the WeakenerAnnotation the Disposition answers." ;
     ] .

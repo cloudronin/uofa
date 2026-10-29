@@ -70,6 +70,12 @@ EXTERNAL_GLOSS: dict[str, tuple[str, str]] = {
         "schema.org",
         "A description of the item, in prose.",
     ),
+    "https://schema.org/name": (
+        "schema.org",
+        "The name of the item. On a software agent that authored an "
+        "annotation, the name of the tool, so the reader knows what measured "
+        "it.",
+    ),
 }
 
 
