@@ -351,6 +351,205 @@ def parse_individual_annotations(jsonld_text: str) -> list[dict]:
     return out
 
 
+# ── authored (external) annotations ──────────────────────────────────────────
+#
+# The engine's `--format jsonld` output is its DEDUCTIONS: only triples the
+# rules added. A WeakenerAnnotation that arrived IN the package -- authored by
+# an external tool such as an applicability screen, carried with `source:
+# external` and attributed to the software agent that wrote it -- already has
+# its type, id and severity in the data, so the deductions carry nothing of it
+# and `parse_firings_jsonld` never sees it. (The summary format lists it,
+# because the engine walks the whole inference model there.) The JSON view
+# therefore reads the package itself for authored annotations and merges them
+# in, each stamped with where it came from and whether any Disposition answers
+# it. The package is the only place the `source` and `recommendedAction` of an
+# annotation live, and a recommendation is never read as a Disposition.
+
+SOURCE_ENGINE = "engine"      # inferred by the rules in this run
+SOURCE_EXTERNAL = "external"  # authored outside UofA by a software agent, carried in the package
+SOURCE_PACKAGE = "package"    # authored in the package with no source stated
+
+_ANNOTATION_TYPES = {"WeakenerAnnotation", "uofa:WeakenerAnnotation", _TYPE_WEAKENER_ANNOTATION}
+_DISPOSITION_TYPES = {"Disposition", "uofa:Disposition", f"{_VOCAB}Disposition"}
+_DISPOSITION_OF_KEYS = ("dispositionOf", "uofa:dispositionOf", f"{_VOCAB}dispositionOf")
+
+
+def _types_of(node: dict) -> list[str]:
+    raw = node.get("type", node.get("@type"))
+    if raw is None:
+        return []
+    return [str(t) for t in (raw if isinstance(raw, list) else [raw])]
+
+
+def _node_id(value) -> str:
+    """The IRI a value names: a bare string, or a node object's id."""
+    if isinstance(value, str):
+        return value
+    if isinstance(value, dict):
+        v = value.get("id", value.get("@id"))
+        return v if isinstance(v, str) else ""
+    return ""
+
+
+def _walk_nodes(value):
+    """Every dict reachable in a JSON document, depth first."""
+    if isinstance(value, dict):
+        yield value
+        for v in value.values():
+            yield from _walk_nodes(v)
+    elif isinstance(value, list):
+        for v in value:
+            yield from _walk_nodes(v)
+
+
+def dispositioned_annotation_ids(doc: dict) -> dict[str, str]:
+    """{annotation IRI: Disposition IRI} for every `dispositionOf` edge in the package.
+
+    Only a node typed Disposition counts. A `recommendedAction` on the annotation
+    itself is not a Disposition and never lands here.
+    """
+    out: dict[str, str] = {}
+    for node in _walk_nodes(doc):
+        if not any(t in _DISPOSITION_TYPES for t in _types_of(node)):
+            continue
+        disp_id = _node_id(node)
+        for key in _DISPOSITION_OF_KEYS:
+            targets = node.get(key)
+            if targets is None:
+                continue
+            for t in (targets if isinstance(targets, list) else [targets]):
+                tid = _node_id(t)
+                if tid:
+                    out.setdefault(tid, disp_id or "<unnamed Disposition>")
+    return out
+
+
+def authored_annotations(doc: dict) -> list[dict]:
+    """One record per WeakenerAnnotation node authored IN the package.
+
+        {
+            "id":                "https://.../weakener/re55570-xd1",
+            "patternId":         "W-SURR-05",
+            "severity":          "High",
+            "affected_node":     "https://.../discrepancy/re55570-xd1",
+            "description":       "<justification or description>",
+            "source":            "external" | "package",
+            "attributed_to":     "https://github.com/cloudronin/physmap",
+            "recommendedAction": "characterize-region" | "",
+            "disposition":       "undispositioned" | "<Disposition IRI>",
+        }
+
+    `source` is "external" only when the node says so; an authored node that
+    states no source is reported as "package". A node is undispositioned unless
+    a Disposition node's `dispositionOf` names it -- whatever it recommends.
+    """
+    dispositioned = dispositioned_annotation_ids(doc)
+    out: list[dict] = []
+    seen: set[str] = set()
+    for node in _walk_nodes(doc):
+        if not any(t in _ANNOTATION_TYPES for t in _types_of(node)):
+            continue
+        nid = _node_id(node)
+        if nid and nid in seen:
+            continue
+        if nid:
+            seen.add(nid)
+        source = _str_or_empty(node.get("source", node.get("uofa:source")))
+        out.append({
+            "id": nid,
+            "patternId": _str_or_empty(node.get("patternId")),
+            "severity": _str_or_empty(node.get("severity")) or "Medium",
+            "affected_node": _node_id(node.get("affectedNode")),
+            "description": (_str_or_empty(node.get("justification"))
+                            or _str_or_empty(node.get("description"))),
+            "source": SOURCE_EXTERNAL if source == SOURCE_EXTERNAL else SOURCE_PACKAGE,
+            "attributed_to": _node_id(node.get("wasAttributedTo", node.get("prov:wasAttributedTo"))),
+            "recommendedAction": _str_or_empty(node.get("recommendedAction")),
+            "disposition": dispositioned.get(nid, "undispositioned") if nid else "undispositioned",
+        })
+    return out
+
+
+def merge_authored_firings(engine_firings: list[dict], authored: list[dict],
+                           deduced_pattern_ids: dict[str, str] | None = None) -> list[dict]:
+    """Fold authored annotations into the per-pattern firings list.
+
+    Engine firings (deductions) and authored annotations never describe the
+    same node twice: a node the data already types as a WeakenerAnnotation
+    leaves no type in the deductions, so the engine-side parser skips it. An
+    authored node with no patternId takes the id a rule deduced for it, when
+    `deduced_pattern_ids` (node IRI -> patternId, from the deductions) says so.
+
+    Every entry gains `source` ("engine", "external", "package", or "mixed"
+    when a pattern has hits of more than one kind) and `hits_by_source`.
+    Entries with authored hits also gain `disposition` counts,
+    `recommended_actions` counts and the per-annotation `annotations` list, so
+    a downstream disposition tool can address each one.
+    """
+    deduced = deduced_pattern_ids or {}
+    merged: dict[str, dict] = {}
+    order: list[str] = []
+    for f in engine_firings:
+        entry = {**f, "source": SOURCE_ENGINE,
+                 "hits_by_source": {SOURCE_ENGINE: f.get("hits", 0)}}
+        merged[f["patternId"]] = entry
+        order.append(f["patternId"])
+
+    for ann in authored:
+        pid = ann["patternId"] or deduced.get(ann["id"], "")
+        if not pid:
+            continue
+        if pid not in merged:
+            merged[pid] = {
+                "patternId": pid,
+                "severity": ann["severity"],
+                "hits": 0,
+                "description": ann["description"],
+                "affected_nodes": [],
+                "escalation_sources": [],
+                "source": ann["source"],
+                "hits_by_source": {},
+            }
+            order.append(pid)
+        entry = merged[pid]
+        entry["hits"] += 1
+        entry["hits_by_source"][ann["source"]] = entry["hits_by_source"].get(ann["source"], 0) + 1
+        if ann["affected_node"] and ann["affected_node"] not in entry["affected_nodes"]:
+            entry["affected_nodes"].append(ann["affected_node"])
+        entry.setdefault("disposition", {"undispositioned": 0, "dispositioned": 0})
+        state = "undispositioned" if ann["disposition"] == "undispositioned" else "dispositioned"
+        entry["disposition"][state] += 1
+        entry.setdefault("recommended_actions", {})
+        if ann["recommendedAction"]:
+            entry["recommended_actions"][ann["recommendedAction"]] = (
+                entry["recommended_actions"].get(ann["recommendedAction"], 0) + 1)
+        entry.setdefault("annotations", []).append({**ann, "patternId": pid})
+
+    for entry in merged.values():
+        kinds = [k for k, n in entry["hits_by_source"].items() if n]
+        entry["source"] = kinds[0] if len(kinds) == 1 else "mixed"
+    return [merged[pid] for pid in order]
+
+
+def deduced_pattern_ids(jsonld_text: str) -> dict[str, str]:
+    """{node IRI: patternId} for every deduced patternId, typed node or not."""
+    try:
+        doc = json.loads(jsonld_text)
+    except json.JSONDecodeError:
+        return {}
+    graph = doc.get("@graph") if isinstance(doc, dict) else None
+    if not isinstance(graph, list):
+        return {}
+    out: dict[str, str] = {}
+    for node in graph:
+        if isinstance(node, dict):
+            pid = _str_or_empty(node.get(_PROP_PATTERN_ID))
+            nid = _str_or_empty(node.get("@id"))
+            if pid and nid:
+                out[nid] = pid
+    return out
+
+
 def _str_or_empty(value) -> str:
     """Coerce a JSON-LD literal to plain str. Handles `{"@value": "..."}` form
     plus bare strings. Returns empty string on anything unexpected."""
@@ -558,16 +757,32 @@ def run(args) -> int:
             result = run_structured(args)
         finally:
             args.format = original_format
-        firings = parse_firings_jsonld(result.raw_stdout)
+        engine_firings = parse_firings_jsonld(result.raw_stdout)
+        # Authored annotations live in the package, not in the deductions.
+        try:
+            package_doc = json.loads(args.file.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            package_doc = {}
+        authored = authored_annotations(package_doc) if isinstance(package_doc, dict) else []
+        firings = merge_authored_firings(
+            engine_firings, authored, deduced_pattern_ids(result.raw_stdout))
         severity_counts: dict[str, int] = {}
         for f in firings:
             severity_counts[f["severity"]] = severity_counts.get(f["severity"], 0) + f["hits"]
+        by_source: dict[str, int] = {}
+        for f in firings:
+            for k, n in f["hits_by_source"].items():
+                by_source[k] = by_source.get(k, 0) + n
+        undispositioned = sum(
+            f.get("disposition", {}).get("undispositioned", 0) for f in firings)
         document = {
             "file": str(args.file),
             "summary": {
                 "total_firings": sum(f["hits"] for f in firings),
                 "patterns": len(firings),
                 "by_severity": severity_counts,
+                "by_source": by_source,
+                "undispositioned": undispositioned,
             },
             "firings": firings,
         }

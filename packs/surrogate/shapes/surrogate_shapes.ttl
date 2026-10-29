@@ -25,6 +25,8 @@
 @prefix rdf:       <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 @prefix rdfs:      <http://www.w3.org/2000/01/rdf-schema#> .
 @prefix xsd:       <http://www.w3.org/2001/XMLSchema#> .
+@prefix prov:      <http://www.w3.org/ns/prov#> .
+@prefix schema:    <https://schema.org/> .
 
 # ============================================================================
 # §A. Vocabulary (uofa-surr:)
@@ -286,6 +288,31 @@ uofa-surr:_omittedMechanismMaterial a rdf:Property ;
     rdfs:label "(derived) omitted mechanism active and material" ;
     rdfs:comment "Asserted by w_surr_06 on the annotation whose observedValue lies outside the calibration window and whose materiality is at or above materialityThreshold." .
 
+# --- §A.11 External annotations (terms in the core namespace, declared here) --
+# A WeakenerAnnotation may be authored outside UofA by a software agent and
+# carried in the package before anyone has dispositioned it. These three terms
+# say where it came from, what the agent suggests, and which Disposition (if
+# any) answers it. They sit in the uofa: namespace because nothing about them is
+# surrogate-specific, and are declared in this pack (as the disposition pack
+# declares uofa:Disposition) rather than in core, so no shipped package re-hashes
+# and no core shape changes. Candidates for core promotion.
+
+uofa:source a rdf:Property ;
+    rdfs:range xsd:string ;
+    rdfs:label "source" ;
+    rdfs:comment "Where a WeakenerAnnotation came from. 'external': authored by a software agent outside UofA and carried in the package; it must then be attributed (prov:wasAttributedTo) to that agent. Absent for annotations the rule engine infers." .
+
+uofa:recommendedAction a rdf:Property ;
+    rdfs:range xsd:string ;
+    rdfs:label "recommended action" ;
+    rdfs:comment "An action class the external agent suggests, from the five Disposition action classes. A recommendation, never a Disposition: nothing reads it as one, and an annotation carrying it and no Disposition is undispositioned." .
+
+uofa:dispositionOf a rdf:Property ;
+    rdfs:domain uofa:Disposition ;
+    rdfs:range uofa:WeakenerAnnotation ;
+    rdfs:label "disposition of" ;
+    rdfs:comment "Links a Disposition to the WeakenerAnnotation it answers. An annotation no Disposition points at is undispositioned, whatever it recommends." .
+
 # --- §A.8 OOS claim + evidence types (judgment-required dimensions) ----------
 # Productive-OOS (Phase C): claim types whose bundle-sufficiency the OOS engine
 # checks. Absence of the required evidence surfaces a judgment-required gap
@@ -410,4 +437,74 @@ uofa-surr:ParentModelSnapshotShape a sh:NodeShape ;
         sh:in ( "Accepted" "Not Accepted" "Conditional" ) ;
         sh:maxCount 1 ;
         sh:message "parentDecision, when present, must be Accepted, Not Accepted, or Conditional (absence = no decision recorded)." ;
+    ] .
+
+# ----------------------------------------------------------------------------
+# External annotation shape (U3). Targets every WeakenerAnnotation: one that
+# says source "external" must be attributed to a software agent with a name
+# and a version, and must carry its justification. An annotation with no
+# source (engine-inferred, or authored without saying) is untouched by the
+# attribution branch. recommendedAction, when present, is one of the five
+# Disposition action classes.
+# ----------------------------------------------------------------------------
+
+uofa-surr:ExternalWeakenerAnnotationShape a sh:NodeShape ;
+    sh:targetClass uofa:WeakenerAnnotation ;
+    sh:property [
+        sh:path uofa:source ;
+        sh:datatype xsd:string ;
+        sh:in ( "external" ) ;
+        sh:maxCount 1 ;
+        sh:message "source, when present on a WeakenerAnnotation, must be 'external'." ;
+    ] ;
+    sh:property [
+        sh:path uofa:recommendedAction ;
+        sh:datatype xsd:string ;
+        sh:in ( "restrict-cou" "acquire-validation" "characterize-region" "accept-residual-risk" "change-cou" ) ;
+        sh:maxCount 1 ;
+        sh:message "recommendedAction, when present, must be one of the five Disposition action classes (restrict-cou, acquire-validation, characterize-region, accept-residual-risk, change-cou)." ;
+    ] ;
+    sh:or (
+        [ sh:not [ sh:property [ sh:path uofa:source ; sh:hasValue "external" ] ] ]
+        [
+            sh:property [
+                sh:path prov:wasAttributedTo ;
+                sh:minCount 1 ;
+                sh:node uofa-surr:SoftwareAgentShape ;
+            ] ;
+            sh:property [
+                sh:path uofa:justification ;
+                sh:datatype xsd:string ;
+                sh:minCount 1 ;
+                sh:maxCount 1 ;
+            ]
+        ]
+    ) ;
+    sh:message "An external WeakenerAnnotation (source 'external') must carry prov:wasAttributedTo a prov:SoftwareAgent with a name and a version, and a justification." .
+
+uofa-surr:SoftwareAgentShape a sh:NodeShape ;
+    sh:class prov:SoftwareAgent ;
+    sh:property [
+        sh:path schema:name ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:message "The attributed software agent must carry a name." ;
+    ] ;
+    sh:property [
+        sh:path uofa:version ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:message "The attributed software agent must carry a version." ;
+    ] .
+
+# ----------------------------------------------------------------------------
+# Disposition link shape: a dispositionOf edge must point at a node.
+# ----------------------------------------------------------------------------
+
+uofa-surr:DispositionLinkShape a sh:NodeShape ;
+    sh:targetSubjectsOf uofa:dispositionOf ;
+    sh:property [
+        sh:path uofa:dispositionOf ;
+        sh:nodeKind sh:IRI ;
+        sh:message "dispositionOf must be an IRI naming the WeakenerAnnotation the Disposition answers." ;
     ] .
