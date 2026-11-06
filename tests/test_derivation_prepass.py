@@ -21,7 +21,9 @@ Phase 5.2-5.6 add brittleness/derivation/post-migration test classes.
 from __future__ import annotations
 
 import argparse
+import re
 import shutil
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
@@ -40,6 +42,35 @@ needs_jar = pytest.mark.skipif(
     not (JAVA_AVAILABLE and JAR.exists()),
     reason="java + built JAR required",
 )
+
+# The one date-dependent fixture. The negative audit record is meant to be six
+# months old on an annual cadence, and `_auditOverdue` compares its auditDate
+# with SPARQL NOW(). Dated literally (2025-11-06), it fell due on 2026-11-06 and
+# its "should not fire" cases started failing with nothing changed. So it runs
+# from a copy dated relative to today, as test_iso42001_baselines.py does for
+# COU2. The copy changes those two dates and nothing else.
+AUDIT_NEGATIVE = "W-AIMS-AUDIT-STALE/negative.jsonld"
+
+
+def _fixture(fixture: str, work: Path) -> Path:
+    """The fixture's path, or for the audit negative, a copy under `work`
+    with its audit 182 days old and its next review 183 days away."""
+    path = BRITTLENESS_DIR / fixture
+    assert path.exists(), f"missing fixture: {fixture}"
+    if fixture != AUDIT_NEGATIVE:
+        return path
+    now = datetime.now(timezone.utc).replace(microsecond=0)
+    text = path.read_text(encoding="utf-8")
+    for key, when in (("auditDate", now - timedelta(days=182)),
+                      ("nextReviewDate", now + timedelta(days=183))):
+        text, n = re.subn(
+            rf'("https://uofa.net/vocab/aims#{key}": )"[^"]*"',
+            rf'\g<1>"{when.strftime("%Y-%m-%dT%H:%M:%SZ")}"', text)
+        assert n == 1, f"{fixture}: expected one {key}, found {n}"
+    copy = work / fixture
+    copy.parent.mkdir(parents=True, exist_ok=True)
+    copy.write_text(text, encoding="utf-8")
+    return copy
 
 
 def _check_args(file_path: Path, *, pack: list[str] | None = None,
@@ -374,9 +405,8 @@ class TestDerivedFlagCoverage:
 
     @pytest.mark.parametrize("derived_pred,fixture,should_be_present",
                              DERIVED_FLAG_COVERAGE)
-    def test_derived_flag(self, derived_pred, fixture, should_be_present):
-        fixture_path = BRITTLENESS_DIR / fixture
-        assert fixture_path.exists(), f"missing fixture: {fixture}"
+    def test_derived_flag(self, derived_pred, fixture, should_be_present, tmp_path):
+        fixture_path = _fixture(fixture, tmp_path)
         full_iri = derived_pred.replace(
             "uofa-aims:", "https://uofa.net/vocab/aims#"
         )
@@ -461,9 +491,8 @@ class TestPostMigrationDetection:
     post-migration confirmation that the brittleness is fixed."""
 
     @pytest.mark.parametrize("pattern,fixture,should_fire", POST_MIGRATION_FIRINGS)
-    def test_consumer_rule_fires_correctly(self, pattern, fixture, should_fire):
-        fixture_path = BRITTLENESS_DIR / fixture
-        assert fixture_path.exists(), f"missing fixture: {fixture}"
+    def test_consumer_rule_fires_correctly(self, pattern, fixture, should_fire, tmp_path):
+        fixture_path = _fixture(fixture, tmp_path)
         fired = _check_pattern_ids_with_derivations(fixture_path)
         if should_fire:
             assert pattern in fired, (

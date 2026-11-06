@@ -328,6 +328,10 @@ Artifact: `studies/phase2_5a/REPORT.md` · `results.json` (`sha256` in
 | Total mutants scored | 50 | " | `results.json` `totals` | " |
 | Conformant-but-flawed / schema-caught | 38 / 12 | " | " | " |
 | NC clean rate | 97.1% (166/171) | v0.5.15.1 | `holdout_v0515_summary.md` | — |
+| NC firings, by pattern | W-ON-01 ×3, W-AL-01 ×2, W-AR-05 ×2, W-EP-02 ×2, COMPOUND-03 ×1 — 10 firings on 5 of 171 | v0.5.15.1 | `dev/build/phase2_5/v0.5.15.1-shacl-and-sa-fix/holdout_v0515_summary.md` §Per-rule NC firings | — |
+| NC false positives, MECHANICAL class | **9/171 = 5.3%**, Wilson 95% [2.8%, 9.7%] — W-ON-01, W-AL-01, W-AR-05, W-EP-02 are all in `MECHANICAL_PATTERNS` | v0.5.15.1 | same summary + `src/uofa_cli/mutation/operators.py` `MECHANICAL_PATTERNS` | — |
+| NC false positives, JUDGMENT-dependent class | **1/171 = 0.6%**, Wilson 95% [0.1%, 3.2%] — COMPOUND-03, not in `MECHANICAL_PATTERNS` | v0.5.15.1 | " | — |
+| NC package-level false-positive rate | 5/171 = 2.9%, Wilson 95% [1.3%, 6.7%] | v0.5.15.1 | " | — |
 | CE recall, version-consistent | 75.9% (287/378) | v0.5.15.1 | `studies/phase2_5a/REPORT.md` | `e40d7819` |
 | **Aggregate over the gate denominator** | **35/35 = 1.0000, Wilson [0.9011, 1.0000]** | " | `wilson_intervals.json` | this branch |
 | Wilson floor, every gate pattern | < 0.5 (0.439 at n=3; 0.207 at n=1) | " | " | " |
@@ -485,11 +489,13 @@ was the last outstanding and its dependency, the R5 encoding, is discharged.
 | H3 MECHANICAL | ≥95% | 100% over 13 | pass | Demonstrated |
 | H3 overall | ≥80% | **75.9%** | **FAIL** | Demonstrated |
 | H3 aggregate interval | — | 35/35, Wilson [0.9011, 1.0000] | — | Demonstrated |
-| Stage 4 spot-check override | ≤0.10 | **0.213** | **FAIL** | Demonstrated |
+| Stage 4 spot-check override (informational, Phase 3 spec item 28) | ≤0.10 | **0.213** | **FAIL** | Demonstrated |
+| H2 real-document attribution, replacement gate declared 2026-08-14 | margin ≥0.25 **and** ≥3 sd over the run's own permutation null | **+0.044 / 0.5 sd**, all six papers | **FAIL** | Recorded — `docs/decisions/2026-08-15-h2-narrowed-conclusion.md`; held-out lift not derivable, see E3 |
+| H3 false positives, per class | <10% per class, never pooled | MECHANICAL 9/171 = 5.3%; JUDGMENT 1/171 = 0.6% | pass | Demonstrated from committed artifacts, see §4.3 |
 | D6 equality, both directions | asserted | HOLDS, 0 counterexamples | pass | Demonstrated |
 | H1 per-substrate | — | **5 of 5 encoded**; 5/5 SHACL, integrity and rules; 3/5 complete (2 blocked on SF-8) | pass | Demonstrated |
 
-Both FAILs are reported as measured, per §0.1. The override FAIL decomposes per
+All three FAILs are reported as measured, per §0.1: H3 overall, H2 real-document attribution, and the spot-check override. The override threshold is informational (Phase 3 spec v1.6 item 28: "high override rate flags methodology weakness") and belongs to no hypothesis gate; the two hypothesis-gate FAILs are H3 overall and H2 attribution. **Rows added 2026-11-06** so this table matches praxis Table 4.7, which carries the attribution and per-class false-positive clauses. The override FAIL decomposes per
 R4: REAL-GAP relocates to the schema boundary, ERM is an ensemble-reliability
 finding, and neither is adverse to the catalog.
 
