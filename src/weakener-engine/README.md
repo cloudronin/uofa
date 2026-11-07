@@ -185,17 +185,11 @@ gap is invisible in the prose paper but machine-visible in the UofA.
    query can see, including 2 new cascades on COU2 that the v0.5.2 single-engine refactor
    unblocked."
 
-## IP Boundary
+## License
 
-| Layer | Open | Proprietary |
-|-------|------|-------------|
-| Pattern taxonomy (names, IDs, categories) | ✓ | |
-| Pattern descriptions & V&V 40 mapping | ✓ | |
-| SPARQL reference queries (basic detection) | ✓ | |
-| **Jena rule implementations** | | **✓** |
-| **Compound inference rules** | | **✓** |
-| **Domain-specific rule extensions** | | **✓** |
-| **Severity calibration logic** | | **✓** |
+Everything in this engine is open source under Apache-2.0, including the Jena rule
+implementations, the compound inference rules, the domain-specific rule extensions and
+the severity calibration. See the repository's LICENSE and NOTICE.
 
 ## File Structure
 
