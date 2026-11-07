@@ -116,16 +116,23 @@ Re-derived by running the checks, not located in prose:
 `python studies/ch4_numbers/derive_h1_tier_table.py` → `h1_tier_table.json`.
 Exits 1 if any substrate fails a check it should pass — it does; see below.
 
-| Substrate | serialisation | decision | MRL | complete | SHACL | integrity | rules |
-|---|---|---|---|---|---|---|---|
-| Morrison COU1 | flat | Accepted | 2 | ✓ | pass | pass | pass |
-| Morrison COU2 | flat | Not accepted | 5 | ✓ | pass | pass | pass |
-| Nagaraja COU1 | flat | Accepted | 3 | ✓ | pass | pass | pass |
-| NASA take-off | flat | Accepted | 3 | **NO — SF-8** | pass | pass | pass |
-| NASA cruise | flat | Not accepted | 4 | **NO — SF-8** | pass | pass | pass |
+| Substrate | serialisation | decision | MRL | complete | SHACL | integrity | rules | Commit |
+|---|---|---|---|---|---|---|---|---|
+| Morrison COU1 | flat | Accepted | 2 | ✓ | pass | pass | pass | `32dc634` |
+| Morrison COU2 | flat | Not accepted | 5 | ✓ | pass | pass | pass | `32dc634` |
+| Nagaraja COU1 | flat | Accepted | 3 | ✓ | pass | pass | pass | `32dc634` |
+| NASA take-off | flat | Accepted | 3 | **NO — SF-8** | pass | pass | pass | `32dc634` |
+| NASA cruise | flat | Not accepted | 4 | **NO — SF-8** | pass | pass | pass | `32dc634` |
 
 **All five substrates pass SHACL, integrity and rules.** Three of five are
 complete; the two NASA rows are blocked on **SF-8** and say so.
+
+**Pinned 2026-11-07.** Re-derived at commit `32dc634` (tag
+`praxis-defense-results`, uofa 0.20.0) with the command above: exit 0, the
+same five rows, `h1_tier_table.json` unchanged. Re-derive at the tag, not at
+`main`. Issue #148 (the profile shapes do not yet require `bindsClaim`) lands
+after the tag; once it does, the two NASA rows fail SHACL on `main` until SF-8
+is fixed and the two packages are re-encoded.
 
 The two NASA rows were repointed on 2026-08-21 from
 `packs/nasa-7009b/examples/aerospace/` — annotation snapshots whose SHACL and
