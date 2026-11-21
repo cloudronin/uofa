@@ -191,7 +191,8 @@ def run(args) -> int:
 # is inlined into the hash preimage, so declaring them would invalidate every
 # signed package in the repo (furnishers/pins.py:19-25).
 _EVIDENCE_FIELDS = ("artifactManifest", "solverFact", "solverCaution",
-                    "absentArtifact", "corroboration")
+                    "absentArtifact", "corroboration",
+                    "calculationVerification")
 
 
 def _fold_evidence(doc: dict, sidecar: Path) -> list[str]:

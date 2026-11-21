@@ -21,8 +21,10 @@ from uofa_cli.corroborate import Corroboration
 from uofa_cli.output import (error, info, result_line, step_header, table_header,
                              table_row, table_separator, warn)
 from uofa_cli.solver import detect, seal as sealmod
+from uofa_cli.solver import mesh_study
 from uofa_cli.solver.facts import SolverEvidence
 from uofa_cli.solver.reader import read_evidence
+from uofa_cli.weakener_focus import attributable_factors
 
 HELP = "inventory and seal a simulation evidence folder (no model, no network)"
 
@@ -50,6 +52,12 @@ def _add_common(sub_parser):
                             help="JSON claim set to corroborate against the "
                                  "solver artifacts (quantities asserted in "
                                  "prose, e.g. a paper's model-parameter table)")
+    sub_parser.add_argument("--mesh-study", type=Path,
+                            help="mesh study declaration (JSON, "
+                                 f"{mesh_study.SCHEMA}): runs FDA SimEval "
+                                 "calcverif on the declared table in the sealed "
+                                 "folder and records the result "
+                                 f"(needs {mesh_study.INSTALL_HINT})")
 
 
 def add_arguments(parser):
@@ -84,6 +92,7 @@ class EvidenceResult:
     sidecar: Path | None = None
     evidence: SolverEvidence | None = None
     corroboration: Corroboration | None = None
+    mesh_studies: list[dict] | None = None
 
     @property
     def exit_code(self) -> int:
@@ -96,6 +105,9 @@ class EvidenceResult:
 def run_structured(args) -> EvidenceResult:
     """Do the work, emit nothing. See tests/test_command_structured.py."""
     source = _source_of(args)
+    # A malformed declaration stops the command here, before anything is
+    # sealed or written.
+    declarations = _mesh_declarations(args, source)
     source_map = (sealmod.load_source_map(args.source_map)
                   if getattr(args, "source_map", None) else None)
     seal = sealmod.seal_folder(
@@ -111,13 +123,39 @@ def run_structured(args) -> EvidenceResult:
         corroboration = corroborate.corroborate(
             corroborate.load_claims(args.claims), solver_evidence, identity)
 
+    mesh_studies = None
+    if declarations is not None:
+        mesh_studies = mesh_study.run_studies(
+            declarations, Path(seal.root), mesh_study.sealed_digests(seal),
+            _quantity_identity(args))
+
     sidecar = None
     if getattr(args, "evidence_command", None) == "seal":
         sidecar = args.output or source.parent / f"{source.name}-evidence.json"
         sealmod.write_sidecar(seal, sidecar, evidence=solver_evidence,
-                              corroboration=corroboration)
+                              corroboration=corroboration,
+                              mesh_studies=mesh_studies)
     return EvidenceResult(seal=seal, sidecar=sidecar, evidence=solver_evidence,
-                          corroboration=corroboration)
+                          corroboration=corroboration, mesh_studies=mesh_studies)
+
+
+def _mesh_declarations(args, source):
+    """The declared mesh studies, or None when `--mesh-study` was not given."""
+    path = getattr(args, "mesh_study", None)
+    if path is None:
+        return None
+    if source is None or not Path(source).is_dir():
+        raise mesh_study.MeshStudyDeclarationError(
+            "--mesh-study needs an evidence folder; table paths are relative to it")
+    pack = paths.resolve_active_packs(args)[0]
+    return mesh_study.load_declaration(path, attributable_factors(pack))
+
+
+def _quantity_identity(args) -> dict | None:
+    """The first active pack's quantityIdentity, the same lookup `--claims` uses."""
+    return paths.detection_config(
+        paths.pack_manifest(paths.resolve_active_packs(args)[0])
+    ).get("quantityIdentity")
 
 
 def run(args) -> int:
@@ -146,6 +184,11 @@ def run(args) -> int:
     if result.evidence is not None:
         step_header("What the solver artifacts say")
         for line in result.evidence.summarise():
+            info(f"  {line}")
+
+    if result.mesh_studies is not None:
+        step_header("What the mesh study says")
+        for line in mesh_study.summarise(result.mesh_studies):
             info(f"  {line}")
 
     if result.corroboration is not None:

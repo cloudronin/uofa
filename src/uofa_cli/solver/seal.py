@@ -183,7 +183,7 @@ def to_manifest(seal: EvidenceSeal) -> list[dict]:
 
 
 def write_sidecar(seal: EvidenceSeal, path: Path, *, evidence=None,
-                  corroboration=None) -> None:
+                  corroboration=None, mesh_studies=None) -> None:
     """Write the seal, and what was read out of it, as one sidecar document.
 
     This is the document `uofa import --evidence` folds into the package
@@ -202,6 +202,10 @@ def write_sidecar(seal: EvidenceSeal, path: Path, *, evidence=None,
         doc.update(evidence.as_dict())
     if corroboration is not None:
         doc["corroboration"] = corroboration.as_list()
+    if mesh_studies is not None:
+        # One record per declared study (solver/mesh_study.py). Kept apart from
+        # `corroboration`, which is prose against artifact.
+        doc["calculationVerification"] = list(mesh_studies)
     path.write_text(json.dumps(doc, indent=2, sort_keys=False) + "\n",
                     encoding="utf-8")
 
