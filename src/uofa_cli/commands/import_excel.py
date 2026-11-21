@@ -43,6 +43,9 @@ def add_arguments(parser):
                         help="SIP measurement public key for verifying a SIP-bundle input (default: keys/research.pub)")
     parser.add_argument("--decision-pubkey", type=Path,
                         help="engineer public key for verifying a SIP-bundle hasDecisionRecord on import")
+    # Passed through to the --check run; the W-CV rules only run there.
+    from uofa_cli.commands.check import add_calcverif_arguments
+    add_calcverif_arguments(parser)
 
 
 def _print_provenance_counts(output: Path) -> None:
@@ -72,6 +75,13 @@ def _print_provenance_counts(output: Path) -> None:
 
 
 def run(args) -> int:
+    # The calculation-verification switch only means something for the
+    # --check run. Without --check it would do nothing, so say so.
+    if (getattr(args, "enable_calcverif", False)
+            or getattr(args, "disable_calcverif", False)) and not getattr(args, "check", False):
+        error("--calcverif / --no-calcverif apply to the --check run; add --check.")
+        return 2
+
     # ── Project-aware defaults ───────────────────────────────
     project_root = paths.find_project_root()
     config = paths.load_project_config(project_root) if project_root else {}
@@ -359,6 +369,8 @@ def _sign_and_check(args, output: Path, packs, project_root) -> int:
             # validated against surrogate shapes, not the vv40 default.
             active_packs=packs,
             raw=False,
+            enable_calcverif=getattr(args, "enable_calcverif", False),
+            disable_calcverif=getattr(args, "disable_calcverif", False),
         )
         print()
         rc = check.run(check_args)

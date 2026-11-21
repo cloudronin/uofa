@@ -221,9 +221,15 @@ def detection_config(manifest: dict) -> dict:
                 "patternIds": payload.get("patternIds"),
                 "factorFocus": payload.get("factorFocus"),
                 "quantityIdentity": payload.get("quantityIdentity"),
+                # Default-off W-CV block (`--calcverif`); read only by
+                # calcverif/config.py. Its patternIds/factorFocus are not
+                # merged into the pack-level ones, so the pack's default
+                # pattern count is unchanged.
+                "calcverif": payload.get("calcverif"),
             }
     return {"shapes": None, "rules": None, "oos": None, "derivations": None,
-            "patternIds": None, "factorFocus": None, "quantityIdentity": None}
+            "patternIds": None, "factorFocus": None, "quantityIdentity": None,
+            "calcverif": None}
 
 
 @functools.lru_cache(maxsize=4)
