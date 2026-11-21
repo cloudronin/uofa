@@ -6,6 +6,21 @@ All notable changes to this project are documented here.
 
 ### Added
 
+- **Calculation verification from FDA SimEval, with default-off W-CV rules.**
+  `uofa evidence seal|inventory <folder> --mesh-study study.json` runs the FDA
+  SimEval `calcverif` module (vendored unmodified at commit `4a70fd3`, CC0-1.0
+  with the FDA disclaimer) on a declared mesh convergence table and records one
+  `calculationVerification` record per study in the sidecar; `uofa import
+  --evidence` folds it in before signing. The record is recovered from the tool
+  itself (safety factor, convergence type, constrained order), keeps
+  `computed`, `no-estimate` and `not-run` apart, and hashes the table bytes it
+  actually reads. Four rules, W-CV-01 to W-CV-04, ship in the vv40 pack as a
+  default-off `calcverif` block and run only with `--calcverif` on `uofa check`
+  or `uofa import ... --check`; without the flag every output is unchanged. New
+  optional extra `calcverif` (numpy, pandas, scipy, matplotlib); the core
+  install is unchanged. Examples in `docs/examples/calcverif-starter/` and
+  `docs/examples/calcverif-vena-cava/`.
+
 - **Surrogate pack v0.2: W-SURR-05, W-SURR-06 and the external-annotation
   rule.** The uofa side of the surrogate governance loop with PhysMAP. Two
   patterns for physics the surrogate cannot see: **W-SURR-05** (prediction
