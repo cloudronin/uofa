@@ -132,3 +132,95 @@ def test_vena_cava_pipeline_is_silent_by_structure(tmp_path):
     doc = json.loads((work / "on.jsonld").read_text())
     assert len(doc["calculationVerification"]) == 2
     assert _uofa("verify", "on.jsonld", "--pubkey", "demo.pub", cwd=work).returncode == 0
+
+
+# ── The vena cava README's tamper demonstration ─────────────────────────────
+# The commands are read out of the README and run as written, so the README
+# and these tests cannot drift apart. The only substitution is the
+# interpreter: `python3`/`python` become this test's interpreter.
+
+VENA_README = EXAMPLES / "calcverif-vena-cava" / "README.md"
+
+
+def _readme_python_c(index: int) -> str:
+    """The code of the index-th `python3 -c '...'` command in the README."""
+    import shlex
+    lines = [ln for ln in VENA_README.read_text().splitlines() if ln.startswith("python3 -c '")]
+    argv = shlex.split(lines[index])
+    assert argv[:2] == ["python3", "-c"]
+    return argv[2]
+
+
+def _readme_heredoc() -> str:
+    text = VENA_README.read_text()
+    body = text.split("python - <<'EOF'\n", 1)[1].split("\nEOF\n", 1)[0]
+    assert "mesh_study.run_studies" in body
+    return body
+
+
+def _run_py(code: str, cwd):
+    return subprocess.run([sys.executable, "-c", code], cwd=cwd, capture_output=True, text=True)
+
+
+def _signed_vena_cava(tmp_path):
+    work = _workspace(tmp_path, "calcverif-vena-cava")
+    _seal(work)
+    imported = _uofa("import", str(TEMPLATE), "--evidence", "evidence.json", "--pack", "vv40",
+                     "-o", "vena-cava.jsonld", "--sign", "--key", "demo.key", cwd=work)
+    assert imported.returncode == 0, imported.stdout + imported.stderr
+    return work
+
+
+def test_vena_cava_quiet_change_breaks_the_signature(tmp_path):
+    """README step 2: one recorded number edited in a copy -> verify fails."""
+    work = _signed_vena_cava(tmp_path)
+    assert _uofa("verify", "vena-cava.jsonld", "--pubkey", "demo.pub", cwd=work).returncode == 0
+
+    altered = work / "vena-cava.DELIBERATELY-ALTERED.jsonld"
+    shutil.copy(work / "vena-cava.jsonld", altered)
+    edit = _run_py(_readme_python_c(0), work)
+    assert edit.returncode == 0 and "edited 1 value" in edit.stdout, edit.stderr
+
+    # Exactly one line differs, and it is max velocity's relative index.
+    before = (work / "vena-cava.jsonld").read_text().splitlines()
+    after = altered.read_text().splitlines()
+    changed = [(a, b) for a, b in zip(before, after) if a != b]
+    assert len(before) == len(after) and len(changed) == 1
+    assert '"cvGciRelative": 0.0005' in changed[0][1]
+    doc = json.loads(altered.read_text())
+    assert doc["calculationVerification"][0]["cvStudyId"] == "ivc-max-velocity"
+    assert doc["calculationVerification"][0]["cvGciRelative"] == 0.0005
+    assert doc["calculationVerification"][0]["cvGciRelative"] < \
+        json.loads((work / "vena-cava.jsonld").read_text())["calculationVerification"][0]["cvGciRelative"]
+
+    verified = _uofa("verify", altered.name, "--pubkey", "demo.pub", cwd=work)
+    assert verified.returncode != 0, verified.stdout
+    assert "✗ Measurement hash match" in verified.stdout
+
+
+def test_vena_cava_changed_table_does_not_run_against_original_seal(tmp_path):
+    """README step 3: an edited copy of the table, read against the original
+    seal's digests -> not-run / table-not-sealed for both studies."""
+    work = _workspace(tmp_path, "calcverif-vena-cava")
+    _seal(work)
+    snippet = _readme_heredoc()
+
+    # Control: the same snippet on the unaltered folder computes both studies.
+    control = _run_py(snippet.replace('"DELIBERATELY-ALTERED-evidence"', '"evidence"'), work)
+    assert control.returncode == 0, control.stderr
+    assert control.stdout.count("computed, method largeN_mono") == 2
+
+    altered = work / "DELIBERATELY-ALTERED-evidence"
+    altered.mkdir()
+    shutil.copy(work / "evidence" / "ivc_mesh_study.csv", altered / "ivc_mesh_study.csv")
+    edit = _run_py(_readme_python_c(1), work)
+    assert edit.returncode == 0 and "edited 1 value" in edit.stdout, edit.stderr
+    diff = [(a, b) for a, b in zip((work / "evidence" / "ivc_mesh_study.csv").read_text().splitlines(),
+                                   (altered / "ivc_mesh_study.csv").read_text().splitlines()) if a != b]
+    assert diff == [("102500000,0.25233,0.45549", "102500000,0.25333,0.45549")]
+
+    rerun = _run_py(snippet, work)
+    assert rerun.returncode == 0, rerun.stderr
+    assert rerun.stdout.count("not run (table-not-sealed)") == 2
+    assert rerun.stdout.count("the bytes read from ivc_mesh_study.csv are not the bytes the seal recorded") == 2
+    assert "computed" not in rerun.stdout
