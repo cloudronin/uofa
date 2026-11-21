@@ -9,6 +9,7 @@ Reference material for the UofA CLI and data model.
 |---|---|
 | [CLI commands](/reference/cli/) | All `uofa` subcommands with flags and examples |
 | [model-credibility pack](/reference/packs/model-credibility/) | NIST AI RMF documentation factor set + SHACL profile for the model-card unit |
+| [vv40 calculation verification](/reference/packs/vv40-calcverif/) | FDA SimEval `calcverif` on a declared mesh study, sealed into the package; four default-off W-CV rules (`--calcverif`) |
 
 Additional reference material (full weakener catalog with detailed pattern specifications, JSON-LD context reference, SHACL profile reference, and per-pack documentation) will land in v1.5 of this site. For now, those references live alongside the source in the GitHub repository.
 
