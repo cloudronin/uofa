@@ -6,6 +6,8 @@ description: Run the FDA SimEval calcverif tool on a declared mesh study, seal t
 **Calculation verification** asks one question of an evidence folder: does the
 mesh study in it support the discretization error number the report claims?
 
+![How a mesh study becomes checkable evidence in UofA](/diagrams/calcverif-evidence-flow.svg)
+
 UofA runs the FDA SimEval `calcverif` tool on a mesh convergence table you
 declare, records what the tool computes, folds that record into the package
 before it is signed, and checks it with four rules. UofA measures and compares.
