@@ -11,7 +11,9 @@ All notable changes to this project are documented here.
   SimEval `calcverif` module (vendored unmodified at commit `4a70fd3`, CC0-1.0
   with the FDA disclaimer) on a declared mesh convergence table and records one
   `calculationVerification` record per study in the sidecar; `uofa import
-  --evidence` folds it in before signing. The record is recovered from the tool
+  --evidence` folds it in before signing and names each record
+  `<package>/calculation-verification/<study id>`, so a W-CV finding names
+  the study it points at. The record is recovered from the tool
   itself (safety factor, convergence type, constrained order), keeps
   `computed`, `no-estimate` and `not-run` apart, and hashes the table bytes it
   actually reads. Four rules, W-CV-01 to W-CV-04, ship in the vv40 pack as a

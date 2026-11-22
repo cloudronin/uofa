@@ -79,7 +79,7 @@ Import output:
 Evidence sidecar folded in: 1 artifactManifest, 2 calculationVerification
 ✓ Imported  vena-cava.jsonld
 ✓ Signed
-  SHA-256: 5a0900b83fb0d13f...
+  SHA-256: c62e3bef74b613eb...
 ```
 
 `uofa verify` output (exit 0):

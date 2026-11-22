@@ -194,11 +194,13 @@ The record's detail is `0.003 vs 0.625 fraction (tolerance 25.0%)`. With
 
 ```
   ⚠ W-CV-01 [High] — 1 hit(s)
-      → affected: null
+      → affected: oracle-n3
 ```
 
-The finding points at the study record in the package. That record has no IRI
-of its own yet, so the readout cannot name it and prints `null`.
+The finding names the study record it points at. `uofa import` gives each
+folded record an IRI under the package,
+`<package>/calculation-verification/<study id>`, and the readout prints its
+last part.
 
 ## Source, license, and no endorsement
 

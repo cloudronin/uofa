@@ -45,6 +45,16 @@ recomputed one differ by more than the declared tolerance (25 %, relative).
 Which of the two is right is not established here. Without `--calcverif` the
 W-CV rules are not loaded and nothing from this study is reported.
 
+```
+  ⚠ W-CV-01 [High] — 1 hit(s)
+      → affected: oracle-n3
+```
+
+The finding names the study record it points at. `uofa import` gives each
+folded record an IRI under the package,
+`<package>/calculation-verification/oracle-n3`; the engine prints its last
+part. The sealed sidecar itself is unchanged.
+
 The starter workbook itself fails two C2 fields (its decision cell and device
 class). That is independent of the mesh study: a plain import of the same
 workbook fails the same two.
