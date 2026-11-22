@@ -233,6 +233,8 @@ Quality gap detection uses [Apache Jena](https://jena.apache.org/) forward-chain
 
 The compound rules are the key differentiator versus SPARQL. They reason about the *interactions* between gaps — something that requires chained forward-chaining inference. All weakener rules evaluate in a single Jena forward-chaining pass, so compound rules can reason over the full weakener set.
 
+**Default off: calculation verification (W-CV-01 to W-CV-04).** `uofa evidence seal --mesh-study study.json` runs the FDA SimEval `calcverif` tool (vendored unmodified) on a mesh convergence table you declare, and records the result in the evidence sidecar; `uofa import --evidence` folds it in before signing. Four rules in the `vv40` pack read that record, but they are a default-off block and run only when you pass `--calcverif` to `uofa check` (or to `uofa import ... --check`). Without the flag nothing changes. They report a reported grid convergence index that disagrees with the recomputed one, a study that yields no estimate, an observed order more than 10% from the declared formal order, and a coarser triplet that does not converge. They never say which number is right. Needs `pip install 'uofa[calcverif]'`. Worked examples: [`docs/examples/calcverif-starter/`](https://github.com/cloudronin/uofa/blob/main/docs/examples/calcverif-starter/README.md) and [`docs/examples/calcverif-vena-cava/`](https://github.com/cloudronin/uofa/blob/main/docs/examples/calcverif-vena-cava/README.md).
+
 For the data shape (Minimal vs. Complete profiles, CredibilityFactor, WeakenerAnnotation), see [docs/profiles.md](https://github.com/cloudronin/uofa/blob/main/docs/profiles.md).
 
 ---

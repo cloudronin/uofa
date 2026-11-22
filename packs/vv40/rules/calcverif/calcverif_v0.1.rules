@@ -1,0 +1,125 @@
+# ============================================================================
+# UofA vv40 pack — calculation verification weakeners (W-CV), default off
+# ============================================================================
+# Copyright (c) 2026 Vishnu Vettrivel / uofa.net
+# Licensed under the Apache License, Version 2.0 (see LICENSE and NOTICE).
+#
+# Spec:   docs/simeval_calcverif_evidence_spec_v0_3.md §6
+# Engine: Apache Jena GenericRuleReasoner (FORWARD_RETE mode)
+# Pack:   vv40, `calcverif` block in the detection payload ("enabled": false)
+#
+# These rules read the `calculationVerification` records that
+# `uofa evidence seal --mesh-study` writes and `uofa import --evidence` folds
+# into the package before signing. Each record is the FDA SimEval `calcverif`
+# tool's result on a declared mesh study (src/uofa_cli/solver/mesh_study.py).
+#
+# ── Off unless asked for ────────────────────────────────────────────────────
+# This file is not in the default C3 rules list. It is appended for one
+# invocation only when `--calcverif` is passed (src/uofa_cli/calcverif/
+# config.py). Nothing else turns it on.
+#
+# ── Silent by structure, not by wording ────────────────────────────────────
+# Every rule joins the study to its factor through the shared factor name, and
+# requires the factor to be recorded as assessed:
+#     (?uofa uofa:hasCredibilityFactor ?f) (?f uofa:factorType ?ft)
+#     (?f uofa:factorStatus 'assessed')
+#     (?uofa uofa:calculationVerification ?cv) (?cv uofa:forFactorType ?ft)
+# No factor name is written in a rule body. So:
+#   - no mesh study supplied    -> no calculationVerification triple, nothing binds;
+#   - study not-run             -> no rule matches that status (the gap is the
+#                                  assessor's, not the record's);
+#   - comparison not-comparable -> only 'diverges' matches W-CV-01;
+#   - no formal order declared  -> cvOrderAgreement is 'no-formal-order',
+#                                  which no rule matches;
+#   - factor not assessed       -> the join requires 'assessed'.
+# Do not "simplify" a rule by dropping one of these clauses; each is
+# load-bearing. Guarded by tests/test_calcverif_rules.py.
+#
+# The rules report on the record. They never set or grade a level, and they
+# do not say which of two disagreeing numbers is right.
+#
+# NOTE: makeSkolem must be in the rule BODY (before ->) in RETE mode.
+# ============================================================================
+
+@prefix uofa: <https://uofa.net/vocab#>.
+@prefix prov: <http://www.w3.org/ns/prov#>.
+@prefix rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#>.
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#>.
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#>.
+@prefix schema: <https://schema.org/>.
+
+# W-CV-01: The reported grid convergence index disagrees with the value recomputed from the mesh study table by more than the declared tolerance. The two do not agree, and which is correct is not established here.
+[w_cv_01:
+    (?uofa rdf:type uofa:UnitOfAssurance)
+    (?uofa uofa:hasCredibilityFactor ?f)
+    (?f uofa:factorType ?ft)
+    (?f uofa:factorStatus 'assessed')
+    (?uofa uofa:calculationVerification ?cv)
+    (?cv uofa:forFactorType ?ft)
+    (?cv uofa:cvGciComparison 'diverges')
+    makeSkolem(?ann, ?uofa, 'W-CV-01', ?cv)
+    ->
+    (?ann rdf:type uofa:WeakenerAnnotation)
+    (?ann uofa:patternId 'W-CV-01')
+    (?ann uofa:severity 'High')
+    (?ann uofa:affectedNode ?cv)
+    (?ann schema:description 'The reported grid convergence index disagrees with the value recomputed from the mesh study table by more than the declared tolerance. The two do not agree, and which is correct is not established here.')
+    (?uofa uofa:hasWeakener ?ann)
+]
+
+# W-CV-02: The mesh study supplied for this factor does not yield a discretization error estimate (the quantity diverges, or oscillates across only three meshes), and the factor is recorded as assessed.
+[w_cv_02:
+    (?uofa rdf:type uofa:UnitOfAssurance)
+    (?uofa uofa:hasCredibilityFactor ?f)
+    (?f uofa:factorType ?ft)
+    (?f uofa:factorStatus 'assessed')
+    (?uofa uofa:calculationVerification ?cv)
+    (?cv uofa:forFactorType ?ft)
+    (?cv uofa:cvStatus 'no-estimate')
+    makeSkolem(?ann, ?uofa, 'W-CV-02', ?cv)
+    ->
+    (?ann rdf:type uofa:WeakenerAnnotation)
+    (?ann uofa:patternId 'W-CV-02')
+    (?ann uofa:severity 'High')
+    (?ann uofa:affectedNode ?cv)
+    (?ann schema:description 'The mesh study supplied for this factor does not yield a discretization error estimate (the quantity diverges, or oscillates across only three meshes), and the factor is recorded as assessed.')
+    (?uofa uofa:hasWeakener ?ann)
+]
+
+# W-CV-03: The observed order of convergence differs from the declared formal order by more than 10 percent. The index was computed with the larger safety factor.
+[w_cv_03:
+    (?uofa rdf:type uofa:UnitOfAssurance)
+    (?uofa uofa:hasCredibilityFactor ?f)
+    (?f uofa:factorType ?ft)
+    (?f uofa:factorStatus 'assessed')
+    (?uofa uofa:calculationVerification ?cv)
+    (?cv uofa:forFactorType ?ft)
+    (?cv uofa:cvOrderAgreement 'outside-tolerance')
+    makeSkolem(?ann, ?uofa, 'W-CV-03', ?cv)
+    ->
+    (?ann rdf:type uofa:WeakenerAnnotation)
+    (?ann uofa:patternId 'W-CV-03')
+    (?ann uofa:severity 'Medium')
+    (?ann uofa:affectedNode ?cv)
+    (?ann schema:description 'The observed order of convergence differs from the declared formal order by more than 10 percent. The index was computed with the larger safety factor.')
+    (?uofa uofa:hasWeakener ?ann)
+]
+
+# W-CV-04: The finest three meshes converge monotonically, but at least one coarser triplet in the same study diverges or oscillates.
+[w_cv_04:
+    (?uofa rdf:type uofa:UnitOfAssurance)
+    (?uofa uofa:hasCredibilityFactor ?f)
+    (?f uofa:factorType ?ft)
+    (?f uofa:factorStatus 'assessed')
+    (?uofa uofa:calculationVerification ?cv)
+    (?cv uofa:forFactorType ?ft)
+    (?cv uofa:cvTripletConcern 'true')
+    makeSkolem(?ann, ?uofa, 'W-CV-04', ?cv)
+    ->
+    (?ann rdf:type uofa:WeakenerAnnotation)
+    (?ann uofa:patternId 'W-CV-04')
+    (?ann uofa:severity 'Medium')
+    (?ann uofa:affectedNode ?cv)
+    (?ann schema:description 'The finest three meshes converge monotonically, but at least one coarser triplet in the same study diverges or oscillates.')
+    (?uofa uofa:hasWeakener ?ann)
+]

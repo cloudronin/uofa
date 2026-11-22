@@ -22,6 +22,7 @@ from uofa_cli.oos import config as oos_config
 from uofa_cli.oos import runner as oos_runner
 from uofa_cli.derivations import config as derivation_config
 from uofa_cli.derivations import runner as derivation_runner
+from uofa_cli.calcverif import config as calcverif_config
 
 HELP = "full pipeline: SHACL + integrity + rules (C1+C2+C3)"
 
@@ -100,6 +101,11 @@ class CheckResult:
     # the artifact. The four trust states come from `uofa verify
     # --authority-pubkey`, which is the command that has the key.
     attestations: list[str] | None = None
+    # The default-off calculation-verification rule files that ran in C3, as
+    # pack-relative paths, or None when `--calcverif` was not in force. None
+    # rather than [] so snapshot.py omits it and stored reports stay
+    # byte-identical.
+    calcverif_rules: list[str] | None = None
 
     @property
     def exit_code(self) -> int:
@@ -137,6 +143,7 @@ def add_arguments(parser):
         "--no-derivations", dest="disable_derivations", action="store_true",
         help="force derivation pre-pass off for this run, overriding pack config",
     )
+    add_calcverif_arguments(parser)
     from uofa_cli.interpretation.cli import add_explain_arguments
     add_explain_arguments(parser)
 
@@ -150,6 +157,9 @@ def run_structured(args) -> CheckResult:
     """
     if not args.file.exists():
         raise FileNotFoundError(f"File not found: {args.file}")
+
+    # Resolved before any work, so a bad `--calcverif` request stops here.
+    calcverif_files = calcverif_rule_files(args)
 
     ctx = args.context
 
@@ -238,6 +248,7 @@ def run_structured(args) -> CheckResult:
             format="summary",
             output=None,
             active_packs=getattr(args, "active_packs", None),
+            calcverif_rule_files=calcverif_files,
         )
         try:
             rules_result = rules_mod.run_structured(rules_args)
@@ -348,7 +359,55 @@ def run_structured(args) -> CheckResult:
         oos_error=oos_error,
         derivations=derivation_result,
         derivations_error=derivation_error,
+        calcverif_rules=(_pack_relative(calcverif_files)
+                         if calcverif_files and rules_result is not None else None),
     )
+
+
+def add_calcverif_arguments(parser) -> None:
+    """`--calcverif` / `--no-calcverif`, shared by `check` and `import --check`."""
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument(
+        "--calcverif", dest="enable_calcverif", action="store_true",
+        help="run the pack's default-off calculation-verification rules "
+             "(W-CV) for this run",
+    )
+    group.add_argument(
+        "--no-calcverif", dest="disable_calcverif", action="store_true",
+        help="force the calculation-verification rules off for this run",
+    )
+
+
+def calcverif_rule_files(args) -> list[Path] | None:
+    """Rule files to append to C3, or None when the W-CV rules are off.
+
+    With neither flag given and no pack switching the block on, this returns
+    None and C3 runs exactly the rules it ran before the block existed.
+    A resolver error is raised only when a flag was given; with no flag, a pack
+    whose block cannot be resolved is treated as off, so an unrelated manifest
+    problem cannot change what `check` does by default.
+    """
+    enable = getattr(args, "enable_calcverif", False)
+    disable = getattr(args, "disable_calcverif", False)
+    pack = paths.resolve_active_packs(args)[0]
+    try:
+        cfg = calcverif_config.resolve(pack, enable_flag=enable, disable_flag=disable)
+    except calcverif_config.CalcVerifConfigError:
+        if enable or disable:
+            raise
+        return None
+    return list(cfg.rule_files) if cfg.enabled else None
+
+
+def _pack_relative(files: list[Path]) -> list[str]:
+    root = paths.find_repo_root() / "packs"
+    out = []
+    for f in files:
+        try:
+            out.append(Path(f).resolve().relative_to(root.resolve()).as_posix())
+        except ValueError:
+            out.append(Path(f).name)
+    return out
 
 
 def run(args) -> int:
@@ -402,6 +461,9 @@ def run(args) -> int:
             print(rules_mod._colorize_line(line))
         if result.rules.raw_stderr:
             print(result.rules.raw_stderr, file=sys.stderr, end="")
+        if result.calcverif_rules:
+            info(f"  calculation-verification rules on (--calcverif): "
+                 f"{', '.join(result.calcverif_rules)}")
     elif result.rules_error is not None:
         step_header("C3: Jena rule engine — weakener detection")
         result_line("Rule engine", False, result.rules_error)
@@ -499,6 +561,7 @@ def _run_explain(args, *, conforms: bool, violations: list,
                 build=args.build,
                 raw=False, format="jsonld", output=None,
                 active_packs=getattr(args, "active_packs", None),
+                calcverif_rule_files=calcverif_rule_files(args),
             )
             jsonld_result = rules_mod.run_structured(jsonld_args)
             if jsonld_result.returncode == 0 and jsonld_result.raw_stdout:

@@ -43,6 +43,7 @@ packs/
   vv40/                         # ASME V&V 40-2018 (13 credibility factors)
     pack.json
     shapes/vv40_shapes.ttl      # Factor name enum + level range 1-5
+    rules/calcverif/calcverif_v0.1.rules  # W-CV-01..04, default off; runs only with --calcverif
     templates/
       vv40-template.xlsx        # VV40-specific Excel template
       uofa-starter-filled.xlsx  # Pre-filled wind turbine blade example
@@ -137,6 +138,15 @@ Every pack must have a `pack.json` with at minimum `name`, `version`, and `shape
   "license": "Apache-2.0"
 }
 ```
+
+vv40 still runs **zero** pack patterns by default. Its detection payload also
+carries a default-off `calcverif` block (`"enabled": false`), the same shape as
+an `oos` block: a rule file, four pattern ids (W-CV-01 to W-CV-04) and their
+factor focus. Those ids are declared inside the block, not in the payload's
+`patternIds`, so no default loader picks them up. The block's rule file is
+appended to the C3 rules for one run only when `--calcverif` is passed to
+`uofa check` or `uofa import ... --check`. The rules read the
+`calculationVerification` records written by `uofa evidence seal --mesh-study`.
 
 ## Domain Pack Contract
 

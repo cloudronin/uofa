@@ -681,6 +681,12 @@ def run_structured(args) -> RulesResult:
         rules = args.rules
     else:
         rules_list = paths.all_rules_files(args.file, active=paths.resolve_active_packs(args))
+        # Default-off calculation-verification rules: present only when the
+        # caller resolved `--calcverif` (commands/check.py). Absent, the list
+        # is exactly what it was.
+        calcverif_files = getattr(args, "calcverif_rule_files", None)
+        if calcverif_files:
+            rules_list = list(rules_list) + list(calcverif_files)
         rules = _combine_rules_files(rules_list)
 
     # **The document's own context, not the toolchain's.** This read
