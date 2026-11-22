@@ -98,6 +98,9 @@ def test_starter_pipeline_reports_w_cv_01_only_with_the_switch(tmp_path):
     on = _import(work, "on.jsonld", "--calcverif")
     assert _w_cv(on.stdout) == {"W-CV-01": 1}, on.stdout
     assert "calculation-verification rules on (--calcverif)" in on.stdout
+    # The finding names the study record it points at, not `affected: null`.
+    after_head = on.stdout.split("W-CV-01 [High] — 1 hit(s)", 1)[1].splitlines()
+    assert after_head[1].strip() == "→ affected: oracle-n3", on.stdout
 
     off = _import(work, "off.jsonld")
     assert _w_cv(off.stdout) == {} and "W-CV" not in off.stdout

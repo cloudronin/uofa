@@ -170,3 +170,51 @@ def test_cli_import_flag_needs_check(tmp_path):
     assert res.returncode == 2
     assert "add --check" in res.stdout + res.stderr
     assert not (tmp_path / "x.jsonld").exists()
+
+
+# ── A fired W-CV finding names its record, never `affected: null` ───────────
+# The engine prints a finding's affected node as the end of its IRI. The
+# record had none, so every W-CV finding read `affected: null`. `uofa import`
+# now names each folded record; these fixtures are hand-written packages, so
+# each is passed through that same naming function, as import would.
+
+def _affected_by_pattern(stdout: str) -> dict[str, list[str]]:
+    """{pattern id: [affected labels]} from the engine's readout."""
+    import re
+    out: dict[str, list[str]] = {}
+    current = None
+    for line in stdout.splitlines():
+        head = re.search(r"(W-[A-Z]+-\d{2}|COMPOUND-\d{2}) \[[A-Za-z]+\] — \d+ hit", line)
+        if head:
+            current = out.setdefault(head.group(1), [])
+            continue
+        hit = re.match(r"\s+→ affected: (.*)$", line)
+        if hit and current is not None:
+            current.append(hit.group(1))
+        elif line.strip() == "":
+            current = None
+    return out
+
+
+def _as_imported(tmp_path, pid, *, named=True):
+    from uofa_cli.commands.import_excel import _name_study_records
+    return _variant(tmp_path, pid, "positive", _name_study_records if named else (lambda doc: None))
+
+
+@pytest.mark.parametrize("pid", ["W-CV-01", "W-CV-02", "W-CV-03", "W-CV-04"])
+def test_fired_w_cv_finding_names_its_record(tmp_path, pid):
+    res = _uofa("check", str(_as_imported(tmp_path, pid)), "--pack", "vv40", "--calcverif")
+    labels = _affected_by_pattern(res.stdout)
+    assert labels.get(pid) == ["synthetic-study"], res.stdout
+    for p, found in labels.items():
+        if p.startswith("W-CV-"):
+            assert "null" not in found and "" not in found, (p, found)
+
+
+def test_unnamed_record_reads_null_control(tmp_path):
+    """Control: the readout parser above does see `null` when it is there, so
+    the test above can fail. A hand-written package that leaves the record
+    unnamed is still a blank node, and the engine cannot name it."""
+    res = _uofa("check", str(_as_imported(tmp_path, "W-CV-01", named=False)),
+                "--pack", "vv40", "--calcverif")
+    assert _affected_by_pattern(res.stdout).get("W-CV-01") == ["null"], res.stdout

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from urllib.parse import quote
 
 from uofa_cli.furnishers import pins
 from uofa_cli.output import step_header, result_line, info, error, warn
@@ -228,6 +229,7 @@ def _fold_evidence(doc: dict, sidecar: Path) -> list[str]:
         if value:
             doc[field] = value
             added.append(f"{len(value)} {field}")
+    _name_study_records(doc)
 
     # Source pins go through pins.attach so the de-duplication rule stays in
     # one place rather than being re-implemented here.
@@ -236,6 +238,33 @@ def _fold_evidence(doc: dict, sidecar: Path) -> list[str]:
     if payload.get("sourcePin"):
         added.append(f"{len(payload['sourcePin'])} sourcePin")
     return added or ["nothing (the sidecar was empty)"]
+
+
+def _name_study_records(doc: dict) -> None:
+    """Give each folded calculation-verification record an IRI of its own.
+
+    The weakener engine names a finding's affected node by its IRI (the part
+    after the last "/"). A record folded in as a plain object is a blank node,
+    which has no IRI, so a W-CV finding on it read `affected: null`.
+
+    The name follows the package's own rule for its parts, as factors are
+    `<package>/factor/<slug>`: `<package>/calculation-verification/<study id>`.
+    The study id is percent-encoded rather than slugified, so two different
+    ids can never share a name (duplicate ids are already refused when the
+    study is declared). A record that already has an id keeps it. With no
+    package id or no study id nothing is minted: absent means absent.
+    """
+    base = doc.get("id")
+    records = doc.get("calculationVerification")
+    if not isinstance(base, str) or not base or not isinstance(records, list):
+        return
+    named = []
+    for record in records:
+        sid = record.get("cvStudyId") if isinstance(record, dict) else None
+        if isinstance(sid, str) and sid and "id" not in record and "@id" not in record:
+            record = {"id": f"{base}/calculation-verification/{quote(sid, safe='')}", **record}
+        named.append(record)
+    doc["calculationVerification"] = named
 
 
 def _looks_like_sip_bundle(path: Path) -> bool:

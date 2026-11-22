@@ -120,7 +120,12 @@ def test_record_is_folded_inside_the_signature(work):
     pytest.importorskip("matplotlib")
     doc = _seal_and_import(work)
     sidecar = json.loads((work / "ev.json").read_text())
-    assert doc["calculationVerification"] == sidecar["calculationVerification"]
+    # Folded as sealed, plus the IRI the fold gives each record.
+    [folded] = doc["calculationVerification"]
+    assert folded["id"] == f"{doc['id']}/calculation-verification/synthetic-n3"
+    assert [{k: v for k, v in r.items() if k != "id"} for r in doc["calculationVerification"]] \
+        == sidecar["calculationVerification"]
+    assert "id" not in sidecar["calculationVerification"][0]   # the seal itself is unchanged
     verified = _uofa("verify", "pkg.jsonld", "--pubkey", "demo.pub", cwd=work)
     assert verified.returncode == 0, verified.stdout + verified.stderr
 
@@ -145,3 +150,48 @@ def _violations(text: str) -> str:
     import re
     found = re.search(r"(\d+) violation", text)
     return found.group(1) if found else "0"
+
+
+# ── The IRI the fold gives each record ──────────────────────────────────────
+# The engine names a finding's affected node by its IRI; a record with none
+# read `affected: null`. Unit cases for the naming; the readout itself is
+# tested through the CLI in tests/test_calcverif_rules.py and
+# tests/test_calcverif_pipeline_e2e.py.
+
+def _named(doc):
+    from uofa_cli.commands.import_excel import _name_study_records
+    _name_study_records(doc)
+    return doc
+
+
+def test_fold_names_each_record_under_the_package():
+    doc = _named({"id": "https://example.org/p", "calculationVerification": [
+        {"cvStudyId": "max-velocity", "cvStatus": "computed"},
+        {"cvStudyId": "helicity", "cvStatus": "computed"}]})
+    ids = [r["id"] for r in doc["calculationVerification"]]
+    assert ids == ["https://example.org/p/calculation-verification/max-velocity",
+                   "https://example.org/p/calculation-verification/helicity"]
+    assert list(doc["calculationVerification"][0])[0] == "id"   # first key, for the reader
+    assert doc["calculationVerification"][0]["cvStatus"] == "computed"
+
+
+def test_fold_name_is_one_to_one_with_the_study_id():
+    """Percent-encoded, not slugified: ids a slug would merge stay apart, and
+    a '/' cannot shorten the name the engine prints."""
+    doc = _named({"id": "urn:p", "calculationVerification": [
+        {"cvStudyId": "Max Velocity"}, {"cvStudyId": "max-velocity"}, {"cvStudyId": "a/b"}]})
+    ids = [r["id"] for r in doc["calculationVerification"]]
+    assert ids == ["urn:p/calculation-verification/Max%20Velocity",
+                   "urn:p/calculation-verification/max-velocity",
+                   "urn:p/calculation-verification/a%2Fb"]
+
+
+def test_fold_mints_nothing_it_cannot_ground():
+    """A record that has an id keeps it; no package id or no study id -> no id."""
+    keep = _named({"id": "urn:p", "calculationVerification": [
+        {"id": "urn:already", "cvStudyId": "s"}, {"cvStatus": "not-run"}]})
+    assert keep["calculationVerification"] == [{"id": "urn:already", "cvStudyId": "s"},
+                                               {"cvStatus": "not-run"}]
+    no_base = _named({"calculationVerification": [{"cvStudyId": "s"}]})
+    assert no_base["calculationVerification"] == [{"cvStudyId": "s"}]
+    assert _named({"id": "urn:p"}) == {"id": "urn:p"}
