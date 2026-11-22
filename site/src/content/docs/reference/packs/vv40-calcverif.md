@@ -99,7 +99,7 @@ The study is the inferior vena cava flow study of Craven et al. (2018), as
 tabulated in SimEval's calculation-verification notebook: eight meshes, two
 quantities, no formal order and no reported index, as upstream itself declares
 it. Full commands are in
-[`docs/examples/calcverif-vena-cava/`](https://github.com/cloudronin/uofa/blob/main/docs/examples/calcverif-vena-cava/README.md).
+[`docs/examples/calcverif-vena-cava/`](https://github.com/cloudronin/uofa/blob/feat/vv40-calcverif/docs/examples/calcverif-vena-cava/README.md).
 The workbook is a placeholder; its own C2 and decision-layer results are the
 same with or without the study. Hashes and keys differ on every run.
 
@@ -180,7 +180,7 @@ No number is produced from bytes the seal did not record.
 ### A reported index that disagrees
 
 The vena cava example carries no reported index, on purpose. The
-[`calcverif-starter`](https://github.com/cloudronin/uofa/blob/main/docs/examples/calcverif-starter/README.md)
+[`calcverif-starter`](https://github.com/cloudronin/uofa/blob/feat/vv40-calcverif/docs/examples/calcverif-starter/README.md)
 example does. It uses an input from SimEval's own test file and a **made-up**
 reported value of 0.3 %, chosen to disagree:
 
