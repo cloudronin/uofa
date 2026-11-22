@@ -36,8 +36,9 @@ cannot fire. The record says what the tool computes from the table.
 
 ## Run it, then tamper with it
 
-Three steps, run from this folder with `pip install 'uofa[calcverif]'`. The
-outputs below are from one run on the `feat/vv40-calcverif` branch. Hashes and
+Three steps, run from this folder with `pip install 'uofa[calcverif,excel]'`
+(`calcverif` runs the SimEval tool; `excel` lets `uofa import` read the
+workbook). The outputs below are from one run on the `feat/vv40-calcverif` branch. Hashes and
 keys differ on every run; everything else should match.
 
 The vv40 starter workbook stands in for an assessment here. It is a

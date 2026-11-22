@@ -17,7 +17,8 @@ disagree with the recomputed index, so that W-CV-01 has something to report.
 
 ## Run it
 
-From this folder, with `pip install 'uofa[calcverif]'`:
+From this folder, with `pip install 'uofa[calcverif,excel]'` (`calcverif` runs
+the SimEval tool; `excel` lets `uofa import` read the workbook):
 
 ```bash
 uofa evidence seal evidence --mesh-study study.json -o evidence.json

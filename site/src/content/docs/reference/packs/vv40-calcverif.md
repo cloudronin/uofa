@@ -17,12 +17,14 @@ only when you pass `--calcverif`. Without the flag nothing changes.
 ## Install
 
 ```bash
-pip install 'uofa[calcverif]'
+pip install 'uofa[calcverif,excel]'
 ```
 
 The `calcverif` extra adds numpy, pandas, scipy and matplotlib, which the tool
 imports. The core install does not need them. Without them, a declared study is
-recorded as `not-run` with reason `dependency-missing`.
+recorded as `not-run` with reason `dependency-missing`. The `excel` extra is
+for the import step below, which reads an `.xlsx` workbook; leave it out only
+if you never import from Excel.
 
 ## Run it
 
