@@ -16,8 +16,12 @@ only when you pass `--calcverif`. Without the flag nothing changes.
 
 ## Install
 
+Calculation verification is in the `0.21.0rc1` release candidate. A plain
+`pip install uofa` still gives 0.20.0, which does not have it, so pin the
+version:
+
 ```bash
-pip install 'uofa[calcverif,excel]'
+pip install 'uofa[calcverif,excel]==0.21.0rc1'
 ```
 
 The `calcverif` extra adds numpy, pandas, scipy and matplotlib, which the tool
